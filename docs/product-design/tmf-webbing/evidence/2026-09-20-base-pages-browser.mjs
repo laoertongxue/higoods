@@ -41,7 +41,7 @@ try{
  assert.equal(await root.locator('[data-tmf-preview] img').count(),0)
  evidence.checks.push('填报期间预览实物图并Esc关闭，保留数量和原操作')
  await root.locator('[data-tmf-purchase-demands-action="confirm"]').click()
- assert.match(await root.locator('[data-tmf-dialog-error]').innerText(),/超过/)
+ assert.match(await root.locator('[data-tmf-dialog-error]').innerText(),/二次确认|超过/)
  await root.locator('[data-tmf-dialog] [name="quantity"]').fill('100')
  await root.locator('[data-tmf-purchase-demands-action="confirm"]').click()
  await root.locator('[data-tmf-purchase-demands-action="dispatch"]').click()

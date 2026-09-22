@@ -22,103 +22,103 @@
   "errors": [],
   "navigations": [
     {
-      "at": "2026-09-21T02:29:16.657Z",
+      "at": "2026-09-22T05:01:49.527Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/purchase-demands"
     },
     {
-      "at": "2026-09-21T02:29:20.972Z",
+      "at": "2026-09-22T05:01:53.606Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/base-orders"
     },
     {
-      "at": "2026-09-21T02:29:21.407Z",
+      "at": "2026-09-22T05:01:54.037Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:29:23.594Z",
+      "at": "2026-09-22T05:01:56.064Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:29:24.126Z",
+      "at": "2026-09-22T05:01:56.545Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:29:26.722Z",
+      "at": "2026-09-22T05:01:59.008Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:29:30.120Z",
+      "at": "2026-09-22T05:02:02.227Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:29:30.350Z",
+      "at": "2026-09-22T05:02:02.435Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:29:30.613Z",
+      "at": "2026-09-22T05:02:02.665Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:29:34.521Z",
+      "at": "2026-09-22T05:02:06.423Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:29:34.799Z",
+      "at": "2026-09-22T05:02:06.719Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:29:37.254Z",
+      "at": "2026-09-22T05:02:09.061Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:29:37.614Z",
+      "at": "2026-09-22T05:02:09.451Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:29:39.716Z",
+      "at": "2026-09-22T05:02:11.755Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:29:42.689Z",
+      "at": "2026-09-22T05:02:15.225Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:29:42.903Z",
+      "at": "2026-09-22T05:02:15.512Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:29:45.813Z",
+      "at": "2026-09-22T05:02:18.633Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:29:46.053Z",
+      "at": "2026-09-22T05:02:18.876Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:29:46.076Z",
+      "at": "2026-09-22T05:02:19.013Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:29:46.280Z",
+      "at": "2026-09-22T05:02:19.261Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:29:48.707Z",
+      "at": "2026-09-22T05:02:22.044Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:29:49.127Z",
+      "at": "2026-09-22T05:02:22.483Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:29:49.380Z",
+      "at": "2026-09-22T05:02:22.749Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:29:49.497Z",
+      "at": "2026-09-22T05:02:22.868Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:29:51.691Z",
+      "at": "2026-09-22T05:02:25.345Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     }
   ]

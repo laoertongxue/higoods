@@ -5,6 +5,7 @@ import { getBrowserLocalStorage, writeBrowserStorageItem } from '../browser-stor
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
 import { deriveTmfProductionDemands, type TmfProductionDemand } from '../fcs/webbing-production-demands.ts'
 import { getWebbingPhysicalSpecificationKey, validateWebbingSpecifications, type WebbingSpecification, type WebbingEndRequirement } from '../fcs/webbing-specifications.ts'
+import { assertTmfBasePurchaseMasters, assertTmfRawMaterialMaster, assertTmfTipMaterialMaster } from './tmf-master-registry.ts'
 
 export interface TmfSupplyPurchaseReceipt {
   id: string
@@ -110,6 +111,55 @@ export interface TmfDefectiveScrap {
   scrappedAt: string
 }
 
+/** 厂内合格在制条料的实际报废；与不良报废分开记账，原产出记录不删。 */
+export interface TmfFactoryScrap {
+  id: string
+  cutOutputId: string
+  pieces: number
+  equivalentMeters: number
+  reason: string
+  scrappedAt: string
+  actor: TmfPurchaseActor
+}
+
+/** 终止处置时厂内剩余连续料的实际报废；退回原仓仍走连续余料退料流程。 */
+export interface TmfContinuousScrap {
+  id: string
+  issueId: string
+  meters: number
+  reason: string
+  scrappedAt: string
+  actor: TmfPurchaseActor
+}
+
+export type TmfTerminationCategory = 'CONTINUOUS_REMAINING' | 'FACTORY_CUT' | 'DEFECTIVE' | 'FROZEN_PACKAGE' | 'UPSTREAM_TRANSIT' | 'PRODUCTION_TRANSIT'
+
+/** 终止处置控制面：每项实际决定都留痕，结案前不得存在未决定的实物或在途。 */
+export interface TmfTerminationDisposal {
+  id: string
+  productionOrderId: string
+  category: TmfTerminationCategory
+  action: 'SCRAP' | 'RETAIN_FROZEN' | 'TRANSIT_WRITE_OFF'
+  objectId: string
+  tipResultId?: string
+  quantity: number
+  unit: '米' | '条' | '根'
+  reason: string
+  actor: TmfPurchaseActor
+  occurredAt: string
+}
+
+export interface TmfTerminationClosure {
+  id: string
+  productionOrderId: string
+  reason: string
+  decisionSummary: string
+  /** 缺口终止时关联的补做单号；无缺口时不填。 */
+  makeupOrderNo?: string
+  actor: TmfPurchaseActor
+  occurredAt: string
+}
+
 export interface TmfOutputPackage {
   surplusFreeze?: { pieces: number; reason: string; frozenAt: string; actor: TmfPurchaseActor }
   versionFreeze?: { pieces: number; previousSnapshotId: string; reason: string; frozenAt: string; actor: TmfPurchaseActor }
@@ -130,6 +180,8 @@ export interface TmfOutputPackage {
   warehouseId?: string
   location?: string
   receivedPieces?: number
+  /** 终止处置或冻结报废后的实际处置数量；不计入可分配实物。 */
+  disposedPieces?: number
 }
 
 export interface TmfOutputHandover {
@@ -165,6 +217,8 @@ export interface TmfProductionIssue {
   dispatchedPieces: number
   receivedPieces: number
   dispatchedAt: string
+  /** 终止处置确认的未收在途去向；只结清待处置数，不删原发料事实。 */
+  transitWriteOff?: { pieces: number; reason: string; confirmedAt: string; actor: TmfPurchaseActor }
 }
 
 export interface TmfProductionControl {
@@ -219,8 +273,12 @@ export interface TmfUpstreamIssueBinding {
 export interface TmfProcessingMaterialIssue {
   /** 印花实际交出分到本需求的份额；实收只读取原交出记录 taskReceipts。 */
   printHandover?: { orderId: string; recordId: string; sourceIssueId: string }
+  /** 染色直接交给织带厂时按需求分配的份额；与印花共用同一实收口径。 */
+  dyeHandover?: { orderId: string; recordId: string; sourceIssueId: string }
   /** 同一次合并发料/加工的明细，需求归属仍由各行保留。 */
   mergedBatchId?: string
+  /** 终止处置确认的未收在途去向；只结清待处置数，不删原发料事实。 */
+  transitWriteOff?: { meters: number; reason: string; confirmedAt: string; actor: TmfPurchaseActor }
   upstream?: TmfUpstreamIssueBinding
   id: string
   reservationId: string
@@ -244,6 +302,15 @@ export interface TmfMaterialPurchaseOrder extends PmsMaterialPurchaseOrder {
   accessoryType: '织带' | '绳子'
   targetWarehouseId: string
   productionStandard: string
+  /** 建立时解析的原型内建主档身份；映射前历史记录无此字段，不批量改写。 */
+  masterRefs?: {
+    supplier: { masterId: string; code: string; name: string; source: string }
+    material: { masterId: string; code: string; name: string; source: string; category: string }
+    warehouse: { masterId: string; code: string; name: string; source: string }
+    resolvedAt: string
+  }
+  /** 超过采购计划量的实际实收；计划不扩，保留主管确认与原因。 */
+  overReceipts?: Array<{ meters: number; reason: string; confirmedBy: string; confirmedAt: string; handoverId: string }>
 }
 
 export interface TmfBaseProductionOrder {
@@ -263,6 +330,8 @@ export interface TmfBaseProductionOrder {
   cancelledAt?: string
   changePending: boolean
   planRevisions?: Array<{ fromVersion: number; toVersion: number; beforeMeters: number; afterMeters: number; producedMetersAtChange: number; dueDateBefore: string; dueDateAfter: string; reason: string; confirmedBy: string; confirmedAt: string }>
+  /** 超过基础生产计划的实际产出；计划不变，保留主管确认与原因。 */
+  overProductions?: Array<{ meters: number; reason: string; confirmedBy: string; confirmedAt: string }>
 }
 
 /** 原基础采购退货独立记账；TMF已收退回物不自动成为可重发产出。 */
@@ -390,6 +459,10 @@ export interface TmfPurchaseState {
   tipMaterialIssues: TmfTipMaterialIssue[]
   tipResults: TmfTipResult[]
   defectiveScraps: TmfDefectiveScrap[]
+  factoryScraps: TmfFactoryScrap[]
+  continuousScraps: TmfContinuousScrap[]
+  terminationDisposals: TmfTerminationDisposal[]
+  terminationClosures: TmfTerminationClosure[]
   packages: TmfOutputPackage[]
   outputHandovers: TmfOutputHandover[]
   outputAllocations: TmfOutputAllocation[]
@@ -408,7 +481,7 @@ function bindStorageSync(): void {
   storageListenerBound = true
 }
 function emptyState(): TmfPurchaseState {
-  return { purchaseReturns: [], workExecutions: [], workPlans: [], workCosts: [], defectiveScraps: [], supplyPurchaseReceipts: [], baseMaterialLots: [], baseMaterialIssues: [], baseMaterialReturns: [], version: 1, orders: [], baseOrders: [], handovers: [], lots: [], operations: [], demands: [], reservations: [], processingIssues: [], cutOutputs: [], continuousReturns: [], tipMaterialReturns: [], tipMaterialLots: [], tipMaterialIssues: [], tipResults: [], packages: [], outputHandovers: [], outputAllocations: [], productionIssues: [], productionControls: [] }
+  return { purchaseReturns: [], workExecutions: [], workPlans: [], workCosts: [], defectiveScraps: [], factoryScraps: [], continuousScraps: [], terminationDisposals: [], terminationClosures: [], supplyPurchaseReceipts: [], baseMaterialLots: [], baseMaterialIssues: [], baseMaterialReturns: [], version: 1, orders: [], baseOrders: [], handovers: [], lots: [], operations: [], demands: [], reservations: [], processingIssues: [], cutOutputs: [], continuousReturns: [], tipMaterialReturns: [], tipMaterialLots: [], tipMaterialIssues: [], tipResults: [], packages: [], outputHandovers: [], outputAllocations: [], productionIssues: [], productionControls: [] }
 }
 
 function current(): TmfPurchaseState {
@@ -447,6 +520,13 @@ function current(): TmfPurchaseState {
     saved.tipResults ??= []
     saved.defectiveScraps ??= []
     if (!Array.isArray(saved.defectiveScraps)) throw new Error('不良报废记录格式不符')
+    saved.factoryScraps ??= []
+    if (!Array.isArray(saved.factoryScraps)) throw new Error('厂内条料报废记录格式不符')
+    saved.continuousScraps ??= []
+    if (!Array.isArray(saved.continuousScraps)) throw new Error('连续料报废记录格式不符')
+    saved.terminationDisposals ??= []
+    saved.terminationClosures ??= []
+    if (!Array.isArray(saved.terminationDisposals) || !Array.isArray(saved.terminationClosures)) throw new Error('终止处置记录格式不符')
     saved.packages ??= []
     saved.outputHandovers ??= []
     saved.outputAllocations ??= []
@@ -520,15 +600,21 @@ export function createTmfMaterialPurchase(
   order: TmfMaterialPurchaseOrder, actor: TmfPurchaseActor, operationId: string,
 ): void {
   allowed(actor, ['采购员', '采购主管'])
-  commit(operationId, '创建基础采购', order.purchaseOrderNo, actor, order, (draft) => {
+  commit(operationId, '创建基础采购', order.purchaseOrderNo, actor, order, (draft, at) => {
     if (draft.orders.some((item) => item.purchaseOrderNo === order.purchaseOrderNo || item.purchaseLineId === order.purchaseLineId)) throw new Error('采购单或采购明细已经存在。')
     for (const value of [order.purchaseOrderNo, order.purchaseLineId, order.supplierId, order.materialSkuId, order.materialSpuId, order.targetWarehouseId, order.productionStandard, order.expectedArrivalDate]) {
       if (!value?.trim()) throw new Error('请补齐采购来源、供应方、物料、目标仓、交期及基础生产标准。')
     }
     if (order.factoryOrgId !== TMF_FACTORY_ID || !['织带', '绳子'].includes(order.accessoryType) || order.unit !== '米') throw new Error('仅接收明确关联 TMF 的米制织带／绳子基础采购。')
+    // 主档映射：供应方、织带／绳子物料与目标仓必须解析到原型内建权威主档才能创建。
+    const masters = assertTmfBasePurchaseMasters({ supplierId: order.supplierId, materialSkuId: order.materialSkuId, targetWarehouseId: order.targetWarehouseId })
     if (order.version !== 1 || order.receivedQty !== 0 || order.status !== '待采购') throw new Error('新采购必须从未实收的待采购状态创建。')
     meters(order.orderedQty)
-    draft.orders.push(structuredClone(order))
+    draft.orders.push({ ...structuredClone(order), masterRefs: {
+      supplier: { masterId: masters.supplier.masterId, code: masters.supplier.code, name: masters.supplier.name, source: masters.supplier.source },
+      material: { masterId: masters.material.masterId, code: masters.material.code, name: masters.material.name, source: masters.material.source, category: masters.material.category },
+      warehouse: { masterId: masters.warehouse.masterId, code: masters.warehouse.code, name: masters.warehouse.name, source: masters.warehouse.source },
+      resolvedAt: at } })
     return { quantity: order.orderedQty }
   })
 }
@@ -559,18 +645,26 @@ export function generateTmfBaseOrder(purchaseOrderNo: string, actor: TmfPurchase
 
 export function reportTmfBaseProduction(
   baseOrderId: string, producedMeters: number, actor: TmfPurchaseActor, operationId: string,
+  overPlan?: { reason: string; confirmed: boolean },
 ): void {
   allowed(actor, ['织带厂员工', '织带厂主管'])
   meters(producedMeters)
-  commit(operationId, '基础生产填报', baseOrderId, actor, { producedMeters }, (draft, at) => {
+  commit(operationId, '基础生产填报', baseOrderId, actor, { producedMeters, overPlan: overPlan ?? null }, (draft, at) => {
     const base = draft.baseOrders.find((item) => item.id === baseOrderId)
     if (!base || base.cancelledAt || base.changePending) throw new Error('基础单不存在、已终止或有采购变更待处理。')
     if (!base.acceptedAt) throw new Error('请先接单核对生产要求，再填报产出。')
     if (!base.startedAt) throw new Error('请先登记开始生产，再填报产出。')
-    if (add(base.producedMeters, producedMeters) > base.plannedMeters) throw new Error('本次产出超过基础生产计划，请由主管处理。')
+    const overage = add(base.producedMeters, producedMeters) - base.plannedMeters
+    if (overage > 0) {
+      // 超产事实必须由织带厂主管核对实物后确认，计划量保持不扩。
+      if (actor.role !== '织带厂主管') throw new Error(`本次产出将超过基础生产计划 ${overage} 米；请由织带厂主管核对实物后确认超产。`)
+      if (!overPlan?.confirmed || !overPlan.reason.trim()) throw new Error('超计划产出须填写原因并二次确认；计划数量不会自动扩大。')
+      base.overProductions ??= []
+      base.overProductions.push({ meters: overage, reason: overPlan.reason.trim(), confirmedBy: actor.id, confirmedAt: at })
+    }
     base.producedMeters = add(base.producedMeters, producedMeters)
-    if (base.producedMeters === base.plannedMeters) base.completedAt = at
-    return { quantity: producedMeters }
+    if (base.producedMeters >= base.plannedMeters) base.completedAt ??= at
+    return { quantity: producedMeters, reason: overage > 0 ? `超计划 ${overage} 米；${overPlan!.reason.trim()}` : undefined }
   })
 }
 
@@ -721,12 +815,13 @@ export function dispatchTmfBaseProduction(
 }
 
 export function receiveTmfBaseProduction(
-  input: { handoverId: string; materialSkuId: string; warehouseId: string; location: string; receivedMeters: number },
+  input: { handoverId: string; materialSkuId: string; warehouseId: string; location: string; receivedMeters: number;
+    overReceipt?: { reason: string; confirmed: boolean } },
   actor: TmfPurchaseActor, operationId: string,
 ): void {
   allowed(actor, ['仓管', '仓库主管'])
   meters(input.receivedMeters)
-  commit(operationId, '基础半成品实收', input.handoverId, actor, input, (draft) => {
+  commit(operationId, '基础半成品实收', input.handoverId, actor, input, (draft, at) => {
     const handover = draft.handovers.find((item) => item.id === input.handoverId)
     if (!handover) throw new Error('没有上游实际交出记录，不能凭采购计划收货。')
     if (handover.materialSkuId !== input.materialSkuId || handover.warehouseId !== input.warehouseId) throw new Error('扫码物料或目标仓不符，请核对后重新接收。')
@@ -734,6 +829,14 @@ export function receiveTmfBaseProduction(
     if (add(handover.receivedMeters, input.receivedMeters) > handover.dispatchedMeters) throw new Error('实收超过上游实际交出，数量未保存，请主管核实来源。')
     const order = draft.orders.find((item) => item.purchaseOrderNo === handover.purchaseOrderNo)!
     if (order.status === '已关闭') throw new Error('采购已终止，请主管处理已发在途的接收去向。')
+    const overage = add(add(order.receivedQty, input.receivedMeters), -order.orderedQty)
+    if (overage > 0) {
+      // 超过采购计划量的实收只能由仓库主管确认来源；硬上限仍是不超过上游实际交出。
+      if (actor.role !== '仓库主管') throw new Error(`本次实收将超过采购计划 ${overage} 米；普通仓管不能确认超收，请由仓库主管核对来源、填写原因并二次确认。`)
+      if (!input.overReceipt?.confirmed || !input.overReceipt.reason.trim()) throw new Error('超收须填写原因并二次确认；采购计划数量不会自动扩大。')
+      order.overReceipts ??= []
+      order.overReceipts.push({ meters: overage, reason: input.overReceipt.reason.trim(), confirmedBy: actor.id, confirmedAt: at, handoverId: handover.id })
+    }
     handover.receivedMeters = add(handover.receivedMeters, input.receivedMeters)
     let lot = draft.lots.find((item) => item.sourceHandoverId === handover.id)
     if (lot && lot.location !== input.location) throw new Error('该批次已有实收库位，请先收至原库位，再办理移库。')
@@ -833,7 +936,7 @@ function tmfWorkExecutionReview(draft: TmfPurchaseState, workOrderId: string) {
   const ids=new Set(demands.map(d=>d.id)),inputs=draft.processingIssues.filter(i=>ids.has(i.demandId)&&!i.upstream),outputs=draft.cutOutputs.filter(o=>ids.has(o.demandId))
   return {execution:draft.workExecutions.find(w=>w.workOrderId===workOrderId)??null,
     demands:demands.map(d=>({id:d.id,size:d.garmentSize,lengthMm:d.specification.cutLengthMm,requiredPieces:d.requiredPieces,goodPieces:outputs.filter(o=>o.demandId===d.id).reduce((n,o)=>n+o.goodPieces,0)})),
-    inputs:inputs.map(i=>{const received=tmfInputReceivedMeters(i),used=outputs.filter(o=>o.sourceIssueId===i.id).reduce((n,o)=>add(n,o.cutEquivalentMeters+o.lossMeters),0),returned=draft.continuousReturns.filter(r=>r.sourceIssueId===i.id).reduce((n,r)=>add(n,r.dispatchedMeters),0);return {id:i.id,receivedMeters:received,unreceivedMeters:add(i.dispatchedMeters,-received),remainingMeters:add(received,-used-returned)}}),
+    inputs:inputs.map(i=>{const received=tmfInputReceivedMeters(i),used=outputs.filter(o=>o.sourceIssueId===i.id).reduce((n,o)=>add(n,o.cutEquivalentMeters+o.lossMeters),0),returned=draft.continuousReturns.filter(r=>r.sourceIssueId===i.id).reduce((n,r)=>add(n,r.dispatchedMeters),0),scrapped=draft.continuousScraps.filter(s=>s.issueId===i.id).reduce((n,s)=>add(n,s.meters),0);return {id:i.id,receivedMeters:received,unreceivedMeters:add(i.dispatchedMeters,-received),remainingMeters:add(received,-used-returned-scrapped)}}),
     outputCount:outputs.length,pendingTipPieces:outputs.reduce((n,o)=>n+o.pendingTipPieces,0)}
 }
 export function getTmfWorkExecutionReview(workOrderId: string) {
@@ -1180,7 +1283,7 @@ export function receiveTmfProcessingMaterial(
   meters(input.receivedMeters)
   commit(operationId, '织带厂加工投入实收', input.issueId, actor, input, (draft) => {
     const issue = draft.processingIssues.find((item) => item.id === input.issueId)
-    if(issue?.printHandover)throw new Error('印花回料须按原交出记录实收，不能重复登记本地收货。')
+    if(issue?.printHandover||issue?.dyeHandover)throw new Error('印染回料须按原交出记录实收，不能重复登记本地收货。')
     if (!issue || issue.targetFactoryId !== TMF_FACTORY_ID || input.factoryId !== issue.targetFactoryId
       || input.materialSkuId !== issue.materialSkuId) throw new Error('不是本厂的已发物料或扫码 SKU 不符。')
     if (add(issue.receivedMeters, input.receivedMeters) > issue.dispatchedMeters) throw new Error('实收超过上游实际发出量。')
@@ -1190,11 +1293,12 @@ export function receiveTmfProcessingMaterial(
 }
 
 function tmfInputReceivedMeters(issue:TmfProcessingMaterialIssue):number {
-  if(!issue.printHandover)return issue.receivedMeters
-  const record=readCurrentPreparationHandoverRecord(issue.printHandover.recordId)
-  if(!record||record.handoverRecordStatus==='VOIDED')throw new Error('印花原交出记录不存在或已作废，请核对加工投入来源。')
+  const handover=issue.printHandover??issue.dyeHandover
+  if(!handover)return issue.receivedMeters
+  const record=readCurrentPreparationHandoverRecord(handover.recordId)
+  if(!record||record.handoverRecordStatus==='VOIDED')throw new Error(`${issue.printHandover?'印花':'染色'}原交出记录不存在或已作废，请核对加工投入来源。`)
   const received=(record.taskReceipts??[]).filter(r=>r.targetTaskOrderId===issue.id).reduce((n,r)=>add(n,r.qty),0)
-  if(received>issue.dispatchedMeters)throw new Error('印花原单实收超过本需求分配量，请主管核对。')
+  if(received>issue.dispatchedMeters)throw new Error('原单实收超过本需求分配量，请主管核对。')
   return received
 }
 
@@ -1258,7 +1362,73 @@ export async function receiveTmfPrintMaterial(input:{issueId:string;materialSkuI
  const repeated=source.record.taskReceipts?.find(r=>r.receiptId===operationId)
  if(repeated){if(repeated.targetTaskOrderId!==issue.id||repeated.qty!==input.receivedMeters)throw new Error('确认号已用于其他接收内容。');return}
  if(add(tmfInputReceivedMeters(issue),input.receivedMeters)>issue.dispatchedMeters)throw new Error('实收超过分给本需求的印花交出量。')
- source.printing.receivePrintingContinuationForTask(source.order.printOrderId,source.record.handoverRecordId||source.record.recordId,{receiptId:operationId,targetTaskOrderId:issue.id,qty:input.receivedMeters,qtyUnit:source.unit,receiverName:actor.name,receivedAt:new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date())})
+   source.printing.receivePrintingContinuationForTask(source.order.printOrderId,source.record.handoverRecordId||source.record.recordId,{receiptId:operationId,targetTaskOrderId:issue.id,qty:input.receivedMeters,qtyUnit:source.unit,receiverName:actor.name,receivedAt:new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date())})
+}
+
+const jakartaNow = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Jakarta',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).format(new Date())
+
+/** 染色直接交付织带厂时，只读取原染色交出记录作为唯一数量事实。 */
+async function readTmfDyeHandover(orderId:string,recordId:string,demand:TmfProductionDemand,existingInput=false) {
+  const dyeing=await import('../fcs/dyeing-task-domain.ts')
+  const {assertTmfDyeCutContinuation}=await import('../fcs/tmf-process-continuation.ts')
+  const {getProductionOrderTechPackSnapshot}=await import('../fcs/production-order-tech-pack-runtime.ts')
+  const order=dyeing.getDyeWorkOrderById(orderId),pack=getProductionOrderTechPackSnapshot(demand.productionOrderId)
+  if(!order||order.sourceSnapshot?.productionOrderId!==demand.productionOrderId||order.sourceSnapshot.techPackVersionId!==demand.techPackVersionId)throw new Error('染色来源或生产采用版本不符。')
+  if(!existingInput){
+    if(!pack||demand.techPackVersionId!==pack.sourceTechPackVersionId)throw new Error('生产采用版本已变化，请先处置旧需求。')
+    assertTmfDyeCutContinuation(order,demand.routeEntryId,pack)
+  }
+  readCurrentPreparationHandoverRecord(recordId)
+  if(order.productionTmfContinuation?.factoryId!==TMF_FACTORY_ID||order.productionTmfContinuation.cutEntryId!==demand.routeEntryId)throw new Error('染色尚未按路线交给本厂。')
+  const head=dyeing.getDyeOrderHandoverHead(orderId)
+  const record=dyeing.getDyeOrderHandoverRecords(orderId).find(r=>(r.handoverRecordId||r.recordId)===recordId)
+  if(!head||head.receiverKind!=='FACTORY'||head.receiverId!==TMF_FACTORY_ID||!record||record.handoverRecordStatus==='VOIDED'||!record.factorySubmittedAt)throw new Error('没有属于本厂的有效染色实际交出。')
+  const unit=record.qtyUnit||head.qtyUnit
+  const outputSku=order.outputMaterial?.sku||''
+  if(!['米','m'].includes(unit)||!outputSku||record.skuCode!==outputSku)throw new Error('交出数量单位或SKU与染色产出不符。')
+  const submitted=meters(record.submittedQty??0)
+  const received=record.receiverWrittenQty??record.warehouseWrittenQty??0
+  const linked=(record.taskReceipts??[]).reduce((n,r)=>add(n,r.qty),0)
+  if(Math.abs(received-linked)>0.000001)throw new Error('原交出已有未分到需求的整批实收，请核对后再接续，不能重复入账。')
+  return {dyeing,order,head,record,unit,submitted}
+}
+
+/** 分配原染色交出数量至需求；不扣第二次仓库料，也不把分配认作实收。 */
+export async function allocateTmfDyeHandover(input:{orderId:string;recordId:string;lines:Array<{issueId:string;demandId:string;sourceIssueId:string;meters:number}>},actor:TmfPurchaseActor,operationId:string):Promise<void> {
+ allowed(actor,['生产计划','织带厂主管'])
+ if(!input.lines.length||new Set(input.lines.map(l=>l.issueId)).size!==input.lines.length)throw new Error('请填写不重复的投入明细。')
+ const data=getTmfPurchaseState(),demand=data.demands.find(d=>d.id===input.lines[0].demandId)
+ if(!demand)throw new Error('生产需求不存在。')
+ const source=await readTmfDyeHandover(input.orderId,input.recordId,demand)
+ commit(operationId,'染色交出按需求分配投入',input.recordId,actor,input,(draft,at)=>{
+  const latest=readCurrentPreparationHandoverRecord(input.recordId)
+  if(!latest||latest.handoverRecordStatus==='VOIDED'||latest.submittedQty!==source.submitted)throw new Error('染色交出记录已变化，请重新核对后分配。')
+  const existing=draft.processingIssues.filter(i=>i.dyeHandover?.recordId===input.recordId)
+  const requested=input.lines.reduce((n,l)=>add(n,meters(l.meters)),0)
+  if(existing.reduce((n,i)=>add(n,i.dispatchedMeters),0)+requested>source.submitted+0.000001)throw new Error('分配合计超过染色实际交出量。')
+  for(const line of input.lines){
+   const d=draft.demands.find(d=>d.id===line.demandId),origin=draft.processingIssues.find(i=>i.id===line.sourceIssueId)
+   if(!d||d.productionOrderId!==demand.productionOrderId||d.techPackSnapshotId!==demand.techPackSnapshotId||d.routeEntryId!==demand.routeEntryId||d.bomItemId!==demand.bomItemId)throw new Error('分配需求必须属于同一生产单、采用版本、BOM和截断节点。')
+   assertTmfDemandActive(draft,d.id)
+   const originDemand=draft.demands.find(d=>d.id===origin?.demandId)
+   if(!origin?.upstream||!originDemand||originDemand.productionOrderId!==d.productionOrderId||originDemand.bomItemId!==d.bomItemId||originDemand.techPackSnapshotId!==d.techPackSnapshotId||origin.targetRouteEntryId!==d.sourceRouteEntryId||!draft.lots.some(l=>l.id===origin.lotId))throw new Error('须追溯同需求来源的首次印染发料和辅料仓批次。')
+   if(!line.issueId.trim()||draft.processingIssues.some(i=>i.id===line.issueId))throw new Error('投入明细编号重复或为空。')
+   if(draft.processingIssues.filter(i=>i.dyeHandover?.sourceIssueId===origin.id).reduce((n,i)=>add(n,i.dispatchedMeters),0)+line.meters>origin.dispatchedMeters+0.000001)throw new Error('接续分配超过原始发料来源量，请核对实际批次。')
+   draft.processingIssues.push({id:line.issueId,reservationId:'',demandId:d.id,lotId:origin.lotId,materialSkuId:d.materialSkuId,targetRouteEntryId:d.routeEntryId,targetFactoryId:TMF_FACTORY_ID,dispatchedMeters:line.meters,receivedMeters:0,dispatchedAt:source.record.factorySubmittedAt||at,dyeHandover:{orderId:input.orderId,recordId:input.recordId,sourceIssueId:origin.id}})
+  }
+  return {quantity:requested}
+ })
+}
+
+export async function receiveTmfDyeMaterial(input:{issueId:string;materialSkuId:string;receivedMeters:number},actor:TmfPurchaseActor,operationId:string):Promise<void>{
+ allowed(actor,['织带厂员工','织带厂主管']);meters(input.receivedMeters)
+ const data=getTmfPurchaseState(),issue=data.processingIssues.find(i=>i.id===input.issueId),demand=data.demands.find(d=>d.id===issue?.demandId)
+ if(!issue?.dyeHandover||!demand||issue.materialSkuId!==input.materialSkuId)throw new Error('请选择本厂染色回料投入并核对SKU。')
+ const source=await readTmfDyeHandover(issue.dyeHandover.orderId,issue.dyeHandover.recordId,demand,true)
+ const repeated=source.record.taskReceipts?.find(r=>r.receiptId===operationId)
+ if(repeated){if(repeated.targetTaskOrderId!==issue.id||repeated.qty!==input.receivedMeters)throw new Error('确认号已用于其他接收内容。');return}
+ if(add(tmfInputReceivedMeters(issue),input.receivedMeters)>issue.dispatchedMeters)throw new Error('实收超过分给本需求的染色交出量。')
+ source.dyeing.receiveDyeContinuationForTask(source.order.dyeOrderId,source.record.handoverRecordId||source.record.recordId,{receiptId:operationId,targetTaskOrderId:issue.id,qty:input.receivedMeters,qtyUnit:source.unit,receiverName:actor.name,receivedAt:jakartaNow()})
 }
 
 type TmfCutOutputInput = { outputId: string; issueId: string; cutPieces: number; defectivePieces: number; actualCutLengthMm: number; actualFinishedLengthMm: number | null; lossMeters: number; reason: string }
@@ -1314,10 +1484,11 @@ export function getTmfProcessingInputBalance(issueId: string): { receivedMeters:
   const returns = saved.continuousReturns.filter((item) => item.sourceIssueId === issueId)
   const returnedMeters = returns.reduce((sum, item) => add(sum, item.dispatchedMeters), 0)
   const returnReceivedMeters = returns.reduce((sum, item) => add(sum, item.receivedMeters), 0)
+  const scrappedMeters = saved.continuousScraps.filter((item) => item.issueId === issueId).reduce((sum, item) => add(sum, item.meters), 0)
   const receivedMeters=tmfInputReceivedMeters(issue)
   return { receivedMeters, cutEquivalentMeters, lossMeters, returnedMeters, returnReceivedMeters,
     returnTransitMeters: add(returnedMeters, -returnReceivedMeters),
-    remainingMeters: add(receivedMeters, -cutEquivalentMeters - lossMeters - returnedMeters) }
+    remainingMeters: add(receivedMeters, -cutEquivalentMeters - lossMeters - returnedMeters - scrappedMeters) }
 }
 
 export function dispatchTmfContinuousReturn(
@@ -1557,6 +1728,255 @@ export function scrapTmfDefectiveOutput(input: { id: string; cutOutputId: string
   })
 }
 
+/* ===== 终止处置：取消后逐项决定并留痕，未处置不得结案 ===== */
+
+export interface TmfTerminationItem {
+  category: TmfTerminationCategory
+  objectId: string
+  tipResultId?: string
+  label: string
+  quantity: number
+  unit: '米' | '条' | '根'
+  actions: Array<'SCRAP' | 'RETAIN_FROZEN' | 'TRANSIT_WRITE_OFF'>
+  /** 处置执行身份：TMF 织带厂主管 / WAREHOUSE 仓库主管 / PLAN 生产计划。 */
+  custodian: 'TMF' | 'WAREHOUSE' | 'PLAN'
+  detail: string
+}
+
+function tmfInputRemainingOn(draft: TmfPurchaseState, issue: TmfProcessingMaterialIssue): number {
+  const used = draft.cutOutputs.filter((item) => item.sourceIssueId === issue.id).reduce((sum, item) => add(sum, item.cutEquivalentMeters + item.lossMeters), 0)
+  const returned = draft.continuousReturns.filter((item) => item.sourceIssueId === issue.id).reduce((sum, item) => add(sum, item.dispatchedMeters), 0)
+  const scrapped = draft.continuousScraps.filter((item) => item.issueId === issue.id).reduce((sum, item) => add(sum, item.meters), 0)
+  return add(tmfInputReceivedMeters(issue), -used - returned - scrapped)
+}
+
+/** 厂内合格在制 = 截断数 − 已交出 − 全部不良（待处置不良单独结算） − 已报废。 */
+function tmfFactoryPiecesOn(draft: TmfPurchaseState, output: TmfCutOutput): number {
+  const packageIds = new Set(draft.packages.filter((item) => item.cutOutputId === output.id).map((item) => item.id))
+  const handed = draft.outputHandovers.filter((item) => packageIds.has(item.packageId)).reduce((sum, item) => sum + item.dispatchedPieces, 0)
+  const factory = draft.factoryScraps.filter((item) => item.cutOutputId === output.id).reduce((sum, item) => sum + item.pieces, 0)
+  return output.cutPieces - handed - output.defectivePieces - factory
+}
+
+function tmfTerminationItems(draft: TmfPurchaseState, productionOrderId: string): TmfTerminationItem[] {
+  const demands = draft.demands.filter((item) => item.productionOrderId === productionOrderId)
+  const ids = new Set(demands.map((item) => item.id))
+  const items: TmfTerminationItem[] = []
+  const disposals = draft.terminationDisposals.filter((item) => item.productionOrderId === productionOrderId)
+  const retainedPackages = new Set(disposals.filter((item) => item.action === 'RETAIN_FROZEN').map((item) => item.objectId))
+  const scrapQuantity = (category: TmfTerminationCategory, objectId: string) => disposals
+    .filter((item) => item.category === category && item.objectId === objectId && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0)
+
+  for (const issue of draft.processingIssues.filter((item) => ids.has(item.demandId) && item.targetFactoryId === TMF_FACTORY_ID)) {
+    const remaining = add(tmfInputRemainingOn(draft, issue) - scrapQuantity('CONTINUOUS_REMAINING', issue.id))
+    const demand = demands.find((item) => item.id === issue.demandId)!
+    if (remaining > 0.000001) items.push({ category: 'CONTINUOUS_REMAINING', objectId: issue.id, label: `厂内连续余料 · ${demand.garmentSize} ${demand.specification.cutLengthMm}mm`, quantity: remaining, unit: '米', actions: ['SCRAP'], custodian: 'TMF', detail: `投入 ${issue.id}；可退回原仓或主管确认报废` })
+  }
+  for (const output of draft.cutOutputs.filter((item) => ids.has(item.demandId))) {
+    const demand = demands.find((item) => item.id === output.demandId)!
+    const factory = tmfFactoryPiecesOn(draft, output)
+    if (factory > 0) items.push({ category: 'FACTORY_CUT', objectId: output.id, label: `厂内在制条料 · ${demand.garmentSize} ${output.actualCutLengthMm}mm`, quantity: factory, unit: output.unit, actions: ['SCRAP'], custodian: 'TMF', detail: `产出 ${output.id}；可先装包交回或主管确认报废` })
+    const tips = draft.tipResults.filter((item) => item.cutOutputId === output.id && item.defectivePieces > 0)
+    const tipDefective = tips.reduce((sum, item) => sum + item.defectivePieces, 0)
+    const cutDefective = output.defectivePieces - tipDefective
+    const cutScrapped = draft.defectiveScraps.filter((item) => item.cutOutputId === output.id && !item.tipResultId).reduce((sum, item) => sum + item.pieces, 0)
+    if (cutDefective - cutScrapped > 0) items.push({ category: 'DEFECTIVE', objectId: output.id, label: `截断待处置不良 · ${demand.garmentSize} ${output.actualCutLengthMm}mm`, quantity: cutDefective - cutScrapped, unit: output.unit, actions: ['SCRAP'], custodian: 'TMF', detail: '按原不良批次报废留痕' })
+    for (const tip of tips) {
+      const scrapped = draft.defectiveScraps.filter((item) => item.cutOutputId === output.id && item.tipResultId === tip.id).reduce((sum, item) => sum + item.pieces, 0)
+      if (tip.defectivePieces - scrapped > 0) items.push({ category: 'DEFECTIVE', objectId: output.id, tipResultId: tip.id, label: `打头待处置不良 · ${demand.garmentSize} ${tip.actualFinishedLengthMm}mm`, quantity: tip.defectivePieces - scrapped, unit: output.unit, actions: ['SCRAP'], custodian: 'TMF', detail: `打头批次 ${tip.id}` })
+    }
+  }
+  for (const pkg of draft.packages.filter((item) => !item.splitAt && ids.has(item.demandId) && (item.surplusFreeze || item.versionFreeze))) {
+    const onHand = Math.max(0, outputPackageBalance(draft, pkg.id).onHandPieces - scrapQuantity('FROZEN_PACKAGE', pkg.id))
+    if (onHand > 0 && !retainedPackages.has(pkg.id)) items.push({ category: 'FROZEN_PACKAGE', objectId: pkg.id, label: `冻结产出 · 包 ${pkg.id}`, quantity: onHand, unit: pkg.unit, actions: ['SCRAP', 'RETAIN_FROZEN'], custodian: pkg.warehouseId ? 'WAREHOUSE' : 'TMF', detail: pkg.surplusFreeze ? `余量冻结：${pkg.surplusFreeze.reason}` : `换版冻结：${pkg.versionFreeze?.reason ?? ''}` })
+  }
+  for (const issue of draft.processingIssues.filter((item) => ids.has(item.demandId) && item.upstream && !item.transitWriteOff)) {
+    const unreceived = add(issue.dispatchedMeters, -tmfInputReceivedMeters(issue))
+    if (unreceived > 0.000001) items.push({ category: 'UPSTREAM_TRANSIT', objectId: issue.id, label: `上游未收在途 · ${issue.upstream!.processCode === 'DYE' ? '染色' : '印花'} ${issue.upstream!.orderNo}`, quantity: unreceived, unit: '米', actions: ['TRANSIT_WRITE_OFF'], custodian: 'WAREHOUSE', detail: `上游发出 ${issue.dispatchedMeters} 米；本厂已收 ${tmfInputReceivedMeters(issue)} 米` })
+  }
+  for (const issue of draft.productionIssues.filter((item) => ids.has(item.demandId) && !item.transitWriteOff)) {
+    const transit = issue.dispatchedPieces - issue.receivedPieces
+    if (transit > 0) {
+      const unit = draft.packages.find((item) => item.id === issue.packageId)?.unit ?? '条'
+      items.push({ category: 'PRODUCTION_TRANSIT', objectId: issue.id, label: `生产领料在途 · 包 ${issue.packageId}`, quantity: transit, unit, actions: ['TRANSIT_WRITE_OFF'], custodian: 'PLAN', detail: `发料 ${issue.dispatchedPieces}；领料方实收 ${issue.receivedPieces}；请先由领料方确认实收或主管确认差异去向` })
+    }
+  }
+  return items
+}
+
+export function getTmfTerminationReview(productionOrderId: string) {
+  const draft = current()
+  const demands = draft.demands.filter((item) => item.productionOrderId === productionOrderId)
+  if (!demands.length) throw new Error('生产单没有织带加工需求。')
+  const control = effectiveTmfProductionControl(draft, productionOrderId)
+  const items = tmfTerminationItems(draft, productionOrderId)
+  return structuredClone({ productionOrderId, controlStatus: control?.status ?? 'ACTIVE', closure: draft.terminationClosures.find((item) => item.productionOrderId === productionOrderId) ?? null,
+    items, outstandingCount: items.length, shortagePieces: tmfShortageOn(draft, demands, new Set(demands.map((item) => item.id))),
+    disposals: draft.terminationDisposals.filter((item) => item.productionOrderId === productionOrderId) })
+}
+
+function tmfShortageOn(draft: TmfPurchaseState, demands: TmfProductionDemand[], ids: Set<string>): number {
+  const required = demands.reduce((sum, demand) => sum + demand.requiredPieces, 0)
+  const received = draft.productionIssues.filter((item) => ids.has(item.demandId)).reduce((sum, item) => sum + item.receivedPieces, 0)
+  return Math.max(0, required - received)
+}
+
+function assertTmfTerminationOpen(draft: TmfPurchaseState, productionOrderId: string): void {
+  const control = effectiveTmfProductionControl(draft, productionOrderId)
+  if (control?.status !== 'CANCELLED') throw new Error('只有已取消的生产单可以做终止处置。')
+  if (draft.terminationClosures.some((item) => item.productionOrderId === productionOrderId)) throw new Error('该生产单终止已结案，不能再处置实物。')
+}
+
+export function scrapTmfContinuousRemaining(
+  input: { id: string; issueId: string; meters: number; reason: string; confirmed: boolean },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['织带厂主管'])
+  meters(input.meters)
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对厂内剩余连续料、填写报废原因并再次确认。')
+  commit(operationId, '终止处置：连续余料报废', input.issueId, actor, input, (draft, at) => {
+    const issue = draft.processingIssues.find((item) => item.id === input.issueId)
+    if (!issue || issue.targetFactoryId !== TMF_FACTORY_ID) throw new Error('请选择本厂已接收的连续料投入。')
+    const demand = draft.demands.find((item) => item.id === issue.demandId)!
+    assertTmfTerminationOpen(draft, demand.productionOrderId)
+    if (draft.continuousScraps.some((item) => item.id === input.id)) throw new Error('处置编号已使用，请查看原记录。')
+    const remaining = add(tmfInputRemainingOn(draft, issue) - draft.terminationDisposals.filter((item) => item.category === 'CONTINUOUS_REMAINING' && item.objectId === issue.id && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0))
+    if (input.meters > remaining + 0.000001) throw new Error(`本次报废超过厂内剩余 ${remaining} 米。`)
+    draft.continuousScraps.push({ id: input.id, issueId: issue.id, meters: input.meters, reason: input.reason.trim(), scrappedAt: at, actor: structuredClone(actor) })
+    draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'CONTINUOUS_REMAINING', action: 'SCRAP', objectId: issue.id, quantity: input.meters, unit: '米', reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
+    return { quantity: input.meters }
+  })
+}
+
+export function scrapTmfFactoryCutPieces(
+  input: { id: string; cutOutputId: string; pieces: number; reason: string; confirmed: boolean },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['织带厂主管'])
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对厂内实物、填写报废原因并再次确认。')
+  if (!Number.isSafeInteger(input.pieces) || input.pieces <= 0) throw new Error('报废条数必须是正整数。')
+  commit(operationId, '终止处置：在制条料报废', input.cutOutputId, actor, input, (draft, at) => {
+    const output = draft.cutOutputs.find((item) => item.id === input.cutOutputId)
+    if (!output) throw new Error('加工产出不存在。')
+    const demand = draft.demands.find((item) => item.id === output.demandId)!
+    assertTmfTerminationOpen(draft, demand.productionOrderId)
+    if (draft.factoryScraps.some((item) => item.id === input.id)) throw new Error('处置编号已使用，请查看原记录。')
+    const available = tmfFactoryPiecesOn(draft, output)
+    if (input.pieces > available) throw new Error(`本次报废超过厂内在制 ${available} ${output.unit}。`)
+    draft.factoryScraps.push({ id: input.id, cutOutputId: output.id, pieces: input.pieces, equivalentMeters: Math.round(input.pieces * output.actualCutLengthMm) / 1000, reason: input.reason.trim(), scrappedAt: at, actor: structuredClone(actor) })
+    draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'FACTORY_CUT', action: 'SCRAP', objectId: output.id, quantity: input.pieces, unit: output.unit, reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
+    return { quantity: input.pieces, unit: output.unit }
+  })
+}
+
+export function scrapTmfFrozenPackage(
+  input: { id: string; packageId: string; pieces: number; reason: string; confirmed: boolean },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['织带厂主管', '仓库主管'])
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对冻结实物、填写报废原因并再次确认。')
+  if (!Number.isSafeInteger(input.pieces) || input.pieces <= 0) throw new Error('报废数量必须是正整数。')
+  commit(operationId, '终止处置：冻结产出报废', input.packageId, actor, input, (draft, at) => {
+    const pkg = draft.packages.find((item) => item.id === input.packageId)
+    if (!pkg || pkg.splitAt || (!pkg.surplusFreeze && !pkg.versionFreeze)) throw new Error('请选择已冻结的有效包。')
+    if ((pkg.warehouseId ? '仓库主管' : '织带厂主管') !== actor.role) throw new Error('请由当前保管方主管执行冻结产出报废。')
+    const demand = draft.demands.find((item) => item.id === pkg.demandId)!
+    assertTmfTerminationOpen(draft, demand.productionOrderId)
+    if (draft.terminationDisposals.some((item) => item.id === `${input.id}:D`)) throw new Error('处置编号已使用，请查看原记录。')
+    const onHand = outputPackageBalance(draft, pkg.id).onHandPieces
+    if (input.pieces > onHand) throw new Error(`报废量超过包内实存 ${onHand} ${pkg.unit}。`)
+    pkg.disposedPieces = (pkg.disposedPieces ?? 0) + input.pieces
+    draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'FROZEN_PACKAGE', action: 'SCRAP', objectId: pkg.id, quantity: input.pieces, unit: pkg.unit, reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
+    return { quantity: input.pieces, unit: pkg.unit }
+  })
+}
+
+export function retainTmfFrozenPackage(
+  input: { id: string; packageId: string; reason: string; confirmed: boolean },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['织带厂主管', '仓库主管'])
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对冻结实物、填写保留原因并再次确认。')
+  commit(operationId, '终止处置：冻结产出受控保留', input.packageId, actor, input, (draft, at) => {
+    const pkg = draft.packages.find((item) => item.id === input.packageId)
+    if (!pkg || pkg.splitAt || (!pkg.surplusFreeze && !pkg.versionFreeze)) throw new Error('请选择已冻结的有效包。')
+    if ((pkg.warehouseId ? '仓库主管' : '织带厂主管') !== actor.role) throw new Error('请由当前保管方主管确认保留。')
+    const demand = draft.demands.find((item) => item.id === pkg.demandId)!
+    assertTmfTerminationOpen(draft, demand.productionOrderId)
+    if (draft.terminationDisposals.some((item) => item.id === `${input.id}:D`)) throw new Error('处置编号已使用，请查看原记录。')
+    const onHand = outputPackageBalance(draft, pkg.id).onHandPieces
+    if (onHand <= 0) throw new Error('此包已无仓内实物，不能登记保留。')
+    draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'FROZEN_PACKAGE', action: 'RETAIN_FROZEN', objectId: pkg.id, quantity: onHand, unit: pkg.unit, reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
+    return { quantity: onHand, unit: pkg.unit, reason: input.reason.trim() }
+  })
+}
+
+export function writeOffTmfUpstreamTransit(
+  input: { id: string; issueId: string; reason: string; confirmed: boolean },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['仓库主管'])
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对上游交出与实收差异、填写去向原因并再次确认。')
+  commit(operationId, '终止处置：上游未收在途去向确认', input.issueId, actor, input, (draft, at) => {
+    const issue = draft.processingIssues.find((item) => item.id === input.issueId)
+    if (!issue?.upstream) throw new Error('请选择印染上游的在途投入。')
+    if (issue.transitWriteOff) throw new Error('该在途已确认去向，不能重复登记。')
+    const demand = draft.demands.find((item) => item.id === issue.demandId)!
+    assertTmfTerminationOpen(draft, demand.productionOrderId)
+    const unreceived = add(issue.dispatchedMeters, -tmfInputReceivedMeters(issue))
+    if (unreceived <= 0.000001) throw new Error('该投入已收齐，没有待处置在途。')
+    issue.transitWriteOff = { meters: unreceived, reason: input.reason.trim(), confirmedAt: at, actor: structuredClone(actor) }
+    draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'UPSTREAM_TRANSIT', action: 'TRANSIT_WRITE_OFF', objectId: issue.id, quantity: unreceived, unit: '米', reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
+    return { quantity: unreceived }
+  })
+}
+
+export function writeOffTmfProductionTransit(
+  input: { id: string; issueId: string; reason: string; confirmed: boolean },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['生产计划'])
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对发料与领料实收差异、填写去向原因并再次确认。')
+  commit(operationId, '终止处置：生产领料在途去向确认', input.issueId, actor, input, (draft, at) => {
+    const issue = draft.productionIssues.find((item) => item.id === input.issueId)
+    if (!issue) throw new Error('生产发料记录不存在。')
+    if (issue.transitWriteOff) throw new Error('该在途已确认去向，不能重复登记。')
+    const demand = draft.demands.find((item) => item.id === issue.demandId)!
+    assertTmfTerminationOpen(draft, demand.productionOrderId)
+    const transit = issue.dispatchedPieces - issue.receivedPieces
+    if (transit <= 0) throw new Error('该发料已收齐，没有待处置在途。')
+    const unit = draft.packages.find((item) => item.id === issue.packageId)?.unit ?? '条'
+    issue.transitWriteOff = { pieces: transit, reason: input.reason.trim(), confirmedAt: at, actor: structuredClone(actor) }
+    draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'PRODUCTION_TRANSIT', action: 'TRANSIT_WRITE_OFF', objectId: issue.id, quantity: transit, unit, reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
+    return { quantity: transit }
+  })
+}
+
+export function closeTmfTermination(
+  input: { id: string; productionOrderId: string; reason: string; confirmed: boolean; expectedReview: string; makeupOrderNo?: string },
+  actor: TmfPurchaseActor, operationId: string,
+): void {
+  allowed(actor, ['生产计划'])
+  if (!input.confirmed || !input.reason.trim() || !input.id.trim()) throw new Error('请核对全部处置记录、填写结案原因并再次确认。')
+  commit(operationId, '终止结案', input.productionOrderId, actor, input, (draft, at) => {
+    assertTmfTerminationOpen(draft, input.productionOrderId)
+    const demands = draft.demands.filter((item) => item.productionOrderId === input.productionOrderId)
+    const control = effectiveTmfProductionControl(draft, input.productionOrderId)
+    const items = tmfTerminationItems(draft, input.productionOrderId)
+    const review = { productionOrderId: input.productionOrderId, controlStatus: control?.status ?? 'ACTIVE',
+      closure: draft.terminationClosures.find((item) => item.productionOrderId === input.productionOrderId) ?? null, items, outstandingCount: items.length, shortagePieces: tmfShortageOn(draft, demands, new Set(demands.map((item) => item.id))),
+      disposals: draft.terminationDisposals.filter((item) => item.productionOrderId === input.productionOrderId) }
+    if (JSON.stringify(review) !== input.expectedReview) throw new Error('处置或实物数量已变化，请重新打开核对；尚未结案。')
+    if (items.length) throw new Error(`仍有 ${items.length} 项实物或在途未处置：${items.map((item) => `${item.label} ${item.quantity} ${item.unit}`).join('；')}`)
+    const makeupOrderNo = input.makeupOrderNo?.trim() ?? ''
+    if (review.shortagePieces > 0 && !makeupOrderNo && !/终止不足|不足终止|不补做/.test(input.reason)) throw new Error(`生产需求仍有缺口 ${review.shortagePieces} 条/根：请填写关联补做单号，或在结案原因中明确“终止不足”；结案不改变需求满足状态。`)
+    draft.terminationClosures.push({ id: input.id, productionOrderId: input.productionOrderId, reason: input.reason.trim(),
+      decisionSummary: `处置决定 ${review.disposals.length} 项；需求 ${demands.length} 条；缺口 ${review.shortagePieces} 条/根${makeupOrderNo ? `；补做 ${makeupOrderNo}` : '（终止不足）'}`,
+      makeupOrderNo: makeupOrderNo || undefined, actor: structuredClone(actor), occurredAt: at })
+    return { reason: input.reason.trim() }
+  })
+}
+
 export function packTmfOutput(
   input: { packageId: string; cutOutputId: string; tipResultId?: string; pieces: number },
   actor: TmfPurchaseActor, operationId: string,
@@ -1662,9 +2082,10 @@ function outputPackageBalance(draft: TmfPurchaseState, packageId: string) {
   const allocatedPieces = draft.outputAllocations.filter((item) => item.packageId === packageId)
     .reduce((sum, item) => sum + item.allocatedPieces - item.releasedPieces, 0)
   const receivedPieces = pkg.receivedPieces ?? 0
+  const disposedPieces = pkg.disposedPieces ?? 0
   const blocked = tmfDemandControl(draft, pkg.demandId)?.status
-  return { receivedPieces, onHandPieces: receivedPieces - issuedPieces, reservedPieces: allocatedPieces - issuedPieces,
-    availablePieces: pkg.surplusFreeze || pkg.versionFreeze || (blocked && blocked !== 'ACTIVE') ? 0 : receivedPieces - allocatedPieces, issuedPieces, productionReceivedPieces,
+  return { receivedPieces, onHandPieces: receivedPieces - issuedPieces - disposedPieces, reservedPieces: allocatedPieces - issuedPieces,
+    availablePieces: pkg.surplusFreeze || pkg.versionFreeze || (blocked && blocked !== 'ACTIVE') ? 0 : receivedPieces - allocatedPieces - disposedPieces, issuedPieces, productionReceivedPieces,
     productionTransitPieces: issuedPieces - productionReceivedPieces }
 }
 
@@ -1895,6 +2316,9 @@ export function getTmfProductionDisposition(productionOrderId: string) {
   const outputs = draft.cutOutputs.filter((item) => ids.has(item.demandId))
   const scraps = draft.defectiveScraps.filter(s => outputs.some(o => o.id === s.cutOutputId))
   const scrappedPieces = scraps.reduce((n,s) => n+s.pieces,0)
+  const factoryScraps = draft.factoryScraps.filter(s => outputs.some(o => o.id === s.cutOutputId))
+  const factoryScrappedPieces = factoryScraps.reduce((n,s) => n+s.pieces,0)
+  const closure = draft.terminationClosures.find(item => item.productionOrderId === productionOrderId)
   const packages = draft.packages.filter((item) => ids.has(item.demandId))
   const packageIds = new Set(packages.map((item) => item.id))
   const handovers = draft.outputHandovers.filter((item) => packageIds.has(item.packageId))
@@ -1906,7 +2330,9 @@ export function getTmfProductionDisposition(productionOrderId: string) {
   const allocatedPieces = draft.outputAllocations.filter(item => ids.has(item.demandId)).reduce((sum,item) => sum + item.allocatedPieces - item.releasedPieces - productionIssues.filter(issue => issue.allocationId === item.id).reduce((n,issue) => n + issue.dispatchedPieces,0),0)
   return { productionOrderId, mainStatus, localStatus: local?.status ?? 'ACTIVE', pendingCancellationDisposition: mainStatus === 'CANCELLED' && local?.status !== 'CANCELLED', reservedMeters, allocatedPieces, status: control?.status ?? 'ACTIVE', reason: control?.reason ?? '',
     cutPieces: outputs.reduce((sum, item) => sum + item.cutPieces, 0),
-    factoryPieces: outputs.reduce((sum, item) => sum + item.cutPieces, 0) - handovers.reduce((sum, item) => sum + item.dispatchedPieces, 0) - scrappedPieces,
+    factoryPieces: outputs.reduce((sum, item) => sum + item.cutPieces, 0) - handovers.reduce((sum, item) => sum + item.dispatchedPieces, 0) - scrappedPieces - factoryScrappedPieces,
+    factoryScrappedPieces,
+    terminationClosedAt: closure?.occurredAt,
     warehousePieces: packages.filter((item) => !item.splitAt).reduce((sum, item) => sum + outputPackageBalance(draft, item.id).onHandPieces, 0),
     warehouseTransitPieces: handovers.reduce((sum, item) => sum + item.dispatchedPieces - item.receivedPieces, 0),
     productionTransitPieces: productionIssues.reduce((sum, item) => sum + item.dispatchedPieces - item.receivedPieces, 0),
@@ -2076,9 +2502,12 @@ export async function receiveTmfSupplyPurchase(input:{receiptId:string;purchaseO
   if(!['BASE_MATERIAL','TIP_MATERIAL'].includes(input.purpose)||![input.receiptId,input.lotId,input.location,input.warehouse].every(v=>v.trim()))throw new Error('请填写收货单、批次、仓库库位及实际用途。')
   if(source.materialCode!==snapshot.materialCode||source.unit!==snapshot.unit||source.orderedQty!==snapshot.orderedQty)throw new Error('采购规格或计划已变化，请先处理变更影响。')
   if(input.scannedMaterialCode!==snapshot.materialCode||input.warehouse!==snapshot.warehouse)throw new Error('实物物料编码或目标仓库与采购不符。')
-  const unit=({'公斤':'kg','千克':'kg','kg':'kg','克':'g','g':'g','个':'个'} as Record<string,'kg'|'g'|'个'>)[snapshot.unit]
-  if(!unit||(input.purpose==='BASE_MATERIAL'&&unit==='个'))throw new Error('投入料计量单位不支持；不得把卷、米或件数推算成重量。')
-  validateTipQuantity(input.quantity,unit)
+   const unit=({'公斤':'kg','千克':'kg','kg':'kg','克':'g','g':'g','个':'个'} as Record<string,'kg'|'g'|'个'>)[snapshot.unit]
+   if(!unit||(input.purpose==='BASE_MATERIAL'&&unit==='个'))throw new Error('投入料计量单位不支持；不得把卷、米或件数推算成重量。')
+   // 主档映射：端头辅材与基础原料都必须解析到已登记主档，不能凭名称或数量直接入账。
+   if(input.purpose==='TIP_MATERIAL')assertTmfTipMaterialMaster(snapshot.materialCode,unit)
+   else assertTmfRawMaterialMaster(snapshot.materialCode)
+   validateTipQuantity(input.quantity,unit)
   if(add(old.reduce((n,r)=>add(n,r.quantity),0),input.quantity)>snapshot.orderedQty)throw new Error('本次实收超过采购未收数量。')
   if(draft.supplyPurchaseReceipts.some(r=>r.id===input.receiptId)||draft.baseMaterialLots.some(l=>l.id===input.lotId||l.sourceReceiptNo===input.receiptId)||draft.tipMaterialLots.some(l=>l.id===input.lotId||l.sourceReceiptNo===input.receiptId))throw new Error('收货单或投入料批次已登记，不能重复入库。')
   const lot={id:input.lotId,materialSkuId:snapshot.materialCode,warehouseId:input.warehouse,location:input.location,sourceReceiptNo:input.receiptId,sourceReceiptLineId:'1',unit,receivedQty:input.quantity,onHandQty:input.quantity}

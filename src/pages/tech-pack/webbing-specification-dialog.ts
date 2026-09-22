@@ -6,6 +6,7 @@ import { renderProcessTab } from './process-domain.ts'
 import { getMaterialSkuRecordById } from '../../data/pcs-material-archive-repository.ts'
 import { cloneWebbingSpecifications, type WebbingSpecification, type WebbingEndRequirement } from '../../data/fcs/webbing-specifications.ts'
 import { applyWebbingRouteSpecifications } from './webbing-route-editor.ts'
+import { resolveTmfTipReference, tmfTipReferenceLabel } from '../../data/fcs/tmf-reference-images.ts'
 
 const MODAL_ID = 'tmf-webbing-specification-dialog'
 
@@ -36,7 +37,7 @@ export function openWebbingSpecificationDialog(bomId: string): void {
     ${select(`${key}.materialBomItemId`, '端头辅材 BOM', end.materialBomItemId ?? '', [['', '请选择'], ...state.bomItems.filter((item) => item.type === '辅料' && item.id !== bomId).map((item): [string, string] => [item.id, `${item.materialCode} ${item.materialName}`])])}
     ${select(`${key}.materialUnit`, '辅材计量单位', end.materialUnit ?? '', [['', '请选择'], ['个', '个（塑料/金属）'], ['kg', 'kg（浸头）'], ['g', 'g（浸头）']])}
     ${field(`${key}.coverageMm`, '浸头覆盖长度（mm）', end.coverageMm ?? '', 'number')}
-    ${field(`${key}.imageUrl`, '对应端头参考图地址', end.imageUrl ?? '')}
+    ${field(`${key}.imageUrl`, '对应端头参考图地址（留空自动使用对应端头参考图）', end.imageUrl ?? resolveTmfTipReference(end.method))}${end.method !== 'NONE' ? `<p class="text-xs text-slate-500">${escapeHtml(tmfTipReferenceLabel(end.method))}：${escapeHtml(resolveTmfTipReference(end.method))}</p>` : ''}
   </div></fieldset>`
   const draw = () => {
     const row = rows[selected]

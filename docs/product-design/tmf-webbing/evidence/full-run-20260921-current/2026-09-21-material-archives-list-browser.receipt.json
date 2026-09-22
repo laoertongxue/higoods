@@ -1,0 +1,26 @@
+{
+  "runId": "tmf-browser-2026-09-22T04-56-49-117Z",
+  "branch": "codex/zhidaichangguanli",
+  "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447",
+  "script": "2026-09-21-material-archives-list-browser.mjs",
+  "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-21-material-archives-list-browser.mjs",
+  "scriptSourceSha256": "12d2f50781734c39f0b3020b40c7e13d34db569eb145e5711161d9d747101977",
+  "startedAt": "2026-09-22T05:09:45.014Z",
+  "finishedAt": "2026-09-22T05:10:00.436Z",
+  "exitCode": 0,
+  "assertionCallCount": 0,
+  "measurementCallCount": 0,
+  "observable": {
+    "mode": "fresh-child-stdout-json",
+    "checks": 9,
+    "checkpoints": 0,
+    "samples": 0,
+    "errors": 0,
+    "count": 9
+  },
+  "stdoutBytes": 1080,
+  "stderrBytes": 0,
+  "log": "full-run-20260921-current/2026-09-21-material-archives-list-browser.log",
+  "logSha256": "8554a8baaeb59ed5a846dc8ac641dd5e3de701bab51e101622a6715ef88b91af",
+  "pass": true
+}

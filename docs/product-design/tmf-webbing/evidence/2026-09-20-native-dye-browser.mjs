@@ -14,7 +14,7 @@ try{
  const url='http://127.0.0.1:43188/fcs/craft/dyeing/pending-handover'
  await page.goto(url);await page.locator('[data-dye-output-page]').waitFor()
  const facts=await page.evaluate(compile(`${source}${fixture};return {used:listFactoryMaterialUses(id).flatMap(u=>u.lines).reduce((n,l)=>n+l.qty,0),output:dye.getDyeDispatchAvailableQty(id),image:dye.getDyeDispatchMaterial(id).imageUrl};`))
- assert.deepEqual(facts,{used:650,output:640,image:'/materials/tmf/webbing-real-box.jpg'});evidence.facts=facts
+ assert.deepEqual(facts,{used:650,output:640,image:'/materials/tmf/webbing-dyed-blue.jpg'});evidence.facts=facts
  await page.locator('[data-dye-output-field="keyword"]').fill('TMF-NATIVE-DYE');await page.locator('[data-dye-output-action="query"]').click()
  const row=page.locator('tbody tr').filter({has:page.locator('[data-dye-output-select-order="TMF-NATIVE-DYE"]')})
  await row.waitFor();assert.match(await row.innerText(),/640.00 米/);assert.match(await row.innerText(),/缺对应实物图/)

@@ -39,12 +39,12 @@ test('连续长度口径不可用于纱线/码制，普通辅料仍要求实际�
  }finally{restoreFactoryReceivingData(before)}
 })
 
-test('原生连续辅料染色650→640：实际工厂实收及用料驱动加工，使用真实织带实拍替代产出图',async()=>{
+test('原生连续辅料染色650→640：实际工厂实收及用料驱动加工，使用对象对应蓝色织带参考图',async()=>{
  const dye=await import('../../src/data/fcs/dyeing-task-domain.ts')
  const before=captureFactoryReceivingData(),dyeBefore=dye.captureDyeProcessMutationState()
  const id='TMF-NATIVE-DYE',order=dye.registerFormalProductionOrderDyeWorkOrder({workOrderId:id,workOrderNo:id,sourceKey:id,processName:'染色',sourceSnapshot:{sourceType:'PRODUCTION_ORDER',productionOrderId:'TMF-NATIVE-PROD',productionOrderNo:'TMF-NATIVE-PROD',techPackVersionId:'TMF-NATIVE-V1',techPackVersionLabel:'V1',processEntryId:'DYE',routeObjectKey:'BOM:WB',bomItemId:'WB'},productionOrderId:'TMF-NATIVE-PROD',productionOrderNo:'TMF-NATIVE-PROD',techPackVersionId:'TMF-NATIVE-V1',techPackVersionLabel:'V1',processEntryId:'DYE',routeObjectKey:'BOM:WB',orderedAt:'2026-09-20 08:00:00',factoryId:'F090',factoryName:'全能力测试工厂',materialId:'TMF-WHITE',materialName:'Mock白色织带',materialItems:[{sourceBomItemId:'WB',materialId:'TMF-WHITE',materialName:'Mock白色织带',materialType:'辅料'}],inputMaterialSkuId:'TMF-WHITE',inputMaterialSkuCode:'TMF-WHITE',inputMaterialImageUrl:'/materials/tmf/webbing-real-roll.jpg',outputMaterialSkuId:'TMF-BLUE',outputMaterialSkuCode:'TMF-BLUE',outputMaterialName:'Mock蓝色织带',targetColor:'蓝',plannedQty:650,qtyUnit:'米',processCodes:['DYE'],spuCode:'TEST',spuName:'测试款式',requiredDeliveryDate:'2026-09-25'})
  assert.equal(order.outputMaterial!.sku,'TMF-BLUE')
- assert.equal(order.outputMaterial!.imageUrl,'/materials/tmf/webbing-real-box.jpg','产出使用用户提供的真实织带实拍替代图，不沿用白坯投入图')
+ assert.equal(order.outputMaterial!.imageUrl,'/materials/tmf/webbing-dyed-blue.jpg','产出使用对象对应的蓝色织带参考图，不沿用白坯投入图')
  try{
   const actualSource={...structuredClone(source),id:id+'-SOURCE',documentNo:id+'-ISSUE',targetFactoryId:'F090',targetFactoryName:'全能力测试工厂',lines:[{...structuredClone(source.lines[0]),id:id+'-LINE',dyeOrderId:id}]}
   registerFactoryReceivingSource(actualSource)
@@ -56,13 +56,13 @@ test('原生连续辅料染色650→640：实际工厂实收及用料驱动加�
   for(const node of ['DEHYDRATE','DRY','SET','ROLL','PACK'] as const){dye.startDyeNode(id,node,'染色员');dye.completeDyeNode(id,node,{outputQty:640,operatorName:'染色员'})}
   assert.equal(dye.getDyeDispatchAvailableQty(id),640)
   assert.equal(listFactoryMaterialUses(id).flatMap(u=>u.lines).reduce((n,l)=>n+l.qty,0),650)
-  assert.equal(dye.getDyeDispatchMaterial(id).imageUrl,'/materials/tmf/webbing-real-box.jpg')
+  assert.equal(dye.getDyeDispatchMaterial(id).imageUrl,'/materials/tmf/webbing-dyed-blue.jpg')
   assert.equal(dye.getDyeExecutionNodeRecord(id,'DYE')!.inputQty,650)
   assert.equal(dye.getDyeExecutionNodeRecord(id,'DYE')!.outputQty,640)
   const rolls=dye.saveDyeOutputRolls(id,[{qty:640,vatNo:'MOCK-VAT'}])
   dye.markDyeOutputRolls(id,[rolls[0].id],'print')
   const dispatched=dye.createDyeDispatchDocument([{orderId:id,rollIds:[rolls[0].id]}],'染色主管')
   assert.equal(dispatched.lines[0].sku,'TMF-BLUE')
-  assert.equal(dye.getDyeDispatchMaterial(id).imageUrl,'/materials/tmf/webbing-real-box.jpg')
+  assert.equal(dye.getDyeDispatchMaterial(id).imageUrl,'/materials/tmf/webbing-dyed-blue.jpg')
  }finally{dye.restoreDyeProcessMutationState(dyeBefore);restoreFactoryReceivingData(before)}
 })

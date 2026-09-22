@@ -20,91 +20,91 @@
   "errors": [],
   "navigations": [
     {
-      "at": "2026-09-21T02:32:41.633Z",
+      "at": "2026-09-22T05:05:35.558Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/purchase-demands"
     },
     {
-      "at": "2026-09-21T02:32:45.889Z",
+      "at": "2026-09-22T05:05:41.830Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/base-orders"
     },
     {
-      "at": "2026-09-21T02:32:46.321Z",
+      "at": "2026-09-22T05:05:42.514Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:32:48.444Z",
+      "at": "2026-09-22T05:05:45.670Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:32:48.963Z",
+      "at": "2026-09-22T05:05:46.342Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:32:51.422Z",
+      "at": "2026-09-22T05:05:49.141Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:32:54.894Z",
+      "at": "2026-09-22T05:05:53.807Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:32:55.133Z",
+      "at": "2026-09-22T05:05:54.153Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:32:55.397Z",
+      "at": "2026-09-22T05:05:54.550Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:32:59.071Z",
+      "at": "2026-09-22T05:05:59.414Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:32:59.368Z",
+      "at": "2026-09-22T05:05:59.896Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:01.864Z",
+      "at": "2026-09-22T05:06:03.376Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:02.231Z",
+      "at": "2026-09-22T05:06:03.910Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:04.856Z",
+      "at": "2026-09-22T05:06:07.378Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:05.066Z",
+      "at": "2026-09-22T05:06:07.632Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:33:07.704Z",
+      "at": "2026-09-22T05:06:11.032Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:33:07.953Z",
+      "at": "2026-09-22T05:06:11.277Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:07.975Z",
+      "at": "2026-09-22T05:06:11.408Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:08.169Z",
+      "at": "2026-09-22T05:06:11.658Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:10.620Z",
+      "at": "2026-09-22T05:06:14.345Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:11.066Z",
+      "at": "2026-09-22T05:06:14.800Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:33:11.330Z",
+      "at": "2026-09-22T05:06:15.066Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     }
   ]

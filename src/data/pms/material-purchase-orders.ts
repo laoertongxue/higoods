@@ -12,11 +12,12 @@ import {
   getTmfPurchaseState, listTmfSupplyPurchaseProjections, listTmfMaterialPurchases, getTmfMaterialPurchase, releaseTmfMaterialPurchase,
   confirmTmfPurchaseSupplier, reviseTmfMaterialPurchase, cancelTmfMaterialPurchaseAfterDisposition, type TmfPurchaseActor,
 } from './tmf-material-purchases.ts'
+import { assertTmfTipMaterialMaster } from './tmf-master-registry.ts'
 
 export type PmsMaterialPurchaseOrderStatus = '待采购' | '已采购' | '部分到货' | '已到货' | '已入库' | '已关闭'
 
 export interface PmsMaterialPurchaseOrder {
-  tmfTipSource?: { demandId: string; materialBomItemId: string; productionOrderNo: string; snapshotId: string; versionId: string; operationId: string; signature: string }
+  tmfTipSource?: { demandId: string; materialBomItemId: string; productionOrderNo: string; snapshotId: string; versionId: string; operationId: string; signature: string; masterRef?: { masterId: string; code: string; name: string; source: string } }
 
   purchaseOrderNo: string
   requirementNo: string
@@ -277,11 +278,20 @@ export function createPmsTmfTipPurchase(
     || (material.unit === '个' ? !Number.isSafeInteger(input.quantity) : Math.abs(input.quantity*1000-Math.round(input.quantity*1000)) > 0.000001)) throw new PmsDomainError('TMF_QUANTITY_INVALID','采购数量须为有效正数；端头按整数个，重量最多三位小数。')
   if (![input.supplierName,input.warehouse,input.reason].every(value => value.trim()) || !Number.isFinite(input.unitPrice) || input.unitPrice < 0) throw new PmsDomainError('TMF_PURCHASE_REQUIRED','请填写供应方、目标仓、采购依据和有效单价。')
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.expectedArrivalDate) || !Number.isFinite(Date.parse(input.expectedArrivalDate)) || new Date(input.expectedArrivalDate).toISOString().slice(0,10) !== input.expectedArrivalDate) throw new PmsDomainError('TMF_DATE_INVALID','请填写有效的预计到货日期。')
+  // 端头辅材主档映射：不能借用织带／绳子半成品 SKU，单位必须一致。
+  let tipMasterRef: { masterId: string; code: string; name: string; source: string }
+  try {
+    const reference = assertTmfTipMaterialMaster(material.materialSkuId, material.unit)
+    tipMasterRef = { masterId: reference.masterId, code: reference.code, name: reference.name, source: reference.source }
+  } catch (error) {
+    if (error instanceof PmsDomainError) throw error
+    throw new PmsDomainError('TMF_MASTER_REQUIRED', error instanceof Error ? error.message : '端头辅材主档映射失败，请核对物料档案。')
+  }
   const sequence = orderSequence+1, no = `CGF-2026-${String(sequence).padStart(4,'0')}`
   if (getPmsMaterialPurchaseOrder(no)) throw new PmsDomainError('TMF_NUMBER_CONFLICT','采购编号已存在，请刷新后重新生成。')
   const order = buildOrder(no,{materialCode:material.materialSkuId,materialName:material.materialName,materialType:'辅料',materialImageUrl:material.imageUrl,unit:material.unit,styleCode:'',styleName:'',styleImageUrl:'',supplierName:input.supplierName.trim(),warehouse:input.warehouse.trim()},input.quantity,input.unitPrice,'待采购',{orderDate:new Date().toISOString().slice(0,10),expectedArrivalDate:input.expectedArrivalDate},{requirementNo:demand.productionOrderNo,sourceRequirementLineNo:demand.id,remark:input.reason.trim()})
   order.buyerName=actor.name
-  order.tmfTipSource={demandId:demand.id,materialBomItemId:material.bomItemId,productionOrderNo:demand.productionOrderNo,snapshotId:demand.techPackSnapshotId,versionId:demand.techPackVersionId,operationId,signature}
+  order.tmfTipSource={demandId:demand.id,materialBomItemId:material.bomItemId,productionOrderNo:demand.productionOrderNo,snapshotId:demand.techPackSnapshotId,versionId:demand.techPackVersionId,operationId,signature,masterRef:tipMasterRef}
   savePurchaseUpdate(order,{})
   if (!getRuntime().orders.some(item => item.purchaseOrderNo === no)) getRuntime().orders.unshift(order)
   orderSequence=sequence

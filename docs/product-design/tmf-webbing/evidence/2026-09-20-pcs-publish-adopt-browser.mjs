@@ -142,16 +142,6 @@ try {
       }],
       patternDesigns: [], attachments: [], legacyCompatibleCostPayload: {},
     })
-    const templateDemand = demandRepo.productionDemands[0]
-    demandRepo.productionDemands.unshift({
-      ...structuredClone(templateDemand), demandId,
-      spuCode: styleCode, spuName: 'TMF发布采用UI链目标款',
-      skuLines: [
-        { skuCode: 'SKU-TMF-UIS', size: 'S', color: '白', qty: 400 },
-        { skuCode: 'SKU-TMF-UIM', size: 'M', color: '白', qty: 600 },
-      ],
-      requiredDeliveryDate: '2026-10-15', demandStatus: 'PENDING_CONVERT', hasProductionOrder: false, productionOrderId: null,
-    })
     return { versionId, styleId: style.styleId, materialSkuId: sku.materialSkuId }
   }, { styleCode: STYLE_CODE, demandId: DEMAND_ID })
   evidence.fixture = fixture
@@ -201,6 +191,7 @@ try {
 
   // 2) 产品档案：启用为当前生效版本
   await page.goto(`${BASE}/pcs/products/styles/${encodeURIComponent(fixture.styleId)}`)
+  await page.locator('[data-pcs-product-archive-action="set-style-detail-tab"][data-value="versions"]').click()
   const activate = page.locator(`[data-pcs-product-archive-action="activate-tech-pack-version"][data-version-id="${fixture.versionId}"]`)
   await activate.waitFor()
   await activate.click()
@@ -213,7 +204,28 @@ try {
   evidence.checks.push('产品档案页面“启用为当前生效版本”点击后款式档案指向本次发布版本')
 
   // 3) 需求收件箱：采用选定版本生成生产单
-  await page.goto(`${BASE}/fcs/production/demand-inbox`)
+  // 需求清单为内存数据，整页导航后会重置，因此在进入收件箱前于当前页面重新注入目标需求。
+  await page.evaluate(async ({ demandId, styleCode }) => {
+    const load = (path) => import(performance.getEntriesByType('resource').find((entry) => new URL(entry.name).pathname === path)?.name ?? path)
+    const demandRepo = await load('/src/data/fcs/production-demands.ts')
+    const templateDemand = demandRepo.productionDemands[0]
+    demandRepo.productionDemands.unshift({
+      ...structuredClone(templateDemand), demandId,
+      spuCode: styleCode, spuName: 'TMF发布采用UI链目标款',
+      skuLines: [
+        { skuCode: 'SKU-TMF-UIS', size: 'S', color: '白', qty: 400 },
+        { skuCode: 'SKU-TMF-UIM', size: 'M', color: '白', qty: 600 },
+      ],
+      requiredDeliveryDate: '2026-10-15', demandStatus: 'PENDING_CONVERT', hasProductionOrder: false, productionOrderId: null,
+    })
+  }, { demandId: DEMAND_ID, styleCode: STYLE_CODE })
+  // 同一文档内使用站内路由进入收件箱，避免整页刷新丢弃内存需求。
+  await page.evaluate(async () => {
+    const load = (path) => import(performance.getEntriesByType('resource').find((entry) => new URL(entry.name).pathname === path)?.name ?? path)
+    const { appStore } = await load('/src/state/store.ts')
+    appStore.navigate('/fcs/production/demand-inbox')
+  })
+  await page.waitForURL(/demand-inbox/)
   const openSingle = page.locator(`[data-prod-action="open-demand-single"][data-demand-id="${DEMAND_ID}"]`)
   await openSingle.waitFor()
   await openSingle.click()

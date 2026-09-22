@@ -442,6 +442,6 @@ for (const kind of ['fabric', 'accessory']) {
 }
 
 writeFileSync('docs/product-design/tmf-webbing/evidence/2026-09-21-material-archives-list-browser-current.json', `${JSON.stringify(out, null, 2)}\n`)
-console.log(JSON.stringify({ failures: out.failures.length, detail: out.failures, kinds: Object.keys(out.kinds).length }, null, 1))
+console.log(JSON.stringify({ checks: out.notes, failures: out.failures.length, detail: out.failures, kinds: Object.keys(out.kinds).length }, null, 1))
 await browser.close()
 process.exit(out.failures.length ? 1 : 0)

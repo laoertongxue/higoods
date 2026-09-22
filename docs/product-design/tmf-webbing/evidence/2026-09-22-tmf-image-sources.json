@@ -1,0 +1,67 @@
+{
+  "scope": "TMF V2.0 对象对应图片素材登记（IMG-006～010）",
+  "generatedAt": "2026-09-22",
+  "policy": "只用与对象真实对应的实拍图或厂商产品图/供应商目录图；本地存储、稳定可访问；页面标注来源与替代身份，不冒充工厂实拍；未取得对应图的对象保持阻断。",
+  "assets": [
+    {
+      "object": "蓝色染色织带（IMG-006）",
+      "file": "/materials/tmf/webbing-dyed-blue.jpg",
+      "width": 1280,
+      "height": 744,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Blue_key_lanyard_01.jpg",
+      "sourceSite": "Wikimedia Commons",
+      "license": "CC BY-SA 4.0（作者 Waldyrious）",
+      "description": "蓝色编织带（挂绳）实拍，可见编织结构与蓝色染色效果；带身印有厂商字样的商标文字，仅作颜色与组织参考，不作为具体客户标识。",
+      "note": "原型参考图；颜色以技术包确认值为准，不代表工厂实拍。"
+    },
+    {
+      "object": "印花花型织带（IMG-007）",
+      "file": "/materials/tmf/webbing-printed-pattern.jpg",
+      "width": 1280,
+      "height": 1280,
+      "sourceUrl": "https://image.made-in-china.com/2f0j00YBQbGWlCZdce/New-Design-Polyester-Sublimation-Printing-Webbing-Strap-Printed-Webbing-for-Bag.jpg",
+      "sourceSite": "Made-in-China 供应商产品图（涤纶升华印花织带）",
+      "license": "供应商公开产品图，仅原型演示引用",
+      "description": "印花图案织带整卷产品图，可清晰看到多种花型连续印刷在平织织带上。",
+      "note": "原型参考图；花型编号 P001 为原型内部标识，不代表该供应商实际花型。"
+    },
+    {
+      "object": "塑料包头（IMG-008，塑料端头）",
+      "file": "/materials/tmf/tip-plastic-aglet.jpg",
+      "width": 1280,
+      "height": 960,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Shoelaces_01.jpg",
+      "sourceSite": "Wikimedia Commons",
+      "license": "CC BY-SA 4.0（作者 Oto Zapletal）",
+      "description": "鞋带塑料包头特写实拍，可辨认塑料包覆层与绳头的对应关系。",
+      "note": "原型参考图；具体型号、尺寸与颜色以技术包端头要求为准。"
+    },
+    {
+      "object": "金属头（IMG-008，金属端头）",
+      "file": "/materials/tmf/tip-metal-aglet.jpg",
+      "width": 800,
+      "height": 600,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Nestelspitzen.jpg",
+      "sourceSite": "Wikimedia Commons",
+      "license": "Public domain",
+      "description": "金属端头（Nestelspitzen）实拍，多个金属端头与绳带连接状态清晰可见。",
+      "note": "原型参考图；为历史实物照片，用于说明金属头形态；具体规格以技术包为准。"
+    },
+    {
+      "object": "硅胶浸头（IMG-008，硅胶端头）",
+      "file": "/materials/tmf/tip-silicone-dip.jpg",
+      "width": 800,
+      "height": 800,
+      "sourceUrl": "https://image.made-in-china.com/2f0j00BOyhAvVtlTki/Silicone-Dipped-Aglets-Tips-Garment-Braided-Round-Hoodie-Drawcord.jpg",
+      "sourceSite": "Made-in-China 供应商产品图（Silicone Dipped Aglets Drawcord）",
+      "license": "供应商公开产品图，仅原型演示引用",
+      "description": "硅胶浸头抽绳产品图，绳端浸胶包覆形态与颜色清楚可见。",
+      "note": "原型参考图；覆盖长度与颜色以技术包为准，浸头材料按实际重量单位核算。"
+    }
+  ],
+  "missing": [],
+  "usage": {
+    "缩略图与对象标识同块": "各页面缩略图与 SKU／端头方式同块展示，可点击打开大图，支持关闭按钮与 Esc。",
+    "替代标注": "页面统一标注“厂商/公共来源参考图”，不得冒充工厂实拍。"
+  }
+}

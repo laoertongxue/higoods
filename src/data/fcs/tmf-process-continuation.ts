@@ -19,6 +19,22 @@ export function assertTmfPrintCutContinuation(print: PrintWorkOrder, cutEntryId:
  if(print.productionTmfContinuation&&print.productionTmfContinuation.cutEntryId!==cutEntryId)throw new Error('已绑定其他截断节点，不能覆盖。')
 }
 
+/** 染色后的连续辅料直接进入织带截断（路线无印花）时必须交给直接截断节点。 */
+export function assertTmfDyeCutContinuation(dye: DyeWorkOrder, cutEntryId: string, pack: ProductionOrderTechPackSnapshot): void {
+ const source=dye.sourceSnapshot
+ if(source?.sourceType!=='PRODUCTION_ORDER'||source.productionOrderId!==pack.productionOrderId||source.techPackVersionId!==pack.sourceTechPackVersionId)throw new Error('染色与截断必须来自同一生产单采用的技术包版本。')
+ if(dye.status==='CANCELLED'||source.cancelledAt||dye.changeImpact?.length)throw new Error('染色单已取消或存在未处理变更。')
+ if(dye.downstreamWorkOrderId||dye.productionPrintContinuation)throw new Error('染色已绑定下游印花单，不能同时直接交给织带厂截断。')
+ const from=pack.processEntries.find(e=>e.id===source.processEntryId),cut=pack.processEntries.find(e=>e.id===cutEntryId)
+ if(from?.processCode!=='DYE'||cut?.processCode!==WEBBING_CUT_PROCESS||cut.predecessorEntryIds?.length!==1||cut.predecessorEntryIds[0]!==from.id)throw new Error('染色与织带截断不是唯一直接前后工序，不能跨节点接续。')
+ if(from.outputObjectType!=='ACCESSORY'||cut.inputObjectType!=='ACCESSORY'||from.outputInventoryForm!=='CONTINUOUS'||cut.inputInventoryForm!=='CONTINUOUS')throw new Error('仅连续辅料可以由染色交给织带截断。')
+ if(!from.outputMaterialSkuId||from.outputMaterialSkuId!==cut.inputMaterialSkuId||dye.outputMaterial?.sku!==(from.outputMaterialSkuCode||from.outputMaterialSkuId))throw new Error('染色产出与截断投入SKU不一致。')
+ if(!['米','m'].includes(dye.qtyUnit)||!dye.dyeFactoryId)throw new Error('请核对染色计量单位和加工厂。')
+ const bomIds=[source.bomItemId,...(source.bomItemIds??[])].filter((id):id is string=>!!id)
+ const issues=validateWebbingSpecifications(cut.webbingSpecifications,bomIds)
+ if(issues.length)throw new Error(issues.map(i=>i.message).join('；'))
+}
+
 /** 正式路线的相邻印染单：校验来源和物料，不据此生成任何实际数量。 */
 export function assertTmfDyePrintContinuation(dye: DyeWorkOrder, print: PrintWorkOrder, pack: ProductionOrderTechPackSnapshot): void {
  const from=dye.sourceSnapshot,to=print.sourceSnapshot

@@ -1,3 +1,4 @@
+import { getTmfProductionDisposition, getTmfPurchaseState } from '../data/pms/tmf-material-purchases.ts'
 // @page-pattern: list
 
 import { renderStandardListPage } from '../components/ui/list-page.ts'
@@ -353,7 +354,7 @@ function renderReturnProgress(order: OnlineProductionProgressRecord): string {
 }
 
 function renderExpanded(order: OnlineProductionProgressRecord): string {
-  return `<section class="mt-3 rounded-lg border bg-white" data-expanded-order="${order.productionOrderId}"><div class="grid divide-y lg:grid-cols-4 lg:divide-x lg:divide-y-0"><div class="p-4"><h3 class="font-semibold">生产单详情</h3><div class="mt-3 flex gap-3"><img src="${order.imageUrl}" alt="${escapeHtml(order.spu)}款式图" class="h-24 w-20 rounded object-cover"/><div class="text-xs"><b>${escapeHtml(order.title)}</b><p>${escapeHtml(order.spu)}</p><p>数量：${order.qty}件</p><p>售卖：${order.saleType}</p></div></div></div><div class="p-4"><h3 class="font-semibold">关键时间</h3><ol class="mt-3 space-y-2 text-xs"><li>生产下单 ${order.orderAt}</li><li>首次配料 ${order.firstMaterialAt}</li><li>车缝派单 ${order.sewingAssignedAt || '-'}</li><li>首次入库 ${order.firstInboundAt || '-'}</li></ol></div><div class="p-4"><h3 class="font-semibold">异常与提醒</h3><div class="mt-3 space-y-2 text-xs">${order.returnProgress.some((item) => riskRank(item) === 3) ? '<p class="rounded bg-red-50 p-2 text-red-700">阶段性回货逾期，请立即催回货</p>' : '<p class="rounded bg-green-50 p-2 text-green-700">暂无逾期节点</p>'}${order.inventoryRows.some((item) => item.stock < item.required) ? '<p class="rounded bg-amber-50 p-2 text-amber-700">库存物料存在缺口，仅提示风险</p>' : ''}</div></div><div class="p-4"><h3 class="font-semibold">关联</h3><div class="mt-3 space-y-2 text-sm"><a class="block text-blue-600" href="/fcs/dispatch/workbench">任务分配工作台</a><a class="block text-blue-600" href="/fcs/material-prep/list">配料准备</a><p>有效车缝工厂 ${order.sewingFactories.length} 家</p></div></div></div><div class="border-t p-4"><h3 class="mb-3 text-base font-semibold">合同与回货履约（按加工厂）</h3>${renderReturnProgress(order)}</div></section>`
+  return `<section class="mt-3 rounded-lg border bg-white" data-expanded-order="${order.productionOrderId}"><div class="grid divide-y lg:grid-cols-4 lg:divide-x lg:divide-y-0"><div class="p-4"><h3 class="font-semibold">生产单详情</h3><div class="mt-3 flex gap-3"><img src="${order.imageUrl}" alt="${escapeHtml(order.spu)}款式图" class="h-24 w-20 rounded object-cover"/><div class="text-xs"><b>${escapeHtml(order.title)}</b><p>${escapeHtml(order.spu)}</p><p>数量：${order.qty}件</p><p>售卖：${order.saleType}</p></div></div></div><div class="p-4"><h3 class="font-semibold">关键时间</h3><ol class="mt-3 space-y-2 text-xs"><li>生产下单 ${order.orderAt}</li><li>首次配料 ${order.firstMaterialAt}</li><li>车缝派单 ${order.sewingAssignedAt || '-'}</li><li>首次入库 ${order.firstInboundAt || '-'}</li></ol></div><div class="p-4"><h3 class="font-semibold">异常与提醒</h3><div class="mt-3 space-y-2 text-xs">${order.returnProgress.some((item) => riskRank(item) === 3) ? '<p class="rounded bg-red-50 p-2 text-red-700">阶段性回货逾期，请立即催回货</p>' : '<p class="rounded bg-green-50 p-2 text-green-700">暂无逾期节点</p>'}${order.inventoryRows.some((item) => item.stock < item.required) ? '<p class="rounded bg-amber-50 p-2 text-amber-700">库存物料存在缺口，仅提示风险</p>' : ''}</div></div><div class="p-4"><h3 class="font-semibold">关联</h3><div class="mt-3 space-y-2 text-sm"><a class="block text-blue-600" href="/fcs/dispatch/workbench">任务分配工作台</a><a class="block text-blue-600" href="/fcs/material-prep/list">配料准备</a><p>有效车缝工厂 ${order.sewingFactories.length} 家</p></div></div>${tmfProductionOrderPanel(order.productionOrderId)}</div><div class="border-t p-4"><h3 class="mb-3 text-base font-semibold">合同与回货履约（按加工厂）</h3>${renderReturnProgress(order)}</div></section>`
 }
 
 function renderDetailDialog(): string {
@@ -365,6 +366,23 @@ function renderDetailDialog(): string {
 function renderImagePreview(): string {
   if (!state.imagePreview) return ''
   return `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/80 p-6" data-progress-action="close-image"><button class="absolute right-6 top-6 rounded bg-white px-3 py-2">关闭</button><img src="${escapeHtml(state.imagePreview.url)}" alt="${escapeHtml(state.imagePreview.label)}高清大图" class="max-h-full max-w-full object-contain"/></div>`
+}
+
+
+/** 主生产单页面只读投影织带侧执行状态；不在此页改变织带事实。 */
+function tmfProductionOrderPanel(productionOrderId: string): string {
+  try {
+    const data = getTmfPurchaseState()
+    const demands = data.demands.filter((item) => item.productionOrderId === productionOrderId)
+    if (!demands.length) return ''
+    const disposition = getTmfProductionDisposition(productionOrderId)
+    const fulfilled = demands.reduce((sum, demand) => sum + Math.min(demand.requiredPieces, data.productionIssues.filter((item) => item.demandId === demand.id).reduce((n, item) => n + item.receivedPieces, 0)), 0)
+    const required = demands.reduce((sum, demand) => sum + demand.requiredPieces, 0)
+    const statusLabel = disposition.status === 'CANCELLED' ? '已取消（待处置）' : disposition.status === 'ON_HOLD' ? '已暂停' : '可执行'
+    return `<div class="p-4"><h3 class="font-semibold">织带厂（TMF）</h3><div class="mt-3 space-y-2 text-xs"><p>状态：${escapeHtml(statusLabel)}${disposition.terminationClosedAt ? '（终止已结案）' : ''}</p><p>需求 ${required} 条/根；生产已实收 ${fulfilled}；缺口 ${Math.max(0, required - fulfilled)}</p><p>未发占用 ${Math.round(disposition.reservedMeters * 1000) / 1000} 米；未发产出分配 ${disposition.allocatedPieces} 条/根</p><p>厂内在制 ${disposition.factoryPieces}；仓内实存 ${disposition.warehousePieces}；生产在途 ${disposition.productionTransitPieces}</p><p class="text-slate-500">${escapeHtml(disposition.reason || '织带侧状态由织带加工单维护，本页只读。')}</p><a class="block text-blue-600" href="/fcs/craft/accessory/webbing/work-orders">打开织带加工单（处理限制/终止处置）</a></div></div>`
+  } catch {
+    return ''
+  }
 }
 
 export function renderProductionOrderProgressTrackingPage(): string {

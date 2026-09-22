@@ -114,21 +114,37 @@ function createPage(mode: Mode) {
       content+=renderTmfPurchaseReturns(row.purchase.purchaseOrderNo,false,()=>'',id)+`<p class="mt-3">采购当前 V${row.purchase.version}，计划 ${row.purchase.orderedQty} 米；基础原计划 V${row.base?.purchaseVersion}，${row.base?.plannedMeters} 米。</p>`+input('returnReason','处置依据')+'<label class="flex gap-2 mt-3 text-sm"><input name="returnConfirmed" type="checkbox">确认原实收及产出保留，已收退货与调整后的采购计划一致</label>'
     }
     if (name === 'report') content += input('quantity', '本次实际产出（米）', 'number')
+      + '<p class="mt-2 text-xs text-slate-500">超过基础生产计划时，须由织带厂主管核对实物、填写原因并二次确认；计划数量不会自动扩大。</p>'
+      + input('overPlanReason', '超产原因（超计划时必填）')
+      + '<label class="flex gap-2 mt-3 text-sm"><input name="overPlanConfirmed" type="checkbox">本次为超计划实际产出，已核对实物并二次确认</label>'
     if (name === 'dispatch') content += input('quantity', '本次实际交出（米）', 'number') + input('batch', '实物批次号') + '<p class="mt-2 text-xs text-slate-500">交出后等待辅料仓确认实收，不提前增加仓库库存。</p>'
     if (name === 'receive') {
       const lot = getTmfPurchaseState().lots.find((item) => item.sourceHandoverId === row.handover?.id)
       content += `<p class="mt-3 text-sm">应收批次：${escapeHtml(row.handover!.batchId)}；尚未实收 ${Math.round((row.dispatched - row.received) * 1000) / 1000} 米</p>`
         + input('scanBatch', '扫描或输入实物批次号') + input('scanSku', '扫描或输入实物 SKU 编码') + input('quantity', '本次清点实收（米）', 'number')
         + `<label class="block text-sm mt-3">实收库位<input name="location" value="${escapeHtml(lot?.location ?? '')}" class="mt-1 w-full rounded border p-2" required></label><p class="mt-2 text-xs text-slate-500">分批实收只累计本次数量；未到部分保留在途。超出交出量请先由主管核实来源。</p>`
+        + `<label class="block text-sm mt-3">收货身份<select name="receiveRole" class="mt-1 w-full rounded border p-2" data-skip-page-rerender="true"><option value="仓管">辅料仓管</option><option value="仓库主管">仓库主管（超收确认）</option></select></label>`
+        + input('overReceiptReason', '超收原因（超过采购计划量时必填）')
+        + '<label class="flex gap-2 mt-3 text-sm"><input name="overReceiptConfirmed" type="checkbox">本次实收超过采购计划量，仓库主管已核对来源并二次确认</label><p class="mt-2 text-xs text-slate-500">实收仍不得超过上游实际交出量；计划数量不会自动扩大。</p>'
     }
     if (name === 'detail') content += `<p class="mt-3 text-sm">供应方：${escapeHtml(row.purchase.supplierName)}；目标仓：${escapeHtml(row.purchase.warehouse)}</p><p class="mt-2 text-xs">${escapeHtml(row.purchase.remark)}</p><div class="max-h-48 overflow-y-auto mt-3 text-xs space-y-2">${getTmfPurchaseState().operations.filter((op) => [row.purchase.purchaseOrderNo, row.base?.id, row.handover?.id].includes(op.objectId)).map((op) => `<p>${escapeHtml(op.occurredAt)} · ${escapeHtml(op.action)} · ${escapeHtml(op.actor.name)} ${op.quantity ?? ''} ${op.unit ?? ''}</p>`).join('')}</div>`
+    if (name === 'detail') {
+      const refs = row.purchase.masterRefs
+      content += refs
+        ? `<div class="mt-3 border-t pt-3 text-sm"><h3 class="font-medium">主档映射</h3><p>供应方 ${escapeHtml(refs.supplier.name)}（${escapeHtml(refs.supplier.code)}）· ${escapeHtml(refs.supplier.source)}</p><p>物料 ${escapeHtml(refs.material.name)}（${escapeHtml(refs.material.code)}）· ${escapeHtml(refs.material.source)}</p><p>目标仓 ${escapeHtml(refs.warehouse.name)}（${escapeHtml(refs.warehouse.code)}）· ${escapeHtml(refs.warehouse.source)}</p><p class="text-xs text-slate-500">映射时间 ${escapeHtml(refs.resolvedAt)}</p></div>`
+        : '<div class="mt-3 border-t pt-3 text-sm"><h3 class="font-medium">主档映射</h3><p class="text-amber-700">未映射（历史记录）：保留原快照，不批量改写；后续动作将要求重新映射。</p></div>'
+    }
+    if (name === 'detail') {
+      const overReceipts = row.purchase.overReceipts ?? [], overProductions = row.base?.overProductions ?? []
+      if (overReceipts.length || overProductions.length) content += `<div class="mt-3 border-t pt-3 text-sm"><h3 class="font-medium">超计划记录（计划不扩）</h3>${overReceipts.map((item) => `<p>超收 ${item.meters} 米 · ${escapeHtml(item.reason)} · ${escapeHtml(item.confirmedBy)} · ${escapeHtml(item.confirmedAt)}</p>`).join('')}${overProductions.map((item) => `<p>超产 ${item.meters} 米 · ${escapeHtml(item.reason)} · ${escapeHtml(item.confirmedBy)} · ${escapeHtml(item.confirmedAt)}</p>`).join('')}</div>`
+    }
     if (name === 'detail' && row.handover) {
       const lot = getTmfPurchaseState().lots.find((item) => item.sourceHandoverId === row.handover!.id)
       content += `<div class="mt-3 border-t pt-3 text-sm"><p>上游交出批次：${escapeHtml(row.handover.batchId)}</p><p>目标仓：${escapeHtml(row.purchase.warehouse)}</p>${lot ? `<p>实收库位：${escapeHtml(lot.location)}</p><p>该批次累计实收 ${lot.receivedMeters} 米；仓内实存 ${lot.onHandMeters} 米；已占用 ${lot.reservedMeters} 米</p>` : '<p>尚未实际收货，未形成仓库库存。</p>'}</div>`
     }
     if(name==='detail'&&!rawWarehouse)content+=renderTmfPurchaseReturns(row.purchase.purchaseOrderNo,receiving,action,id)
     const el = root()?.querySelector('[data-tmf-dialog]')
-    if (el) { el.innerHTML = renderDialog({ title: headers[name], width: 'md', closeAction: { prefix, action: 'close-dialog', skipPageRerender: true } }, `<div role="alert" class="text-red-700 text-sm" data-tmf-dialog-error></div>${content}`, action('close-dialog', '关闭') + (['detail','raw'].includes(name) ? '' : action('confirm', '确认'))); hydrateIcons(el);el.setAttribute('tabindex','-1');(el as HTMLElement).focus({preventScroll:true}) }
+    if (el) { el.innerHTML = renderDialog({ title: headers[name], width: 'md', closeAction: { prefix, action: 'close-dialog', skipPageRerender: true } }, `<div role="alert" class="text-red-700 text-sm" data-tmf-dialog-error></div><div class="max-h-[68vh] overflow-y-auto">${content}</div>`, action('close-dialog', '关闭') + (['detail','raw'].includes(name) ? '' : action('confirm', '确认'))); hydrateIcons(el);el.setAttribute('tabindex','-1');(el as HTMLElement).focus({preventScroll:true}) }
   }
   const bind = () => {
     const el = root(); if (!el || el.dataset.bound) return; el.dataset.bound = 'true'
@@ -199,12 +215,18 @@ function createPage(mode: Mode) {
           if (dialogAction === 'receive') {
             if (el.querySelector<HTMLInputElement>('[name="scanBatch"]')!.value.trim() !== row.handover!.batchId) throw new Error('实物批次不符，请扫描本次交出的正确批次。')
             const scanned = el.querySelector<HTMLInputElement>('[name="scanSku"]')!.value.trim()
+            const supervisorRole = el.querySelector<HTMLSelectElement>('[name="receiveRole"]')?.value === '仓库主管'
+            const receiptActor: TmfPurchaseActor = supervisorRole
+              ? { id: 'TMF-DEMO-WAREHOUSE-SUPERVISOR', name: '仓库主管（演示）', role: '仓库主管' }
+              : actor
             receiveTmfBaseProduction({ handoverId: row.handover!.id, materialSkuId: scanned === row.purchase.materialCode ? row.purchase.materialSkuId : scanned,
-              warehouseId: row.handover!.warehouseId, location: el.querySelector<HTMLInputElement>('[name="location"]')!.value.trim(), receivedMeters: quantity }, actor, operationId)
+              warehouseId: row.handover!.warehouseId, location: el.querySelector<HTMLInputElement>('[name="location"]')!.value.trim(), receivedMeters: quantity,
+              overReceipt: { reason: el.querySelector<HTMLInputElement>('[name="overReceiptReason"]')?.value.trim() || '', confirmed: !!el.querySelector<HTMLInputElement>('[name="overReceiptConfirmed"]')?.checked } }, receiptActor, operationId)
           } else if (dialogAction === 'generate') generateTmfBaseOrder(dialogId, TMF_DEMO_SUPERVISOR, operationId)
           else if (dialogAction === 'accept') acceptTmfBaseOrder(row.base!.id, TMF_DEMO_SUPERVISOR, operationId)
           else if (dialogAction === 'start') startTmfBaseOrder(row.base!.id, TMF_DEMO_SUPERVISOR, operationId)
-          else if (dialogAction === 'report') reportTmfBaseProduction(row.base!.id, quantity, TMF_DEMO_SUPERVISOR, operationId)
+          else if (dialogAction === 'report') reportTmfBaseProduction(row.base!.id, quantity, TMF_DEMO_SUPERVISOR, operationId,
+            { reason: el.querySelector<HTMLInputElement>('[name="overPlanReason"]')?.value.trim() || '', confirmed: !!el.querySelector<HTMLInputElement>('[name="overPlanConfirmed"]')?.checked })
           else if (dialogAction === 'dispatch') dispatchTmfBaseProduction({ baseOrderId: row.base!.id, handoverId: `${operationId}:handover`, batchId: el.querySelector<HTMLInputElement>('[name="batch"]')!.value.trim(), dispatchedMeters: quantity }, TMF_DEMO_SUPERVISOR, operationId)
           closeDialog(); refresh(); feedback(receiving ? '本次实收已保存，采购实收与连续料批次库存已同步。' : '已保存。交出与仓库实收分别记录，请按实物继续交接。')
         } else if(name==='purchase-return-receive'){const [id,returnId]=JSON.parse(target.dataset.id!);openDialog(name,id,returnId)} else if(name.startsWith('raw-')){const [purchaseId,issueId]=JSON.parse(target.dataset.id!);openDialog(name,purchaseId,issueId)} else openDialog(name, target.dataset.id || '')
