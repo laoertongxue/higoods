@@ -1,0 +1,95 @@
+{
+  "generatedAt": "2026-09-22T13:30:00.000Z",
+  "branch": "codex/zhidaichangguanli",
+  "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447",
+  "server": "http://127.0.0.1:43188",
+  "scenarios": {
+    "N06-染色直交": [
+      "DYE-001",
+      "DYE-002",
+      "DYE-003",
+      "DYE-004",
+      "PAGE-001"
+    ],
+    "B25-终止处置": [
+      "TERM-001",
+      "TERM-002",
+      "HIST-001"
+    ],
+    "B26-缺口补做": [
+      "HIST-002",
+      "TERM-005"
+    ],
+    "B27-主管超收": [
+      "OVR-001",
+      "OVR-002",
+      "OVR-003"
+    ],
+    "B28-主档映射": [
+      "MASTER-001",
+      "MASTER-002",
+      "MASTER-003",
+      "MASTER-004",
+      "MASTER-005"
+    ],
+    "B29-实物图片": [
+      "IMG-006",
+      "IMG-007",
+      "IMG-008",
+      "IMG-009",
+      "IMG-010"
+    ],
+    "B30-新增页面与只读联动": [
+      "PAGE-013",
+      "PAGE-014",
+      "PAGE-015",
+      "PAGE-016",
+      "LINK-001",
+      "LINK-002"
+    ]
+  },
+  "evidence": {
+    "unit": {
+      "path": "tests/unit/tmf-purchase-base-flow.test.ts",
+      "result": "411/411 pass",
+      "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447"
+    },
+    "v2Browser": {
+      "path": "2026-09-22-v2-features-browser.mjs",
+      "result": "8/8 checks"
+    },
+    "fullBrowser": {
+      "path": "2026-09-20-full-browser-run-current.json",
+      "passed": 59,
+      "total": 59,
+      "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447"
+    },
+    "perf": {
+      "path": "2026-09-21-tmf-strict-performance-current.json",
+      "summary": {
+        "samples": 1590,
+        "failed": 0,
+        "maxMs": 465.44,
+        "errors": 0,
+        "coverageEntries": 20,
+        "interactiveEntries": 320,
+        "interactiveFailures": 0,
+        "allInteractiveActionsMeasured": true,
+        "strictGate": true
+      },
+      "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447"
+    },
+    "pagePdaPrint": {
+      "path": "2026-09-21-page-pda-print-acceptance-current.json",
+      "verdict": "通过本次页面/PDA/打印专项门禁",
+      "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447"
+    }
+  },
+  "gate": {
+    "unitPass": true,
+    "browserPass": true,
+    "perfPass": true,
+    "pagePdaPrintPass": true,
+    "verdict": "全部通过"
+  }
+}

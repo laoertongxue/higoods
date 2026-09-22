@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-21T02:29:55.948Z",
+  "generatedAt": "2026-09-22T05:02:38.591Z",
   "route": "/fcs/craft/accessory/webbing/purchase-demands",
-  "server": "http://127.0.0.1:43188",
+  "server": "http://127.0.0.1:43288",
   "checks": [
     "载入36条采购，统计与分页总数一致",
     "导出全部36条且不含操作列；分页及重置恢复首屏",
@@ -30,193 +30,193 @@
   "errors": [],
   "navigations": [
     {
-      "at": "2026-09-21T02:29:55.988Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/purchase-demands"
+      "at": "2026-09-22T05:02:38.647Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/purchase-demands"
     },
     {
-      "at": "2026-09-21T02:30:00.339Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/base-orders"
+      "at": "2026-09-22T05:02:39.855Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/base-orders"
     },
     {
-      "at": "2026-09-21T02:30:02.236Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:02:40.657Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:04.394Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:02:43.822Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:06.373Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
+      "at": "2026-09-22T05:02:44.423Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:30:09.001Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+      "at": "2026-09-22T05:02:48.454Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:30:09.210Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+      "at": "2026-09-22T05:02:48.645Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:30:09.327Z",
-      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+      "at": "2026-09-22T05:02:48.808Z",
+      "url": "http://127.0.0.1:43288/pms/material-purchase-orders"
     },
     {
-      "at": "2026-09-21T02:30:09.549Z",
-      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+      "at": "2026-09-22T05:02:49.104Z",
+      "url": "http://127.0.0.1:43288/pms/material-purchase-orders"
     },
     {
-      "at": "2026-09-21T02:30:09.957Z",
-      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+      "at": "2026-09-22T05:02:49.593Z",
+      "url": "http://127.0.0.1:43288/pms/material-purchase-orders"
     },
     {
-      "at": "2026-09-21T02:30:10.356Z",
-      "url": "http://127.0.0.1:43188/pms/material-purchase-orders"
+      "at": "2026-09-22T05:02:50.043Z",
+      "url": "http://127.0.0.1:43288/pms/material-purchase-orders"
     },
     {
-      "at": "2026-09-21T02:30:10.492Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:02:50.198Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:12.524Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+      "at": "2026-09-22T05:02:52.461Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:30:15.871Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
+      "at": "2026-09-22T05:02:56.026Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:30:16.118Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
+      "at": "2026-09-22T05:02:56.239Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:30:16.363Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:02:56.482Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:19.763Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PACKAGE_LABEL&sourceType=TMF_OUTPUT_PACKAGE&sourceId=%5B%22OUTPUT-PKG-0%22%2C%22OUTPUT-PKG-1%22%5D"
+      "at": "2026-09-22T05:02:59.733Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PACKAGE_LABEL&sourceType=TMF_OUTPUT_PACKAGE&sourceId=%5B%22OUTPUT-PKG-0%22%2C%22OUTPUT-PKG-1%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:19.913Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PACKAGE_LABEL&sourceType=TMF_OUTPUT_PACKAGE&sourceId=%5B%22OUTPUT-PKG-0%22%2C%22OUTPUT-PKG-1%22%5D&labelSize=A4"
+      "at": "2026-09-22T05:02:59.899Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PACKAGE_LABEL&sourceType=TMF_OUTPUT_PACKAGE&sourceId=%5B%22OUTPUT-PKG-0%22%2C%22OUTPUT-PKG-1%22%5D&labelSize=A4"
     },
     {
-      "at": "2026-09-21T02:30:20.019Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D?packageId=OUTPUT-PKG-0"
+      "at": "2026-09-22T05:03:00.005Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D?packageId=OUTPUT-PKG-0"
     },
     {
-      "at": "2026-09-21T02:30:20.263Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_HANDOVER_SHEET&sourceType=TMF_OUTPUT_HANDOVER&sourceId=OUTPUT-HO-0"
+      "at": "2026-09-22T05:03:00.232Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_HANDOVER_SHEET&sourceType=TMF_OUTPUT_HANDOVER&sourceId=OUTPUT-HO-0"
     },
     {
-      "at": "2026-09-21T02:30:21.813Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D?packageId=OUTPUT-PKG-0"
+      "at": "2026-09-22T05:03:01.548Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D?packageId=OUTPUT-PKG-0"
     },
     {
-      "at": "2026-09-21T02:30:22.670Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D?packageId=OUTPUT-PKG-0"
+      "at": "2026-09-22T05:03:02.306Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D?packageId=OUTPUT-PKG-0"
     },
     {
-      "at": "2026-09-21T02:30:22.952Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:03:02.623Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:27.483Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:03:06.653Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:28.008Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:03:07.313Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:30.018Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:03:09.368Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:30.387Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+      "at": "2026-09-22T05:03:09.758Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:30:39.154Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+      "at": "2026-09-22T05:03:19.408Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:30:39.362Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
+      "at": "2026-09-22T05:03:19.594Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:30:42.023Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
+      "at": "2026-09-22T05:03:22.246Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:30:42.277Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+      "at": "2026-09-22T05:03:22.468Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:30:42.299Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
+      "at": "2026-09-22T05:03:22.587Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:30:42.514Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:03:22.807Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:44.972Z",
-      "url": "http://127.0.0.1:43188/wls/accessory-receipts"
+      "at": "2026-09-22T05:03:25.226Z",
+      "url": "http://127.0.0.1:43288/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:30:45.409Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
+      "at": "2026-09-22T05:03:25.672Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:30:45.663Z",
-      "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:25.916Z",
+      "url": "http://127.0.0.1:43288/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:45.829Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.082Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:45.972Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.226Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:46.133Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.385Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:46.265Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.535Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:46.415Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.685Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:46.549Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.819Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:46.681Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:26.969Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:30:47.234Z",
-      "url": "http://127.0.0.1:43188/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
+      "at": "2026-09-22T05:03:27.541Z",
+      "url": "http://127.0.0.1:43288/fcs/print/preview?documentType=TMF_PROCESS_SHEET&sourceType=TMF_WORK_ORDER&sourceId=%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     }
   ],
   "printSamples": [
     {
       "kind": "process-sheet-cold-navigation",
       "run": 1,
-      "ms": 160,
+      "ms": 159,
       "pass": true
     },
     {
       "kind": "process-sheet-cold-navigation",
       "run": 2,
-      "ms": 133,
+      "ms": 150,
       "pass": true
     },
     {
@@ -228,19 +228,19 @@
     {
       "kind": "process-sheet-cold-navigation",
       "run": 4,
-      "ms": 134,
+      "ms": 133,
       "pass": true
     },
     {
       "kind": "process-sheet-cold-navigation",
       "run": 5,
-      "ms": 132,
+      "ms": 150,
       "pass": true
     },
     {
       "kind": "process-sheet-refresh",
       "run": 1,
-      "ms": 134,
+      "ms": 148,
       "pass": true
     }
   ],
@@ -248,7 +248,7 @@
     {
       "kind": "download-pdf",
       "run": 1,
-      "ms": 67,
+      "ms": 69,
       "pass": true
     },
     {
@@ -278,7 +278,7 @@
     {
       "kind": "print",
       "run": 1,
-      "ms": 34,
+      "ms": 33,
       "pass": true
     },
     {
@@ -290,19 +290,19 @@
     {
       "kind": "print",
       "run": 3,
-      "ms": 35,
+      "ms": 36,
       "pass": true
     },
     {
       "kind": "print",
       "run": 4,
-      "ms": 32,
+      "ms": 33,
       "pass": true
     },
     {
       "kind": "print",
       "run": 5,
-      "ms": 33,
+      "ms": 32,
       "pass": true
     }
   ],

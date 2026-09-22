@@ -21,95 +21,95 @@
   "errors": [],
   "navigations": [
     {
-      "at": "2026-09-21T02:33:11.797Z",
+      "at": "2026-09-22T05:06:15.569Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/purchase-demands"
     },
     {
-      "at": "2026-09-21T02:33:16.222Z",
+      "at": "2026-09-22T05:06:20.175Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/base-orders"
     },
     {
-      "at": "2026-09-21T02:33:18.204Z",
+      "at": "2026-09-22T05:06:20.731Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:20.398Z",
+      "at": "2026-09-22T05:06:23.217Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:20.933Z",
+      "at": "2026-09-22T05:06:23.818Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:33:23.442Z",
+      "at": "2026-09-22T05:06:26.575Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:25.756Z",
+      "at": "2026-09-22T05:06:28.816Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:33:29.122Z",
+      "at": "2026-09-22T05:06:32.461Z",
       "url": "http://127.0.0.1:43188/wls/accessory-material-preparation"
     },
     {
-      "at": "2026-09-21T02:33:29.365Z",
+      "at": "2026-09-22T05:06:32.676Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:33:29.613Z",
+      "at": "2026-09-22T05:06:32.916Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:33:33.404Z",
+      "at": "2026-09-22T05:06:36.574Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     },
     {
-      "at": "2026-09-21T02:33:33.666Z",
+      "at": "2026-09-22T05:06:36.888Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:36.036Z",
+      "at": "2026-09-22T05:06:39.262Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:36.398Z",
+      "at": "2026-09-22T05:06:39.673Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:39.005Z",
+      "at": "2026-09-22T05:06:42.559Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:39.226Z",
+      "at": "2026-09-22T05:06:42.746Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:33:41.819Z",
+      "at": "2026-09-22T05:06:45.583Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-receipts"
     },
     {
-      "at": "2026-09-21T02:33:42.069Z",
+      "at": "2026-09-22T05:06:45.841Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:42.090Z",
+      "at": "2026-09-22T05:06:45.978Z",
       "url": "http://127.0.0.1:43188/wls/accessory-production-stock"
     },
     {
-      "at": "2026-09-21T02:33:42.287Z",
+      "at": "2026-09-22T05:06:46.249Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:44.785Z",
+      "at": "2026-09-22T05:06:48.894Z",
       "url": "http://127.0.0.1:43188/wls/accessory-receipts"
     },
     {
-      "at": "2026-09-21T02:33:45.228Z",
+      "at": "2026-09-22T05:06:49.403Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders"
     },
     {
-      "at": "2026-09-21T02:33:45.497Z",
+      "at": "2026-09-22T05:06:49.666Z",
       "url": "http://127.0.0.1:43188/fcs/craft/accessory/webbing/work-orders/%5B%22OUTPUT-BROWSER-PROD%22%2C%22OUTPUT-BROWSER-PROD-SNAPSHOT-V1%22%2C%22CUT%22%5D"
     }
   ]

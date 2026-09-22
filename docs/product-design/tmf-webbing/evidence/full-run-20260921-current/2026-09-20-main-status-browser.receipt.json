@@ -1,12 +1,12 @@
 {
-  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
-  "branch": "codex/tmf-webbing-management",
-  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "runId": "tmf-browser-2026-09-22T04-56-49-117Z",
+  "branch": "codex/zhidaichangguanli",
+  "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447",
   "script": "2026-09-20-main-status-browser.mjs",
   "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-20-main-status-browser.mjs",
-  "scriptSourceSha256": "8c54e9437d72bbecfef2a3d656a6ad0065f30d184811aae8c1c1d52e7f037dd2",
-  "startedAt": "2026-09-21T02:26:46.508Z",
-  "finishedAt": "2026-09-21T02:27:20.389Z",
+  "scriptSourceSha256": "e415ab31f1ae5ef2d9e42a3441c5a12c3aeed0daf1575b1082e0cda3159f682b",
+  "startedAt": "2026-09-22T04:59:26.926Z",
+  "finishedAt": "2026-09-22T04:59:59.384Z",
   "exitCode": 0,
   "assertionCallCount": 150,
   "measurementCallCount": 0,
@@ -21,6 +21,6 @@
   "stdoutBytes": 6943,
   "stderrBytes": 0,
   "log": "full-run-20260921-current/2026-09-20-main-status-browser.log",
-  "logSha256": "46137ae6039ade54fb6ee4b83af7415b3b77efaa9fa6d69d696929a8f4b9397e",
+  "logSha256": "8966f8874ea1e4de26267ed421410e3ef2089f4ddf7a280ed517efe3011d1dc1",
   "pass": true
 }

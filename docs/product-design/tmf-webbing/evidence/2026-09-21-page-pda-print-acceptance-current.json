@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-20T17:14:38.962Z",
-  "server": "http://127.0.0.1:43188",
-  "branch": "codex/tmf-webbing-management",
-  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "generatedAt": "2026-09-22T05:48:56.353Z",
+  "server": "http://127.0.0.1:43288",
+  "branch": "codex/zhidaichangguanli",
+  "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447",
   "environment": {
     "browser": "Playwright Chromium headless",
     "viewports": {
@@ -23,38 +23,15 @@
       "checks": 4,
       "errors": [],
       "samples": [
-        41.29999999701977,
-        63.399999998509884,
-        63.5,
-        51.69999999552965,
-        62
+        39.900000005960464,
+        63.599999994039536,
+        63.69999998807907,
+        60,
+        56.79999998211861
       ]
     },
     "pdaEntry": {
       "path": "2026-09-21-pda-output-entry-current.json",
-      "samples": {
-        "cold": [
-          282.6000000014901,
-          294.19999999552965,
-          277.80000000447035,
-          278.5,
-          297.1000000014901
-        ],
-        "refresh": [
-          215.5,
-          229.39999999850988,
-          234.69999999552965,
-          215.89999999850988,
-          232
-        ],
-        "menu": [
-          95.60000000149012,
-          98.89999999850988,
-          97.39999999850988,
-          80.70000000298023,
-          61.70000000298023
-        ]
-      },
       "errors": [],
       "under500": true
     },
@@ -66,37 +43,37 @@
         {
           "kind": "process-sheet-cold-navigation",
           "run": 1,
-          "ms": 161,
+          "ms": 159,
           "pass": true
         },
         {
           "kind": "process-sheet-cold-navigation",
           "run": 2,
-          "ms": 133,
-          "pass": true
-        },
-        {
-          "kind": "process-sheet-cold-navigation",
-          "run": 3,
-          "ms": 133,
-          "pass": true
-        },
-        {
-          "kind": "process-sheet-cold-navigation",
-          "run": 4,
           "ms": 150,
           "pass": true
         },
         {
           "kind": "process-sheet-cold-navigation",
+          "run": 3,
+          "ms": 150,
+          "pass": true
+        },
+        {
+          "kind": "process-sheet-cold-navigation",
+          "run": 4,
+          "ms": 133,
+          "pass": true
+        },
+        {
+          "kind": "process-sheet-cold-navigation",
           "run": 5,
-          "ms": 134,
+          "ms": 150,
           "pass": true
         },
         {
           "kind": "process-sheet-refresh",
           "run": 1,
-          "ms": 166,
+          "ms": 148,
           "pass": true
         }
       ],
@@ -104,7 +81,7 @@
         {
           "kind": "download-pdf",
           "run": 1,
-          "ms": 67,
+          "ms": 69,
           "pass": true
         },
         {
@@ -122,19 +99,19 @@
         {
           "kind": "download-pdf",
           "run": 4,
-          "ms": 34,
+          "ms": 33,
           "pass": true
         },
         {
           "kind": "download-pdf",
           "run": 5,
-          "ms": 33,
+          "ms": 34,
           "pass": true
         },
         {
           "kind": "print",
           "run": 1,
-          "ms": 34,
+          "ms": 33,
           "pass": true
         },
         {
@@ -146,13 +123,13 @@
         {
           "kind": "print",
           "run": 3,
-          "ms": 33,
+          "ms": 36,
           "pass": true
         },
         {
           "kind": "print",
           "run": 4,
-          "ms": 34,
+          "ms": 33,
           "pass": true
         },
         {
@@ -179,12 +156,16 @@
     }
   },
   "strictGate": {
-    "printSamples": 16,
-    "printMaxMs": 166,
+    "printSamples": 6,
+    "printMaxMs": 159,
     "allUnder500": true,
     "pdaEntryUnder500": true,
     "pagePdaErrors": 0,
     "checksReplayed": 23,
     "verdict": "通过本次页面/PDA/打印专项门禁"
+  },
+  "receipts": {
+    "pdaEntrySha256": "245a1f966c88502564eea660c80abe2d9175313637f0f353acc2dccb58e35e25",
+    "pdaReceiptSha256": "2941014636282152114ce8dd0f73d3178e3bddc86326d20abba3657d7668a247"
   }
 }

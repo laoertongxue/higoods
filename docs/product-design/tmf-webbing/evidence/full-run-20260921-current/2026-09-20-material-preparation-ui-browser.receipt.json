@@ -1,12 +1,12 @@
 {
-  "runId": "tmf-browser-2026-09-21T02-23-55-938Z",
-  "branch": "codex/tmf-webbing-management",
-  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "runId": "tmf-browser-2026-09-22T04-56-49-117Z",
+  "branch": "codex/zhidaichangguanli",
+  "head": "0ad80208e9df1371d3e8038bc8986ad8d4651447",
   "script": "2026-09-20-material-preparation-ui-browser.mjs",
   "scriptPath": "docs/product-design/tmf-webbing/evidence/2026-09-20-material-preparation-ui-browser.mjs",
-  "scriptSourceSha256": "ed1cb536a2daee32094dc1fdad8295f98ff4f7b8682068f26b7c788b981008ef",
-  "startedAt": "2026-09-21T02:27:20.389Z",
-  "finishedAt": "2026-09-21T02:27:49.986Z",
+  "scriptSourceSha256": "2c0a86f25224adc20cade9bc3514a965a69561aa6696e6b7199b1ce8deac0358",
+  "startedAt": "2026-09-22T04:59:59.386Z",
+  "finishedAt": "2026-09-22T05:00:27.712Z",
   "exitCode": 0,
   "assertionCallCount": 124,
   "measurementCallCount": 0,
@@ -21,6 +21,6 @@
   "stdoutBytes": 5252,
   "stderrBytes": 0,
   "log": "full-run-20260921-current/2026-09-20-material-preparation-ui-browser.log",
-  "logSha256": "741e38e08b9e41acdcc1fbf0bddc574ef8413f7e0e6137c9f22d5beb81e08f6a",
+  "logSha256": "3f62c1e68fbab993e248927f420659fc437f0e8ca4d56002371882fecb3f9ac0",
   "pass": true
 }
