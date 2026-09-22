@@ -42,7 +42,7 @@
 
 ## 6. 最终结论
 
-结论：通过
+结论：通过（产品确认人 laoertongxue 已接受：PR #32 issuecomment-5771901397，accepted eff92ab2）
 
 说明：
 
