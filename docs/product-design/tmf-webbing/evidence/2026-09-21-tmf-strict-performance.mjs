@@ -26,6 +26,12 @@ let routes = [
   { id: 'base', path: '/fcs/craft/accessory/webbing/base-orders', ready: '[data-tmf-base-page="base-orders"]', actionPrefix: 'tmf-base-orders', seedAction: 'demo' },
   { id: 'work', path: '/fcs/craft/accessory/webbing/work-orders', ready: '[data-tmf-work-orders]', actionPrefix: 'tmf-work-orders' },
   { id: 'prep', path: '/wls/accessory-material-preparation', ready: '[data-tmf-preparation]', actionPrefix: 'tmf-preparation' },
+  { id: 'pending-receipts', path: '/fcs/craft/accessory/webbing/pending-receipts', ready: '[data-tmf-pending-receipts]', actionPrefix: 'tmf-pending-receipts' },
+  { id: 'handover-records', path: '/fcs/craft/accessory/webbing/handover-records', ready: '[data-tmf-handover-records]', actionPrefix: 'tmf-handover-records' },
+  { id: 'continuous-stock', path: '/wls/accessory-continuous-stock', ready: '[data-tmf-continuous-stock]', actionPrefix: 'tmf-continuous-stock' },
+  { id: 'webbing-pda-exec', path: '/fcs/craft/accessory/webbing/pda', ready: '[data-tmf-pda-exec-root]' },
+  { id: 'production-order-progress', path: '/fcs/progress/production-orders/detail', ready: '[data-progress-action]' },
+
   { id: 'stock', path: '/wls/accessory-production-stock', ready: '[data-tmf-output-stock]', actionPrefix: 'tmf-output-stock' },
   { id: 'output-receipts', path: '/wls/accessory-production-receipts', ready: '[data-tmf-production-receipts]', actionPrefix: 'tmf-production-receipts' },
   { id: 'supply-receipts', path: '/wls/accessory-receipts', ready: '[data-tmf-supply-receipts]', category: 'tmf-supply' },

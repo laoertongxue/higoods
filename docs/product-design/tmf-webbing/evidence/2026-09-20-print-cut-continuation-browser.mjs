@@ -87,7 +87,7 @@ function productionSource(id) {
  await root.locator('[data-tmf-work-detail-action="tab"][data-id="requirements"]').click()
  await root.locator('[data-tmf-work-detail-action="tab"][data-id="upstream"]').click()
  await root.locator('[data-tmf-work-detail-action="link-tmf"]').click()
- await page.waitForFunction(()=>document.querySelector('[data-tmf-upstream-content]')?.textContent.includes('已按采用路线确认交给'))
+ await page.waitForFunction(()=>document.querySelector('[data-tmf-upstream-content]')?.textContent.includes('已按路线确认交给'))
  const readTarget=()=>page.evaluate(async()=>{
   const path='/src/data/fcs/printing-task-domain.ts',m=await import(performance.getEntriesByType('resource').find(e=>new URL(e.name).pathname===path)?.name??path)
   const o=m.getPrintWorkOrderById('UPSTREAM-PRINT'),v=m.getPrintingWorkOrderById('UPSTREAM-PRINT')

@@ -15,10 +15,11 @@ import {
   issueTmfMergedContinuousMaterial, receiveTmfMergedProcessingMaterial, reportTmfMergedCutOutput,
   reportTmfCutOutput, getTmfProcessingInputBalance, dispatchTmfContinuousReturn, receiveTmfContinuousReturn,
   dispatchTmfTipMaterial, receiveTmfTipMaterial, reportTmfTipping, receiveTmfTipMaterialStock, dispatchTmfTipMaterialReturn, receiveTmfTipMaterialReturn, getTmfTipMaterialBalance,
-  packTmfOutput, splitTmfOutputPackage, moveTmfOutputPackage, dispatchTmfOutputPackage, receiveTmfOutputPackage,
+  packTmfOutput, splitTmfOutputPackage, moveTmfOutputPackage, dispatchTmfOutputPackage, receiveTmfOutputPackage, freezeTmfSurplusPackage,
   allocateTmfOutputPackage, releaseTmfOutputAllocation, issueTmfProductionPackage, receiveTmfProductionPackage,
   getTmfOutputPackageBalance, getTmfProductionDemandFulfillment,
   changeTmfProductionControl, getTmfProductionDisposition, cancelTmfMaterialPurchaseAfterDisposition,
+  getTmfTerminationReview, closeTmfTermination, scrapTmfContinuousRemaining, scrapTmfFactoryCutPieces, scrapTmfFrozenPackage, retainTmfFrozenPackage, writeOffTmfUpstreamTransit, writeOffTmfProductionTransit,
   saveTmfWorkCost, getTmfWorkCost, getTmfWorkCostReview,
 } from '../../src/data/pms/tmf-material-purchases.ts'
 import { productionOrders, getProductionOrderTechPackSnapshot } from '../../src/data/fcs/production-orders.ts'
@@ -29,6 +30,7 @@ import {
   registerPmsMaterialPurchaseArrival,
 } from '../../src/data/pms/material-purchase-orders.ts'
 import { createPmsTmfTipPurchase } from '../../src/data/pms/material-purchase-orders.ts'
+import { assertTmfTipMaterialMaster } from '../../src/data/pms/tmf-master-registry.ts'
 import { PMS_BUYER_ACTOR } from '../../src/data/pms/runtime.ts'
 
 const buyer: TmfPurchaseActor = { id: PMS_BUYER_ACTOR.id, name: PMS_BUYER_ACTOR.name, role: '采购员' }
@@ -66,7 +68,7 @@ function purchase(id: string, qty: number, sku = 'WB30-WHT'): TmfMaterialPurchas
   return {
     purchaseOrderNo: `${id}-PO`, purchaseLineId: `${id}-PO-L1`, version: 1, supplierId: 'MOCK-SUP-TMF',
     supplierName: 'Mock 织带供货方', factoryOrgId: 'FAC-TMF', materialSkuId: sku, materialSpuId: sku.split('-')[0],
-    accessoryType: sku.startsWith('RP') ? '绳子' : '织带', targetWarehouseId: 'MOCK-ACC-WH', productionStandard: 'Mock 基础生产标准 V1；材料配方待确认',
+    accessoryType: /^(RP|CORD|ROPE)/.test(sku) ? '绳子' : '织带', targetWarehouseId: 'MOCK-ACC-WH', productionStandard: 'Mock 基础生产标准 V1；材料配方待确认',
     requirementNo: '', sourceRequirementLineNo: '', sourceProductPurchaseOrderNo: '', materialCode: sku, materialName: `Mock ${sku}`,
     materialType: '辅料', materialImageUrl: '', unit: '米', styleCode: '', styleName: '', styleImageUrl: '', warehouse: 'Mock 辅料仓',
     orderedQty: qty, receivedQty: 0, unitPrice: 1, currency: 'RMB', status: '待采购', orderDate: '2026-09-20', expectedArrivalDate: '2026-09-25',
@@ -230,6 +232,261 @@ test('B02/B04：多收、错 SKU、错仓和无权限动作不改变任意下游
   receiveTmfBaseProduction(receipt(order, 1000), warehouse, 'B02:correct')
   assert.equal(getPmsMaterialPurchaseOrder(order.purchaseOrderNo)!.receivedQty, 1000)
 
+})
+
+test('OVR-001～003：超产与超收须主管二次确认，计划不扩、幂等且下游一致', () => {
+  const order = purchase('OVR', 1000)
+  const baseId = startScenarioBase(order)
+  reportTmfBaseProduction(baseId, 500, factory, 'OVR:in-plan')
+  const worker: TmfPurchaseActor = { id: 'TMF-WORKER', name: '织带厂员工', role: '织带厂员工' }
+  const supervisor: TmfPurchaseActor = { id: 'ACC-WH-SUP', name: '辅料仓主管', role: '仓库主管' }
+  assert.throws(() => reportTmfBaseProduction(baseId, 600, worker, 'OVR:over-role'), /织带厂主管/)
+  assert.throws(() => reportTmfBaseProduction(baseId, 600, factory, 'OVR:over-unconfirmed'), /二次确认/)
+  assert.throws(() => reportTmfBaseProduction(baseId, 600, factory, 'OVR:over-noreason', { reason: '  ', confirmed: true }), /原因/)
+  assert.equal(getTmfPurchaseState().baseOrders.find((item) => item.id === baseId)!.producedMeters, 500)
+  reportTmfBaseProduction(baseId, 600, factory, 'OVR:over-confirmed', { reason: '试机多产出100米，主管确认', confirmed: true })
+  reportTmfBaseProduction(baseId, 600, factory, 'OVR:over-confirmed', { reason: '试机多产出100米，主管确认', confirmed: true })
+  let state = getTmfPurchaseState()
+  let base = state.baseOrders.find((item) => item.id === baseId)!
+  assert.equal(base.producedMeters, 1100)
+  assert.equal(base.plannedMeters, 1000)
+  assert.deepEqual(base.overProductions!.map((item) => item.meters), [100])
+  dispatchTmfBaseProduction({ baseOrderId: baseId, handoverId: `${order.purchaseOrderNo}:handover`, batchId: `${order.purchaseOrderNo}:batch`, dispatchedMeters: 1100 }, factory, 'OVR:dispatch')
+  const beforeReceive = getTmfPurchaseState()
+  assert.throws(() => receiveTmfBaseProduction(receipt(order, 1100), warehouse, 'OVR:recv-clerk'), /仓库主管/)
+  assert.throws(() => receiveTmfBaseProduction(receipt(order, 1100), supervisor, 'OVR:recv-unconfirmed'), /二次确认/)
+  assert.deepEqual(getTmfPurchaseState(), beforeReceive)
+  receiveTmfBaseProduction({ ...receipt(order, 1100), overReceipt: { reason: '工厂超产10%，仓库主管确认来源', confirmed: true } }, supervisor, 'OVR:recv-sup')
+  receiveTmfBaseProduction({ ...receipt(order, 1100), overReceipt: { reason: '工厂超产10%，仓库主管确认来源', confirmed: true } }, supervisor, 'OVR:recv-sup')
+  state = getTmfPurchaseState()
+  const saved = state.orders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)!
+  assert.equal(saved.receivedQty, 1100)
+  assert.equal(saved.orderedQty, 1000)
+  assert.deepEqual(saved.overReceipts!.map((item) => item.meters), [100])
+  assert.equal(state.lots.find((lot) => lot.sourcePurchaseOrderNo === order.purchaseOrderNo)!.onHandMeters, 1100)
+  assert.throws(() => receiveTmfBaseProduction(receipt(order, 1), supervisor, 'OVR:recv-beyond'), /超过上游实际交出/)
+})
+
+test('MASTER-001～003/005：采购与端头采购映射原型内建主档，缺失阻断且身份稳定', () => {
+  const before = getTmfPurchaseState()
+  assert.throws(() => createTmfMaterialPurchase({ ...purchase('MASTER-GAP-SUP', 100), supplierId: 'UNKNOWN-SUP' }, buyer, 'MASTER-GAP:sup'), /供应商主档/)
+  assert.throws(() => createTmfMaterialPurchase({ ...purchase('MASTER-GAP-SKU', 100), materialSkuId: 'NO-SUCH-SKU' }, buyer, 'MASTER-GAP:sku'), /物料档案/)
+  assert.throws(() => createTmfMaterialPurchase({ ...purchase('MASTER-GAP-WH', 100), targetWarehouseId: 'NO-SUCH-WH' }, buyer, 'MASTER-GAP:wh'), /仓库主档/)
+  assert.deepEqual(getTmfPurchaseState(), before)
+  // MASTER-005：更正为已登记主档后同一操作号继续，不产生重复采购
+  const retry = purchase('MASTER-RETRY', 50)
+  assert.throws(() => createTmfMaterialPurchase({ ...retry, supplierId: 'UNKNOWN-SUP' }, buyer, 'MASTER-RETRY:op'), /供应商主档/)
+  createTmfMaterialPurchase({ ...retry, supplierId: 'TMF-DEMO-SUPPLIER' }, buyer, 'MASTER-RETRY:op')
+  assert.equal(getTmfPurchaseState().orders.filter((item) => item.purchaseOrderNo === retry.purchaseOrderNo).length, 1)
+  // MASTER-001：创建即写入供应方/物料/目标仓主档映射
+  const order = purchase('MASTER-OK', 100)
+  const baseId = startScenarioBase(order)
+  let state = getTmfPurchaseState()
+  const stored = state.orders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)!
+  assert.equal(stored.masterRefs!.supplier.masterId, 'MOCK-SUP-TMF')
+  assert.equal(stored.masterRefs!.supplier.source, 'TMF原型规范主档')
+  assert.equal(stored.masterRefs!.material.masterId, 'WB30-WHT')
+  assert.equal(stored.masterRefs!.material.category, '织带')
+  assert.equal(stored.masterRefs!.warehouse.masterId, 'MOCK-ACC-WH')
+  // MASTER-003：批次沿用同一主档身份；物料档案显示名变化不改变 masterId
+  reportTmfBaseProduction(baseId, 100, factory, 'MASTER-OK:produce')
+  dispatchTmfBaseProduction({ baseOrderId: baseId, handoverId: `${order.purchaseOrderNo}:handover`, batchId: 'MASTER-OK-B', dispatchedMeters: 100 }, factory, 'MASTER-OK:dispatch')
+  receiveTmfBaseProduction(receipt(order, 100), warehouse, 'MASTER-OK:receive')
+  state = getTmfPurchaseState()
+  assert.equal(state.lots.find((item) => item.id === 'MASTER-OK-B')!.materialSkuId, stored.masterRefs!.material.masterId)
+  const archiveBase = { ...purchase('MASTER-ARCHIVE', 20), materialSkuId: 'tmf-webbing-reference-white', materialCode: 'TMF-WB-REF-WHT', materialSpuId: 'tmf-webbing-reference', materialName: '白色织带半成品（幅宽待确认）' }
+  createTmfMaterialPurchase(archiveBase, buyer, 'MASTER-ARCHIVE:create')
+  createTmfMaterialPurchase({ ...archiveBase, purchaseOrderNo: 'MASTER-RENAME-PO', purchaseLineId: 'MASTER-RENAME-PO-L1', materialName: '改名后的显示名称' }, buyer, 'MASTER-RENAME:create')
+  state = getTmfPurchaseState()
+  const archived = state.orders.find((item) => item.purchaseOrderNo === 'MASTER-ARCHIVE-PO')!
+  const renamed = state.orders.find((item) => item.purchaseOrderNo === 'MASTER-RENAME-PO')!
+  assert.equal(archived.masterRefs!.material.source, '物料档案')
+  assert.equal(archived.masterRefs!.material.masterId, renamed.masterRefs!.material.masterId)
+  // MASTER-002：端头辅材映射独立端头主档，单位一致且不得引用织带／绳子 SKU
+  assert.throws(() => assertTmfTipMaterialMaster('NO-SUCH-TIP', '个'), /端头辅材主档/)
+  assert.throws(() => assertTmfTipMaterialMaster('WB30-WHT', '个'), /织带／绳子半成品主档/)
+  assert.throws(() => assertTmfTipMaterialMaster('HEAD-M01', '米'), /单位/)
+  assert.equal(assertTmfTipMaterialMaster('HEAD-M01', '个').source, 'TMF原型规范主档')
+  assert.equal(assertTmfTipMaterialMaster('SILICONE-M01', 'kg').category, '端头辅材')
+})
+
+test('MASTER-004：映射前历史记录保留原快照与未映射标记，不批量改写', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'window')
+  const storage = new Map<string, string>()
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: { getItem: (key: string) => storage.get(key) ?? null, setItem: (key: string, value: string) => { storage.set(key, value) } } } })
+  try {
+    reloadTmfPurchaseRuntime()
+    const order = purchase('MASTER-LEGACY', 30)
+    createTmfMaterialPurchase(order, buyer, 'MASTER-LEGACY:create')
+    const saved = JSON.parse(storage.get(TMF_PURCHASE_STORAGE_KEY)!) as { orders: Array<Record<string, unknown>> }
+    assert.ok(saved.orders[0].masterRefs, '新采购必须写入主档映射')
+    delete saved.orders[0].masterRefs
+    saved.orders[0].supplierName = '历史显示名（未迁移）'
+    storage.set(TMF_PURCHASE_STORAGE_KEY, JSON.stringify(saved))
+    reloadTmfPurchaseRuntime()
+    const loaded = getTmfPurchaseState().orders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)!
+    assert.equal(loaded.masterRefs, undefined)
+    assert.equal(loaded.supplierName, '历史显示名（未迁移）')
+    assert.equal(loaded.materialSkuId, order.materialSkuId)
+    assert.equal(getTmfPurchaseState().orders.filter((item) => item.purchaseOrderNo === order.purchaseOrderNo).length, 1)
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'window', original)
+    else Reflect.deleteProperty(globalThis, 'window')
+    reloadTmfPurchaseRuntime()
+  }
+})
+
+test('TERM-001～005：取消后终止处置台逐项决定，未处置不得结案且数量对账守恒', () => {
+  const order = purchase('TERM', 700, 'CORD-WHT')
+  const baseId = startScenarioBase(order)
+  reportTmfBaseProduction(baseId, 700, factory, 'TERM:produce')
+  dispatchTmfBaseProduction({ baseOrderId: baseId, handoverId: `${order.purchaseOrderNo}:handover`, batchId: 'TERM-BATCH', dispatchedMeters: 700 }, factory, 'TERM:dispatch')
+  receiveTmfBaseProduction(receipt(order, 700), warehouse, 'TERM:receive')
+  const source = productionSource('TERM-PROD')
+  const cut = source.techPackSnapshot.processEntries[0]
+  cut.webbingSpecifications = [cut.webbingSpecifications![0]]
+  source.demandSnapshot.skuLines = [{ skuCode: 'TERM-S', size: 'S', color: '白', qty: 1000 }]
+  source.techPackSnapshot.bomItems[0].materialSkuId = 'CORD-WHT'
+  cut.inputMaterialSkuId = cut.outputMaterialSkuId = 'CORD-WHT'
+  registerTmfProductionOrder(source, planner, 'TERM:demand')
+  const demand = getTmfPurchaseState().demands.find((item) => item.productionOrderId === source.productionOrderId)!
+  reserveTmfContinuousMaterial({ reservationId: 'TERM-RES', demandId: demand.id, lotId: 'TERM-BATCH', reservedMeters: 700, reason: '含损耗与不良余量' }, planner, 'TERM:reserve')
+  issueTmfContinuousMaterial({ issueId: 'TERM-IN', reservationId: 'TERM-RES', targetFactoryId: 'FAC-TMF', dispatchedMeters: 700 }, warehouse, 'TERM:issue')
+  receiveTmfProcessingMaterial({ issueId: 'TERM-IN', factoryId: 'FAC-TMF', materialSkuId: order.materialSkuId, receivedMeters: 700 }, factory, 'TERM:input-receive')
+  reportTmfCutOutput({ outputId: 'TERM-OUT1', issueId: 'TERM-IN', cutPieces: 1300, defectivePieces: 0, actualCutLengthMm: 500, actualFinishedLengthMm: 500, lossMeters: 0, reason: '超需求加工含余量' }, factory, 'TERM:cut1')
+  reportTmfCutOutput({ outputId: 'TERM-OUT2', issueId: 'TERM-IN', cutPieces: 100, defectivePieces: 20, actualCutLengthMm: 500, actualFinishedLengthMm: 500, lossMeters: 0, reason: '试机不良20根' }, factory, 'TERM:cut2')
+  assert.equal(getTmfProcessingInputBalance('TERM-IN').remainingMeters, 0)
+  packTmfOutput({ packageId: 'TERM-PKGA', cutOutputId: 'TERM-OUT1', pieces: 1000 }, factory, 'TERM:packA')
+  dispatchTmfOutputPackage({ handoverId: 'TERM-HOA', packageId: 'TERM-PKGA', warehouseId: order.targetWarehouseId }, factory, 'TERM:dispatchA')
+  receiveTmfOutputPackage({ handoverId: 'TERM-HOA', packageId: 'TERM-PKGA', warehouseId: order.targetWarehouseId, demandId: demand.id, location: 'T-01', receivedPieces: 1000 }, warehouse, 'TERM:receiveA')
+  allocateTmfOutputPackage({ allocationId: 'TERM-AL', packageId: 'TERM-PKGA', demandId: demand.id, pieces: 1000, receiverId: productionReceiver.id, receiverOrganizationId: 'TERM-PROD-ORG' }, planner, 'TERM:allocate')
+  issueTmfProductionPackage({ issueId: 'TERM-PI', allocationId: 'TERM-AL', packageId: 'TERM-PKGA', demandId: demand.id, warehouseId: order.targetWarehouseId, pieces: 300 }, warehouse, 'TERM:issue-prod')
+  receiveTmfProductionPackage({ issueId: 'TERM-PI', packageId: 'TERM-PKGA', demandId: demand.id, receiverOrganizationId: 'TERM-PROD-ORG', pieces: 150 }, productionReceiver, 'TERM:receive-prod')
+  packTmfOutput({ packageId: 'TERM-PKGB', cutOutputId: 'TERM-OUT1', pieces: 200 }, factory, 'TERM:packB')
+  dispatchTmfOutputPackage({ handoverId: 'TERM-HOB', packageId: 'TERM-PKGB', warehouseId: order.targetWarehouseId }, factory, 'TERM:dispatchB')
+  receiveTmfOutputPackage({ handoverId: 'TERM-HOB', packageId: 'TERM-PKGB', warehouseId: order.targetWarehouseId, demandId: demand.id, location: 'T-02', receivedPieces: 200 }, warehouse, 'TERM:receiveB')
+  const whSupervisor: TmfPurchaseActor = { id: 'ACC-WH-SUP', name: '辅料仓主管', role: '仓库主管' }
+  freezeTmfSurplusPackage({ packageId: 'TERM-PKGB', expectedPieces: 200, reason: '超需求余量冻结', confirmed: true }, whSupervisor, 'TERM:freeze')
+  changeTmfProductionControl({ productionOrderId: source.productionOrderId, status: 'CANCELLED', reason: '终止处置测试', confirmed: true }, planner, 'TERM:cancel')
+  const signature = (review: ReturnType<typeof getTmfTerminationReview>) => JSON.stringify({ productionOrderId: review.productionOrderId, controlStatus: review.controlStatus, closure: review.closure, items: review.items, outstandingCount: review.outstandingCount, shortagePieces: review.shortagePieces, disposals: review.disposals })
+  let review = getTmfTerminationReview(source.productionOrderId)
+  assert.deepEqual(review.items.map((item) => [item.category, item.quantity, item.unit]).sort(), [
+    ['DEFECTIVE', 20, '根'], ['FACTORY_CUT', 80, '根'], ['FACTORY_CUT', 100, '根'], ['FROZEN_PACKAGE', 200, '根'], ['PRODUCTION_TRANSIT', 150, '根'],
+  ].sort())
+  assert.throws(() => closeTmfTermination({ id: 'TERM-CLOSE-EARLY', productionOrderId: source.productionOrderId, reason: '提前结案', confirmed: true, expectedReview: signature(review) }, planner, 'TERM:close-early'), /仍有 5 项/)
+  assert.equal(getTmfTerminationReview(source.productionOrderId).closure, null)
+  scrapTmfFactoryCutPieces({ id: 'TERM-FS1', cutOutputId: 'TERM-OUT1', pieces: 100, reason: '停单后在制报废', confirmed: true }, factory, 'TERM:scrap1')
+  scrapTmfFactoryCutPieces({ id: 'TERM-FS2', cutOutputId: 'TERM-OUT2', pieces: 80, reason: '停单后在制报废', confirmed: true }, factory, 'TERM:scrap2')
+  scrapTmfDefectiveOutput({ id: 'TERM-DS', cutOutputId: 'TERM-OUT2', pieces: 20, expectedAvailablePieces: 20, reason: '试机不良报废', confirmed: true }, factory, 'TERM:scrap-defect')
+  retainTmfFrozenPackage({ id: 'TERM-RT', packageId: 'TERM-PKGB', reason: '受控保留待后续处置', confirmed: true }, whSupervisor, 'TERM:retain')
+  writeOffTmfProductionTransit({ id: 'TERM-WO', issueId: 'TERM-PI', reason: '领料方确认少收150根，终止差异', confirmed: true }, planner, 'TERM:writeoff')
+  review = getTmfTerminationReview(source.productionOrderId)
+  assert.equal(review.outstandingCount, 0)
+  assert.equal(review.shortagePieces, 850)
+  assert.throws(() => closeTmfTermination({ id: 'TERM-CLOSE-GAP', productionOrderId: source.productionOrderId, reason: '全部实物与在途已处置', confirmed: true, expectedReview: signature(review) }, planner, 'TERM:close-gap'), /缺口 850/)
+  closeTmfTermination({ id: 'TERM-CLOSE', productionOrderId: source.productionOrderId, reason: '全部实物与在途已处置', confirmed: true, expectedReview: signature(review), makeupOrderNo: 'TERM-MAKEUP-001' }, planner, 'TERM:close')
+  review = getTmfTerminationReview(source.productionOrderId)
+  assert.ok(review.closure)
+  assert.equal(review.closure!.makeupOrderNo, 'TERM-MAKEUP-001')
+  assert.equal(getTmfProductionDisposition(source.productionOrderId).terminationClosedAt, review.closure!.occurredAt)
+  assert.throws(() => retainTmfFrozenPackage({ id: 'TERM-RT2', packageId: 'TERM-PKGB', reason: '重复', confirmed: true }, whSupervisor, 'TERM:retain-after'), /已结案/)
+})
+
+test('GAP-TERM-004：上游未收与生产在途分别确认去向，不可重复登记', () => {
+  const plannerActor: TmfPurchaseActor = { id: 'PLAN', name: '生产计划', role: '生产计划' }
+  const whSupervisor: TmfPurchaseActor = { id: 'ACC-WH-SUP2', name: '辅料仓主管', role: '仓库主管' }
+  assert.throws(() => writeOffTmfUpstreamTransit({ id: 'GAP-UP', issueId: 'NO-SUCH', reason: 'x', confirmed: true }, whSupervisor, 'GAP:up'), /印染上游/)
+  assert.throws(() => writeOffTmfProductionTransit({ id: 'GAP-PI', issueId: 'NO-SUCH', reason: 'x', confirmed: true }, plannerActor, 'GAP:pi'), /不存在/)
+  assert.throws(() => scrapTmfContinuousRemaining({ id: 'GAP-CS', issueId: 'NO-SUCH', meters: 1, reason: 'x', confirmed: true }, factory, 'GAP:cs'), /本厂已接收/)
+})
+
+test('DYE-001～003：染色直交织带厂按实际交出分配实收，追溯原染色单且不重复扣料', async () => {
+  const dyeing = await import('../../src/data/fcs/dyeing-task-domain.ts')
+  const handover = await import('../../src/data/fcs/pda-handover-events.ts')
+  const { assertTmfDyeCutContinuation } = await import('../../src/data/fcs/tmf-process-continuation.ts')
+  const m = await import('../../src/data/pms/tmf-material-purchases.ts')
+  const p = purchase('DYE-DIRECT', 100); p.materialImageUrl = '/materials/tmf/webbing-real-roll.jpg'
+  prepare(p); receiveTmfBaseProduction(receipt(p, 100), warehouse, 'DYE:base')
+  const lot = getTmfPurchaseState().lots.find((item) => item.sourcePurchaseOrderNo === p.purchaseOrderNo)!.id
+  const source = productionSource('DYE-PROD'), cut = source.techPackSnapshot.processEntries[0]
+  cut.webbingSpecifications = [cut.webbingSpecifications![0]]
+  source.demandSnapshot.skuLines = [{ skuCode: 'DYE-S', size: 'S', color: '白', qty: 100 }]
+  const dyeEntry = { ...structuredClone(cut), id: 'DYE', processCode: 'DYE', processName: '染色', inputMaterialSkuId: 'WB30-WHT', inputMaterialSkuCode: 'WB30-WHT', outputMaterialSkuId: 'WB30-CBL01', outputMaterialSkuCode: 'WB30-CBL01', outputMaterialName: '蓝色织带', inputInventoryForm: 'CONTINUOUS' as const, outputInventoryForm: 'CONTINUOUS' as const, outputMaterialSkuMode: 'CHANGED' as const, predecessorEntryIds: [] as string[], webbingSpecifications: undefined }
+  cut.inputMaterialSkuId = cut.outputMaterialSkuId = 'WB30-CBL01'; cut.predecessorEntryIds = ['DYE']
+  source.techPackSnapshot.processEntries = [dyeEntry, cut]
+  const full = { ...structuredClone(productionOrders.find((o) => o.techPackSnapshot)!), ...source, selectedTechPackVersionId: source.techPackSnapshot.sourceTechPackVersionId, processWorkOrderDefinitions: [], auditLogs: [] }
+  productionOrders.push(full)
+  registerTmfProductionOrder(full, planner, 'DYE:demands')
+  const demand = getTmfPurchaseState().demands.find((item) => item.productionOrderId === source.productionOrderId)!
+  // 接续校验契约：必须唯一直接前后工序、连续辅料、同版本同SKU，且不得已有印花下游
+  const pack = full.techPackSnapshot
+  const validDye = { sourceSnapshot: { sourceType: 'PRODUCTION_ORDER' as const, productionOrderId: full.productionOrderId, techPackVersionId: pack.sourceTechPackVersionId, processEntryId: 'DYE', bomItemId: 'BOM-WB' }, status: 'FULL_HANDOVER' as const, qtyUnit: '米', dyeFactoryId: 'F-DYE', outputMaterial: { sku: 'WB30-CBL01' }, changeImpact: [] }
+  assertTmfDyeCutContinuation(validDye as never, 'CUT', pack)
+  assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, downstreamWorkOrderId: 'PRINT-X' } as never, 'CUT', pack), /下游印花单/)
+  assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, outputMaterial: { sku: 'WRONG' } } as never, 'CUT', pack), /SKU不一致/)
+  assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, qtyUnit: 'kg' } as never, 'CUT', pack), /计量单位/)
+  // 正式登记一张直接截断路线的染色单（工厂 F090），再以运行态夹具补齐接续字段
+  const original = dyeing.captureDyeProcessMutationState()
+  const registered = dyeing.registerFormalProductionOrderDyeWorkOrder({
+    workOrderId: 'DYE-DIRECT-ORDER', workOrderNo: 'DYE-DIRECT-ORDER', sourceKey: 'DYE-DIRECT-ORDER', processName: '染色',
+    sourceSnapshot: { sourceType: 'PRODUCTION_ORDER', productionOrderId: full.productionOrderId, productionOrderNo: full.productionOrderNo, techPackVersionId: pack.sourceTechPackVersionId, techPackVersionLabel: 'V1', processEntryId: 'DYE', routeObjectKey: 'BOM:BOM-WB', bomItemId: 'BOM-WB' },
+    productionOrderId: full.productionOrderId, productionOrderNo: full.productionOrderNo, techPackVersionId: pack.sourceTechPackVersionId, techPackVersionLabel: 'V1', processEntryId: 'DYE', routeObjectKey: 'BOM:BOM-WB',
+    orderedAt: '2026-09-20 08:00:00', materialId: 'WB30-WHT', materialName: '测试织带',
+    materialItems: [{ sourceBomItemId: 'BOM-WB', materialId: 'WB30-WHT', materialName: '测试织带', materialType: '辅料' }],
+    inputMaterialSkuId: 'WB30-WHT', inputMaterialSkuCode: 'WB30-WHT', outputMaterialSkuId: 'WB30-CBL01', outputMaterialSkuCode: 'WB30-CBL01',
+    plannedQty: 100, qtyUnit: '米', processCodes: ['DYE'], spuCode: 'TEST', spuName: '测试款式', requiredDeliveryDate: '2026-09-25',
+    factoryId: 'F090', factoryName: '测试染色厂',
+  } as never)
+  const dyeOrderId = registered.dyeOrderId
+  const seeded = dyeing.captureDyeProcessMutationState()
+  const seed = seeded.workOrders.find(([id]) => id === dyeOrderId)![1]
+  seed.status = 'FULL_HANDOVER'
+  seed.rawMaterialSku = 'WB30-WHT'
+  seed.qtyUnit = '米'
+  seed.outputMaterial = { sku: 'WB30-CBL01', name: '蓝色织带' } as never
+  seed.changeImpact = []
+  seed.downstreamWorkOrderId = undefined
+  seed.productionPrintContinuation = undefined
+  seed.productionTmfContinuation = { cutEntryId: 'CUT', factoryId: 'FAC-TMF', factoryName: 'TMF - 辅料厂' }
+  seed.handoverOrderId = 'DYE-DIRECT-HEAD'
+  dyeing.restoreDyeProcessMutationState(seeded)
+  try {
+    const taskId = registered.taskId
+    const dyeFactoryId = dyeing.getDyeWorkOrderById(dyeOrderId)!.dyeFactoryId
+    handover.upsertPdaHandoverHeadMock({ handoverId: 'DYE-DIRECT-HEAD', handoverOrderId: 'DYE-DIRECT-HEAD', handoverOrderNo: 'DYE-DIRECT-HEAD', headType: 'HANDOUT', qrCodeValue: 'DYE-DIRECT-HEAD', taskId, taskNo: 'DYE-DIRECT', sourceType: 'PRODUCTION_ORDER', sourceSnapshot: seed.sourceSnapshot, productionOrderId: full.productionOrderId, productionOrderNo: full.productionOrderNo, processName: '染色', processBusinessCode: 'DYE', sourceFactoryName: '测试染色厂', sourceFactoryId: 'F-DYE', targetName: 'TMF - 辅料厂', targetKind: 'FACTORY', receiverKind: 'FACTORY', receiverId: 'FAC-TMF', receiverName: 'TMF - 辅料厂', qtyUnit: '米', factoryId: 'F-DYE', taskStatus: 'IN_PROGRESS', summaryStatus: 'WAIT_RECEIVE', recordCount: 1, pendingWritebackCount: 1, writtenBackQtyTotal: 0, sourceBusinessType: 'DYE_WORK_ORDER', sourceDocId: dyeOrderId, sourceDocNo: dyeOrderId } as never)
+    handover.upsertPdaHandoutRecordMock({ recordId: 'DYE-DIRECT-REC', handoverRecordId: 'DYE-DIRECT-REC', handoverId: 'DYE-DIRECT-HEAD', handoverOrderId: 'DYE-DIRECT-HEAD', taskId, sequenceNo: 1, submittedQty: 100, qtyUnit: '米', factorySubmittedAt: '2026-09-20 09:30:00', factorySubmittedBy: '测试染色员', skuCode: 'WB30-CBL01', materialCode: 'WB30-CBL01', materialName: '蓝色织带', sourceType: 'PRODUCTION_ORDER', sourceSnapshot: seed.sourceSnapshot, productionOrderNo: full.productionOrderNo, productionOrderId: full.productionOrderId, handoverRecordStatus: 'WAIT_RECEIVE' } as never)
+    // 仓库按路线发给染色厂，形成首次印染发料来源
+    reserveTmfContinuousMaterial({ reservationId: 'DYE-RES', demandId: demand.id, lotId: lot, reservedMeters: 100, reason: '染色投入' }, planner, 'DYE:reserve')
+    await m.issueTmfUpstreamMaterial({ issueId: 'DYE-FIRST', reservationId: 'DYE-RES', targetFactoryId: dyeFactoryId, dispatchedMeters: 100 }, warehouse, 'DYE:issue')
+    const first = getTmfPurchaseState().processingIssues.find((item) => item.id === 'DYE-FIRST')!
+    assert.equal(first.upstream!.orderId, dyeOrderId)
+    // 染色实际交出100米按需求分配；合计不得超交出量
+    await assert.rejects(m.allocateTmfDyeHandover({ orderId: dyeOrderId, recordId: 'DYE-DIRECT-REC', lines: [{ issueId: 'DYE-IN', demandId: demand.id, sourceIssueId: 'DYE-FIRST', meters: 101 }] }, planner, 'DYE:allocate-over'), /超过染色实际交出量/)
+    await m.allocateTmfDyeHandover({ orderId: dyeOrderId, recordId: 'DYE-DIRECT-REC', lines: [{ issueId: 'DYE-IN', demandId: demand.id, sourceIssueId: 'DYE-FIRST', meters: 100 }] }, planner, 'DYE:allocate')
+    await assert.rejects(m.allocateTmfDyeHandover({ orderId: dyeOrderId, recordId: 'DYE-DIRECT-REC', lines: [{ issueId: 'DYE-IN-2', demandId: demand.id, sourceIssueId: 'DYE-FIRST', meters: 1 }] }, planner, 'DYE:allocate-again'), /超过染色实际交出量/)
+    const allocation = getTmfPurchaseState().processingIssues.find((item) => item.id === 'DYE-IN')!
+    assert.equal(allocation.dyeHandover!.sourceIssueId, 'DYE-FIRST')
+    assert.equal(allocation.targetRouteEntryId, 'CUT')
+    assert.equal(getTmfProcessingInputBalance('DYE-IN').receivedMeters, 0)
+    await m.receiveTmfDyeMaterial({ issueId: 'DYE-IN', materialSkuId: 'WB30-CBL01', receivedMeters: 60 }, factory, 'DYE:receive')
+    await m.receiveTmfDyeMaterial({ issueId: 'DYE-IN', materialSkuId: 'WB30-CBL01', receivedMeters: 60 }, factory, 'DYE:receive')
+    assert.equal(getTmfProcessingInputBalance('DYE-IN').receivedMeters, 60)
+    await assert.rejects(m.receiveTmfDyeMaterial({ issueId: 'DYE-IN', materialSkuId: 'WB30-CBL01', receivedMeters: 41 }, factory, 'DYE:receive-over'), /超过/)
+    // 截断、余料退回、回仓、领料实收均基于染色实际交出分配，不重复扣料
+    reportTmfCutOutput({ outputId: 'DYE-OUT', issueId: 'DYE-IN', cutPieces: 100, defectivePieces: 0, actualCutLengthMm: 500, actualFinishedLengthMm: 500, lossMeters: 0, reason: '' }, factory, 'DYE:cut')
+    assert.equal(getTmfProcessingInputBalance('DYE-IN').remainingMeters, 10)
+    dispatchTmfContinuousReturn({ returnId: 'DYE-RET', issueId: 'DYE-IN', batchId: 'DYE-RET-BATCH', returnedMeters: 10, reason: '未用连续料退回' }, factory, 'DYE:return')
+    receiveTmfContinuousReturn({ returnId: 'DYE-RET', warehouseId: p.targetWarehouseId, materialSkuId: 'WB30-CBL01', location: 'D-01', receivedMeters: 10 }, warehouse, 'DYE:return-receive')
+    packTmfOutput({ packageId: 'DYE-PKG', cutOutputId: 'DYE-OUT', pieces: 100 }, factory, 'DYE:pack')
+    dispatchTmfOutputPackage({ handoverId: 'DYE-HANDOVER', packageId: 'DYE-PKG', warehouseId: p.targetWarehouseId }, factory, 'DYE:handover')
+    receiveTmfOutputPackage({ handoverId: 'DYE-HANDOVER', packageId: 'DYE-PKG', warehouseId: p.targetWarehouseId, demandId: demand.id, location: 'D-02', receivedPieces: 100 }, warehouse, 'DYE:wh-receive')
+    allocateTmfOutputPackage({ allocationId: 'DYE-ALLOC', packageId: 'DYE-PKG', demandId: demand.id, pieces: 100, receiverId: productionReceiver.id, receiverOrganizationId: 'DYE-PROD-ORG' }, planner, 'DYE:alloc-out')
+    issueTmfProductionPackage({ issueId: 'DYE-PI', allocationId: 'DYE-ALLOC', packageId: 'DYE-PKG', demandId: demand.id, warehouseId: p.targetWarehouseId, pieces: 100 }, warehouse, 'DYE:issue-prod')
+    receiveTmfProductionPackage({ issueId: 'DYE-PI', packageId: 'DYE-PKG', demandId: demand.id, receiverOrganizationId: 'DYE-PROD-ORG', pieces: 100 }, productionReceiver, 'DYE:receive-prod')
+    assert.equal(getTmfProductionDemandFulfillment(demand.id).status, '已满足')
+  } finally {
+    dyeing.restoreDyeProcessMutationState(original)
+  }
 })
 
 test('采购追加：未开始同步计划，已执行保留原计划和实物并处理变更', () => {
@@ -776,7 +1033,7 @@ test('N04：采购100米→单端硅胶按kg实耗→回仓发料→生产实收
 })
 
 test('B15：截断后取消保留1000根在制和1260米当量，释放未发占用并只退连续余料', () => {
-  const order = purchase('B15-CANCEL', 1300, 'ROPE-WHT')
+  const order = purchase('B15-CANCEL', 1300, 'CORD-WHT')
   order.accessoryType = '绳子'
   prepare(order)
   receiveTmfBaseProduction(receipt(order, 1300), warehouse, 'B15:base-receive')
@@ -1918,7 +2175,7 @@ test('B23未执行采购1000减900：版本留痕、旧预览阻断、重接单�
  assert.deepEqual(getTmfPurchaseState(),changed)
  assert.throws(()=>startTmfBaseOrder(baseId,factory,'B23-REDUCE:early-start'),/接单/)
  acceptTmfBaseOrder(baseId,factory,'B23-REDUCE:accept');startTmfBaseOrder(baseId,factory,'B23-REDUCE:start')
- assert.throws(()=>reportTmfBaseProduction(baseId,1000,factory,'B23-REDUCE:over'),/超过/)
+  assert.throws(()=>reportTmfBaseProduction(baseId,1000,factory,'B23-REDUCE:over'),/二次确认/)
  reportTmfBaseProduction(baseId,900,factory,'B23-REDUCE:produce')
  dispatchTmfBaseProduction({baseOrderId:baseId,handoverId:`${p.purchaseOrderNo}:handover`,batchId:`${p.purchaseOrderNo}:batch`,dispatchedMeters:900},factory,'B23-REDUCE:dispatch')
  receiveTmfBaseProduction(receipt(p,900),warehouse,'B23-REDUCE:receive')

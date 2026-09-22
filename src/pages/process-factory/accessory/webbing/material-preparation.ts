@@ -1,5 +1,6 @@
 import { getWebbingPhysicalSpecificationKey } from '../../../../data/fcs/webbing-specifications.ts'
 import {readTmfUpstreamProcessOrders} from '../../../../data/fcs/tmf-upstream-process-orders.ts'
+import {resolveTmfDyeOutputReference} from '../../../../data/fcs/tmf-reference-images.ts'
 import {getTmfUpstreamReceivedMeters,tmfUpstreamReceivingId} from '../../../../data/fcs/tmf-upstream-receiving.ts'
 // @page-pattern: list
 import { renderTmfTipMaterialDispatchForm, readTmfTipMaterialDispatchForm } from './tip-material-dispatch-form.ts'
@@ -51,7 +52,7 @@ function open(id:string,next='prepare',reservationId=''){
  if(next==='tip-return'){
   const data=getTmfPurchaseState(),returned=data.tipMaterialReturns.find(r=>r.id===reservationId),issue=data.tipMaterialIssues.find(i=>i.id===returned?.sourceIssueId&&i.demandId===id),lot=data.tipMaterialLots.find(l=>l.id===returned?.stockLotId)
   if(!returned||!issue||!lot)throw new Error('辅材退料不属于当前需求或缺来源批次。')
-  content+=`<p class="mt-3">${e(lot.materialSkuId)} · 退料 ${e(returned.id)}；待收 ${round(returned.dispatchedQty-returned.receivedQty)} ${lot.unit}</p><p>回原仓 ${e(lot.warehouseId)} / ${e(lot.location)}，原批次 ${e(lot.id)}</p><p class="text-xs text-amber-700">辅材实图待补，请核对实际物料</p>`+field('returnScan','扫描退料单号')+field('sku','扫描辅材SKU')+field('quantity',`本次实收（${lot.unit}）`,'number')+'<label class="flex gap-2 mt-3 text-sm"><input name="confirmed" type="checkbox">确认未用辅材与来源规格一致，实物已回原仓原库位</label>'
+  content+=`<p class="mt-3">${e(lot.materialSkuId)} · 退料 ${e(returned.id)}；待收 ${round(returned.dispatchedQty-returned.receivedQty)} ${lot.unit}</p><p>回原仓 ${e(lot.warehouseId)} / ${e(lot.location)}，原批次 ${e(lot.id)}</p><p class="text-xs text-slate-500">端头参考图见技术包端头要求；请核对实际物料</p>`+field('returnScan','扫描退料单号')+field('sku','扫描辅材SKU')+field('quantity',`本次实收（${lot.unit}）`,'number')+'<label class="flex gap-2 mt-3 text-sm"><input name="confirmed" type="checkbox">确认未用辅材与来源规格一致，实物已回原仓原库位</label>'
  }
  if(next==='merge'){
   const data=getTmfPurchaseState(),key=getWebbingPhysicalSpecificationKey(row.d.specification)
@@ -64,12 +65,12 @@ function open(id:string,next='prepare',reservationId=''){
  }
  if(next==='tip-issue')content+=renderTmfTipMaterialDispatchForm(row.d)
  if(next==='reserve')content+=select('lot','可用实收批次','<option value="">请选择批次</option>'+row.lots.filter(l=>l.onHandMeters-l.reservedMeters-l.frozenMeters>0).map(l=>`<option value="${e(l.id)}">${e(l.id)} · ${e(l.materialSkuId)} · 投入${e(getTmfContinuousLotEntry(row.d.id,l.id)?.processName??'待核对')} · ${e(l.warehouseId)} / ${e(l.location)} · 可用 ${round(l.onHandMeters-l.reservedMeters-l.frozenMeters)} 米</option>`).join(''))+field('quantity','本次占用（米）','number')+field('reason','超过理论需求时填写损耗或补做依据')
- if(next==='reserve'&&row.lots.some(l=>l.materialSkuId!==row.d.sourceMaterialSkuId))content+='<p class="text-xs text-amber-700 mt-2">加工后半成品对应实物图待补；首道物料图片不代表染色或印花后的实物。</p>'
+ if(next==='reserve'&&row.lots.some(l=>l.materialSkuId!==row.d.sourceMaterialSkuId)){const processed=row.lots.find(l=>l.materialSkuId!==row.d.sourceMaterialSkuId);content+=`<figure class="mt-2 flex items-center gap-2"><img src="${e(resolveTmfDyeOutputReference(processed?.materialSkuId??''))}" alt="加工后半成品参考图" class="h-14 w-14 rounded border object-cover" loading="lazy"><figcaption class="text-xs text-slate-500">加工后半成品参考图（${e(processed?.materialSkuId??'')}）；实物以原加工产出记录为准</figcaption></figure>`}
  if(next==='release'||next==='issue'){
   const r=row.reservations.find(r=>r.id===reservationId);if(!r)throw new Error('占用不属于当前需求。')
   const target=getTmfContinuousLotEntry(row.d.id,r.lotId);if(!target)throw new Error('批次投入来源失效，请重新核对。')
   content+=`<p class="mt-3">批次 ${e(r.lotId)}；当前未发占用 ${r.reservedMeters} 米</p><p class="text-sm">实际SKU ${e(row.lots.find(l=>l.id===r.lotId)?.materialSkuId??'待核对')} · 投入 ${e(target.processName)}${r.targetRouteEntryId?'；已加工回仓连续料，按截断要求使用':''}</p>`+field('quantity',next==='release'?'本次释放（米）':'本次实际发出（米）','number')
-  if(r.targetRouteEntryId)content+='<p class="text-xs text-amber-700 mt-2">缺此加工后SKU的对应实物图，须补齐原加工产出资料。</p>'
+  if(r.targetRouteEntryId)content+='<p class="text-xs text-slate-500 mt-2">加工后SKU按参考图核对；实物以原加工产出记录为准。</p>'
   content+=next==='release'?field('reason','释放原因')+'<label class="flex gap-2 mt-3 text-sm"><input name="confirmed" type="checkbox">确认只释放未发占用，已发物料不撤回</label>':field('issue','本次发料单号')+field('batch','扫描实物批次')+field('sku','扫描物料SKU')+`<p class="mt-3 text-sm">${target.processCode==='WEBBING_CUT'?'接收工厂：TMF－辅料厂': '接收工厂按首道正式印染加工单核对'}。</p>${target.processCode==='WEBBING_CUT'?'':'<p data-tmf-expected-factory class="text-sm mt-2">正在读取正式加工单接收工厂…</p><label class="block mt-2 text-sm">扫描确认接收工厂编号<input name="targetFactory" class="border rounded p-2 w-full"></label>'}<label class="flex gap-2 mt-3 text-sm"><input name="confirmed" type="checkbox">确认批次、米数及接收工厂与实物交接一致</label>`
  }
  const surface=root()!.querySelector('[data-tmf-preparation-dialog]')!;surface.innerHTML=renderDialog({title:({'tip-return':'未用辅材回仓实收','tip-issue':'打头辅材实际发出',prepare:'连续料备料与发出',reserve:'占用连续半成品',release:'释放未发占用',issue:'实际交出连续料',merge:'同规格合并发料'})[next]??'备料',width:'lg',closeAction:{prefix,action:'close',skipPageRerender:true}},`<div class="max-h-[60vh] overflow-y-auto">${content}</div><p role="alert" data-tmf-preparation-error class="text-red-700 text-sm"></p>`,action('close','关闭')+(next==='prepare'?'':action('confirm','确认')));hydrateIcons(surface);surface.setAttribute('tabindex','-1');(surface as HTMLElement).focus({preventScroll:true})

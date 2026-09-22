@@ -46,6 +46,18 @@ export const renderTmfBasePage = createAsyncRenderer<['purchase-demands' | 'base
   () => import('../pages/process-factory/accessory/webbing/base-orders.ts'),
   'renderTmfBasePage',
 )
+export const renderTmfPendingReceiptsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/pending-receipts.ts'),
+  'renderTmfPendingReceiptsPage',
+)
+export const renderTmfHandoverRecordsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/handover-records.ts'),
+  'renderTmfHandoverRecordsPage',
+)
+export const renderTmfPdaExecution = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/pda-execution.ts'),
+  'renderTmfPdaExecution',
+)
 export const renderLaceWorkOrdersPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/lace/work-orders'),
   'renderLaceWorkOrdersPage',

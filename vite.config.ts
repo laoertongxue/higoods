@@ -108,7 +108,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     watch: {
-      ignored: ['**/output/**', '**/test-results/**'],
+      ignored: ['**/output/**', '**/test-results/**', '**/docs/**'],
     },
   },
   build: {

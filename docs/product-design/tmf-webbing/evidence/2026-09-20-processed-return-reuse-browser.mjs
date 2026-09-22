@@ -18,7 +18,7 @@ try{
  await root.waitFor();await root.locator('[name="keyword"]').fill('PRINTREUSE-PROD');await act('query').click();await act('prepare').click();await act('reserve').click()
  const options=await surface.locator('[name="lot"]').innerText();assert.match(options,/PATTERN · 投入织带截断/)
  await surface.locator('[name="lot"]').selectOption('PRINTBACK-RETURN-LOT-0');await surface.locator('[name="quantity"]').fill('4');await surface.locator('[name="reason"]').fill('同花型回仓余料直接截断');await act('confirm').click()
- await act('issue').click();assert.match(await surface.innerText(),/实际SKU PATTERN · 投入\s*织带截断/);assert.match(await surface.innerText(),/接收工厂：TMF/);assert.match(await surface.innerText(),/缺此加工后SKU的对应实物图/);assert.equal(await surface.locator('[name="targetFactory"]').count(),0)
+ await act('issue').click();assert.match(await surface.innerText(),/实际SKU PATTERN · 投入\s*织带截断/);assert.match(await surface.innerText(),/接收工厂：TMF/);assert.match(await surface.innerText(),/加工后SKU按参考图核对/);assert.equal(await surface.locator('[name="targetFactory"]').count(),0)
  await surface.locator('[name="quantity"]').fill('4');await surface.locator('[name="issue"]').fill('PRINTREUSE');await surface.locator('[name="batch"]').fill('PRINTBACK-RETURN-LOT-0');await surface.locator('[name="sku"]').fill('WB30-WHT');await surface.locator('[name="confirmed"]').check();await act('confirm').click();assert.match(await surface.innerText(),/所扫批次或SKU不符/)
  await surface.locator('[name="sku"]').fill('PATTERN');await act('confirm').click();await page.waitForFunction(()=>document.querySelector('[data-tmf-preparation-feedback]')?.textContent.includes('已保存本次记录'))
  await page.reload();await root.waitFor()

@@ -55,6 +55,10 @@ const renderTmfOutputStockPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/webbing/output-stock'),
   'renderTmfOutputStockPage',
 )
+const renderTmfContinuousStockPage = createAsyncRenderer(
+  () => import('../pages/process-factory/accessory/webbing/continuous-stock'),
+  'renderTmfContinuousStockPage',
+)
 const renderWlsAccessoryReceiptsPage = createAsyncRenderer(
   () => import('../pages/wls-accessory-receipts'),
   'renderWlsAccessoryReceiptsPage',
@@ -128,6 +132,7 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/wls/accessory-base-materials': () => renderTmfRawWarehousePage('raw-warehouse'),
   '/wls/accessory-material-preparation': () => renderTmfMaterialPreparationPage(),
   '/wls/accessory-production-stock': () => renderTmfOutputStockPage(),
+  '/wls/accessory-continuous-stock': () => renderTmfContinuousStockPage(),
   '/wls/accessory-receipts': () => renderWlsAccessoryReceiptsPage(),
   '/wls/garment-spu-replacements': () => renderWlsGarmentSpuReplacementsPage(),
   '/wls/garment-relabel-tasks': () => renderWlsGarmentRelabelTasksPage(),
