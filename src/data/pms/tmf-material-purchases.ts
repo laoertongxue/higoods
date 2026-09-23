@@ -1721,11 +1721,9 @@ function tmfTerminationItems(draft: TmfPurchaseState, productionOrderId: string)
   const items: TmfTerminationItem[] = []
   const disposals = draft.terminationDisposals.filter((item) => item.productionOrderId === productionOrderId)
   const retainedPackages = new Set(disposals.filter((item) => item.action === 'RETAIN_FROZEN').map((item) => item.objectId))
-  const scrapQuantity = (category: TmfTerminationCategory, objectId: string) => disposals
-    .filter((item) => item.category === category && item.objectId === objectId && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0)
 
   for (const issue of draft.processingIssues.filter((item) => ids.has(item.demandId) && item.targetFactoryId === TMF_FACTORY_ID)) {
-    const remaining = add(tmfInputRemainingOn(draft, issue), -scrapQuantity('CONTINUOUS_REMAINING', issue.id))
+    const remaining = tmfInputRemainingOn(draft, issue)
     const demand = demands.find((item) => item.id === issue.demandId)!
     if (remaining > 0.000001) items.push({ category: 'CONTINUOUS_REMAINING', objectId: issue.id, label: `厂内连续余料 · ${demand.garmentSize} ${demand.specification.cutLengthMm}mm`, quantity: remaining, unit: '米', actions: ['SCRAP'], custodian: 'TMF', detail: `投入 ${issue.id}；可退回原仓或主管确认报废` })
   }
@@ -1744,7 +1742,7 @@ function tmfTerminationItems(draft: TmfPurchaseState, productionOrderId: string)
     }
   }
   for (const pkg of draft.packages.filter((item) => !item.splitAt && ids.has(item.demandId) && (item.surplusFreeze || item.versionFreeze))) {
-    const onHand = Math.max(0, outputPackageBalance(draft, pkg.id).onHandPieces - scrapQuantity('FROZEN_PACKAGE', pkg.id))
+    const onHand = Math.max(0, outputPackageBalance(draft, pkg.id).onHandPieces)
     if (onHand > 0 && !retainedPackages.has(pkg.id)) items.push({ category: 'FROZEN_PACKAGE', objectId: pkg.id, label: `冻结产出 · 包 ${pkg.id}`, quantity: onHand, unit: pkg.unit, actions: ['SCRAP', 'RETAIN_FROZEN'], custodian: pkg.warehouseId ? 'WAREHOUSE' : 'TMF', detail: pkg.surplusFreeze ? `余量冻结：${pkg.surplusFreeze.reason}` : `换版冻结：${pkg.versionFreeze?.reason ?? ''}` })
   }
   for (const issue of draft.processingIssues.filter((item) => ids.has(item.demandId) && item.upstream && !item.transitWriteOff)) {
@@ -1797,7 +1795,7 @@ export function scrapTmfContinuousRemaining(
     const demand = draft.demands.find((item) => item.id === issue.demandId)!
     assertTmfTerminationOpen(draft, demand.productionOrderId)
     if (draft.continuousScraps.some((item) => item.id === input.id)) throw new Error('处置编号已使用，请查看原记录。')
-    const remaining = add(tmfInputRemainingOn(draft, issue), -draft.terminationDisposals.filter((item) => item.category === 'CONTINUOUS_REMAINING' && item.objectId === issue.id && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0))
+    const remaining = tmfInputRemainingOn(draft, issue)
     if (input.meters > remaining + 0.000001) throw new Error(`本次报废超过厂内剩余 ${remaining} 米。`)
     draft.continuousScraps.push({ id: input.id, issueId: issue.id, meters: input.meters, reason: input.reason.trim(), scrappedAt: at, actor: structuredClone(actor) })
     draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'CONTINUOUS_REMAINING', action: 'SCRAP', objectId: issue.id, quantity: input.meters, unit: '米', reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })

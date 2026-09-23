@@ -399,6 +399,8 @@ test('TERM-001～005：取消后终止处置台逐项决定，未处置不得结
   scrapTmfFactoryCutPieces({ id: 'TERM-FS1', cutOutputId: 'TERM-OUT1', pieces: 100, reason: '停单后在制报废', confirmed: true }, factory, 'TERM:scrap1')
   scrapTmfFactoryCutPieces({ id: 'TERM-FS2', cutOutputId: 'TERM-OUT2', pieces: 80, reason: '停单后在制报废', confirmed: true }, factory, 'TERM:scrap2')
   scrapTmfDefectiveOutput({ id: 'TERM-DS', cutOutputId: 'TERM-OUT2', pieces: 20, expectedAvailablePieces: 20, reason: '试机不良报废', confirmed: true }, factory, 'TERM:scrap-defect')
+  scrapTmfFrozenPackage({ id: 'TERM-FROZEN-SCRAP', packageId: 'TERM-PKGB', pieces: 50, reason: '冻结实物部分报废', confirmed: true }, whSupervisor, 'TERM:scrap-frozen')
+  assert.equal(getTmfTerminationReview(source.productionOrderId).items.find((item) => item.category === 'FROZEN_PACKAGE')?.quantity, 150)
   retainTmfFrozenPackage({ id: 'TERM-RT', packageId: 'TERM-PKGB', reason: '受控保留待后续处置', confirmed: true }, whSupervisor, 'TERM:retain')
   writeOffTmfProductionTransit({ id: 'TERM-WO', issueId: 'TERM-PI', reason: '领料方确认少收150根，终止差异', confirmed: true }, planner, 'TERM:writeoff')
   review = getTmfTerminationReview(source.productionOrderId)
