@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-23T10:48:00.513Z",
+  "generatedAt": "2026-09-23T11:03:50.248Z",
   "branch": "codex/tmf-audit-fixes",
-  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
+  "head": "219ce8aa3ab9308662bba3ca294c16e08839b25f",
   "rounds": [
     {
       "name": "第一轮：正向追踪（方案/Mock→矩阵→实现/证据）",
@@ -94,152 +94,152 @@
         {
           "name": "R1-FULL-PERFORMANCE-APPLICABLE",
           "ok": true,
-          "detail": "{\"samples\":350,\"failed\":0,\"maxMs\":399.4}"
+          "detail": "{\"samples\":350,\"failed\":0,\"maxMs\":309}"
         },
         {
           "name": "R1-SCENARIO-N01-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=702"
+          "detail": "occurrences=703"
         },
         {
           "name": "R1-SCENARIO-N02-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=321"
+          "detail": "occurrences=322"
         },
         {
           "name": "R1-SCENARIO-N03-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=264"
+          "detail": "occurrences=265"
         },
         {
           "name": "R1-SCENARIO-N04-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=478"
+          "detail": "occurrences=479"
         },
         {
           "name": "R1-SCENARIO-N05-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=691"
+          "detail": "occurrences=692"
         },
         {
           "name": "R1-SCENARIO-B01-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=149"
+          "detail": "occurrences=150"
         },
         {
           "name": "R1-SCENARIO-B02-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=150"
+          "detail": "occurrences=151"
         },
         {
           "name": "R1-SCENARIO-B03-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=150"
+          "detail": "occurrences=151"
         },
         {
           "name": "R1-SCENARIO-B04-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=143"
+          "detail": "occurrences=144"
         },
         {
           "name": "R1-SCENARIO-B05-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=133"
+          "detail": "occurrences=134"
         },
         {
           "name": "R1-SCENARIO-B06-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=124"
+          "detail": "occurrences=125"
         },
         {
           "name": "R1-SCENARIO-B07-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=106"
+          "detail": "occurrences=107"
         },
         {
           "name": "R1-SCENARIO-B08-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=101"
+          "detail": "occurrences=102"
         },
         {
           "name": "R1-SCENARIO-B09-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=191"
+          "detail": "occurrences=192"
         },
         {
           "name": "R1-SCENARIO-B10-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=46"
+          "detail": "occurrences=47"
         },
         {
           "name": "R1-SCENARIO-B11-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=22"
+          "detail": "occurrences=23"
         },
         {
           "name": "R1-SCENARIO-B12-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=33"
+          "detail": "occurrences=34"
         },
         {
           "name": "R1-SCENARIO-B13-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=27"
+          "detail": "occurrences=28"
         },
         {
           "name": "R1-SCENARIO-B14-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=107"
+          "detail": "occurrences=108"
         },
         {
           "name": "R1-SCENARIO-B15-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=153"
+          "detail": "occurrences=154"
         },
         {
           "name": "R1-SCENARIO-B16-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=34"
+          "detail": "occurrences=35"
         },
         {
           "name": "R1-SCENARIO-B17-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=74"
+          "detail": "occurrences=75"
         },
         {
           "name": "R1-SCENARIO-B18-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=115"
+          "detail": "occurrences=116"
         },
         {
           "name": "R1-SCENARIO-B19-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=27"
+          "detail": "occurrences=28"
         },
         {
           "name": "R1-SCENARIO-B20-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=23"
+          "detail": "occurrences=24"
         },
         {
           "name": "R1-SCENARIO-B21-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=151"
+          "detail": "occurrences=152"
         },
         {
           "name": "R1-SCENARIO-B22-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=15"
+          "detail": "occurrences=16"
         },
         {
           "name": "R1-SCENARIO-B23-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=151"
+          "detail": "occurrences=152"
         },
         {
           "name": "R1-SCENARIO-B24-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=198"
+          "detail": "occurrences=199"
         }
       ]
     },
@@ -249,12 +249,12 @@
         {
           "name": "R2-REVERSE-GOVERNED-FILES",
           "ok": true,
-          "detail": "0 governed files lack requirement IDs or explicit out-of-scope reason; mapped=61; excluded=102"
+          "detail": "0 governed files lack requirement IDs or explicit out-of-scope reason; mapped=61; excluded=103"
         },
         {
           "name": "R2-REVERSE-MANIFEST-EXACT",
           "ok": true,
-          "detail": "governed=163; manifest=163; stale=0"
+          "detail": "governed=164; manifest=164; stale=0"
         },
         {
           "name": "R2-PLAN-ROUTE-TRACE",
@@ -264,7 +264,7 @@
         {
           "name": "R2-CONTRACT-LOG",
           "ok": true,
-          "detail": "current 412-test receipt missing or failed"
+          "detail": "current 418-test receipt missing or failed"
         },
         {
           "name": "R2-CURRENT-BROWSER-SPECS",

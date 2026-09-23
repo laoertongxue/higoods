@@ -1,36 +1,36 @@
 {
-  "generatedAt": "2026-09-23T10:48:00.184Z",
+  "generatedAt": "2026-09-23T11:03:49.920Z",
   "branch": "codex/tmf-audit-fixes",
-  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
-  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "head": "219ce8aa3ab9308662bba3ca294c16e08839b25f",
+  "workingTreeDiffSha256": "7c56336a49fe8ac61ea4e664e05964f4c71e0c12f7d3e1649fdd38d0b97a06e3",
   "verdict": "通过",
   "gates": {
     "unit": {
-      "passed": 412,
+      "passed": 418,
       "failed": 0,
       "path": "evidence/2026-09-23-tmf-unit-current.log",
-      "sha256": "fa7859dd62f77ba293007f666e026dd2f9da325b2b4d9c8311429984dbb6854c"
+      "sha256": "6ae2033a2bfd0eb11f3e0162e11864fcec68721a91e3e846dfac4e37b0dd874b"
     },
     "build": {
       "passed": true,
       "path": "evidence/2026-09-23-tmf-build.log",
-      "sha256": "f011cbf081ced565a39886c103a9284565f5962dfa64837c456c8036fa3d6eb0"
+      "sha256": "dcf4c0e220209b1d7071b6be324cc730e4e151ae5ad4f6182911e482fd037444"
     },
     "connectedBusinessBrowser": {
       "passed": 7,
       "failed": 0,
       "path": "evidence/2026-09-23-tmf-connected-lists.log",
-      "sha256": "851ba5c5e65d2be8afdf88c5ee05a0956d780d249b087feb506f35271636e9f3"
+      "sha256": "e43fb87557d127f0b5617071201c21c297cfa2fb992f35066913d75c66677cd4"
     },
     "connectedPerformanceBrowser": {
       "passed": 1,
       "failed": 0,
       "path": "evidence/2026-09-23-tmf-connected-performance.log",
-      "sha256": "208fd4115edef5dd7e1ffc7b8027d6027afa34ed06be9c05c71c0b424170833c"
+      "sha256": "1d04992854ce6c2ef6b08b000015241c8932a31332dfe13e81ea56de7492dda6"
     },
     "completePerformance": {
       "samples": 350,
-      "maxMilliseconds": 399.4,
+      "maxMilliseconds": 309,
       "failed": 0,
       "threshold": "<500ms，任一样本 >=500ms 即失败",
       "service": "http://127.0.0.1:4173",
@@ -39,7 +39,7 @@
         "360x640"
       ],
       "path": "evidence/2026-09-23-tmf-complete-performance.json",
-      "sha256": "684e79a58e48c04bafb33b310b325181e6331424d299f5ac27aa6c2b2eb3eb96",
+      "sha256": "2a11cbf898ef6993e52dcba43531e2bb6790260f4d35b9fed178ca505a9726c0",
       "priorFailurePreservedAt": "evidence/2026-09-23-tmf-complete-performance-failure.json",
       "priorFailureSha256": "5fccb4fcd5220f9859296e332ef9cee08ccdcff87d63dc55243e8a1c1c842d54"
     },
@@ -49,7 +49,7 @@
       "failed": 0,
       "distinctReceipts": 29,
       "path": "evidence/2026-09-23-scenario-independent-current.json",
-      "sha256": "71b396fe04354616e377f025c7a5b7382273b23a4e6929210f41c937a23c9398"
+      "sha256": "b889bde3f0ddf506608cc03068dc3f39e510852faf01f94f5c2a9af32a282cba"
     }
   },
   "coverage": {

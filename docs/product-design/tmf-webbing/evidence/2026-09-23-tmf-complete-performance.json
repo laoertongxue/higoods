@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-23T10:43:37.540Z",
+  "generatedAt": "2026-09-23T11:03:10.566Z",
   "branch": "codex/tmf-audit-fixes",
-  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
-  "workingTreeDiffSha256": "645f029060296915b6d6cc42beff3a8ec6983ea80af05d1646a310eead984d53",
+  "head": "219ce8aa3ab9308662bba3ca294c16e08839b25f",
+  "workingTreeDiffSha256": "593fcbe2c22132c5eb5001ff8ec5198902dd242fcbe6ebb11617b778a2716650",
   "service": "http://127.0.0.1:4173",
   "browser": "Chromium",
   "viewports": [
@@ -13,7 +13,7 @@
   "threshold": "<500ms，任一样本 >=500ms 即失败",
   "dataVolume": "12 条采购/半成品链、5 张织带加工单、8 条规格需求；含待确认、加工中、已交出、生产实收、多长度和三种端头",
   "sampleCount": 350,
-  "maxMilliseconds": 399.4,
+  "maxMilliseconds": 309,
   "failed": 0,
   "passed": true,
   "samples": [
@@ -21,420 +21,420 @@
       "surface": "采购需求",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 334.9,
+      "milliseconds": 182.9,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 197.4,
+      "milliseconds": 148.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 205.1,
+      "milliseconds": 178.3,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 199.7,
+      "milliseconds": 132.7,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 236.9,
+      "milliseconds": 163.7,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 182.3,
+      "milliseconds": 132.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 212.1,
+      "milliseconds": 180.6,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 198.9,
+      "milliseconds": 133.1,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 212.9,
+      "milliseconds": 164.3,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 182,
+      "milliseconds": 132.8,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 37.3,
+      "milliseconds": 39.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 44.4,
+      "milliseconds": 52.8,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "查询",
       "run": 3,
-      "milliseconds": 37.6,
+      "milliseconds": 53.1,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "查询",
       "run": 4,
-      "milliseconds": 40,
+      "milliseconds": 51.1,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "查询",
       "run": 5,
-      "milliseconds": 40.5,
+      "milliseconds": 41.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 31,
+      "milliseconds": 33,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 30.1,
+      "milliseconds": 31.6,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "重置",
-      "run": 3,
-      "milliseconds": 46.5,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "重置",
-      "run": 4,
-      "milliseconds": 29.1,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "重置",
-      "run": 5,
-      "milliseconds": 30.8,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置打开",
-      "run": 1,
-      "milliseconds": 36.6,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置打开",
-      "run": 2,
-      "milliseconds": 37.3,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置打开",
-      "run": 3,
-      "milliseconds": 36.4,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置打开",
-      "run": 4,
-      "milliseconds": 36.5,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置打开",
-      "run": 5,
-      "milliseconds": 36.7,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置关闭",
-      "run": 1,
-      "milliseconds": 30.5,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置关闭",
-      "run": 2,
-      "milliseconds": 32.7,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
-      "scenario": "列设置关闭",
       "run": 3,
       "milliseconds": 32.9,
       "passed": true
     },
     {
       "surface": "采购需求",
-      "scenario": "列设置关闭",
+      "scenario": "重置",
       "run": 4,
+      "milliseconds": 31.7,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "重置",
+      "run": 5,
+      "milliseconds": 31.3,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置打开",
+      "run": 1,
+      "milliseconds": 40.1,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置打开",
+      "run": 2,
+      "milliseconds": 40.5,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置打开",
+      "run": 3,
+      "milliseconds": 39.5,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置打开",
+      "run": 4,
+      "milliseconds": 37.7,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置打开",
+      "run": 5,
+      "milliseconds": 39.2,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置关闭",
+      "run": 1,
+      "milliseconds": 29.6,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置关闭",
+      "run": 2,
+      "milliseconds": 32.2,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置关闭",
+      "run": 3,
       "milliseconds": 32.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "列设置关闭",
+      "run": 4,
+      "milliseconds": 34.3,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "列设置关闭",
       "run": 5,
-      "milliseconds": 32.5,
+      "milliseconds": 28.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "排序",
       "run": 1,
-      "milliseconds": 38.3,
+      "milliseconds": 41.2,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "排序",
       "run": 2,
-      "milliseconds": 36.4,
+      "milliseconds": 37.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "排序",
       "run": 3,
-      "milliseconds": 38.3,
+      "milliseconds": 44.1,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "排序",
       "run": 4,
+      "milliseconds": 41.3,
+      "passed": true
+    },
+    {
+      "surface": "采购需求",
+      "scenario": "排序",
+      "run": 5,
       "milliseconds": 38,
       "passed": true
     },
     {
       "surface": "采购需求",
-      "scenario": "排序",
-      "run": 5,
-      "milliseconds": 38,
-      "passed": true
-    },
-    {
-      "surface": "采购需求",
       "scenario": "导出当前查询全部结果",
       "run": 1,
-      "milliseconds": 36.1,
+      "milliseconds": 40.2,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "导出当前查询全部结果",
       "run": 2,
-      "milliseconds": 56,
+      "milliseconds": 40,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "导出当前查询全部结果",
       "run": 3,
-      "milliseconds": 35.2,
+      "milliseconds": 39,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "导出当前查询全部结果",
       "run": 4,
-      "milliseconds": 43.4,
+      "milliseconds": 41.4,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "导出当前查询全部结果",
       "run": 5,
-      "milliseconds": 35.6,
+      "milliseconds": 41.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 230.7,
+      "milliseconds": 231.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 199.1,
+      "milliseconds": 163.5,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 239.9,
+      "milliseconds": 204.6,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 198.6,
+      "milliseconds": 166,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 203.3,
+      "milliseconds": 224.8,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 184,
+      "milliseconds": 149.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 251.8,
+      "milliseconds": 190.6,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 182.5,
+      "milliseconds": 166,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 226,
+      "milliseconds": 191.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 199.4,
+      "milliseconds": 166.1,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 51.3,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "查询",
-      "run": 2,
-      "milliseconds": 48.9,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "查询",
-      "run": 3,
-      "milliseconds": 122.7,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "查询",
-      "run": 4,
-      "milliseconds": 48.7,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "查询",
-      "run": 5,
       "milliseconds": 67.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
+      "scenario": "查询",
+      "run": 2,
+      "milliseconds": 67.8,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
+      "scenario": "查询",
+      "run": 3,
+      "milliseconds": 67.3,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
+      "scenario": "查询",
+      "run": 4,
+      "milliseconds": 68.3,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
+      "scenario": "查询",
+      "run": 5,
+      "milliseconds": 68.3,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 50.1,
+      "milliseconds": 48.4,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 48.3,
+      "milliseconds": 49.3,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "重置",
       "run": 3,
-      "milliseconds": 49.8,
+      "milliseconds": 46.4,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "重置",
       "run": 4,
-      "milliseconds": 49.2,
+      "milliseconds": 48.6,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "重置",
       "run": 5,
-      "milliseconds": 49.6,
+      "milliseconds": 50.1,
       "passed": true
     },
     {
@@ -448,105 +448,105 @@
       "surface": "半成品加工单",
       "scenario": "列设置打开",
       "run": 2,
-      "milliseconds": 45.5,
+      "milliseconds": 38.4,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置打开",
       "run": 3,
-      "milliseconds": 47.4,
+      "milliseconds": 38.9,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置打开",
       "run": 4,
-      "milliseconds": 39.3,
+      "milliseconds": 37.3,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置打开",
       "run": 5,
-      "milliseconds": 51,
+      "milliseconds": 41,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置关闭",
       "run": 1,
-      "milliseconds": 32.8,
+      "milliseconds": 32.5,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置关闭",
       "run": 2,
-      "milliseconds": 33.4,
+      "milliseconds": 32.1,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置关闭",
       "run": 3,
-      "milliseconds": 31.7,
+      "milliseconds": 32.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置关闭",
       "run": 4,
-      "milliseconds": 32.8,
+      "milliseconds": 32.5,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "列设置关闭",
       "run": 5,
-      "milliseconds": 33.1,
+      "milliseconds": 32.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "排序",
       "run": 1,
-      "milliseconds": 36.8,
+      "milliseconds": 48.9,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "排序",
       "run": 2,
-      "milliseconds": 40.9,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "排序",
-      "run": 3,
-      "milliseconds": 48.4,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "排序",
-      "run": 4,
-      "milliseconds": 49.3,
-      "passed": true
-    },
-    {
-      "surface": "半成品加工单",
-      "scenario": "排序",
-      "run": 5,
       "milliseconds": 48.8,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
+      "scenario": "排序",
+      "run": 3,
+      "milliseconds": 49.1,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
+      "scenario": "排序",
+      "run": 4,
+      "milliseconds": 47.9,
+      "passed": true
+    },
+    {
+      "surface": "半成品加工单",
+      "scenario": "排序",
+      "run": 5,
+      "milliseconds": 49,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "导出当前查询全部结果",
       "run": 1,
-      "milliseconds": 38,
+      "milliseconds": 36.7,
       "passed": true
     },
     {
@@ -560,217 +560,217 @@
       "surface": "半成品加工单",
       "scenario": "导出当前查询全部结果",
       "run": 3,
-      "milliseconds": 36.6,
+      "milliseconds": 36.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "导出当前查询全部结果",
       "run": 4,
-      "milliseconds": 37,
+      "milliseconds": 36.2,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "导出当前查询全部结果",
       "run": 5,
-      "milliseconds": 35.6,
+      "milliseconds": 38.3,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 220.8,
+      "milliseconds": 216.7,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 199.1,
+      "milliseconds": 198.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 211,
+      "milliseconds": 259,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 166.1,
+      "milliseconds": 216.3,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 214.1,
+      "milliseconds": 265,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 166.6,
+      "milliseconds": 196.2,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 213,
+      "milliseconds": 268,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 165.9,
+      "milliseconds": 217.9,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 214.1,
+      "milliseconds": 262.4,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 166,
+      "milliseconds": 224,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 37.5,
+      "milliseconds": 82.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 37.6,
+      "milliseconds": 82.7,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "查询",
       "run": 3,
-      "milliseconds": 39.3,
+      "milliseconds": 65.9,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "查询",
       "run": 4,
-      "milliseconds": 37.9,
+      "milliseconds": 83.2,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "查询",
       "run": 5,
-      "milliseconds": 37.3,
+      "milliseconds": 83.2,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 47.5,
+      "milliseconds": 48.6,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 32.6,
+      "milliseconds": 51.1,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "重置",
       "run": 3,
-      "milliseconds": 31.1,
+      "milliseconds": 49.3,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "重置",
       "run": 4,
-      "milliseconds": 34.2,
+      "milliseconds": 49.1,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "重置",
       "run": 5,
-      "milliseconds": 48.9,
+      "milliseconds": 40.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置打开",
       "run": 1,
-      "milliseconds": 37.3,
+      "milliseconds": 45.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置打开",
       "run": 2,
-      "milliseconds": 36.9,
+      "milliseconds": 44.7,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置打开",
       "run": 3,
-      "milliseconds": 36.7,
+      "milliseconds": 62.2,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置打开",
       "run": 4,
-      "milliseconds": 37.9,
+      "milliseconds": 45.8,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置打开",
       "run": 5,
-      "milliseconds": 36.5,
+      "milliseconds": 52,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置关闭",
       "run": 1,
-      "milliseconds": 32.4,
+      "milliseconds": 32.3,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置关闭",
       "run": 2,
-      "milliseconds": 32.4,
+      "milliseconds": 31.6,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "列设置关闭",
       "run": 3,
-      "milliseconds": 32.9,
+      "milliseconds": 42.8,
       "passed": true
     },
     {
@@ -784,203 +784,203 @@
       "surface": "织带加工单",
       "scenario": "列设置关闭",
       "run": 5,
-      "milliseconds": 33.5,
+      "milliseconds": 31.9,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "排序",
       "run": 1,
-      "milliseconds": 36.7,
+      "milliseconds": 41,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "排序",
       "run": 2,
-      "milliseconds": 36.6,
+      "milliseconds": 41.7,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "排序",
       "run": 3,
+      "milliseconds": 38.8,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "排序",
+      "run": 4,
+      "milliseconds": 48.5,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "排序",
+      "run": 5,
+      "milliseconds": 49.2,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "导出当前查询全部结果",
+      "run": 1,
+      "milliseconds": 39.1,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "导出当前查询全部结果",
+      "run": 2,
+      "milliseconds": 40.8,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "导出当前查询全部结果",
+      "run": 3,
+      "milliseconds": 41.7,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "导出当前查询全部结果",
+      "run": 4,
+      "milliseconds": 37.6,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "导出当前查询全部结果",
+      "run": 5,
       "milliseconds": 36.4,
       "passed": true
     },
     {
-      "surface": "织带加工单",
-      "scenario": "排序",
-      "run": 4,
-      "milliseconds": 36.1,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "排序",
-      "run": 5,
-      "milliseconds": 36,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "导出当前查询全部结果",
-      "run": 1,
-      "milliseconds": 36.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "导出当前查询全部结果",
-      "run": 2,
-      "milliseconds": 34.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "导出当前查询全部结果",
-      "run": 3,
-      "milliseconds": 36.3,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "导出当前查询全部结果",
-      "run": 4,
-      "milliseconds": 60.1,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "导出当前查询全部结果",
-      "run": 5,
-      "milliseconds": 35.8,
-      "passed": true
-    },
-    {
       "surface": "待接收",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 194.5,
+      "milliseconds": 167.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "整页刷新",
       "run": 1,
+      "milliseconds": 149,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "冷启动首次进入",
+      "run": 2,
+      "milliseconds": 225.7,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "整页刷新",
+      "run": 2,
       "milliseconds": 182.7,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "冷启动首次进入",
-      "run": 2,
-      "milliseconds": 196,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "整页刷新",
-      "run": 2,
-      "milliseconds": 348.9,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 201.1,
+      "milliseconds": 170.9,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 182.7,
+      "milliseconds": 200.5,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 196.4,
+      "milliseconds": 189.1,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 183.2,
+      "milliseconds": 182,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 209,
+      "milliseconds": 175.1,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 199.5,
+      "milliseconds": 181.5,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 37.3,
+      "milliseconds": 64.3,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 42.3,
+      "milliseconds": 68.5,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "查询",
       "run": 3,
-      "milliseconds": 37.5,
+      "milliseconds": 50.7,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "查询",
       "run": 4,
-      "milliseconds": 37.7,
+      "milliseconds": 69.3,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "查询",
       "run": 5,
-      "milliseconds": 38.7,
+      "milliseconds": 51.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 30.6,
+      "milliseconds": 31.9,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 36.9,
+      "milliseconds": 35,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "重置",
       "run": 3,
-      "milliseconds": 32,
+      "milliseconds": 35.5,
       "passed": true
     },
     {
@@ -994,49 +994,49 @@
       "surface": "待接收",
       "scenario": "重置",
       "run": 5,
-      "milliseconds": 34.1,
+      "milliseconds": 30.8,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置打开",
       "run": 1,
-      "milliseconds": 37.2,
+      "milliseconds": 41.8,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置打开",
       "run": 2,
-      "milliseconds": 40.3,
+      "milliseconds": 38.3,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置打开",
       "run": 3,
-      "milliseconds": 37.7,
+      "milliseconds": 39,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置打开",
       "run": 4,
-      "milliseconds": 36.6,
+      "milliseconds": 41.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置打开",
       "run": 5,
-      "milliseconds": 37.5,
+      "milliseconds": 38.9,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置关闭",
       "run": 1,
-      "milliseconds": 31.9,
+      "milliseconds": 31.5,
       "passed": true
     },
     {
@@ -1050,203 +1050,203 @@
       "surface": "待接收",
       "scenario": "列设置关闭",
       "run": 3,
-      "milliseconds": 31.9,
+      "milliseconds": 65.5,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置关闭",
       "run": 4,
-      "milliseconds": 32.4,
+      "milliseconds": 65.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "列设置关闭",
       "run": 5,
-      "milliseconds": 32.1,
+      "milliseconds": 31.8,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "排序",
       "run": 1,
-      "milliseconds": 35.7,
+      "milliseconds": 40.6,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "排序",
       "run": 2,
-      "milliseconds": 39.8,
+      "milliseconds": 40.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "排序",
       "run": 3,
-      "milliseconds": 39.9,
+      "milliseconds": 41.7,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "排序",
       "run": 4,
-      "milliseconds": 39.7,
+      "milliseconds": 39.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "排序",
       "run": 5,
-      "milliseconds": 38.8,
+      "milliseconds": 43.6,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "导出当前查询全部结果",
       "run": 1,
-      "milliseconds": 38.3,
+      "milliseconds": 44,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "导出当前查询全部结果",
       "run": 2,
-      "milliseconds": 35.9,
+      "milliseconds": 48.1,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "导出当前查询全部结果",
       "run": 3,
-      "milliseconds": 37.4,
+      "milliseconds": 49.5,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "导出当前查询全部结果",
       "run": 4,
-      "milliseconds": 41.9,
+      "milliseconds": 51.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "导出当前查询全部结果",
       "run": 5,
-      "milliseconds": 35.4,
+      "milliseconds": 48.5,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 206.5,
+      "milliseconds": 233.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 183,
+      "milliseconds": 216.2,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 193.3,
+      "milliseconds": 251.2,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 183.2,
+      "milliseconds": 215,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 196.2,
+      "milliseconds": 239.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "整页刷新",
       "run": 3,
+      "milliseconds": 165.7,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "冷启动首次进入",
+      "run": 4,
+      "milliseconds": 185.8,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "整页刷新",
+      "run": 4,
       "milliseconds": 182.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "冷启动首次进入",
-      "run": 4,
-      "milliseconds": 196.1,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "整页刷新",
-      "run": 4,
-      "milliseconds": 182.7,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 196.2,
+      "milliseconds": 170.4,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 182.5,
+      "milliseconds": 182,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 37,
+      "milliseconds": 70.3,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 37.1,
+      "milliseconds": 55.2,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "查询",
       "run": 3,
-      "milliseconds": 37.2,
+      "milliseconds": 54.2,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "查询",
       "run": 4,
-      "milliseconds": 38.2,
+      "milliseconds": 54,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "查询",
       "run": 5,
-      "milliseconds": 41.1,
+      "milliseconds": 38.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 32.9,
+      "milliseconds": 31.6,
       "passed": true
     },
     {
@@ -1260,67 +1260,67 @@
       "surface": "交出记录",
       "scenario": "重置",
       "run": 3,
-      "milliseconds": 30.9,
+      "milliseconds": 32.9,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "重置",
       "run": 4,
-      "milliseconds": 31.7,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "重置",
-      "run": 5,
-      "milliseconds": 32.5,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "列设置打开",
-      "run": 1,
-      "milliseconds": 35.7,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "列设置打开",
-      "run": 2,
-      "milliseconds": 37.2,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "列设置打开",
-      "run": 3,
-      "milliseconds": 36.9,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "列设置打开",
-      "run": 4,
-      "milliseconds": 35.5,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "列设置打开",
-      "run": 5,
-      "milliseconds": 36.5,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "列设置关闭",
-      "run": 1,
       "milliseconds": 32.4,
       "passed": true
     },
     {
       "surface": "交出记录",
+      "scenario": "重置",
+      "run": 5,
+      "milliseconds": 32.6,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "列设置打开",
+      "run": 1,
+      "milliseconds": 153.7,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "列设置打开",
+      "run": 2,
+      "milliseconds": 37.3,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "列设置打开",
+      "run": 3,
+      "milliseconds": 36.5,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "列设置打开",
+      "run": 4,
+      "milliseconds": 36,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "列设置打开",
+      "run": 5,
+      "milliseconds": 36.4,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "列设置关闭",
+      "run": 1,
+      "milliseconds": 32.5,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
       "scenario": "列设置关闭",
       "run": 2,
       "milliseconds": 32.5,
@@ -1330,266 +1330,266 @@
       "surface": "交出记录",
       "scenario": "列设置关闭",
       "run": 3,
-      "milliseconds": 32.5,
+      "milliseconds": 32.3,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "列设置关闭",
       "run": 4,
-      "milliseconds": 27.7,
+      "milliseconds": 32.5,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "列设置关闭",
       "run": 5,
-      "milliseconds": 32.5,
+      "milliseconds": 32.4,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "排序",
       "run": 1,
-      "milliseconds": 35.4,
+      "milliseconds": 65.8,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "排序",
       "run": 2,
-      "milliseconds": 37.5,
+      "milliseconds": 35,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "排序",
       "run": 3,
-      "milliseconds": 38.2,
+      "milliseconds": 35.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "排序",
       "run": 4,
-      "milliseconds": 41.2,
+      "milliseconds": 36.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "排序",
       "run": 5,
-      "milliseconds": 46.7,
+      "milliseconds": 37.6,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "导出当前查询全部结果",
       "run": 1,
-      "milliseconds": 38.7,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "导出当前查询全部结果",
-      "run": 2,
-      "milliseconds": 34.3,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "导出当前查询全部结果",
-      "run": 3,
-      "milliseconds": 36.2,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "导出当前查询全部结果",
-      "run": 4,
       "milliseconds": 38.3,
       "passed": true
     },
     {
       "surface": "交出记录",
       "scenario": "导出当前查询全部结果",
+      "run": 2,
+      "milliseconds": 38.3,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "导出当前查询全部结果",
+      "run": 3,
+      "milliseconds": 38.5,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "导出当前查询全部结果",
+      "run": 4,
+      "milliseconds": 41.1,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "导出当前查询全部结果",
       "run": 5,
-      "milliseconds": 36.3,
+      "milliseconds": 39.8,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "站内路由切换",
       "run": 1,
-      "milliseconds": 164.1,
+      "milliseconds": 197.9,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "站内路由切换",
       "run": 2,
-      "milliseconds": 165.5,
+      "milliseconds": 180.5,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "站内路由切换",
       "run": 3,
-      "milliseconds": 165.6,
+      "milliseconds": 181.3,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "站内路由切换",
       "run": 4,
-      "milliseconds": 164.3,
+      "milliseconds": 198.3,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "站内路由切换",
       "run": 5,
-      "milliseconds": 165.8,
+      "milliseconds": 257.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "站内路由切换",
       "run": 1,
-      "milliseconds": 148.6,
+      "milliseconds": 164.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "站内路由切换",
       "run": 2,
-      "milliseconds": 182,
+      "milliseconds": 210.7,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "站内路由切换",
       "run": 3,
+      "milliseconds": 164.2,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "站内路由切换",
+      "run": 4,
+      "milliseconds": 147.3,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "站内路由切换",
+      "run": 5,
+      "milliseconds": 165,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "站内路由切换",
+      "run": 1,
+      "milliseconds": 148.3,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "站内路由切换",
+      "run": 2,
       "milliseconds": 164.4,
       "passed": true
     },
     {
-      "surface": "织带加工单",
+      "surface": "待接收",
       "scenario": "站内路由切换",
-      "run": 4,
-      "milliseconds": 182.3,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "站内路由切换",
-      "run": 5,
-      "milliseconds": 154.9,
+      "run": 3,
+      "milliseconds": 148.9,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "站内路由切换",
-      "run": 1,
+      "run": 4,
+      "milliseconds": 148.9,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "站内路由切换",
+      "run": 5,
       "milliseconds": 148.7,
       "passed": true
     },
     {
-      "surface": "待接收",
+      "surface": "交出记录",
+      "scenario": "站内路由切换",
+      "run": 1,
+      "milliseconds": 148.8,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
       "scenario": "站内路由切换",
       "run": 2,
+      "milliseconds": 148.8,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "站内路由切换",
+      "run": 3,
+      "milliseconds": 148.8,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "站内路由切换",
+      "run": 4,
+      "milliseconds": 148,
+      "passed": true
+    },
+    {
+      "surface": "交出记录",
+      "scenario": "站内路由切换",
+      "run": 5,
       "milliseconds": 148.4,
       "passed": true
     },
     {
-      "surface": "待接收",
-      "scenario": "站内路由切换",
-      "run": 3,
-      "milliseconds": 148.9,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "站内路由切换",
-      "run": 4,
-      "milliseconds": 132.2,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "站内路由切换",
-      "run": 5,
-      "milliseconds": 148.6,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "站内路由切换",
-      "run": 1,
-      "milliseconds": 166.4,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "站内路由切换",
-      "run": 2,
-      "milliseconds": 148.2,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "站内路由切换",
-      "run": 3,
-      "milliseconds": 148.9,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "站内路由切换",
-      "run": 4,
-      "milliseconds": 199,
-      "passed": true
-    },
-    {
-      "surface": "交出记录",
-      "scenario": "站内路由切换",
-      "run": 5,
-      "milliseconds": 182,
-      "passed": true
-    },
-    {
       "surface": "采购需求",
       "scenario": "物料大图打开",
       "run": 1,
-      "milliseconds": 35.5,
+      "milliseconds": 37.3,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "物料大图打开",
       "run": 2,
-      "milliseconds": 37.6,
+      "milliseconds": 35.7,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "物料大图打开",
       "run": 3,
-      "milliseconds": 36.4,
+      "milliseconds": 38,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "物料大图打开",
       "run": 4,
-      "milliseconds": 36.5,
+      "milliseconds": 36.3,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "物料大图打开",
       "run": 5,
-      "milliseconds": 36.5,
+      "milliseconds": 39.4,
       "passed": true
     },
     {
@@ -1610,14 +1610,14 @@
       "surface": "采购需求",
       "scenario": "物料大图关闭",
       "run": 3,
-      "milliseconds": 31.4,
+      "milliseconds": 32.3,
       "passed": true
     },
     {
       "surface": "采购需求",
       "scenario": "物料大图关闭",
       "run": 4,
-      "milliseconds": 32.8,
+      "milliseconds": 32.9,
       "passed": true
     },
     {
@@ -1631,56 +1631,56 @@
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗打开",
       "run": 1,
-      "milliseconds": 37,
+      "milliseconds": 37.4,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗打开",
       "run": 2,
-      "milliseconds": 36.5,
+      "milliseconds": 37.6,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗打开",
       "run": 3,
-      "milliseconds": 37.1,
+      "milliseconds": 36.7,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗打开",
       "run": 4,
-      "milliseconds": 37,
+      "milliseconds": 35.4,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗打开",
       "run": 5,
-      "milliseconds": 39.2,
+      "milliseconds": 41.6,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗关闭",
       "run": 1,
-      "milliseconds": 33.2,
+      "milliseconds": 32.5,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗关闭",
       "run": 2,
-      "milliseconds": 32.8,
+      "milliseconds": 33.1,
       "passed": true
     },
     {
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗关闭",
       "run": 3,
-      "milliseconds": 32.8,
+      "milliseconds": 33.3,
       "passed": true
     },
     {
@@ -1694,511 +1694,511 @@
       "surface": "半成品加工单",
       "scenario": "确认接受弹窗关闭",
       "run": 5,
-      "milliseconds": 33,
+      "milliseconds": 32,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "行选择",
       "run": 1,
-      "milliseconds": 64.6,
+      "milliseconds": 65.6,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "行选择",
       "run": 2,
-      "milliseconds": 64.3,
+      "milliseconds": 65.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "行选择",
       "run": 3,
-      "milliseconds": 59.8,
+      "milliseconds": 65.9,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "行选择",
       "run": 4,
-      "milliseconds": 78.5,
+      "milliseconds": 66.2,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "行选择",
       "run": 5,
-      "milliseconds": 65.7,
+      "milliseconds": 65.5,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "批量打印进入预览",
       "run": 1,
-      "milliseconds": 166.5,
+      "milliseconds": 148.9,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "批量打印进入预览",
       "run": 2,
+      "milliseconds": 133.1,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单",
+      "scenario": "批量打印进入预览",
+      "run": 3,
       "milliseconds": 132.4,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "批量打印进入预览",
-      "run": 3,
-      "milliseconds": 132.8,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单",
-      "scenario": "批量打印进入预览",
       "run": 4,
-      "milliseconds": 148,
+      "milliseconds": 132,
       "passed": true
     },
     {
       "surface": "织带加工单",
       "scenario": "批量打印进入预览",
       "run": 5,
-      "milliseconds": 133.7,
+      "milliseconds": 132.8,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "接收弹窗打开",
       "run": 1,
-      "milliseconds": 51,
+      "milliseconds": 37.7,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "接收弹窗打开",
       "run": 2,
-      "milliseconds": 37,
+      "milliseconds": 36.4,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "接收弹窗打开",
+      "run": 3,
+      "milliseconds": 42.9,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "接收弹窗打开",
+      "run": 4,
+      "milliseconds": 36.7,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "接收弹窗打开",
+      "run": 5,
+      "milliseconds": 35.4,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "接收边界阻断",
+      "run": 1,
+      "milliseconds": 37.1,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "接收边界阻断",
+      "run": 2,
+      "milliseconds": 37.7,
+      "passed": true
+    },
+    {
+      "surface": "待接收",
+      "scenario": "接收边界阻断",
       "run": 3,
       "milliseconds": 37.4,
       "passed": true
     },
     {
       "surface": "待接收",
-      "scenario": "接收弹窗打开",
-      "run": 4,
-      "milliseconds": 40.8,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "接收弹窗打开",
-      "run": 5,
-      "milliseconds": 47.4,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "接收边界阻断",
-      "run": 1,
-      "milliseconds": 32.9,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "接收边界阻断",
-      "run": 2,
-      "milliseconds": 33,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
-      "scenario": "接收边界阻断",
-      "run": 3,
-      "milliseconds": 36,
-      "passed": true
-    },
-    {
-      "surface": "待接收",
       "scenario": "接收边界阻断",
       "run": 4,
-      "milliseconds": 32.2,
+      "milliseconds": 37.2,
       "passed": true
     },
     {
       "surface": "待接收",
       "scenario": "接收边界阻断",
       "run": 5,
-      "milliseconds": 32.6,
+      "milliseconds": 36.6,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 362.3,
+      "milliseconds": 234,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 399.4,
+      "milliseconds": 179.7,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 365.2,
+      "milliseconds": 214.4,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 299.2,
+      "milliseconds": 182.9,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 351.9,
+      "milliseconds": 262.1,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 299,
+      "milliseconds": 183,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 344.9,
+      "milliseconds": 309,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 282.7,
+      "milliseconds": 182.4,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 346.4,
+      "milliseconds": 215,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 299.1,
+      "milliseconds": 166.1,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "切换页签:requirements",
       "run": 1,
-      "milliseconds": 35.4,
+      "milliseconds": 21.6,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "切换页签:requirements",
       "run": 2,
-      "milliseconds": 30.1,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:requirements",
-      "run": 3,
-      "milliseconds": 30,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:requirements",
-      "run": 4,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:requirements",
-      "run": 5,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:upstream",
-      "run": 1,
-      "milliseconds": 30.7,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:upstream",
-      "run": 2,
-      "milliseconds": 30.7,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:upstream",
-      "run": 3,
-      "milliseconds": 30.3,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:upstream",
-      "run": 4,
-      "milliseconds": 29.4,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:upstream",
-      "run": 5,
-      "milliseconds": 31.2,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:inputs",
-      "run": 1,
-      "milliseconds": 30.3,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:inputs",
-      "run": 2,
-      "milliseconds": 30.3,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:inputs",
-      "run": 3,
-      "milliseconds": 30.3,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:inputs",
-      "run": 4,
-      "milliseconds": 30.1,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:inputs",
-      "run": 5,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:merged",
-      "run": 1,
-      "milliseconds": 30.4,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:merged",
-      "run": 2,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:merged",
-      "run": 3,
-      "milliseconds": 30.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:merged",
-      "run": 4,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:merged",
-      "run": 5,
-      "milliseconds": 29.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:tipping",
-      "run": 1,
-      "milliseconds": 31.8,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:tipping",
-      "run": 2,
-      "milliseconds": 29.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:tipping",
-      "run": 3,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:tipping",
-      "run": 4,
-      "milliseconds": 30.2,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:tipping",
-      "run": 5,
-      "milliseconds": 30.1,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:outputs",
-      "run": 1,
-      "milliseconds": 31.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:outputs",
-      "run": 2,
-      "milliseconds": 30.8,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:outputs",
-      "run": 3,
-      "milliseconds": 30.6,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:outputs",
-      "run": 4,
-      "milliseconds": 30.4,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:outputs",
-      "run": 5,
-      "milliseconds": 30.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:packages",
-      "run": 1,
-      "milliseconds": 29.8,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:packages",
-      "run": 2,
-      "milliseconds": 29.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:packages",
-      "run": 3,
-      "milliseconds": 29.9,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:packages",
-      "run": 4,
-      "milliseconds": 29.8,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:packages",
-      "run": 5,
-      "milliseconds": 29.7,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:returns",
-      "run": 1,
-      "milliseconds": 29.9,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:returns",
-      "run": 2,
-      "milliseconds": 29.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:returns",
-      "run": 3,
-      "milliseconds": 30.1,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:returns",
-      "run": 4,
       "milliseconds": 29.6,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
-      "scenario": "切换页签:returns",
+      "scenario": "切换页签:requirements",
+      "run": 3,
+      "milliseconds": 30.3,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:requirements",
+      "run": 4,
+      "milliseconds": 30.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:requirements",
       "run": 5,
+      "milliseconds": 30.5,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:upstream",
+      "run": 1,
+      "milliseconds": 30.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:upstream",
+      "run": 2,
+      "milliseconds": 30.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:upstream",
+      "run": 3,
+      "milliseconds": 30.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:upstream",
+      "run": 4,
+      "milliseconds": 29.2,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:upstream",
+      "run": 5,
+      "milliseconds": 29.6,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:inputs",
+      "run": 1,
+      "milliseconds": 29.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:inputs",
+      "run": 2,
+      "milliseconds": 29.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:inputs",
+      "run": 3,
+      "milliseconds": 29.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:inputs",
+      "run": 4,
+      "milliseconds": 29.7,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:inputs",
+      "run": 5,
+      "milliseconds": 29.2,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:merged",
+      "run": 1,
+      "milliseconds": 30.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:merged",
+      "run": 2,
+      "milliseconds": 29.8,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:merged",
+      "run": 3,
       "milliseconds": 29.3,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
-      "scenario": "切换页签:times",
+      "scenario": "切换页签:merged",
+      "run": 4,
+      "milliseconds": 29.3,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:merged",
+      "run": 5,
+      "milliseconds": 29.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:tipping",
       "run": 1,
       "milliseconds": 29.2,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
+      "scenario": "切换页签:tipping",
+      "run": 2,
+      "milliseconds": 28.5,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:tipping",
+      "run": 3,
+      "milliseconds": 28.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:tipping",
+      "run": 4,
+      "milliseconds": 28.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:tipping",
+      "run": 5,
+      "milliseconds": 29.5,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:outputs",
+      "run": 1,
+      "milliseconds": 28.2,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:outputs",
+      "run": 2,
+      "milliseconds": 29.3,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:outputs",
+      "run": 3,
+      "milliseconds": 29.8,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:outputs",
+      "run": 4,
+      "milliseconds": 29.3,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:outputs",
+      "run": 5,
+      "milliseconds": 29.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:packages",
+      "run": 1,
+      "milliseconds": 29.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:packages",
+      "run": 2,
+      "milliseconds": 29,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:packages",
+      "run": 3,
+      "milliseconds": 29.2,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:packages",
+      "run": 4,
+      "milliseconds": 28.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:packages",
+      "run": 5,
+      "milliseconds": 28.7,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:returns",
+      "run": 1,
+      "milliseconds": 29.6,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:returns",
+      "run": 2,
+      "milliseconds": 29.3,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:returns",
+      "run": 3,
+      "milliseconds": 30.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:returns",
+      "run": 4,
+      "milliseconds": 29.4,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:returns",
+      "run": 5,
+      "milliseconds": 29.5,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:times",
+      "run": 1,
+      "milliseconds": 28.9,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
       "scenario": "切换页签:times",
       "run": 2,
-      "milliseconds": 29.6,
+      "milliseconds": 30.3,
       "passed": true
     },
     {
@@ -2212,259 +2212,259 @@
       "surface": "织带加工单详情",
       "scenario": "切换页签:times",
       "run": 4,
-      "milliseconds": 29.4,
+      "milliseconds": 30,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "切换页签:times",
       "run": 5,
-      "milliseconds": 29.9,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:history",
-      "run": 1,
-      "milliseconds": 28.5,
-      "passed": true
-    },
-    {
-      "surface": "织带加工单详情",
-      "scenario": "切换页签:history",
-      "run": 2,
       "milliseconds": 29.7,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "切换页签:history",
+      "run": 1,
+      "milliseconds": 29.6,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:history",
+      "run": 2,
+      "milliseconds": 29.5,
+      "passed": true
+    },
+    {
+      "surface": "织带加工单详情",
+      "scenario": "切换页签:history",
       "run": 3,
-      "milliseconds": 29.2,
+      "milliseconds": 29.8,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "切换页签:history",
       "run": 4,
-      "milliseconds": 29.9,
+      "milliseconds": 29.4,
       "passed": true
     },
     {
       "surface": "织带加工单详情",
       "scenario": "切换页签:history",
       "run": 5,
-      "milliseconds": 30,
+      "milliseconds": 29.8,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 214.4,
+      "milliseconds": 238.2,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "进入任务卡",
       "run": 1,
-      "milliseconds": 7,
+      "milliseconds": 32.9,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "打开投入接收",
       "run": 1,
-      "milliseconds": 5,
+      "milliseconds": 4.4,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "超量接收阻断",
       "run": 1,
-      "milliseconds": 5.9,
+      "milliseconds": 3.7,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 221,
+      "milliseconds": 208.7,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "进入任务卡",
       "run": 2,
-      "milliseconds": 7.4,
+      "milliseconds": 31.9,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "打开投入接收",
-      "run": 2,
-      "milliseconds": 6.2,
-      "passed": true
-    },
-    {
-      "surface": "PDA 织带厂执行",
-      "scenario": "超量接收阻断",
       "run": 2,
       "milliseconds": 4.9,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
+      "scenario": "超量接收阻断",
+      "run": 2,
+      "milliseconds": 4.6,
+      "passed": true
+    },
+    {
+      "surface": "PDA 织带厂执行",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 205.4,
+      "milliseconds": 258.4,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "进入任务卡",
       "run": 3,
-      "milliseconds": 6.4,
+      "milliseconds": 33,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "打开投入接收",
       "run": 3,
-      "milliseconds": 4.9,
+      "milliseconds": 4.4,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "超量接收阻断",
       "run": 3,
-      "milliseconds": 5.3,
+      "milliseconds": 3.6,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 203.2,
+      "milliseconds": 207.7,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "进入任务卡",
       "run": 4,
-      "milliseconds": 6.6,
+      "milliseconds": 31,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "打开投入接收",
       "run": 4,
-      "milliseconds": 5.9,
+      "milliseconds": 5.2,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "超量接收阻断",
       "run": 4,
-      "milliseconds": 7,
+      "milliseconds": 4.6,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 220.6,
+      "milliseconds": 210.9,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "进入任务卡",
       "run": 5,
-      "milliseconds": 6.4,
+      "milliseconds": 33.9,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "打开投入接收",
       "run": 5,
-      "milliseconds": 4.8,
+      "milliseconds": 4.2,
       "passed": true
     },
     {
       "surface": "PDA 织带厂执行",
       "scenario": "超量接收阻断",
       "run": 5,
-      "milliseconds": 6.1,
+      "milliseconds": 4.4,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "冷启动首次进入",
       "run": 1,
-      "milliseconds": 238.6,
+      "milliseconds": 194.2,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "打印",
       "run": 1,
-      "milliseconds": 28.6,
+      "milliseconds": 29,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "冷启动首次进入",
       "run": 2,
-      "milliseconds": 252.6,
+      "milliseconds": 164.3,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "打印",
       "run": 2,
-      "milliseconds": 25,
+      "milliseconds": 23.7,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "冷启动首次进入",
       "run": 3,
-      "milliseconds": 240.6,
+      "milliseconds": 190,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "打印",
       "run": 3,
-      "milliseconds": 27.6,
+      "milliseconds": 23.9,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "冷启动首次进入",
       "run": 4,
-      "milliseconds": 244.9,
+      "milliseconds": 173.6,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "打印",
       "run": 4,
-      "milliseconds": 25.2,
+      "milliseconds": 23.9,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "冷启动首次进入",
       "run": 5,
-      "milliseconds": 231.9,
+      "milliseconds": 172.2,
       "passed": true
     },
     {
       "surface": "织带加工明细打印",
       "scenario": "打印",
       "run": 5,
-      "milliseconds": 24.1,
+      "milliseconds": 23,
       "passed": true
     }
   ]

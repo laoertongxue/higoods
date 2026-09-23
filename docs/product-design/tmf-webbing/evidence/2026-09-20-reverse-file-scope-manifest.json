@@ -1,7 +1,7 @@
 {
   "generatedAt": "2026-09-23T00:00:00.000Z",
   "source": "2026-09-23 current reverse scan after TMF connected Mock and work-order alignment",
-  "total": 163,
+  "total": 164,
   "entries": [
     {
       "path": "src/data/app-shell-config.ts",
@@ -406,6 +406,12 @@
       "disposition": "out-of-scope-shared",
       "requirementIds": [],
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+    },
+    {
+      "path": "src/data/pcs-reviewed-image-catalog.ts",
+      "disposition": "out-of-scope-shared",
+      "requirementIds": [],
+      "reason": "PCS 审核图片目录只把织带／绳子作为商品素材分类示例，不定义 TMF 采购、加工、库存、PDA 或打印规则，明确排除在本方案交付范围外。"
     },
     {
       "path": "src/data/pcs-project-technical-data-writeback.ts",
@@ -1333,6 +1339,6 @@
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
     }
   ],
-  "inScope": 49,
-  "outOfScope": 105
+  "inScope": 61,
+  "outOfScope": 103
 }

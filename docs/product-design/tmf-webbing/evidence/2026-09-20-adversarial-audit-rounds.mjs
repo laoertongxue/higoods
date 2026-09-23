@@ -93,7 +93,7 @@ const routeTokens = [...plan.matchAll(/`(\/[^`]+)`/g)].map(m => m[1]).filter(x =
 const missingRoutes = routeTokens.filter(r => !matrixText.includes(r) && !plan.includes(r))
 check('R2-PLAN-ROUTE-TRACE', missingRoutes.length === 0, `unbound route tokens=${missingRoutes.length}`)
 const unitLog = path.join(root, 'evidence/2026-09-23-tmf-unit-current.log')
-check('R2-CONTRACT-LOG', fs.existsSync(unitLog) && /tests 412/i.test(read(unitLog)) && /pass 412/i.test(read(unitLog)) && /fail 0/i.test(read(unitLog)), 'current 412-test receipt missing or failed')
+check('R2-CONTRACT-LOG', fs.existsSync(unitLog) && /tests 418/i.test(read(unitLog)) && /pass 418/i.test(read(unitLog)) && /fail 0/i.test(read(unitLog)), 'current 418-test receipt missing or failed')
 const connectedListSpec = path.join(repo, 'tests/tmf-webbing-connected-lists.spec.ts')
 const completePerfSpec = path.join(repo, 'tests/tmf-webbing-complete-performance.spec.ts')
 check('R2-CURRENT-BROWSER-SPECS', fs.existsSync(connectedListSpec) && fs.existsSync(completePerfSpec), 'current connected-list or complete-performance spec missing')

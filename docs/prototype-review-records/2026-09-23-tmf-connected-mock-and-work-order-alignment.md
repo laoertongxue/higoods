@@ -38,7 +38,7 @@
 | PDA 与低分辨率 | 通过 | 360×640 PDA 主链及超量阻断；1024×768 管理端主体无横向溢出 |
 | 打印 | 通过 | A4 加工明细含来源、要求、状态、数量、时间、二维码、条码及物料实图 |
 | Mock 场景 | 通过 | N01～N05、B01～B24 各自独立子进程、独立账本、独立收据；异常阻断无副作用并执行恢复 |
-| 性能 | 通过 | 修复额外路由模块往返后完整重放 350 个样本，最大 399.4ms、失败 0；此前 503.9ms 失败样本单独保留，不以重试覆盖 |
+| 性能 | 通过 | 修复额外路由模块往返后完整重放 350 个样本，最大 309ms、失败 0；此前 503.9ms 失败样本单独保留，不以重试覆盖 |
 
 ## 4. 本轮发现并关闭的问题
 
@@ -82,7 +82,7 @@
 
 ### 验证命令
 
-- `npm test`：通过，412/412；日志见 `docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-unit-current.log`。
+- `npm test`：通过，418/418；日志见 `docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-unit-current.log`。
 - `npm run build`：通过；日志见 `docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-build.log`。
 - `npx playwright test tests/tmf-webbing-connected-lists.spec.ts --workers=1`：通过，7/7；覆盖五页串联、统一模型、SKU/长度/端头、PDA 和异常恢复。
 - `npx playwright test tests/tmf-webbing-connected-performance.spec.ts --workers=1`：通过；五页连接性能回归。

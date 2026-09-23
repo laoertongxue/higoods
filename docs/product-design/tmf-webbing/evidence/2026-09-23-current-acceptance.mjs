@@ -22,8 +22,8 @@ const sha256 = file => crypto.createHash('sha256').update(fs.readFileSync(file))
 const rel = file => path.relative(designRoot, file).replaceAll(path.sep, '/')
 
 for (const file of Object.values(files)) assert.ok(fs.existsSync(file), `缺少当前验收证据：${rel(file)}`)
-assert.match(text(files.unit), /tests 412/)
-assert.match(text(files.unit), /pass 412/)
+assert.match(text(files.unit), /tests 418/)
+assert.match(text(files.unit), /pass 418/)
 assert.match(text(files.unit), /fail 0/)
 assert.match(text(files.build), /✓ built in/)
 assert.match(text(files.connectedLists), /7 passed/)
@@ -45,7 +45,7 @@ const output = {
   workingTreeDiffSha256: crypto.createHash('sha256').update(execFileSync('git', ['diff', '--binary'], { encoding: 'utf8', maxBuffer: 30 * 1024 * 1024 })).digest('hex'),
   verdict: '通过',
   gates: {
-    unit: { passed: 412, failed: 0, path: rel(files.unit), sha256: sha256(files.unit) },
+    unit: { passed: 418, failed: 0, path: rel(files.unit), sha256: sha256(files.unit) },
     build: { passed: true, path: rel(files.build), sha256: sha256(files.build) },
     connectedBusinessBrowser: { passed: 7, failed: 0, path: rel(files.connectedLists), sha256: sha256(files.connectedLists) },
     connectedPerformanceBrowser: { passed: 1, failed: 0, path: rel(files.connectedPerformance), sha256: sha256(files.connectedPerformance) },

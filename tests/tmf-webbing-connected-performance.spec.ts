@@ -137,12 +137,12 @@ test('五个 TMF 页面首次进入、刷新、站内切换和适用交互各 5 
     await dialogPage.goto(routes[1][0])
     await dialogPage.locator(`${routes[1][1]}[data-bound="true"]`).waitFor({ state: 'attached' })
     await painted(dialogPage)
-    await timed(routes[1][0], '确认接收弹窗打开', run, async () => {
+    await timed(routes[1][0], '确认接受弹窗打开', run, async () => {
       const milliseconds = await clickPainted(dialogPage, '[data-tmf-semi-finished-orders-action="accept"]')
       await dialogPage.locator('[data-tmf-dialog] .fixed').first().waitFor({ state: 'visible', timeout: 1_000 })
       return milliseconds
     })
-    await timed(routes[1][0], '确认接收弹窗关闭', run, async () => {
+    await timed(routes[1][0], '确认接受弹窗关闭', run, async () => {
       const milliseconds = await clickPainted(dialogPage, '[data-tmf-semi-finished-orders-action="close-dialog"]', true)
       await dialogPage.locator('[data-tmf-dialog] .fixed').first().waitFor({ state: 'detached', timeout: 1_000 })
       return milliseconds

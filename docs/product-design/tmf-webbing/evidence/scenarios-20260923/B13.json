@@ -1,6 +1,6 @@
 {
   "scenarioId": "B13",
-  "startedAt": "2026-09-23T10:47:59.715Z",
+  "startedAt": "2026-09-23T11:00:46.484Z",
   "steps": [
     {
       "index": 1,
@@ -213,10 +213,10 @@
       "skuCountIncreaseFromCutTip": 0
     }
   },
-  "finishedAt": "2026-09-23T10:47:59.716Z",
+  "finishedAt": "2026-09-23T11:00:46.485Z",
   "branch": "codex/tmf-audit-fixes",
-  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
-  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "head": "219ce8aa3ab9308662bba3ca294c16e08839b25f",
+  "workingTreeDiffSha256": "e65092b3437f4f7971667961f1f918f3797cf2b61720136fba3c4fbed3b7b6af",
   "fixture": "mock-full-flow.json",
   "fixtureSha256": "da5d8cbcf6020a30a5cd5285a97193388a7569ef7823b093e315f080dd78607a"
 }

@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-23T10:48:00.139Z",
+  "generatedAt": "2026-09-23T11:00:46.925Z",
   "branch": "codex/tmf-audit-fixes",
-  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
-  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "head": "219ce8aa3ab9308662bba3ca294c16e08839b25f",
+  "workingTreeDiffSha256": "e65092b3437f4f7971667961f1f918f3797cf2b61720136fba3c4fbed3b7b6af",
   "executionModel": "29 个场景逐个启动独立 Node 子进程；每个场景建立独立可变账本，正常场景推进采购→半成品→上游加工→TMF接收→截断/打头→交出→仓收→生产实收，边界场景验证异常阻断无副作用、恢复动作及最终数量守恒。",
   "fixture": "mock-full-flow.json",
   "fixtureSha256": "da5d8cbcf6020a30a5cd5285a97193388a7569ef7823b093e315f080dd78607a",
@@ -14,7 +14,7 @@
       "id": "N01",
       "pass": true,
       "file": "evidence/scenarios-20260923/N01.json",
-      "sha256": "e5a927d63a8f092fb01de5e5551cffef25778b9bee8f2c8af162faf7b46128c5",
+      "sha256": "598e2e32c3740d68f29e6a07c0e097675b1f1cae4c7c89376f2e60fbda67ea92",
       "steps": 9,
       "assertions": 9,
       "failure": null
@@ -23,7 +23,7 @@
       "id": "N02",
       "pass": true,
       "file": "evidence/scenarios-20260923/N02.json",
-      "sha256": "c897a29fe9753ca3b73d614dd02a203c21f0532bdf93edf14a0f6371208c3232",
+      "sha256": "3f3a6cf9b4d0e5e9142fedf3b8a87f45fdba3c237ded60c3a70af950f6cc5d0f",
       "steps": 7,
       "assertions": 9,
       "failure": null
@@ -32,7 +32,7 @@
       "id": "N03",
       "pass": true,
       "file": "evidence/scenarios-20260923/N03.json",
-      "sha256": "c38815c384404df77a7dd14e5e3c012f7e5e829a23cf2be064a2d1739cef7f01",
+      "sha256": "1bd49e7e706511f79904754add53348f0737a38dacb3fbbb4373c28c46bf9766",
       "steps": 7,
       "assertions": 9,
       "failure": null
@@ -41,7 +41,7 @@
       "id": "N04",
       "pass": true,
       "file": "evidence/scenarios-20260923/N04.json",
-      "sha256": "1ec811b64a3412a61093f94dd0bc093cbc1371589f23020c40c676a9dc4c9e1b",
+      "sha256": "f6f5ac54ae8354e37c5ab2cfe5f404a6e8523664bee8990c65d6a14c6aed487d",
       "steps": 7,
       "assertions": 9,
       "failure": null
@@ -50,7 +50,7 @@
       "id": "N05",
       "pass": true,
       "file": "evidence/scenarios-20260923/N05.json",
-      "sha256": "617afb2528170627358738733db8084e4d5b02d0a6ea2a3f52e194cb5eee7ab3",
+      "sha256": "b8ed746444e9be9ac8c10b219df2c19ddc2357cb0251177c8d6095a8ab56fea9",
       "steps": 7,
       "assertions": 9,
       "failure": null
@@ -59,7 +59,7 @@
       "id": "B01",
       "pass": true,
       "file": "evidence/scenarios-20260923/B01.json",
-      "sha256": "a4eca97baf09a7e8e270aeba913bd405e1d961c8b43282b051a7984153000c6c",
+      "sha256": "78ebc6b97b45bf6b9045f340e7a305fd7e5bd543e18e7991ee49678a3ad5cc53",
       "steps": 13,
       "assertions": 12,
       "failure": null
@@ -68,7 +68,7 @@
       "id": "B02",
       "pass": true,
       "file": "evidence/scenarios-20260923/B02.json",
-      "sha256": "c9fb61b3a972c74525242c932ccfa5ac10024f52b1b1f0b975579bb3ad7a70fc",
+      "sha256": "9b532c38d3c35339f484ebb50e397f157d0977e9508247247bc990a446c88b54",
       "steps": 12,
       "assertions": 12,
       "failure": null
@@ -77,7 +77,7 @@
       "id": "B03",
       "pass": true,
       "file": "evidence/scenarios-20260923/B03.json",
-      "sha256": "7ed13856b8fe923e92695774527a912715ea8f50201818dfdbd914574812f3f7",
+      "sha256": "8c34033844ecea2ce69b09c96b741a95551fecf3d122ce40f8ffbe1f551ac7e1",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -86,7 +86,7 @@
       "id": "B04",
       "pass": true,
       "file": "evidence/scenarios-20260923/B04.json",
-      "sha256": "e12ab3788a33a0fa47f2490db3e8256c5ec112389af8056ae47c9f16411d3884",
+      "sha256": "830a2ace35bea83b3379e9060f38cd438a3141f2927eb811f368774d0416447d",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -95,7 +95,7 @@
       "id": "B05",
       "pass": true,
       "file": "evidence/scenarios-20260923/B05.json",
-      "sha256": "2b3be5d3c746173d70f0914d0c93570f8f744f8e654842a419900e75c9dc16b8",
+      "sha256": "15bdaf04a339ea21abebf8ac7b525fcdc7be6eba70eccbd0f30e605f576baf59",
       "steps": 12,
       "assertions": 12,
       "failure": null
@@ -104,7 +104,7 @@
       "id": "B06",
       "pass": true,
       "file": "evidence/scenarios-20260923/B06.json",
-      "sha256": "c2337d44299bd095eb0223eee8b0ae16fb2d569d30cdee6a7efbf8d10369ac1e",
+      "sha256": "a7519556ef2cb016a9a91935ded8df77a753e5719554462c6bbaddd827f0903a",
       "steps": 10,
       "assertions": 13,
       "failure": null
@@ -113,7 +113,7 @@
       "id": "B07",
       "pass": true,
       "file": "evidence/scenarios-20260923/B07.json",
-      "sha256": "019e16fcda7e572f40b87e61bff3e7bd207da46b8c96ff6f822661b596bafcef",
+      "sha256": "3dc99b0c4c6e46355bf17113f9cf7b594bf6e2ec2d0292c1dc105dcbb4b38e49",
       "steps": 10,
       "assertions": 11,
       "failure": null
@@ -122,7 +122,7 @@
       "id": "B08",
       "pass": true,
       "file": "evidence/scenarios-20260923/B08.json",
-      "sha256": "45dbe60614471a03bd9256152fdaf608ec973407498c4360898ef227cdfc6057",
+      "sha256": "1c2fff77466275796cfc593339cf370b55b5a47e8a6b8dbe48bfc2f26ba411be",
       "steps": 10,
       "assertions": 11,
       "failure": null
@@ -131,7 +131,7 @@
       "id": "B09",
       "pass": true,
       "file": "evidence/scenarios-20260923/B09.json",
-      "sha256": "3a0abbb9e23af8f85cb0372a9d724ba764b2a7a3cc1650838c5dde0b735fcf9e",
+      "sha256": "92927503519d3d0c783bd30706b5523f1483ee8823245420fd09dc20c374d792",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -140,7 +140,7 @@
       "id": "B10",
       "pass": true,
       "file": "evidence/scenarios-20260923/B10.json",
-      "sha256": "0069c0d26bb7fd5ccb8d56f067562a92275e2798fea4fd06f8e40e55941dca36",
+      "sha256": "a3390325f98ad931195deae2e75e0d70a44dd0a87eec28531dd89593e27773fc",
       "steps": 13,
       "assertions": 12,
       "failure": null
@@ -149,7 +149,7 @@
       "id": "B11",
       "pass": true,
       "file": "evidence/scenarios-20260923/B11.json",
-      "sha256": "685be0b11db4adb68b6a82457c4ffaa288ceff2ff8b87974744119940a23620b",
+      "sha256": "2e0d58b50a3aa134cab090f7eec8c3acfa7920c1311009e174aa4e9d3cc183f4",
       "steps": 13,
       "assertions": 12,
       "failure": null
@@ -158,7 +158,7 @@
       "id": "B12",
       "pass": true,
       "file": "evidence/scenarios-20260923/B12.json",
-      "sha256": "3bb377e614bde24e3f4f7817c47bf51846020684596703dc809b986e5c5ca133",
+      "sha256": "89688c8eedde1d35c21d2919cdc1d4305e25cea406ecadb9b679ee0d50475515",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -167,7 +167,7 @@
       "id": "B13",
       "pass": true,
       "file": "evidence/scenarios-20260923/B13.json",
-      "sha256": "2346f3e9c0dd4acf3a054a70c9e5241b0b398ee67e4d9860cfca3bc5dfa9723e",
+      "sha256": "ec348b23583a647ef3d4faf1d4e0aa80679415fcabbcff5b03fc29b905c0d999",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -176,7 +176,7 @@
       "id": "B14",
       "pass": true,
       "file": "evidence/scenarios-20260923/B14.json",
-      "sha256": "572ef0c0b5ed3671ce525904fe176bc29a002ed9ad591e53c1e30f812f51784b",
+      "sha256": "16cc6e8151da14f3ca165cc1da0ec1701c7df0c7250796e0c3498d589ba42cb1",
       "steps": 12,
       "assertions": 12,
       "failure": null
@@ -185,7 +185,7 @@
       "id": "B15",
       "pass": true,
       "file": "evidence/scenarios-20260923/B15.json",
-      "sha256": "18c966869c95874d6367d7362d5473307d53ea0662d08dddd585d477134eca1b",
+      "sha256": "58d1871b9bac79c41b66f16e94cf5957974f25eb2ab0c55adba9c2c04de7a7cb",
       "steps": 10,
       "assertions": 12,
       "failure": null
@@ -194,7 +194,7 @@
       "id": "B16",
       "pass": true,
       "file": "evidence/scenarios-20260923/B16.json",
-      "sha256": "d72c76b8f0f0bd712f70c79e928e1e782d3857e347b92e26c9424aba05c7c45b",
+      "sha256": "114351c4d92f9c57da01dc864607916a4aa7a7f3e9fa407ba216a23a6cece164",
       "steps": 13,
       "assertions": 12,
       "failure": null
@@ -203,7 +203,7 @@
       "id": "B17",
       "pass": true,
       "file": "evidence/scenarios-20260923/B17.json",
-      "sha256": "00d3a981a1fd8b551e3fbe6769258cd19774f21b83671bb6575cb88367e7e3d6",
+      "sha256": "931a8f7cb7cdc8c2bdfdc7a3bf4910e337bf67e2841162c488ebcfbca21c9e5c",
       "steps": 10,
       "assertions": 12,
       "failure": null
@@ -212,7 +212,7 @@
       "id": "B18",
       "pass": true,
       "file": "evidence/scenarios-20260923/B18.json",
-      "sha256": "65889465264e887373d572c5249053219304ce331398e602f85056de43e313be",
+      "sha256": "0c24561e266cad4d252bd5f8e0b34a4c2274487f9f20be74f8963c69ec0080bb",
       "steps": 10,
       "assertions": 11,
       "failure": null
@@ -221,7 +221,7 @@
       "id": "B19",
       "pass": true,
       "file": "evidence/scenarios-20260923/B19.json",
-      "sha256": "31ad2403ff094fe3be21b069b9f89d6c0d7a3977dbd603c36f7c277c7d44d96e",
+      "sha256": "15b1a458bc411e8835d55d2fca3ba5963e6f245de937742eee2b784b738d5238",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -230,7 +230,7 @@
       "id": "B20",
       "pass": true,
       "file": "evidence/scenarios-20260923/B20.json",
-      "sha256": "98ab0b46255826d1981860f3d0c0ddb187e98f803fe0317012582d78df87273b",
+      "sha256": "4817452f84a6949bee0a9ef7c1a17dd971a4ead18f4d7bc05b6f3e9387d63226",
       "steps": 10,
       "assertions": 11,
       "failure": null
@@ -239,7 +239,7 @@
       "id": "B21",
       "pass": true,
       "file": "evidence/scenarios-20260923/B21.json",
-      "sha256": "1fdac719769baab624671ffa8ce1a614c65c1f9c035074198a2330e4ecc591f3",
+      "sha256": "f55c77b117fcee287e1551de6e356c0f38ab2c3c70156b52b21fac34648c0439",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -248,7 +248,7 @@
       "id": "B22",
       "pass": true,
       "file": "evidence/scenarios-20260923/B22.json",
-      "sha256": "43aeab513b2f0f73c1b61ca872b94654f0d5e05fc4288e2e414ce8c5ee7d9dc6",
+      "sha256": "2885a708ffaf292d017639c22e608cb5afc7bcf385712243c5ee886c6d8edfd9",
       "steps": 10,
       "assertions": 11,
       "failure": null
@@ -257,7 +257,7 @@
       "id": "B23",
       "pass": true,
       "file": "evidence/scenarios-20260923/B23.json",
-      "sha256": "69753835684c94e684bb464d248d2b120fb0952d2510546184dcb4b5ad3281fe",
+      "sha256": "62656f82dc47d6c08b0ba7f2aca627660b6329de277e19de588beceea9bda085",
       "steps": 12,
       "assertions": 11,
       "failure": null
@@ -266,7 +266,7 @@
       "id": "B24",
       "pass": true,
       "file": "evidence/scenarios-20260923/B24.json",
-      "sha256": "1184aa94c584f3c60539ffebc408cac3da220ae661bdb0a58e9e3718885a5157",
+      "sha256": "b29ac92ba0c840ed47423cb14dcff363f325af30f8d771ecee56386272dc12a5",
       "steps": 12,
       "assertions": 12,
       "failure": null

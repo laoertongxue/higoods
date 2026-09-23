@@ -1,63 +1,43 @@
 {
-  "generatedAt": "2026-09-23T10:45:28.215Z",
+  "generatedAt": "2026-09-23T11:01:34.045Z",
   "branch": "codex/tmf-audit-fixes",
-  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
-  "workingTreeDiffSha256": "645f029060296915b6d6cc42beff3a8ec6983ea80af05d1646a310eead984d53",
+  "head": "219ce8aa3ab9308662bba3ca294c16e08839b25f",
+  "workingTreeDiffSha256": "b250cfad46f3972f40dcf623fb9b37a794be51d916f1df9b35ed99829b879f59",
   "dirtyFiles": [
-    "M docs/product-design/tmf-webbing/evidence/2026-09-20-adversarial-audit-rounds-current.json",
-    " M docs/product-design/tmf-webbing/evidence/2026-09-20-adversarial-audit-rounds-current.md",
-    " M docs/product-design/tmf-webbing/evidence/2026-09-20-adversarial-audit-rounds.mjs",
-    " M docs/product-design/tmf-webbing/evidence/2026-09-20-reverse-file-scope-manifest.json",
-    " M docs/product-design/tmf-webbing/evidence/2026-09-23-connected-lists-performance.json",
-    " M docs/product-design/tmf-webbing/validate-design-data.py",
-    " M docs/product-design/tmf-webbing/实施计划.md",
-    " M docs/product-design/tmf-webbing/实施进度.md",
-    " M docs/product-design/tmf-webbing/文档与数据核查记录.md",
-    " M docs/product-design/tmf-webbing/织带厂管理产品方案.md",
-    " M docs/product-design/tmf-webbing/规范场景验收覆盖.json",
-    " M docs/product-design/tmf-webbing/规范场景验收覆盖.md",
-    " M docs/product-design/tmf-webbing/需求追踪矩阵.md",
-    " M docs/prototype-review-records/2026-09-23-tmf-connected-mock-and-work-order-alignment.md",
-    " M src/data/fcs/pda-handover-events.ts",
-    " M src/data/fcs/production-order-runtime-store.ts",
-    " M src/data/fcs/tmf-base-demo.ts",
-    " M src/data/fcs/tmf-work-order-times.ts",
-    " M src/data/fcs/tmf-work-order-view.ts",
-    " M src/data/pms/material-purchase-orders.ts",
-    " M src/data/pms/material-requirements.ts",
-    " M src/data/pms/tmf-material-purchases.ts",
-    " M src/main.ts",
-    " M src/pages/print/templates/tmf-process-sheet-template.ts",
-    " M src/pages/print/tmf-process-print-preview.ts",
-    " M src/pages/process-factory/accessory/webbing/handover-records.ts",
-    " M src/pages/process-factory/accessory/webbing/pda-execution.ts",
-    " M src/pages/process-factory/accessory/webbing/pending-receipts.ts",
-    " M src/pages/process-factory/accessory/webbing/semi-finished-orders.ts",
-    " M src/pages/process-factory/accessory/webbing/work-order-detail.ts",
-    " M src/pages/process-factory/accessory/webbing/work-orders.ts",
-    " M src/pages/process-factory/accessory/webbing/work-times.ts",
-    " M src/router/routes-fcs.ts",
-    " M src/router/routes.ts",
-    " M tests/tmf-webbing-connected-lists.spec.ts",
-    " M tests/tmf-webbing-connected-performance.spec.ts",
-    " M tests/unit/tmf-base-demo.test.ts",
-    " M tests/unit/tmf-purchase-base-flow.test.ts",
-    " M vite.config.ts",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-current-acceptance.json",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-current-acceptance.mjs",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-scenario-independent-current.json",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-scenario-independent-runner.mjs",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-build.log",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-complete-performance.json",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-connected-lists.log",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-connected-performance.log",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-unit-current.log",
-    "?? docs/product-design/tmf-webbing/evidence/2026-09-23-update-coverage.mjs",
-    "?? docs/product-design/tmf-webbing/evidence/scenarios-20260923/",
-    "?? docs/product-design/tmf-webbing/业务专家复核-2026-09-23.md",
-    "?? src/data/fcs/tmf-source-readers.ts",
-    "?? src/router/routes-tmf-webbing.ts",
-    "?? tests/tmf-webbing-complete-performance.spec.ts"
+    "M docs/product-design/tmf-webbing/evidence/2026-09-23-scenario-independent-current.json",
+    " M docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-build.log",
+    " M docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-connected-lists.log",
+    " M docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-connected-performance.log",
+    " M docs/product-design/tmf-webbing/evidence/2026-09-23-tmf-unit-current.log",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B01.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B02.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B03.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B04.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B05.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B06.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B07.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B08.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B09.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B10.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B11.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B12.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B13.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B14.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B15.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B16.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B17.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B18.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B19.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B20.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B21.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B22.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B23.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/B24.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/N01.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/N02.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/N03.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/N04.json",
+    " M docs/product-design/tmf-webbing/evidence/scenarios-20260923/N05.json"
   ],
   "service": "http://127.0.0.1:4173",
   "viewport": "1366x768（PDA 与打印由同批浏览器专项单独覆盖）",
@@ -66,682 +46,682 @@
   "dataVolume": "12 条 PMS/TMF 采购与半成品链、5 张织带加工单、8 条规格需求、正常/部分/边界状态并存",
   "threshold": "<500ms",
   "sampleCount": 195,
-  "maxMilliseconds": 421.61,
+  "maxMilliseconds": 280.92,
   "passed": true,
   "samples": [
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "独立上下文首次进入",
       "run": 1,
-      "milliseconds": 421.61
+      "milliseconds": 173.2
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "独立上下文首次进入",
       "run": 2,
-      "milliseconds": 230.99
+      "milliseconds": 180.64
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "独立上下文首次进入",
       "run": 3,
-      "milliseconds": 303.51
+      "milliseconds": 162
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "独立上下文首次进入",
       "run": 4,
-      "milliseconds": 224.35
+      "milliseconds": 165.27
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "独立上下文首次进入",
       "run": 5,
-      "milliseconds": 227.89
+      "milliseconds": 163.35
     },
     {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "独立上下文首次进入",
       "run": 1,
-      "milliseconds": 208.99
+      "milliseconds": 182.31
     },
     {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "独立上下文首次进入",
       "run": 2,
-      "milliseconds": 229.11
+      "milliseconds": 182.27
     },
     {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "独立上下文首次进入",
       "run": 3,
-      "milliseconds": 210.82
+      "milliseconds": 182.14
     },
     {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "独立上下文首次进入",
       "run": 4,
-      "milliseconds": 212.89
+      "milliseconds": 199.06
     },
     {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "独立上下文首次进入",
       "run": 5,
-      "milliseconds": 214.38
+      "milliseconds": 198.8
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "独立上下文首次进入",
       "run": 1,
-      "milliseconds": 215.66
+      "milliseconds": 166.34
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "独立上下文首次进入",
       "run": 2,
-      "milliseconds": 215.57
+      "milliseconds": 165.84
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "独立上下文首次进入",
       "run": 3,
-      "milliseconds": 213.48
+      "milliseconds": 182.31
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "独立上下文首次进入",
       "run": 4,
-      "milliseconds": 215.7
+      "milliseconds": 280.92
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "独立上下文首次进入",
       "run": 5,
-      "milliseconds": 215.91
+      "milliseconds": 178.24
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "独立上下文首次进入",
       "run": 1,
-      "milliseconds": 215.87
+      "milliseconds": 181.77
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "独立上下文首次进入",
       "run": 2,
-      "milliseconds": 214.32
+      "milliseconds": 179.52
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "独立上下文首次进入",
       "run": 3,
-      "milliseconds": 215.68
+      "milliseconds": 181.84
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "独立上下文首次进入",
       "run": 4,
-      "milliseconds": 215.57
+      "milliseconds": 176.47
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "独立上下文首次进入",
       "run": 5,
-      "milliseconds": 215.64
+      "milliseconds": 181.49
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "独立上下文首次进入",
       "run": 1,
-      "milliseconds": 196.7
+      "milliseconds": 165.84
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "独立上下文首次进入",
       "run": 2,
-      "milliseconds": 199.31
+      "milliseconds": 163.51
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "独立上下文首次进入",
       "run": 3,
-      "milliseconds": 198.13
+      "milliseconds": 165.34
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "独立上下文首次进入",
       "run": 4,
-      "milliseconds": 199.34
+      "milliseconds": 164.14
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "独立上下文首次进入",
       "run": 5,
-      "milliseconds": 215.09
+      "milliseconds": 165.49
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "站内路由切换",
       "run": 1,
-      "milliseconds": 166.57
+      "milliseconds": 133.24
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 118.01
+      "milliseconds": 100.14
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "站内路由切换",
       "run": 2,
-      "milliseconds": 115.54
+      "milliseconds": 133.37
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 117.68
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "站内路由切换",
-      "run": 3,
-      "milliseconds": 115.57
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "整页刷新",
-      "run": 3,
-      "milliseconds": 179.57
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "站内路由切换",
-      "run": 4,
-      "milliseconds": 170.33
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "整页刷新",
-      "run": 4,
-      "milliseconds": 175.19
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "站内路由切换",
-      "run": 5,
-      "milliseconds": 208.85
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "整页刷新",
-      "run": 5,
-      "milliseconds": 133.06
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "站内路由切换",
-      "run": 1,
-      "milliseconds": 133.17
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "整页刷新",
-      "run": 1,
-      "milliseconds": 133.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "站内路由切换",
-      "run": 2,
-      "milliseconds": 133.36
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "整页刷新",
-      "run": 2,
-      "milliseconds": 118.41
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "站内路由切换",
-      "run": 3,
-      "milliseconds": 148.12
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "整页刷新",
-      "run": 3,
-      "milliseconds": 116.68
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "站内路由切换",
-      "run": 4,
-      "milliseconds": 149.89
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "整页刷新",
-      "run": 4,
-      "milliseconds": 116.82
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "站内路由切换",
-      "run": 5,
-      "milliseconds": 116.44
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "整页刷新",
-      "run": 5,
-      "milliseconds": 116.84
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "站内路由切换",
-      "run": 1,
-      "milliseconds": 117.04
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "整页刷新",
-      "run": 1,
-      "milliseconds": 116.28
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "站内路由切换",
-      "run": 2,
-      "milliseconds": 133.15
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "整页刷新",
-      "run": 2,
-      "milliseconds": 116.82
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "站内路由切换",
-      "run": 3,
-      "milliseconds": 116.51
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "整页刷新",
-      "run": 3,
-      "milliseconds": 116.81
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/work-orders",
-      "scenario": "站内路由切换",
-      "run": 4,
       "milliseconds": 116.48
     },
     {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "站内路由切换",
+      "run": 3,
+      "milliseconds": 133.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "整页刷新",
+      "run": 3,
+      "milliseconds": 135.87
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "站内路由切换",
+      "run": 4,
+      "milliseconds": 129.05
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "整页刷新",
+      "run": 4,
+      "milliseconds": 100.85
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "站内路由切换",
+      "run": 5,
+      "milliseconds": 132.68
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "整页刷新",
+      "run": 5,
+      "milliseconds": 133.2
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "站内路由切换",
+      "run": 1,
+      "milliseconds": 166.72
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "整页刷新",
+      "run": 1,
+      "milliseconds": 116.76
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "站内路由切换",
+      "run": 2,
+      "milliseconds": 150
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "整页刷新",
+      "run": 2,
+      "milliseconds": 100.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "站内路由切换",
+      "run": 3,
+      "milliseconds": 133
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "整页刷新",
+      "run": 3,
+      "milliseconds": 149.92
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "站内路由切换",
+      "run": 4,
+      "milliseconds": 116.59
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "整页刷新",
+      "run": 4,
+      "milliseconds": 100.39
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "站内路由切换",
+      "run": 5,
+      "milliseconds": 116.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "整页刷新",
+      "run": 5,
+      "milliseconds": 100.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "站内路由切换",
+      "run": 1,
+      "milliseconds": 100.87
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "整页刷新",
+      "run": 1,
+      "milliseconds": 149.19
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "站内路由切换",
+      "run": 2,
+      "milliseconds": 149.94
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "整页刷新",
+      "run": 2,
+      "milliseconds": 149.95
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "站内路由切换",
+      "run": 3,
+      "milliseconds": 116.56
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "整页刷新",
+      "run": 3,
+      "milliseconds": 116.88
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/work-orders",
+      "scenario": "站内路由切换",
+      "run": 4,
+      "milliseconds": 149.95
+    },
+    {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 116.81
+      "milliseconds": 100.34
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "站内路由切换",
       "run": 5,
-      "milliseconds": 116.48
+      "milliseconds": 132.81
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 133.66
+      "milliseconds": 100.21
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "站内路由切换",
       "run": 1,
-      "milliseconds": 116.6
+      "milliseconds": 99.7
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "整页刷新",
       "run": 1,
-      "milliseconds": 116.35
+      "milliseconds": 99.97
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "站内路由切换",
       "run": 2,
-      "milliseconds": 116.93
+      "milliseconds": 133.23
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 116.69
+      "milliseconds": 100.19
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "站内路由切换",
       "run": 3,
-      "milliseconds": 116.49
+      "milliseconds": 133.12
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 116.64
+      "milliseconds": 100.17
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "站内路由切换",
       "run": 4,
-      "milliseconds": 116.62
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "整页刷新",
-      "run": 4,
-      "milliseconds": 117.77
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "站内路由切换",
-      "run": 5,
-      "milliseconds": 116.62
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "整页刷新",
-      "run": 5,
-      "milliseconds": 132.91
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/handover-records",
-      "scenario": "站内路由切换",
-      "run": 1,
-      "milliseconds": 149.66
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/handover-records",
-      "scenario": "整页刷新",
-      "run": 1,
       "milliseconds": 133.14
     },
     {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "整页刷新",
+      "run": 4,
+      "milliseconds": 100.18
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "站内路由切换",
+      "run": 5,
+      "milliseconds": 133.17
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "整页刷新",
+      "run": 5,
+      "milliseconds": 100.14
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/handover-records",
+      "scenario": "站内路由切换",
+      "run": 1,
+      "milliseconds": 100.01
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/handover-records",
+      "scenario": "整页刷新",
+      "run": 1,
+      "milliseconds": 100.98
+    },
+    {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "站内路由切换",
       "run": 2,
-      "milliseconds": 116.42
+      "milliseconds": 132.18
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "整页刷新",
       "run": 2,
-      "milliseconds": 116.85
+      "milliseconds": 100.12
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "站内路由切换",
       "run": 3,
-      "milliseconds": 117.48
+      "milliseconds": 133.19
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "整页刷新",
       "run": 3,
-      "milliseconds": 115.86
+      "milliseconds": 100.46
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "站内路由切换",
       "run": 4,
-      "milliseconds": 116.62
+      "milliseconds": 132.84
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "整页刷新",
       "run": 4,
-      "milliseconds": 116.79
+      "milliseconds": 100.16
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "站内路由切换",
       "run": 5,
-      "milliseconds": 116.36
+      "milliseconds": 99.86
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "整页刷新",
       "run": 5,
-      "milliseconds": 117.72
+      "milliseconds": 100.21
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 17.3
+      "milliseconds": 16.8
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 30.6
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置打开",
-      "run": 1,
-      "milliseconds": 27.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置关闭",
-      "run": 1,
-      "milliseconds": 30
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "查询",
-      "run": 2,
-      "milliseconds": 22.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "重置",
-      "run": 2,
-      "milliseconds": 31.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置打开",
-      "run": 2,
-      "milliseconds": 29.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置关闭",
-      "run": 2,
-      "milliseconds": 29.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "查询",
-      "run": 3,
-      "milliseconds": 23.6
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "重置",
-      "run": 3,
-      "milliseconds": 31.6
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置打开",
-      "run": 3,
-      "milliseconds": 30.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置关闭",
-      "run": 3,
-      "milliseconds": 30.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "查询",
-      "run": 4,
-      "milliseconds": 23.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "重置",
-      "run": 4,
-      "milliseconds": 31.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置打开",
-      "run": 4,
-      "milliseconds": 29.7
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "列设置关闭",
-      "run": 4,
-      "milliseconds": 29.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "查询",
-      "run": 5,
-      "milliseconds": 23
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "重置",
-      "run": 5,
       "milliseconds": 31.4
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "列设置打开",
-      "run": 5,
-      "milliseconds": 29.4
+      "run": 1,
+      "milliseconds": 28.4
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "列设置关闭",
-      "run": 5,
+      "run": 1,
       "milliseconds": 30.3
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "查询",
-      "run": 1,
-      "milliseconds": 24
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "重置",
-      "run": 1,
-      "milliseconds": 31.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "列设置打开",
-      "run": 1,
-      "milliseconds": 30.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "列设置关闭",
-      "run": 1,
-      "milliseconds": 30.4
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 21.1
+      "milliseconds": 22.9
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 31.3
+      "milliseconds": 31.4
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "列设置打开",
       "run": 2,
-      "milliseconds": 30.8
+      "milliseconds": 30
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "列设置关闭",
       "run": 2,
-      "milliseconds": 29.2
+      "milliseconds": 30.2
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "查询",
       "run": 3,
       "milliseconds": 23.2
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "重置",
       "run": 3,
-      "milliseconds": 31.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "列设置打开",
-      "run": 3,
-      "milliseconds": 29.6
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "列设置关闭",
-      "run": 3,
-      "milliseconds": 30.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "查询",
-      "run": 4,
-      "milliseconds": 22.4
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "重置",
-      "run": 4,
       "milliseconds": 31.5
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "列设置打开",
+      "run": 3,
+      "milliseconds": 30.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "列设置关闭",
+      "run": 3,
+      "milliseconds": 30.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "查询",
+      "run": 4,
+      "milliseconds": 23.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "重置",
+      "run": 4,
+      "milliseconds": 31.6
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "列设置打开",
       "run": 4,
       "milliseconds": 30.1
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "列设置关闭",
       "run": 4,
-      "milliseconds": 30
+      "milliseconds": 30.4
     },
     {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "查询",
       "run": 5,
       "milliseconds": 22.8
     },
     {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "重置",
+      "run": 5,
+      "milliseconds": 31.5
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "列设置打开",
+      "run": 5,
+      "milliseconds": 30.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "列设置关闭",
+      "run": 5,
+      "milliseconds": 30.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "查询",
+      "run": 1,
+      "milliseconds": 22.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "重置",
+      "run": 1,
+      "milliseconds": 31.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置打开",
+      "run": 1,
+      "milliseconds": 29.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置关闭",
+      "run": 1,
+      "milliseconds": 30
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "查询",
+      "run": 2,
+      "milliseconds": 22.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "重置",
+      "run": 2,
+      "milliseconds": 31.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置打开",
+      "run": 2,
+      "milliseconds": 29.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置关闭",
+      "run": 2,
+      "milliseconds": 30.2
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "查询",
+      "run": 3,
+      "milliseconds": 22.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "重置",
+      "run": 3,
+      "milliseconds": 30.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置打开",
+      "run": 3,
+      "milliseconds": 29.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置关闭",
+      "run": 3,
+      "milliseconds": 30.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "查询",
+      "run": 4,
+      "milliseconds": 22.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "重置",
+      "run": 4,
+      "milliseconds": 31.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置打开",
+      "run": 4,
+      "milliseconds": 29.7
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置关闭",
+      "run": 4,
+      "milliseconds": 30.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "查询",
+      "run": 5,
+      "milliseconds": 23
+    },
+    {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "重置",
       "run": 5,
@@ -750,50 +730,50 @@
     {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
       "scenario": "列设置打开",
-      "run": 5,
-      "milliseconds": 29.6
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "列设置关闭",
       "run": 5,
       "milliseconds": 29.9
     },
     {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "列设置关闭",
+      "run": 5,
+      "milliseconds": 30
+    },
+    {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 23.2
+      "milliseconds": 23.1
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 31.4
+      "milliseconds": 31.5
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置打开",
       "run": 1,
-      "milliseconds": 29.7
+      "milliseconds": 28.8
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置关闭",
       "run": 1,
-      "milliseconds": 30.3
+      "milliseconds": 30.7
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 22.1
+      "milliseconds": 23
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 31.6
+      "milliseconds": 31.4
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
@@ -811,67 +791,67 @@
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "查询",
       "run": 3,
-      "milliseconds": 23.5
+      "milliseconds": 22.7
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "重置",
       "run": 3,
-      "milliseconds": 31.6
+      "milliseconds": 31.7
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置打开",
       "run": 3,
-      "milliseconds": 29.9
+      "milliseconds": 30
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置关闭",
       "run": 3,
-      "milliseconds": 29.9
+      "milliseconds": 29.5
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "查询",
       "run": 4,
-      "milliseconds": 23.4
+      "milliseconds": 23
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "重置",
       "run": 4,
-      "milliseconds": 31.6
+      "milliseconds": 31
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置打开",
       "run": 4,
-      "milliseconds": 30.2
+      "milliseconds": 29.8
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置关闭",
       "run": 4,
-      "milliseconds": 29.7
+      "milliseconds": 30.3
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "查询",
       "run": 5,
-      "milliseconds": 23.5
+      "milliseconds": 22.6
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "重置",
       "run": 5,
-      "milliseconds": 31.5
+      "milliseconds": 29.9
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
       "scenario": "列设置打开",
       "run": 5,
-      "milliseconds": 29.7
+      "milliseconds": 29.9
     },
     {
       "route": "/fcs/craft/accessory/webbing/work-orders",
@@ -889,121 +869,121 @@
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "重置",
       "run": 1,
-      "milliseconds": 32.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置打开",
-      "run": 1,
-      "milliseconds": 29.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置关闭",
-      "run": 1,
-      "milliseconds": 29.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "查询",
-      "run": 2,
-      "milliseconds": 23.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "重置",
-      "run": 2,
       "milliseconds": 31.6
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "列设置打开",
-      "run": 2,
-      "milliseconds": 30.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置关闭",
-      "run": 2,
-      "milliseconds": 30.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "查询",
-      "run": 3,
-      "milliseconds": 23.8
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "重置",
-      "run": 3,
-      "milliseconds": 31.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置打开",
-      "run": 3,
-      "milliseconds": 30.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置关闭",
-      "run": 3,
-      "milliseconds": 30.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "查询",
-      "run": 4,
-      "milliseconds": 23.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "重置",
-      "run": 4,
-      "milliseconds": 31.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置打开",
-      "run": 4,
-      "milliseconds": 30.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置关闭",
-      "run": 4,
-      "milliseconds": 29.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "查询",
-      "run": 5,
-      "milliseconds": 23.5
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "重置",
-      "run": 5,
-      "milliseconds": 31.8
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/pending-receipts",
-      "scenario": "列设置打开",
-      "run": 5,
+      "run": 1,
       "milliseconds": 29.7
     },
     {
       "route": "/fcs/craft/accessory/webbing/pending-receipts",
       "scenario": "列设置关闭",
+      "run": 1,
+      "milliseconds": 30
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "查询",
+      "run": 2,
+      "milliseconds": 21.5
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "重置",
+      "run": 2,
+      "milliseconds": 31.5
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置打开",
+      "run": 2,
+      "milliseconds": 29.8
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置关闭",
+      "run": 2,
+      "milliseconds": 30.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "查询",
+      "run": 3,
+      "milliseconds": 17.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "重置",
+      "run": 3,
+      "milliseconds": 31.2
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置打开",
+      "run": 3,
+      "milliseconds": 29.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置关闭",
+      "run": 3,
+      "milliseconds": 30.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "查询",
+      "run": 4,
+      "milliseconds": 23.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "重置",
+      "run": 4,
+      "milliseconds": 31.7
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置打开",
+      "run": 4,
+      "milliseconds": 30.2
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置关闭",
+      "run": 4,
+      "milliseconds": 29.5
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "查询",
       "run": 5,
-      "milliseconds": 30.8
+      "milliseconds": 22.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "重置",
+      "run": 5,
+      "milliseconds": 31.6
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置打开",
+      "run": 5,
+      "milliseconds": 29.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/pending-receipts",
+      "scenario": "列设置关闭",
+      "run": 5,
+      "milliseconds": 29.7
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "查询",
       "run": 1,
-      "milliseconds": 23.6
+      "milliseconds": 22.6
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
@@ -1015,229 +995,229 @@
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置打开",
       "run": 1,
-      "milliseconds": 29.8
+      "milliseconds": 30
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置关闭",
       "run": 1,
-      "milliseconds": 30.3
+      "milliseconds": 30
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "查询",
       "run": 2,
-      "milliseconds": 23
+      "milliseconds": 23.2
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "重置",
       "run": 2,
-      "milliseconds": 31.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/handover-records",
-      "scenario": "列设置打开",
-      "run": 2,
-      "milliseconds": 30.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/handover-records",
-      "scenario": "列设置关闭",
-      "run": 2,
-      "milliseconds": 30.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/handover-records",
-      "scenario": "查询",
-      "run": 3,
-      "milliseconds": 22.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/handover-records",
-      "scenario": "重置",
-      "run": 3,
       "milliseconds": 31.5
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置打开",
-      "run": 3,
-      "milliseconds": 30
+      "run": 2,
+      "milliseconds": 30.4
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置关闭",
-      "run": 3,
-      "milliseconds": 29.9
+      "run": 2,
+      "milliseconds": 29.3
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "查询",
-      "run": 4,
-      "milliseconds": 23.6
+      "run": 3,
+      "milliseconds": 22.6
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "重置",
-      "run": 4,
+      "run": 3,
       "milliseconds": 31.6
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置打开",
-      "run": 4,
+      "run": 3,
       "milliseconds": 30
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置关闭",
-      "run": 4,
+      "run": 3,
       "milliseconds": 30.1
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "查询",
+      "run": 4,
+      "milliseconds": 22.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/handover-records",
+      "scenario": "重置",
+      "run": 4,
+      "milliseconds": 31
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/handover-records",
+      "scenario": "列设置打开",
+      "run": 4,
+      "milliseconds": 30.1
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/handover-records",
+      "scenario": "列设置关闭",
+      "run": 4,
+      "milliseconds": 29.8
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/handover-records",
+      "scenario": "查询",
       "run": 5,
-      "milliseconds": 23.6
+      "milliseconds": 22.1
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "重置",
       "run": 5,
-      "milliseconds": 31.6
+      "milliseconds": 31.2
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置打开",
       "run": 5,
-      "milliseconds": 29.9
+      "milliseconds": 30
     },
     {
       "route": "/fcs/craft/accessory/webbing/handover-records",
       "scenario": "列设置关闭",
       "run": 5,
-      "milliseconds": 30
+      "milliseconds": 29.9
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "图片大图打开",
       "run": 1,
-      "milliseconds": 25.8
+      "milliseconds": 25.2
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "图片大图关闭",
       "run": 1,
-      "milliseconds": 28.4
+      "milliseconds": 28.3
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "图片大图打开",
       "run": 2,
-      "milliseconds": 25.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "图片大图关闭",
-      "run": 2,
-      "milliseconds": 29.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "图片大图打开",
-      "run": 3,
       "milliseconds": 25.4
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "图片大图关闭",
+      "run": 2,
+      "milliseconds": 28.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "图片大图打开",
       "run": 3,
-      "milliseconds": 29.6
+      "milliseconds": 25.5
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "图片大图关闭",
+      "run": 3,
+      "milliseconds": 28.9
     },
     {
       "route": "/fcs/craft/accessory/webbing/purchase-demands",
       "scenario": "图片大图打开",
       "run": 4,
+      "milliseconds": 25.6
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "图片大图关闭",
+      "run": 4,
+      "milliseconds": 28.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "图片大图打开",
+      "run": 5,
+      "milliseconds": 25.4
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/purchase-demands",
+      "scenario": "图片大图关闭",
+      "run": 5,
+      "milliseconds": 28.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗打开",
+      "run": 1,
+      "milliseconds": 25.2
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗关闭",
+      "run": 1,
+      "milliseconds": 29.7
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗打开",
+      "run": 2,
+      "milliseconds": 25
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗关闭",
+      "run": 2,
+      "milliseconds": 30.2
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗打开",
+      "run": 3,
       "milliseconds": 25.1
     },
     {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "图片大图关闭",
-      "run": 4,
-      "milliseconds": 29.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "图片大图打开",
-      "run": 5,
-      "milliseconds": 25.7
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/purchase-demands",
-      "scenario": "图片大图关闭",
-      "run": 5,
-      "milliseconds": 28.8
-    },
-    {
       "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗打开",
-      "run": 1,
-      "milliseconds": 24.9
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗关闭",
-      "run": 1,
-      "milliseconds": 30.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗打开",
-      "run": 2,
-      "milliseconds": 25
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗关闭",
-      "run": 2,
-      "milliseconds": 30.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗打开",
+      "scenario": "确认接受弹窗关闭",
       "run": 3,
-      "milliseconds": 25
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗关闭",
-      "run": 3,
-      "milliseconds": 30.2
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗打开",
-      "run": 4,
-      "milliseconds": 25.4
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗关闭",
-      "run": 4,
-      "milliseconds": 30.1
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗打开",
-      "run": 5,
-      "milliseconds": 24.3
-    },
-    {
-      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
-      "scenario": "确认接收弹窗关闭",
-      "run": 5,
       "milliseconds": 29.9
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗打开",
+      "run": 4,
+      "milliseconds": 25.6
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗关闭",
+      "run": 4,
+      "milliseconds": 30
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗打开",
+      "run": 5,
+      "milliseconds": 25.3
+    },
+    {
+      "route": "/fcs/craft/accessory/webbing/semi-finished-orders",
+      "scenario": "确认接受弹窗关闭",
+      "run": 5,
+      "milliseconds": 30.1
     }
   ]
 }
