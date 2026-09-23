@@ -35,6 +35,12 @@ function canUseStorage(): boolean {
 function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   return {
     ...record,
+    categoryTags: [...(record.categoryTags || [])],
+    popularElementTags: [...(record.popularElementTags || [])],
+    fabricTags: [...(record.fabricTags || [])],
+    ageTags: [...(record.ageTags || [])],
+    audiencePositionTags: [...(record.audiencePositionTags || [])],
+
     seasonTags: Array.isArray(record.seasonTags) ? [...record.seasonTags] : [],
     styleTags: Array.isArray(record.styleTags) ? [...record.styleTags] : [],
     targetAudienceTags: Array.isArray(record.targetAudienceTags) ? [...record.targetAudienceTags] : [],

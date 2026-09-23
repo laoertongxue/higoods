@@ -86,6 +86,10 @@ export const renderPcsSpecificationDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-product-archives'),
   'renderPcsSpecificationDetailPage',
 )
+export const renderPcsTestingOrderCreatePage = createAsyncRenderer(
+  () => import('../pages/pcs-testing-order-create'),
+  'renderPcsTestingOrderCreatePage',
+)
 export const renderPcsTestingOrderListPage = createAsyncRenderer(
   () => import('../pages/pcs-testing-order-list'),
   'renderPcsTestingOrderListPage',

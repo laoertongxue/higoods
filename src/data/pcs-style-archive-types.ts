@@ -6,6 +6,16 @@ export interface StyleArchiveShellRecord {
   styleName: string
   styleNameEn: string
   styleNumber: string
+  thirdCategoryName?: string
+  materialType?: string
+  categoryTags?: string[]
+  popularElementTags?: string[]
+  fabricTags?: string[]
+  ageTags?: string[]
+  audiencePositionTags?: string[]
+  categoryCode?: string
+  categoryCodeName?: string
+  productPosition?: string
   productType: string
   sourceProjectId: string
   sourceProjectCode: string

@@ -50,6 +50,7 @@ export const routes: RouteRegistry = {
     '/pcs/pattern-library/create': () => renderers.renderPcsPatternLibraryCreatePage(),
     '/pcs/pattern-library/config': () => renderers.renderPcsPatternLibraryConfigPage(),
     '/pcs/products/styles': () => renderers.renderPcsStyleArchiveListPage(),
+    '/pcs/testing/orders/create': () => renderers.renderPcsTestingOrderCreatePage(),
     '/pcs/testing/orders': () => renderers.renderPcsTestingOrderListPage(),
     '/pcs/testing/orders/store': () => renderers.renderPcsTestingOrderListPage(),
     '/pcs/products/specifications': () => renderers.renderPcsSpecificationListPage(),

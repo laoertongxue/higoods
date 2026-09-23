@@ -42,6 +42,7 @@ export interface TestingOrderPricing {
 export interface TestingOrderRecord {
   testingOrderId: string
   orderCode: string
+  buyerName?: string
   styleId: string
   styleCode: string
   styleName: string
@@ -91,7 +92,7 @@ export interface TestingOrderNewArchiveInput {
 }
 
 export const TESTING_ORDER_STEPS: Array<Pick<TestingOrderStep, 'key' | 'title' | 'description'>> = [
-  { key: 'archive', title: '①系统建档', description: '创建 SPU/SKU（含预计用料）并写入商品档案。' },
+  { key: 'archive', title: '①系统建档', description: '核对关联商品档案及本次测款 SKU。' },
   { key: 'purchase-link', title: '②采购下单', description: '记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。' },
   { key: 'logistics', title: '③快递信息', description: '记录寄件快递、运单号与预计到达。' },
   { key: 'sample-inbound', title: '④样衣入库', description: '样衣模块确认样品入库成功后推进。' },
@@ -149,6 +150,7 @@ function defaultPricing(): TestingOrderPricing {
 
 export function createTestingOrder(input: {
   styleId?: string
+  buyerName?: string
   newArchive?: TestingOrderNewArchiveInput
   skuCodes?: string[]
   purchaseLinks?: string[]
@@ -224,12 +226,16 @@ export function createTestingOrder(input: {
     createSkuArchive(sku)
   }
   if (!style) return { ok: false, message: '款式建档失败。' }
+  const availableSkus = listSkuArchives().filter((item) => item.styleId === style!.styleId)
+  if (input.skuCodes && (!input.skuCodes.length || input.skuCodes.some((code) => !availableSkus.some((sku) => sku.skuCode === code)))) return { ok: false, message: '请选择该商品档案下的有效 SKU。' }
+  if (!availableSkus.length) return { ok: false, message: '商品档案尚无 SKU，请先维护规格档案。' }
   seq += 1
   const orderCode = `TO-${String(seq).padStart(4, '0')}`
   const skuCodes = input.skuCodes || listSkuArchives().filter((item) => item.styleId === style.styleId).map((item) => item.skuCode)
   const record: TestingOrderRecord = {
     testingOrderId: `to_${Date.now().toString(36)}_${seq}`,
     orderCode,
+    buyerName: input.buyerName?.trim() || '待分配',
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
@@ -531,6 +537,7 @@ function seed(
   seq += 1
   const base = {
     orderCode: `TO-${String(seq).padStart(4, '0')}`,
+    buyerName: ['陈买手', '林买手', '王买手'][(seq - 1) % 3],
     status: '进行中' as TestingOrderRecord['status'],
     currentStepKey: 'archive' as TestingOrderRecord['currentStepKey'],
     purchaseLinks: [] as string[],
@@ -736,6 +743,7 @@ export function bootstrapTestingOrders(): void {
   }
   saved.forEach((item) => store.set(item.testingOrderId, {
     ...item,
+    buyerName: item.buyerName?.trim() || '待分配',
     styleImageUrl: localizeProductFixtureImageUrl(item.styleImageUrl || ''),
   }))
   seq = Math.max(seq, ...[...store.values()].map((item) => Number(item.orderCode.match(/^TO-(\d+)$/)?.[1] || 0)))

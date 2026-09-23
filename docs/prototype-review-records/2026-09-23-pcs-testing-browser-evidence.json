@@ -1,0 +1,1608 @@
+{
+  "base": "http://127.0.0.1:4192",
+  "viewport": "1366x768; 1280x720",
+  "head": "00f7bba76a3e5cc148dee2b2be8f61f9523b69c8 plus task diff",
+  "loadEvidence": [
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "cache-disabled",
+      "sample": 1,
+      "ms": 264.5
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "cache-disabled",
+      "sample": 2,
+      "ms": 233.7999999988824
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "cache-disabled",
+      "sample": 3,
+      "ms": 219.80000000074503
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "cache-disabled",
+      "sample": 4,
+      "ms": 255.59999999962747
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "cache-disabled",
+      "sample": 5,
+      "ms": 278
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "cache-disabled",
+      "sample": 1,
+      "ms": 208.59999999962747
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "cache-disabled",
+      "sample": 2,
+      "ms": 197
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "cache-disabled",
+      "sample": 3,
+      "ms": 220.80000000074503
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "cache-disabled",
+      "sample": 4,
+      "ms": 203
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "cache-disabled",
+      "sample": 5,
+      "ms": 177.89999999850988
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "cache-disabled",
+      "sample": 1,
+      "ms": 197.89999999850988
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "cache-disabled",
+      "sample": 2,
+      "ms": 170.60000000149012
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "cache-disabled",
+      "sample": 3,
+      "ms": 176.30000000074506
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "cache-disabled",
+      "sample": 4,
+      "ms": 162.80000000074506
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "cache-disabled",
+      "sample": 5,
+      "ms": 162.2999999988824
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "cache-disabled",
+      "sample": 1,
+      "ms": 172.39999999850988
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "cache-disabled",
+      "sample": 2,
+      "ms": 167.5
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "cache-disabled",
+      "sample": 3,
+      "ms": 162.5
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "cache-disabled",
+      "sample": 4,
+      "ms": 188.09999999962747
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "cache-disabled",
+      "sample": 5,
+      "ms": 195.7999999988824
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "reload",
+      "sample": 1,
+      "ms": 244.90000000037253
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "reload",
+      "sample": 2,
+      "ms": 189.2000000011176
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "reload",
+      "sample": 3,
+      "ms": 175
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "reload",
+      "sample": 4,
+      "ms": 187.2000000011176
+    },
+    {
+      "path": "/pcs/testing/orders",
+      "scenario": "reload",
+      "sample": 5,
+      "ms": 194.59999999962747
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "reload",
+      "sample": 1,
+      "ms": 235.80000000074503
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "reload",
+      "sample": 2,
+      "ms": 186.5
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "reload",
+      "sample": 3,
+      "ms": 174.60000000149012
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "reload",
+      "sample": 4,
+      "ms": 174.2999999988824
+    },
+    {
+      "path": "/pcs/testing/orders/create",
+      "scenario": "reload",
+      "sample": 5,
+      "ms": 176.10000000149012
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "reload",
+      "sample": 1,
+      "ms": 228.60000000149012
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "reload",
+      "sample": 2,
+      "ms": 192.2000000011176
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "reload",
+      "sample": 3,
+      "ms": 177.40000000037253
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "reload",
+      "sample": 4,
+      "ms": 177.30000000074506
+    },
+    {
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "scenario": "reload",
+      "sample": 5,
+      "ms": 165
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "reload",
+      "sample": 1,
+      "ms": 229.7999999988824
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "reload",
+      "sample": 2,
+      "ms": 287.90000000037253
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "reload",
+      "sample": 3,
+      "ms": 196.39999999850988
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "reload",
+      "sample": 4,
+      "ms": 174.09999999962747
+    },
+    {
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "scenario": "reload",
+      "sample": 5,
+      "ms": 185.2000000011176
+    }
+  ],
+  "finalCreateLoads": [
+    {
+      "scenario": "cache-disabled",
+      "sample": 1,
+      "ms": 181.40000000037253
+    },
+    {
+      "scenario": "cache-disabled",
+      "sample": 2,
+      "ms": 168.69999999925494
+    },
+    {
+      "scenario": "cache-disabled",
+      "sample": 3,
+      "ms": 174.30000000074506
+    },
+    {
+      "scenario": "cache-disabled",
+      "sample": 4,
+      "ms": 168.59999999962747
+    },
+    {
+      "scenario": "cache-disabled",
+      "sample": 5,
+      "ms": 167.5
+    },
+    {
+      "scenario": "reload",
+      "sample": 1,
+      "ms": 186.7999999988824
+    },
+    {
+      "scenario": "reload",
+      "sample": 2,
+      "ms": 166.5
+    },
+    {
+      "scenario": "reload",
+      "sample": 3,
+      "ms": 164.09999999962747
+    },
+    {
+      "scenario": "reload",
+      "sample": 4,
+      "ms": 172.19999999925494
+    },
+    {
+      "scenario": "reload",
+      "sample": 5,
+      "ms": 167.19999999925494
+    }
+  ],
+  "actions": [
+    {
+      "label": "档案打开属性维护",
+      "ms": 42.80000000074506
+    },
+    {
+      "label": "档案输入三级分类",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "档案输入品类",
+      "ms": 31.700000001117587
+    },
+    {
+      "label": "档案输入流行元素",
+      "ms": 16.899999998509884
+    },
+    {
+      "label": "档案输入面料",
+      "ms": 23.5
+    },
+    {
+      "label": "档案输入品类编号",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "档案清空品类名称",
+      "ms": 28.90000000037253
+    },
+    {
+      "label": "品类编号名称成对校验",
+      "ms": 29.5
+    },
+    {
+      "label": "档案输入品类名称",
+      "ms": 17.399999998509884
+    },
+    {
+      "label": "选择材质类型",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "选择年龄",
+      "ms": 29
+    },
+    {
+      "label": "选择人群定位",
+      "ms": 30
+    },
+    {
+      "label": "选择商品定位",
+      "ms": 29.300000000745055
+    },
+    {
+      "label": "档案保存商品信息",
+      "ms": 29.40000000037253
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 29.699999999254945
+    },
+    {
+      "label": "档案取消维护",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 29.199999999254945
+    },
+    {
+      "label": "档案输入三级分类",
+      "ms": 18
+    },
+    {
+      "label": "档案输入品类",
+      "ms": 25.5
+    },
+    {
+      "label": "档案输入流行元素",
+      "ms": 22.5
+    },
+    {
+      "label": "档案输入面料",
+      "ms": 22.59999999962747
+    },
+    {
+      "label": "档案输入品类编号",
+      "ms": 25.600000001490116
+    },
+    {
+      "label": "档案清空品类名称",
+      "ms": 24
+    },
+    {
+      "label": "品类编号名称成对校验",
+      "ms": 29.199999999254945
+    },
+    {
+      "label": "档案输入品类名称",
+      "ms": 20.200000001117587
+    },
+    {
+      "label": "选择材质类型",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "选择年龄",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "选择人群定位",
+      "ms": 28.699999999254945
+    },
+    {
+      "label": "选择商品定位",
+      "ms": 28.800000000745055
+    },
+    {
+      "label": "档案保存商品信息",
+      "ms": 27.700000001117587
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 29.199999999254945
+    },
+    {
+      "label": "档案取消维护",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 28.800000000745055
+    },
+    {
+      "label": "档案输入三级分类",
+      "ms": 19
+    },
+    {
+      "label": "档案输入品类",
+      "ms": 16.800000000745058
+    },
+    {
+      "label": "档案输入流行元素",
+      "ms": 18.399999998509884
+    },
+    {
+      "label": "档案输入面料",
+      "ms": 21.700000001117587
+    },
+    {
+      "label": "档案输入品类编号",
+      "ms": 16.90000000037253
+    },
+    {
+      "label": "档案清空品类名称",
+      "ms": 29.200000001117587
+    },
+    {
+      "label": "品类编号名称成对校验",
+      "ms": 29.699999999254945
+    },
+    {
+      "label": "档案输入品类名称",
+      "ms": 20.300000000745055
+    },
+    {
+      "label": "选择材质类型",
+      "ms": 30
+    },
+    {
+      "label": "选择年龄",
+      "ms": 29.699999999254945
+    },
+    {
+      "label": "选择人群定位",
+      "ms": 29.799999998882413
+    },
+    {
+      "label": "选择商品定位",
+      "ms": 29.5
+    },
+    {
+      "label": "档案保存商品信息",
+      "ms": 29.199999999254945
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "档案取消维护",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 29.600000001490116
+    },
+    {
+      "label": "档案输入三级分类",
+      "ms": 25.300000000745055
+    },
+    {
+      "label": "档案输入品类",
+      "ms": 27.200000001117587
+    },
+    {
+      "label": "档案输入流行元素",
+      "ms": 20.5
+    },
+    {
+      "label": "档案输入面料",
+      "ms": 31.699999999254945
+    },
+    {
+      "label": "档案输入品类编号",
+      "ms": 23.90000000037253
+    },
+    {
+      "label": "档案清空品类名称",
+      "ms": 20.700000001117587
+    },
+    {
+      "label": "品类编号名称成对校验",
+      "ms": 30
+    },
+    {
+      "label": "档案输入品类名称",
+      "ms": 25.40000000037253
+    },
+    {
+      "label": "选择材质类型",
+      "ms": 29.700000001117587
+    },
+    {
+      "label": "选择年龄",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "选择人群定位",
+      "ms": 29.299999998882413
+    },
+    {
+      "label": "选择商品定位",
+      "ms": 30.300000000745055
+    },
+    {
+      "label": "档案保存商品信息",
+      "ms": 29.300000000745055
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 30
+    },
+    {
+      "label": "档案取消维护",
+      "ms": 29.899999998509884
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 28.59999999962747
+    },
+    {
+      "label": "档案输入三级分类",
+      "ms": 20.300000000745055
+    },
+    {
+      "label": "档案输入品类",
+      "ms": 18
+    },
+    {
+      "label": "档案输入流行元素",
+      "ms": 23.799999998882413
+    },
+    {
+      "label": "档案输入面料",
+      "ms": 19
+    },
+    {
+      "label": "档案输入品类编号",
+      "ms": 32.399999998509884
+    },
+    {
+      "label": "档案清空品类名称",
+      "ms": 28.200000001117587
+    },
+    {
+      "label": "品类编号名称成对校验",
+      "ms": 30.699999999254945
+    },
+    {
+      "label": "档案输入品类名称",
+      "ms": 18.699999999254945
+    },
+    {
+      "label": "选择材质类型",
+      "ms": 30.40000000037253
+    },
+    {
+      "label": "选择年龄",
+      "ms": 30.300000000745055
+    },
+    {
+      "label": "选择人群定位",
+      "ms": 26.200000001117587
+    },
+    {
+      "label": "选择商品定位",
+      "ms": 30.09999999962747
+    },
+    {
+      "label": "档案保存商品信息",
+      "ms": 29.40000000037253
+    },
+    {
+      "label": "档案打开属性维护",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "档案取消维护",
+      "ms": 29.09999999962747
+    },
+    {
+      "label": "列表输入关键词",
+      "ms": 20.200000001117587
+    },
+    {
+      "label": "列表查询",
+      "ms": 29.09999999962747
+    },
+    {
+      "label": "列表导出",
+      "ms": 26.200000001117587
+    },
+    {
+      "label": "列表重置",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "列表买手排序",
+      "ms": 29.5
+    },
+    {
+      "label": "列表列设置打开",
+      "ms": 30.09999999962747
+    },
+    {
+      "label": "列设置关闭",
+      "ms": 29.09999999962747
+    },
+    {
+      "label": "列表输入关键词",
+      "ms": 19.199999999254945
+    },
+    {
+      "label": "列表查询",
+      "ms": 29
+    },
+    {
+      "label": "列表导出",
+      "ms": 29
+    },
+    {
+      "label": "列表重置",
+      "ms": 30
+    },
+    {
+      "label": "列表买手排序",
+      "ms": 29.399999998509884
+    },
+    {
+      "label": "列表列设置打开",
+      "ms": 29.5
+    },
+    {
+      "label": "列设置关闭",
+      "ms": 29
+    },
+    {
+      "label": "列表输入关键词",
+      "ms": 17.5
+    },
+    {
+      "label": "列表查询",
+      "ms": 29.5
+    },
+    {
+      "label": "列表导出",
+      "ms": 28.90000000037253
+    },
+    {
+      "label": "列表重置",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "列表买手排序",
+      "ms": 29.299999998882413
+    },
+    {
+      "label": "列表列设置打开",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "列设置关闭",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "列表输入关键词",
+      "ms": 24.59999999962747
+    },
+    {
+      "label": "列表查询",
+      "ms": 28.700000001117587
+    },
+    {
+      "label": "列表导出",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "列表重置",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "列表买手排序",
+      "ms": 30.899999998509884
+    },
+    {
+      "label": "列表列设置打开",
+      "ms": 29.700000001117587
+    },
+    {
+      "label": "列设置关闭",
+      "ms": 29.699999999254945
+    },
+    {
+      "label": "列表输入关键词",
+      "ms": 18.90000000037253
+    },
+    {
+      "label": "列表查询",
+      "ms": 29.899999998509884
+    },
+    {
+      "label": "列表导出",
+      "ms": 29
+    },
+    {
+      "label": "列表重置",
+      "ms": 29.700000001117587
+    },
+    {
+      "label": "列表买手排序",
+      "ms": 30.700000001117587
+    },
+    {
+      "label": "列表列设置打开",
+      "ms": 30.699999999254945
+    },
+    {
+      "label": "列设置关闭",
+      "ms": 29.40000000037253
+    },
+    {
+      "label": "切换买手列显示",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "切换买手列冻结",
+      "ms": 31
+    },
+    {
+      "label": "恢复默认列设置",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "切换买手列显示",
+      "ms": 29.799999998882413
+    },
+    {
+      "label": "切换买手列冻结",
+      "ms": 31.09999999962747
+    },
+    {
+      "label": "恢复默认列设置",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "切换买手列显示",
+      "ms": 31
+    },
+    {
+      "label": "切换买手列冻结",
+      "ms": 31.100000001490116
+    },
+    {
+      "label": "恢复默认列设置",
+      "ms": 30.40000000037253
+    },
+    {
+      "label": "切换买手列显示",
+      "ms": 30.800000000745055
+    },
+    {
+      "label": "切换买手列冻结",
+      "ms": 31
+    },
+    {
+      "label": "恢复默认列设置",
+      "ms": 21.899999998509884
+    },
+    {
+      "label": "切换买手列显示",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "切换买手列冻结",
+      "ms": 30.899999998509884
+    },
+    {
+      "label": "恢复默认列设置",
+      "ms": 30.199999999254945
+    },
+    {
+      "label": "列表每页条数",
+      "ms": 10
+    },
+    {
+      "label": "列表状态筛选",
+      "ms": 5.800000000745058
+    },
+    {
+      "label": "列表状态查询",
+      "ms": 29.5
+    },
+    {
+      "label": "列表重置",
+      "ms": 29.700000001117587
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 43.19999999925494
+    },
+    {
+      "label": "新建页返回列表",
+      "ms": 31
+    },
+    {
+      "label": "列表每页条数",
+      "ms": 7.900000000372529
+    },
+    {
+      "label": "列表状态筛选",
+      "ms": 4.699999999254942
+    },
+    {
+      "label": "列表状态查询",
+      "ms": 30.40000000037253
+    },
+    {
+      "label": "列表重置",
+      "ms": 30.200000001117587
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 29.5
+    },
+    {
+      "label": "新建页返回列表",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "列表每页条数",
+      "ms": 14.400000000372527
+    },
+    {
+      "label": "列表状态筛选",
+      "ms": 1.5
+    },
+    {
+      "label": "列表状态查询",
+      "ms": 30.800000000745055
+    },
+    {
+      "label": "列表重置",
+      "ms": 30.5
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "新建页返回列表",
+      "ms": 30.5
+    },
+    {
+      "label": "列表每页条数",
+      "ms": 12
+    },
+    {
+      "label": "列表状态筛选",
+      "ms": 22.300000000745055
+    },
+    {
+      "label": "列表状态查询",
+      "ms": 31
+    },
+    {
+      "label": "列表重置",
+      "ms": 23
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 30
+    },
+    {
+      "label": "新建页返回列表",
+      "ms": 30.699999999254945
+    },
+    {
+      "label": "列表每页条数",
+      "ms": 9.099999999627473
+    },
+    {
+      "label": "列表状态筛选",
+      "ms": 12.799999998882411
+    },
+    {
+      "label": "列表状态查询",
+      "ms": 30.199999999254945
+    },
+    {
+      "label": "列表重置",
+      "ms": 30.40000000037253
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 30.09999999962747
+    },
+    {
+      "label": "新建页返回列表",
+      "ms": 30.5
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 45.40000000037253
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 30.700000001117587
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 30.799999998882413
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 30.600000001490116
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 39.30000000074506
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 30.799999998882413
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 28.90000000037253
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 30.899999998509884
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 31.199999999254945
+    },
+    {
+      "label": "输入买手",
+      "ms": 31.09999999962747
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 30.200000001117587
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 30.100000001490116
+    },
+    {
+      "label": "大图 Esc 关闭",
+      "ms": 11.599999999627473
+    },
+    {
+      "label": "SKU 图片大图打开",
+      "ms": 30.300000000745055
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 30.399999998509884
+    },
+    {
+      "label": "输入买手",
+      "ms": 21.90000000037253
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 19.300000000745055
+    },
+    {
+      "label": "大图 Esc 关闭",
+      "ms": 18.199999999254945
+    },
+    {
+      "label": "SKU 图片大图打开",
+      "ms": 28.59999999962747
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 24.5
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 17.5
+    },
+    {
+      "label": "输入买手",
+      "ms": 18.09999999962747
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 19.600000001490116
+    },
+    {
+      "label": "大图 Esc 关闭",
+      "ms": 27.5
+    },
+    {
+      "label": "SKU 图片大图打开",
+      "ms": 32.29999999888241
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 29.40000000037253
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 30.09999999962747
+    },
+    {
+      "label": "输入买手",
+      "ms": 23.90000000037253
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 21.40000000037253
+    },
+    {
+      "label": "大图 Esc 关闭",
+      "ms": 24
+    },
+    {
+      "label": "SKU 图片大图打开",
+      "ms": 20.899999998509884
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 17.5
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 31.200000001117587
+    },
+    {
+      "label": "输入买手",
+      "ms": 32.29999999888241
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 28.399999998509884
+    },
+    {
+      "label": "大图 Esc 关闭",
+      "ms": 5.800000000745058
+    },
+    {
+      "label": "SKU 图片大图打开",
+      "ms": 21
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 24.700000001117587
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 32
+    },
+    {
+      "label": "输入买手",
+      "ms": 26.399999998509884
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.40000000037253
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 31.199999999254945
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.199999999254945
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 3.699999999254942
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 59.5
+    },
+    {
+      "label": "详情展开商品信息",
+      "ms": 28.199999999254945
+    },
+    {
+      "label": "详情收起商品信息",
+      "ms": 28.5
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 33.19999999925494
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 17.800000000745058
+    },
+    {
+      "label": "详情展开商品信息",
+      "ms": 18
+    },
+    {
+      "label": "详情收起商品信息",
+      "ms": 17.59999999962747
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 21.200000001117587
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 27.800000000745055
+    },
+    {
+      "label": "详情展开商品信息",
+      "ms": 16.800000000745058
+    },
+    {
+      "label": "详情收起商品信息",
+      "ms": 27
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 29
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 33.29999999888241
+    },
+    {
+      "label": "详情展开商品信息",
+      "ms": 30.300000000745055
+    },
+    {
+      "label": "详情收起商品信息",
+      "ms": 30.200000001117587
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 24.299999998882413
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 27.899999998509884
+    },
+    {
+      "label": "详情展开商品信息",
+      "ms": 27.09999999962747
+    },
+    {
+      "label": "详情收起商品信息",
+      "ms": 29.09999999962747
+    },
+    {
+      "label": "建单查看商品档案",
+      "ms": 28.299999998882413
+    },
+    {
+      "label": "建单查看商品档案",
+      "ms": 27.59999999962747
+    },
+    {
+      "label": "新建页取消返回列表",
+      "ms": 77.69999999925494
+    },
+    {
+      "label": "列表进入测款详情",
+      "ms": 44.70000000111759
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 32.399999998509884
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 27.59999999962747
+    },
+    {
+      "label": "建单查看商品档案",
+      "ms": 33.29999999888241
+    },
+    {
+      "label": "新建页取消返回列表",
+      "ms": 34.20000000111759
+    },
+    {
+      "label": "列表进入测款详情",
+      "ms": 25.5
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 23.700000001117587
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 27.40000000037253
+    },
+    {
+      "label": "建单查看商品档案",
+      "ms": 23.5
+    },
+    {
+      "label": "新建页取消返回列表",
+      "ms": 38.90000000037253
+    },
+    {
+      "label": "列表进入测款详情",
+      "ms": 26
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 37.09999999962747
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 35.19999999925494
+    },
+    {
+      "label": "建单查看商品档案",
+      "ms": 31.200000001117587
+    },
+    {
+      "label": "新建页取消返回列表",
+      "ms": 17.5
+    },
+    {
+      "label": "列表进入测款详情",
+      "ms": 29.300000000745055
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 32.399999998509884
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 32.5
+    },
+    {
+      "label": "建单查看商品档案",
+      "ms": 33.899999998509884
+    },
+    {
+      "label": "新建页取消返回列表",
+      "ms": 35.90000000037253
+    },
+    {
+      "label": "列表进入测款详情",
+      "ms": 32.5
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 33.30000000074506
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 45.90000000037253
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 37.09999999962747
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 39.09999999962747
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 28.5
+    },
+    {
+      "label": "输入买手",
+      "ms": 7
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.299999998882413
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 28.5
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 28.40000000037253
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 29.699999999254945
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 45.69999999925494
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 60.59999999962747
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 29.200000001117587
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 22.5
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 29.299999998882413
+    },
+    {
+      "label": "输入买手",
+      "ms": 28.59999999962747
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 28.800000000745055
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 29.299999998882413
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 29.799999998882413
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 30.100000001490116
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 27.40000000037253
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 45.20000000111759
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 29.300000000745055
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 28.40000000037253
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 23.90000000037253
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 30.100000001490116
+    },
+    {
+      "label": "输入买手",
+      "ms": 15.199999999254942
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.800000000745055
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 29.300000000745055
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 30.09999999962747
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 28.5
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 32
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 33.90000000037253
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 32.5
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 28.799999998882413
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 23.199999999254945
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 29.90000000037253
+    },
+    {
+      "label": "输入买手",
+      "ms": 3.5
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.5
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 29.200000001117587
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 28.799999998882413
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 30.199999999254945
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 29.899999998509884
+    },
+    {
+      "label": "详情返回列表",
+      "ms": 32.79999999888241
+    },
+    {
+      "label": "站内进入新建页",
+      "ms": 34.69999999925494
+    },
+    {
+      "label": "空商品建单阻断",
+      "ms": 27.5
+    },
+    {
+      "label": "选择商品档案",
+      "ms": 19.899999998509884
+    },
+    {
+      "label": "空买手建单阻断",
+      "ms": 29.899999998509884
+    },
+    {
+      "label": "输入买手",
+      "ms": 16.59999999962747
+    },
+    {
+      "label": "空 SKU 建单阻断",
+      "ms": 29.5
+    },
+    {
+      "label": "勾选 SKU",
+      "ms": 29.199999999254945
+    },
+    {
+      "label": "商品图片大图打开",
+      "ms": 30.59999999962747
+    },
+    {
+      "label": "大图关闭按钮",
+      "ms": 29.799999998882413
+    },
+    {
+      "label": "保存新建测款单",
+      "ms": 30.699999999254945
+    },
+    {
+      "label": "图片失败阻断建单",
+      "ms": 27.40000000037253
+    },
+    {
+      "label": "图片失败阻断建单",
+      "ms": 29.09999999962747
+    },
+    {
+      "label": "图片失败阻断建单",
+      "ms": 29.59999999962747
+    },
+    {
+      "label": "图片失败阻断建单",
+      "ms": 30.5
+    },
+    {
+      "label": "图片失败阻断建单",
+      "ms": 30.799999998882413
+    }
+  ],
+  "finalCreateActionStart": 255,
+  "layoutEvidence": [
+    {
+      "height": 720,
+      "overflow": false,
+      "path": "/pcs/testing/orders",
+      "width": 1280
+    },
+    {
+      "height": 720,
+      "overflow": false,
+      "path": "/pcs/testing/orders/to_mudyo7c5_6",
+      "width": 1280
+    },
+    {
+      "height": 720,
+      "overflow": false,
+      "path": "/pcs/products/styles/style_demand_SPU_QC_002",
+      "width": 1280
+    }
+  ],
+  "method": "Local preview build. rAF observer starts navigation at performance.timeOrigin and actions at browser event.timeStamp. End requires target content, necessary visible main images, and two requestAnimationFrame callbacks. Modal image cases additionally require full image naturalWidth > 0. No data clearing or cache warming before cold samples. Network cache disabled for cold samples.",
+  "notes": [
+    "The final change only adjusts creation form grid. Final create loads and actions supersede its earlier samples; original samples are retained.",
+    "Browser-back performance sample was not emitted because history navigation has no document input event; browser back was verified functionally.",
+    "Tests use local Mock data only."
+  ],
+  "imageFailure": {
+    "feedback": "商品图片尚未成功加载，请核对商品档案图片后重试。",
+    "imageHidden": true,
+    "placeholder": "图片加载失败"
+  },
+  "sourceSha256": {
+    "src/data/pcs-style-archive-repository.ts": "b4ee611e04d88dbf517177cb38b0d6b6c35dc6c3c0bad6967812109a651bed33",
+    "src/data/pcs-style-archive-types.ts": "22aa3dde35ef4a733b37767c5e7bc8e7dcea1085e3a11bb5dbc5375ef48e6501",
+    "src/data/pcs-testing-order-repository.ts": "f92fe97d9479555afaa05f05e6d36e9e95f35882f2b125757dce35d0ebcc2f1f",
+    "src/main-handlers/pcs-handlers.ts": "1d25e85a9ab4f404d1018e9f5d649c8d594225084d248583946f81d945ad15e6",
+    "src/pages/pcs-product-archives.ts": "89b4ecf09917abc11812bdc016e277687cfdb143359d6c28531f60685d1624a8",
+    "src/pages/pcs-testing-order-detail.ts": "d0e7c54c29955b0c78d9b0a92ad1de9b470286eb0dd601579e7debb0d3fe7af2",
+    "src/pages/pcs-testing-order-list.ts": "43227b7e38c54bb15f9120d2c2d371015cb8716fc56197e52714a182a21686f7",
+    "src/router/route-renderers.ts": "6dc03c13ddcf3306b10986254c9393b1b2299fb9d914bee674d3a1dcf3e22051",
+    "src/router/routes-pcs.ts": "5e092c76e85575a054ad750c072698cc5a7bb2482322605ad16d1e5ccf0a7bec",
+    "src/pages/pcs-product-information.ts": "93039164c5fe2615beee4c7983a9b2573c5a042b368b9437551af9bfab8e1673",
+    "src/pages/pcs-testing-order-create.ts": "094e3826d154175bd6485928961c611914e0287687fe30eb078f55430c19fc64",
+    "tests/pcs-testing-product-information.spec.ts": "3a086c22fffc18da4175418d23224a01c5dbede153db58e8810100830c0d9b93"
+  },
+  "sourceWorktree": "/Users/laoer/.codex/worktrees/cekuanyouhua/higoods",
+  "branch": "codex/cekuanyouhua",
+  "technicalResults": {
+    "fullTypecheck": "PASS",
+    "testingOrderContract": "PASS",
+    "productInformationContract": "PASS",
+    "npmBuild": "PASS - 417 unit tests",
+    "finalViteBuild": "PASS"
+  }
+}

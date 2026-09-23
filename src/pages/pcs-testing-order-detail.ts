@@ -1,3 +1,5 @@
+import { renderProductInformation } from './pcs-product-information.ts'
+import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
 // @page-pattern: detail
 import { escapeHtml } from '../utils.ts'
 import {
@@ -37,7 +39,7 @@ function renderSteps(order: TestingOrderRecord): string {
   const team = TESTING_ORDER_STEP_TEAMS[order.currentStepKey] || '—'
   return `
     <section class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600">
-      当前步骤责任团队：<strong>${escapeHtml(team)}</strong>（设计 §4.5 原型按团队展示）
+      当前步骤责任团队：<strong>${escapeHtml(team)}</strong>
     </section>
     <ol class="grid gap-2 md:grid-cols-5">
       ${TESTING_ORDER_STEPS.map((step, index) => {
@@ -203,12 +205,14 @@ export function renderPcsTestingOrderDetailPage(testingOrderId: string): string 
           <div class="grid gap-1 text-xs text-slate-500">
             <div>SPU ${escapeHtml(order.spuCode)}</div>
             <div>SKU ${escapeHtml(order.skuCodes.join('、') || '—')}</div>
+            <div>买手 ${escapeHtml(order.buyerName || '待分配')}</div>
             <div>寄样 ${escapeHtml(order.shipMethod)}</div>
           </div>
         </div>
       </section>
       ${renderSteps(order)}
       ${renderActivePanel(order)}
+      <details class="rounded-lg border bg-white"><summary class="cursor-pointer p-4 text-sm font-medium">商品信息（来自商品档案）</summary>${renderProductInformation(getStyleArchiveById(order.styleId))}</details>
       <section class="grid gap-4 lg:grid-cols-2">
         <div class="rounded-lg border bg-white p-4 shadow-sm">
           <div class="text-sm font-medium text-slate-900">关键事实</div>

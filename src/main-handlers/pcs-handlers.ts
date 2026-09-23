@@ -221,8 +221,15 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     ],
   },
   {
+    cacheKey: 'pcs-testing-order-create',
+    matches: (pathname) => pathname === '/pcs/testing/orders/create',
+    importModule: () => import('../pages/pcs-testing-order-create'),
+    eventExport: 'handlePcsTestingOrderCreateEvent',
+    inputExport: 'handlePcsTestingOrderCreateInput',
+  },
+  {
     cacheKey: 'pcs-testing-order-detail',
-    matches: (pathname) => /^\/pcs\/testing\/orders\/[^/]+$/.test(pathname) && pathname !== '/pcs/testing/orders',
+    matches: (pathname) => /^\/pcs\/testing\/orders\/[^/]+$/.test(pathname) && !['/pcs/testing/orders/create', '/pcs/testing/orders/store'].includes(pathname),
     importModule: () => import('../pages/pcs-testing-order-detail'),
     eventExport: 'handlePcsTestingOrderEvent',
     inputExport: 'handlePcsTestingOrderInput',

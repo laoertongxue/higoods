@@ -1,3 +1,4 @@
+import { renderProductInformation, handleProductInformationEvent } from './pcs-product-information.ts'
 import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 import {
@@ -1608,12 +1609,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
               <div><div class="text-xs text-slate-500">款式名称</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(style.styleName)}</div></div>
               <div><div class="text-xs text-slate-500">外文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleNameEn || '-')}</div></div>
               <div><div class="text-xs text-slate-500">款式编码 / 款号</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleCode)} / ${escapeHtml(style.styleNumber || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">品牌</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.brandName || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">一级类目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.categoryName || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">二级类目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.subCategoryName || '-')}</div></div>
               <div><div class="text-xs text-slate-500">年份 / 季节</div><div class="mt-1 text-sm text-slate-700">${escapeHtml([style.yearTag, style.seasonTags.join('/')].filter(Boolean).join(' / ') || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">人群标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetAudienceTags.join(' / ') || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">风格标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleTags.join(' / ') || '-')}</div></div>
               <div><div class="text-xs text-slate-500">价格带</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div></div>
               <div><div class="text-xs text-slate-500">来源项目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div></div>
               <div><div class="text-xs text-slate-500">图片来源</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.imageSource || '-')}</div></div>
@@ -1656,6 +1652,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
           </div>
         </div>
       </aside>
+      ${renderProductInformation(style, true)}
     </section>
   `
 }
@@ -2680,6 +2677,7 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
 }
 
 export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
+  if (handleProductInformationEvent(target)) return true
   const actionNode = resolveClosestNode(target, '[data-pcs-product-archive-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsProductArchiveAction
