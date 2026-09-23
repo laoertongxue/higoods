@@ -1,6 +1,6 @@
 import { createTaskBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import type { PcsTaskPendingItem } from './pcs-project-types.ts'
-import type { PatternTaskRecord, PatternTaskStoreSnapshot } from './pcs-pattern-task-types.ts'
+import type { PatternTaskDemandSourceType, PatternTaskRecord, PatternTaskStoreSnapshot } from './pcs-pattern-task-types.ts'
 import { getPatternTaskMember, getPatternTaskTeamName } from './pcs-pattern-task-team-config.ts'
 
 const STORAGE_KEY = 'higood-pcs-pattern-task-store-v1'
@@ -37,11 +37,16 @@ function seedSnapshot(): PatternTaskStoreSnapshot {
   }
 }
 
+function normalizePatternDemandSourceType(value: string | null | undefined): PatternTaskDemandSourceType | '' {
+  if (value === '设计改款任务' || value === '设计师款') return value
+  return ''
+}
+
 function normalizeTask(task: PatternTaskRecord): PatternTaskRecord {
   const assignedTeamCode = task.assignedTeamCode || 'CN_TEAM'
   const assignedMemberId = task.assignedMemberId || 'cn_bing_bing'
   const assignedMember = getPatternTaskMember(assignedTeamCode, assignedMemberId)
-  const demandSourceType = task.demandSourceType || (task.sourceType === '设计改款任务' ? '设计改款任务' : '预售测款通过')
+  const demandSourceType = normalizePatternDemandSourceType(task.demandSourceType) || (task.sourceType === '设计改款任务' ? '设计改款任务' : '设计师款')
   const processType = task.processType || (task.artworkType === '烫画' ? '烫画' : '数码印')
   return {
     ...cloneTask(task),

@@ -14,8 +14,6 @@ import { resetFirstSampleTaskRepository } from '../src/data/pcs-first-sample-rep
 import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import { resetTechnicalDataVersionRepository } from '../src/data/pcs-technical-data-version-repository.ts'
 import { resetProjectArchiveRepository } from '../src/data/pcs-project-archive-repository.ts'
-import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
-import { appStore } from '../src/state/store.ts'
 
 resetProjectRepository()
 resetProjectRelationRepository()
@@ -59,20 +57,5 @@ assert.ok(
   channelListingInstanceModel!.instances.some((item) => item.targetRoute?.includes('/pcs/products/channel-products/')),
   '渠道商品实例应提供正式详情跳转路径',
 )
-
-appStore.navigate(`/pcs/projects/${project!.projectId}/steps/${projectInitNode!.projectNodeId}?tab=attachments`, {
-  historyMode: 'replace',
-})
-const initHtml = await renderPcsProjectStepDetailPage(project!.projectId, projectInitNode!.projectNodeId)
-assert.match(initHtml, /项目实例总览/, '项目立项详情页应渲染统一实例总览')
-assert.match(initHtml, /项目主记录/, '项目立项详情页应展示项目主记录来源层')
-
-appStore.navigate(`/pcs/projects/${project!.projectId}/steps/${channelListingNode!.projectNodeId}?tab=attachments`, {
-  historyMode: 'replace',
-})
-const channelListingHtml = await renderPcsProjectStepDetailPage(project!.projectId, channelListingNode!.projectNodeId)
-assert.match(channelListingHtml, /项目实例总览/, '渠道商品上架详情页应渲染统一实例总览')
-assert.match(channelListingHtml, /正式业务对象/, '渠道商品上架详情页应展示正式业务对象来源层')
-assert.match(channelListingHtml, /打开/, '统一实例总览应保留跳转动作')
 
 console.log('pcs-project-instance-model.spec.ts PASS')

@@ -212,6 +212,34 @@ function buildSeedRecord(
   const printName = resolvePrintName(style.styleName, skuIndex)
   const barcodeSeed = `${toDigits(style.styleCode).slice(-6) || String(styleIndex + 1).padStart(6, '0')}${String(skuIndex + 1).padStart(3, '0')}`
   const fixture = buildSkuFixture(style.styleCode, style.styleName, input.color, input.size)
+  const expectedMaterials = skuIndex === 0
+    ? [
+        {
+          materialSkuId: 'matSeed_fabric_main',
+          materialSkuCode: 'FAB-COTTON-180-WHT',
+          materialName: '精梳棉平纹主布',
+          quantity: 1.8,
+          unit: '米',
+          note: '按单件净用量×1.05 损耗',
+        },
+        {
+          materialSkuId: 'matSeed_thread_002',
+          materialSkuCode: 'THREAD-40S-002-WHT',
+          materialName: '40S 缝纫线（白）',
+          quantity: 0.12,
+          unit: '卷',
+          note: '',
+        },
+        {
+          materialSkuId: 'matSeed_elastic_wht',
+          materialSkuCode: 'ACC-ELASTIC-42CM-WHITE',
+          materialName: '42cm 松紧带（白）',
+          quantity: 0.6,
+          unit: '米',
+          note: '腰口辅料',
+        },
+      ]
+    : undefined
 
   return normalizeRecord({
     skuId: `skuSeed_${style.styleId}_${String(skuIndex + 1).padStart(3, '0')}`,
@@ -254,6 +282,7 @@ function buildSeedRecord(
     updatedAt: style.updatedAt,
     updatedBy: style.updatedBy,
     remark: '',
+    ...(expectedMaterials ? { expectedMaterials } : {}),
   })
 }
 

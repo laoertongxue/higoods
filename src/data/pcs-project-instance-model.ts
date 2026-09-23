@@ -256,7 +256,7 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
     businessDate: project.createdAt.slice(0, 10),
     updatedAt: project.updatedAt,
     summaryText: buildSummaryFromFields(fields, `品牌 ${project.brandName}，当前状态 ${project.projectStatus}`),
-    targetRoute: `/pcs/projects/${encodeURIComponent(project.projectId)}`,
+    targetRoute: null,
     fields,
   }
 }
@@ -322,7 +322,7 @@ function buildInlineRecordInstance(record: PcsProjectInlineNodeRecord): PcsProje
     businessDate: record.businessDate,
     updatedAt: record.updatedAt,
     summaryText: buildSummaryFromFields(fields, record.sourceDocCode || record.sourceModule || '项目内正式记录'),
-    targetRoute: `/pcs/projects/${encodeURIComponent(record.projectId)}`,
+    targetRoute: null,
     fields,
   }
 }
@@ -605,7 +605,7 @@ function resolveLiveRelationObject(relation: ProjectRelationRecord): ResolvedRel
     businessDate: line?.businessDate || relation.businessDate,
     updatedAt: relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: line ? `/pcs/testing/live/${encodeURIComponent(line.liveSessionId)}` : '/pcs/testing/live',
+    targetRoute: null,
     fields,
   }
 }
@@ -665,7 +665,7 @@ function resolveVideoRelationObject(relation: ProjectRelationRecord): ResolvedRe
     businessDate: record?.businessDate || relation.businessDate,
     updatedAt: relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: record ? `/pcs/testing/video/${encodeURIComponent(record.videoRecordId)}` : '/pcs/testing/video',
+    targetRoute: null,
     fields,
   }
 }

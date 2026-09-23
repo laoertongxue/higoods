@@ -12,6 +12,8 @@ import {
   listPcsSampleReturnCases,
   listPcsSampleStocktakeDiffs,
   listPcsSampleTransfers,
+  listPcsSampleTypeConversionLogs,
+  convertPcsSampleType,
 } from '../data/pcs-sample-management.ts'
 import type {
   PcsSampleLedgerEvent,
@@ -24,6 +26,14 @@ import type {
   PcsSampleTransferRecord,
   PcsSampleUseRequest,
 } from '../data/pcs-sample-management.ts'
+import {
+  PCS_SAMPLE_TYPES,
+  PCS_SAMPLE_TYPE_LABELS,
+  PCS_SAMPLE_LOCATION_TYPES,
+  PCS_SAMPLE_LOCATION_TYPE_LABELS,
+  PCS_SAMPLE_LOCATIONS,
+} from '../data/pcs-sample-location-master.ts'
+import type { PcsSampleType } from '../data/pcs-sample-location-master.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
 
 type SampleModuleKey = 'inventory' | 'application' | 'transfer' | 'return' | 'ledger' | 'stocktake' | 'view'
@@ -278,7 +288,9 @@ function getFilteredSamples(): PcsSampleRecord[] {
 function renderSampleCell(sample: PcsSampleRecord): string {
   return `
     <div class="flex min-w-[240px] items-center gap-3">
-      <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-14 w-14 rounded-lg border object-cover" />
+      <button type="button" class="shrink-0 cursor-zoom-in overflow-hidden rounded-lg border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
+        <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-14 w-14 object-cover" />
+      </button>
       <div>
         <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(sample.sampleCode)}</button>
         <p class="mt-1 text-sm text-slate-700">${escapeHtml(sample.name)}</p>
@@ -299,7 +311,7 @@ function renderSampleTable(samples: PcsSampleRecord[]): string {
       minWidth: '220px',
       render: (sample) => `
         <div>
-          <button type="button" class="font-medium text-slate-900 hover:text-blue-700" data-nav="/pcs/projects/${escapeHtml(sample.projectId)}">${escapeHtml(sample.projectCode)}</button>
+          <div class="font-medium text-slate-900">${escapeHtml(sample.projectCode)}</div>
           <p class="mt-1 text-sm text-slate-500">${escapeHtml(sample.projectName)}</p>
           <p class="mt-1 text-xs text-slate-400">${escapeHtml(sample.sourceStepName)}</p>
         </div>
@@ -399,10 +411,14 @@ function renderSampleDetailDrawer(): string {
         </header>
         <div class="space-y-4 px-5 py-5">
           <section class="grid gap-4 lg:grid-cols-[180px,1fr]">
-            <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-56 w-full rounded-xl border object-cover lg:h-full" />
+            <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-56 w-full object-cover lg:h-full" />
+            </button>
             <div class="grid gap-3 sm:grid-cols-2">
               ${renderInfoItem('品类/尺码/颜色', `${sample.category} · ${sample.size} · ${sample.color}`)}
               ${renderInfoItem('面料/模板', `${sample.material} · ${sample.templateType}`)}
+              ${renderInfoItem('样品类型', PCS_SAMPLE_TYPE_LABELS[sample.sampleType])}
+              ${renderInfoItem('打标码', sample.taggedAt ? `${sample.skuCode} · ${sample.taggedAt}` : '未贴码')}
               ${renderInfoItem('责任站点', sample.responsibleSite)}
               ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
               ${renderInfoItem('商品项目', `${sample.projectCode} · ${sample.projectName}`)}
@@ -433,6 +449,12 @@ function renderSampleDetailDrawer(): string {
             ${renderMiniList('最近台账事件', ledgerEvents.map((item) => `${item.time} · ${item.eventType} · ${item.summary}`), '暂无台账事件')}
           </section>
           <section class="flex flex-wrap gap-2">
+            ${PCS_SAMPLE_TYPES.filter((type) => type !== sample.sampleType)
+              .map(
+                (type) =>
+                  `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-sample-action="convert-type" data-sample-id="${escapeHtml(sample.sampleId)}" data-to-type="${type}">转为${escapeHtml(PCS_SAMPLE_TYPE_LABELS[type])}</button>`,
+              )
+              .join('')}
             <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">打开完整详情</button>
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-sample-action="mock-action" data-message="已模拟标记 ${escapeHtml(sample.sampleCode)} 的库存动作">模拟库存动作</button>
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger">查看完整台账</button>
@@ -692,7 +714,7 @@ function renderReturnCaseTable(records: PcsSampleReturnCase[]): string {
     { key: 'caseType', title: '类型', width: '90px', render: (record) => renderBadge(record.caseType, record.caseType === '退货' ? 'info' : 'warning') },
     { key: 'status', title: '状态', width: '100px', render: (record) => renderBadge(record.status, RETURN_STATUS_TONE[record.status]) },
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
-    { key: 'sampleCode', title: '样衣', minWidth: '230px', render: (record) => `<div class="flex items-center gap-3"><img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-12 w-12 rounded-lg border object-cover" /><div><div class="font-medium text-slate-900">${escapeHtml(record.sampleCode)}</div><div class="text-sm text-slate-500">${escapeHtml(record.sampleName)}</div></div></div>` },
+    { key: 'sampleCode', title: '样衣', minWidth: '230px', render: (record) => `<div class="flex items-center gap-3"><button type="button" class="shrink-0 cursor-zoom-in overflow-hidden rounded-lg border" data-pda-image-preview-url="${escapeHtml(record.sampleImageUrl)}" data-pda-image-preview-title="${escapeHtml(`${record.sampleCode} ${record.sampleName}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(record.sampleName)}大图"><img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-12 w-12 object-cover" /></button><div><div class="font-medium text-slate-900">${escapeHtml(record.sampleCode)}</div><div class="text-sm text-slate-500">${escapeHtml(record.sampleName)}</div></div></div>` },
     { key: 'inventoryStatusSnapshot', title: '样衣状态', width: '110px', render: (record) => renderStatusBadge(record.inventoryStatusSnapshot) },
     { key: 'reasonCategory', title: '原因', width: '110px' },
     { key: 'projectCode', title: '商品项目', width: '140px' },
@@ -722,7 +744,9 @@ function renderReturnCaseDrawer(): string {
         </header>
         <div class="space-y-4 px-5 py-5">
           <section class="grid gap-4 lg:grid-cols-[160px,1fr]">
-            <img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-48 w-full rounded-xl border object-cover" />
+            <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(record.sampleImageUrl)}" data-pda-image-preview-title="${escapeHtml(`${record.sampleCode} ${record.sampleName}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(record.sampleName)}大图">
+              <img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-48 w-full object-cover" />
+            </button>
             <div class="grid gap-3 sm:grid-cols-2">
               ${renderInfoItem('样衣', `${record.sampleCode} · ${record.sampleName}`)}
               ${renderInfoItem('样衣状态快照', record.inventoryStatusSnapshot)}
@@ -908,9 +932,12 @@ function renderSampleCards(samples: PcsSampleRecord[]): string {
     <section class="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       ${samples.map((sample) => `
         <article class="overflow-hidden rounded-xl border bg-white shadow-sm">
-          <button type="button" class="block h-44 w-full overflow-hidden bg-slate-50" data-pcs-sample-action="select-sample" data-pcs-sample-id="${escapeHtml(sample.sampleId)}">
-            <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-full w-full object-cover transition hover:scale-105" />
-          </button>
+          <div class="relative h-44 w-full overflow-hidden bg-slate-50">
+            <button type="button" class="absolute inset-0 z-0 block overflow-hidden" data-pcs-sample-action="select-sample" data-pcs-sample-id="${escapeHtml(sample.sampleId)}" aria-label="打开${escapeHtml(sample.sampleCode)}详情">
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-full w-full object-cover transition hover:scale-105" />
+            </button>
+            <button type="button" class="absolute right-2 top-2 z-10 rounded border border-white/80 bg-white/90 px-2 py-1 text-xs text-slate-700 shadow hover:bg-white" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">大图</button>
+          </div>
           <div class="space-y-3 px-4 py-4">
             <div>
               <button type="button" class="font-semibold text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(sample.sampleCode)}</button>
@@ -993,12 +1020,16 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
         <i data-lucide="arrow-left" class="h-4 w-4"></i>返回样衣库存
       </button>
       <div class="mt-4 grid gap-5 lg:grid-cols-[260px,1fr]">
-        <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full rounded-xl border object-cover" />
+            <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full object-cover" />
+            </button>
         <div>
           <div class="flex flex-wrap gap-2">${renderStatusBadge(sample.status)}${renderAvailabilityBadge(sample.availability)}${sample.anomaly ? renderRiskBadge(sample.anomaly.type) : ''}</div>
           <h2 class="mt-3 text-2xl font-semibold text-slate-900">${escapeHtml(sample.sampleCode)} · ${escapeHtml(sample.name)}</h2>
           <div class="mt-4 grid gap-3 sm:grid-cols-2">
             ${renderInfoItem('基础属性', `${sample.category} · ${sample.size} · ${sample.color} · ${sample.material}`)}
+            ${renderInfoItem('样品类型', PCS_SAMPLE_TYPE_LABELS[sample.sampleType])}
+            ${renderInfoItem('打标码', sample.taggedAt ? `${sample.skuCode} · ${sample.taggedAt}` : '未贴码')}
             ${renderInfoItem('模板类型', sample.templateType)}
             ${renderInfoItem('责任站点', sample.responsibleSite)}
             ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
@@ -1013,6 +1044,30 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
     <section class="grid gap-4 lg:grid-cols-2">
       ${renderMiniList('关联申请', requests.map((item) => `${item.requestCode} · ${item.status} · ${item.purpose}`), '暂无关联申请')}
       ${renderMiniList('台账事件', ledgerEvents.map((item) => `${item.time} · ${item.eventType} · ${item.summary}`), '暂无台账事件')}
+      ${renderMiniList(
+        '类型互转记录',
+        listPcsSampleTypeConversionLogs(sample.sampleId).map(
+          (item) =>
+            `${item.convertedAt} · ${PCS_SAMPLE_TYPE_LABELS[item.fromType]} → ${PCS_SAMPLE_TYPE_LABELS[item.toType]} · ${item.actor} · ${item.reason}`,
+        ),
+        '暂无类型互转记录',
+      )}
+      ${renderMiniList(
+        '流转位置主数据',
+        PCS_SAMPLE_LOCATIONS.map((loc) => `${PCS_SAMPLE_LOCATION_TYPE_LABELS[loc.locationType]} · ${loc.locationName}${loc.ownerName ? ` · ${loc.ownerName}` : ''}`),
+        '暂无位置主数据',
+      )}
+    </section>
+    <section class="rounded-lg border bg-white p-4 shadow-sm">
+      <div class="text-sm font-medium text-slate-900">样品类型</div>
+      <div class="mt-2 flex flex-wrap gap-2">
+        ${PCS_SAMPLE_TYPES.map(
+          (type) =>
+            `<button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm ${type === sample.sampleType ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}" ${type === sample.sampleType ? 'disabled' : ''} data-pcs-sample-action="convert-type" data-sample-id="${escapeHtml(sample.sampleId)}" data-to-type="${type}">${escapeHtml(PCS_SAMPLE_TYPE_LABELS[type])}${type === sample.sampleType ? '（当前）' : ''}</button>`,
+        ).join('')}
+      </div>
+      <p class="mt-2 text-xs text-slate-500">营销样品与生产样品可任意互转；互转会记录操作人、时间与原因。打标码值须等于 SKU 编码。</p>
+      <div class="mt-3 text-sm text-slate-700">打标状态：${sample.taggedAt ? `已贴码 ${escapeHtml(sample.skuCode)}（${escapeHtml(sample.taggedAt)}）` : '未贴码，不能完成入库后打标/测款⑤'} · 码值=SKU：${sample.sampleCode === sample.skuCode ? '一致' : '不一致'}</div>
     </section>
   `
   return renderPageShell('inventory', '样衣详情', '查看单件样衣的库存快照、申请关联、流转和台账事件。', body)
@@ -1065,6 +1120,17 @@ export function handlePcsSampleManagementEvent(target: HTMLElement): boolean {
 
   if (action === 'close-notice') {
     state.notice = null
+    return true
+  }
+  if (action === 'convert-type') {
+    const sampleId = actionNode.dataset.sampleId || ''
+    const toType = (actionNode.dataset.toType || '') as PcsSampleType
+    const reason = window.prompt('请填写类型互转原因：', '业务调整')
+    if (reason === null) return true
+    const result = convertPcsSampleType(sampleId, toType, '当前用户', reason)
+    state.notice = result.ok
+      ? `已转为${PCS_SAMPLE_TYPE_LABELS[toType]}，并记录操作人与时间。`
+      : result.message || '类型互转失败。'
     return true
   }
   if (action === 'close-drawers') {

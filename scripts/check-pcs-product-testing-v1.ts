@@ -7,14 +7,12 @@ import {
   listProjectStepDefinitions,
   type ProjectStepCode,
 } from '../src/data/pcs-project-domain-contract.ts'
-import { ensurePcsProjectDemoDataReady } from '../src/data/pcs-project-demo-seed-service.ts'
 import {
   createEmptyProjectDraft,
   createProject,
   getProjectCreateCatalog,
   listProjectNodes,
   listProjectPhases,
-  listProjects,
 } from '../src/data/pcs-project-repository.ts'
 import { createBootstrapProjectInlineNodeRecordSnapshot } from '../src/data/pcs-project-inline-node-record-bootstrap.ts'
 import { findStyleArchiveByProjectId } from '../src/data/pcs-style-archive-repository.ts'
@@ -83,10 +81,6 @@ assert.deepEqual(
   expectedSteps,
   '商品项目必须严格按固定五步组织',
 )
-
-const projectCountBeforeDemoSeed = listProjects().length
-ensurePcsProjectDemoDataReady()
-assert.equal(listProjects().length, projectCountBeforeDemoSeed, '清洁状态下不应额外注入商品项目 mock')
 
 const fixedStepFlow = listProjectFlowStageContracts().flatMap((step) => step.stepCodes)
 assert.ok(fixedStepFlow.length > 5, '固定五步必须继续承载逐项办理的详细业务任务')

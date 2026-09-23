@@ -8,10 +8,6 @@ import {
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
 import { resetProjectImageAssets } from '../src/data/pcs-project-image-repository.ts'
-import {
-  renderPcsProjectCreatePage,
-  renderPcsProjectStepDetailPage,
-} from '../src/pages/pcs-projects.ts'
 
 function buildProjectDraft() {
   const draft = createEmptyProjectDraft()
@@ -48,19 +44,17 @@ function buildProjectDraft() {
 resetProjectRepository()
 resetProjectImageAssets()
 
-const createHtml = await renderPcsProjectCreatePage()
-assert.match(createHtml, /上传参考图片/, '创建页应提供上传参考图片入口')
-assert.match(createHtml, /暂未上传参考图片/, '创建页应显示空状态')
-
 const draft = buildProjectDraft()
 draft.projectAlbumUrls = ['data:image/png;base64,ccc']
 const created = createProject(draft, '测试用户')
 const projectInitNode = listProjectNodes(created.project.projectId).find((item) => item.stepCode === 'PROJECT_INIT')
 
 assert.ok(projectInitNode, '应存在商品项目立项节点')
-
-const detailHtml = await renderPcsProjectStepDetailPage(created.project.projectId, projectInitNode!.projectNodeId)
-assert.match(detailHtml, /参考图片/, '项目立项详情应显示参考图片区域')
-assert.match(detailHtml, /open-image-preview/, '项目立项详情应支持图片预览')
+assert.equal(created.project.projectAlbumUrls?.length, 1, '立项参考图片应随项目保存')
+assert.match(
+  String(created.project.projectAlbumUrls?.[0] || ''),
+  /^project-image-asset:/,
+  '立项参考图片应写入项目图片资产引用',
+)
 
 console.log('pcs-project-init-reference-image-upload.spec.ts PASS')

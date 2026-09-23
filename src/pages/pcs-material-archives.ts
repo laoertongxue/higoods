@@ -28,9 +28,12 @@ import type {
   MaterialSkuRecord,
   MaterialUsageRecord,
 } from '../data/pcs-material-archive-types.ts'
+import { listMaterialVariants, createMaterialVariant, listVariantLineage } from '../data/pcs-material-variant-repository.ts'
+import type { MaterialVariantRecord } from '../data/pcs-material-variant-types.ts'
+import { MATERIAL_VARIANT_CHAIN_CATEGORY_LABELS, MATERIAL_VARIANT_PROCESS_TYPE_LABELS } from '../data/pcs-material-variant-types.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
 
-type MaterialDetailTabKey = 'overview' | 'skus' | 'usage' | 'logs'
+type MaterialDetailTabKey = 'overview' | 'skus' | 'variants' | 'usage' | 'logs'
 
 interface MaterialArchiveFilterState {
   search: string
@@ -126,12 +129,6 @@ const KIND_META: Record<
     createLabel: '新建耗材',
     unitOptions: ['卷', 'PCS', '箱', '米', '套'],
   },
-  packaging: {
-    label: '包材档案',
-    description: '沉淀吊牌、包装袋、贴纸等服装出货包装用物料。',
-    createLabel: '新建包材',
-    unitOptions: ['PCS', '包', '箱', '套'],
-  },
   parts: {
     label: '配件档案',
     description: '沉淀裁床裁刀等生产车间设备使用的配件与备件。',
@@ -149,6 +146,7 @@ const STATUS_META: Record<MaterialArchiveStatus, { label: string; className: str
 const DETAIL_TABS: Array<{ key: MaterialDetailTabKey; label: string }> = [
   { key: 'overview', label: '概览' },
   { key: 'skus', label: '物料 SKU' },
+  { key: 'variants', label: '变种' },
   { key: 'usage', label: '技术包引用' },
   { key: 'logs', label: '日志' },
 ]
@@ -179,7 +177,6 @@ function createFilterMap(): Record<MaterialArchiveKind, MaterialArchiveFilterSta
     accessory: { search: '', status: 'all' },
     yarn: { search: '', status: 'all' },
     consumable: { search: '', status: 'all' },
-    packaging: { search: '', status: 'all' },
     parts: { search: '', status: 'all' },
   }
 }
@@ -1019,6 +1016,66 @@ function renderSkuTab(kind: MaterialArchiveKind, skuRecords: MaterialSkuRecord[]
   `
 }
 
+function renderVariantsTab(material: MaterialArchiveRecord, variants: MaterialVariantRecord[]): string {
+  if (variants.length === 0) {
+    return `
+      <section class="rounded-lg border bg-white p-5 shadow-sm">
+        <div class="text-sm font-medium text-slate-900">变种</div>
+        <p class="mt-2 text-sm text-slate-500">当前物料暂无变种。无加工链物料可不套链。</p>
+        <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="create-base-variant" data-material-id="${escapeHtml(material.materialId)}" data-base-sku-code="${escapeHtml(material.materialCode)}">创建基础态变种</button>
+      </section>
+    `
+  }
+  return `
+    <section class="rounded-lg border bg-white shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+        <div class="text-sm font-medium text-slate-900">变种 <span class="ml-1 text-slate-400">${variants.length}</span></div>
+        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="create-base-variant" data-material-id="${escapeHtml(material.materialId)}" data-base-sku-code="${escapeHtml(material.materialCode)}">新建基础态变种</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-left text-sm">
+          <thead class="bg-slate-50 text-slate-500">
+            <tr>
+              <th class="px-4 py-3 font-medium">变种码</th>
+              <th class="px-4 py-3 font-medium">显示名</th>
+              <th class="px-4 py-3 font-medium">链类别</th>
+              <th class="px-4 py-3 font-medium">层数</th>
+              <th class="px-4 py-3 font-medium">工艺链</th>
+              <th class="px-4 py-3 font-medium">前驱</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${variants
+              .map((variant) => {
+                const lineage = listVariantLineage(variant.variantId)
+                const predecessor = variant.predecessorVariantId
+                  ? variants.find((item) => item.variantId === variant.predecessorVariantId)
+                  : null
+                return `
+                  <tr class="border-t border-slate-100 align-top">
+                    <td class="px-4 py-3 text-sm font-medium text-slate-900">${escapeHtml(variant.variantCode)}</td>
+                    <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(variant.displayName)}</td>
+                    <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(MATERIAL_VARIANT_CHAIN_CATEGORY_LABELS[variant.chainCategory])}</td>
+                    <td class="px-4 py-3 text-sm text-slate-700">${variant.layerIndex}</td>
+                    <td class="px-4 py-3 text-sm text-slate-700">${
+                      variant.processes.length
+                        ? variant.processes.map((step) => escapeHtml(step.processName)).join(' → ')
+                        : '—'
+                    }</td>
+                    <td class="px-4 py-3 text-sm text-slate-500">${predecessor ? escapeHtml(predecessor.variantCode) : '—'}${
+                          lineage.length > 1 ? `<div class="mt-1 text-xs">血缘 ${lineage.length} 层</div>` : ''
+                        }</td>
+                  </tr>
+                `
+              })
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
 function renderUsageTab(usageRecords: MaterialUsageRecord[]): string {
   const rows = usageRecords
     .map(
@@ -1107,14 +1164,17 @@ function renderDetailPage(kind: MaterialArchiveKind, materialId: string): string
   const skuRecords = listMaterialSkuRecordsByMaterialId(material.materialId)
   const usageRecords = listMaterialUsageRecordsByMaterialId(material.materialId)
   const logs = listMaterialLogRecordsByMaterialId(material.materialId)
+  const variants = listMaterialVariants(material.materialId)
   const tabContent =
     state.detail.activeTab === 'overview'
       ? renderOverviewTab(material, skuRecords, usageRecords)
       : state.detail.activeTab === 'skus'
         ? renderSkuTab(kind, skuRecords)
-        : state.detail.activeTab === 'usage'
-          ? renderUsageTab(usageRecords)
-          : renderLogTab(logs)
+        : state.detail.activeTab === 'variants'
+          ? renderVariantsTab(material, variants)
+          : state.detail.activeTab === 'usage'
+            ? renderUsageTab(usageRecords)
+            : renderLogTab(logs)
 
   return `
     <div class="space-y-5 p-4">
@@ -1262,12 +1322,12 @@ function submitSkuEditor(): void {
 }
 
 function updateFilterField(field: string, value: string): boolean {
-  const searchMatch = field.match(/^filter-search-(fabric|accessory|yarn|consumable|packaging|parts)$/)
+  const searchMatch = field.match(/^filter-search-(fabric|accessory|yarn|consumable|parts)$/)
   if (searchMatch) {
     state.draftFilters[searchMatch[1] as MaterialArchiveKind].search = value
     return true
   }
-  const statusMatch = field.match(/^filter-status-(fabric|accessory|yarn|consumable|packaging|parts)$/)
+  const statusMatch = field.match(/^filter-status-(fabric|accessory|yarn|consumable|parts)$/)
   if (statusMatch) {
     state.draftFilters[statusMatch[1] as MaterialArchiveKind].status = (value || 'all') as 'all' | MaterialArchiveStatus
     return true
@@ -1514,6 +1574,21 @@ function dispatchArchiveAction(target: HTMLElement): boolean {
     case 'set-detail-tab':
       state.detail.activeTab = (actionNode.dataset.value as MaterialDetailTabKey) || 'overview'
       return true
+    case 'create-base-variant': {
+      const materialId = actionNode.dataset.materialId || ''
+      const baseSkuCode = actionNode.dataset.baseSkuCode || ''
+      if (!materialId || !baseSkuCode) return false
+      const result = createMaterialVariant({
+        materialId,
+        baseSkuCode,
+        chainCategory: 'plain',
+        remark: '详情页创建基础态变种',
+      })
+      state.notice = result.ok
+        ? `已创建基础态变种 ${result.variant!.variantCode}`
+        : result.message || '创建变种失败。'
+      return true
+    }
     case 'close-drawers':
       state.create.open = false
       resetSkuEditor()
@@ -1585,16 +1660,6 @@ export function renderPcsConsumableArchiveCreatePage(): string {
   resetCreateState('consumable')
   state.create.open = true
   return renderListPage('consumable')
-}
-
-export function renderPcsPackagingArchiveListPage(): string {
-  return renderListPage('packaging')
-}
-
-export function renderPcsPackagingArchiveCreatePage(): string {
-  resetCreateState('packaging')
-  state.create.open = true
-  return renderListPage('packaging')
 }
 
 export function renderPcsPartsArchiveListPage(): string {

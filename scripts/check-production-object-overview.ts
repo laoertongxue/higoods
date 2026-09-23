@@ -535,7 +535,7 @@ const unlinkedSurface = uiModule.renderProductionObjectOverviewSurface('WAREHOUS
 assert.ok(unlinkedSurface.includes('未找到关联生产单'), '未关联对象必须展示明确提示')
 assert.ok(unlinkedSurface.includes('查看来源'), '未关联对象必须保留来源入口')
 
-assert.ok(uiModule.renderProductionObjectFloatingEntry('/pcs/projects').includes('查生产'), 'PCS 页面必须能显示查生产入口')
+assert.ok(uiModule.renderProductionObjectFloatingEntry('/pcs/products/styles').includes('查生产'), 'PCS 页面必须能显示查生产入口')
 assert.ok(uiModule.renderProductionObjectFloatingEntry('/pms/purchase-order').includes('查生产'), 'PMS 页面必须能显示查生产入口')
 assert.ok(uiModule.renderProductionObjectFloatingEntry('/wls/inventory').includes('查生产'), 'WLS 页面必须能显示查生产入口')
 assert.ok(uiModule.renderProductionObjectFloatingEntry('/fcs/craft/post-finishing/qc-orders').includes('查生产'), 'PFOS 页面必须能显示查生产入口')

@@ -441,7 +441,7 @@ export function handlePcsTechnicalDataEvent(target: HTMLElement, event?: Event):
       const selected = allMaterialSkuOptions().find((item) => item.sku.materialSkuId === select?.value)
       if (!selected) throw new Error('请先选择要加入的物料 SKU。')
       if (record.materialLines.some((line) => line.materialSkuId === selected.sku.materialSkuId)) throw new Error('该物料 SKU 已在当前 BOM 中。')
-      const kindText = ({ fabric: '面料', accessory: '辅料', yarn: '纱线', consumable: '耗材', packaging: '包装材料', parts: '配件' } as const)[selected.material.kind]
+      const kindText = ({ fabric: '面料', accessory: '辅料', yarn: '纱线', consumable: '耗材', parts: '配件' } as const)[selected.material.kind]
       saveCurrentBom(record, [...record.materialLines, {
         bomItemId: `${record.bomDraftVersionId}-LINE-${record.materialLines.length + 1}`,
         materialSkuId: selected.sku.materialSkuId,

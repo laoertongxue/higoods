@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 const readSource = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
@@ -58,13 +58,6 @@ assert.doesNotMatch(
   '项目关系仓储不得保留按已删除专业节点查询的兼容 API',
 )
 
-const projectPageSource = readSource('src/pages/pcs-projects.ts')
-assert.doesNotMatch(
-  projectPageSource,
-  /listProjectRelationsByProjectNodeSafe|findLatestNodeRelation/,
-  '商品项目详情必须按商品项目级关系展示专业任务',
-)
-
 const sourceNormalizerSource = readSource('src/data/pcs-task-source-normalizer.ts')
 assert.doesNotMatch(
   sourceNormalizerSource,
@@ -73,12 +66,11 @@ assert.doesNotMatch(
 )
 
 for (const relativePath of [
+  'src/pages/pcs-projects.ts',
   'src/pages/pcs-live-testing.ts',
   'src/pages/pcs-video-testing.ts',
 ]) {
-  const source = readSource(relativePath)
-  assert.doesNotMatch(source, />\s*(?:SELL|TEST|REVIEW)(?:\s|<)/, `${relativePath} 页面不得展示英文内部码`)
-  assert.doesNotMatch(source, /TEST (?:行|条目)/, `${relativePath} 页面不得展示英文测试行语义`)
+  assert.ok(!existsSync(new URL(`../${relativePath}`, import.meta.url)), `${relativePath} 应已删除`)
 }
 
 console.log('pcs-professional-task-model-semantic-closure.spec.ts PASS')

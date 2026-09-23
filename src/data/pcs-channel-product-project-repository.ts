@@ -385,8 +385,8 @@ function buildTestingStatusText(seed: ChannelSeed): string {
   if (seed.scenario === 'FAILED_ADJUST') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_PAUSED') return '历史测款结论待重新确认，当前渠道店铺商品已作废'
   if (seed.scenario === 'FAILED_ELIMINATED') return '测款结论为不通过，当前渠道店铺商品已作废'
-  if (seed.scenario === 'STYLE_PENDING_TECH') return '测款通过，关联商品档案待完善技术包'
-  if (seed.scenario === 'STYLE_ACTIVE') return '测款通过，已关联款式档案并完成上游最终更新'
+  if (seed.scenario === 'STYLE_PENDING_TECH') return '判断通过，技术包待启用'
+  if (seed.scenario === 'STYLE_ACTIVE') return '判断通过，已完成上游最终更新'
   return '历史测款渠道店铺商品，已失效'
 }
 
@@ -1018,7 +1018,7 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       updatedAt: '2026-04-06 16:30',
       effectiveAt: '2026-03-16 10:20',
       lastUpstreamSyncAt: '2026-04-06 16:30',
-      upstreamSyncNote: '改版后测款通过，已完成最终上游更新。',
+      upstreamSyncNote: '改版后判断通过，已完成最终上游更新。',
       upstreamSyncResult: '成功',
       upstreamSyncBy: '商品中心',
       upstreamSyncLog: '2026-04-06 16:30 已完成最终上游更新。',
@@ -1067,8 +1067,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       effectiveAt: '2026-04-02 09:50',
       linkedVideoRecordId: 'SV-PJT-012',
       linkedVideoRecordCode: 'SV-PJT-012',
-      upstreamSyncNote: '短视频测款通过，等待技术包启用。',
-      upstreamSyncLog: '短视频测款通过，等待技术包启用。',
+      upstreamSyncNote: '短视频测款结论为通过，等待技术包启用。',
+      upstreamSyncLog: '短视频测款结论为通过，等待技术包启用。',
     },
     {
       projectCode: 'PRJ-20251216-013',
@@ -1091,8 +1091,8 @@ function seedSnapshot(): ChannelProductStoreSnapshot {
       linkedLiveLineCode: 'LS-20260404-011-L01',
       linkedVideoRecordId: 'SV-PJT-011',
       linkedVideoRecordCode: 'SV-PJT-011',
-      upstreamSyncNote: '直播测款通过，等待技术包启用后同步上游商品。',
-      upstreamSyncLog: '直播测款通过，等待技术包启用后同步上游商品。',
+      upstreamSyncNote: '直播测款结论为通过，等待技术包启用后同步上游商品。',
+      upstreamSyncLog: '直播测款结论为通过，等待技术包启用后同步上游商品。',
     },
     {
       projectCode: 'PRJ-20251216-014',
@@ -1564,24 +1564,15 @@ function applyScenarioStyleLinks(): void {
     const technicalVersion = technicalVersionId ? getTechnicalDataVersionById(technicalVersionId) : null
     if (!project || !style || !technicalVersion) return
 
-    const activated = record.scenario === 'STYLE_ACTIVE'
     updateStyleArchive(style.styleId, {
       sourceProjectId: project.projectId,
       sourceProjectCode: project.projectCode,
       sourceProjectName: project.projectName,
       sourceProjectNodeId: '',
-      archiveStatus: activated ? 'ACTIVE' : 'DRAFT',
-      techPackStatus: activated ? '已启用' : '已发布待启用',
       channelProductCount: listProjectChannelProductsByProjectId(project.projectId).filter(
         (item) => item.styleId === style.styleId,
       ).length || 1,
-      currentTechPackVersionId: activated ? technicalVersion.technicalVersionId : '',
-      currentTechPackVersionCode: activated ? technicalVersion.technicalVersionCode : '',
-      currentTechPackVersionLabel: activated ? technicalVersion.versionLabel : '',
-      currentTechPackVersionStatus: activated ? '已启用' : '',
-      currentTechPackVersionActivatedAt: activated ? technicalVersion.publishedAt : '',
-      currentTechPackVersionActivatedBy: activated ? '商品中心' : '',
-      updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || style.updatedAt,
+      updatedAt: technicalVersion.updatedAt || style.updatedAt,
       updatedBy: DEMO_OPERATOR,
     })
 
@@ -1592,12 +1583,7 @@ function applyScenarioStyleLinks(): void {
         linkedStyleCode: style.styleCode,
         linkedStyleName: style.styleName,
         linkedStyleGeneratedAt: style.generatedAt,
-        linkedTechPackVersionId: technicalVersion.technicalVersionId,
-        linkedTechPackVersionCode: technicalVersion.technicalVersionCode,
-        linkedTechPackVersionLabel: technicalVersion.versionLabel,
-        linkedTechPackVersionStatus: technicalVersion.versionStatus,
-        linkedTechPackVersionPublishedAt: technicalVersion.publishedAt,
-        updatedAt: (activated ? technicalVersion.publishedAt : technicalVersion.updatedAt) || project.updatedAt,
+        updatedAt: technicalVersion.updatedAt || project.updatedAt,
       },
       DEMO_OPERATOR,
     )
@@ -1660,7 +1646,7 @@ function buildSummaryText(
   if (!currentRecord) return '当前项目尚未创建渠道店铺商品。'
   const multiInstancePrefix = activeCount > 1 ? `当前共有 ${activeCount} 个有效渠道店铺商品实例；` : ''
   if (currentRecord.conclusion === '通过' && !currentRecord.styleCode) {
-    return `${multiInstancePrefix}测款通过，关联商品档案待完善；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
+    return `${multiInstancePrefix}判断通过；当前最新用于测款的渠道店铺商品为 ${currentRecord.channelProductCode}`
   }
   if (!currentRecord.conclusion && currentRecord.channelProductStatus === '已作废') {
     return `${multiInstancePrefix}当前渠道店铺商品已作废，历史测款结论待重新确认。`
@@ -3164,34 +3150,24 @@ export function submitProjectTestingConclusion(
   const summaryRecord = summaryNode ? getLatestProjectInlineNodeRecord(summaryNode.projectNodeId) : null
 
   if (payload.conclusion === '通过') {
-    const linkedStyle = project.linkedStyleId
-      ? getStyleArchiveById(project.linkedStyleId)
-      : null
-    if (!linkedStyle) {
-      return {
-        ok: false,
-        message: '当前商品项目缺少创建时关联的商品测款档案，不能提交通过结论。',
-        record: primaryRecord,
-      }
-    }
-    updateStyleArchive(linkedStyle.styleId, {
-      archiveStatus: 'DRAFT',
-      updatedAt: timestamp,
-      updatedBy: operatorName,
-    })
     const nextRecords = targetRecords.map((record) => {
       const nextRecord: ProjectChannelProductRecord = {
         ...record,
         scenario: 'MEASURING',
         conclusion: '通过',
-        styleId: linkedStyle.styleId,
-        styleCode: linkedStyle.styleCode,
-        styleName: linkedStyle.styleName,
         invalidatedReason: '',
         updatedAt: timestamp,
-        testingStatusText: '测款通过，关联商品测款档案待完善',
+        testingStatusText: '判断通过',
         upstreamSyncNote: note,
         upstreamSyncLog: `${timestamp} ${note}`,
+      }
+      const projectStyle = project.linkedStyleId
+        ? getStyleArchiveById(project.linkedStyleId)
+        : null
+      if (projectStyle) {
+        nextRecord.styleId = projectStyle.styleId
+        nextRecord.styleCode = projectStyle.styleCode
+        nextRecord.styleName = projectStyle.styleName
       }
       replaceRecord(nextRecord, operatorName)
       return nextRecord
@@ -3204,16 +3180,14 @@ export function submitProjectTestingConclusion(
       {
         latestInstanceId: latestRecord.channelProductId,
         latestInstanceCode: latestRecord.channelProductCode,
-        latestResultType: '测款通过',
+        latestResultType: '通过',
         latestResultText: note,
-        pendingActionType: '商品档案资料完善',
-        pendingActionText: '请继续完善项目创建时关联的商品测款档案和技术资料。',
+        pendingActionType: '进入后续开发',
+        pendingActionText: '判断已确认，请按项目流程推进后续开发。',
         updatedAt: timestamp,
       },
       operatorName,
     )
-    const styleRelation = buildStyleRelation(projectId, linkedStyle.styleId, operatorName)
-    if (styleRelation) upsertProjectRelation(styleRelation)
     buildTestingConclusionInlineRecord(
       project,
       conclusionNode.projectNodeId,
@@ -3221,9 +3195,7 @@ export function submitProjectTestingConclusion(
       nextRecords,
       summaryRecord,
       {
-        linkedStyleId: linkedStyle.styleId,
-        linkedStyleCode: linkedStyle.styleCode,
-        nextActionType: '商品档案资料完善',
+        nextActionType: '进入后续开发',
       },
       [],
       operatorName,
@@ -3242,8 +3214,8 @@ export function submitProjectTestingConclusion(
       ok: true,
       message:
         nextRecords.length > 1
-          ? `已提交测款通过结论，当前 ${nextRecords.length} 个渠道店铺商品实例已关联同一商品测款档案。`
-          : '已提交测款通过结论，已更新项目关联商品测款档案。',
+          ? `已提交判断：通过。当前 ${nextRecords.length} 个渠道店铺商品实例已记录结论。`
+          : '已提交判断：通过。',
       record: latestRecord,
       relationCount: mappedRelationCount,
     }
@@ -3493,7 +3465,7 @@ export function syncProjectChannelProductAfterTechPackActivation(
       upstreamSyncStatus: '已更新',
       lastUpstreamSyncAt: timestamp,
       updatedAt: timestamp,
-      testingStatusText: '测款通过，已关联款式档案并完成上游最终更新',
+      testingStatusText: '已关联款式档案并完成上游最终更新',
       upstreamSyncResult: '成功',
       upstreamSyncBy: operatorName,
       upstreamSyncNote: '技术包已启用，已完成上游最终更新。',

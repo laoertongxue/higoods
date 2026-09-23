@@ -954,7 +954,7 @@ function createPatternSeeds(): { tasks: PatternTaskRecord[]; pendingItems: PcsTa
       styleId: style?.styleId || '',
       styleCode: style?.styleCode || item.productStyleCode,
       styleName: style?.styleName || project.projectName,
-      ...executionFields({ sourceType: upstreamDesignRevisionCode ? '设计改款任务' : '预售测款通过', sourceCode: upstreamDesignRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
+      ...executionFields({ sourceType: upstreamDesignRevisionCode ? '设计改款任务' : '设计师款', sourceCode: upstreamDesignRevisionCode || project.projectCode, processType: item.artworkType === '贴章' ? '烫画' : '数码印', completed: item.status === '已完成' || item.status === '已确认' }),
       artworkType: item.artworkType,
       patternMode: item.patternMode,
       artworkName: item.artworkName,

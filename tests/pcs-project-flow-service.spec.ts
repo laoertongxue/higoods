@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
+import { existsSync } from 'node:fs'
 
 import {
   approveProjectInitAndSync,
@@ -21,16 +21,10 @@ import { resetProjectRelationRepository } from '../src/data/pcs-project-relation
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
 
-const pageSource = fs.readFileSync(new URL('../src/pages/pcs-projects.ts', import.meta.url), 'utf8')
-
-for (const functionName of [
-  'applyFeasibilityReviewBranch',
-  'applySampleConfirmBranch',
-  'applyTestConclusionBranch',
-  'routeNodeAfterFormalSave',
-]) {
-  assert.ok(!pageSource.includes(`function ${functionName}`), `页面文件不应继续定义旧推进函数 ${functionName}`)
-}
+assert.ok(
+  !existsSync(new URL('../src/pages/pcs-projects.ts', import.meta.url)),
+  '商品项目详情页应已删除，旧推进函数不得恢复',
+)
 
 assert.equal(typeof saveProjectNodeFormalRecord, 'function')
 assert.equal(typeof syncProjectLifecycle, 'function')

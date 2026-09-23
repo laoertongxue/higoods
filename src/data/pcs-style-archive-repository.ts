@@ -12,6 +12,12 @@ const STYLE_ARCHIVE_STORE_VERSION = 3
 
 let memorySnapshot: StyleArchiveStoreSnapshot | null = null
 
+function nowText(): string {
+  const now = new Date()
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+}
+
 function canUseStorage(): boolean {
   try {
     if (typeof window === 'undefined') return false
@@ -334,13 +340,15 @@ export function hasStyleArchiveForProject(projectId: string): boolean {
 export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const snapshot = loadSnapshot()
   const normalized = normalizeRecord(record)
+  const hasProjectBinding = Boolean(normalized.sourceProjectId)
   if (
-    !normalized.sourceProjectId ||
-    !normalized.sourceProjectCode ||
-    !normalized.sourceProjectName ||
-    !normalized.sourceProjectNodeId
+    hasProjectBinding &&
+    (!normalized.sourceProjectId ||
+      !normalized.sourceProjectCode ||
+      !normalized.sourceProjectName ||
+      !normalized.sourceProjectNodeId)
   ) {
-    throw new Error('商品／款式档案只能从商品项目“项目与档案建立”节点生成。')
+    throw new Error('商品项目建档必须完整提供项目关联信息；无测款历史也可直接建档。')
   }
   if (snapshot.records.some((item) => item.styleId === normalized.styleId)) {
     throw new Error(`款式档案 ID ${normalized.styleId} 已存在，不能重复创建或改绑到其他商品项目。`)
@@ -354,6 +362,74 @@ export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleA
     records: [normalized, ...snapshot.records],
   })
   return cloneRecord(normalized)
+}
+
+/** ARCH-001：无测款历史、无商品项目也可直接创建 SPU 草稿档案。 */
+export function createStyleArchiveDirect(input: {
+  styleName: string
+  styleNameEn?: string
+  styleNumber?: string
+  productType?: string
+  categoryName?: string
+  operator?: string
+}): StyleArchiveShellRecord {
+  const stamp = nowText()
+  const styleCode = `SPU-${Date.now().toString().slice(-8)}`
+  const styleId = `style_direct_${Date.now().toString(36)}`
+  const base = normalizeRecord({
+    styleId,
+    styleCode,
+    styleName: input.styleName.trim() || '未命名款式',
+    styleNameEn: (input.styleNameEn || '').trim(),
+    styleNumber: (input.styleNumber || '').trim() || styleCode,
+    productType: input.productType?.trim() || '成衣',
+    sourceProjectId: '',
+    sourceProjectCode: '',
+    sourceProjectName: '',
+    sourceProjectNodeId: '',
+    categoryId: '',
+    categoryName: input.categoryName?.trim() || '',
+    subCategoryId: '',
+    subCategoryName: '',
+    brandId: '',
+    brandName: '',
+    yearTag: '2026',
+    seasonTags: ['春夏'],
+    styleTags: [],
+    targetAudienceTags: [],
+    targetChannelCodes: [],
+    priceRangeLabel: '',
+    archiveStatus: 'DRAFT',
+    baseInfoStatus: '待完善',
+    specificationStatus: '未建立',
+    techPackStatus: '未建立',
+    costPricingStatus: '未建立',
+    specificationCount: 0,
+    techPackVersionCount: 0,
+    costVersionCount: 0,
+    channelProductCount: 0,
+    currentTechPackVersionId: '',
+    currentTechPackVersionCode: '',
+    currentTechPackVersionLabel: '',
+    currentTechPackVersionStatus: '',
+    currentTechPackVersionActivatedAt: '',
+    currentTechPackVersionActivatedBy: '',
+    mainImageId: '',
+    mainImageUrl: '',
+    galleryImageIds: [],
+    galleryImageUrls: [],
+    imageSource: '',
+    sellingPointText: '',
+    detailDescription: '',
+    packagingInfo: '',
+    remark: '选品直接建档，尚无测款历史。',
+    generatedAt: stamp,
+    generatedBy: input.operator?.trim() || '当前用户',
+    updatedAt: stamp,
+    updatedBy: input.operator?.trim() || '当前用户',
+    legacyOriginProject: '',
+  } as unknown as StyleArchiveShellRecord)
+  return createStyleArchiveShell(base)
 }
 
 export function updateStyleArchive(styleId: string, patch: Partial<StyleArchiveShellRecord>): StyleArchiveShellRecord | null {

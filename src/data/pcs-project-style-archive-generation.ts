@@ -157,8 +157,8 @@ export function formalizeStyleArchive(styleId: string, operatorName = '当前用
   }
 
   const style = check.style
-  const project = getProjectById(style.sourceProjectId)
-  if (!project) {
+  const project = style.sourceProjectId ? getProjectById(style.sourceProjectId) : null
+  if (style.sourceProjectId && !project) {
     return {
       ok: false,
       message: '款式档案未绑定有效商品项目，不能正式建档。',
@@ -183,13 +183,15 @@ export function formalizeStyleArchive(styleId: string, operatorName = '当前用
     updatedBy: operatorName,
   })
 
-  updateProjectRecord(
-    project.projectId,
-    {
-      updatedAt: timestamp,
-    },
-    operatorName,
-  )
+  if (project) {
+    updateProjectRecord(
+      project.projectId,
+      {
+        updatedAt: timestamp,
+      },
+      operatorName,
+    )
+  }
 
   return {
     ok: true,

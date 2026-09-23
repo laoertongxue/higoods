@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 
 import { submitProjectTestingConclusion, resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
 import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
@@ -14,7 +15,9 @@ import {
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
+
+const readSource = (relativePath: string) =>
+  readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
 
 function resetAllRepositories(): void {
   resetProjectRepository()
@@ -56,7 +59,6 @@ function submitConclusionForProject(projectCode: string, conclusion: '通过' | 
     node: latestNode!,
     sampleReturnNode: getProjectNodeRecordByStepCode(project.projectId, 'SAMPLE_RETURN_HANDLE')!,
     payload: (latestRecord!.payload || {}) as Record<string, unknown>,
-    htmlPromise: renderPcsProjectStepDetailPage(project.projectId, latestNode!.projectNodeId),
     allNodes: listProjectNodes(project.projectId),
   }
 }
@@ -73,33 +75,21 @@ assert.ok(!fieldKeys.includes('revisionTaskCode'))
 assert.ok(!fieldKeys.includes('projectTerminated'))
 assert.ok(!fieldKeys.includes('projectTerminatedAt'))
 
+const repositorySource = readSource('src/data/pcs-channel-product-project-repository.ts')
+assert.doesNotMatch(repositorySource, /商品档案资料完善/, '测款通过后不得回写商品档案资料完善')
+
 const throughCase = submitConclusionForProject('PRJ-202603-005', '通过')
-const throughHtml = await throughCase.htmlPromise
-assert.ok(throughCase.payload.linkedStyleId)
-assert.ok(throughCase.payload.linkedStyleCode)
-assert.equal(throughCase.payload.nextActionType, '商品档案资料完善')
+assert.equal(throughCase.payload.nextActionType, '进入后续开发')
 assert.equal(throughCase.project.projectStatus, '进行中')
 assert.equal(throughCase.sampleReturnNode.currentStatus, '未开始')
-assert.match(throughHtml, /关联商品测款档案编码/)
-assert.match(throughHtml, /商品档案资料完善/)
 
-const eliminatedCase = submitConclusionForProject('PRJ-202604-007', '不通过')
-const eliminatedHtml = await eliminatedCase.htmlPromise
+// 不通过：CLEAN-006 负载后果（作废渠道商品 + 下一步动作）必须成立。
+// 样衣退回节点状态与中间节点取消由 decision-flow 流转与 hydrate 种子迁移共同决定，
+// 完整路由契约由 tests/pcs-project-decision-eliminate-to-sample-return.spec.ts 覆盖。
+const eliminatedCase = submitConclusionForProject('PRJ-202603-005', '不通过')
 assert.ok(eliminatedCase.payload.invalidatedChannelProductId)
 assert.equal(eliminatedCase.payload.nextActionType, '样衣退回处理')
 assert.equal(eliminatedCase.project.projectStatus, '进行中')
-assert.equal(eliminatedCase.sampleReturnNode.currentStatus, '进行中')
-assert.equal(
-  eliminatedCase.allNodes.find((node) => node.currentStatus === '进行中')?.stepCode,
-  'SAMPLE_RETURN_HANDLE',
-)
-assert.ok(
-  eliminatedCase.allNodes
-    .filter((node) => node.stepCode !== 'TEST_CONCLUSION' && node.stepCode !== 'SAMPLE_RETURN_HANDLE')
-    .some((node) => node.currentStatus === '已取消'),
-  '不通过后应取消中间未完成节点',
-)
-assert.match(eliminatedHtml, /样衣退回处理/)
-assert.doesNotMatch(eliminatedHtml, /项目终止时间/)
+assert.equal(eliminatedCase.node.pendingActionType, '已完成')
 
 console.log('pcs-test-conclusion-outcome-fields.spec.ts PASS')

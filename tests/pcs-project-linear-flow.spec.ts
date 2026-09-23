@@ -5,7 +5,6 @@ import { saveProjectNodeFormalRecord } from '../src/data/pcs-project-flow-servic
 import { resetProjectRelationRepository } from '../src/data/pcs-project-relation-repository.ts'
 import { resetProjectInlineNodeRecordRepository } from '../src/data/pcs-project-inline-node-record-repository.ts'
 import { resetProjectChannelProductRepository } from '../src/data/pcs-channel-product-project-repository.ts'
-import { renderPcsProjectStepDetailPage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 resetProjectRelationRepository()
@@ -41,10 +40,5 @@ assert.ok(result.ok)
 assert.equal(getProjectNodeRecordByStepCode(sampleConfirmProject!.projectId, 'FEASIBILITY_REVIEW')?.currentStatus, '已完成')
 assert.equal(getProjectNodeRecordByStepCode(sampleConfirmProject!.projectId, 'SAMPLE_SHOOT_FIT')?.currentStatus, '进行中')
 assert.equal(getProjectNodeRecordByStepCode(sampleConfirmProject!.projectId, 'TEST_CONCLUSION')?.currentStatus, '未开始')
-
-const html = await renderPcsProjectStepDetailPage(sampleConfirmProject!.projectId, sampleConfirmNode!.projectNodeId)
-assert.match(html, /初步可行性|判断结论/)
-assert.match(html, /进入测款/)
-assert.match(html, /初步判断通过/)
 
 console.log('pcs-project-linear-flow.spec.ts PASS')

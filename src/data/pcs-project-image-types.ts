@@ -12,7 +12,6 @@ export type PcsProjectImageSourceType =
   | '商品项目立项'
   | '样衣拍摄与试穿'
   | '商品上架'
-  | '商品档案资料完善'
   | '样衣结果核对'
   | '手工补充'
 

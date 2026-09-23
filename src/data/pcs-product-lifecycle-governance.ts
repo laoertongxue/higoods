@@ -122,14 +122,14 @@ export const CHANNEL_PRODUCT_STATUS_RULES: Record<ChannelProductBusinessStatusKe
     key: 'ACTIVE_PENDING_SYNC',
     label: '已生效待更新',
     className: 'border-amber-200 bg-amber-50 text-amber-700',
-    scene: '测款已通过且已关联款式档案，但上游最终商品信息尚未完成更新。',
+    scene: '判断已通过且已关联款式档案，但上游最终商品信息尚未完成更新。',
     operations: ['查看款式档案', '查看当前技术包', '等待上游更新'],
   },
   ACTIVE_SYNCED: {
     key: 'ACTIVE_SYNCED',
     label: '已生效已更新',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    scene: '测款通过、款式档案已关联，并已完成上游最终更新，可作为正式渠道商品使用。',
+    scene: '判断通过、款式档案已关联，并已完成上游最终更新，可作为正式渠道商品使用。',
     operations: ['查看款式档案', '查看规格档案', '查看上游更新结果'],
   },
   INVALIDATED: {

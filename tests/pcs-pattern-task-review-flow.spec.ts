@@ -13,7 +13,7 @@ const task = savePatternTaskDraft({
   projectId: '',
   title: '买手审核花型',
   sourceType: '商品项目',
-  demandSourceType: '预售测款通过',
+  demandSourceType: '设计师款',
   processType: '数码印',
   requestQty: 1,
   fabricName: '毛织印花坯布',
