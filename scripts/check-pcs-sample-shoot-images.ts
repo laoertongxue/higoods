@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
@@ -8,7 +8,6 @@ function read(relativePath: string): string {
   return readFileSync(path.join(root, relativePath), 'utf8')
 }
 
-const projectPage = read('src/pages/pcs-projects.ts')
 const domainContract = read('src/data/pcs-project-domain-contract.ts')
 const imageTypes = read('src/data/pcs-project-image-types.ts')
 const imageRepository = read('src/data/pcs-project-image-repository.ts')
@@ -32,10 +31,9 @@ assert.match(imageService, /updateSampleShootImageUsage/, '应存在样衣拍摄
 assert.match(imageRepository, /listProjectImageAssetsBySourceNode/, '项目图片资产仓储应支持按节点读取图片')
 assert.match(inlineTypes, /sampleFlatImageIds: string\[\]/, '样衣拍摄记录中应保留样衣平铺图字段')
 
-assert.match(projectPage, /样衣平铺图/, '项目页面应展示样衣平铺图')
-assert.match(projectPage, /可用于商品上架/, '项目页面应提供可用于商品上架标记')
-assert.match(projectPage, /可用于款式档案/, '项目页面应提供可用于款式档案标记')
-
-assert.doesNotMatch(projectPage, /项目参考图.*样衣平铺图|项目参考图.*试穿图/, '项目页面不应自动把项目参考图转成样衣图')
+assert.ok(
+  !existsSync(path.join(root, 'src/pages/pcs-projects.ts')),
+  '商品项目详情页应已删除，不得恢复项目参考图自动转样衣图逻辑',
+)
 
 console.log('check-pcs-sample-shoot-images.ts PASS')

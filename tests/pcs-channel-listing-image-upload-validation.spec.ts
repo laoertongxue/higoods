@@ -12,30 +12,59 @@ import {
   upsertProjectImageAssets,
   getProjectImageAssetById,
 } from '../src/data/pcs-project-image-repository.ts'
-import { getProjectById, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 
 resetProjectRepository()
 resetProjectChannelProductRepository()
 resetProjectImageAssets()
 
-const project = getProjectById('prj_20251216_015')
-assert.ok(project, '应存在 PRJ-20251216-015 演示项目')
-const secondProject = getProjectById('prj_20251216_022')
-assert.ok(secondProject, '应存在 PRJ-20251216-022 演示项目')
+const project = listProjects().find((item) => item.projectCode === 'PRJ-202604-014')
+assert.ok(project, '应存在 PRJ-202604-014 演示项目')
+const secondProject = listProjects().find((item) => item.projectCode === 'PRJ-202603-003')
+assert.ok(secondProject, '应存在 PRJ-202603-003 演示项目')
+
+const [specProductImage] = createProjectImageAssetRecords(
+  project!,
+  [
+    {
+      imageUrl: 'mock://listing-image/spec-product',
+      imageName: '规格商品图',
+      imageType: '上架图',
+      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
+      sourceRecordId: 'spec-product-check',
+      sourceType: '商品上架',
+      usageScopes: ['商品上架', '项目资料归档'],
+      imageStatus: '可用于上架',
+      mainFlag: false,
+      sortNo: 1,
+    },
+  ],
+  '测试用户',
+  '2026-04-20T11:05:00.000Z',
+)
+upsertProjectImageAssets([specProductImage])
 
 const noImageResult = createProjectChannelProductFromListingNode(
   project!.projectId,
   {
     targetChannelCode: 'tiktok',
     targetStoreId: 'store-tiktok-01',
-    listingTitle: '无图片批次',
+    listingTitle: '无上架图批次',
     defaultPriceAmount: 229,
     currencyCode: 'IDR',
-    specLines: [{ colorName: '黑色', sizeName: 'M', priceAmount: 229, currencyCode: 'IDR' }],
+    specLines: [
+      {
+        productImageId: specProductImage.imageId,
+        colorName: '黑色',
+        sizeName: 'M',
+        priceAmount: 229,
+        currencyCode: 'IDR',
+      },
+    ],
   },
   '测试用户',
 )
-assert.equal(noImageResult.ok, true, '创建批次时允许暂不选择图片')
+assert.equal(noImageResult.ok, true, `创建批次时允许暂不选择上架主图：${noImageResult.message}`)
 
 const noImageLaunch = launchProjectChannelProductListing(noImageResult.record!.channelProductId, '测试用户')
 assert.equal(noImageLaunch.ok, false, '没有上架图片时不应允许上传')
@@ -72,11 +101,19 @@ const unconfirmedImageResult = createProjectChannelProductFromListingNode(
     currencyCode: 'IDR',
     listingMainImageId: referenceImage.imageId,
     listingImageIds: [referenceImage.imageId],
-    specLines: [{ colorName: '黑色', sizeName: 'L', priceAmount: 229, currencyCode: 'IDR' }],
+    specLines: [
+      {
+        productImageId: referenceImage.imageId,
+        colorName: '黑色',
+        sizeName: 'L',
+        priceAmount: 229,
+        currencyCode: 'IDR',
+      },
+    ],
   },
   '测试用户',
 )
-assert.equal(unconfirmedImageResult.ok, true, '未确认图片仍可先创建批次')
+assert.equal(unconfirmedImageResult.ok, true, `未确认图片仍可先创建批次：${unconfirmedImageResult.message}`)
 
 const unconfirmedLaunch = launchProjectChannelProductListing(unconfirmedImageResult.record!.channelProductId, '测试用户')
 assert.equal(unconfirmedLaunch.ok, false, '未确认用途的图片不应允许上传')

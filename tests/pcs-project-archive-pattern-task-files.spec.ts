@@ -17,7 +17,7 @@ const task = savePatternTaskDraft({
   title: '花型任务归档图片采集',
   sourceType: '商品项目',
   productStyleCode: 'SPU-PATTERN-ARCHIVE',
-  demandSourceType: '预售测款通过',
+  demandSourceType: '设计师款',
   processType: '数码印',
   requestQty: 1,
   fabricName: '印花面料',

@@ -29,12 +29,24 @@ const UNIFIED_PROGRESS_EXCEPTIONS_PATH = '/fcs/progress/exceptions'
 const UNIFIED_PROGRESS_EXCEPTIONS_TITLE = '异常定位与处理'
 const PCS_TAB_REDIRECTS: Record<string, { href: string; title?: string }> = {
   '/pcs/channels/products': { href: '/pcs/products/channel-products', title: '渠道店铺商品' },
-  '/pcs/channels/products/mapping': { href: '/pcs/products/channel-attributes', title: '渠道属性对应' },
   '/pcs/channels/products/store': { href: '/pcs/products/channel-products/store', title: '渠道店铺商品店铺视图' },
   '/pcs/products/spu': { href: '/pcs/products/styles', title: '款式档案' },
   '/pcs/products/sku': { href: '/pcs/products/specifications', title: '规格档案' },
   '/pcs/products/yarn': { href: '/pcs/materials/yarn', title: '纱线档案' },
 }
+const REMOVED_PCS_TAB_PATHS = new Set([
+  '/pcs/workspace/overview',
+  '/pcs/workspace/todos',
+  '/pcs/workspace/alerts',
+  '/pcs/projects',
+  '/pcs/projects/create',
+  '/pcs/testing/live',
+  '/pcs/testing/video',
+  '/pcs/channels/products/mapping',
+  '/pcs/materials/packaging',
+  '/pcs/materials/packaging/new',
+  '/pcs/products/channel-attributes',
+])
 const CUTTING_TAB_REDIRECTS: Record<string, { href: string; title: string }> = {
   '/fcs/craft/cutting': { href: '/fcs/craft/cutting/production-progress', title: '生产单进度' },
 }
@@ -94,7 +106,20 @@ function migratePcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
   if (!pcsTabs) return allTabs
 
   let changed = false
-  const nextTabs = pcsTabs.tabs.map((tab) => {
+  const keptTabs: Tab[] = []
+  for (const tab of pcsTabs.tabs) {
+    const normalizedHref = normalizePathname(tab.href)
+    if (REMOVED_PCS_TAB_PATHS.has(normalizedHref)) {
+      changed = true
+      continue
+    }
+    keptTabs.push(tab)
+  }
+  if (keptTabs.length !== pcsTabs.tabs.length) {
+    changed = true
+  }
+
+  const nextTabs = keptTabs.map((tab) => {
     const normalizedHref = normalizePathname(tab.href)
     const migration = PCS_TAB_REDIRECTS[normalizedHref]
     const canonicalHref = migration?.href ?? normalizedHref
@@ -115,7 +140,7 @@ function migratePcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
     }
   })
 
-  const activeTab = pcsTabs.tabs.find((tab) => tab.key === pcsTabs.activeKey)
+  const activeTab = nextTabs.find((tab) => tab.key === pcsTabs.activeKey)
   let nextActiveKey = pcsTabs.activeKey
   if (activeTab) {
     const normalizedHref = normalizePathname(activeTab.href)
@@ -126,6 +151,9 @@ function migratePcsTabs(allTabs: AllSystemTabs): AllSystemTabs {
       nextActiveKey = canonicalItem.key
       changed = true
     }
+  } else if (!nextTabs.some((tab) => tab.key === nextActiveKey)) {
+    nextActiveKey = nextTabs[0]?.key ?? ''
+    if (nextActiveKey !== pcsTabs.activeKey) changed = true
   }
 
   if (!changed) return allTabs

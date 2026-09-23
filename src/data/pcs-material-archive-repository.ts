@@ -23,7 +23,6 @@ const MATERIAL_CATEGORY_OPTIONS: Record<MaterialArchiveKind, string[]> = {
   accessory: ['花边辅料', '纽扣', '拉链', '刺绣辅料', '松紧带', '织带', '绳子', '装饰件'],
   yarn: ['车缝线', '包缝线', '绣花线', '织带线'],
   consumable: ['裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'],
-  packaging: ['吊牌', '包装袋', '贴纸', '纸卡', '包装盒', '防潮包'],
   parts: ['裁床配件', '缝纫机配件', '烫包设备配件', '检针设备配件', '通用设备配件'],
 }
 
@@ -60,12 +59,6 @@ const MATERIAL_SKU_SPEC_META: Record<
     primaryPlaceholder: '例如：白色 / 蓝色 / 通用',
     secondaryPlaceholder: '例如：24mm×50m / 标准卷',
   },
-  packaging: {
-    primaryLabel: '颜色 / 版面',
-    secondaryLabel: '规格',
-    primaryPlaceholder: '例如：白卡黑字 / 透明 / 品牌标准版',
-    secondaryPlaceholder: '例如：55×90mm / 35×45cm / 500PCS/包',
-  },
   parts: {
     primaryLabel: '适配设备',
     secondaryLabel: '型号 / 规格',
@@ -79,7 +72,6 @@ const MATERIAL_UNIT_DEFAULTS: Record<MaterialArchiveKind, { mainUnit: string; au
   accessory: { mainUnit: 'PCS', auxiliaryUnits: ['米', '卷', '包'] },
   yarn: { mainUnit: '卷', auxiliaryUnits: ['公斤', '筒', '箱'] },
   consumable: { mainUnit: '卷', auxiliaryUnits: ['PCS', '箱', '米'] },
-  packaging: { mainUnit: 'PCS', auxiliaryUnits: ['包', '箱', '套'] },
   parts: { mainUnit: 'PCS', auxiliaryUnits: ['把', '盒', '套'] },
 }
 
@@ -490,34 +482,6 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       createdAt: '2026-04-12 18:10',
       createdBy: '系统初始化',
       updatedAt: '2026-04-16 09:48',
-      updatedBy: '系统同步',
-    },
-    {
-      materialId: 'material_packaging_001',
-      kind: 'packaging',
-      materialCode: 'PKG-HANGTAG-001',
-      materialName: '品牌吊牌 55×90mm',
-      materialNameEn: 'Brand Hangtag 55x90mm',
-      categoryName: '吊牌',
-      specSummary: '白卡黑字 / 黑色棉绳',
-      composition: '350g 白卡纸',
-      processTags: ['包材', '吊牌', '出货包装'],
-      widthText: '55×90mm',
-      gramWeightText: '350g',
-      pricingUnit: 'PCS',
-      mainUnit: 'PCS',
-      auxiliaryUnits: ['包', '箱', '套'],
-      mainImageUrl: '/materials/archive/f8f3566efc82709add4e08fe108b7dfc.jpg',
-      galleryImageUrls: ['/materials/archive/f8f3566efc82709add4e08fe108b7dfc.jpg'],
-      status: 'ACTIVE',
-      skuCount: 1,
-      usedStyleCount: 4,
-      usedTechPackCount: 4,
-      barcodeTemplateCode: 'PKG-HANGTAG-STD',
-      remark: '服装出货包装使用的标准吊牌，独立于生产辅料和车间耗材维护。',
-      createdAt: '2026-04-13 10:20',
-      createdBy: '系统初始化',
-      updatedAt: '2026-04-16 10:05',
       updatedBy: '系统同步',
     },
     {
@@ -936,30 +900,6 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       updatedBy: '系统同步',
     },
     {
-      materialSkuId: 'material_packaging_001_sku_001',
-      materialId: 'material_packaging_001',
-      materialCode: 'PKG-HANGTAG-001',
-      materialSkuCode: 'PKG-HANGTAG-STD',
-      materialName: '品牌吊牌 55×90mm',
-      colorName: '白卡黑字',
-      specName: '55×90mm',
-      sizeName: '标准版',
-      skuImageUrl: '/materials/archive/f8f3566efc82709add4e08fe108b7dfc.jpg',
-      costPrice: 0.18,
-      freightCost: 0.01,
-      pricingUnit: 'PCS',
-      weightKg: 0.01,
-      lengthCm: 9,
-      widthCm: 5.5,
-      heightCm: 0.1,
-      barcode: 'PKG-HANGTAG-STD',
-      status: 'ACTIVE',
-      createdAt: '2026-04-13 10:20',
-      createdBy: '系统初始化',
-      updatedAt: '2026-04-16 10:05',
-      updatedBy: '系统同步',
-    },
-    {
       materialSkuId: 'material_parts_001_sku_001',
       materialId: 'material_parts_001',
       materialCode: 'PART-CUT-KNIFE-10IN',
@@ -1001,10 +941,6 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
     buildUsageRecord('material_yarn_001', 3, { styleCode: 'SPU-2024-017', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:42' }),
     buildUsageRecord('material_consumable_001', 0, { styleCode: 'SPU-2024-001', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:48' }),
     buildUsageRecord('material_consumable_001', 1, { styleCode: 'SPU-2024-005', consumptionText: '1 卷/批', updatedAt: '2026-04-16 09:48' }),
-    buildUsageRecord('material_packaging_001', 0, { styleCode: 'SPU-2024-001', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
-    buildUsageRecord('material_packaging_001', 1, { styleCode: 'SPU-2024-005', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
-    buildUsageRecord('material_packaging_001', 2, { styleCode: 'SPU-SHIRT-086', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
-    buildUsageRecord('material_packaging_001', 3, { styleCode: 'SPU-JACKET-085', consumptionText: '1 PCS/件', updatedAt: '2026-04-16 10:05' }),
   ]
 
   const logRecords: MaterialLogRecord[] = records.flatMap((record, index) => [
@@ -1103,7 +1039,6 @@ function buildMaterialCode(kind: MaterialArchiveKind, name: string): string {
     accessory: 'ACC',
     yarn: 'YARN',
     consumable: 'CONS',
-    packaging: 'PKG',
     parts: 'PART',
   }
   const prefix = prefixMap[kind]

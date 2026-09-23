@@ -16,7 +16,6 @@ function assert(condition: unknown, message: string): void {
 
 const projectContractSource = read('src/data/pcs-project-domain-contract.ts')
 const listingRepositorySource = read('src/data/pcs-channel-product-project-repository.ts')
-const projectPageSource = read('src/pages/pcs-projects.ts')
 const channelProductsPageSource = read('src/pages/pcs-channel-products.ts')
 const projectInitSection = projectContractSource.match(/PROJECT_INIT[\s\S]*?CHANNEL_PRODUCT_LISTING/)
 const forbiddenSpecPlanPattern = new RegExp(['plannedColor', 'plannedSize', 'plannedPrint', 'plannedSpec', '规格计划', '预期颜色', '预期尺码', '预期花型'].join('|'))
@@ -37,11 +36,6 @@ assert(
   /当前款式尚未成功上传到渠道，不能标记完成。|存在未上传成功的规格，不能标记完成。/.test(listingRepositorySource),
   '商品上架完成前检查上传状态的逻辑缺失',
 )
-
-assert(!/请选择规格档案/.test(projectPageSource), '商品上架节点页面仍要求选择正式规格档案')
-assert(/规格明细/.test(projectPageSource), '商品上架节点页面缺少规格明细区')
-assert(/上传到渠道/.test(projectPageSource), '商品上架节点页面缺少上传动作')
-assert(/完成商品上架|标记商品上架完成/.test(projectPageSource), '商品上架节点页面缺少完成动作')
 
 assert(/商品上架批次/.test(channelProductsPageSource), '渠道商品页面未切换到款式上架批次口径')
 assert(/规格数量/.test(channelProductsPageSource), '渠道商品页面缺少规格数量展示')

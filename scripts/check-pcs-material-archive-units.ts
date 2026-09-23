@@ -8,12 +8,11 @@ import {
   renderPcsAccessoryArchiveListPage,
   renderPcsConsumableArchiveListPage,
   renderPcsFabricArchiveListPage,
-  renderPcsPackagingArchiveListPage,
   renderPcsPartsArchiveListPage,
   renderPcsYarnArchiveListPage,
 } from '../src/pages/pcs-material-archives.ts'
 
-const kinds: MaterialArchiveKind[] = ['fabric', 'accessory', 'yarn', 'consumable', 'packaging', 'parts']
+const kinds: MaterialArchiveKind[] = ['fabric', 'accessory', 'yarn', 'consumable', 'parts']
 
 for (const kind of kinds) {
   const records = listMaterialArchives(kind)
@@ -33,7 +32,6 @@ const listPages = [
   renderPcsAccessoryArchiveListPage(),
   renderPcsYarnArchiveListPage(),
   renderPcsConsumableArchiveListPage(),
-  renderPcsPackagingArchiveListPage(),
   renderPcsPartsArchiveListPage(),
 ]
 

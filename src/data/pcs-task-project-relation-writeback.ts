@@ -274,10 +274,9 @@ function normalizePatternAssignment(input: Pick<PatternTaskCreateInput, 'assigne
 }
 
 function normalizePatternDemandSource(input: PatternTaskCreateInput): PatternTaskDemandSourceType {
-  if (input.demandSourceType) return input.demandSourceType
+  if (input.demandSourceType === '设计改款任务' || input.demandSourceType === '设计师款') return input.demandSourceType
   if (input.sourceType === '设计改款任务') return '设计改款任务'
-  if (input.sourceType === '花型复用调色') return '设计师款'
-  return '预售测款通过'
+  return '设计师款'
 }
 
 function plateExecutionFields(input: PlateMakingTaskCreateInput, existing?: PlateMakingTaskRecord | null) {

@@ -1,6 +1,16 @@
 export type SkuArchiveStatusCode = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'
 export type SkuArchiveMappingHealth = 'OK' | 'MISSING' | 'CONFLICT'
 
+/** SKU 预计用料行：1 SKU → N 物料（物料 SKU）。设计 §5.1 / §3.1 */
+export interface SkuExpectedMaterialLine {
+  materialSkuId: string
+  materialSkuCode: string
+  materialName: string
+  quantity: number
+  unit: string
+  note?: string
+}
+
 export interface SkuArchiveRecord {
   skuId: string
   skuCode: string
@@ -42,6 +52,8 @@ export interface SkuArchiveRecord {
   updatedAt: string
   updatedBy: string
   remark: string
+  /** 预计用料 1..N；采购链接不进 SKU 档案（ARCH-006/007）。 */
+  expectedMaterials?: SkuExpectedMaterialLine[]
 }
 
 export interface SkuArchiveStoreSnapshot {

@@ -33,10 +33,10 @@ const archiveCollector = read('src/data/pcs-project-archive-collector.ts')
 const archiveSync = read('src/data/pcs-project-archive-sync.ts')
 const domainContract = read('src/data/pcs-project-domain-contract.ts')
 const techPackPage = read('src/pages/tech-pack/core.ts')
+const techPackTaskPage = read('src/pages/pcs-engineering-tasks/tech-pack-task.ts')
 const patternListPage = read('src/pages/pcs-pattern-library.ts')
 const patternDetailPage = read('src/pages/pcs-pattern-library-detail.ts')
 const productArchivesPage = read('src/pages/pcs-product-archives.ts')
-const projectsPage = read('src/pages/pcs-projects.ts')
 
 ;['linkedPatternAssetIds', 'linkedPatternAssetCodes', 'archiveCollectedFlag', 'archiveCollectedAt'].forEach((field) => {
   assertIncludes(techPackTypes + techPackRepo + techPackGeneration, field, `技术包版本缺少闭环字段：${field}`)
@@ -83,7 +83,7 @@ const projectsPage = read('src/pages/pcs-projects.ts')
 
 ;['技术包版本日志', '花型库', '归档状态', '当前技术包版本', '当前花型资产', '项目资料归档'].forEach((label) => {
   assertIncludes(
-    techPackPage + patternListPage + patternDetailPage + productArchivesPage + projectsPage + techPackViewModel,
+    techPackPage + techPackTaskPage + patternListPage + patternDetailPage + productArchivesPage + techPackViewModel,
     label,
     `页面或视图模型缺少闭环展示：${label}`,
   )

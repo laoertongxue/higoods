@@ -15,7 +15,6 @@ import {
 } from '../src/data/pcs-project-image-repository.ts'
 import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
 import { listSkuArchives, resetSkuArchiveRepository } from '../src/data/pcs-sku-archive-repository.ts'
-import { renderPcsProjectCreatePage } from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 resetProjectChannelProductRepository()
@@ -25,12 +24,8 @@ resetProjectImageAssets()
 const projectInitFieldKeys = listProjectStepFieldDefinitions('PROJECT_INIT')
   .map((field) => field.fieldKey)
   .join('|')
-const forbiddenSpecPlanPattern = new RegExp(['规格计划', '预期颜色', '预期尺码', '预期花型'].join('|'))
 
 assert.doesNotMatch(projectInitFieldKeys, /plannedColor|plannedSize|plannedPrint|plannedSpec/, '商品项目立项不应引入规格计划字段')
-
-const createHtml = await renderPcsProjectCreatePage()
-assert.doesNotMatch(createHtml, forbiddenSpecPlanPattern, '商品项目创建页不应出现规格计划相关字段')
 
 const listingContract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
 const listingFieldKeys = listingContract.fieldDefinitions.map((field) => field.fieldKey)

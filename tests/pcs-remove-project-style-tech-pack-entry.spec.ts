@@ -10,10 +10,6 @@ import {
   renderPcsStyleArchiveDetailPage,
   resetPcsProductArchiveState,
 } from '../src/pages/pcs-product-archives.ts'
-import {
-  renderPcsProjectDetailPage,
-  renderPcsProjectStepDetailPage,
-} from '../src/pages/pcs-projects.ts'
 
 resetProjectRepository()
 resetStyleArchiveRepository()
@@ -33,18 +29,7 @@ assert.match(styleHtml, /技术包版本/, '款式档案详情应保留技术包
 const project = listProjects().find((item) => item.linkedStyleId)
 assert.ok(project, '应存在已关联款式档案的商品项目演示数据')
 
-const projectHtml = await renderPcsProjectDetailPage(project!.projectId)
-assert.ok(!projectHtml.includes(legacyCreateLabel), '商品项目详情不应再显示旧直建入口')
-assert.ok(!projectHtml.includes(legacyCopyLabel), '商品项目详情不应再显示旧复制入口')
-
 const styleNode = getProjectNodeRecordByStepCode(project!.projectId, 'PROJECT_INIT')
-assert.ok(styleNode, '应存在商品档案资料完善步骤')
-
-const projectStepHtml = await renderPcsProjectStepDetailPage(
-  project!.projectId,
-  styleNode!.projectNodeId,
-)
-assert.ok(!projectStepHtml.includes(legacyCreateLabel), '项目节点详情不应再显示旧直建入口')
-assert.ok(!projectStepHtml.includes(legacyCopyLabel), '项目节点详情不应再显示旧复制入口')
+assert.ok(styleNode, '应存在商品项目立项步骤')
 
 console.log('pcs-remove-project-style-tech-pack-entry.spec.ts PASS')

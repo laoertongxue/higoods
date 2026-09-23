@@ -17,7 +17,6 @@ function assertCheck(condition: boolean, message: string): void {
   }
 }
 
-const projectPageSource = read('src/pages/pcs-projects.ts')
 const channelRepoSource = read('src/data/pcs-channel-product-project-repository.ts')
 const decisionFlowSource = read('src/data/pcs-project-decision-flow-service.ts')
 const flowServiceSource = read('src/data/pcs-project-flow-service.ts')
@@ -42,9 +41,10 @@ for (const stepDefinitionCode of ['FEASIBILITY_REVIEW', 'SAMPLE_CONFIRM', 'TEST_
   assertCheck(decisionField?.required === true, `${stepDefinitionCode} 决策字段必须必填`)
 }
 
-for (const legacyOption of ['>调整<', '>暂缓<', '>继续调整<', '>改版后重测<', '>继续开发<', '>终止<']) {
-  assertCheck(!projectPageSource.includes(legacyOption), `页面中不应再渲染旧决策选项 ${legacyOption}`)
-}
+assertCheck(
+  !fs.existsSync(path.join(root, 'src/pages/pcs-projects.ts')),
+  '商品项目详情页应已删除，旧决策选项不得恢复',
+)
 
 for (const legacyBranchFn of ['activateTestingAdjustBranchNodes', 'applyTestConclusionBranch']) {
   assertCheck(!channelRepoSource.includes(legacyBranchFn) && !flowServiceSource.includes(legacyBranchFn), `数据层不应再保留旧分支函数 ${legacyBranchFn}`)

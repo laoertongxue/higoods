@@ -1,4 +1,10 @@
 import { listProjectInlineNodeRecordsByStepType } from './pcs-project-inline-node-record-repository.ts'
+import type { PcsSampleLocationId, PcsSampleLocationType, PcsSampleType, PcsSampleTypeConversionLog } from './pcs-sample-location-master.ts'
+import {
+  PCS_SAMPLE_LOCATIONS,
+  PCS_SAMPLE_TYPE_LABELS,
+  getPcsSampleLocationById,
+} from './pcs-sample-location-master.ts'
 
 export type PcsSampleStatus =
   | '在库可用'
@@ -45,9 +51,13 @@ export interface PcsSampleRecord {
   sourceStepName: string
   status: PcsSampleStatus
   availability: PcsSampleAvailability
+  sampleType: PcsSampleType
+  skuCode: string
+  taggedAt: string | null
   responsibleSite: '深圳样衣间' | '雅加达样衣间'
   currentLocation: string
   locationDetail: string
+  currentLocationId?: PcsSampleLocationId
   occupancyType: '无' | '预占' | '占用'
   occupiedBy: string
   occupiedFor: string
@@ -196,7 +206,7 @@ export interface PcsSampleStocktakeDiff {
 export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   {
     sampleId: 'smp-001',
-    sampleCode: 'SY-INA-001',
+    sampleCode: 'SKU-DRESS-RED-M',
     name: '印尼碎花连衣裙-P1A1',
     imageUrl: '/dress-sample-1.jpg',
     category: '裙装',
@@ -210,9 +220,13 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     sourceStepName: '直播测款拍摄',
     status: '在库可用',
     availability: '可申请',
+    sampleType: 'marketing',
+    skuCode: 'SKU-DRESS-RED-M',
+    taggedAt: '2026-04-08 10:00',
     responsibleSite: '深圳样衣间',
     currentLocation: '深圳仓',
     locationDetail: '样衣仓 A-02-15',
+    currentLocationId: 'loc-wh-01',
     occupancyType: '无',
     occupiedBy: '',
     occupiedFor: '',
@@ -224,7 +238,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   },
   {
     sampleId: 'smp-002',
-    sampleCode: 'SY-INA-002',
+    sampleCode: 'SKU-TEE-WHT-M',
     name: '基础白色 T 恤-白-M',
     imageUrl: '/tshirt-sample.jpg',
     category: '上衣',
@@ -238,9 +252,13 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     sourceStepName: '达人试穿',
     status: '预占锁定',
     availability: '不可申请',
+    sampleType: 'marketing',
+    skuCode: 'SKU-TEE-WHT-M',
+    taggedAt: '2026-04-09 09:00',
     responsibleSite: '深圳样衣间',
     currentLocation: '深圳仓',
     locationDetail: '样衣仓 B-01-03',
+    currentLocationId: 'loc-wh-01',
     occupancyType: '预占',
     occupiedBy: '张丽',
     occupiedFor: '短视频拍摄',
@@ -252,7 +270,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   },
   {
     sampleId: 'smp-003',
-    sampleCode: 'SY-INA-003',
+    sampleCode: 'SKU-SHORT-DNM-S',
     name: '牛仔短裤工程样-S',
     imageUrl: '/denim-shorts-sample.jpg',
     category: '裤装',
@@ -266,12 +284,16 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     sourceStepName: '首单样衣打样',
     status: '借出占用',
     availability: '需审批',
+    sampleType: 'production',
+    skuCode: 'SKU-SHORT-DNM-S',
+    taggedAt: '2026-04-07 14:00',
     responsibleSite: '深圳样衣间',
-    currentLocation: '摄影棚',
-    locationDetail: '摄影棚 B-2',
+    currentLocation: '深圳直播间 A',
+    locationDetail: '直播间 A 拍摄位',
+    currentLocationId: 'loc-live-01',
     occupancyType: '占用',
     occupiedBy: '王芳',
-    occupiedFor: '模特拍摄',
+    occupiedFor: '直播讲解',
     occupiedUntil: '2026-04-09',
     transit: null,
     anomaly: {
@@ -285,7 +307,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   },
   {
     sampleId: 'smp-004',
-    sampleCode: 'SY-INA-004',
+    sampleCode: 'SKU-SHIRT-BLU-L',
     name: '办公室衬衫样衣-L',
     imageUrl: '/shirt-sample.jpg',
     category: '上衣',
@@ -299,6 +321,9 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     sourceStepName: '雅加达直播备样',
     status: '在途待签收',
     availability: '不可申请',
+    sampleType: 'marketing',
+    skuCode: 'SKU-SHIRT-BLU-L',
+    taggedAt: '2026-04-06 11:00',
     responsibleSite: '雅加达样衣间',
     currentLocation: '在途',
     locationDetail: '深圳仓 → 雅加达直播间',
@@ -326,7 +351,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   },
   {
     sampleId: 'smp-006',
-    sampleCode: 'SY-INA-006',
+    sampleCode: 'SKU-CARD-BGE-F',
     name: '米色针织开衫-F',
     imageUrl: '/cardigan-sample.jpg',
     category: '外套',
@@ -340,9 +365,13 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     sourceStepName: '直播间备样',
     status: '维修中',
     availability: '不可申请',
+    sampleType: 'production',
+    skuCode: 'SKU-CARD-BGE-F',
+    taggedAt: '2026-04-05 16:00',
     responsibleSite: '雅加达样衣间',
-    currentLocation: '雅加达样衣间',
+    currentLocation: '雅加达一号厂',
     locationDetail: '维修篮 JKT-02',
+    currentLocationId: 'loc-factory-01',
     occupancyType: '无',
     occupiedBy: '',
     occupiedFor: '',
@@ -359,7 +388,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   },
   {
     sampleId: 'smp-007',
-    sampleCode: 'SY-INA-007',
+    sampleCode: 'SKU-LACE-WHT-S',
     name: '蕾丝拼接连衣裙-S',
     imageUrl: '/lace-dress-sample.jpg',
     category: '裙装',
@@ -373,9 +402,13 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     sourceStepName: '渠道商品图补拍',
     status: '借出占用',
     availability: '需审批',
+    sampleType: 'marketing',
+    skuCode: 'SKU-LACE-WHT-S',
+    taggedAt: '2026-04-04 09:30',
     responsibleSite: '雅加达样衣间',
-    currentLocation: '雅加达直播间',
+    currentLocation: '雅加达直播间 B',
     locationDetail: '直播间 RACK-03',
+    currentLocationId: 'loc-live-02',
     occupancyType: '占用',
     occupiedBy: '林小红',
     occupiedFor: '直播讲解',
@@ -386,6 +419,65 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     updatedBy: '林小红',
   },
 ]
+
+export const PCS_SAMPLE_TYPE_CONVERSION_LOGS: PcsSampleTypeConversionLog[] = [
+  {
+    conversionId: 'cv-001',
+    sampleId: 'smp-006',
+    fromType: 'marketing',
+    toType: 'production',
+    actor: 'Budi',
+    reason: '转为大货跟版生产样品，送厂复版。',
+    convertedAt: '2026-04-05 15:00',
+  },
+  {
+    conversionId: 'cv-002',
+    sampleId: 'smp-003',
+    fromType: 'production',
+    toType: 'production',
+    actor: '王芳',
+    reason: '保持生产样品，仅更新贴码备注。',
+    convertedAt: '2026-04-07 14:10',
+  },
+]
+
+export function convertPcsSampleType(
+  sampleId: string,
+  toType: PcsSampleType,
+  actor: string,
+  reason: string,
+): { ok: boolean; record?: PcsSampleRecord; message?: string } {
+  const record = PCS_SAMPLE_RECORDS.find((item) => item.sampleId === sampleId)
+  if (!record) return { ok: false, message: '未找到样衣记录。' }
+  if (!reason.trim()) return { ok: false, message: '类型互转必须填写原因。' }
+  const fromType = record.sampleType
+  if (fromType === toType) return { ok: false, message: '目标类型与当前类型相同，无需互转。' }
+  record.sampleType = toType
+  record.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
+  record.updatedBy = actor
+  PCS_SAMPLE_TYPE_CONVERSION_LOGS.unshift({
+    conversionId: `cv-${Date.now().toString(36)}`,
+    sampleId,
+    fromType,
+    toType,
+    actor,
+    reason,
+    convertedAt: record.updatedAt,
+  })
+  return { ok: true, record }
+}
+
+export function listPcsSampleTypeConversionLogs(sampleId?: string): PcsSampleTypeConversionLog[] {
+  return sampleId ? PCS_SAMPLE_TYPE_CONVERSION_LOGS.filter((item) => item.sampleId === sampleId) : [...PCS_SAMPLE_TYPE_CONVERSION_LOGS]
+}
+
+export function buildPcsSampleTagCode(skuCode: string): string {
+  return skuCode.trim()
+}
+
+export function canCompletePcsSampleTagging(sample: PcsSampleRecord): boolean {
+  return Boolean(sample.taggedAt && sample.skuCode && sample.skuCode === sample.sampleCode)
+}
 
 export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
   {
@@ -482,7 +574,7 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     transferId: 'tr-001',
     time: '2026-04-11 11:40',
     sampleId: 'smp-004',
-    sampleCode: 'SY-INA-004',
+    sampleCode: 'SKU-SHIRT-BLU-L',
     sampleName: '办公室衬衫样衣-L',
     transferCategory: '站点调拨',
     eventType: '在途',
@@ -500,7 +592,7 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     transferId: 'tr-002',
     time: '2026-04-11 14:00',
     sampleId: 'smp-007',
-    sampleCode: 'SY-INA-007',
+    sampleCode: 'SKU-LACE-WHT-S',
     sampleName: '蕾丝拼接连衣裙-S',
     transferCategory: '借用流转',
     eventType: '借出',
@@ -518,11 +610,11 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     transferId: 'tr-003',
     time: '2026-04-10 18:30',
     sampleId: 'smp-003',
-    sampleCode: 'SY-INA-003',
+    sampleCode: 'SKU-SHORT-DNM-S',
     sampleName: '牛仔短裤工程样-S',
     transferCategory: '归还入库',
     eventType: '归还',
-    fromEntity: '摄影棚 B-2',
+    fromEntity: '深圳直播间 A',
     toEntity: '深圳样衣间待验收',
     responsibleSite: '深圳样衣间',
     trackingNo: '',
@@ -536,7 +628,7 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     transferId: 'tr-005',
     time: '2026-04-09 12:30',
     sampleId: 'smp-006',
-    sampleCode: 'SY-INA-006',
+    sampleCode: 'SKU-CARD-BGE-F',
     sampleName: '米色针织开衫-F',
     transferCategory: '维修流转',
     eventType: '出库',
@@ -560,7 +652,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     time: '2026-04-11 14:00',
     site: '雅加达样衣间',
     sampleId: 'smp-007',
-    sampleCode: 'SY-INA-007',
+    sampleCode: 'SKU-LACE-WHT-S',
     sampleName: '蕾丝拼接连衣裙-S',
     eventType: '借出',
     summary: '样衣借出给直播间使用',
@@ -579,7 +671,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     time: '2026-04-11 11:40',
     site: '雅加达样衣间',
     sampleId: 'smp-004',
-    sampleCode: 'SY-INA-004',
+    sampleCode: 'SKU-SHIRT-BLU-L',
     sampleName: '办公室衬衫样衣-L',
     eventType: '在途',
     summary: '深圳仓调拨至雅加达直播间',
@@ -598,7 +690,7 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     time: '2026-04-11 10:20',
     site: '深圳样衣间',
     sampleId: 'smp-002',
-    sampleCode: 'SY-INA-002',
+    sampleCode: 'SKU-TEE-WHT-M',
     sampleName: '基础白色 T 恤-白-M',
     eventType: '预占',
     summary: '申请审批通过后预占锁定',
@@ -617,11 +709,11 @@ export const PCS_SAMPLE_LEDGER_EVENTS: PcsSampleLedgerEvent[] = [
     time: '2026-04-10 18:30',
     site: '深圳样衣间',
     sampleId: 'smp-003',
-    sampleCode: 'SY-INA-003',
+    sampleCode: 'SKU-SHORT-DNM-S',
     sampleName: '牛仔短裤工程样-S',
     eventType: '归还',
     summary: '借用人发起归还',
-    fromLocation: '摄影棚 B-2',
+    fromLocation: '深圳直播间 A',
     toLocation: '深圳样衣间待验收',
     holder: '王芳',
     sourceDoc: 'UR-202604-003',
@@ -638,7 +730,7 @@ export const PCS_SAMPLE_STOCKTAKE_DIFFS: PcsSampleStocktakeDiff[] = [
     diffId: 'diff-001',
     stocktakeCode: 'ST-202604-001',
     sampleId: 'smp-003',
-    sampleCode: 'SY-INA-003',
+    sampleCode: 'SKU-SHORT-DNM-S',
     sampleName: '牛仔短裤工程样-S',
     site: '深圳样衣间',
     systemQty: 1,
@@ -655,7 +747,7 @@ export const PCS_SAMPLE_STOCKTAKE_DIFFS: PcsSampleStocktakeDiff[] = [
     diffId: 'diff-002',
     stocktakeCode: 'ST-202604-001',
     sampleId: 'smp-004',
-    sampleCode: 'SY-INA-004',
+    sampleCode: 'SKU-SHIRT-BLU-L',
     sampleName: '办公室衬衫样衣-L',
     site: '雅加达样衣间',
     systemQty: 1,
@@ -672,7 +764,7 @@ export const PCS_SAMPLE_STOCKTAKE_DIFFS: PcsSampleStocktakeDiff[] = [
     diffId: 'diff-003',
     stocktakeCode: 'ST-202604-002',
     sampleId: 'smp-001',
-    sampleCode: 'SY-INA-001',
+    sampleCode: 'SKU-DRESS-RED-M',
     sampleName: '印尼碎花连衣裙-P1A1',
     site: '深圳样衣间',
     systemQty: 1,
@@ -741,6 +833,9 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         sourceStepName: record.stepName || '样衣结果核对',
         status: isPendingSupplement ? '在途待签收' : '在库可用',
         availability: isCompleteInbound ? '可申请' : '需审批',
+        sampleType: 'production' as const,
+        skuCode: sampleCode,
+        taggedAt: isCompleteInbound ? record.updatedAt || record.businessDate : null,
         responsibleSite: '深圳样衣间',
         currentLocation: String(detailSnapshot.warehouseLocation || '深圳样衣间'),
         locationDetail: `由${record.projectCode}样衣结果核对生成`,

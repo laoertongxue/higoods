@@ -255,7 +255,7 @@ function listProjectTestingStyleArchives(): StyleArchiveShellRecord[] {
       targetChannelCodes: [...project.targetChannelCodes],
       priceRangeLabel: project.priceRangeLabel,
       archiveStatus: 'DRAFT',
-      baseInfoStatus: '商品测款',
+      baseInfoStatus: '待完善',
       specificationStatus: '未建立',
       techPackStatus: project.linkedTechPackVersionId ? '已发布待启用' : '未建立',
       costPricingStatus: '未建立',

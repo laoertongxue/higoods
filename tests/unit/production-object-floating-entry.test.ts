@@ -5,7 +5,7 @@ import { renderProductionObjectFloatingEntry } from '../../src/components/produc
 
 test('查生产入口只在合法系统路由显示，并在打印与 PDA 路由隐藏', () => {
   assert.match(renderProductionObjectFloatingEntry('/fcs/production/orders'), /查生产/)
-  assert.match(renderProductionObjectFloatingEntry('/pcs/projects?tab=active'), /查生产/)
+  assert.match(renderProductionObjectFloatingEntry('/pcs/products/styles?tab=active'), /查生产/)
   assert.equal(renderProductionObjectFloatingEntry('/fcs/pda/exec'), '')
   assert.equal(renderProductionObjectFloatingEntry('/fcs/print/post-finishing-qc'), '')
   assert.equal(renderProductionObjectFloatingEntry('/fcs/task-print/example'), '')

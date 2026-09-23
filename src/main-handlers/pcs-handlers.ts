@@ -47,14 +47,6 @@ function getCurrentPathname(): string {
 
 const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
   {
-    cacheKey: 'pcs-projects-list',
-    matches: (pathname) => pathname === '/pcs/projects',
-    importModule: () => import('../pages/pcs-projects-list'),
-    eventExport: 'handlePcsProjectListEvent',
-    inputExport: 'handlePcsProjectListInput',
-    dialogExport: 'isPcsProjectListDialogOpen',
-  },
-  {
     cacheKey: 'pcs-config-workspace',
     matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/settings/config-workspace'),
     importModule: () => import('../pages/pcs-config-workspace'),
@@ -117,24 +109,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     ],
   },
   {
-    cacheKey: 'pcs-live-testing',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/testing/live'),
-    importModule: () => import('../pages/pcs-live-testing'),
-    eventExport: 'handlePcsLiveTestingEvent',
-    inputExport: 'handlePcsLiveTestingInput',
-    dialogExport: 'isPcsLiveTestingDialogOpen',
-    closeActions: [{ datasetKey: 'pcsLiveTestingAction', value: 'close-dialogs' }],
-  },
-  {
-    cacheKey: 'pcs-video-testing',
-    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/testing/video'),
-    importModule: () => import('../pages/pcs-video-testing'),
-    eventExport: 'handlePcsVideoTestingEvent',
-    inputExport: 'handlePcsVideoTestingInput',
-    dialogExport: 'isPcsVideoTestingDialogOpen',
-    closeActions: [{ datasetKey: 'pcsVideoTestingAction', value: 'close-dialogs' }],
-  },
-  {
     cacheKey: 'pcs-channel-stores',
     matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/channels/stores'),
     importModule: () => import('../pages/pcs-channel-stores'),
@@ -171,7 +145,10 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     eventExport: 'handlePcsProductArchiveEvent',
     inputExport: 'handlePcsProductArchiveInput',
     dialogExport: 'isPcsProductArchiveDialogOpen',
-    closeActions: [{ datasetKey: 'pcsProductArchiveAction', value: 'close-drawers' }],
+    closeActions: [
+      { datasetKey: 'pcsProductArchiveAction', value: 'close-image-preview' },
+      { datasetKey: 'pcsProductArchiveAction', value: 'close-drawers' },
+    ],
   },
   {
     cacheKey: 'pcs-material-archive-detail',
@@ -190,15 +167,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     inputExport: 'handlePcsMaterialArchiveInput',
     dialogExport: 'isPcsMaterialArchiveDialogOpen',
     closeActions: [{ datasetKey: 'pcsMaterialArchiveAction', value: 'close-drawers' }],
-  },
-  {
-    cacheKey: 'pcs-projects',
-    matches: (pathname) => pathname.startsWith('/pcs/projects/'),
-    importModule: () => import('../pages/pcs-projects'),
-    eventExport: 'handlePcsProjectsEvent',
-    inputExport: 'handlePcsProjectsInput',
-    dialogExport: 'isPcsProjectsDialogOpen',
-    closeActions: [{ datasetKey: 'pcsProjectAction', value: 'close-dialogs' }],
   },
   {
     cacheKey: 'pcs-sample-management',
@@ -251,6 +219,24 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
       { datasetKey: 'pcsIndependentSamplingAction', value: 'close-image' },
       { datasetKey: 'pcsIndependentSamplingAction', value: 'close-create' },
     ],
+  },
+  {
+    cacheKey: 'pcs-testing-order-detail',
+    matches: (pathname) => /^\/pcs\/testing\/orders\/[^/]+$/.test(pathname) && pathname !== '/pcs/testing/orders',
+    importModule: () => import('../pages/pcs-testing-order-detail'),
+    eventExport: 'handlePcsTestingOrderEvent',
+    inputExport: 'handlePcsTestingOrderInput',
+    dialogExport: 'isPcsTestingOrderDialogOpen',
+    closeActions: [{ datasetKey: 'pcsTestingAction', value: 'close-drawers' }],
+  },
+  {
+    cacheKey: 'pcs-testing-order-list',
+    matches: (pathname) => isExactOrNestedPath(pathname, '/pcs/testing/orders'),
+    importModule: () => import('../pages/pcs-testing-order-list'),
+    eventExport: 'handlePcsTestingOrderEvent',
+    inputExport: 'handlePcsTestingOrderInput',
+    dialogExport: 'isPcsTestingOrderDialogOpen',
+    closeActions: [{ datasetKey: 'pcsTestingAction', value: 'close-drawers' }],
   },
   {
     cacheKey: 'pcs-technical-data',

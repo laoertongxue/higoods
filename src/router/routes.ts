@@ -118,8 +118,7 @@ const exactBaseRoutes: Record<string, () => string | Promise<string>> = {
   '/': async () => {
     return renderFcsWorkbenchOverviewPage()
   },
-  '/pcs': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
-  '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
+  '/pcs': () => renderRouteRedirect('/pcs/products/styles', '正在跳转到商品档案'),
   '/fcs/workspace': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
   '/fcs': () => renderRouteRedirect('/fcs/workbench/overview', '正在跳转到工厂生产协同工作台'),
   '/pms': () => renderRouteRedirect('/pms/workbench/overview', '正在跳转到采购管理工作台'),

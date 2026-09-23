@@ -178,10 +178,10 @@ function getLinkageDescription(record: ProjectChannelProductRecord): string {
     return record.testingStatusText || record.invalidatedReason || record.upstreamSyncNote || '当前款式上架批次已作废'
   }
   if (record.styleCode && record.upstreamSyncStatus === '已更新') {
-    return '测款通过，已关联款式档案并完成上游最终更新'
+    return '判断通过，已关联款式档案并完成上游最终更新'
   }
   if (record.styleCode && record.upstreamSyncStatus === '待更新') {
-    return '测款通过，已关联商品档案，待启用技术包'
+    return '判断通过，已关联商品档案，待启用技术包'
   }
   if (record.channelProductStatus === '已上架待测款') {
     return '已完成上架，等待直播或短视频正式测款'
@@ -259,7 +259,7 @@ const CHANNEL_PRODUCT_LIST_COLUMNS: StandardListColumn<ChannelStoreSpuRow>[] = [
       return `
         <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-nav="/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}">${escapeHtml(row.spuCode)}</button>
         <div class="mt-1 text-xs text-slate-500">上架批次：${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
-        <button type="button" class="mt-1 text-left text-xs font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${encodeURIComponent(record.projectId)}">${escapeHtml(record.projectCode)}</button>
+        <div class="mt-1 text-xs font-medium text-slate-600">${escapeHtml(record.projectCode)}</div>
       `
     },
     sortValue: (row) => row.spuCode,
@@ -350,7 +350,6 @@ const CHANNEL_PRODUCT_LIST_COLUMNS: StandardListColumn<ChannelStoreSpuRow>[] = [
     render: (row) => `
       <div class="flex flex-col items-end gap-2">
         <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(row.currentRecord.channelProductId)}">详情</button>
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects/${encodeURIComponent(row.currentRecord.projectId)}">项目</button>
       </div>
     `,
   },
@@ -800,7 +799,6 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
     `
   }
 
-  const projectHref = `/pcs/projects/${encodeURIComponent(record.projectId)}`
   const styleHref = record.styleId ? `/pcs/products/styles/${encodeURIComponent(record.styleId)}` : null
   const completedUpstreamUpdate = record.upstreamSyncStatus === '已更新'
   const upstreamUpdateTime = record.lastUpstreamSyncAt || (completedUpstreamUpdate ? record.updatedAt : '')
@@ -826,7 +824,6 @@ export function renderPcsChannelProductDetailPage(channelProductId: string): str
               <div class="mt-2 text-sm text-slate-500">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)} ｜ ${record.styleListingTitle || record.listingTitle || '-'}`)}</div>
             </div>
             <div class="flex flex-wrap items-center gap-3">
-              ${renderDetailButton('查看来源项目', projectHref)}
               ${renderDetailButton('查看款式档案', styleHref)}
             </div>
           </div>

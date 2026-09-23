@@ -3,10 +3,6 @@ import { renderRouteRedirect } from './route-utils'
 import * as renderers from './route-renderers'
 import { listEngineeringIndependentSamplingRecords } from '../data/pcs-engineering-master-sampling'
 
-function renderClearedPcsPage(title: string) {
-  return () => renderers.renderPcsResetPlaceholderPage(title)
-}
-
 function isIndependentSamplingProfessionalTask(taskId: string): boolean {
   return listEngineeringIndependentSamplingRecords().some((record) =>
     record.professionalTasks.some((task) => task.taskId === taskId),
@@ -24,22 +20,13 @@ function renderIndependentProfessionalTaskOr(
 
 export const routes: RouteRegistry = {
   exactRoutes: {
-    '/pcs': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
-    '/pcs/workspace': () => renderRouteRedirect('/pcs/workspace/overview', '正在跳转到商品中心工作台'),
-    '/pcs/workspace/overview': renderClearedPcsPage('商品中心工作台'),
-    '/pcs/workspace/todos': renderClearedPcsPage('商品中心待办'),
-    '/pcs/workspace/alerts': renderClearedPcsPage('商品中心预警'),
-    '/pcs/projects': () => renderers.renderPcsProjectListPage(),
-    '/pcs/projects/create': () => renderers.renderPcsProjectCreatePage(),
+    '/pcs': () => renderRouteRedirect('/pcs/products/styles', '正在跳转到商品档案'),
     '/pcs/production-preparation/orders': () => renderers.renderPcsEngineeringMasterListPage(),
     '/pcs/production-preparation/design-revision': () => renderers.renderPcsDesignRevisionListPage(),
     '/pcs/production-preparation/color': () => renderers.renderPcsColorTaskPage(),
     '/pcs/production-preparation/purchase': () => renderers.renderPcsPurchaseTaskPage(),
     '/pcs/production-preparation/tech-pack': () => renderers.renderPcsTechPackTaskPage(),
-    '/pcs/testing/live': () => renderers.renderPcsLiveTestingListPage(),
-    '/pcs/testing/video': () => renderers.renderPcsVideoTestingListPage(),
     '/pcs/channels/products': () => renderers.renderPcsChannelProductListPage(),
-    '/pcs/channels/products/mapping': renderClearedPcsPage('渠道属性对应'),
     '/pcs/channels/products/store': () => renderers.renderPcsChannelProductListPage(),
     '/pcs/channels/stores': () => renderers.renderPcsChannelStoreListPage(),
     '/pcs/channels/stores/sync': () => renderers.renderPcsChannelStoreSyncPage(),
@@ -63,6 +50,8 @@ export const routes: RouteRegistry = {
     '/pcs/pattern-library/create': () => renderers.renderPcsPatternLibraryCreatePage(),
     '/pcs/pattern-library/config': () => renderers.renderPcsPatternLibraryConfigPage(),
     '/pcs/products/styles': () => renderers.renderPcsStyleArchiveListPage(),
+    '/pcs/testing/orders': () => renderers.renderPcsTestingOrderListPage(),
+    '/pcs/testing/orders/store': () => renderers.renderPcsTestingOrderListPage(),
     '/pcs/products/specifications': () => renderers.renderPcsSpecificationListPage(),
     '/pcs/products/channel-products': () => renderers.renderPcsChannelProductListPage(),
     '/pcs/products/channel-products/store': () => renderers.renderPcsChannelProductListPage(),
@@ -77,8 +66,6 @@ export const routes: RouteRegistry = {
     '/pcs/materials/yarn/new': () => renderers.renderPcsYarnArchiveCreatePage(),
     '/pcs/materials/consumable': () => renderers.renderPcsConsumableArchiveListPage(),
     '/pcs/materials/consumable/new': () => renderers.renderPcsConsumableArchiveCreatePage(),
-    '/pcs/materials/packaging': () => renderers.renderPcsPackagingArchiveListPage(),
-    '/pcs/materials/packaging/new': () => renderers.renderPcsPackagingArchiveCreatePage(),
     '/pcs/materials/parts': () => renderers.renderPcsPartsArchiveListPage(),
     '/pcs/materials/parts/new': () => renderers.renderPcsPartsArchiveCreatePage(),
     '/pcs/settings/cost-parameters': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
@@ -116,24 +103,16 @@ export const routes: RouteRegistry = {
       render: (match) => renderers.renderPcsTechPackTaskDetailPage(match[1]),
     },
     {
-      pattern: /^\/pcs\/projects\/([^/]+)$/,
-      render: (match) => renderers.renderPcsProjectDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/testing\/live\/([^/]+)$/,
-      render: (match) => renderers.renderPcsLiveTestingDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/testing\/video\/([^/]+)$/,
-      render: (match) => renderers.renderPcsVideoTestingDetailPage(match[1]),
-    },
-    {
       pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
       render: (match) => renderers.renderPcsChannelProductDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/products\/channel-products\/([^/]+)$/,
       render: (match) => renderers.renderPcsChannelProductDetailPage(match[1]),
+    },
+    {
+      pattern: /^\/pcs\/testing\/orders\/([^/]+)$/,
+      render: (match) => renderers.renderPcsTestingOrderDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/channels\/stores\/([^/]+)$/,
@@ -184,16 +163,12 @@ export const routes: RouteRegistry = {
       render: (match) => renderers.renderPcsSpecificationDetailPage(match[1]),
     },
     {
-      pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|packaging|parts)\/([^/]+)$/,
+      pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)$/,
       render: (match) => renderers.renderPcsMaterialArchiveDetailPage(match[1], match[2]),
     },
     {
       pattern: /^\/pcs\/products\/styles\/([^/]+)\/technical-data\/([^/]+)$/,
       render: (match) => renderers.renderTechPackPage(match[1], { styleId: match[1], technicalVersionId: match[2] }),
-    },
-    {
-      pattern: /^\/pcs\/.+$/,
-      render: () => renderers.renderPcsResetPlaceholderPage('PCS 页面'),
     },
   ],
 }

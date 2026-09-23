@@ -32,10 +32,6 @@ function createAsyncRenderer<TArgs extends unknown[]>(
 export const renderFactoryProfilePage = createAsyncRenderer(() => import('../pages/factory-profile'), 'renderFactoryProfilePage')
 export const renderOverviewPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderOverviewPage')
 export const renderTodosPage = createAsyncRenderer(() => import('../pages/workbench'), 'renderTodosPage')
-export const renderPcsResetPlaceholderPage = createAsyncRenderer(
-  () => import('../pages/pcs-reset-placeholder'),
-  'renderPcsResetPlaceholderPage',
-)
 export const renderPlaceholderPage = createAsyncRenderer(() => import('../pages/placeholder'), 'renderPlaceholderPage')
 export const renderRouteNotFound = createAsyncRenderer(() => import('../pages/placeholder'), 'renderRouteNotFound')
 export const renderWlsFabricDemandBoardPage = createAsyncRenderer(
@@ -61,22 +57,6 @@ export const renderPcsPatternLibraryDetailPage = createAsyncRenderer(
 export const renderPcsPatternLibraryConfigPage = createAsyncRenderer(
   () => import('../pages/pcs-pattern-library-config'),
   'renderPcsPatternLibraryConfigPage',
-)
-export const renderPcsLiveTestingListPage = createAsyncRenderer(
-  () => import('../pages/pcs-live-testing'),
-  'renderPcsLiveTestingListPage',
-)
-export const renderPcsLiveTestingDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-live-testing'),
-  'renderPcsLiveTestingDetailPage',
-)
-export const renderPcsVideoTestingListPage = createAsyncRenderer(
-  () => import('../pages/pcs-video-testing'),
-  'renderPcsVideoTestingListPage',
-)
-export const renderPcsVideoTestingDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-video-testing'),
-  'renderPcsVideoTestingDetailPage',
 )
 export const renderPcsChannelStoreListPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-stores'),
@@ -105,6 +85,14 @@ export const renderPcsSpecificationListPage = createAsyncRenderer(
 export const renderPcsSpecificationDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-product-archives'),
   'renderPcsSpecificationDetailPage',
+)
+export const renderPcsTestingOrderListPage = createAsyncRenderer(
+  () => import('../pages/pcs-testing-order-list'),
+  'renderPcsTestingOrderListPage',
+)
+export const renderPcsTestingOrderDetailPage = createAsyncRenderer(
+  () => import('../pages/pcs-testing-order-detail'),
+  'renderPcsTestingOrderDetailPage',
 )
 export const renderPcsPayoutAccountListPage = createAsyncRenderer(
   () => import('../pages/pcs-channel-stores'),
@@ -146,14 +134,6 @@ export const renderPcsConsumableArchiveCreatePage = createAsyncRenderer(
   () => import('../pages/pcs-material-archives'),
   'renderPcsConsumableArchiveCreatePage',
 )
-export const renderPcsPackagingArchiveListPage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
-  'renderPcsPackagingArchiveListPage',
-)
-export const renderPcsPackagingArchiveCreatePage = createAsyncRenderer(
-  () => import('../pages/pcs-material-archives'),
-  'renderPcsPackagingArchiveCreatePage',
-)
 export const renderPcsPartsArchiveListPage = createAsyncRenderer(
   () => import('../pages/pcs-material-archives'),
   'renderPcsPartsArchiveListPage',
@@ -178,10 +158,6 @@ export const renderPcsConfigWorkspacePage = createAsyncRenderer(
   () => import('../pages/pcs-config-workspace'),
   'renderPcsConfigWorkspacePage',
 )
-export const renderPcsProjectListPage = createAsyncRenderer(
-  () => import('../pages/pcs-projects-list'),
-  'renderPcsProjectListPage',
-)
 export const renderPcsEngineeringMasterListPage = createAsyncRenderer(
   () => import('../pages/pcs-engineering-master-list'),
   'renderPcsEngineeringMasterListPage',
@@ -205,14 +181,6 @@ export const renderPcsTechnicalDataBomPricingDetailPage = createAsyncRenderer(
 export const renderPcsTechnicalDataBomPricingPlanPage = createAsyncRenderer(
   () => import('../pages/pcs-technical-data'),
   'renderPcsTechnicalDataBomPricingPlanPage',
-)
-export const renderPcsProjectCreatePage = createAsyncRenderer(
-  () => import('../pages/pcs-projects'),
-  'renderPcsProjectCreatePage',
-)
-export const renderPcsProjectDetailPage = createAsyncRenderer(
-  () => import('../pages/pcs-projects'),
-  'renderPcsProjectDetailPage',
 )
 export const renderPcsDesignRevisionListPage = createAsyncRenderer(
   () => import('../pages/pcs-independent-sampling'),

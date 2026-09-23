@@ -110,7 +110,7 @@ const specialCraftMenuGroups: MenuGroup[] = buildSpecialCraftMenuGroups()
 
 // 系统列表
 export const systems: System[] = [
-  { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/workspace/overview' },
+  { id: 'pcs', name: '商品中心系统', shortName: 'PCS', defaultPage: '/pcs/products/styles' },
   { id: 'pms', name: '采购管理系统', shortName: 'PMS', defaultPage: '/pms/workbench/overview' },
   { id: 'fcs', name: '工厂生产协同系统', shortName: 'FCS', defaultPage: '/fcs/workbench/overview' },
   { id: 'pfos', name: '工艺工厂运营系统', shortName: 'PFOS', defaultPage: '/fcs/craft/workbench/overview' },
@@ -128,31 +128,11 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       title: '商品中心系统',
       items: [
         {
-          key: 'pcs-menu-workspace',
-          title: '工作台',
-          icon: 'LayoutDashboard',
-          children: [
-            { key: 'pcs-workspace-overview', title: '概览看板', icon: 'LayoutDashboard', href: '/pcs/workspace/overview' },
-            { key: 'pcs-workspace-todos', title: '我的待办', icon: 'CheckSquare', href: '/pcs/workspace/todos' },
-            { key: 'pcs-workspace-alerts', title: '风险提醒', icon: 'AlertTriangle', href: '/pcs/workspace/alerts' },
-          ],
-        },
-        {
-          key: 'pcs-menu-projects',
-          title: '商品项目管理',
-          icon: 'FolderKanban',
-          children: [
-            { key: 'pcs-project-list', title: '商品项目', icon: 'FolderKanban', href: '/pcs/projects' },
-          ],
-        },
-        {
           key: 'pcs-menu-testing',
-          title: '测款与渠道管理',
+          title: '商品测款',
           icon: 'TestTube',
           children: [
-            { key: 'pcs-live-testing', title: '直播测款', icon: 'TestTube', href: '/pcs/testing/live' },
-            { key: 'pcs-video-testing', title: '短视频测款', icon: 'TestTube', href: '/pcs/testing/video' },
-            { key: 'pcs-channel-stores', title: '渠道店铺管理', icon: 'Store', href: '/pcs/channels/stores' },
+            { key: 'pcs-testing-order-list', title: '测款单', icon: 'ClipboardCheck', href: '/pcs/testing/orders' },
           ],
         },
         {
@@ -198,24 +178,17 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
         },
         {
           key: 'pcs-menu-products',
-          title: '商品档案',
+          title: '商品&物料档案',
           icon: 'Archive',
           children: [
             { key: 'pcs-style-list', title: '款式档案', icon: 'Archive', href: '/pcs/products/styles' },
             { key: 'pcs-spec-list', title: '规格档案', icon: 'Package', href: '/pcs/products/specifications' },
             { key: 'pcs-channel-products', title: '渠道店铺商品', icon: 'ShoppingCart', href: '/pcs/products/channel-products' },
-          ],
-        },
-        {
-          key: 'pcs-menu-materials',
-          title: '物料档案',
-          icon: 'Layers',
-          children: [
+            { key: 'pcs-channel-stores', title: '渠道店铺管理', icon: 'Store', href: '/pcs/channels/stores' },
             { key: 'pcs-fabric-list', title: '面料档案', icon: 'Layers', href: '/pcs/materials/fabric' },
             { key: 'pcs-accessory-list', title: '辅料档案', icon: 'Paperclip', href: '/pcs/materials/accessory' },
             { key: 'pcs-yarn-list', title: '纱线档案', icon: 'CircleDot', href: '/pcs/materials/yarn' },
             { key: 'pcs-consumable-list', title: '耗材档案', icon: 'Package', href: '/pcs/materials/consumable' },
-            { key: 'pcs-packaging-list', title: '包材档案', icon: 'Tags', href: '/pcs/materials/packaging' },
             { key: 'pcs-parts-list', title: '配件档案', icon: 'Scissors', href: '/pcs/materials/parts' },
           ],
         },

@@ -22,7 +22,7 @@ import {
   resolveStyleArchiveBusinessStatus,
   type StyleArchiveBusinessStatusKey,
 } from '../data/pcs-product-lifecycle-governance.ts'
-import { getStyleArchiveById, listStyleArchives, updateStyleArchive } from '../data/pcs-style-archive-repository.ts'
+import { getStyleArchiveById, listStyleArchives, updateStyleArchive, createStyleArchiveDirect } from '../data/pcs-style-archive-repository.ts'
 import type { StyleArchiveShellRecord } from '../data/pcs-style-archive-types.ts'
 import {
   createSkuArchive,
@@ -134,6 +134,13 @@ interface ProductArchivePageState {
     open: boolean
     url: string
     title: string
+  }
+  styleCreate: {
+    open: boolean
+    styleName: string
+    styleNumber: string
+    productType: string
+    categoryName: string
   }
   versionLogDialog: {
     open: boolean
@@ -278,6 +285,16 @@ function createDefaultImagePreviewState(): ProductArchivePageState['imagePreview
   }
 }
 
+function createDefaultStyleCreateState(): ProductArchivePageState['styleCreate'] {
+  return {
+    open: false,
+    styleName: '',
+    styleNumber: '',
+    productType: '成衣',
+    categoryName: '',
+  }
+}
+
 function createDefaultVersionLogDialogState(): ProductArchivePageState['versionLogDialog'] {
   return {
     open: false,
@@ -311,6 +328,7 @@ const state: ProductArchivePageState = {
   skuCreate: createDefaultSkuCreateState(),
   styleCompletion: createDefaultStyleCompletionState(),
   imagePreview: createDefaultImagePreviewState(),
+  styleCreate: createDefaultStyleCreateState(),
   versionLogDialog: createDefaultVersionLogDialogState(),
 }
 
@@ -973,11 +991,11 @@ function renderStyleHeader(): string {
       <div>
         <p class="text-xs text-slate-500">商品中心 / 商品档案</p>
         <h1 class="mt-1 text-2xl font-semibold text-slate-900">款式档案</h1>
-        <p class="mt-1 text-sm text-slate-500">款式档案在商品项目建立时同步创建；这里负责商品档案资料完善，并承接后续规格与技术包链路。</p>
+        <p class="mt-1 text-sm text-slate-500">选品即可直接建档，无需测款历史；补齐资料后完成正式建档。</p>
       </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/projects">
-          <i data-lucide="folder-kanban" class="h-4 w-4"></i>前往商品项目
+      <div class="flex items-center gap-2">
+        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="open-style-create">
+          <i data-lucide="plus" class="h-4 w-4"></i>新建款式
         </button>
       </div>
     </section>
@@ -1020,7 +1038,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
         <tr class="border-t border-slate-100 align-top">
           <td class="px-4 py-3">
             <div class="flex items-start gap-3">
-              ${renderArchiveImage(item.style.mainImageUrl || '', item.style.styleName, 'sm')}
+              ${renderStyleImagePreviewButton(item.style.mainImageUrl || '', `${item.style.styleCode} ${item.style.styleName}`, 'sm')}
               <div class="min-w-0">
                 <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}">
                   ${escapeHtml(item.style.styleCode)}
@@ -1149,7 +1167,7 @@ function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
             <h2 class="text-base font-semibold text-slate-900">正式建档检查</h2>
             ${alreadyFormalized ? renderBadge('已完成正式建档', 'border-sky-200 bg-sky-50 text-sky-700') : ready ? renderBadge('可以正式建档', 'border-emerald-200 bg-emerald-50 text-emerald-700') : renderBadge(`缺 ${missingCount} 项`, 'border-amber-200 bg-amber-50 text-amber-700')}
           </div>
-          <p class="mt-1 text-sm text-slate-500">创建商品项目时同步建立“商品测款”款式档案，补齐基础资料后才能进入正式建档。</p>
+          <p class="mt-1 text-sm text-slate-500">选品即可直接建档；补齐基础资料后可完成正式建档，无需测款历史。</p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">完善款式资料</button>
@@ -1183,6 +1201,28 @@ function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
       </div>
     </section>
   `
+}
+
+function renderStyleCreateDrawer(): string {
+  if (!state.styleCreate.open) return ''
+  const body = `
+    <div class="space-y-5">
+      <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
+        选品即可直接建档，无需测款历史；创建后可继续补齐资料并完成正式建档。
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        ${renderFormField('款式名称', renderTextInput('style-create-style-name', state.styleCreate.styleName, '填写款式名称'), true)}
+        ${renderFormField('款号', renderTextInput('style-create-style-number', state.styleCreate.styleNumber, '留空可稍后补充'))}
+        ${renderFormField('商品类型', renderTextInput('style-create-product-type', state.styleCreate.productType, '例如：成衣'))}
+        ${renderFormField('一级类目', renderTextInput('style-create-category-name', state.styleCreate.categoryName, '填写一级类目'))}
+      </div>
+    </div>
+  `
+  const footer = `
+    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
+    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="submit-style-create">创建款式</button>
+  `
+  return renderDrawerShell('新建款式', '直接创建款式档案，无需先生成商品项目。', body, footer)
 }
 
 function renderStyleCompletionDrawer(): string {
@@ -1829,7 +1869,7 @@ function renderStyleDetailChannels(style: StyleArchiveShellRecord): string {
       (item) => `
         <tr class="border-t border-slate-100 align-top">
           <td class="px-4 py-3">
-            <div class="text-sm font-medium text-slate-900">${escapeHtml(item.channelProductCode)}</div>
+            <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-blue-700 hover:underline" data-nav="/pcs/products/channel-products/${encodeURIComponent(item.channelProductId)}">${escapeHtml(item.channelProductCode)}</button>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.projectCode)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCode || '—')}</td>
@@ -2024,6 +2064,19 @@ function renderSkuDetailOverview(sku: SkuArchiveRecord): string {
               <div><div class="text-xs text-slate-500">重量</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.weightText || '-')}</div></div>
               <div><div class="text-xs text-slate-500">体积</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.volumeText || '-')}</div></div>
               <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.packagingInfo || '-')}</div></div>
+              <div class="md:col-span-2">
+                <div class="text-xs text-slate-500">预计用料</div>
+                ${
+                  sku.expectedMaterials && sku.expectedMaterials.length
+                    ? `<ul class="mt-2 space-y-1 text-sm text-slate-700">${sku.expectedMaterials
+                        .map(
+                          (line) =>
+                            `<li>${escapeHtml(line.materialSkuCode || line.materialSkuId)} · ${escapeHtml(line.materialName)} · ${escapeHtml(String(line.quantity))} ${escapeHtml(line.unit)}${line.note ? ` · ${escapeHtml(line.note)}` : ''}</li>`,
+                        )
+                        .join('')}</ul>`
+                    : '<div class="mt-1 text-sm text-slate-700">尚未配置预计用料</div>'
+                }
+              </div>
             </div>
           </div>
         </div>
@@ -2300,6 +2353,7 @@ function renderPcsStyleListPage(): string {
       ${renderStyleTable(items)}
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
+      ${renderStyleCreateDrawer()}
       ${renderImagePreviewModal()}
     </div>
   `
@@ -2549,6 +2603,18 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
     case 'style-list-mapping':
       state.styleList.mapping = (value || 'all') as ProductArchivePageState['styleList']['mapping']
       return true
+    case 'style-create-style-name':
+      state.styleCreate.styleName = value
+      return true
+    case 'style-create-style-number':
+      state.styleCreate.styleNumber = value
+      return true
+    case 'style-create-product-type':
+      state.styleCreate.productType = value
+      return true
+    case 'style-create-category-name':
+      state.styleCreate.categoryName = value
+      return true
     case 'style-completion-design-revision': {
       state.styleCompletion.designRevisionTaskId = value
       const revision = value ? getEngineeringIndependentSamplingRecord(value) : null
@@ -2683,6 +2749,8 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       resetSkuCreateState()
       resetStyleCompletionState()
       resetVersionLogDialogState()
+      resetImagePreviewState()
+      state.styleCreate = { open: false, styleName: '', styleNumber: '', productType: '成衣', categoryName: '' }
       return true
     case 'open-tech-pack-version-logs': {
       const technicalVersionId = actionNode.dataset.versionId || ''
@@ -2727,6 +2795,29 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
       state.styleCompletion.galleryImageIds = []
       state.styleCompletion.galleryImageUrls = nextImageUrls
+      return true
+    }
+    case 'open-style-create':
+      state.styleCreate = { open: true, styleName: '', styleNumber: '', productType: '成衣', categoryName: '' }
+      return true
+    case 'submit-style-create': {
+      const styleName = state.styleCreate.styleName.trim()
+      if (!styleName) {
+        state.notice = '请填写款式名称。'
+        return true
+      }
+      try {
+        const created = createStyleArchiveDirect({
+          styleName,
+          styleNumber: state.styleCreate.styleNumber.trim(),
+          productType: state.styleCreate.productType.trim(),
+          categoryName: state.styleCreate.categoryName.trim(),
+        })
+        state.styleCreate.open = false
+        state.notice = `已创建款式档案 ${created.styleCode}，可继续补齐资料后正式建档。`
+      } catch (error) {
+        state.notice = error instanceof Error ? error.message : '新建款式失败。'
+      }
       return true
     }
     case 'open-style-completion': {
@@ -2893,6 +2984,7 @@ export function isPcsProductArchiveDialogOpen(): boolean {
   return (
     state.skuCreate.open ||
     state.styleCompletion.open ||
+    state.styleCreate.open ||
     state.imagePreview.open ||
     state.versionLogDialog.open
   )

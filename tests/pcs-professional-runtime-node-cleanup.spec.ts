@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 
 import { buildProjectNodes } from '../src/data/pcs-project-node-factory.ts'
 import {
@@ -7,7 +7,6 @@ import {
   listProjects,
   resetProjectRepository,
 } from '../src/data/pcs-project-repository.ts'
-import { renderPcsProjectDetailPage } from '../src/pages/pcs-projects.ts'
 
 const readSource = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf8')
@@ -32,16 +31,9 @@ assert.doesNotMatch(
   '专业任务完成不得再写入“商品项目节点同步完成”旧语义',
 )
 
-const projectPageSource = readSource('src/pages/pcs-projects.ts')
-assert.doesNotMatch(
-  projectPageSource,
-  /node\.node\.stepCode\s*===\s*'(?:FIRST_SAMPLE|FIRST_ORDER_SAMPLE)'/,
-  '商品项目详情不得把首版或首单任务渲染成项目步骤节点',
-)
-assert.doesNotMatch(
-  projectPageSource,
-  /renderFirst(?:Sample|OrderSample)ProjectNodeWorkspace/,
-  '商品项目详情不得保留首版或首单项目节点工作区',
+assert.ok(
+  !existsSync(new URL('../src/pages/pcs-projects.ts', import.meta.url)),
+  '商品项目详情页文件应已删除，不得恢复首版或首单项目节点渲染',
 )
 
 const builtNodes = buildProjectNodes({
@@ -66,10 +58,5 @@ for (const stepCode of professionalStepCodes) {
     `${stepCode} 不得作为商品项目步骤节点存在`,
   )
 }
-
-const html = await renderPcsProjectDetailPage(project!.projectId)
-assert.doesNotMatch(html, /请先填写首版样衣必要信息并创建任务/)
-assert.doesNotMatch(html, /请先填写首单样衣必要信息并创建任务/)
-assert.match(html, /关联工程任务/, '商品项目仍应保留项目级专业任务入口或摘要')
 
 console.log('pcs-professional-runtime-node-cleanup.spec.ts PASS')

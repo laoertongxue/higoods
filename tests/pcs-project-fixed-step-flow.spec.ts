@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { existsSync } from 'node:fs'
 
 import {
   PROJECT_FLOW_STAGE_CONTRACTS,
@@ -118,13 +118,9 @@ assert.ok(styleArchive, '创建商品项目时必须同步创建商品／款式�
 assert.equal(styleArchive?.baseInfoStatus, '商品测款', '新建商品／款式档案状态必须为“商品测款”')
 assert.equal(styleArchive?.styleId, created.project.linkedStyleId, '项目与商品／款式档案必须双向保持同一关联')
 
-const pageSource = readFileSync(new URL('../src/pages/pcs-projects.ts', import.meta.url), 'utf8')
-assert.doesNotMatch(pageSource, new RegExp(['getPcs', 'StepDefinition'].join('')), '商品项目页面不得再读取已删除定义')
-assert.doesNotMatch(
-  pageSource,
-  new RegExp(['listActiveProject', 'Templates|getProject', 'TemplateById|countTemplateStages|countTemplateSteps'].join('')),
-  '商品项目页面不得再读取已删除运行时',
+assert.ok(
+  !existsSync(new URL('../src/pages/pcs-projects.ts', import.meta.url)),
+  '商品项目详情页应已删除，固定五步契约由数据层承载',
 )
-assert.match(pageSource, /ProjectFlowStageCode/, '商品项目页面应由固定步骤编码分派')
 
 console.log('pcs-project-fixed-step-flow.spec.ts PASS')

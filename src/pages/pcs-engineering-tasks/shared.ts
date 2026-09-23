@@ -562,7 +562,7 @@ export function isOverdue(dateTime: string, done: boolean): boolean {
 
 export function projectButton(projectId: string, projectCode: string, projectName: string): string {
   if (!projectId) return '<span class="text-slate-400">未关联商品项目</span>'
-  return `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/projects/${escapeHtml(projectId)}">${escapeHtml(projectCode || projectName)}</button>`
+  return `<span class="font-medium text-slate-900">${escapeHtml(projectCode || projectName)}</span>`
 }
 
 export function hasCompletedProjectRelation(
