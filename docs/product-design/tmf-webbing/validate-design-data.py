@@ -93,9 +93,11 @@ check('B24原采购全链仍守恒', equal(b['originalGrossReceivedM'], b['final
 matrix=(ROOT/'需求追踪矩阵.md').read_text()
 rows=[l for l in matrix.splitlines() if re.match(r'\| [A-Z]+-\d{3} \|',l)]
 ids=[r.split('|')[1].strip() for r in rows]
-v2_part=matrix.split('## V2.0 全量收口轮次登记')[1] if '## V2.0 全量收口轮次登记' in matrix else ''
+v2_part=matrix.split('## V2.0 全量收口轮次登记')[1].split('## 2026-09-23 V2.1 调整需求登记')[0] if '## V2.0 全量收口轮次登记' in matrix else ''
 v2_rows=[l for l in v2_part.splitlines() if re.match(r'\| [A-Z]+-\d{3} \|',l)]
-check('原子需求编号唯一且V1.1与V2.0两轮登记齐全',len(ids)==161 and len(set(ids))==161 and len(v2_rows)==34)
+v21_part=matrix.split('## 2026-09-23 V2.1 调整需求登记')[1] if '## 2026-09-23 V2.1 调整需求登记' in matrix else ''
+v21_rows=[l for l in v21_part.splitlines() if re.match(r'\| [A-Z]+-\d{3} \|',l)]
+check('原子需求编号唯一且V1.1、V2.0、V2.1三轮登记齐全',len(ids)==165 and len(set(ids))==165 and len(v2_rows)==34 and len(v21_rows)==4)
 for row in rows:
     cells=[x.strip() for x in row.split('|')[1:-1]]
     check(cells[0]+'矩阵字段完整',len(cells)==10 and all(cells) and cells[7] in ['待实施','实施中','已实现待验证','已验证','已阻塞','不适用'])
