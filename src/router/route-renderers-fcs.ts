@@ -42,9 +42,9 @@ export const renderLacePurchaseDemandsPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/lace/purchase-demands'),
   'renderLacePurchaseDemandsPage',
 )
-export const renderTmfBasePage = createAsyncRenderer<['purchase-demands' | 'base-orders']>(
-  () => import('../pages/process-factory/accessory/webbing/base-orders.ts'),
-  'renderTmfBasePage',
+export const renderTmfSemiFinishedFlowPage = createAsyncRenderer<['purchase-demands' | 'semi-finished-orders']>(
+  () => import('../pages/process-factory/accessory/webbing/semi-finished-orders.ts'),
+  'renderTmfSemiFinishedFlowPage',
 )
 export const renderTmfPendingReceiptsPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/webbing/pending-receipts.ts'),

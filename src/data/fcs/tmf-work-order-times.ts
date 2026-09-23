@@ -11,7 +11,7 @@ export function tmfJakartaInput(value?: string): string {
   return value && zoned(value) ? formatTmfWorkTime(value).slice(0,16).replace(' ','T') : ''
 }
 
-/** 只投影已有事实；不从计划、产出数量或接收时间倒推开完工。 */
+/** 只投影确认接收、加工填报和交出形成的事实；不另设接单、开工或完工状态。 */
 export function projectTmfWorkTimes(data: TmfPurchaseState, workOrderId: string, now = new Date().toISOString()) {
   const demands=data.demands.filter(d=>JSON.stringify([d.productionOrderId,d.techPackSnapshotId,d.routeEntryId])===workOrderId)
   if(!demands.length)throw new Error('加工单不存在。')
@@ -30,11 +30,10 @@ export function projectTmfWorkTimes(data: TmfPurchaseState, workOrderId: string,
   events.sort((a,b)=>zoned(a.at)&&zoned(b.at)?Date.parse(a.at)-Date.parse(b.at):zoned(a.at)?-1:zoned(b.at)?1:a.at.localeCompare(b.at))
   const received=events.filter(e=>['织带厂加工投入实收','合并加工投入实收','印花回料实际接收'].includes(e.action)&&zoned(e.at)).sort((a,b)=>Date.parse(a.at)-Date.parse(b.at))
   const reported=[...outputs.map(o=>o.reportedAt),...data.tipResults.filter(t=>outputs.some(o=>o.id===t.cutOutputId)).map(t=>t.reportedAt)].filter(zoned).sort((a,b)=>Date.parse(a)-Date.parse(b))
-  const execution=data.workExecutions.find(w=>w.workOrderId===workOrderId)
   const plan=data.workPlans.find(p=>p.workOrderId===workOrderId)
   const cost=data.workCosts.find(c=>c.workOrderId===workOrderId)
   const elapsedHours=received.length&&reported.length&&Date.parse(reported.at(-1)!)>=Date.parse(received[0].at)?(Date.parse(reported.at(-1)!)-Date.parse(received[0].at))/3600000:null
-  return {plan,cost,execution,hasOutputs:outputs.length>0,actualDurationHours:execution?.startedAt?(Date.parse(execution.finishedAt??now)-Date.parse(execution.startedAt))/3600000:null,requiredDates:[...new Set(demands.map(d=>d.requiredDeliveryDate).filter((v):v is string=>!!v))],events,
+  return {plan,cost,hasOutputs:outputs.length>0,requiredDates:[...new Set(demands.map(d=>d.requiredDeliveryDate).filter((v):v is string=>!!v))],events,
     firstReceivedAt:received[0]?.at,firstReportedAt:reported[0],lastReportedAt:reported.at(-1),
     lastHandoverAt:events.filter(e=>e.action==='加工产出交回辅料仓').at(-1)?.at,
     lastWarehouseReceiptAt:events.filter(e=>e.action==='加工产出回仓实收').at(-1)?.at,

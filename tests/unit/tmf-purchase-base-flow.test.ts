@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs'
 import {
   receiveTmfSupplyPurchase, scrapTmfDefectiveOutput, getTmfDefectiveBalance, receiveTmfBaseMaterialStock, dispatchTmfBaseMaterial, receiveTmfBaseMaterial, consumeTmfBaseMaterial, dispatchTmfBaseMaterialReturn, receiveTmfBaseMaterialReturn, getTmfBaseMaterialBalance,
   TMF_PURCHASE_STORAGE_KEY, getTmfPurchaseState, createTmfMaterialPurchase, generateTmfBaseOrder,
-  acceptTmfBaseOrder, startTmfBaseOrder, reportTmfBaseProduction, dispatchTmfBaseProduction, receiveTmfBaseProduction,
+  acceptTmfBaseOrder, reportTmfBaseProduction, dispatchTmfBaseProduction, receiveTmfBaseProduction,
   reviseTmfMaterialPurchase, resolveTmfBasePurchaseChange, reloadTmfPurchaseRuntime, type TmfMaterialPurchaseOrder, type TmfPurchaseActor,
   registerTmfProductionOrder, reserveTmfContinuousMaterial, releaseTmfContinuousReservation,
   issueTmfContinuousMaterial, receiveTmfProcessingMaterial,
@@ -85,7 +85,6 @@ function startScenarioBase(order: TmfMaterialPurchaseOrder): string {
   const base = getTmfPurchaseState().baseOrders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)!
   assert.equal(base.purchaseLineId, order.purchaseLineId, '基础单必须保留 PMS 原采购行身份，合行后仍可回溯原行')
   acceptTmfBaseOrder(base.id, factory, `${order.purchaseOrderNo}:accept`)
-  startTmfBaseOrder(base.id, factory, `${order.purchaseOrderNo}:start`)
   return base.id
 }
 
@@ -499,7 +498,6 @@ test('采购追加：未开始同步计划，已执行保留原计划和实物�
   assert.equal(base.plannedMeters, 1100)
   assert.equal(base.purchaseVersion, 2)
   acceptTmfBaseOrder(base.id, factory, 'B23:accept')
-  startTmfBaseOrder(base.id, factory, 'B23:start')
   reportTmfBaseProduction(base.id, 400, factory, 'B23:produce')
   reviseTmfMaterialPurchase(order.purchaseOrderNo, { orderedQty: 1200, reason: '生产后追加，需主管处理', confirmed: true }, buyer, 'B24:change')
   base = getTmfPurchaseState().baseOrders.find((item) => item.id === base.id)!
@@ -1487,7 +1485,6 @@ test('N01～N05基础原料重量账：源仓实收→发出→工厂实收→�
   const issued=getTmfPurchaseState()
   assert.equal(issued.baseMaterialLots.find(l=>l.id===lot.id)!.onHandQty,0)
   assert.equal(getTmfBaseMaterialBalance(`${id}-ISS`).availableQty,0)
-  startTmfBaseOrder(base.id,factory,`${id}:start`)
   const started=getTmfPurchaseState()
   assert.throws(()=>consumeTmfBaseMaterial({issueId:`${id}-ISS`,consumedQty:raw.consumed,scrapQty:0,reason:'实际称量'},factory,`${id}:early-use`),/不能超过/)
   assert.deepEqual(getTmfPurchaseState(),started)
@@ -2096,60 +2093,21 @@ test('加工单费用按技术包需求计价：单位、币种和版本可追�
  assert.deepEqual({...getTmfPurchaseState(),workCosts:before.workCosts,operations:before.operations},before,'费用登记不改变库存、需求或生产事实')
 })
 
-test('实际接单开工完工：分批实收开工、逐规格和余料门禁，完工不等于仓收或生产满足',async()=>{
- const m=await import('../../src/data/pms/tmf-material-purchases.ts')
- const p=purchase('EXECUTION-TIME',700);prepare(p);receiveTmfBaseProduction(receipt(p,700),warehouse,'EXECUTION:base')
- const source=productionSource('EXECUTION-PROD');registerTmfProductionOrder(source,planner,'EXECUTION:demand')
- const demands=getTmfPurchaseState().demands.filter(d=>d.productionOrderId===source.productionOrderId),id=JSON.stringify([source.productionOrderId,source.techPackSnapshot.snapshotId,'CUT'])
- const input=(action:'ACCEPT'|'START'|'FINISH')=>({workOrderId:id,action,expectedReview:JSON.stringify(m.getTmfWorkExecutionReview(id)),confirmed:true,reason:'主管按现场事实确认'})
- assert.throws(()=>m.recordTmfWorkExecution(input('START'),factory,'EXECUTION:early-start'),/先由主管确认接单/)
- assert.throws(()=>m.recordTmfWorkExecution(input('ACCEPT'),warehouse,'EXECUTION:wrong-role'),/权限|角色|身份/)
- const accept=input('ACCEPT');m.recordTmfWorkExecution(accept,factory,'EXECUTION:accept');m.recordTmfWorkExecution(accept,factory,'EXECUTION:accept')
- assert.equal(projectTmfWorkOrders(getTmfPurchaseState()).find(o=>o.id===id)!.processingStatus,'已接单待开工')
- assert.throws(()=>m.recordTmfWorkExecution(input('START'),factory,'EXECUTION:no-receipt'),/实际到料/)
- for(const [i,d] of demands.entries()){
-  reserveTmfContinuousMaterial({reservationId:`EXECUTION-${i}`,demandId:d.id,lotId:p.purchaseOrderNo+':batch',reservedMeters:i?425:205,reason:'按两规格分批'},warehouse,`EXECUTION:reserve${i}`)
-  issueTmfContinuousMaterial({issueId:`EXECUTION-${i}`,reservationId:`EXECUTION-${i}`,targetFactoryId:'FAC-TMF',dispatchedMeters:i?425:205},warehouse,`EXECUTION:issue${i}`)
- }
- const stale=input('START')
- receiveTmfProcessingMaterial({issueId:'EXECUTION-0',factoryId:'FAC-TMF',materialSkuId:p.materialSkuId,receivedMeters:205},factory,'EXECUTION:receive0')
- assert.throws(()=>m.recordTmfWorkExecution(stale,factory,'EXECUTION:stale-start'),/已变化/)
- const cut={outputId:'EXECUTION-OUT-0',issueId:'EXECUTION-0',cutPieces:400,defectivePieces:0,actualCutLengthMm:500,actualFinishedLengthMm:500,lossMeters:1,reason:'切口损耗1米'}
- assert.throws(()=>reportTmfCutOutput(cut,factory,'EXECUTION:before-start'),/尚未登记开工/)
- const start=input('START');m.recordTmfWorkExecution(start,factory,'EXECUTION:start');m.recordTmfWorkExecution(start,factory,'EXECUTION:start')
- reportTmfCutOutput(cut,factory,'EXECUTION:cut0')
- assert.throws(()=>m.recordTmfWorkExecution(input('FINISH'),factory,'EXECUTION:missing-size'),/700mm 少 600/)
- receiveTmfProcessingMaterial({issueId:'EXECUTION-1',factoryId:'FAC-TMF',materialSkuId:p.materialSkuId,receivedMeters:425},factory,'EXECUTION:receive1')
- reportTmfCutOutput({...cut,outputId:'EXECUTION-OUT-1',issueId:'EXECUTION-1',cutPieces:600,actualCutLengthMm:700,actualFinishedLengthMm:700},factory,'EXECUTION:cut1')
- assert.throws(()=>m.recordTmfWorkExecution(input('FINISH'),factory,'EXECUTION:remaining'),/未处理连续余料/)
- const beforeReturn=input('FINISH')
- for(const i of [0,1])dispatchTmfContinuousReturn({returnId:`EXECUTION-RET-${i}`,issueId:`EXECUTION-${i}`,batchId:`EXECUTION-RET-${i}`,returnedMeters:4,reason:'正常完工前连续余料交回原仓'},factory,`EXECUTION:return${i}`)
- assert.throws(()=>m.recordTmfWorkExecution(beforeReturn,factory,'EXECUTION:stale-finish'),/已变化/)
- const finish=input('FINISH');m.recordTmfWorkExecution(finish,factory,'EXECUTION:finish');m.recordTmfWorkExecution(finish,factory,'EXECUTION:finish')
- const execution=m.getTmfWorkExecutionReview(id).execution!
- assert.ok(execution.acceptedAt&&execution.startedAt&&execution.finishedAt)
- assert.ok(Date.parse(execution.acceptedAt)<=Date.parse(execution.startedAt!)&&Date.parse(execution.startedAt!)<=Date.parse(execution.finishedAt!))
- assert.equal(projectTmfWorkOrders(getTmfPurchaseState()).find(o=>o.id===id)!.processingStatus,'加工完成')
- assert.deepEqual(demands.map(d=>getTmfProductionDemandFulfillment(d.id).receivedPieces),[0,0])
- assert.equal(getTmfProcessingInputBalance('EXECUTION-0').returnTransitMeters,4)
- assert.throws(()=>reportTmfCutOutput({...cut,outputId:'EXECUTION-LATE'},factory,'EXECUTION:late-output'),/已确认完工/)
- // 完工后实际仓储接收继续，不能把完工动作伪装成收货。
- receiveTmfContinuousReturn({returnId:'EXECUTION-RET-0',warehouseId:p.targetWarehouseId,materialSkuId:p.materialSkuId,location:'R-01',receivedMeters:4},warehouse,'EXECUTION:warehouse-return')
- packTmfOutput({packageId:'EXECUTION-PACK',cutOutputId:'EXECUTION-OUT-0',pieces:400},factory,'EXECUTION:pack')
- dispatchTmfOutputPackage({handoverId:'EXECUTION-HAND',packageId:'EXECUTION-PACK',warehouseId:p.targetWarehouseId},factory,'EXECUTION:handover')
- receiveTmfOutputPackage({handoverId:'EXECUTION-HAND',packageId:'EXECUTION-PACK',warehouseId:p.targetWarehouseId,demandId:demands[0].id,location:'P-01',receivedPieces:400},warehouse,'EXECUTION:warehouse')
- assert.equal(getTmfOutputPackageBalance('EXECUTION-PACK').onHandPieces,400)
- assert.equal(getTmfProductionDemandFulfillment(demands[0].id).receivedPieces,0)
- const historical=productionSource('EXECUTION-HISTORY');registerTmfProductionOrder(historical,planner,'EXECUTION:history')
- const hd=getTmfPurchaseState().demands.find(d=>d.productionOrderId===historical.productionOrderId)!
- reserveTmfContinuousMaterial({reservationId:'EXECUTION-HISTORY',demandId:hd.id,lotId:p.purchaseOrderNo+':batch',reservedMeters:50,reason:'旧流程真实填报缺开工记录'},warehouse,'EXECUTION:history-reserve')
- issueTmfContinuousMaterial({issueId:'EXECUTION-HISTORY',reservationId:'EXECUTION-HISTORY',targetFactoryId:'FAC-TMF',dispatchedMeters:50},warehouse,'EXECUTION:history-issue')
- receiveTmfProcessingMaterial({issueId:'EXECUTION-HISTORY',factoryId:'FAC-TMF',materialSkuId:p.materialSkuId,receivedMeters:50},factory,'EXECUTION:history-receive')
- reportTmfCutOutput({...cut,outputId:'EXECUTION-HISTORY',issueId:'EXECUTION-HISTORY',cutPieces:100,lossMeters:0},factory,'EXECUTION:history-cut')
- const historicalId=JSON.stringify([historical.productionOrderId,historical.techPackSnapshot.snapshotId,'CUT'])
- assert.throws(()=>m.recordTmfWorkExecution({workOrderId:historicalId,action:'ACCEPT',expectedReview:JSON.stringify(m.getTmfWorkExecutionReview(historicalId)),confirmed:true,reason:'不能造历史时间'},factory,'EXECUTION:history-reject'),/已有产出但历史/)
+test('织带加工单没有接单或开工门禁，投入实收后可直接加工填报', async () => {
+ const source=productionSource('DIRECT-REPORT-PROD');source.demandSnapshot.skuLines=[{skuCode:'DIRECT-REPORT-S',size:'S',color:'白',qty:100}]
+ source.techPackSnapshot.processEntries[0].webbingSpecifications=[source.techPackSnapshot.processEntries[0].webbingSpecifications![0]]
+ registerTmfProductionOrder(source,planner,'DIRECT-REPORT:demand')
+ const demand=getTmfPurchaseState().demands.find(d=>d.productionOrderId===source.productionOrderId)!
+ const p=purchase('DIRECT-REPORT',60,demand.sourceMaterialSkuId);prepare(p)
+ receiveTmfBaseProduction(receipt(p,60),warehouse,'DIRECT-REPORT:base-receive')
+ reserveTmfContinuousMaterial({reservationId:'DIRECT-REPORT-R',demandId:demand.id,lotId:p.purchaseOrderNo+':batch',reservedMeters:50,reason:'按技术包投入'},warehouse,'DIRECT-REPORT:reserve')
+ issueTmfContinuousMaterial({issueId:'DIRECT-REPORT-I',reservationId:'DIRECT-REPORT-R',targetFactoryId:'FAC-TMF',dispatchedMeters:50},warehouse,'DIRECT-REPORT:issue')
+ receiveTmfProcessingMaterial({issueId:'DIRECT-REPORT-I',factoryId:'FAC-TMF',materialSkuId:p.materialSkuId,receivedMeters:50},factory,'DIRECT-REPORT:receive')
+ reportTmfCutOutput({outputId:'DIRECT-REPORT-O',issueId:'DIRECT-REPORT-I',cutPieces:100,defectivePieces:0,actualCutLengthMm:500,actualFinishedLengthMm:500,lossMeters:0,reason:'确认接收后直接加工填报'},factory,'DIRECT-REPORT:output')
+ const projected=projectTmfWorkOrders(getTmfPurchaseState()).find(o=>o.productionOrderId===source.productionOrderId)!
+ assert.equal(projected.processingStatus,'合格产出达量')
+ assert.equal(getTmfPurchaseState().operations.some(o=>/接单|开工/.test(o.action)&&o.objectId===projected.id),false)
 })
-
 
 test('B23未执行采购1000减900：版本留痕、旧预览阻断、重接单后900实际生产实收',()=>{
  const p=purchase('B23-REDUCE',1000)
@@ -2173,8 +2131,8 @@ test('B23未执行采购1000减900：版本留痕、旧预览阻断、重接单�
  assert.equal(getPmsMaterialPurchaseOrder(p.purchaseOrderNo)!.receivedQty,0)
  assert.throws(()=>reviseTmfMaterialPurchase(p.purchaseOrderNo,{...input,orderedQty:800},buyer,'B23-REDUCE:stale'),/版本已变化/)
  assert.deepEqual(getTmfPurchaseState(),changed)
- assert.throws(()=>startTmfBaseOrder(baseId,factory,'B23-REDUCE:early-start'),/接单/)
- acceptTmfBaseOrder(baseId,factory,'B23-REDUCE:accept');startTmfBaseOrder(baseId,factory,'B23-REDUCE:start')
+ assert.throws(()=>reportTmfBaseProduction(baseId,1,factory,'B23-REDUCE:early-report'),/确认接收/)
+ acceptTmfBaseOrder(baseId,factory,'B23-REDUCE:accept')
   assert.throws(()=>reportTmfBaseProduction(baseId,1000,factory,'B23-REDUCE:over'),/二次确认/)
  reportTmfBaseProduction(baseId,900,factory,'B23-REDUCE:produce')
  dispatchTmfBaseProduction({baseOrderId:baseId,handoverId:`${p.purchaseOrderNo}:handover`,batchId:`${p.purchaseOrderNo}:batch`,dispatchedMeters:900},factory,'B23-REDUCE:dispatch')

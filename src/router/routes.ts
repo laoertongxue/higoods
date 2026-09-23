@@ -46,7 +46,7 @@ const renderTmfProductionReceiptsPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/webbing/production-receipts'),
   'renderTmfProductionReceiptsPage',
 )
-const renderTmfRawWarehousePage = createAsyncRenderer<['raw-warehouse']>(() => import('../pages/process-factory/accessory/webbing/base-orders'), 'renderTmfBasePage')
+const renderTmfRawWarehousePage = createAsyncRenderer<['raw-warehouse']>(() => import('../pages/process-factory/accessory/webbing/semi-finished-orders'), 'renderTmfSemiFinishedFlowPage')
 const renderTmfMaterialPreparationPage = createAsyncRenderer(
   () => import('../pages/process-factory/accessory/webbing/material-preparation'),
   'renderTmfMaterialPreparationPage',

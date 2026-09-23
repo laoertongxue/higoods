@@ -621,8 +621,8 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
           key: 'pfos-accessory-webbing', title: '织带厂管理', icon: 'Paperclip',
           children: [
             { key: 'pfos-accessory-webbing-purchase-demands', title: '采购需求', icon: 'ShoppingCart', href: '/fcs/craft/accessory/webbing/purchase-demands' },
-            { key: 'pfos-accessory-webbing-base-orders', title: '基础生产单', icon: 'ClipboardList', href: '/fcs/craft/accessory/webbing/base-orders' },
-            { key: 'pfos-accessory-webbing-work-orders', title: '生产加工单', icon: 'Workflow', href: '/fcs/craft/accessory/webbing/work-orders' },
+            { key: 'pfos-accessory-webbing-semi-finished-orders', title: '半成品加工单', icon: 'ClipboardList', href: '/fcs/craft/accessory/webbing/semi-finished-orders' },
+            { key: 'pfos-accessory-webbing-work-orders', title: '织带加工单', icon: 'Workflow', href: '/fcs/craft/accessory/webbing/work-orders' },
             { key: 'pfos-accessory-webbing-pending-receipts', title: '待接收', icon: 'Inbox', href: '/fcs/craft/accessory/webbing/pending-receipts' },
             { key: 'pfos-accessory-webbing-handover-records', title: '交出记录', icon: 'ArrowLeftRight', href: '/fcs/craft/accessory/webbing/handover-records' },
           ],

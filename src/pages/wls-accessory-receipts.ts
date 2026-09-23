@@ -2,7 +2,7 @@ import { renderTmfSupplyPurchaseReceiptsPage } from './process-factory/accessory
 // @page-pattern: list
 import { renderTmfContinuousReturnReceiptsPage } from './process-factory/accessory/webbing/continuous-return-receipts.ts'
 import { renderTmfOutputReceiptsPage } from './process-factory/accessory/webbing/output-receipts.ts'
-import { renderTmfBasePage } from './process-factory/accessory/webbing/base-orders.ts'
+import { renderTmfSemiFinishedFlowPage } from './process-factory/accessory/webbing/semi-finished-orders.ts'
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
 import type { StandardListColumn } from '../components/ui/list-table.ts'
@@ -235,7 +235,7 @@ function renderButtonLoopReceiptSection(): string {
 let receiptCategory: 'existing' | 'tmf-base' | 'tmf-output' | 'tmf-return' | 'tmf-supply' = 'existing'
 function renderInner(): string {
   const tabs = `<div class="mb-4 flex flex-wrap gap-2" aria-label="辅料收货分类"><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'existing' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="existing" data-skip-page-rerender="true">花边／盘扣收货</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-base' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-base" data-skip-page-rerender="true">织带／绳子基础半成品</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-output' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-output" data-skip-page-rerender="true">织带／绳子加工产出</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-return' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-return" data-skip-page-rerender="true">织带／绳子连续余料</button><button class="rounded border px-3 py-2 text-sm ${receiptCategory === 'tmf-supply' ? 'bg-blue-600 text-white' : 'bg-white'}" data-wls-receipt-category="tmf-supply" data-skip-page-rerender="true">织带投入料采购</button></div>`
-  return tabs + (receiptCategory === 'tmf-supply' ? renderTmfSupplyPurchaseReceiptsPage() : receiptCategory === 'tmf-return' ? renderTmfContinuousReturnReceiptsPage() : receiptCategory === 'tmf-output' ? renderTmfOutputReceiptsPage() : receiptCategory === 'tmf-base' ? renderTmfBasePage('base-receipts') : renderExistingReceipts())
+  return tabs + (receiptCategory === 'tmf-supply' ? renderTmfSupplyPurchaseReceiptsPage() : receiptCategory === 'tmf-return' ? renderTmfContinuousReturnReceiptsPage() : receiptCategory === 'tmf-output' ? renderTmfOutputReceiptsPage() : receiptCategory === 'tmf-base' ? renderTmfSemiFinishedFlowPage('base-receipts') : renderExistingReceipts())
 }
 function renderExistingReceipts(): string {
   controller.ensurePreferencesLoaded()

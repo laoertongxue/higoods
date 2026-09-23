@@ -2,8 +2,8 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { getPmsMaterialPurchaseOrder, listPmsMaterialPurchaseOrders, PMS_MATERIAL_PURCHASE_UPDATES_KEY, applyPmsSupplierConfirmation, advancePmsMaterialPurchaseOrderStatus, registerPmsMaterialPurchaseArrival, closePmsMaterialPurchaseOrder, resetPmsMaterialPurchaseRuntimeForTest } from '../../src/data/pms/material-purchase-orders.ts'
 import { PMS_BUYER_ACTOR } from '../../src/data/pms/runtime.ts'
-import { receiveTmfSupplyPurchase, getTmfPurchaseState, reloadTmfPurchaseRuntime, generateTmfBaseOrder, acceptTmfBaseOrder, startTmfBaseOrder, dispatchTmfBaseMaterial, receiveTmfBaseMaterial, consumeTmfBaseMaterial, dispatchTmfBaseMaterialReturn, receiveTmfBaseMaterialReturn, getTmfBaseMaterialBalance } from '../../src/data/pms/tmf-material-purchases.ts'
-import { loadTmfBaseDemoPurchases, TMF_DEMO_SUPERVISOR as factory } from '../../src/data/fcs/tmf-base-demo.ts'
+import { receiveTmfSupplyPurchase, getTmfPurchaseState, reloadTmfPurchaseRuntime, acceptTmfBaseOrder, dispatchTmfBaseMaterial, receiveTmfBaseMaterial, consumeTmfBaseMaterial, dispatchTmfBaseMaterialReturn, receiveTmfBaseMaterialReturn, getTmfBaseMaterialBalance } from '../../src/data/pms/tmf-material-purchases.ts'
+import { ensureTmfConnectedMockData, TMF_DEMO_SUPERVISOR as factory } from '../../src/data/fcs/tmf-base-demo.ts'
 const warehouse={id:'SUPPLY-WH',name:'原料仓管',role:'仓管' as const}
 
 test('PMS采购实际仓库实收与原料库存一次保存；分批、刷新、原料使用和退回均不重复履约',async()=>{
@@ -41,9 +41,9 @@ test('PMS采购实际仓库实收与原料库存一次保存；分批、刷新�
   assert.equal(listPmsMaterialPurchaseOrders().filter(o=>o.purchaseOrderNo===no).length,1)
   await receiveTmfSupplyPurchase({...input,receiptId:'SUPPLY-R2',lotId:'SUPPLY-LOT2',quantity:288},warehouse,'supply-remainder')
   assert.equal(getPmsMaterialPurchaseOrder(no)!.status,'已入库');assert.equal(getPmsMaterialPurchaseOrder(no)!.receivedQty,300)
-  loadTmfBaseDemoPurchases();generateTmfBaseOrder('TMF-DEMO-PO-001',factory,'base-generate')
-  const base=getTmfPurchaseState().baseOrders.find(b=>b.purchaseOrderNo==='TMF-DEMO-PO-001')!
-  acceptTmfBaseOrder(base.id,factory,'base-accept');startTmfBaseOrder(base.id,factory,'base-start')
+  ensureTmfConnectedMockData()
+  const base=getTmfPurchaseState().baseOrders.find(b=>b.purchaseOrderNo==='TMF-MOCK-PO-001')!
+  acceptTmfBaseOrder(base.id,factory,'base-accept')
   dispatchTmfBaseMaterial({id:'SUPPLY-ISS',baseOrderId:base.id,lotId:'SUPPLY-LOT1',quantity:12},warehouse,'supply-issue')
   receiveTmfBaseMaterial({issueId:'SUPPLY-ISS',materialSkuId:source.materialCode,unit:'kg',quantity:12},factory,'factory-receive')
   consumeTmfBaseMaterial({issueId:'SUPPLY-ISS',consumedQty:10,scrapQty:0,reason:'实称10kg，非配方'},factory,'consume')
