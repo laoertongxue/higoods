@@ -1,3 +1,4 @@
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
 import {
   productionOrders,
   initialProductionOrderIds,
@@ -214,6 +215,8 @@ function getMockSourceForCraft(craftIndex: number, mockIndex: number) {
   const orders = productionOrders.filter((order) =>
     Boolean(order.techPackSnapshot)
     && initialProductionOrderIds.has(order.productionOrderId)
+    // 后道验收来源不参与通用字典工艺轮换，避免新增与后道样本无关的毛织/特殊工艺。
+    && !POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.some((source) => source.productionOrderId === order.productionOrderId)
     && order.taskBreakdownSummary.isBrokenDown
     && !DICTIONARY_COVERAGE_BLOCKED_ORDER_STATUSES.has(order.status),
   )

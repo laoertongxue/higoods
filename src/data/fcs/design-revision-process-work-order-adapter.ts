@@ -164,6 +164,7 @@ function validateResultBinding(input: DesignRevisionApprovedProfessionalResultIn
     if (actualProfessionalTaskId !== input.professionalTaskId) {
       throw new Error(`${processLabel} ${ref.processOrderId} 所属专业任务为 ${actualProfessionalTaskId || '未记录'}，与当前任务 ${input.professionalTaskId} 不一致。`)
     }
+    if (!order.sourceKey) throw new Error(`${processLabel} ${ref.processOrderId} 缺少来源标识，请重新生成加工单关联。`)
     if (order.sourceKey !== ref.sourceKey) ref.sourceKey = order.sourceKey
   })
 }

@@ -6,7 +6,6 @@ import {
   completeLabelStep,
   completeSampleInbound,
   getTestingOrderById,
-  listTestingOrders,
   pushChannelProducts,
   rejectBuyerConfirm,
   rejectPricing,
@@ -18,8 +17,10 @@ import {
   type TestingOrderStepKey,
 } from '../data/pcs-testing-order-repository.ts'
 import { PCS_CHANNEL_OPTIONS } from '../data/pcs-channel-options.ts'
+import { getDefaultPcsStoreIdByChannel, resolvePcsStoreCurrency } from '../data/pcs-channel-store-master.ts'
 
 bootstrapTestingOrders()
+let actionNotice = ''
 
 const STEP_TITLES: Record<TestingOrderStepKey, string> = Object.fromEntries(
   TESTING_ORDER_STEPS.map((step) => [step.key, step.title]),
@@ -71,7 +72,7 @@ function renderActivePanel(order: TestingOrderRecord): string {
   const step = order.currentStepKey
   const panel: Record<TestingOrderStepKey, string> = {
     archive: `
-      <p class="text-sm text-slate-600">系统建档已完成：SPU ${escapeHtml(order.spuCode)}，SKU ${escapeHtml(order.skuCodes.join('、') || '—')} 已写入商品档案。</p>
+      <p class="text-sm text-slate-600">${order.archiveMode === 'linked' ? '已关联现有商品档案' : '系统建档已完成'}：SPU ${escapeHtml(order.spuCode)}，SKU ${escapeHtml(order.skuCodes.join('、') || '—')}。</p>
       <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="advance" data-step="purchase-link">下一步：②采购下单</button>
     `,
     'purchase-link': `
@@ -144,7 +145,13 @@ function renderActivePanel(order: TestingOrderRecord): string {
           <option value="空运" ${order.shipMethod === '空运' ? 'selected' : ''}>空运</option>
         </select>
       </label>
+      <div class="mt-3 grid gap-3 sm:grid-cols-2">${PCS_CHANNEL_OPTIONS.map((channel) => {
+        const currency = resolvePcsStoreCurrency(getDefaultPcsStoreIdByChannel(channel.code), channel.code)
+        return `<label class="text-sm">${escapeHtml(channel.name)} 渠道售价（${escapeHtml(currency)}）<input type="number" min="0.01" step="0.01" value="${order.channelPrices?.[channel.code] || ''}" data-pcs-testing-field="channel-price-${escapeHtml(channel.code)}" class="mt-1 h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>`
+      }).join('')}</div>
+      <p class="mt-2 text-xs text-slate-500">核价金额为人民币参考；各渠道按店铺币种填写售价，不自动换算。</p>
       <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="push-channels">推送渠道并按清单回写档案</button>
+      ${actionNotice ? `<p role="status" class="mt-2 text-sm text-amber-700">${escapeHtml(actionNotice)}</p>` : ''}
     `,
     'live-testing': `
       <label class="block text-sm">直播测款执行记录
@@ -171,9 +178,7 @@ function renderActivePanel(order: TestingOrderRecord): string {
 export function renderPcsTestingOrderDetailPage(testingOrderId: string): string {
   const order = getTestingOrderById(decodeURIComponent(testingOrderId))
   if (!order) {
-    const fallback = listTestingOrders()[0]
-    if (fallback) return renderPcsTestingOrderDetailPage(fallback.testingOrderId)
-    return '<section class="rounded-lg border bg-white p-10 text-center text-slate-500">未找到测款单。</section>'
+    return '<section class="rounded-lg border bg-white p-10 text-center text-slate-500">未找到测款单。<button type="button" class="ml-3 text-blue-700 underline" data-nav="/pcs/testing/orders">返回列表</button></section>'
   }
 
   return `
@@ -192,9 +197,9 @@ export function renderPcsTestingOrderDetailPage(testingOrderId: string): string 
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <button type="button" class="shrink-0 cursor-zoom-in overflow-hidden rounded-md border" data-pcs-testing-action="preview-image" data-pda-image-preview-url="${escapeHtml(order.styleImageUrl || 'https://file.higood.id/higood_live/proudcts/2026/04/16/c74d884c23376156c8dc13a5ff39d3fa.jpg')}" data-pda-image-preview-title="${escapeHtml(order.styleName)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(order.styleName)}大图">
-            <img src="${escapeHtml(order.styleImageUrl || 'https://file.higood.id/higood_live/proudcts/2026/04/16/c74d884c23376156c8dc13a5ff39d3fa.jpg')}" alt="${escapeHtml(order.styleName)}" class="h-20 w-20 object-cover" />
-          </button>
+          ${order.styleImageUrl ? `<button type="button" class="relative shrink-0 cursor-zoom-in overflow-hidden rounded-md border" data-pcs-testing-action="preview-image" data-pda-image-preview-url="${escapeHtml(order.styleImageUrl)}" data-pda-image-preview-title="${escapeHtml(order.styleName)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(order.styleName)}大图">
+            <img src="${escapeHtml(order.styleImageUrl)}" alt="${escapeHtml(order.styleName)}" class="h-20 w-20 object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false" /><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-xs text-slate-600">图片加载中</span>
+          </button>` : '<span class="flex h-20 w-20 shrink-0 items-center justify-center rounded border text-xs text-red-600">缺少图片</span>'}
           <div class="grid gap-1 text-xs text-slate-500">
             <div>SPU ${escapeHtml(order.spuCode)}</div>
             <div>SKU ${escapeHtml(order.skuCodes.join('、') || '—')}</div>
@@ -321,13 +326,18 @@ export function handlePcsTestingOrderEvent(target: HTMLElement): boolean {
     const checked = [...document.querySelectorAll<HTMLInputElement>('[data-pcs-testing-field="channel"]:checked')].map(
       (el) => el.value,
     )
+    const channelPrices = Object.fromEntries(PCS_CHANNEL_OPTIONS.map((channel) =>
+      [channel.code, Number(read(`channel-price-${channel.code}`))],
+    ))
     updateTestingOrder(
       id,
-      { channelCodes: checked.length ? checked : order.channelCodes, shipMethod: (read('ship-method') || '人头') as '人头' | '空运' },
+      { channelCodes: checked, channelPrices, shipMethod: (read('ship-method') || '人头') as '人头' | '空运' },
       '当前用户',
       '配置渠道与寄样',
     )
-    return pushChannelProducts(id).ok
+    const pushed = pushChannelProducts(id)
+    actionNotice = pushed.ok ? '' : pushed.message || '渠道商品创建失败。'
+    return true
   }
   if (action === 'save-live') {
     updateTestingOrder(id, { liveSessionNote: read('live-note') }, '当前用户', '保存直播测款记录')

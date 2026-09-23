@@ -458,6 +458,7 @@ export interface TechnicalBomItem {
   spec: string
   materialCode?: string
   materialSkuId?: string
+  variantId?: string
   unit?: string
   colorLabel?: string
   unitConsumption: number

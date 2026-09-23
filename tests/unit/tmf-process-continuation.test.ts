@@ -53,3 +53,10 @@ test('印花连续辅料仅接同版本同BOM的直接截断节点，不修改SK
  ]
  for(const change of changes){const x=structuredClone(before);change(x);assert.throws(()=>assertTmfPrintCutContinuation(x.print,'CUT',x.pack))}
 })
+
+test('染色来源已绑定印花时拒绝直接截断，不读取不存在的顶层字段', async () => {
+ const {assertTmfDyeCutContinuation}=await import('../../src/data/fcs/tmf-process-continuation.ts')
+ const {dye,pack}=fixture()
+ dye.sourceSnapshot!.downstreamWorkOrderId='BOUND-PRINT'
+ assert.throws(()=>assertTmfDyeCutContinuation(dye,'CUT',pack),/已绑定下游印花/)
+})

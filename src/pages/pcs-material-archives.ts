@@ -268,12 +268,10 @@ function renderStatusBadge(status: MaterialArchiveStatus): string {
   return renderBadge(meta.label, meta.className)
 }
 
-function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md'): string {
+function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md', highlighted = false): string {
   const dimension = size === 'sm' ? 'h-12 w-12' : 'h-20 w-20'
-  if (!url) {
-    return `<div class="${escapeHtml(toClassName('flex shrink-0 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-slate-400', dimension))}"><i data-lucide="image" class="h-4 w-4"></i></div>`
-  }
-  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="${escapeHtml(toClassName('shrink-0 rounded-md border border-slate-200 bg-slate-50 object-cover', dimension))}" />`
+  if (!url) return `<span class="${dimension} flex shrink-0 items-center justify-center rounded-md border border-dashed border-amber-300 px-1 text-center text-xs text-amber-700">缺少对应图片</span>`
+  return `<button type="button" class="${escapeHtml(toClassName('relative block shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-50', dimension, highlighted && 'ring-2 ring-slate-900 ring-offset-1'))}" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(alt)}" aria-label="查看${escapeHtml(alt)}大图"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}实拍图" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=true;this.nextElementSibling.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500">加载中</span><span hidden class="absolute inset-0 items-center justify-center bg-slate-50 px-1 text-center text-[10px] text-amber-700">图片加载失败，点击重试预览</span></button>`
 }
 
 function renderTextInput(field: string, value: string, placeholder: string, type = 'text'): string {

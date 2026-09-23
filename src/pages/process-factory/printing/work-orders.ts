@@ -41,6 +41,7 @@ import {
   type PrintingWorkOrderBusinessRecord,
 } from '../../../data/fcs/printing-work-order-business.ts'
 import { buildPrintingWorkOrderDetailLink } from '../../../data/fcs/fcs-route-links.ts'
+import { renderProductionObjectCodeButton } from '../../../data/fcs/production-order-identity.ts'
 import { renderPrintingRelations, printingUpstreamNames, printingPatternLabel, printingMaterialCode, printingSpecification, printingInputIdentity } from './relations.ts'
 import { escapeHtml } from '../../../utils.ts'
 import { ensureProductionDemandEarlyProcessAcceptanceData } from '../../../data/fcs/production-demand-early-process-work-orders.ts'
@@ -94,8 +95,7 @@ function listRows(): PrintingWorkOrderBusinessRecord[] {
   if (!listSnapshot) {
     ensureProductionDemandEarlyProcessAcceptanceData()
     listSnapshot = listPrintingWorkOrders()
-    // Resolve each relation once on load, so filtering into a later page stays local.
-    for (const order of listSnapshot) { printingUpstreamNames(order); renderPrintingRelations(order, 'upstream'); renderPrintingRelations(order, 'downstream') }
+    // 关联事实按实际展示的行懒加载；首屏不预计算所有分页的上游单据。
   }
   return listSnapshot
 }
@@ -138,7 +138,7 @@ function renderActions(order: PrintingWorkOrderBusinessRecord): string {
 
 const columns: StandardListColumn<PrintingWorkOrderBusinessRecord>[] = [
   { key: 'selection', title: '选择', width: 72, required: true, leadingControlColumn: true, renderHeader: rows => renderProcessSelectionHeader(rows.map(row => row.workOrderId), selectedWorkOrderIds, EVENT_PREFIX), render: order => `<input type="checkbox" aria-label="选择 ${escapeHtml(order.printOrderNo)}" data-printing-action="toggle-select" data-work-order-id="${escapeHtml(order.workOrderId)}" ${selectedWorkOrderIds.has(order.workOrderId) ? 'checked' : ''}>` },
-  ...createPrintingOrderDisplayColumns(order => `<a class="font-semibold text-blue-700" href="${buildPrintingWorkOrderDetailLink(order.workOrderId)}" data-nav="${buildPrintingWorkOrderDetailLink(order.workOrderId)}">${escapeHtml(order.printOrderNo)}</a>`),
+  ...createPrintingOrderDisplayColumns(order => `<span class="inline-flex flex-wrap items-center gap-2">${renderProductionObjectCodeButton({ objectType: 'PRINT_WORK_ORDER', objectId: order.printOrderNo })}<a class="text-xs text-blue-700 underline" href="${buildPrintingWorkOrderDetailLink(order.workOrderId)}" data-nav="${buildPrintingWorkOrderDetailLink(order.workOrderId)}">详情</a></span>`),
   { key: 'actions', title: '操作', width: 176, required: true, actionColumn: true, render: renderActions },
 ]
 
@@ -235,7 +235,7 @@ function renderFilters(): string {
     ${selectField('交出状态', 'handoverStatus', state.handoverStatus, [['', '全部'], ...PRINTING_HANDOVER_STATUSES.map((item) => [item.value, item.label] as [string, string])])}
     ${selectField('加工厂', 'factory', state.factory, [['', '全部'], ...listPrintingFactoryOptions(rows).map(factory => [factory.id, factory.name] as [string, string])])}
   </div><div data-process-advanced ${advancedCount ? '' : 'hidden'}><div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
-    ${selectField('上游供料方', 'upstream', state.upstream, uniqueOptions(rows.flatMap(printingUpstreamNames)))}
+    ${selectField('上游供料方', 'upstream', state.upstream, advancedCount ? uniqueOptions(rows.flatMap(printingUpstreamNames)) : [['', '全部']])}
     ${selectField('需求来源', 'demandSource', state.demandSource, [['', '全部'], ...Object.entries(PRINTING_DEMAND_SOURCE_LABEL)])}
     ${selectField('售卖类型', 'salesType', state.salesType, uniqueOptions(rows.map((row) => row.salesType)))}
 
@@ -382,6 +382,14 @@ function resetFilters(): void {
 export function handlePrintingWorkOrderListEvent(target: HTMLElement): boolean {
   const root = target.closest<HTMLElement>('[data-printing-work-orders-root]')
   if (!root) return false
+  if (target.closest('[data-process-filter-toggle]')) {
+    const upstream = root.querySelector<HTMLSelectElement>('[data-printing-work-orders-field="upstream"]')
+    if (upstream && upstream.options.length === 1) {
+      for (const [value, label] of uniqueOptions(listRows().flatMap(printingUpstreamNames)).slice(1)) {
+        upstream.add(new Option(label, value))
+      }
+    }
+  }
   if (handleProcessFilterPresentation(root, target)) return true
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-printing-work-orders-field]')
   if (field?.dataset.printingWorkOrdersField === 'selection-scope') {

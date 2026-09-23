@@ -46,6 +46,7 @@ for (const file of requiredFiles) {
 
 const dataModule = await import('../src/data/fcs/production-object-overview.ts')
 const uiModule = await import('../src/components/production-object-overview.ts')
+const { renderProductionObjectFloatingEntry } = await import('../src/components/production-object-floating-entry.ts')
 const shellModule = await import('../src/components/shell.ts')
 const identityModule = await import('../src/data/fcs/production-order-identity.ts')
 const { productionOrders } = await import('../src/data/fcs/production-orders.ts')
@@ -53,6 +54,7 @@ const { productionDemands } = await import('../src/data/fcs/production-demands.t
 const { listMaterialPrepOrderProjections } = await import('../src/data/fcs/cutting/production-material-prep.ts')
 const { listPrintWorkOrders } = await import('../src/data/fcs/printing-task-domain.ts')
 const { listDyeWorkOrders } = await import('../src/data/fcs/dyeing-task-domain.ts')
+const { listPostFinishingQcOrderEntities, listPostFinishingRecheckOrderEntities } = await import('../src/data/fcs/post-finishing-current-read-model.ts')
 
 const {
   getMaterialResourceOverview,
@@ -131,12 +133,31 @@ const requiredUniversalObjectTypes = [
 const universalIndexedItems = productionObjectSearchIndex.filter((item) =>
   requiredUniversalObjectTypes.includes(item.objectType),
 )
+const optionalSourceCounts: Partial<Record<(typeof requiredUniversalObjectTypes)[number], number>> = {
+  QC_ORDER: listPostFinishingQcOrderEntities().length,
+  RECHECK_ORDER: listPostFinishingRecheckOrderEntities().length,
+  QC_MASTER_ORDER: new Set(listPostFinishingQcOrderEntities().map((item) => item.postTaskId)).size,
+}
 for (const objectType of requiredUniversalObjectTypes) {
   const typeItems = universalIndexedItems.filter((item) => item.objectType === objectType)
+  if (objectType in optionalSourceCounts) {
+    assert.equal(typeItems.length, optionalSourceCounts[objectType], `${objectType} 索引数量必须与当前质检来源一致`)
+    if (typeItems.length === 0) continue
+  }
   assert.ok(typeItems.length > 0, `生产对象索引缺少 ${objectType}`)
   for (const item of typeItems) {
     for (const field of requiredUniversalFields) {
       assert.ok(field in item, `${item.primaryNo} (${objectType}) 必须带 ${field}`)
+    }
+    if (objectType === 'PRINT_WORK_ORDER' || objectType === 'DYE_WORK_ORDER') {
+      const source = objectType === 'PRINT_WORK_ORDER'
+        ? listPrintWorkOrders().find((workOrder) => workOrder.printOrderNo === item.primaryNo)
+        : listDyeWorkOrders().find((workOrder) => workOrder.dyeOrderNo === item.primaryNo)
+      if (source?.sourceType === 'STOCK') {
+        assert.ok(source.stockMaterialId, `${item.primaryNo} 备货来源必须有物料标识`)
+        assert.equal(item.relatedProductionOrderNo, undefined, `${item.primaryNo} 备货来源不得伪造生产单关联`)
+        continue
+      }
     }
     assert.ok(item.relatedProductionOrderNo, `${item.primaryNo} (${objectType}) 必须能回溯生产单`)
   }
@@ -355,10 +376,9 @@ for (const line of overview.materials) {
 
 const shellSource = source('src/components/shell.ts')
 assert.ok(shellSource.includes('renderProductionObjectFloatingEntry'), 'Shell 必须挂载查生产入口')
-assert.ok(shellSource.includes("state.pathname.startsWith('/fcs/print/')"), '打印页面必须排除入口')
 assert.ok(
-  shellModule.renderAppShell({ pathname: '/fcs/pda/exec' } as any, '<main>PDA</main>').includes('查生产'),
-  'PDA standalone shell 必须挂载查生产入口',
+  !shellModule.renderAppShell({ pathname: '/fcs/pda/exec' } as any, '<main>PDA</main>').includes('查生产'),
+  'PDA 执行页不显示管理端查生产浮层',
 )
 assert.ok(
   !shellModule.renderAppShell({ pathname: '/fcs/print/post-finishing-qc' } as any, '<main>PRINT</main>').includes('查生产'),
@@ -535,12 +555,12 @@ const unlinkedSurface = uiModule.renderProductionObjectOverviewSurface('WAREHOUS
 assert.ok(unlinkedSurface.includes('未找到关联生产单'), '未关联对象必须展示明确提示')
 assert.ok(unlinkedSurface.includes('查看来源'), '未关联对象必须保留来源入口')
 
-assert.ok(uiModule.renderProductionObjectFloatingEntry('/pcs/products/styles').includes('查生产'), 'PCS 页面必须能显示查生产入口')
-assert.ok(uiModule.renderProductionObjectFloatingEntry('/pms/purchase-order').includes('查生产'), 'PMS 页面必须能显示查生产入口')
-assert.ok(uiModule.renderProductionObjectFloatingEntry('/wls/inventory').includes('查生产'), 'WLS 页面必须能显示查生产入口')
-assert.ok(uiModule.renderProductionObjectFloatingEntry('/fcs/craft/post-finishing/qc-orders').includes('查生产'), 'PFOS 页面必须能显示查生产入口')
-assert.ok(uiModule.renderProductionObjectFloatingEntry('/fcs/pda/exec').includes('查生产'), 'PDA 页面必须能显示移动查生产入口')
-assert.equal(uiModule.renderProductionObjectFloatingEntry('/fcs/print/post-finishing-qc').trim(), '', '打印页不显示查生产入口')
+assert.ok(renderProductionObjectFloatingEntry('/pcs/products/styles').includes('查生产'), 'PCS 页面必须能显示查生产入口')
+assert.ok(renderProductionObjectFloatingEntry('/pms/purchase-order').includes('查生产'), 'PMS 页面必须能显示查生产入口')
+assert.ok(renderProductionObjectFloatingEntry('/wls/inventory').includes('查生产'), 'WLS 页面必须能显示查生产入口')
+assert.ok(renderProductionObjectFloatingEntry('/fcs/craft/post-finishing/qc-orders').includes('查生产'), 'PFOS 页面必须能显示查生产入口')
+assert.equal(renderProductionObjectFloatingEntry('/fcs/pda/exec').trim(), '', 'PDA 执行页不显示管理端浮动入口')
+assert.equal(renderProductionObjectFloatingEntry('/fcs/print/post-finishing-qc').trim(), '', '打印页不显示查生产入口')
 
 const indexKeySurface = uiModule.renderProductionObjectOverviewSurface('PRODUCTION_ORDER', `PRODUCTION_ORDER-${order.productionOrderNo}`)
 assert.ok(indexKeySurface.includes(`data-primary-object-id="${order.productionOrderNo}"`), '总览从搜索索引打开时，物料资源上下文必须保留真实生产单号')
@@ -591,12 +611,15 @@ for (const text of [
   '已接收',
   '缺口',
   '计划',
-  '裁片完成',
   '事实口径',
   '数据冲突',
 ]) {
   assert.ok(surface.includes(text), `总览界面缺少 ${text}`)
 }
+const cuttingQuantityOrder = productionOrders.find((item) => item.ledgerDetails.quantityQuality.some((row) => row.quantityType === '裁片完成'))
+assert.ok(cuttingQuantityOrder, '专项样本必须包含裁片完成数量')
+const cuttingQuantitySurface = uiModule.renderProductionObjectOverviewSurface('PRODUCTION_ORDER', cuttingQuantityOrder.productionOrderNo, 'tasks')
+assert.ok(cuttingQuantitySurface.includes('裁片完成'), '裁片完成数量必须在对应生产单总览展示')
 assert.equal(countMatches(surface, 'data-production-object-action="switch-tab"'), 5, '生产对象总览只能保留 5 个一级 Tab')
 for (const removedTab of ['>面辅料</button>', '>生产进度</button>', '>关联单据</button>', '>异常与下一步</button>', '>关系图</button>', '>生产时间线</button>', '>面辅料流转</button>', '>责任分析</button>', '>跨单查询</button>']) {
   assert.ok(!surface.includes(removedTab), `总览不得保留旧 Tab：${removedTab}`)
@@ -632,9 +655,9 @@ assert.ok(queryProductionObjectIssues({ factoryName: '印花' }).length > 0, 'P3
 assert.ok(queryProductionObjectIssues({ issueType: '已采购未到仓' }).length > 0, 'P3 必须支持按异常类型查询生产单集合')
 assert.ok(queryProductionObjectIssues({ etaDate: '2026-07-02' }).length > 0, 'P3 必须支持按预计到仓日期查询生产单集合')
 
-const entry = uiModule.renderProductionObjectFloatingEntry('/fcs/production/orders')
+const entry = renderProductionObjectFloatingEntry('/fcs/production/orders')
 assert.ok(entry.includes('查生产'), 'FCS 普通页面必须展示查生产入口')
-assert.equal(uiModule.renderProductionObjectFloatingEntry('/fcs/print/foo'), '', '打印页面不得展示查生产入口')
+assert.equal(renderProductionObjectFloatingEntry('/fcs/print/foo'), '', '打印页面不得展示查生产入口')
 
 const styles = source('src/styles.css')
 assert.ok(styles.includes('.production-object-floating-entry'), '缺少浮动入口样式')

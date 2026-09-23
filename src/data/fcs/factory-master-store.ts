@@ -259,7 +259,7 @@ function mergeSeedFactories(factories: Factory[]): Factory[] {
     'ID-FAC-001197': TMF_FACTORY_ID,
     'ID-FAC-001203': SPF_FACTORY_ID,
   }
-  const centralIds = new Set([APF_FACTORY_ID, SPF_FACTORY_ID, TMF_FACTORY_ID])
+  const centralIds = new Set<string>([APF_FACTORY_ID, SPF_FACTORY_ID, TMF_FACTORY_ID])
   const currentById = new Map<string, Factory>()
   const ordered = [...factories].sort((a, b) => Number(!retiredIds[a.id]) - Number(!retiredIds[b.id]))
   for (const factory of ordered) {

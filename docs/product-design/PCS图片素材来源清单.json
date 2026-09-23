@@ -1,0 +1,1081 @@
+{
+  "scope": "PCS 当前内置 Mock 档案；不修改款号、SKU、颜色、数量或尺寸。外部图为原型选定的品类/颜色实拍，不声称属于 HiGood 对应实物。",
+  "reviewedAt": "2026-09-23",
+  "assets": {
+    "aline-black": {
+      "key": "aline-black",
+      "sourcePage": "https://cassandra.dk/products/mads-norgaard-recycled-sportina-stelly-skirt-fav-black",
+      "imageUrl": "https://cassandra.dk/cdn/shop/files/Mads-Norgaard-Mads-Norgaard-Nederdel-Recycled-Sportina-Stelly-Skirt-sort-642.jpg?v=1748342266&width=1080",
+      "note": " Mads Nørgaard Recycled Sportina Stelly Skirt",
+      "localPath": "/materials/pcs-reviewed/aline-black.jpg",
+      "sha256": "011af1337701367e5489ca243d9798ab188285f75b9603e92c403c247be13e89",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "aline-white": {
+      "key": "aline-white",
+      "sourcePage": "https://shopee.co.th/%E0%B8%81%E0%B8%A3%E0%B8%B0%E0%B9%82%E0%B8%9B%E0%B8%A3%E0%B8%87%E0%B8%9E%E0%B8%A2%E0%B8%B2%E0%B8%9A%E0%B8%B2%E0%B8%A5-%E0%B8%AA%E0%B8%B5%E0%B8%82%E0%B8%B2%E0%B8%A7-%E0%B8%9E%E0%B8%A3%E0%B9%89%E0%B8%AD%E0%B8%A1%E0%B8%AA%E0%B9%88%E0%B8%87-i.35353344.17744408990",
+      "imageUrl": "https://down-th.img.susercontent.com/file/4c7ace4a4424ec345dc9f07fcef651a6",
+      "note": " White A-Line Skirt",
+      "localPath": "/materials/pcs-reviewed/aline-white.jpg",
+      "sha256": "7aba84dd0aa7b0232955977a30626a939268fc449c8c49708cd0807a7c0b2765",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "batik-black": {
+      "key": "batik-black",
+      "sourcePage": "https://hadinatabatik.com/products/hadinata-batik-pria-kemeja-pendek-slimfit-ranvir-ranita",
+      "imageUrl": "https://hadinatabatik.com/cdn/shop/files/SHOPEE_0000_LOGOHADINATA-GOLD_c7dd9a31-db7e-4225-982c-d0561fc149ca.jpg?v=1767339539",
+      "note": " Hadinata Batik Pria Kemeja Pendek Slimfit Ranvir Ranita",
+      "localPath": "/materials/pcs-reviewed/batik-black.jpg",
+      "sha256": "db3e41a70aaea85c1d56d43b6cb2b8c645cc2258ffe25339f3ad39a233ce6987",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "batik-white": {
+      "key": "batik-white",
+      "sourcePage": "https://shopee.sg/KEMEJA-PUTIH-White-jasko-batik-shirt-~-white-men%27s-batik-short-sleeve-shirt-i.270020438.29614708201",
+      "imageUrl": "https://down-sg.img.susercontent.com/file/595cfcf033edd22a49a7d211ad497b02",
+      "note": " Casual Batik Shirt Showcase",
+      "localPath": "/materials/pcs-reviewed/batik-white.jpg",
+      "sha256": "e6dbf3bb42309fe06ebc202cc8ad24cd664b870a7baf3b10a358776b86404dfe",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "blazer-black": {
+      "key": "blazer-black",
+      "sourcePage": "https://www.rolando.co.za/Shop/Shop?strCategories=s42&strPageHeader=Ladies+Formal+Jackets",
+      "imageUrl": "https://rolando.co.za/content/assets/Products/CMT-RJA-869-BLA.jpg",
+      "note": " Black Women’s Formal Blazer",
+      "localPath": "/materials/pcs-reviewed/blazer-black.jpg",
+      "sha256": "e9baa2da4e99c1e82dc13b835417cb0d2669f646997c006cf99fe14780170089",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "blazer-white": {
+      "key": "blazer-white",
+      "sourcePage": "https://www.riani.com/de_en/shop-riani/categories/blazer",
+      "imageUrl": "https://assets.riani.com/media/7f/9f/e1/1768380044/631240-004139-110-2.975693ce.png?ts=1768380046",
+      "note": " White Tailored Women’s Blazer",
+      "localPath": "/materials/pcs-reviewed/blazer-white.png",
+      "sha256": "6759de41e25d3f622644857a1cbe0f871ffc21da7cc4c32efb607402ada5039b",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "blouse-champagne": {
+      "key": "blouse-champagne",
+      "sourcePage": "https://co.ebay.com/b/Satin-Blouses-White-Tops-for-Women/53159/bn_100192078",
+      "imageUrl": "https://i.ebayimg.com/images/g/4RAAAeSwehRpFaKa/s-l1200.webp",
+      "note": " Champagne Satin Blouse Ensemble",
+      "localPath": "/materials/pcs-reviewed/blouse-champagne.webp",
+      "sha256": "b87236f60e8bcf18bf1f02f8cce4f20c51de4096a7633250b80e19d61511af91",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cardigan-beige": {
+      "key": "cardigan-beige",
+      "sourcePage": "https://www.walmart.com/ip/15302453426",
+      "imageUrl": "https://i5.walmartimages.com/asr/3b5def04-a68d-4581-a882-ffa990ce59d2.2b15435e6a5cd8d92b6ccb5cefc01d75.jpeg?odnBg=FFFFFF&odnHeight=768&odnWidth=768",
+      "note": " Beige V-Neck Button-Up Cardigan",
+      "localPath": "/materials/pcs-reviewed/cardigan-beige.jpg",
+      "sha256": "c43985132a876ddeca95faa49149c55b0a3c4138819434e0a0957524adfdc99e",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cardigan-black": {
+      "key": "cardigan-black",
+      "sourcePage": "https://www.walmart.com/ip/3514105604",
+      "imageUrl": "https://i5.walmartimages.com/asr/a6d492a6-91c3-4cf5-b75c-c113e80c336d.199267aa77cd44f006efa5aa0dc8ec96.jpeg",
+      "note": " Gap Linen-Blend V-Neck Cardigan",
+      "localPath": "/materials/pcs-reviewed/cardigan-black.jpg",
+      "sha256": "31dcf2d4f5b417bc24cb77b7a64db1f2d5ba75a06594b7e6b3be95b439f5b451",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cardigan-white": {
+      "key": "cardigan-white",
+      "sourcePage": "https://www.houseofbruar.com/ladies-pima-cotton-cardigan-white/",
+      "imageUrl": "https://media.houseofbruar.com/www/images/products/medium/TT19124OFFWHITE_1.jpg?v=0",
+      "note": " Ladies’ White Cotton Cardigan",
+      "localPath": "/materials/pcs-reviewed/cardigan-white.jpg",
+      "sha256": "7be5bacd3dc354eaf0c74bfc6f86054a58497cf18b08438c158c64e2ce95bf0f",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cargo-black": {
+      "key": "cargo-black",
+      "sourcePage": "https://www.walmart.com/c/kp/mens-cargo-joggers",
+      "imageUrl": "https://i5.walmartimages.com/seo/WeSC-Men-s-Slim-Utility-Cargo-Joggers-Sizes-S-2XL_8dcb5712-ad8a-45f3-8c48-a9a147c6b96f.f476218f4e75aac40806b19b03d7a6c4.jpeg?odnBg=FFFFFF&odnHeight=784&odnWidth=580",
+      "note": " Black Slim Utility Cargo Joggers",
+      "localPath": "/materials/pcs-reviewed/cargo-black.jpg",
+      "sha256": "1f89cb9637ed1beb128b955d7794105af81cfa59989559cbfc07fdcadd512c74",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cargo-white": {
+      "key": "cargo-white",
+      "sourcePage": "https://www.walmart.com/ip/2347284384",
+      "imageUrl": "https://i5.walmartimages.com/asr/6e84ced1-7aaf-48dd-91e3-643a715d87e2.64fd0bf25bd1bec44a66cd0c5f714ead.jpeg?odnBg=FFFFFF&odnHeight=768&odnWidth=768",
+      "note": " White Cargo Jogger Pants",
+      "localPath": "/materials/pcs-reviewed/cargo-white.jpg",
+      "sha256": "f6c32fc8d02a2cc317a05e8da2ac8fd59667b8472f340dc0a0a80636d1b53b71",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "casual-dress-black": {
+      "key": "casual-dress-black",
+      "sourcePage": "https://gate.shop/cz/damske-bavlnene-mini-saty-7",
+      "imageUrl": "https://gate.bwcdn.net/media/2024/04/6/7/225-0081-89-6763516.jpg",
+      "note": " Black Cotton A-Line Mini Dress",
+      "localPath": "/materials/pcs-reviewed/casual-dress-black.jpg",
+      "sha256": "114bcf3fd5f1fb0225806eb863858ee67fa4fa25bf7640fcc4b221bc9c040e5b",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "casual-dress-white": {
+      "key": "casual-dress-white",
+      "sourcePage": "https://www.walmart.com/ip/5605721813",
+      "imageUrl": "https://i5.walmartimages.com/seo/Women-s-Casual-Plain-Simple-T-Shirt-Loose-Dress-Short-Sleeve-Ladies-Loose-Mini-Dress-White-M_a3e1fcff-576d-4a8e-9206-e37ad21e606c.2211e4d7754ca27d09d0df8b249e97bc.jpeg",
+      "note": " White Casual Mini Dress",
+      "localPath": "/materials/pcs-reviewed/casual-dress-white.jpg",
+      "sha256": "40b33f3b7c3ac075959f59e697aba47785b75a35199d99b9558174f017813dd5",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cotton-black": {
+      "key": "cotton-black",
+      "sourcePage": "https://naturesfabrics.com/products/black-cotton-jersey",
+      "imageUrl": "https://naturesfabrics.com/cdn/shop/files/black-cotton-jersey-fabric-94928.jpg?v=1772149883",
+      "note": "cotton-black",
+      "localPath": "/materials/pcs-reviewed/cotton-black.jpg",
+      "sha256": "ec70ac75911419c1edf8f78d6474b464e80e335a8328c9d18fe1175a428665e6",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "cotton-white": {
+      "key": "cotton-white",
+      "sourcePage": "https://www.vendfabricsonline.co.uk/products/fabric-8180-heavyweight-single-jersey-white",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0884/4505/9338/files/Heavyweight-Cotton-Jersey-Tshirt-Fabric-White.jpg?v=1743086751",
+      "note": "cotton-white",
+      "localPath": "/materials/pcs-reviewed/cotton-white.jpg",
+      "sha256": "e333b4f2b2b27e424333ed8b8ed0d947bba5f09537fc284aa27f54b077716cfc",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "dress-blue": {
+      "key": "dress-blue",
+      "sourcePage": "https://poshmark.com/listing/Zenana-Outfitters-Dusty-Blue-Midi-Dress-687530053509d1d8fb792cdf",
+      "imageUrl": "https://di2ponv0v5otw.cloudfront.net/posts/2025/07/14/687530053509d1d8fb792cdf/m_687530053509d1d8fb792ce0.jpg",
+      "note": " Zenana Outfitters Dusty Blue Midi Dress",
+      "localPath": "/materials/pcs-reviewed/dress-blue.jpg",
+      "sha256": "aa2dbadb26070749cd050d61e98a1384738ae2094c8438be22fc72d77b194e21",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "dress-floral-black": {
+      "key": "dress-floral-black",
+      "sourcePage": "https://www.pixiegirl.com/pixiegirl-petite-black-ditsy-floral-tie-front-midi-dress-226778-p",
+      "imageUrl": "https://cdn.pixiegirl.com/Images/ProductImages/6475391a-97dc-42_226778_X.jpg",
+      "note": " PixieGirl Petite Black Ditsy Floral Tie Front Midi Dress",
+      "localPath": "/materials/pcs-reviewed/dress-floral-black.jpg",
+      "sha256": "0fb1a670d03dbfd1b94cbddba0865698d148c6a9deb7d665ed92550b4034e38d",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "dress-floral-white": {
+      "key": "dress-floral-white",
+      "sourcePage": "https://www.dorothyperkins.com/product/dorothy-perkins-ditsy-button-front-shirred-waist-midi-dress_bqq17845",
+      "imageUrl": "https://mediahub.dorothyperkins.com/bqq17845_floral_xl_1?dpr=1&qlt=70&ssz=true&w=549",
+      "note": " Floral Ditsy Button Front Shirred Waist Midi Dress",
+      "localPath": "/materials/pcs-reviewed/dress-floral-white.jpg",
+      "sha256": "f5b2c962ee1c8a4488fc686987ead53d42f41ed0856f0d130abe0404ea89a6a2",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "dress-khaki": {
+      "key": "dress-khaki",
+      "sourcePage": "https://www.nordstromrack.com/s/theory-ruched-side-short-sleeve-dress/8530628",
+      "imageUrl": "https://n.nordstrommedia.com/it/c5b99eb4-a7ec-4324-84e7-c043d7a06138.jpeg?crop=pad&h=1196&w=780",
+      "note": "dress-khaki",
+      "localPath": "/materials/pcs-reviewed/dress-khaki.jpg",
+      "sha256": "1bd95bb22e128a96e2298223939a71d0b86793ad80934d8b4b181347a47f4792",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "dress-red-print": {
+      "key": "dress-red-print",
+      "sourcePage": "https://www.dames.ro/rochie-rosie-casual-cu-decolteu-in-v-imprimata-cu-model-floral.html",
+      "imageUrl": "https://c.cdnmp.net/846916914/p/l/5/rochie-rosie-casual-cu-decolteu-in-v-imprimata-cu-model-floral~9965.jpg",
+      "note": " Red Casual V-Neck Floral Dress",
+      "localPath": "/materials/pcs-reviewed/dress-red-print.jpg",
+      "sha256": "9db87708fc9fd50695d1d66e2256aaf5466df5fce57f28515056d5b62e8fda69",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "dress-wine": {
+      "key": "dress-wine",
+      "sourcePage": "https://ca.shein.com/SHEIN-Frenchy-Women-Burgundy-Red-Summer-Casual-Long-Dress-Short-Sleeve-Round-Neck-Simple-Minimalist-Work-Office-Clothes-Old-Money-Brunch-Vacation-Holiday-p-38735383.html",
+      "imageUrl": "https://img.ltwebstatic.com/images3_pi/2024/07/15/b9/17210210121de94b11d641e407e76ca3036ed32940_thumbnail_750x999.webp",
+      "note": " Burgundy Rib-Knit Midi Dress",
+      "localPath": "/materials/pcs-reviewed/dress-wine.jpg",
+      "sha256": "e968d7b56ddf2276430e327131ad7f6b159ef1281877adeda247bfa89f62b4b7",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "embroidered-dress-black": {
+      "key": "embroidered-dress-black",
+      "sourcePage": "https://www.walmart.com/ip/16875671302",
+      "imageUrl": "https://i5.walmartimages.com/seo/Globus-Women-Black-Ethnic-Motifs-Embroidered-Cotton-A-Line-Ethnic-Dress_1b0f2e44-f8ad-48af-b88e-d1b25429c153.7a2f2e3ab5d35190aeafe4873ca7bd37.jpeg",
+      "note": " Black Embroidered A-Line Ethnic Dress",
+      "localPath": "/materials/pcs-reviewed/embroidered-dress-black.jpg",
+      "sha256": "f40480c5172422ab9760e2f96929cd0ea468cf126c62056cdb53eb635a4f4973",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "embroidered-dress-white": {
+      "key": "embroidered-dress-white",
+      "sourcePage": "https://www.indoera.in/",
+      "imageUrl": "https://www.indoera.in/cdn/shop/files/ED0WH8787_c80fe80d-2196-4422-b731-cbcc2e2ded2c_600x.jpg?v=1717159866",
+      "note": " White Embroidered Ethnic Maxi Dress",
+      "localPath": "/materials/pcs-reviewed/embroidered-dress-white.jpg",
+      "sha256": "616d849da3cf0ac01afb676a6fb3f59db367db5515732474464a1aaffba84e06",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-ACC-ELASTIC-42CM-WHITE": {
+      "key": "existing-ACC-ELASTIC-42CM-WHITE",
+      "sourcePage": "repository:public/materials/accessory-elastic-band.jpg",
+      "imageUrl": "/materials/accessory-elastic-band.jpg",
+      "localPath": "/materials/accessory-elastic-band.jpg",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "6039bd84259e99101656b0112c187be1cb1403741f1addc0b2fad0bc3afb1898",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-CNIDML360-white-1": {
+      "key": "existing-CNIDML360-white-1",
+      "sourcePage": "repository:public/materials/archive/4595f8e168082d676f32f9b977984a2a.png",
+      "imageUrl": "/materials/archive/4595f8e168082d676f32f9b977984a2a.png",
+      "localPath": "/materials/archive/4595f8e168082d676f32f9b977984a2a.png",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "17351114e591badbe86decb6cf55f429d05bbe64f336a159789a1447b5313bad",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-FLSZ26031315-103": {
+      "key": "existing-FLSZ26031315-103",
+      "sourcePage": "repository:public/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "imageUrl": "/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "localPath": "/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "e878495c8d49a5157787c9fd2781fa7c04160857f05f71ca00201033f25a9f17",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-FLSZ26031315-sc-khaki": {
+      "key": "existing-FLSZ26031315-sc-khaki",
+      "sourcePage": "repository:public/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "imageUrl": "/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "localPath": "/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "e878495c8d49a5157787c9fd2781fa7c04160857f05f71ca00201033f25a9f17",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-FLSZ26041134-apricot": {
+      "key": "existing-FLSZ26041134-apricot",
+      "sourcePage": "repository:public/materials/archive/aee58e719c2f35faab770954c5d809ba.png",
+      "imageUrl": "/materials/archive/aee58e719c2f35faab770954c5d809ba.png",
+      "localPath": "/materials/archive/aee58e719c2f35faab770954c5d809ba.png",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "69a535554d13bab4d3ba69e3b7f343f082df52ad404e80d2b2ba37a67a0a2bb7",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-FLSZ26041134-pink": {
+      "key": "existing-FLSZ26041134-pink",
+      "sourcePage": "repository:public/materials/archive/e6a76d165ac01ac683f40377e1515351.jpg",
+      "imageUrl": "/materials/archive/e6a76d165ac01ac683f40377e1515351.jpg",
+      "localPath": "/materials/archive/e6a76d165ac01ac683f40377e1515351.jpg",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "492d067b14bf4d141dca42f8221b2cc0a5464cd5fc43d2ab39f156c80e2b64fe",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-FLSZ26041134-white": {
+      "key": "existing-FLSZ26041134-white",
+      "sourcePage": "repository:public/materials/archive/03170a87fd957af3c1672371e197470a.png",
+      "imageUrl": "/materials/archive/03170a87fd957af3c1672371e197470a.png",
+      "localPath": "/materials/archive/03170a87fd957af3c1672371e197470a.png",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "518ccd147b6679fbe3bf9fb3b94b6de5c02d47ba23a58b484f057cf1723bdec7",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-FLSZ26041135-sameasphoto": {
+      "key": "existing-FLSZ26041135-sameasphoto",
+      "sourcePage": "repository:public/materials/archive/23c0221901139951ff63a0071c75267c.gif",
+      "imageUrl": "/materials/archive/23c0221901139951ff63a0071c75267c.gif",
+      "localPath": "/materials/archive/23c0221901139951ff63a0071c75267c.gif",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "a755e1a25e85146769908d5b77d142e70d498df0cad4b7bd2b54cb877655ccd1",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-TMF-RP-REF-WHT": {
+      "key": "existing-TMF-RP-REF-WHT",
+      "sourcePage": "repository:public/materials/tmf/rope-real-bundle.jpg",
+      "imageUrl": "/materials/tmf/rope-real-bundle.jpg",
+      "localPath": "/materials/tmf/rope-real-bundle.jpg",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "2268d4cae8bb72b1f3fcf824ff06a4c5f467a438404d1f095b6bca41752e7559",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "existing-TMF-WB-REF-WHT": {
+      "key": "existing-TMF-WB-REF-WHT",
+      "sourcePage": "repository:public/materials/tmf/webbing-real-roll.jpg",
+      "imageUrl": "/materials/tmf/webbing-real-roll.jpg",
+      "localPath": "/materials/tmf/webbing-real-roll.jpg",
+      "note": "原仓库同类物料实拍，保留原物料档案对应；色号和尺寸沿用 Mock，照片不作为规格计量依据",
+      "sha256": "e3548a3c896ec6e9e2d61fc8419af4c5ee7606360975600f66fefc7704521a4c",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "flannel-black": {
+      "key": "flannel-black",
+      "sourcePage": "https://www.walmart.com/ip/BRAHMA-WORK-FLANNEL/15338562452",
+      "imageUrl": "https://i5.walmartimages.com/asr/b817f077-f733-4a08-bd4a-78a1e79845f5.6690ce30f5e98ded3dfa6d9aa335fdf0.jpeg?odnBg=FFFFFF&odnHeight=1067&odnWidth=800",
+      "note": " Brahma Men’s Work Cotton Flannel Shirt",
+      "localPath": "/materials/pcs-reviewed/flannel-black.jpg",
+      "sha256": "d74af020942000a000b64fcb50c24697485840f0ae91c04c2418596982262198",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "flannel-blue": {
+      "key": "flannel-blue",
+      "sourcePage": "https://www.samsclub.com/ip/Eddie-Bauer-Men-s-Bristol-Flannel-Shirt/13598050160",
+      "imageUrl": "https://i5.samsclubimages.com/asr/fa9c6d51-5d14-4d37-acbd-cbf6673cd31c.1ed7410b241573e706948b42f5a877a9.jpeg",
+      "note": " Eddie Bauer Men’s Bristol Flannel Shirt",
+      "localPath": "/materials/pcs-reviewed/flannel-blue.jpg",
+      "sha256": "ac956a7b2043566cd9b84b176f021918db2a1b44b2aa08b78dc9fe87716e42b7",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "flannel-white": {
+      "key": "flannel-white",
+      "sourcePage": "https://www.next.co.uk/style/su574163/ay9471",
+      "imageUrl": "https://xcdn.next.co.uk/common/items/default/default/itemimages/3_4Ratio/product/lge/AY9471s5.jpg?im=Resize%2Cwidth%3D750",
+      "note": " Crew Clothing Natural Brushed Flannel Check Shirt",
+      "localPath": "/materials/pcs-reviewed/flannel-white.jpg",
+      "sha256": "b305c74063a9291667a925842bbdaa73f1ae0ffcaee8c9ef9851f29d7ae23100",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "fringe-pink": {
+      "key": "fringe-pink",
+      "sourcePage": "https://www.trimsandbeads.com/chainette-fringe/p/vosmaer-arrangement-cxm59-kkrnk",
+      "imageUrl": "https://images.squarespace-cdn.com/content/v1/5e6927f7c780126c2c248657/1584054999261-YDUGU153NXZX3Y6LYAO6/Light%2Bpink%2BBolt.jpg?format=1500w",
+      "note": "粉色流苏实拍；尺寸仅作 Mock 参数，不凭照片认定130cm",
+      "localPath": "/materials/pcs-reviewed/fringe-pink.jpg",
+      "sha256": "0299c25bc4b9513d1beaeb29650e3167c8dfa3fb78e6e6cbce86f1a66637d216",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "hawaii-black": {
+      "key": "hawaii-black",
+      "sourcePage": "https://www.kykushirts.com/product/kyku-hawaiian-mens-shirts-casual-beach-vacation-tropical-mens-button-down-short-sleeve-shirt-with-pockettree-black-men-hawaiian-button-shirt/",
+      "imageUrl": "https://cdn.data-hub.shop/cdn/1069/2025/06/06/KYKU-Hawaiian-Mens-Shirts-Casual-Beach-Vacation-Tropical-Mens-Button-Down-Short-Sleeve-Shirt-with-PocketTree-Black-Men-Hawaiian-Button-Shirt-3362806-7296414.jpg",
+      "note": " KYKU Black Tropical Button-Down Shirt",
+      "localPath": "/materials/pcs-reviewed/hawaii-black.jpg",
+      "sha256": "f784cfae2ee9486e72f63816831f49c7f9cab1a211507a7f4912265d18f3aad0",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "hawaii-white": {
+      "key": "hawaii-white",
+      "sourcePage": "https://www.target.com/p/-/A-92691575",
+      "imageUrl": "https://target.scene7.com/is/image/Target/GUEST_c3d03b59-418d-4ef2-bea2-127b13e0e2c4",
+      "note": " LA LEELA Men's White and Black Tropical Hawaiian Shirt",
+      "localPath": "/materials/pcs-reviewed/hawaii-white.jpg",
+      "sha256": "378fbd0cb9140a0fb061560cc6050159b880a8ef923e9f735ce72cbe75b2e0cd",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "hood-black": {
+      "key": "hood-black",
+      "sourcePage": "https://www.celio.com/en-fr/p/100-cotton-hooded-jacket---black/1186096.html",
+      "imageUrl": "https://www.celio.com/dw/image/v2/BGBR_PRD/on/demandware.static/-/Sites-celio-master/default/dw80b345bd/hi-res/187939-956-NULEAG_BLACK-WEB3-1.jpg",
+      "note": " Black Cotton Hooded Jacket",
+      "localPath": "/materials/pcs-reviewed/hood-black.jpg",
+      "sha256": "336d047ef9de8f930b4116cb56527a0b6a673ea4efad1745e92d4668b340a7bf",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "hood-grey": {
+      "key": "hood-grey",
+      "sourcePage": "https://ascolour.com/relax-zip-hood-5162/",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-hsi95a83fz/images/stencil/1280x1280/products/594/17795/5162_RELAX_ZIP_GREY_MARLE__38029.1726702038.jpg?c=1",
+      "note": "hood-grey",
+      "localPath": "/materials/pcs-reviewed/hood-grey.jpg",
+      "sha256": "cf536b1b1d3051edcff421418b3fc463163e4fe5a82799e3fec940092460025e",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "hood-white": {
+      "key": "hood-white",
+      "sourcePage": "https://www.tatacliq.com/van-heusen-white-cotton-regular-fit-hooded-jacket/p-mp000000023490266",
+      "imageUrl": "https://img.tatacliq.com/images/i19/437Wx649H/MP000000023490246_437Wx649H_202408311730121.jpeg",
+      "note": " Van Heusen White Cotton Hooded Jacket",
+      "localPath": "/materials/pcs-reviewed/hood-white.jpg",
+      "sha256": "78ca512d64bccb0ddde26fb9995e95bed1eb9ecf6fbd0753c096cea2523a648e",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jacket-army": {
+      "key": "jacket-army",
+      "sourcePage": "https://northfinder.com/hu/1625-jackets",
+      "imageUrl": "https://b2b.northfinder.com/214506-large_default/bu-5431or-men-s-lightweight-jacket-25l-cmelok.webp",
+      "note": " Olive-Green Lightweight Men’s Jacket",
+      "localPath": "/materials/pcs-reviewed/jacket-army.jpg",
+      "sha256": "ff33152f95cfc860b708b235e7067b21f62886cdea45e4252a7f4e1550e9dc22",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jacket-black": {
+      "key": "jacket-black",
+      "sourcePage": "https://www.evolveclothing.com/en/Tommy-Hilfiger-Mens-Lightweight-Blouson-Jacket---Black/m-24834.aspx",
+      "imageUrl": "https://www.evolveclothing.com/Images/Models/Full/24834-3.Jpg",
+      "note": " Tommy Hilfiger Men’s Lightweight Blouson Jacket",
+      "localPath": "/materials/pcs-reviewed/jacket-black.jpg",
+      "sha256": "aef50416f86a76282a60a7a95533d39d558627e780d1409ca839124b05667826",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jacket-blue": {
+      "key": "jacket-blue",
+      "sourcePage": "https://clothbase.com/items/72788fdb_nanushka-theo-stretch-cotton-twill-chore-jacket-blue_nanushka",
+      "imageUrl": "https://cdn.clothbase.com/uploads/98faca2e-79c3-45e6-ae89-1b72b532a7a8/image.jpg",
+      "note": " Nanushka 'Theo' Dusty Blue Chore Jacket",
+      "localPath": "/materials/pcs-reviewed/jacket-blue.jpg",
+      "sha256": "3ad453d8e565b3f870b0614ac8bdf55a77b46b278305bcfa630f079cca41918b",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jacket-khaki": {
+      "key": "jacket-khaki",
+      "sourcePage": "https://www.walmart.com/ip/10514324931",
+      "imageUrl": "https://i5.walmartimages.com/seo/Mountain-Khakis-Men-s-Sullivan-Utility-Jacket_00706e91-3470-4de8-9b41-1bfe2a4db31f.015cd2faf5fd476977e960e5172a9b2b.jpeg",
+      "note": " Mountain Khakis Sullivan Utility Jacket",
+      "localPath": "/materials/pcs-reviewed/jacket-khaki.jpg",
+      "sha256": "5e812c8be692e078b8f0a47b95345a7821833a36d89c975a934f7f0002932ea4",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jacket-white": {
+      "key": "jacket-white",
+      "sourcePage": "https://www.walmart.com/ip/17811824595",
+      "imageUrl": "https://i5.walmartimages.com/asr/2c28d472-74c8-4fe6-a255-c0cc2df62435.fe3f669a03ef32ac74ea1686eb2342e2.jpeg?odnBg=FFFFFF&odnHeight=768&odnWidth=768",
+      "note": " White Hooded Windbreaker Jacket",
+      "localPath": "/materials/pcs-reviewed/jacket-white.jpg",
+      "sha256": "f293cc4eded18fddfac92df092ce455d02541b76543f01ddfd113bc5827f8fd8",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jacket-wine": {
+      "key": "jacket-wine",
+      "sourcePage": "https://store.flylinking.com/g/DCS4WMTGBJ",
+      "imageUrl": "https://flylink-cdn-oss-prod.inflyway.com/flylink/1747746287689_2430e42919b7d024903b752dc1e05361.jpg",
+      "note": " Maroon Hooded Windbreaker Jacket",
+      "localPath": "/materials/pcs-reviewed/jacket-wine.jpg",
+      "sha256": "f49e60e8a0c3ebba5e8f11d1a32d084f83cc18a7b4d606c3b0675d3eb62afb32",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jeans-black": {
+      "key": "jeans-black",
+      "sourcePage": "https://www.celio.com/fr-fr/p/jean-slim-coton-stretch---noir/1130191.html",
+      "imageUrl": "https://www.celio.com/dw/image/v2/BGBR_PRD/on/demandware.static/-/Sites-celio-master/default/dw710cb219/hi-res/161482-2-FOSLIM_NOIR-WEB3-1.jpg",
+      "note": " Black Slim-Fit Stretch Cotton Jeans",
+      "localPath": "/materials/pcs-reviewed/jeans-black.jpg",
+      "sha256": "487f60135d3e8f5767be5f1df942a96748044e01d70d5043dced8a62d3e54cff",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jeans-white": {
+      "key": "jeans-white",
+      "sourcePage": "https://7forallmankind.com/products/luxe-performance-slimmy-clean-pocket-in-white",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0557/0612/4373/files/7T002P46_WHT_1_2d8e43ec-2e60-4f17-ae22-e141ae17839a.jpg?v=1769421699",
+      "note": " Luxe Performance Slimmy Clean Pocket Jeans",
+      "localPath": "/materials/pcs-reviewed/jeans-white.jpg",
+      "sha256": "6a9bba8306a78439e4bfa642758eeb671a12430d2ca8e5c30e769c63c2d96793",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jogger-black": {
+      "key": "jogger-black",
+      "sourcePage": "https://www.walmart.com/ip/682669963",
+      "imageUrl": "https://i5.walmartimages.com/seo/No-Boundaries-Men-s-Fleece-Joggers_ccc97fe3-a455-44ef-a7a0-40f8f253da1f.53b17f3a6477c5fb2bef8d25f3b1ba58.jpeg",
+      "note": " No Boundaries Men’s Black Fleece Joggers",
+      "localPath": "/materials/pcs-reviewed/jogger-black.jpg",
+      "sha256": "4d833fe9d9411ec5f710be2b80b85135851bbc3f2c9cb3beb308f2e9687ed88d",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jogger-white": {
+      "key": "jogger-white",
+      "sourcePage": "https://www.sportchek.ca/en/pdp/nike-sportswear-men-s-club-fleece-2-0-jogger-pants-83748647f.html",
+      "imageUrl": "https://media-www.sportchek.ca/product/div-03-softgoods/dpt-70-athletic-clothing/sdpt-01-mens/334511846/nike-sportswear-men-s-club-fleece-2-0-jogger-pants-fa619020-8022-4438-b84c-6d393e4a898f-jpgrendition.jpg",
+      "note": "Nike Club Fleece 2.0 Jogger Pants",
+      "localPath": "/materials/pcs-reviewed/jogger-white.jpg",
+      "sha256": "9dd63915c5ecd04f7f9c44bdfc2b0f17c709913644ea9eb9e37f6e50cdc61bcc",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jumpsuit-black": {
+      "key": "jumpsuit-black",
+      "sourcePage": "https://www.tsc.ca/Nina-Leonard-Printed-Jumpsuit/pages/productdetails?nav=R%3A228149",
+      "imageUrl": "https://item.tscimg.ca/TSC/2/22/228/0x0/228149_BKM.jpg?impolicy=XL",
+      "note": " Nina Leonard Black Floral Printed Jumpsuit",
+      "localPath": "/materials/pcs-reviewed/jumpsuit-black.jpg",
+      "sha256": "ec554e9ec04b7b1cb64bb43472d5a51adf15cbaa92aa1d36a44ce20e3c861a57",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "jumpsuit-white": {
+      "key": "jumpsuit-white",
+      "sourcePage": "https://www.walmart.com/ip/Zunfeo-Women-s-Jumpsuit-Printed-Wide-Leg-Fashion-Slim-Suit-Pants-High-Waist-Relaxed-Fit-Sexy-Halterneck-Jumpsuit-Pants-White/1647164028",
+      "imageUrl": "https://i5.walmartimages.com/seo/Zunfeo-Women-s-Jumpsuit-Printed-Wide-Leg-Fashion-Slim-Suit-Pants-High-Waist-Relaxed-Fit-Sexy-Halterneck-Jumpsuit-Pants-White_09514928-6128-43f7-8403-1e2035bc1277.a18c40e14a7b570119bf490bc4d200f5.jpeg",
+      "note": " White Halterneck Wide-Leg Jumpsuit",
+      "localPath": "/materials/pcs-reviewed/jumpsuit-white.jpg",
+      "sha256": "2cbb818a77e2619e26fe4ab8abc1d019825dbb4303f5c58814aea04f990bac7e",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "knife": {
+      "key": "knife",
+      "sourcePage": "https://stitchspares.com/products/10-inch-straight-knife-cutter-blade-for-eastman-glory-santian",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/1351/4761/products/10inchStraightKnifeCutterBlade_1.jpg?v=1625221499",
+      "note": "knife",
+      "localPath": "/materials/pcs-reviewed/knife.jpg",
+      "sha256": "2eee76f090af08b1e9cb1b337fd1a570862613802d87354f0af1686501b76d93",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "knit-coral": {
+      "key": "knit-coral",
+      "sourcePage": "https://www.bluechicboutique.com/products/coral-and-pink-short-sleeve-sweater-1",
+      "imageUrl": "https://www.bluechicboutique.com/cdn/shop/files/IMG_6464.jpg?v=1720760667",
+      "note": " Coral and Pink Short Sleeve Sweater",
+      "localPath": "/materials/pcs-reviewed/knit-coral.jpg",
+      "sha256": "81a046c56c7071269fe34b5a9f09693568abe550d380c7e7629a707c3ff269e6",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "lace-dress-black": {
+      "key": "lace-dress-black",
+      "sourcePage": "https://www.nordstromrack.com/s/dress-the-population-gianna-lace-panel-crepe-eveninggown/8097828",
+      "imageUrl": "https://n.nordstrommedia.com/it/ff22dc0c-484c-466f-a723-2696cb5901e1.jpeg",
+      "note": " Dress the Population Gianna Lace Panel Crepe EveningGown",
+      "localPath": "/materials/pcs-reviewed/lace-dress-black.jpg",
+      "sha256": "54d20148955a5058f857fec82f8da8657e56c8a99ec2ab0eaca15cb76f078ee0",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "lace-dress-white": {
+      "key": "lace-dress-white",
+      "sourcePage": "https://vionnera.com/products/noelia-elegancka-sukienka-maxi",
+      "imageUrl": "https://vionnera.com/cdn/shop/files/noelia-wit2_1400x.jpg?v=1776264061",
+      "note": " Noelia White Lace Maxi Dress",
+      "localPath": "/materials/pcs-reviewed/lace-dress-white.jpg",
+      "sha256": "e16825d6ce2a4afe43228f213e04e32d73d2dbcf54ebbd4c3ae3c556e0f6f51c",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "lace-top-black": {
+      "key": "lace-top-black",
+      "sourcePage": "https://bovera.jp/products/cotton-lace-blouse",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0690/3319/7647/files/26_02_01_bovera12543_142f5e22-ae53-4507-a876-4ba19376c15c.jpg?v=1772825801",
+      "note": "lace-top-black",
+      "localPath": "/materials/pcs-reviewed/lace-top-black.jpg",
+      "sha256": "383ae51110c41f709c678df9511abbd2f344667a30f33bc23f71fe53542478f2",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "lace-top-white": {
+      "key": "lace-top-white",
+      "sourcePage": "https://bovera.jp/products/cotton-lace-blouse",
+      "imageUrl": "https://cdn.shopify.com/s/files/1/0690/3319/7647/files/26_01_17_bovera7817_a80caacb-22c2-4953-9ced-00ac594a74cf.jpg?v=1771930394",
+      "note": "lace-top-white",
+      "localPath": "/materials/pcs-reviewed/lace-top-white.jpg",
+      "sha256": "72f342cf2d58dad45cfe4bae1c2473ee615ec7ee84ed95f34de21c05b0b638e0",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "linen-dress-black": {
+      "key": "linen-dress-black",
+      "sourcePage": "https://www.walmart.com/ip/16682320618",
+      "imageUrl": "https://i5.walmartimages.com/seo/2024-Women-s-Cotton-Linen-A-Line-Dress-Round-Neck-Plus-Size-Loose-Fit-Casual-Office-Summer-Wear_8002c52e-1252-461d-9e5b-0b31a0a88f96.c77c51b44eeadb94389cf9039bfe15b9.jpeg?odnBg=FFFFFF&odnHeight=768&odnWidth=768",
+      "note": " Black Cotton-Linen A-Line Summer Dress",
+      "localPath": "/materials/pcs-reviewed/linen-dress-black.jpg",
+      "sha256": "bf583cbd133f57f8ccd0a519ee0516fd7f4bc6b247fe2aa3311d966a7da08aac",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "linen-dress-white": {
+      "key": "linen-dress-white",
+      "sourcePage": "https://pallajaipur.com/products/white-cotton-linen-dress",
+      "imageUrl": "https://pallajaipur.com/cdn/shop/files/White_Cotton_Linen_Dress_-_Palla_Jaipur-5920642_800x800_c8c6ab4f-3db6-437d-a522-4a5907791e6c.jpg?v=1749070628&width=720",
+      "note": " White Cotton Linen Button-Front Dress",
+      "localPath": "/materials/pcs-reviewed/linen-dress-white.jpg",
+      "sha256": "19ec681663ebf6aaf00d02738e573185ec1838f915da55df7bce1d12879e8a8f",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "linen-white": {
+      "key": "linen-white",
+      "sourcePage": "https://www.muji.com/my/products/cmdty/detail/4550584638138",
+      "imageUrl": "https://img.muji.net/img/item/4550584638138_1260.jpg",
+      "note": "linen-white",
+      "localPath": "/materials/pcs-reviewed/linen-white.jpg",
+      "sha256": "cdd493a777625c026e5838b1da5d241887eb8de4300683722ab275d1c33d96c3",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "organza-blue": {
+      "key": "organza-blue",
+      "sourcePage": "https://www.etsy.com/listing/826670025/7-color-organza-flowers-applique-fairy",
+      "imageUrl": "https://i.etsystatic.com/7961914/r/il/fcbf1e/2369781524/il_1080xN.2369781524_942u.jpg",
+      "note": " Blue Organza Flower Appliqués",
+      "localPath": "/materials/pcs-reviewed/organza-blue.jpg",
+      "sha256": "c942f922d9c44631c914bfd1dd1ab3bf0b1755ff07fcb7d22f1031f0b27202e3",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "pleated-black": {
+      "key": "pleated-black",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E458051-000/00?colorDisplayCode=09",
+      "imageUrl": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/458051/item/goods_09_458051_3x4.jpg?width=600",
+      "note": "pleated-black",
+      "localPath": "/materials/pcs-reviewed/pleated-black.jpg",
+      "sha256": "21ae1955cd825d3c8b67a86dfd4823a551276bde730cbfa52af6722d508e20d6",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "pleated-white": {
+      "key": "pleated-white",
+      "sourcePage": "https://www.uniqlo.com/us/en/products/E458051-000/00?colorDisplayCode=00",
+      "imageUrl": "https://image.uniqlo.com/UQ/ST3/WesternCommon/imagesgoods/458051/item/goods_00_458051_3x4.jpg?width=600",
+      "note": "pleated-white",
+      "localPath": "/materials/pcs-reviewed/pleated-white.jpg",
+      "sha256": "89063b2bb5d66cec2011e647dfde3e822db3da0d5e488433390139093b2e2727",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "polo-black": {
+      "key": "polo-black",
+      "sourcePage": "https://ascolour.com/chad-polo-5402/",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-hsi95a83fz/images/stencil/1280x1280/products/237/23693/5402_CHAD_POLO_BLACK__79327.1755989904.jpg?c=1",
+      "note": "polo-black",
+      "localPath": "/materials/pcs-reviewed/polo-black.webp",
+      "sha256": "d8332dc5579adbbd820e4b8785d65a2a77f78c17c6246c5d6db8dcff6c4b9cb0",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "polo-white": {
+      "key": "polo-white",
+      "sourcePage": "https://ascolour.com/chad-polo-5402/",
+      "imageUrl": "https://cdn11.bigcommerce.com/s-hsi95a83fz/images/stencil/1280x1280/products/237/1737/5402_CHAD_POLO_WHITE__13857.1753049947.jpg?c=1",
+      "note": "polo-white",
+      "localPath": "/materials/pcs-reviewed/polo-white.jpg",
+      "sha256": "c5303006723fbf2c9f0f1f47c15cad20e7533c0f756b27350ae8f9dcf52633e4",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "print-tee-black": {
+      "key": "print-tee-black",
+      "sourcePage": "https://www.zalando.pl/zoo-york-t-shirt-z-nadrukiem-black-1zo22o00j-q11.html",
+      "imageUrl": "https://img01.ztat.net/article/spp-media-p1/f403c0076ec846a7907ebf223d0e7b33/e3506eefe25646a8b1b475f53f467f56.jpg?filter=packshot&imwidth=800",
+      "note": " Black ZOO YORK Printed T-Shirt",
+      "localPath": "/materials/pcs-reviewed/print-tee-black.jpg",
+      "sha256": "56963d3832bcc0827eb942a880f7a09f1f12c7c609ae0b0f200aa37dcd67f280",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "print-tee-white": {
+      "key": "print-tee-white",
+      "sourcePage": "https://th.hm.com/th_en/regular-fit-t-shirt-0973277063.html",
+      "imageUrl": "https://d29c1z66frfv6c.cloudfront.net/pub/media/catalog/product/zoom/243001d95e4c1221a3382e306c8e2f0975f639a1_xxl-1.jpg",
+      "note": " H&M Regular Fit Keith Haring T‑Shirt",
+      "localPath": "/materials/pcs-reviewed/print-tee-white.jpg",
+      "sha256": "96dccae9aa37b21b903ed48b1167bf847ca083d9edaf608aee06ece52a346979",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "rib-blue": {
+      "key": "rib-blue",
+      "sourcePage": "https://surgefabricshop.com/products/light-blue-8x4-poly-rib-knit?srsltid=AfmBOorWGxiUWtLL6IAb85ZxNP7jWRxV12yocDiHqA9l7qmwPtRBLx-4",
+      "imageUrl": "https://surgefabricshop.com/cdn/shop/products/IMG_2454_4832c5e0-0874-44c1-83ec-74921d043801.jpg?v=1623704320",
+      "note": "rib-blue",
+      "localPath": "/materials/pcs-reviewed/rib-blue.jpg",
+      "sha256": "d3edd1356d9b4f14f6f838103a580689cef8246cf1cf9afabc3d8ff1c08212b6",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shirt-black": {
+      "key": "shirt-black",
+      "sourcePage": "https://business.walmart.com/ip/sogami-Long-Sleeve-Cotton-Dress-Shirts-for-Men-Button-Down-Shirt-Regular-Fit/5326204783",
+      "imageUrl": "https://i5.walmartimages.com/seo/sogami-Long-Sleeve-Cotton-Dress-Shirts-for-Men-Button-Down-Shirt-Regular-Fit_3eff0d43-cdab-4a26-8f27-2b578d07fc07.eba376ea99f9ea12ed684fb842dae3ee.jpeg?odnBg=FFFFFF&odnHeight=640&odnWidth=640",
+      "note": " Black Long-Sleeve Cotton Dress Shirt",
+      "localPath": "/materials/pcs-reviewed/shirt-black.jpg",
+      "sha256": "a607d7485c65aa8fa2311ab1faf96b0ab16c49d0be25ade6b7b4a23d69128ba0",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shirt-blue": {
+      "key": "shirt-blue",
+      "sourcePage": "https://www.yoox.com/au/10708392XR/item",
+      "imageUrl": "https://www.yoox.com/images/items/10/10708392xr_14_f.jpg?height=490&impolicy=crop&width=387",
+      "note": " MOORER Slate Blue Men’s Shirt",
+      "localPath": "/materials/pcs-reviewed/shirt-blue.jpg",
+      "sha256": "d6911a7ac99503dee0a9e306a72d10325816e6ce57eb5a82b758ef68e0842210",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shirt-floral-blue": {
+      "key": "shirt-floral-blue",
+      "sourcePage": "https://www.frenchconnection.com/products/long-sleeve-slim-fit-faded-flower-print-shirt-blue-multi",
+      "imageUrl": "https://www.frenchconnection.com/cdn/shop/files/52ZFK41_482copy_aed53777-6e70-41d8-9710-bcbdaad3112f.jpg?v=1758193920",
+      "note": "shirt-floral-blue",
+      "localPath": "/materials/pcs-reviewed/shirt-floral-blue.jpg",
+      "sha256": "b5b19d31c1a663eb437cf18fb4353e52804749b0b1d0bcbec83727e93425517e",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shirt-khaki": {
+      "key": "shirt-khaki",
+      "sourcePage": "https://www.cymot.com/en/protective-equipment/body-protection/work-and-leisure-wear/lkshtli-jonsson-legendary-long-sleeve-one-pocket-shirt",
+      "imageUrl": "https://cdn-d03d5231-5b2e278c.mysagestore.com/444aaea5242084cee0847fdc0520b8b7/contents/LKSHTLI/LKSHTLI%405.jpg",
+      "note": "shirt-khaki",
+      "localPath": "/materials/pcs-reviewed/shirt-khaki.jpg",
+      "sha256": "05ad4592a7b417b0635447e63f615348c1bf71ecc0fb4e8551a1144ae35cd5ab",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shirt-wine": {
+      "key": "shirt-wine",
+      "sourcePage": "https://www.zalando.fr/pier-one-chemise-bordeaux-pi922da31-g12.html",
+      "imageUrl": "https://img01.ztat.net/article/spp-media-p1/b15479d6ae5145e089356ffec76ab880/32523ae4159b4f7da833a7736f8ae0e5.jpg?filter=packshot&imwidth=762",
+      "note": "shirt-wine",
+      "localPath": "/materials/pcs-reviewed/shirt-wine.jpg",
+      "sha256": "e25c947f054bd7b63b7802a1d49c1bc90df557dc14e5133e59294e401b2e410b",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shorts-black": {
+      "key": "shorts-black",
+      "sourcePage": "https://clothbase.com/items/06a15bb6_nudie-jeans-seth-straight-leg-denim-shorts-black_nudie-jeans-co",
+      "imageUrl": "https://cdn.clothbase.com/uploads/7dc5c0f2-d692-46a4-b1ab-582f9a2aab57/image.jpg",
+      "note": " Nudie Jeans Seth Straight-Leg Denim Shorts",
+      "localPath": "/materials/pcs-reviewed/shorts-black.jpg",
+      "sha256": "1268a6e32f972371dea90c7d3553528a76ceb08906393f7d117fde190afb490b",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shorts-navy": {
+      "key": "shorts-navy",
+      "sourcePage": "https://www.atmosferasport.es/jackjones/pantalon-jack-and-jones-jpstjaiden-campaign-hybridbondi-srt-dark-navy-hombre-139924.html",
+      "imageUrl": "https://media.atmosferasport.es/529053-large_default/pantalon-jack-and-jones-jpstjaiden-campaign-hybridbondi-srt-dark-navy-hombre.jpg",
+      "note": " Jack and Jones Dark Navy Casual Shorts",
+      "localPath": "/materials/pcs-reviewed/shorts-navy.jpg",
+      "sha256": "764248e87c231df14de0bc8289e6ddb0cfe08cad35f3580a58d951978a2e9e4c",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "shorts-white": {
+      "key": "shorts-white",
+      "sourcePage": "https://factory.jcrew.com/p/womens/categories/clothing/shorts/denim/classic-white-denim-short/BY129",
+      "imageUrl": "https://www.jcrew.com/s7-img-facade/BY129_DM7633?crop=0%2C0%2C1600%2C0&hei=2000",
+      "note": " Classic White Denim Shorts",
+      "localPath": "/materials/pcs-reviewed/shorts-white.jpg",
+      "sha256": "ef7fcb5081404c79ccf9324a7c1de81db760451152a123856f14891ff5a8bcf9",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "suit-navy": {
+      "key": "suit-navy",
+      "sourcePage": "https://m.lotteimall.com/goods/viewGoodsDetail.lotte?goods_no=2915048812",
+      "imageUrl": "https://image2.lotteimall.com/goods/12/88/04/2915048812_2.jpg/dims/resizemc/550x550/optimize",
+      "note": " Navy Blue Men’s Suit Jacket",
+      "localPath": "/materials/pcs-reviewed/suit-navy.jpg",
+      "sha256": "42a7d34f3618f60ee13f6b9d3f21914b0391bf3da2171dbb7ddf20073717c4a7",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "sweat-black": {
+      "key": "sweat-black",
+      "sourcePage": "https://www.independenttradingco.com/products/10oz-heavyweight-crew-8",
+      "imageUrl": "https://www.independenttradingco.com/cdn/shop/files/Independent_Trading_Co._IND3000_Black_Front_High_003604c3-b6a4-4ba6-86e4-28771cddc12a.jpg?v=1745965187&width=2048",
+      "note": "sweat-black",
+      "localPath": "/materials/pcs-reviewed/sweat-black.jpg",
+      "sha256": "ce1bd10166246da026f591ab134d64155978c17b3dcb626f6125560713fdfa2a",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "sweat-white": {
+      "key": "sweat-white",
+      "sourcePage": "https://www.unitedathle.net/?pid=145948304",
+      "imageUrl": "https://assets.unitedathle.net/uploads/5764-01/images/01.jpg",
+      "note": " United Athle 5764-01 Heavyweight Crewneck Sweatshirt",
+      "localPath": "/materials/pcs-reviewed/sweat-white.jpg",
+      "sha256": "b1fb27260222d967166f755d7c60b8827c5c3a7666558552c58c8e8ccbd82e86",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "sweater-cream": {
+      "key": "sweater-cream",
+      "sourcePage": "https://www2.hm.com/pl_pl/productpage.1197654004.html",
+      "imageUrl": "https://image.hm.com/assets/hm/9e/7e/9e7ee221161255c5040807e038da28b632177bb7.jpg",
+      "note": "sweater-cream",
+      "localPath": "/materials/pcs-reviewed/sweater-cream.jpg",
+      "sha256": "900d2314e04687b0bb83cf67433d4ece743342e44a5d482cf8c298ccbe0bec5f",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "tape-white": {
+      "key": "tape-white",
+      "sourcePage": "https://www.kitepackaging.co.uk/scp/tapes/masking-tape/",
+      "imageUrl": "https://media.kitepackaging.co.uk/images/product/large/masking_tape_25l.jpg",
+      "note": " White Kite Masking Tape Roll",
+      "localPath": "/materials/pcs-reviewed/tape-white.jpg",
+      "sha256": "b1e7ac293fac0a2d096bc71796becc39eafb851f91b086df4656684619a5494b",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "tee-black": {
+      "key": "tee-black",
+      "sourcePage": "https://www.thewarehouse.co.nz/p/hh-womens-essential-short-sleeve-crew-neck-tee/RM110161302-1M.html",
+      "imageUrl": "https://www.thewarehouse.co.nz/dw/image/v2/BDMG_PRD/on/demandware.static/-/Sites-twl-master-catalog/default/dw56ddf0da/images/hi-res/F9/66/R2866559_20.jpg?sh=765&sw=765",
+      "note": " H&H Women’s Essential Short Sleeve Crew Neck Tee",
+      "localPath": "/materials/pcs-reviewed/tee-black.jpg",
+      "sha256": "4baaa3c6c9c776fe45d2b258820c47d6d19931813935dd4a926a1b244d397fce",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "tee-navy": {
+      "key": "tee-navy",
+      "sourcePage": "https://stores.inksoft.com/fundygymnastics/shop/home",
+      "imageUrl": "https://cdn.inksoft.com/images/products/11067/products/L350/True_Navy/front/versions/006/500.png",
+      "note": " Navy Blue Women’s Crew-Neck T-Shirt",
+      "localPath": "/materials/pcs-reviewed/tee-navy.png",
+      "sha256": "6ec14b62bc528f58631b3bd39160540f3e7ada5e76da7dc56912016ef6c8058d",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "tee-red": {
+      "key": "tee-red",
+      "sourcePage": "https://www.walmart.com/ip/511800165",
+      "imageUrl": "https://i5.walmartimages.com/asr/976e210d-a59d-4c69-ad6e-c3aa3e5f243f.87ae2d2288e588d7b371ca5dcf66766a.jpeg?odnBg=FFFFFF&odnHeight=1067&odnWidth=800",
+      "note": " A2Y Women’s Basic Red Cotton T-Shirt",
+      "localPath": "/materials/pcs-reviewed/tee-red.jpg",
+      "sha256": "b2e5defe903646b21c67686a2d1d28165c6707c7833d169f9cc3d88e95416a30",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "tee-white": {
+      "key": "tee-white",
+      "sourcePage": "https://www.thewarehouse.co.nz/p/hh-womens-essential-short-sleeve-crew-neck-tee/RM110161302-3M.html",
+      "imageUrl": "https://www.thewarehouse.co.nz/on/demandware.static/-/Sites-twl-master-catalog/default/dwcb7558eb/images/hi-res/E1/77/R2866574_20.jpg",
+      "note": " H&H Women’s Essential White Crew Neck Tee",
+      "localPath": "/materials/pcs-reviewed/tee-white.jpg",
+      "sha256": "d0ba34d4bb36e0e92a3f9807a3b2dbbe31fe2fbc707455cd4bb0463ac5114792",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "thread-black": {
+      "key": "thread-black",
+      "sourcePage": "https://www.valsaninc.com/products/40s-2-black-cone-thread",
+      "imageUrl": "https://www.valsaninc.com/cdn/shop/files/Screenshot_2017-01-04_11.21.00_319c08be-570d-43fc-9539-522fb337789d.png?v=1699048175&width=1500",
+      "note": "thread-black",
+      "localPath": "/materials/pcs-reviewed/thread-black.png",
+      "sha256": "463f7e3ca0c01d09e19442055b6c78d7f968b9853c749b1f2e83682fd20df3e9",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "thread-white": {
+      "key": "thread-white",
+      "sourcePage": "https://www.valsaninc.com/products/copy-of-40s-2-black-cone-thread",
+      "imageUrl": "https://www.valsaninc.com/cdn/shop/products/18191wh_lg_300x_93fbd7ba-8fb5-433f-b2a2-62ad92e1e776.jpg?v=1623769465&width=1500",
+      "note": "thread-white",
+      "localPath": "/materials/pcs-reviewed/thread-white.jpg",
+      "sha256": "820c717b22e6769d7a70eb44a33c0b31e4818bc70464125e564d22ea32addc47",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "trousers-black": {
+      "key": "trousers-black",
+      "sourcePage": "https://suitsupply.com/en-us/men/trousers/suit-trousers",
+      "imageUrl": "https://cdn.suitsupply.com/image/upload/b_rgb%3Aefefef%2Cbo_300px_solid_rgb%3Aefefef%2Cc_pad%2Cw_2600/b_rgb%3Aefefef%2Cc_pad%2Cdpr_1%2Cw_768%2Ch_922%2Cf_auto%2Cq_auto%2Cfl_progressive/products/Trousers/default/B2149_28.jpg",
+      "note": " Black Straight-Leg Suit Trousers",
+      "localPath": "/materials/pcs-reviewed/trousers-black.jpg",
+      "sha256": "43dac16ffd2dad9c5f22c5f97efceccb95802388f79ffeb9a5e881f0479ac3fa",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "trousers-navy": {
+      "key": "trousers-navy",
+      "sourcePage": "https://www.myntra.com/trousers/raymond/raymond-men-contemporary-fit-formal-trouser/28749478/buy",
+      "imageUrl": "https://assets.myntassets.com/h_200%2Cw_200%2Cc_fill%2Cg_auto/h_1440%2Cq_100%2Cw_1080/v1/assets/images/28749478/2024/4/6/5f2f016d-26ba-4495-848f-7cd1f7f80cf91712385543845Trousers1.jpg",
+      "note": " Navy Blue Formal Trousers",
+      "localPath": "/materials/pcs-reviewed/trousers-navy.jpg",
+      "sha256": "957a031fde6e767da4c8e708c83ad90e0d1e847b46829984bf861fc90b9ff1e4",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "trousers-white": {
+      "key": "trousers-white",
+      "sourcePage": "https://mogusuit.com/products/mogu-mens-slim-fit-flat-front-pants-solid-color",
+      "imageUrl": "https://mogusuit.com/cdn/shop/files/IMG_0419_2048x.jpg?v=1689051337",
+      "note": " White Slim-Fit Flat-Front Trousers",
+      "localPath": "/materials/pcs-reviewed/trousers-white.jpg",
+      "sha256": "c395ff08ca5ce89627d6fa22c74d297f476779ec1bdbde9d07ed64e7b7ddfd8d",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    },
+    "vest-green": {
+      "key": "vest-green",
+      "sourcePage": "https://www.brandsforless.com/en-ae/pull-and-bear-x-stwd-men-solid-vest-jacket-green/1879638/p/",
+      "imageUrl": "https://f.bflcdn.com/f_auto%2Cq_auto/products/25/6/08714519500044_CRP_1.JPG",
+      "note": " Green Cotton Vest Jacket",
+      "localPath": "/materials/pcs-reviewed/vest-green.jpg",
+      "sha256": "f952d427a4b0b6dd04d22181d9e2e4168c8df25456925591e28ee862818044d3",
+      "review": "2026-09-23 逐图目视校对：品类及可见颜色；外部图用于 Mock 外观，不证明 HiGood 实物身份、尺寸或供应商来源"
+    }
+  },
+  "styles": {
+    "SPU-QC-001": {
+      "黑色": "shirt-black",
+      "白色": "linen-white",
+      "雾蓝": "shirt-blue",
+      "卡其": "shirt-khaki",
+      "酒红": "shirt-wine"
+    },
+    "SPU-QC-002": {
+      "黑色": "casual-dress-black",
+      "白色": "casual-dress-white",
+      "雾蓝": "dress-blue",
+      "卡其": "dress-khaki",
+      "酒红": "dress-wine"
+    },
+    "SPU-QC-003": {
+      "黑色": "jacket-black",
+      "白色": "jacket-white",
+      "雾蓝": "jacket-blue",
+      "卡其": "jacket-khaki",
+      "酒红": "jacket-wine"
+    },
+    "STYLE-PRJ-202603-012": {
+      "Black": "tee-black",
+      "White": "tee-white"
+    },
+    "STYLE-PRJ-202603-011": {
+      "Black": "hood-black",
+      "White": "hood-white"
+    },
+    "STYLE-PRJ-202603-010": {
+      "Black": "blazer-black",
+      "White": "blazer-white"
+    },
+    "STYLE-PRJ-202603-009": {
+      "Black": "pleated-black",
+      "White": "pleated-white"
+    },
+    "STYLE-PRJ-202603-008": {
+      "Black": "trousers-black",
+      "White": "trousers-white"
+    },
+    "STYLE-PRJ-202603-007": {
+      "Black": "casual-dress-black",
+      "White": "casual-dress-white"
+    },
+    "STYLE-PRJ-202603-006": {
+      "Black": "batik-black",
+      "White": "batik-white"
+    },
+    "STYLE-PRJ-202603-005": {
+      "Black": "jogger-black",
+      "White": "jogger-white"
+    },
+    "STYLE-PRJ-202603-004": {
+      "Black": "polo-black",
+      "White": "polo-white"
+    },
+    "STYLE-PRJ-202603-003": {
+      "Black": "print-tee-black",
+      "White": "print-tee-white"
+    },
+    "STYLE-PRJ-202603-002": {
+      "Black": "trousers-black",
+      "White": "trousers-white"
+    },
+    "STYLE-PRJ-202603-001": {
+      "Black": "dress-floral-black",
+      "White": "dress-floral-white"
+    },
+    "STYLE-PRJ-202604-014": {
+      "Black": "jeans-black",
+      "White": "jeans-white"
+    },
+    "STYLE-PRJ-202604-013": {
+      "Black": "lace-top-black",
+      "White": "lace-top-white"
+    },
+    "STYLE-PRJ-202604-012": {
+      "Black": "jogger-black",
+      "White": "jogger-white"
+    },
+    "STYLE-PRJ-202604-011": {
+      "Black": "cardigan-black",
+      "White": "cardigan-white"
+    },
+    "STYLE-PRJ-202604-009": {
+      "Black": "hawaii-black",
+      "White": "hawaii-white"
+    },
+    "STYLE-PRJ-202604-008": {
+      "Black": "shorts-black",
+      "White": "shorts-white"
+    },
+    "STYLE-PRJ-202604-007": {
+      "Black": "embroidered-dress-black",
+      "White": "embroidered-dress-white"
+    },
+    "STYLE-PRJ-202604-006": {
+      "Black": "cargo-black",
+      "White": "cargo-white"
+    },
+    "STYLE-PRJ-202604-005": {
+      "Black": "lace-dress-black",
+      "White": "lace-dress-white"
+    },
+    "STYLE-PRJ-202604-004": {
+      "Black": "aline-black",
+      "White": "aline-white"
+    },
+    "STYLE-PRJ-202604-003": {
+      "Black": "sweat-black",
+      "White": "sweat-white"
+    },
+    "STYLE-PRJ-202604-002": {
+      "Black": "flannel-black",
+      "White": "flannel-white"
+    },
+    "ASYSA26060310": {
+      "Black": "tee-black",
+      "White": "tee-white",
+      "Navy": "tee-navy",
+      "Red": "tee-red"
+    },
+    "STYLE-PRJ-202604-001": {
+      "Black": "linen-dress-black",
+      "White": "linen-dress-white"
+    },
+    "STYLE-PRJ-202603-013": {
+      "Black": "trousers-black",
+      "White": "trousers-white"
+    },
+    "SPU-2026-018": {
+      "Black": "jumpsuit-black",
+      "White": "jumpsuit-white"
+    },
+    "SPU-2024-001": {
+      "White": "tee-white",
+      "Black": "tee-black"
+    },
+    "SPU-SHIRT-086": {
+      "蓝白印花": "shirt-floral-blue"
+    },
+    "SPU-JACKET-085": {
+      "军绿": "jacket-army"
+    },
+    "SPU-TEE-084": {
+      "珊瑚粉": "knit-coral"
+    },
+    "SPU-DRESS-083": {
+      "Red": "dress-red-print"
+    },
+    "SPU-HOODIE-082": {
+      "雾霾灰": "hood-grey"
+    },
+    "SPU-TSHIRT-081": {
+      "White": "print-tee-white",
+      "Black": "print-tee-black"
+    },
+    "SPU-2024-017": {
+      "Navy": "shorts-navy"
+    },
+    "SPU-2024-015": {
+      "White": "linen-white"
+    },
+    "SPU-2024-008": {
+      "Plaid Blue": "flannel-blue"
+    },
+    "SPU-2024-014": {
+      "Green": "vest-green"
+    },
+    "SPU-2024-005": {
+      "Grey": "hood-grey"
+    },
+    "SPU-2024-013": {
+      "Navy": "suit-navy"
+    },
+    "SPU-2024-004": {
+      "White": "tee-white"
+    },
+    "SPU-2024-010": {
+      "Black": "jogger-black"
+    },
+    "SPU-2024-012": {
+      "Beige": "cardigan-beige"
+    },
+    "SPU-2024-003": {
+      "Navy": "trousers-navy"
+    },
+    "SPU-2024-016": {
+      "Champagne": "blouse-champagne"
+    },
+    "SPU-2024-011": {
+      "Cream": "sweater-cream"
+    },
+    "SPU-2024-009": {
+      "White": "polo-white"
+    }
+  },
+  "materials": {
+    "TMF-WB-REF-WHT": "existing-TMF-WB-REF-WHT",
+    "TMF-RP-REF-WHT": "existing-TMF-RP-REF-WHT",
+    "ACC-ELASTIC-42CM-WHITE": "existing-ACC-ELASTIC-42CM-WHITE",
+    "PART-CUT-KNIFE-10IN-STD": "knife",
+    "CONS-TAPE-001-WHT": "tape-white",
+    "THREAD-40S-002-WHT": "thread-white",
+    "THREAD-40S-002-BLK": "thread-black",
+    "FLSZ26031315-103": "existing-FLSZ26031315-103",
+    "FLSZ26031315-sc-khaki": "existing-FLSZ26031315-sc-khaki",
+    "FLSZ26031315-pf-pink": "fringe-pink",
+    "FLSZ26041135-sameasphoto": "existing-FLSZ26041135-sameasphoto",
+    "FLSZ26041134-blue": "organza-blue",
+    "FLSZ26041134-pink": "existing-FLSZ26041134-pink",
+    "FLSZ26041134-apricot": "existing-FLSZ26041134-apricot",
+    "FLSZ26041134-white": "existing-FLSZ26041134-white",
+    "CNIDML360-white-1": "existing-CNIDML360-white-1",
+    "CNIDML360-blue-1": "rib-blue",
+    "FAB-COTTON-180-WHT": "cotton-white",
+    "FAB-COTTON-180-BLK": "cotton-black"
+  }
+}

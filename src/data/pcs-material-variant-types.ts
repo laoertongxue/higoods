@@ -30,6 +30,7 @@ export interface MaterialVariantRecord {
 
 export interface MaterialVariantCreateInput {
   materialId: string
+  materialSkuId?: string
   baseSkuCode: string
   chainCategory: MaterialVariantProcessCategoryInput
   colorName?: string

@@ -1,5 +1,5 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
-import { buildSkuFixture } from './pcs-product-archive-fixtures.ts'
+import { buildSkuFixture, migrateProductFixtureImage } from './pcs-product-archive-fixtures.ts'
 import { listProductionDemandTechPackSeeds } from './pcs-production-demand-tech-pack-seeds.ts'
 import { listProjectWorkspaceColors, listProjectWorkspaceSizes } from './pcs-project-config-workspace-adapter.ts'
 import { listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
@@ -154,7 +154,7 @@ function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
     printName: record.printName || '基础款',
     barcode: record.barcode || '',
     channelTitle: record.channelTitle || fixture.channelTitle,
-    skuImageUrl: record.skuImageUrl || fixture.skuImageUrl,
+    skuImageUrl: migrateProductFixtureImage(record.styleCode, record.skuImageUrl, record.colorName) || fixture.skuImageUrl,
     channelMappingCount: Number.isFinite(record.channelMappingCount) ? record.channelMappingCount : 0,
     listedChannelCount: Number.isFinite(record.listedChannelCount) ? record.listedChannelCount : 0,
     techPackVersionId: record.techPackVersionId || '',

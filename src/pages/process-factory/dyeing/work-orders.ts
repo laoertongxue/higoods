@@ -1,4 +1,5 @@
 import { createDyeOrderDisplayColumns } from '../../process-work-orders/order-list-columns.ts'
+import { renderProductionObjectCodeButton } from '../../../data/fcs/production-order-identity.ts'
 import { DYE_TIME_LABELS } from '../../../data/fcs/dye-work-order-times.ts'
 import { renderDyeWorkOrderTimes } from './work-order-times.ts'
 import { DYE_FACTORY_TABS, dyeFactoryTabLabel, dyePartnerFields } from '../../../data/fcs/dye-work-order-demo-details.ts'
@@ -114,7 +115,7 @@ function renderActions(row: DyeWorkOrderOnlineRow): string {
 
 const columns: StandardListColumn<DyeWorkOrderOnlineRow>[] = [
   { key: 'selection', title: '选择', width: 72, required: true, leadingControlColumn: true, renderHeader: rows => renderProcessSelectionHeader(rows.map(row => row.dyeOrderId), state.selectedIds, EVENT_PREFIX), render: row => `<input aria-label="选择 ${escapeHtml(row.workOrderNo)}" type="checkbox" ${state.selectedIds.has(row.dyeOrderId) ? 'checked' : ''} data-dye-work-orders-action="toggle-selection" data-id="${escapeHtml(row.dyeOrderId)}">` },
-  ...createDyeOrderDisplayColumns(row => detailButton(row, row.workOrderNo)),
+  ...createDyeOrderDisplayColumns(row => `<span class="inline-flex flex-wrap items-center gap-2">${renderProductionObjectCodeButton({ objectType: 'DYE_WORK_ORDER', objectId: row.workOrderNo })}${detailButton(row, '详情')}</span>`),
   { key: 'actions', title: '操作', width: 176, required: true, actionColumn: true, render: renderActions },
 ]
 

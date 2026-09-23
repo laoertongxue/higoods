@@ -46,6 +46,7 @@ import {
   listPostFinishingRecheckOrderEntities,
   listPostFinishingTasks,
 } from './post-finishing-current-read-model.ts'
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
 
 export type ProductionObjectType =
   | 'PRODUCTION_ORDER'
@@ -1054,7 +1055,11 @@ export function resolveProductionObjectRequest({
   objectId: string
   relatedProductionOrderNo?: string | null
 }): ProductionObjectRequestResult {
-  const exactMatches = getProductionObjectSearchIndex().filter((item) => matchesRequestObject(item, objectType, objectId))
+  let exactMatches = getProductionObjectSearchIndex().filter((item) => matchesRequestObject(item, objectType, objectId))
+  if (!exactMatches.length && (objectType === 'QC_ORDER' || objectType === 'PRODUCTION_ORDER' || objectType === 'PROCESS_DOC')) {
+    productionObjectSearchIndexCache = buildSearchIndex()
+    exactMatches = productionObjectSearchIndexCache.filter((item) => matchesRequestObject(item, objectType, objectId))
+  }
   const contextMatches = relatedProductionOrderNo
     ? exactMatches.filter((item) => item.relatedProductionOrderNo === relatedProductionOrderNo)
     : exactMatches
@@ -1109,6 +1114,12 @@ function resolveOrder(objectType: ProductionObjectType, objectId: string): Produ
   if (indexItem?.relatedProductionOrderNo) return findOrderByNo(indexItem.relatedProductionOrderNo)
 
   if (objectType === 'PRODUCTION_ORDER') return findOrderByNo(objectId)
+
+  if (objectType === 'QC_ORDER') {
+    const primaryNo = indexItem?.primaryNo || objectId.replace(/^QC_ORDER-/, '')
+    const qc = listPostFinishingQcOrderEntities().find((item) => item.qcOrderNo === primaryNo || item.qcOrderId === primaryNo)
+    return findOrderByAny([qc?.productionOrderId, qc?.productionOrderNo])
+  }
 
   if (objectType === 'DEMAND') {
     const demand = findDemandById(indexItem?.primaryNo) ?? findDemandById(objectId)
@@ -2375,8 +2386,127 @@ function buildDemandOnlyOverview(objectId: string): ProductionObjectOverview | n
   }
 }
 
+// 后道验收样本读取同一组生产需求、生产单与已生成 QC 事实。
+// 关联同源初始化的演示技术包；原型样本不代表真实技术文件或生产行为。
+function buildPostFinishingMockOverview(objectType: ProductionObjectType, objectId: string, order: ProductionOrder | null | undefined): ProductionObjectOverview | null {
+  if (!order || !POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.some((item) => item.productionOrderId === order.productionOrderId)) return null
+  if (!(['QC_ORDER', 'PRODUCTION_ORDER', 'DEMAND', 'PROCESS_DOC'] as ProductionObjectType[]).includes(objectType)) return null
+  const primaryNo = findIndexItem(objectId)?.primaryNo
+    || objectId.replace(objectType === 'QC_ORDER' ? /^QC_ORDER-/ : /^PRODUCTION_ORDER-/, '')
+  const qc = objectType === 'QC_ORDER'
+    ? listPostFinishingQcOrderEntities().find((item) => item.qcOrderNo === primaryNo || item.qcOrderId === primaryNo)
+    : undefined
+  if (objectType === 'QC_ORDER' && !qc) return null
+  const source = listPostFinishingTasks().find((item) => item.productionOrderId === order.productionOrderId)
+  const demand = productionDemands.find((item) => item.demandId === order.demandId)
+  if (!source || !demand) return null
+  if (objectType === 'PROCESS_DOC' && !source.sourceTaskNos.includes(primaryNo)) return null
+  const relatedQc = listPostFinishingQcOrderEntities().filter((item) => item.productionOrderNo === source.productionOrderNo)
+  const currentQc = qc || relatedQc[0]
+  if (!currentQc) return null
+  const quantityText = `${source.plannedGarmentQty.toLocaleString('zh-CN')} 件`
+  const decision: ContinueDecision = {
+    status: 'NEEDS_CONFIRM',
+    displayText: '需要确认',
+    reasonText: '后道验收 Mock 生产需求、生产单、演示技术包与质检来源已关联；实际处理以质检单当前数量和状态为准。',
+    nextActionText: '核对来源后，按质检单当前待办处理。',
+    ownerRole: '跟单',
+    ownerName: demand.merchandiserName,
+    sourceObjectNo: source.productionOrderNo,
+    updatedAt: source.updatedAt,
+  }
+  return {
+    objectKey: objectId,
+    objectType,
+    title: `${OBJECT_TYPE_LABEL[objectType]}｜${source.productionOrderNo}`,
+    summary: {
+      productionOrderNo: source.productionOrderNo,
+      demandNo: demand.demandId,
+      legacyOrderNo: source.productionOrderNo,
+      spu: source.spuCode,
+      skuSummary: `${source.skus.length} 个 SKU`,
+      productTitle: source.spuName,
+      imageUrl: source.skus[0]?.imageUrl || '',
+      planQuantity: source.plannedGarmentQty,
+      unit: '件',
+      currentStage: source.currentStatus,
+      mainFactoryName: source.sourceFactoryNames.join('、') || '来源工厂待确认',
+      merchandiser: demand.merchandiserName,
+      plannedDeliveryDate: demand.requiredDeliveryDate || '待确认',
+      updatedAt: source.updatedAt,
+    },
+    executionSummary: [],
+    executionOverview: { materialIssues: [], taskFactories: [], keyTimes: [], quantityQuality: [] },
+    continueDecision: decision,
+    materials: [],
+    progressNodes: [
+      {
+        nodeId: source.postTaskId, nodeName: '后道生产来源', status: source.currentStatus,
+        ownerRole: '工厂', plannedAt: '待确认', actualAt: source.createdAt,
+        relatedDocNo: source.sourceTaskNos[0] || source.productionOrderNo,
+        quantityText, description: '来自后道验收 Mock 生产来源任务。',
+      },
+      ...relatedQc.map((item) => ({
+        nodeId: item.qcOrderId, nodeName: '后道质检', status: item.qcStatus,
+        ownerRole: '工厂' as const, plannedAt: '待确认', actualAt: item.createdAt,
+        relatedDocNo: item.qcOrderNo,
+        quantityText: `${item.inspectedGarmentQty.toLocaleString('zh-CN')} 件`,
+        description: `来源任务 ${item.sourceTaskNo}`,
+      })),
+    ],
+    relatedDocuments: relatedQc.map((item) => ({
+      docGroup: '仓库' as const, docType: '后道质检单', docNo: item.qcOrderNo,
+      objectType: 'QC_ORDER' as const, sourceDomain: 'PFOS' as const,
+      statusText: item.qcStatus, ownerRole: '工厂' as const,
+      routePath: `/fcs/craft/post-finishing/qc-orders?qcOrderNo=${encodeURIComponent(item.qcOrderNo)}`,
+      updatedAt: item.updatedAt,
+      quantityText: `${item.inspectedGarmentQty.toLocaleString('zh-CN')} 件`,
+    })),
+    issues: [],
+    sourceSnapshots: [
+      { sourceName: '后道验收 Mock 生产需求', sourceText: `${demand.demandId} → ${order.productionOrderNo}；${demand.constraintsNote}`, updatedAt: demand.updatedAt },
+      { sourceName: '后道验收 Mock 技术包快照', sourceText: `${order.techPackSnapshot?.sourceTechPackVersionId || '未关联'} · ${order.techPackSnapshot?.versionLabel || '未关联'}`, updatedAt: order.createdAt },
+      { sourceName: '后道验收 Mock 生产来源', sourceText: `${source.productionOrderNo} · ${source.sourceTaskNos.join('、') || '来源任务未记录'}`, updatedAt: source.updatedAt },
+      { sourceName: '后道质检当前事实', sourceText: `${currentQc.qcOrderNo} · 来源任务 ${currentQc.sourceTaskNo}`, updatedAt: currentQc.updatedAt },
+    ],
+    ...buildEmptyOverviewExtensions(decision),
+    factSources: relatedQc.map((item) => ({
+      sourceDomain: 'PFOS' as const, factType: '后道质检 Mock 事实',
+      sourceObjectNo: item.qcOrderNo, statusText: item.qcStatus,
+      quantityText: `${item.inspectedGarmentQty.toLocaleString('zh-CN')} 件`,
+      ownerRole: '工厂' as const, nextActionText: decision.nextActionText, updatedAt: item.updatedAt,
+    })),
+    productionTimeline: [
+      { nodeName: '生产需求（Mock）', plannedAt: '待确认', actualAt: demand.createdAt, ownerRole: '跟单', statusText: '已转单', evidenceObjectNo: demand.demandId },
+      { nodeName: '生产单（Mock）', plannedAt: '待确认', actualAt: order.createdAt, ownerRole: '跟单', statusText: '已关联后道来源', evidenceObjectNo: order.productionOrderNo },
+      {
+        nodeName: '后道验收 Mock 生产来源',
+        plannedAt: '待确认', actualAt: source.createdAt, ownerRole: '工厂',
+        statusText: source.currentStatus, evidenceObjectNo: source.productionOrderNo,
+      },
+      ...relatedQc.map((item) => ({
+        nodeName: '后道质检',
+        plannedAt: '待确认', actualAt: item.createdAt, ownerRole: '工厂' as const,
+        statusText: item.qcStatus, evidenceObjectNo: item.qcOrderNo,
+        isCurrent: item.qcOrderNo === currentQc.qcOrderNo,
+      })),
+    ],
+    relationshipGroups: [
+      { groupName: '生产', nodes: [
+        { nodeType: '生产需求（Mock）', objectNo: demand.demandId, title: demand.spuName, statusText: '已转单', ownerRole: '跟单', routePath: '/fcs/production/demand-inbox' },
+        { nodeType: '后道验收 Mock 生产来源', objectNo: source.productionOrderNo, title: source.spuName, statusText: source.currentStatus, ownerRole: '工厂', routePath: '/fcs/craft/post-finishing/qc-orders' },
+      ] },
+      { groupName: '物料', nodes: [] }, { groupName: '采购', nodes: [] }, { groupName: '仓库', nodes: [] },
+      { groupName: 'PFOS', nodes: relatedQc.map((item) => ({ nodeType: '后道质检单', objectNo: item.qcOrderNo, title: item.spuName, statusText: item.qcStatus, ownerRole: '工厂', routePath: `/fcs/craft/post-finishing/qc-orders?qcOrderNo=${encodeURIComponent(item.qcOrderNo)}` })) },
+      { groupName: '异常', nodes: [] },
+    ],
+  }
+}
+
 export function getProductionObjectOverview(objectType: ProductionObjectType, objectId: string): ProductionObjectOverview | null {
   const order = resolveOrder(objectType, objectId)
+  const postFinishingMock = buildPostFinishingMockOverview(objectType, objectId, order)
+  if (postFinishingMock) return postFinishingMock
   if (!order && objectType === 'DEMAND') return buildDemandOnlyOverview(objectId)
   if (!order) return null
   const materialRequests = listMaterialRequestsByOrder(order.productionOrderNo)
@@ -2880,9 +3010,23 @@ function buildPostFinishingQcIndexes(): ProductionObjectSearchIndex[] {
 
   for (const task of listPostFinishingTasks()) {
     const items = qcOrdersByPostTask.get(task.postTaskId) || qcOrdersByPostTask.get(task.postTaskNo) || []
-    if (items.length === 0) continue
     const order = findOrderByNo(task.productionOrderNo)
     const updatedAts = items.map((item) => item.updatedAt).sort()
+    if (POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.some((source) => source.productionOrderId === task.productionOrderId)) {
+      for (const sourceTaskNo of unique(task.sourceTaskNos)) {
+        rows.push({
+          id: `PROCESS_DOC-${sourceTaskNo}`, objectType: 'PROCESS_DOC', primaryNo: sourceTaskNo,
+          secondaryNo: task.productionOrderNo, displayTitle: '后道验收 Mock 来源任务',
+          keywords: unique([sourceTaskNo, task.productionOrderNo, order?.demandId, task.spuCode]),
+          relatedProductionOrderNo: task.productionOrderNo, relatedDemandNo: order?.demandId,
+          statusText: task.currentStatus, ownerRole: '工厂', sourceDomain: 'PFOS', docGroup: '生产',
+          routePath: `/fcs/craft/post-finishing/qc-orders?postTaskId=${encodeURIComponent(task.postTaskId)}`,
+          quantityText: `${task.plannedGarmentQty.toLocaleString('zh-CN')} 件`,
+          defaultTab: 'progress', highlightKey: makeHighlightKey('PROCESS_DOC', sourceTaskNo), updatedAt: task.updatedAt,
+        })
+      }
+    }
+    if (items.length === 0) continue
     rows.push({
       id: `QC_MASTER_ORDER-${task.postTaskId}`,
       objectType: 'QC_MASTER_ORDER',

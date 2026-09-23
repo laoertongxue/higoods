@@ -1226,7 +1226,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
       baseTechnicalVersionId: '',
       baseTechnicalVersionCode: '',
       changeScope: '生产准备单生成',
-      changeSummary: '生产准备单技术包确认任务形成的当前生效版本。',
+      changeSummary: seed.demand.techPackVersionLabel === 'Mock V1.0' ? '后道验收 Mock 专用演示版本，由同源生产需求初始化。' : '生产准备单技术包确认任务形成的当前生效版本。',
       garmentDifficultyGrade: resolveSeedGarmentDifficulty(seed),
       linkedPartTemplateIds: [],
       linkedPatternLibraryVersionIds: [],
@@ -1260,7 +1260,7 @@ export function createTechnicalDataVersionBootstrapSnapshot(
       createdBy: '生产需求单',
       updatedAt: seed.demand.updatedAt || '',
       updatedBy: '生产需求单',
-      note: '',
+      note: seed.demand.techPackVersionLabel === 'Mock V1.0' ? '后道验收 Mock 演示技术包；非真实技术文件发布，图片与原始素材仍按专项台账核对。' : '',
       legacySpuCode: '',
       legacyVersionLabel: '',
     })

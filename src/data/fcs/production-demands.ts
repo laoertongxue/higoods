@@ -1,3 +1,5 @@
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
+
 export type LegacyType = 'ID_PURCHASE' | 'GOODS_PURCHASE'
 export type SourceSystem = 'LEGACY' | 'NEW'
 export type Priority = 'URGENT' | 'HIGH' | 'NORMAL'
@@ -599,7 +601,21 @@ function normalizeDemandSeed(demand: ProductionDemand): ProductionDemand {
   }
 }
 
-export const productionDemands: ProductionDemand[] = seedProductionDemands.map(normalizeDemandSeed)
+export const productionDemands: ProductionDemand[] = [
+  ...seedProductionDemands,
+  ...POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((source) => createDemandSeed({
+    demandId: source.demandId, legacyType: 'GOODS_PURCHASE', legacyOrderNo: source.no,
+    sourceSystem: 'NEW', spuCode: source.spuCode, spuName: source.styleName,
+    imageUrl: source.imageUrl, marketScopes: ['ID'], buyerName: source.buyerName,
+    merchandiserName: '后道验收跟单（Mock）', saleType: '预售', priority: 'NORMAL',
+    demandStatus: 'CONVERTED', techPackStatus: 'RELEASED', techPackVersionLabel: 'Mock V1.0',
+    requiredDeliveryDate: null,
+    constraintsNote: `后道验收 Mock 主线来源；关联 ${source.no} / ${source.sewingTaskNo}。Mock V1.0 为同源初始化的演示技术包，不代表真实技术文件发布。`,
+    skuLines: source.skus.map((sku) => ({ skuCode: sku.skuCode, size: sku.sizeName, color: sku.colorName, qty: sku.plannedQty })),
+    hasProductionOrder: true, productionOrderId: source.productionOrderId,
+    createdAt: source.demandCreatedAt, updatedAt: source.orderCreatedAt,
+  })),
+].map(normalizeDemandSeed)
 
 export const demandStatusConfig: Record<DemandStatus, { label: string; color: string }> = {
   PENDING_CONVERT: { label: '待转单', color: 'bg-blue-100 text-blue-700' },

@@ -1,3 +1,4 @@
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES, migratePostFinishingMockImages } from './post-finishing-production-source-fixtures.ts'
 import {
   beginPostFinishingAuthorizationDemoBatch,
   buildPostFinishingDifferenceFingerprint,
@@ -784,14 +785,6 @@ export function listPostFinishingQcReworkFactoryOptions(): Array<{ value: string
     .sort((left, right) => left.label.localeCompare(right.label, 'zh-CN'))
 }
 
-const COLORS = ['黑色', '白色', '雾蓝', '卡其', '酒红']
-const SIZES = ['S', 'M', 'L', 'XL', '2XL']
-const ORDER_SEEDS = [
-  { no: 'PO-QC-202608-001', styleNo: 'HG-QC-001', styleName: '后道验收衬衫', imageUrl: '/shirt-sample.jpg', spuCode: 'SPU-QC-001', styleGrade: 'C', buyerName: '臻臻', productionOrderType: '首单', tagPrice: 264000 },
-  { no: 'PO-QC-202608-002', styleNo: 'HG-QC-002', styleName: '后道验收连衣裙', imageUrl: '/dress-sample-1.jpg', spuCode: 'SPU-QC-002', styleGrade: 'B', buyerName: '阿乐', productionOrderType: '翻单', tagPrice: 289000 },
-  { no: 'PO-QC-202608-003', styleNo: 'HG-QC-003', styleName: '后道验收外套', imageUrl: '/jacket-sample.jpg', spuCode: 'SPU-QC-003', styleGrade: 'B', buyerName: '小雨', productionOrderType: '首单', tagPrice: 319000 },
-] as const
-
 const QC_PRINT_MATERIALS: PostFinishingQcPrintMaterial[] = [
   { materialName: 'New 吊粒 Clothing tag rope', materialCode: 'FLSZ24116-black', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
   { materialName: '服装吊牌 Clothing tags', materialCode: 'WLID009-fadfad', unitConsumption: '1 PCS', materialUsed: '', imageUrl: '/materials/accessory-label.jpg' },
@@ -801,11 +794,7 @@ const QC_PRINT_MATERIALS: PostFinishingQcPrintMaterial[] = [
   { materialName: '印尼 cotton 平车线', materialCode: 'IDSZFL24092-b349', unitConsumption: '0.001 DZ', materialUsed: '', imageUrl: '/materials/yarn-stitching.jpg' },
 ]
 
-const SEWING_FACTORY_SEEDS = [
-  { factoryId: 'ID-F021', factoryName: 'CV Micro Sewing Jakarta Pusat' },
-  { factoryId: 'ID-F022', factoryName: 'CV Micro Sewing Bandung Utara' },
-  { factoryId: 'ID-F024', factoryName: 'CV Micro Sewing Semarang Timur' },
-] as const
+const SEWING_FACTORY_SEEDS = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES
 
 const SEWING_TASK_TYPE_SEEDS: PostFinishingSewingTaskType[] = [
   'INDEPENDENT_SEWING',
@@ -813,18 +802,18 @@ const SEWING_TASK_TYPE_SEEDS: PostFinishingSewingTaskType[] = [
   'CUTTING_TO_IRON_PACK',
 ]
 
-export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanceProductionOrder[] = ORDER_SEEDS.map((seed, orderIndex) => ({
-  productionOrderId: `PF-ACCEPT-PO-${orderIndex + 1}`,
+export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanceProductionOrder[] = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((seed, orderIndex) => ({
+  productionOrderId: seed.productionOrderId,
   productionOrderNo: seed.no,
   styleNo: seed.styleNo,
   styleName: seed.styleName,
   executionTaskId: `PF-SEW-EXEC-${String(orderIndex + 1).padStart(3, '0')}`,
-  sewingTaskNo: `SEW-TASK-QC-${String(orderIndex + 1).padStart(3, '0')}`,
+  sewingTaskNo: seed.sewingTaskNo,
   assignmentId: `PF-SEW-ASG-${String(orderIndex + 1).padStart(3, '0')}`,
   sewingTaskType: SEWING_TASK_TYPE_SEEDS[orderIndex],
   defaultStagingLocation: `后道待确认区-${String.fromCharCode(65 + orderIndex)}`,
-  sewingFactoryId: SEWING_FACTORY_SEEDS[orderIndex].factoryId,
-  sewingFactoryName: SEWING_FACTORY_SEEDS[orderIndex].factoryName,
+  sewingFactoryId: seed.factoryId,
+  sewingFactoryName: seed.factoryName,
   managedPostFactoryId: 'ID-F002',
   managedPostFactoryName: 'PT Prima Printing Center',
   styleGrade: seed.styleGrade,
@@ -833,26 +822,15 @@ export const POST_FINISHING_ACCEPTANCE_PRODUCTION_ORDERS: PostFinishingAcceptanc
   saleType: '预售',
   tagPrice: seed.tagPrice,
   qcPrintMaterials: QC_PRINT_MATERIALS.map((item) => ({ ...item })),
-  qcPrintSizeRows: SIZES.map((sizeName, sizeIndex) => ({
-    sizeName,
+  qcPrintSizeRows: seed.skus.map((sku, sizeIndex) => ({
+    sizeName: sku.sizeName,
     backLength: `${64 + sizeIndex}cm`,
     shoulderWidth: `${35 + sizeIndex}cm`,
     bust: `${114 + sizeIndex * 4}cm`,
     sleeveLength: `${59 + sizeIndex}cm`,
     cuff: `${16 + sizeIndex}cm`,
   })),
-  skus: SIZES.map((sizeName, skuIndex) => ({
-    skuId: `${seed.spuCode}-${sizeName}`,
-    skuCode: `${seed.spuCode}-${String(skuIndex + 1).padStart(2, '0')}`,
-    spuCode: seed.spuCode,
-    spuName: seed.styleName,
-    colorName: COLORS[skuIndex],
-    sizeName,
-    imageUrl: seed.imageUrl,
-    barcode: `SKU-${orderIndex + 1}${String(skuIndex + 1).padStart(2, '0')}-202608`,
-    plannedQty: 100,
-    qtyUnit: '件',
-  })),
+  skus: seed.skus.map((sku) => ({ ...sku })),
 }))
 
 function emptyState(): PostFinishingFullFlowState {
@@ -955,6 +933,7 @@ function readPersistedState(): PostFinishingFullFlowState {
       globalThis.localStorage?.setItem(LEGACY_OUTBOUND_MIGRATION_MARKER_KEY, 'retired')
     }
     if (!parsed || !sourceRaw) return emptyState()
+    migratePostFinishingMockImages(parsed)
     hasPersistedFullFlowState = true
     if (sourceSchemaVersion === 2) return parsed as PostFinishingFullFlowState
     needsLegacyStateMigration = true

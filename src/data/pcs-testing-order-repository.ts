@@ -1,8 +1,11 @@
-import { listStyleArchives } from './pcs-style-archive-repository.ts'
+import { createStyleArchiveDirect, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { applyArchiveWriteback } from './pcs-archive-writeback-contract.ts'
-import { listProjectChannelProducts } from './pcs-channel-product-project-repository.ts'
+import { createTestingOrderChannelProducts, listProjectChannelProducts } from './pcs-channel-product-project-repository.ts'
 import { PCS_CHANNEL_OPTIONS } from './pcs-channel-options.ts'
-import { listSkuArchives } from './pcs-sku-archive-repository.ts'
+import { createSkuArchive, listSkuArchives } from './pcs-sku-archive-repository.ts'
+import { getMaterialArchiveById, getMaterialSkuRecordById } from './pcs-material-archive-repository.ts'
+import { buildSkuFixture, localizeProductFixtureImageUrl } from './pcs-product-archive-fixtures.ts'
+import type { SkuArchiveRecord } from './pcs-sku-archive-types.ts'
 
 export type TestingOrderStatus = '进行中' | '已结束'
 export type TestingBulkDecision = '是' | '否' | '待定'
@@ -45,6 +48,7 @@ export interface TestingOrderRecord {
   styleImageUrl: string
   spuCode: string
   skuCodes: string[]
+  archiveMode?: 'created' | 'linked'
   status: TestingOrderStatus
   currentStepKey: TestingOrderStepKey
   purchaseLinks: TestingPurchaseLink[]
@@ -60,6 +64,7 @@ export interface TestingOrderRecord {
   pricing: TestingOrderPricing
   shipMethod: TestingSampleShipMethod
   channelCodes: string[]
+  channelPrices?: Record<string, number>
   liveSessionNote: string
   bulkDecision: '' | TestingBulkDecision
   bulkDecisionNote: string
@@ -74,6 +79,15 @@ export interface TestingOrderCreateResult {
   ok: boolean
   order?: TestingOrderRecord
   message?: string
+}
+
+export interface TestingOrderNewArchiveInput {
+  styleName: string
+  styleImageUrl: string
+  colorName: string
+  sizeName: string
+  materialSkuId: string
+  expectedQuantity: number
 }
 
 export const TESTING_ORDER_STEPS: Array<Pick<TestingOrderStep, 'key' | 'title' | 'description'>> = [
@@ -110,6 +124,15 @@ function now(): string {
 
 let seq = 0
 const store = new Map<string, TestingOrderRecord>()
+const STORAGE_KEY = 'higood-pcs-testing-orders-v1'
+
+function persistStore(): void {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify([...store.values()]))
+  } catch {
+    // 浏览器禁用存储时仍可继续当前会话的原型演示。
+  }
+}
 
 function buildSteps(doneUntil: TestingOrderStepKey): TestingOrderStep[] {
   const targetIndex = STEP_BY_KEY.get(doneUntil)!.index
@@ -125,20 +148,82 @@ function defaultPricing(): TestingOrderPricing {
 }
 
 export function createTestingOrder(input: {
-  styleId: string
+  styleId?: string
+  newArchive?: TestingOrderNewArchiveInput
   skuCodes?: string[]
   purchaseLinks?: string[]
   shipMethod?: TestingSampleShipMethod
   channelCodes?: string[]
 }): TestingOrderCreateResult {
-  const style = listStyleArchives().find((item) => item.styleId === input.styleId)
-  if (!style) return { ok: false, message: '未找到对应款式档案。' }
+  if (Boolean(input.styleId) === Boolean(input.newArchive)) {
+    return { ok: false, message: '请选择已有款式，或填写新款建档信息。' }
+  }
+  const archive = input.newArchive
+  if (archive) {
+    if (!archive.styleName.trim() || !archive.colorName.trim() || !archive.sizeName.trim()) {
+      return { ok: false, message: '请填写款式名称、颜色和尺码。' }
+    }
+    if (!/^(https?:\/\/|\/(?!\/))/i.test(archive.styleImageUrl.trim())) {
+      return { ok: false, message: '请提供与新款对应、可访问的真实图片地址或站内图片路径。' }
+    }
+    if (!Number.isFinite(archive.expectedQuantity) || archive.expectedQuantity <= 0) {
+      return { ok: false, message: '请填写大于 0 的预计用料数量。' }
+    }
+    const materialSku = getMaterialSkuRecordById(archive.materialSkuId)
+    if (!materialSku) {
+      return { ok: false, message: '请选择有效的预计用料物料 SKU。' }
+    }
+    if (!materialSku.skuImageUrl) {
+      return { ok: false, message: '所选物料 SKU 缺少对应图片，请先补齐物料档案。' }
+    }
+  }
+  let style = input.styleId ? listStyleArchives().find((item) => item.styleId === input.styleId) : undefined
+  if (input.styleId && !style) return { ok: false, message: '未找到对应款式档案。' }
+  if (style && !style.mainImageUrl) return { ok: false, message: '所选款式缺少对应图片，请先补齐商品档案。' }
   const active = [...store.values()].find(
     (item) => item.styleId === input.styleId && item.status === '进行中',
   )
   if (active) {
     return { ok: false, message: `同一 SPU 至多 1 张进行中测款单，已存在 ${active.orderCode}。` }
   }
+  if (archive) {
+    const created = createStyleArchiveDirect({ styleName: archive.styleName.trim() })
+    style = updateStyleArchive(created.styleId, {
+      mainImageUrl: archive.styleImageUrl.trim(),
+      imageSource: '测款单建档',
+      baseInfoStatus: '已建档',
+    }) || created
+    const materialSku = getMaterialSkuRecordById(archive.materialSkuId)!
+    const material = getMaterialArchiveById(materialSku.materialId)
+    const color = archive.colorName.trim()
+    const size = archive.sizeName.trim()
+    const fixture = buildSkuFixture(style.styleCode, style.styleName, color, size)
+    const stamp = now()
+    const codePart = (value: string) => value.replace(/\s+/g, '-').replace(/[^a-zA-Z0-9一-龥-]/g, '').toUpperCase()
+    const skuCode = `${style.styleCode}-${codePart(color)}-${codePart(size)}`
+    const sku: SkuArchiveRecord = {
+      skuId: `sku_testing_${style.styleId}`,
+      skuCode, styleId: style.styleId, styleCode: style.styleCode, styleName: style.styleName,
+      skuName: fixture.skuName, skuNameEn: fixture.skuNameEn, colorName: color, sizeName: size,
+      printName: '基础款', barcode: skuCode, channelTitle: fixture.channelTitle,
+      skuImageUrl: archive.styleImageUrl.trim(), archiveStatus: 'ACTIVE', mappingHealth: 'MISSING',
+      channelMappingCount: 0, listedChannelCount: 0, techPackVersionId: '', techPackVersionCode: '',
+      techPackVersionLabel: '', legacySystem: '', legacyCode: '', costPrice: fixture.costPrice,
+      freightCost: fixture.freightCost, suggestedRetailPrice: fixture.suggestedRetailPrice,
+      currency: fixture.currency, pricingUnit: fixture.pricingUnit, weightKg: fixture.weightKg,
+      lengthCm: fixture.lengthCm, widthCm: fixture.widthCm, heightCm: fixture.heightCm,
+      packagingInfo: fixture.packagingInfo, weightText: `${fixture.weightKg}kg`,
+      volumeText: `${fixture.lengthCm}*${fixture.widthCm}*${fixture.heightCm}cm`, lastListingAt: '',
+      createdAt: stamp, createdBy: '当前用户', updatedAt: stamp, updatedBy: '当前用户', remark: '',
+      expectedMaterials: [{
+        materialSkuId: materialSku.materialSkuId, materialSkuCode: materialSku.materialSkuCode,
+        materialName: materialSku.materialName, quantity: archive.expectedQuantity,
+        unit: material?.mainUnit || materialSku.pricingUnit,
+      }],
+    }
+    createSkuArchive(sku)
+  }
+  if (!style) return { ok: false, message: '款式建档失败。' }
   seq += 1
   const orderCode = `TO-${String(seq).padStart(4, '0')}`
   const skuCodes = input.skuCodes || listSkuArchives().filter((item) => item.styleId === style.styleId).map((item) => item.skuCode)
@@ -148,9 +233,10 @@ export function createTestingOrder(input: {
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
-    styleImageUrl: style.mainImageUrl || '',
+    styleImageUrl: localizeProductFixtureImageUrl(style.mainImageUrl || ''),
     spuCode: style.styleCode,
     skuCodes,
+    archiveMode: archive ? 'created' : 'linked',
     status: '进行中',
     currentStepKey: 'archive',
     purchaseLinks: input.purchaseLinks || [],
@@ -166,16 +252,18 @@ export function createTestingOrder(input: {
     pricing: defaultPricing(),
     shipMethod: input.shipMethod || '人头',
     channelCodes: input.channelCodes || [PCS_CHANNEL_OPTIONS[0].code],
+    channelPrices: {},
     liveSessionNote: '',
     bulkDecision: '',
     bulkDecisionNote: '',
     endedAt: '',
     endReason: '',
-    history: [{ time: now(), action: '创建测款单并完成系统建档', actor: '系统' }],
+    history: [{ time: now(), action: archive ? '创建测款单并完成系统建档' : '创建测款单并关联已有 SPU/SKU', actor: '系统' }],
     createdAt: now(),
     updatedAt: now(),
   }
   store.set(record.testingOrderId, record)
+  persistStore()
   applyArchiveWriteback({
     styleId: style.styleId,
     stylePatch: {},
@@ -207,6 +295,7 @@ export function updateTestingOrder(
   if (!record) return null
   Object.assign(record, patch, { updatedAt: now() })
   record.history.unshift({ time: now(), action: actionLabel, actor })
+  persistStore()
   return record
 }
 
@@ -235,6 +324,7 @@ export function advanceTestingOrder(
   record.currentStepKey = nextStep
   record.updatedAt = now()
   record.history.unshift({ time: now(), action: `推进到 ${TESTING_ORDER_STEPS[order].title}`, actor })
+  persistStore()
 
   if (nextStep === 'channel-listing' || nextStep === 'live-testing' || nextStep === 'bulk-decision') {
     applyArchiveWriteback({
@@ -262,6 +352,7 @@ export function setBulkDecision(
     record.status = '进行中'
     record.history.unshift({ time: now(), action: '大货判断：待定，保持进行中', actor, note })
     record.updatedAt = now()
+    persistStore()
     return { ok: true, record }
   }
   record.bulkDecision = decision
@@ -272,6 +363,7 @@ export function setBulkDecision(
   record.currentStepKey = 'bulk-decision'
   record.history.unshift({ time: now(), action: `大货判断：${decision}，测款结束`, actor, note })
   record.updatedAt = now()
+  persistStore()
     applyArchiveWriteback({
       styleId: record.styleId,
       lastTestingConclusion: decision === '是' ? '已通过' : '未通过',
@@ -306,6 +398,7 @@ export function completeLabelStep(
   record.history.unshift({ time: now(), action: `完成打标，码值 ${skuCode}`, actor })
   record.currentStepKey = 'buyer-confirm'
   record.updatedAt = now()
+  persistStore()
   return { ok: true, record }
 }
 
@@ -331,6 +424,7 @@ export function completeSampleInbound(
   record.currentStepKey = 'label'
   record.updatedAt = now()
   record.history.unshift({ time: now(), action: '完成 ④样衣入库', actor, note })
+  persistStore()
   return { ok: true, record }
 }
 
@@ -348,6 +442,7 @@ export function rejectBuyerConfirm(
   record.endReason = '买手确认淘汰'
   record.history.unshift({ time: now(), action: '买手确认淘汰，测款结束', actor, note })
   record.updatedAt = now()
+  persistStore()
   applyArchiveWriteback({
     styleId: record.styleId,
     lastTestingConclusion: '未通过',
@@ -369,6 +464,7 @@ export function rejectPricing(
   record.endReason = '核价淘汰'
   record.history.unshift({ time: now(), action: '核价淘汰，测款结束', actor, note })
   record.updatedAt = now()
+  persistStore()
   applyArchiveWriteback({
     styleId: record.styleId,
     lastTestingConclusion: '未通过',
@@ -384,12 +480,22 @@ export function pushChannelProducts(
 ): { ok: boolean; message?: string; pushed?: string[] } {
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
-  const products = listProjectChannelProducts().filter((item) =>
-    record.channelCodes.includes(item.channelCode),
-  )
+  if (record.status !== '进行中' || record.currentStepKey !== 'channel-listing' || !record.sampleInboundAt) {
+    return { ok: false, message: '请先完成前序步骤，再执行⑧渠道推送。' }
+  }
+  let products: ReturnType<typeof createTestingOrderChannelProducts>
+  try {
+    products = createTestingOrderChannelProducts({
+      testingOrderId, styleId: record.styleId, skuCodes: record.skuCodes,
+      channelCodes: record.channelCodes, channelPrices: record.channelPrices || {}, actor,
+    })
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : '渠道商品创建失败。' }
+  }
   const ids = products.map((item) => item.channelProductId)
   applyArchiveWriteback({
     styleId: record.styleId,
+    stylePatch: { channelProductCount: listProjectChannelProducts().filter((item) => item.styleId === record.styleId).length },
     source: '测款单-渠道推送',
     actor,
   })
@@ -400,14 +506,20 @@ export function pushChannelProducts(
     note: `关联渠道商品 ${ids.length} 条`,
   })
   record.updatedAt = now()
-  return advanceTestingOrder(testingOrderId, 'channel-listing', actor).ok
-    ? { ok: true, pushed: ids, message: `已推送 ${ids.length} 条渠道商品并回写档案。` }
-    : { ok: false, message: '渠道推进失败。' }
+  record.currentStepKey = 'live-testing'
+  record.history.unshift({ time: now(), action: '推进到 ⑨直播测款', actor })
+  persistStore()
+  return { ok: true, pushed: ids, message: `原型模拟推送 ${ids.length} 条本单渠道商品，已回写档案。` }
 }
 
 export function resetTestingOrderRepository(): void {
   store.clear()
   seq = 0
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // 测试环境可能没有浏览器存储。
+  }
 }
 
 function seed(
@@ -434,6 +546,7 @@ function seed(
     pricing: defaultPricing(),
     shipMethod: '人头' as TestingOrderRecord['shipMethod'],
     channelCodes: ['tiktok', 'shopee'],
+    channelPrices: {} as Record<string, number>,
     liveSessionNote: '',
     bulkDecision: '' as TestingOrderRecord['bulkDecision'],
     bulkDecisionNote: '',
@@ -450,7 +563,7 @@ function seed(
     styleId: partial.styleId,
     styleCode: partial.styleCode,
     styleName: partial.styleName,
-    styleImageUrl: partial.styleImageUrl,
+    styleImageUrl: localizeProductFixtureImageUrl(partial.styleImageUrl),
     spuCode: partial.spuCode,
     skuCodes: partial.skuCodes,
     history: partial.history ?? [],
@@ -469,6 +582,7 @@ function seed(
     buyerDecisionNote: partial.buyerDecisionNote ?? '',
     shipMethod: partial.shipMethod ?? base.shipMethod,
     channelCodes: partial.channelCodes ?? base.channelCodes,
+    channelPrices: partial.channelPrices ?? base.channelPrices,
     liveSessionNote: partial.liveSessionNote ?? '',
     bulkDecision: partial.bulkDecision ?? '',
     bulkDecisionNote: partial.bulkDecisionNote ?? '',
@@ -486,6 +600,17 @@ function seed(
 
 export function bootstrapTestingOrders(): void {
   if (store.size > 0) return
+  let saved: TestingOrderRecord[] = []
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+      if (Array.isArray(parsed)) saved = parsed.filter((item): item is TestingOrderRecord =>
+        Boolean(item && typeof item.testingOrderId === 'string' && typeof item.orderCode === 'string'),
+      )
+    }
+  } catch {
+    // 损坏的本地演示数据回退到种子数据。
+  }
   const styles = listStyleArchives()
   const normal = styles[0]
   const buyerKill = styles[1] || styles[0]
@@ -609,6 +734,11 @@ export function bootstrapTestingOrders(): void {
     })
     record.orderCode = 'TO-0005'
   }
+  saved.forEach((item) => store.set(item.testingOrderId, {
+    ...item,
+    styleImageUrl: localizeProductFixtureImageUrl(item.styleImageUrl || ''),
+  }))
+  seq = Math.max(seq, ...[...store.values()].map((item) => Number(item.orderCode.match(/^TO-(\d+)$/)?.[1] || 0)))
 }
 
 bootstrapTestingOrders()

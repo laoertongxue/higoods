@@ -11,7 +11,25 @@
 | 证据 | 实施后回填；页面证据含路由与截图/日志路径 |
 | 产品确认人 | 全部 85 条均为「用户（2026-09-23 确认）」：81 条=§12 A1–A5 + 当时矩阵 82 条；TEST-025～027 + GATE-001 由版本接受覆盖；`accepted` 证据=GitHub commit comment `1fce47c2` #commitcomment-201603472 |
 
-**当前汇总**：条目总数 **85**；`已验证 85`（CLEAN 12 + ARCH 12 + MAT 14 + TEST 27 + SAMP 14 + GATE 6）。产品确认人 **85/85** 均已确认（81 条历史确认 + TEST-025～027、GATE-001 随版本接受）。交付状态：**`delivered` + `accepted`**——功能提交 `f62108bd`，合并 `main` `1fce47c2`，`origin/main` 已确认；接受回执 https://github.com/laoertongxue/higoods/commit/1fce47c2e7845e05fb142d51b0d5d4f25782ed61#commitcomment-201603472（接受人 laoertongxue，2026-09-23）。
+**历史版本汇总（`1fce47c2`）**：条目总数 **85**；当时记录 `已验证 85`（CLEAN 12 + ARCH 12 + MAT 14 + TEST 27 + SAMP 14 + GATE 6）。产品确认人 **85/85** 均已确认（81 条历史确认 + TEST-025～027、GATE-001 随版本接受）。当时交付状态：**`delivered` + `accepted`**——功能提交 `f62108bd`，合并 `main` `1fce47c2`，`origin/main` 已确认；接受回执 https://github.com/laoertongxue/higoods/commit/1fce47c2e7845e05fb142d51b0d5d4f25782ed61#commitcomment-201603472（接受人 laoertongxue，2026-09-23）。该回执不自动覆盖后续修复版本。
+
+### 0.1 后续修复增量（`codex/pcs-repair`）
+
+基线 `28aae9b1` 的重新核查发现旧证据不能证明 MAT-010、TEST-004、TEST-011 在新版本真实可用。本增量按《PCS当前问题修复实施与核查》实施，以下状态只针对当前修复分支；原表保留为 `1fce47c2` 的历史记录。
+
+| 需求编号 | 来源章节 | 原子需求 | 工作包 | 当前实现位置 | 自动化验证 | 页面/性能验证 | 当前状态 | 证据 | 产品确认人 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| MAT-010 | 设计 §5.3、§11-15 | 有物料 SKU 身份的草稿 BOM 行映射基础态变种，保留发布快照 | 修复-02 | `mapLegacyBomItemsToBaseVariants`、`getTechnicalDataVersionContent` | `tests/pcs-material-variant.spec.ts` PASS | BOM 命名页与性能待最终验收 | 已实现待验证 | `docs/prototype-review-records/2026-09-23-pcs-repair.md` | 待当前版本确认 |
+| TEST-004 | 设计 §4.1、§11-4 | ①创建新 SPU/SKU/预计用料，或明确关联已有档案 | 修复-01 | `createTestingOrder`、`createPanelHtml`、`localizeProductFixtureImageUrl` | `tests/pcs-testing-order.spec.ts` PASS | 干净 origin 新建 TO-0006 核对款式/物料图片；全量存量图对应关系与完整性能待验 | 已实现待验证 | 同上 | 待当前版本确认 |
+| TEST-011 | 设计 §4.1、§3.2 | ⑧创建本单渠道商品并回写档案，不借用别单记录 | 修复-01 | `createTestingOrderChannelProducts`、`pushChannelProducts` | `tests/pcs-testing-order.spec.ts` PASS | TO-0007 两渠道、币种、历史与刷新；性能待测 | 已实现待验证 | 同上 | 待当前版本确认 |
+| TEST-024 | AGENTS §7.2、设计 §9 | 本次受影响页面加载与交互各有至少 5 个当前版本样本并满足门禁 | 修复-04 | 当前分支构建版浏览器验收 | 历史原始样本保留 | 2026-09-23 用户明确允许忽略印花 573.6ms 首样本及本次未补齐的逐项性能证据；仅本修复增量作为例外，不声称 `<500ms` 已通过 | 不适用 | `docs/prototype-review-records/2026-09-23-pcs-repair.md` 第 7 节 | 用户（2026-09-23 明确授权本次例外） |
+| FCS-ENTRY-002 | 本次用户第 4 项 | 后道 QC Mock 从质检单号可回溯同源需求、生产单、演示技术包、来源任务和质检当前事实 | 修复-03 | `buildPostFinishingMockOverview`、`renderPostFinishingQcOrdersPage` | `check-post-finishing-qc-mainline.ts` 12/12 PASS | 构建版 `/fcs/craft/post-finishing/qc-orders` 点击 QC 和生产编号；已补齐 3 组需求/生产单/演示技术包、15 个 SKU 与主工厂；最终构建版 QC → 来源任务 / 生产单 → 需求回放通过 | 已验证 | `docs/product-design/PCS当前问题修复实施与核查.md` | 用户（2026-09-23 确认方向；待当前版本接受） |
+| PRINT-LIST-001 | 本次用户第 2 项 | 印花列表八个业务列，时间和数量分列，选择列独立 | 修复-03 | `createPrintingOrderDisplayColumns`、`check-printing-two-end-list.ts` | 九个表头逐列断言 PASS | `/fcs/craft/printing/work-orders` 最终构建版九个表头复核通过 | 已验证 | `docs/染色印花加工单调整实施与验收.md` 2026-09-23 变更记录 | 用户（2026-09-23 确认八列） |
+| IMG-AUDIT-001 | 设计 §14.3、用户自主搜索要求 | 284 个原型对象按品类、结构及颜色固定绑定图片，记录素材来源 | 修复-05 | `PCS图片素材逐项校对台账.csv`、`audit-pcs-archive-images.ts` | 284/284 当前 URL、来源与哈希 PASS；9 项明显错配已替换 | 95 项素材加载通过；款式/SKU/物料详情、失败与大图见审查 §8；性能按本次例外 | 已验证 | 图片台账、来源清单、审查 §8 | 用户确认自主搜索范围；Codex 验证，待当前版本接受 |
+
+| TYPE-001 | 设计 §14.1 | 全量类型检查清零并保持停用入口阻断语义 | 修复-06 | `pcs-engineering-master-sampling.ts`、FCS 类型修正等 9 文件，详见审查 §8 | `tsc --noEmit` 0；417/417 单测及构建 PASS | 不适用：类型与不可达代码修正；可见关联结果由 TYPE-002 验证 | 已验证 | 审查 §8、`/private/tmp/pcs-final-tsc.log` | 用户要求修复；Codex 验证，待当前版本接受 |
+| TYPE-002 | 设计 §14.2 | 连续余料只扣一次报废，下游印花绑定阻断直接截断 | 修复-06 | `tmf-material-purchases.ts`、`dyeing-task-domain.ts`、`tmf-process-continuation.ts` | 100→70→0、101/71 超量阻断、来源快照已绑定阻断回归 PASS | 不适用：数量/状态契约，无页面入口与布局变更 | 已验证 | `tmf-purchase-base-flow.test.ts`、`tmf-process-continuation.test.ts` | 用户要求修复；Codex 验证，待当前版本接受 |
+| IMG-FILL-001 | 设计 §14.3-4 | 原型图片固定映射、旧 Mock 保守迁移、用户图保留及大图可用 | 修复-05 | `pcs-reviewed-image-catalog.ts`、档案仓储、QC 来源、产品/物料/QC 页面 | 4 项图片回归、284/284 审计 PASS | 命名路由图片加载/失败/大图/关闭/1280×720 验收见审查 §8；性能例外 | 已验证 | 来源 JSON、逐项 CSV、审查 §8 | 用户确认自主搜索范围；Codex 验证，待当前版本接受 |
 
 ---
 

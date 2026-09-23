@@ -1,13 +1,33 @@
-const PRODUCT_IMAGE_POOL = [
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/83358027dc8efb43359af8b6996d12fa.jpg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/4b45b816574f99080d0b06f30c9464af.jpg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/c74d884c23376156c8dc13a5ff39d3fa.jpg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/e0f7c7ce28085289101a5aaab57e8b72.jpg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/291197a6d0717c9d8832fff8b329299e.jpg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/f8f3566efc82709add4e08fe108b7dfc.jpg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/2feb56c3b75979a9f839217decc23b74.jpeg',
-  'https://file.higood.id/higood_live/proudcts/2026/04/16/766c6496dba8cace985d7b8598a1a5cd.jpg',
+import { reviewedStyleGallery, reviewedStyleImage } from './pcs-reviewed-image-catalog.ts'
+
+const LEGACY_PRODUCT_IMAGES = [
+  '/materials/archive/83358027dc8efb43359af8b6996d12fa.jpg',
+  '/materials/archive/4b45b816574f99080d0b06f30c9464af.jpg',
+  '/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg',
+  '/materials/archive/e0f7c7ce28085289101a5aaab57e8b72.jpg',
+  '/materials/archive/291197a6d0717c9d8832fff8b329299e.jpg',
+  '/materials/archive/f8f3566efc82709add4e08fe108b7dfc.jpg',
+  '/materials/archive/2feb56c3b75979a9f839217decc23b74.jpeg',
+  '/materials/archive/766c6496dba8cace985d7b8598a1a5cd.jpg',
 ]
+
+const LEGACY_PRODUCT_IMAGE_PREFIX = 'https://file.higood.id/higood_live/proudcts/2026/04/16/'
+
+export function localizeProductFixtureImageUrl(url: string): string {
+  if (!url.startsWith(LEGACY_PRODUCT_IMAGE_PREFIX)) return url
+  const localPath = `/materials/archive/${url.slice(LEGACY_PRODUCT_IMAGE_PREFIX.length)}`
+  return LEGACY_PRODUCT_IMAGES.includes(localPath) ? localPath : url
+}
+
+export function isLegacyProductFixtureImage(url: string): boolean {
+  return LEGACY_PRODUCT_IMAGES.includes(localizeProductFixtureImageUrl(url))
+    || ['/shirt-sample.jpg', '/dress-sample-1.jpg', '/jacket-sample.jpg'].includes(url)
+}
+
+export function migrateProductFixtureImage(styleCode: string, current: string, colorName?: string): string {
+  if (!isLegacyProductFixtureImage(current)) return current
+  return reviewedStyleImage(styleCode, colorName) || current
+}
 
 const PRODUCT_TITLE_POOL = [
   'Atasan Pakaian Wanita Bergaya Kekinian Mode Terbaru',
@@ -110,12 +130,8 @@ export interface ProductSkuFixture {
 
 export function buildStyleFixture(styleCode: string, styleName: string): ProductStyleFixture {
   const styleNameEn = normalizeEnglishName(styleName, styleCode)
-  const mainImageUrl = pickBySeed(PRODUCT_IMAGE_POOL, styleCode)
-  const galleryImageUrls = [
-    mainImageUrl,
-    pickBySeed(PRODUCT_IMAGE_POOL, styleCode, 1),
-    pickBySeed(PRODUCT_IMAGE_POOL, styleCode, 2),
-  ]
+  const mainImageUrl = reviewedStyleImage(styleCode)
+  const galleryImageUrls = reviewedStyleGallery(styleCode)
 
   return {
     styleNameEn,
@@ -133,7 +149,6 @@ export function buildSkuFixture(
   colorName: string,
   sizeName: string,
 ): ProductSkuFixture {
-  const seed = `${styleCode}-${colorName}-${sizeName}`
   const styleFixture = buildStyleFixture(styleCode, styleName)
   const baseCost = resolveBaseCost(styleName)
   const sizeBoost = resolveSizeBoost(sizeName)
@@ -149,7 +164,7 @@ export function buildSkuFixture(
     skuName: `${styleName} ${colorName}/${sizeName}`,
     skuNameEn: `${styleFixture.styleNameEn} ${colorName}/${sizeName}`,
     channelTitle: `${styleFixture.styleNameEn} ${colorName} ${sizeName}`.trim(),
-    skuImageUrl: pickBySeed(PRODUCT_IMAGE_POOL, seed),
+    skuImageUrl: reviewedStyleImage(styleCode, colorName),
     costPrice,
     freightCost,
     suggestedRetailPrice,

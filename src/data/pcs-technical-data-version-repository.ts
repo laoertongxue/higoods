@@ -10,6 +10,7 @@ import {
 import type { EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
 import { getEngineeringMasterOrderById } from './pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
+import { mapLegacyBomItemsToBaseVariants } from './pcs-material-variant-repository.ts'
 import {
   validateTechPackDesignRequirement,
 } from './pcs-tech-pack-design-requirement.ts'
@@ -947,8 +948,16 @@ export function getTechnicalDataVersionById(technicalVersionId: string): Technic
 }
 
 export function getTechnicalDataVersionContent(technicalVersionId: string): TechnicalDataVersionContent | null {
-  const content = (memorySnapshot ?? loadSnapshot()).contents.find((item) => item.technicalVersionId === technicalVersionId)
-  return content ? cloneContent(content) : null
+  const snapshot = memorySnapshot ?? loadSnapshot()
+  const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
+  if (!content) return null
+  const record = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
+  if (record?.versionStatus === 'PUBLISHED') return cloneContent(content)
+  const mapped = mapLegacyBomItemsToBaseVariants(content.bomItems)
+  if (mapped.some((item, index) => item.variantId !== content.bomItems[index]?.variantId)) {
+    return persistTechnicalDataVersionContentPatch(technicalVersionId, { bomItems: mapped })
+  }
+  return cloneContent(content)
 }
 
 export function getTechnicalDataVersionContentById(technicalVersionId: string): TechnicalDataVersionContent | null {
@@ -1067,7 +1076,10 @@ export function updateTechnicalDataVersionContent(
   ) {
     throw new Error('新工程来源的已发布技术包 BOM/COST 正式字段禁止修改。')
   }
-  return persistTechnicalDataVersionContentPatch(technicalVersionId, patch)
+  const mappedPatch = patch.bomItems && targetRecord?.versionStatus !== 'PUBLISHED'
+    ? { ...patch, bomItems: mapLegacyBomItemsToBaseVariants(patch.bomItems) }
+    : patch
+  return persistTechnicalDataVersionContentPatch(technicalVersionId, mappedPatch)
 }
 
 function persistTechnicalDataVersionContentPatch(

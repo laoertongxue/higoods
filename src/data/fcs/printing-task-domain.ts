@@ -2503,7 +2503,7 @@ function initializePrintingBusinessView(order: MutablePrintWorkOrder, progress: 
     const matchesBomMaterial = bom && (!order.formalProductionOrderSnapshot || order.formalProductionOrderSnapshot.materialId === (bom.materialCode || bom.id))
     const materialImage = usableImage(order.formalProductionOrderSnapshot?.inputMaterialImageUrl) || usableImage(source?.materialImageUrl) || (matchesBomMaterial ? usableImage(bom.materialImageUrl) || resolveProductionMaterialImageUrl({ materialSku: bom.materialCode || bom.id, materialName: bom.name, materialColor: order.materialColor }) : '') || imageManifest?.input || ''
     // V1 使用用户提供的真实织带/绳子实拍作为颜色/花型产出替代图，避免用白坯投入图冒充产出；后续可在技术包中替换为对应实拍。
-    const outputImage = usableImage(order.outputMaterialImageUrl) || usableImage(order.formalProductionOrderSnapshot?.outputMaterialImageUrl) || imageManifest?.output || (objectType === '绳子' || /CORD|RP/i.test(outputSku) || objectType === '织带' || /WB/i.test(outputSku) ? resolveTmfPrintOutputReference(outputSku || order.outputMaterialSkuCode || '') : '')
+    const outputImage = usableImage(order.outputMaterialImageUrl) || usableImage(order.formalProductionOrderSnapshot?.outputMaterialImageUrl) || imageManifest?.output || (/CORD|RP/i.test(outputSku) || objectType === '织带' || /WB/i.test(outputSku) ? resolveTmfPrintOutputReference(outputSku) : '')
     const plannedInput: PrintingPlannedInput = {
       objectType, materialName: `${order.materialSku} 待印${objectType}`, spu: materialSpu, sku: inputSku,
       imageUrl: materialImage, imageAlt: `${order.materialSku} ${objectType}实拍图`, gsm: isFabricLike && index >= 0 ? 120 + index * 20 : 0, widthCm: isFabricLike && index >= 0 ? 152 + index : 0,

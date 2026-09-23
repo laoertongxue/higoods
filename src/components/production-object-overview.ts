@@ -160,7 +160,7 @@ function takeSearchGroup(
 function groupSearchResults(rows: ProductionObjectSearchIndex[]): Array<{ title: string; rows: ProductionObjectSearchIndex[] }> {
   const used = new Set<string>()
   const best = takeSearchGroup(rows, used, (_item, index) => index === 0, 1)
-  const risk = takeSearchGroup(rows, used, isSearchRiskItem, 6)
+  const risk = takeSearchGroup(rows, used, isSearchRiskItem, 4)
   const main = takeSearchGroup(rows, used, (item) => item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND', 6)
   const execution = takeSearchGroup(rows, used, () => true, 9)
 
@@ -174,7 +174,10 @@ function groupSearchResults(rows: ProductionObjectSearchIndex[]): Array<{ title:
 
 function withRelatedMainlineRows(rows: ProductionObjectSearchIndex[]): ProductionObjectSearchIndex[] {
   const ids = new Set(rows.map((item) => item.id))
-  const relatedOrderNos = uniqueSearchTexts(rows.map((item) => item.relatedProductionOrderNo).filter(Boolean) as string[])
+  const relatedOrderNos = uniqueSearchTexts(rows.flatMap((item) => [
+    item.relatedProductionOrderNo || '',
+    item.objectType === 'PRODUCTION_ORDER' ? item.primaryNo : '',
+  ]))
   const mainlineRows = getProductionObjectSearchIndex()
     .filter((item) =>
       (item.objectType === 'PRODUCTION_ORDER' || item.objectType === 'DEMAND') &&
@@ -182,7 +185,7 @@ function withRelatedMainlineRows(rows: ProductionObjectSearchIndex[]): Productio
       relatedOrderNos.some((orderNo) => item.primaryNo === orderNo || item.relatedProductionOrderNo === orderNo),
     )
     .map((item) => ({ ...item, matchedReason: '关联生产对象' }))
-  return [...rows, ...mainlineRows]
+  return rows.length > 0 ? [rows[0], ...mainlineRows, ...rows.slice(1)] : mainlineRows
 }
 
 function uniqueSearchTexts(values: string[]): string[] {
@@ -378,13 +381,14 @@ export function renderProductionObjectSearchPanel(keyword = searchKeyword): stri
 export function renderOverviewHeader(overview: ProductionObjectOverview): string {
   const { summary, continueDecision } = overview
   const primaryRef = getPrimaryObjectRef(overview)
+  const postFinishingMock = isPostFinishingMockOverview(overview)
   return `
     <header class="production-object-overview__header">
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <h2 class="text-base font-semibold">生产对象总览</h2>
-            ${badge(OBJECT_TYPE_LABEL[overview.objectType], 'border-blue-200 bg-blue-50 text-blue-700')}
+            ${badge(postFinishingMock && overview.objectType === 'PRODUCTION_ORDER' ? '后道验收 Mock 生产来源' : OBJECT_TYPE_LABEL[overview.objectType], 'border-blue-200 bg-blue-50 text-blue-700')}
           </div>
           <p class="mt-1 break-all text-xs text-muted-foreground">
             ${
@@ -415,7 +419,11 @@ export function renderOverviewHeader(overview: ProductionObjectOverview): string
   `
 }
 
-function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, relatedProductionOrderNo?: string | null, quantityText?: string): string {
+function isPostFinishingMockOverview(overview: ProductionObjectOverview): boolean {
+  return overview.sourceSnapshots.some((item) => item.sourceName === '后道验收 Mock 生产来源')
+}
+
+function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, relatedProductionOrderNo?: string | null, quantityText?: string, postFinishingMock = false): string {
   if (!ref) return ''
   return `
     <section
@@ -425,9 +433,9 @@ function renderClickedObjectSummary(ref: ProductionObjectClickedRef | null, rela
     >
       <div class="flex flex-wrap items-center gap-2">
         <span class="font-medium">当前查看</span>
-        <span class="rounded border border-blue-200 bg-white px-2 py-0.5">${escapeHtml(OBJECT_TYPE_LABEL[ref.objectType] || ref.objectType)}</span>
+        <span class="rounded border border-blue-200 bg-white px-2 py-0.5">${escapeHtml(postFinishingMock && ref.objectType === 'PRODUCTION_ORDER' ? '后道验收 Mock 生产来源' : OBJECT_TYPE_LABEL[ref.objectType] || ref.objectType)}</span>
         <span class="font-mono text-blue-700">${escapeHtml(ref.objectNo)}</span>
-        ${relatedProductionOrderNo ? `<span class="text-muted-foreground">关联生产单：${escapeHtml(relatedProductionOrderNo)}</span>` : ''}
+        ${relatedProductionOrderNo ? `<span class="text-muted-foreground">${postFinishingMock ? '关联 Mock 生产来源' : '关联生产单'}：${escapeHtml(relatedProductionOrderNo)}</span>` : ''}
         <span class="text-muted-foreground">来源系统：${escapeHtml(ref.sourceDomain)}</span>
         ${quantityText ? `<span class="text-muted-foreground">数量：${escapeHtml(quantityText)}</span>` : ''}
         <span class="text-muted-foreground">状态：${escapeHtml(ref.statusText)}</span>
@@ -477,6 +485,7 @@ function renderTabs(
 function renderSummaryTab(overview: ProductionObjectOverview): string {
   const { summary } = overview
   const primaryRef = getPrimaryObjectRef(overview)
+  const postFinishingMock = isPostFinishingMockOverview(overview)
   return `
     <div class="space-y-4">
       <section class="grid gap-3 md:grid-cols-[88px_1fr]">
@@ -491,7 +500,7 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
             ${renderInfoItem('SKU 数量', summary.skuSummary)}
             ${renderInfoItemHtml('生产需求单', renderOverviewCode('DEMAND', summary.demandNo, summary.demandNo))}
             ${renderInfoItemHtml(
-              '生产单',
+              postFinishingMock ? 'Mock 生产来源编号' : '生产单',
               summary.productionOrderNo === '尚未生成'
                 ? escapeHtml(summary.productionOrderNo)
                 : renderOverviewCode('PRODUCTION_ORDER', summary.productionOrderNo, summary.productionOrderNo),
@@ -505,16 +514,22 @@ function renderSummaryTab(overview: ProductionObjectOverview): string {
         </div>
       </section>
       <section class="rounded-lg border bg-card p-4">
-        <h3 class="text-sm font-semibold">当前生产流程</h3>
-        <div class="mt-4 grid gap-2 xl:grid-cols-8">
+        <h3 class="text-sm font-semibold">${postFinishingMock ? '后道 Mock 来源流程' : '当前生产流程'}</h3>
+        ${postFinishingMock ? `
+          <div class="mt-3 text-sm text-muted-foreground">生产需求、生产单、后道来源任务与质检事实已按同一组 SKU 和数量关联，并保留演示技术包快照。明细见“工艺与任务”“关系与历史”。</div>
+          <div class="mt-4 grid gap-2 sm:grid-cols-3">
+            ${[['生产需求与生产单', '已关联'], ['后道来源任务', overview.progressNodes[0]?.status || '待确认'], ['后道质检', overview.progressNodes.slice(1).some((node) => node.status === '质检完成') ? '已有质检结果' : '待质检']].map(([name, status]) => `
+              <div class="rounded-lg border bg-muted/20 p-3"><div class="text-sm font-medium">${escapeHtml(name)}</div><div class="mt-2">${badge(status)}</div></div>
+            `).join('')}
+          </div>
+        ` : `<div class="mt-4 grid gap-2 xl:grid-cols-8">
           ${['需求接收', '生产单生成', '面辅料准备', '裁片', '印花/染色', '车缝', '后道', '入库'].map((name, index) => `
             <div class="rounded-lg border bg-muted/20 p-3">
               <div class="text-xs text-muted-foreground">第 ${index + 1} 步</div>
               <div class="mt-1 text-sm font-medium">${escapeHtml(name)}</div>
               <div class="mt-2">${index <= 1 ? badge('已完成') : index === 2 ? badge(overview.continueDecision.displayText) : badge('待处理')}</div>
             </div>
-          `).join('')}
-        </div>
+          `).join('')}</div>`}
       </section>
       ${renderExecutionOverview(overview)}
       ${renderKeyEvidence(overview)}
@@ -1486,7 +1501,7 @@ export function renderProductionObjectOverviewSurface(
       <button class="absolute inset-0 bg-slate-950/30" data-production-object-action="close" data-skip-page-rerender="true" aria-label="关闭"></button>
       <section class="production-object-overview__panel">
         ${renderOverviewHeader(overview)}
-        ${renderClickedObjectSummary(resolved.clickedRef, resolved.indexItem.relatedProductionOrderNo, resolved.indexItem.quantityText)}
+        ${renderClickedObjectSummary(resolved.clickedRef, resolved.indexItem.relatedProductionOrderNo, resolved.indexItem.quantityText, isPostFinishingMockOverview(overview))}
         ${renderTabs(overview, activeBodyTab, {
           objectType: resolved.clickedRef.objectType,
           objectId: resolved.clickedRef.objectId,

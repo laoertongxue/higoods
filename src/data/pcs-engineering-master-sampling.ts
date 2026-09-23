@@ -1,3 +1,4 @@
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './fcs/post-finishing-production-source-fixtures.ts'
 import {
   calculateEngineeringBomTotalRequirement,
   resolveEngineeringBomMaterialLine,
@@ -158,7 +159,7 @@ function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringI
 }
 
 function normalizeRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
-  const normalized = {
+  const normalized: EngineeringIndependentSamplingRecord = {
     ...record,
     samplingType: 'DESIGN_REVISION',
     designFiles: Array.isArray(record.designFiles) ? record.designFiles.map((file) => ({ ...file })) : [],
@@ -293,7 +294,9 @@ function createSeedUploadedFile(
 }
 
 function seedRecords(): EngineeringIndependentSamplingRecord[] {
-  const styles = listStyleArchives().filter((style) => style.mainImageUrl)
+  // 后道验收专用款不参与既有设计改款样本轮换，保持原 24 条样本的目标款和成果身份。
+  const styles = listStyleArchives().filter((style) => style.mainImageUrl
+    && !POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.some((source) => source.spuCode === style.styleCode))
   if (styles.length < 2) return []
   const buyer = { role: '买手' as const, userId: 'U-BUYER-DEMO', userName: '买手-阿乐' }
   // 设计改款只能引用已经完成确认的历史物料方案；这些演示历史方案不属于任何设计改款任务，
@@ -961,30 +964,7 @@ export function confirmEngineeringIndependentColorMappings(input: {
   confirmedAt?: string
 }): EngineeringIndependentSamplingRecord {
   throw new Error('设计改款不再维护新款颜色或参考色，请在整款物料与费用方案中手工新增物料。')
-  /* istanbul ignore next -- 仅保留旧记录迁移代码，活动流程已在上方阻断。 */
-  requireBuyer(input.actor)
-  const records = readRecords()
-  const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('设计改款任务不存在。')
-  if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt) throw new Error('本次工作安排确认后不能再修改颜色对应。')
-  if (record.buyerPreparationConfirmedAt) throw new Error('设计方案已确认。如需调整，请先由买手重新打开方案。')
-  const at = input.confirmedAt || nowText()
-  const bomSnapshot = captureEngineeringBomRepositoryState()
-  const skuSnapshot = { version: 1, records: listSkuArchives() }
-  const recordSnapshot = cloneRecord(record)
-  try {
-    applyEngineeringIndependentColorMappings({ record, actor: input.actor, mappings: input.mappings, confirmedAt: at })
-    addLog(record, '确认目标颜色', input.actor, `已确认 ${record.colorMappings.length} 个目标颜色，并生成同数量的颜色物料方案。`, at)
-    writeRecords(records)
-    return cloneRecord(record)
-  } catch (error) {
-    restoreEngineeringBomRepositoryState(bomSnapshot)
-    replaceSkuArchiveStore(skuSnapshot)
-    const recordIndex = records.findIndex((item) => item.samplingTaskId === record.samplingTaskId)
-    if (recordIndex >= 0) records[recordIndex] = recordSnapshot
-    writeRecords(records)
-    throw error
-  }
+
 }
 
 export function confirmEngineeringIndependentMaterialConversions(input: {
@@ -1001,107 +981,7 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
   confirmedAt?: string
 }): EngineeringIndependentSamplingRecord {
   throw new Error('设计改款不再处理参考物料，所有物料必须由买手在整款方案中手工新增。')
-  /* istanbul ignore next -- 仅保留旧记录迁移代码，活动流程已在上方阻断。 */
-  requireBuyer(input.actor)
-  const records = readRecords()
-  const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('设计改款任务不存在。')
-  if (record.buyerPreparationConfirmedAt) throw new Error('设计方案已确认。如需调整，请先由买手重新打开方案。')
-  if (record.bomConversionStatus !== 'WAIT_MATERIAL_DECISION') throw new Error('请先确认 A 款颜色到 B 款颜色的对应。')
-  if (input.decisions.length !== record.materialConversionLines.length) throw new Error('请逐行确认全部来源物料的处理方式。')
-  const at = input.confirmedAt || nowText()
-  const bomSnapshot = captureEngineeringBomRepositoryState()
-  const recordSnapshot = cloneRecord(record)
-  record.materialConversionLines.forEach((line) => {
-    const decision = input.decisions.find((item) => item.conversionLineId === line.conversionLineId)
-    if (!decision) throw new Error(`请确认物料“${line.sourceMaterialName}”如何处理。`)
-    const targetMaterialSkuId = (decision.targetMaterialSkuId || line.sourceMaterialSkuId).trim()
-    if (decision.decision === '替换' && (!targetMaterialSkuId || targetMaterialSkuId === line.sourceMaterialSkuId)) {
-      throw new Error(`物料“${line.sourceMaterialName}”选择替换时，必须选择另一种 B 款物料。`)
-    }
-    line.decision = decision.decision
-    line.targetMaterialSkuId = decision.decision === '不使用' ? '' : targetMaterialSkuId
-    if (line.targetMaterialSkuId) {
-      const sourceVersion = getEngineeringBomVersionById(line.sourceBomVersionId)
-      const sourceLine = sourceVersion?.materialLines.find((item) => item.bomItemId === line.sourceBomItemId)
-      const targetSku = getMaterialSkuRecordById(line.targetMaterialSkuId)
-      if (!targetSku) throw new Error(`物料 ${line.targetMaterialSkuId} 不存在。`)
-      const draft = resolveEngineeringBomMaterialLine({
-        materialSkuId: line.targetMaterialSkuId,
-        usage: 1,
-        sampleQuantity: 1,
-        usageUnit: sourceLine?.usageUnit || targetSku.pricingUnit,
-        lossRate: 0,
-      })
-      line.targetMaterialName = draft.materialName
-      line.targetMaterialImageUrl = draft.materialImageUrl || ''
-    }
-    line.dyeRequirement = decision.decision === '重新染色' ? '是' : decision.dyeRequirement || line.dyeRequirement
-    line.printRequirement = decision.decision === '重新印花' ? '是' : decision.printRequirement || line.printRequirement
-    line.note = decision.note?.trim() || ''
-    line.confirmedBy = input.actor.userName
-    line.confirmedAt = at
-  })
 
-  try {
-    const targetVersions = record.bomVersionIds.map((versionId) => {
-      const targetVersion = getEngineeringBomVersionById(versionId)
-      if (!targetVersion) throw new Error('B 款颜色物料方案不存在，请重新创建打样任务。')
-      const converted = record.materialConversionLines
-        .filter((line) => line.targetProductColor === targetVersion.productColor && line.decision !== '不使用')
-        .map((line, index) => {
-          const sourceVersion = getEngineeringBomVersionById(line.sourceBomVersionId)
-          const sourceLine = sourceVersion?.materialLines.find((item) => item.bomItemId === line.sourceBomItemId)
-          const fallbackLine = createDefaultBomLines(record.targetStyleCode)[0]
-          if (!sourceLine && !fallbackLine) throw new Error(`物料“${line.sourceMaterialName}”缺少可转换的 BOM 行，请选择 B 款物料。`)
-          return {
-            ...(sourceLine || fallbackLine),
-            bomItemId: `${record.samplingTaskId}-B-${targetVersion.productColor}-${index + 1}`,
-            materialSkuId: line.targetMaterialSkuId,
-            styleCode: record.targetStyleCode,
-            productColor: targetVersion.productColor,
-            applicableSkuIds: [...targetVersion.applicableSkuIds],
-            dyeRequirement: line.dyeRequirement,
-            printRequirement: line.printRequirement,
-            remark: [sourceLine?.remark, line.note, `来源：${record.sourceStyleCode} ${line.sourceProductColor}`].filter(Boolean).join('；'),
-          } satisfies EngineeringBomMaterialLineDraft
-        })
-        .filter((line) => Boolean(line.materialSkuId))
-      const sourceVersion = targetVersion.sourceVersionId
-        ? getEngineeringBomVersionById(targetVersion.sourceVersionId)
-        : null
-      const copiedSourceLineIds = new Set((sourceVersion?.materialLines || []).map((line) => line.bomItemId).filter(Boolean))
-      const manuallyAdded = targetVersion.materialLines.filter((line) =>
-        !String(line.bomItemId || '').startsWith(`${record.samplingTaskId}-B-`)
-        && !copiedSourceLineIds.has(line.bomItemId),
-      )
-      const materialLines = [...manuallyAdded, ...converted]
-      return { targetVersion, materialLines }
-    })
-
-    targetVersions.forEach(({ targetVersion, materialLines }) => saveEngineeringBomVersion({
-      versionId: targetVersion.bomDraftVersionId,
-      role: '买手',
-      userId: input.actor.userId,
-      userName: input.actor.userName,
-      materialLines,
-      updatedAt: at,
-    }))
-
-    record.bomConversionStatus = 'WAIT_MATERIAL_DECISION'
-    record.bomConversionConfirmedBy = input.actor.userName
-    record.bomConversionConfirmedAt = at
-    record.suggestedTaskTypes = suggestEngineeringIndependentTaskTypes(record)
-    addLog(record, '应用参考物料', input.actor, `已将确认后的参考物料处理结果应用到 ${record.targetStyleCode} 的颜色物料方案。`, at)
-    writeRecords(records)
-    return cloneRecord(record)
-  } catch (error) {
-    restoreEngineeringBomRepositoryState(bomSnapshot)
-    const recordIndex = records.findIndex((item) => item.samplingTaskId === record.samplingTaskId)
-    if (recordIndex >= 0) records[recordIndex] = recordSnapshot
-    writeRecords(records)
-    throw error
-  }
 }
 
 export function completeEngineeringIndependentBuyerPreparation(input: {
@@ -1242,72 +1122,7 @@ export function regenerateEngineeringIndependentBomFromReference(input: {
   regeneratedAt?: string
 }): EngineeringIndependentSamplingRecord {
   throw new Error('设计改款不再支持按参考色生成 BOM，所有物料必须由买手手工新增。')
-  /* istanbul ignore next -- 仅保留旧记录迁移代码，活动流程已在上方阻断。 */
-  requireBuyer(input.actor)
-  const records = readRecords()
-  const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
-  if (!record) throw new Error('设计改款任务不存在。')
-  if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt || record.buyerPreparationConfirmedAt) {
-    throw new Error('设计方案确认后不能重新生成 BOM。请先由买手重新打开方案。')
-  }
-  const targetColor = input.targetColor.trim()
-  const mapping = record.colorMappings.find((item) => normalizeColorKey(item.targetColor) === normalizeColorKey(targetColor))
-  if (!mapping) throw new Error('未找到该新款颜色。')
-  if (!mapping.sourceColor) throw new Error('该新款颜色没有选择旧款参考色，不能按参考色重新生成。')
-  const sourceVersion = listEngineeringBomHistory(record.sourceStyleCode, mapping.sourceColor)[0]
-  if (!sourceVersion) throw new Error('旧款参考色没有已完成确认或正式技术包 BOM，不能重新生成。')
-  const targetVersion = record.bomVersionIds
-    .map(getEngineeringBomVersionById)
-    .find((version) => version && normalizeColorKey(version.productColor) === normalizeColorKey(mapping.targetColor))
-  if (!targetVersion) throw new Error('新款颜色对应的物料方案不存在。')
-  const at = input.regeneratedAt || nowText()
-  const bomSnapshot = captureEngineeringBomRepositoryState()
-  const recordSnapshot = cloneRecord(record)
-  try {
-    regenerateEngineeringBomVersionFromSource({
-      targetVersionId: targetVersion.bomDraftVersionId,
-      sourceVersionId: sourceVersion.bomDraftVersionId,
-      role: '买手',
-      userId: input.actor.userId,
-      userName: input.actor.userName,
-      regeneratedAt: at,
-    })
-    record.materialConversionLines = record.materialConversionLines.filter((line) => line.targetProductColor !== mapping.targetColor)
-    record.materialConversionLines.push(...sourceVersion.materialLines.map((line, index) => {
-      const resolved = resolveEngineeringBomMaterialLine(line)
-      return {
-        conversionLineId: `${record.samplingTaskId}-CONVERT-${mapping.mappingId}-${index + 1}`,
-        sourceBomVersionId: sourceVersion.bomDraftVersionId,
-        sourceBomItemId: line.bomItemId || `${sourceVersion.bomDraftVersionId}-LINE-${index + 1}`,
-        sourceProductColor: mapping.sourceColor,
-        sourceMaterialSkuId: line.materialSkuId,
-        sourceMaterialName: resolved.materialName,
-        sourceMaterialImageUrl: resolved.materialImageUrl || '',
-        targetProductColor: mapping.targetColor,
-        decision: '' as const,
-        targetMaterialSkuId: line.materialSkuId,
-        targetMaterialName: resolved.materialName,
-        targetMaterialImageUrl: resolved.materialImageUrl || '',
-        dyeRequirement: line.dyeRequirement || '否',
-        printRequirement: line.printRequirement || '否',
-        note: '',
-        confirmedBy: '',
-        confirmedAt: '',
-      }
-    }))
-    record.bomConversionStatus = 'WAIT_MATERIAL_DECISION'
-    record.bomConversionConfirmedBy = ''
-    record.bomConversionConfirmedAt = ''
-    addLog(record, '按参考色重新生成 BOM', input.actor, `${mapping.targetColor} 已重新采用 ${mapping.sourceColor} 的 ${sourceVersion.versionCode}，原有手工修改已被重置。`, at)
-    writeRecords(records)
-    return cloneRecord(record)
-  } catch (error) {
-    restoreEngineeringBomRepositoryState(bomSnapshot)
-    const recordIndex = records.findIndex((item) => item.samplingTaskId === record.samplingTaskId)
-    if (recordIndex >= 0) records[recordIndex] = recordSnapshot
-    writeRecords(records)
-    throw error
-  }
+
 }
 
 export function suggestEngineeringIndependentTaskTypesForBomLines(

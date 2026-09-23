@@ -1,4 +1,5 @@
 import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-view-model.ts'
+import { migrateMaterialMockGallery, migrateMaterialMockImage } from './pcs-reviewed-image-catalog.ts'
 import { tmfReferenceMaterials, tmfReferenceSkus, tmfReferenceMaterialLogs } from './pcs-tmf-material-reference-seeds.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
 import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
@@ -166,10 +167,11 @@ function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
   const mainUnit = resolveMainUnit(record)
   return {
     ...cloneRecord(record),
+    mainImageUrl: migrateMaterialMockImage(record.materialCode, record.mainImageUrl, 'material'),
     status: normalizeStatus(record.status),
     materialNameEn: record.materialNameEn || record.materialName,
     processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
-    galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
+    galleryImageUrls: migrateMaterialMockGallery(record.materialCode, record.galleryImageUrls || []),
     widthText: record.widthText || '-',
     gramWeightText: record.gramWeightText || '-',
     pricingUnit: record.pricingUnit || 'PCS',
@@ -191,6 +193,7 @@ function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
 function normalizeSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
   return {
     ...cloneSkuRecord(record),
+    skuImageUrl: migrateMaterialMockImage(record.materialSkuCode, record.skuImageUrl, 'sku'),
     status: normalizeStatus(record.status),
     pantoneCode: record.pantoneCode || '',
     patternCode: record.patternCode || '',

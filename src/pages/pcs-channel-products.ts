@@ -184,7 +184,9 @@ function getLinkageDescription(record: ProjectChannelProductRecord): string {
     return '判断通过，已关联商品档案，待启用技术包'
   }
   if (record.channelProductStatus === '已上架待测款') {
-    return '已完成上架，等待直播或短视频正式测款'
+    return record.sourceTestingOrderId
+      ? '已由测款单推送，等待直播测款记录'
+      : '已完成上架，正在测款'
   }
   return record.upstreamSyncNote || record.testingStatusText || '-'
 }

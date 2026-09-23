@@ -391,6 +391,34 @@ test('TERM-001～005：取消后终止处置台逐项决定，未处置不得结
   assert.throws(() => retainTmfFrozenPackage({ id: 'TERM-RT2', packageId: 'TERM-PKGB', reason: '重复', confirmed: true }, whSupervisor, 'TERM:retain-after'), /已结案/)
 })
 
+test('终止连续余料：实物余量只扣一次报废，拒绝超量且剩余数量可继续处置', () => {
+  const order = purchase('TERM-LEFT', 100, 'CORD-WHT')
+  const baseId = startScenarioBase(order)
+  reportTmfBaseProduction(baseId, 100, factory, 'TERM-LEFT:produce')
+  dispatchTmfBaseProduction({ baseOrderId: baseId, handoverId: `${order.purchaseOrderNo}:handover`, batchId: 'TERM-LEFT-BATCH', dispatchedMeters: 100 }, factory, 'TERM-LEFT:dispatch')
+  receiveTmfBaseProduction(receipt(order, 100), warehouse, 'TERM-LEFT:receive')
+  const source = productionSource('TERM-LEFT-PROD')
+  source.techPackSnapshot.bomItems[0].materialSkuId = 'CORD-WHT'
+  source.techPackSnapshot.processEntries[0].inputMaterialSkuId = source.techPackSnapshot.processEntries[0].outputMaterialSkuId = 'CORD-WHT'
+  registerTmfProductionOrder(source, planner, 'TERM-LEFT:demand')
+  const demand = getTmfPurchaseState().demands.find(item => item.productionOrderId === source.productionOrderId)!
+  reserveTmfContinuousMaterial({ reservationId: 'TERM-LEFT-RES', demandId: demand.id, lotId: 'TERM-LEFT-BATCH', reservedMeters: 100, reason: '余料处置回归' }, planner, 'TERM-LEFT:reserve')
+  issueTmfContinuousMaterial({ issueId: 'TERM-LEFT-IN', reservationId: 'TERM-LEFT-RES', targetFactoryId: 'FAC-TMF', dispatchedMeters: 100 }, warehouse, 'TERM-LEFT:issue')
+  receiveTmfProcessingMaterial({ issueId: 'TERM-LEFT-IN', factoryId: 'FAC-TMF', materialSkuId: order.materialSkuId, receivedMeters: 100 }, factory, 'TERM-LEFT:received')
+  changeTmfProductionControl({ productionOrderId: source.productionOrderId, status: 'CANCELLED', reason: '终止', confirmed: true }, planner, 'TERM-LEFT:cancel')
+  const remaining = () => getTmfTerminationReview(source.productionOrderId).items.find(item => item.category === 'CONTINUOUS_REMAINING')?.quantity
+  assert.equal(remaining(), 100)
+  const scrap = { id: 'TERM-LEFT-SCRAP', issueId: 'TERM-LEFT-IN', meters: 30, reason: '主管确认报废', confirmed: true }
+  assert.throws(() => scrapTmfContinuousRemaining({ ...scrap, meters: 101 }, factory, 'TERM-LEFT:over'), /超过/)
+  scrapTmfContinuousRemaining(scrap, factory, 'TERM-LEFT:scrap')
+  assert.equal(remaining(), 70)
+  assert.equal(getTmfProcessingInputBalance('TERM-LEFT-IN').remainingMeters, 70)
+  assert.throws(() => scrapTmfContinuousRemaining({ ...scrap, id: 'TERM-LEFT-OVER', meters: 71 }, factory, 'TERM-LEFT:over2'), /超过/)
+  scrapTmfContinuousRemaining({ ...scrap, id: 'TERM-LEFT-FINAL', meters: 70 }, factory, 'TERM-LEFT:final')
+  assert.equal(remaining(), undefined)
+  assert.equal(getTmfProcessingInputBalance('TERM-LEFT-IN').remainingMeters, 0)
+})
+
 test('GAP-TERM-004：上游未收与生产在途分别确认去向，不可重复登记', () => {
   const plannerActor: TmfPurchaseActor = { id: 'PLAN', name: '生产计划', role: '生产计划' }
   const whSupervisor: TmfPurchaseActor = { id: 'ACC-WH-SUP2', name: '辅料仓主管', role: '仓库主管' }
@@ -421,7 +449,7 @@ test('DYE-001～003：染色直交织带厂按实际交出分配实收，追溯�
   const pack = full.techPackSnapshot
   const validDye = { sourceSnapshot: { sourceType: 'PRODUCTION_ORDER' as const, productionOrderId: full.productionOrderId, techPackVersionId: pack.sourceTechPackVersionId, processEntryId: 'DYE', bomItemId: 'BOM-WB' }, status: 'FULL_HANDOVER' as const, qtyUnit: '米', dyeFactoryId: 'F-DYE', outputMaterial: { sku: 'WB30-CBL01' }, changeImpact: [] }
   assertTmfDyeCutContinuation(validDye as never, 'CUT', pack)
-  assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, downstreamWorkOrderId: 'PRINT-X' } as never, 'CUT', pack), /下游印花单/)
+  assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, sourceSnapshot: { ...validDye.sourceSnapshot, downstreamWorkOrderId: 'PRINT-X' } } as never, 'CUT', pack), /下游印花单/)
   assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, outputMaterial: { sku: 'WRONG' } } as never, 'CUT', pack), /SKU不一致/)
   assert.throws(() => assertTmfDyeCutContinuation({ ...validDye, qtyUnit: 'kg' } as never, 'CUT', pack), /计量单位/)
   // 正式登记一张直接截断路线的染色单（工厂 F090），再以运行态夹具补齐接续字段

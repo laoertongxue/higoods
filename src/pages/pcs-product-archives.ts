@@ -130,11 +130,6 @@ interface ProductArchivePageState {
     packagingInfo: string
     remark: string
   }
-  imagePreview: {
-    open: boolean
-    url: string
-    title: string
-  }
   styleCreate: {
     open: boolean
     styleName: string
@@ -277,14 +272,6 @@ function createDefaultStyleCompletionState(): ProductArchivePageState['styleComp
   }
 }
 
-function createDefaultImagePreviewState(): ProductArchivePageState['imagePreview'] {
-  return {
-    open: false,
-    url: '',
-    title: '',
-  }
-}
-
 function createDefaultStyleCreateState(): ProductArchivePageState['styleCreate'] {
   return {
     open: false,
@@ -327,7 +314,6 @@ const state: ProductArchivePageState = {
   },
   skuCreate: createDefaultSkuCreateState(),
   styleCompletion: createDefaultStyleCompletionState(),
-  imagePreview: createDefaultImagePreviewState(),
   styleCreate: createDefaultStyleCreateState(),
   versionLogDialog: createDefaultVersionLogDialogState(),
 }
@@ -364,10 +350,6 @@ function resetStyleCompletionState(): void {
   state.styleCompletion = createDefaultStyleCompletionState()
 }
 
-function resetImagePreviewState(): void {
-  state.imagePreview = createDefaultImagePreviewState()
-}
-
 function resetVersionLogDialogState(): void {
   state.versionLogDialog = createDefaultVersionLogDialogState()
 }
@@ -397,7 +379,6 @@ export function resetPcsProductArchiveState(): void {
   }
   resetSkuCreateState()
   resetStyleCompletionState()
-  resetImagePreviewState()
   resetVersionLogDialogState()
 }
 
@@ -882,53 +863,14 @@ function getStyleCompletionImageUrls(): string[] {
   return uniqueImageUrls([state.styleCompletion.mainImageUrl, ...state.styleCompletion.galleryImageUrls])
 }
 
-function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md'): string {
+function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md', highlighted = false): string {
   const dimension = size === 'sm' ? 'h-12 w-12' : 'h-20 w-20'
-  if (!url) {
-    return `<div class="${escapeHtml(toClassName('flex shrink-0 items-center justify-center rounded-md border border-dashed border-slate-200 bg-slate-50 text-slate-400', dimension))}"><i data-lucide="image" class="h-4 w-4"></i></div>`
-  }
-  return `<img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}" class="${escapeHtml(toClassName('shrink-0 rounded-md border border-slate-200 bg-slate-50 object-cover', dimension))}" />`
+  if (!url) return `<span class="${dimension} flex shrink-0 items-center justify-center rounded-md border border-dashed border-amber-300 px-1 text-center text-xs text-amber-700">缺少对应图片</span>`
+  return `<button type="button" class="${escapeHtml(toClassName('relative block shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-50', dimension, highlighted && 'ring-2 ring-slate-900 ring-offset-1'))}" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(alt)}" aria-label="查看${escapeHtml(alt)}大图"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}实拍图" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=true;this.nextElementSibling.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500">加载中</span><span hidden class="absolute inset-0 items-center justify-center bg-slate-50 px-1 text-center text-[10px] text-amber-700">图片加载失败，点击重试预览</span></button>`
 }
 
-function renderStyleImagePreviewButton(
-  url: string,
-  title: string,
-  size: 'sm' | 'md' = 'md',
-  highlighted = false,
-): string {
-  if (!url) return renderArchiveImage(url, title, size)
-  return `
-    <button
-      type="button"
-      class="${escapeHtml(toClassName('overflow-hidden rounded-md', highlighted && 'ring-2 ring-slate-900 ring-offset-1'))}"
-      data-pcs-product-archive-action="open-image-preview"
-      data-url="${escapeHtml(url)}"
-      data-title="${escapeHtml(title)}"
-    >
-      ${renderArchiveImage(url, title, size)}
-    </button>
-  `
-}
-
-function renderImagePreviewModal(): string {
-  if (!state.imagePreview.open || !state.imagePreview.url) return ''
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-      <button type="button" class="absolute inset-0 bg-slate-950/70" data-pcs-product-archive-action="close-image-preview"></button>
-      <section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <div class="flex items-center justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 class="text-base font-semibold text-slate-900">${escapeHtml(state.imagePreview.title || '款式主图预览')}</h2>
-            <p class="mt-1 text-sm text-slate-500">点击遮罩或右上角关闭预览。</p>
-          </div>
-          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-pcs-product-archive-action="close-image-preview">×</button>
-        </div>
-        <div class="overflow-auto bg-slate-100 p-5">
-          <img src="${escapeHtml(state.imagePreview.url)}" alt="${escapeHtml(state.imagePreview.title || '款式主图')}" class="mx-auto max-h-[80vh] w-auto max-w-full rounded-lg border border-slate-200 bg-white object-contain shadow-sm" />
-        </div>
-      </section>
-    </div>
-  `
+function renderStyleImagePreviewButton(url: string, title: string, size: 'sm' | 'md' = 'md', highlighted = false): string {
+  return renderArchiveImage(url, title, size, highlighted)
 }
 
 function renderTechPackVersionLogDialog(): string {
@@ -1791,8 +1733,13 @@ function renderStyleDetailSpecifications(style: StyleArchiveShellRecord): string
       (item) => `
         <tr class="border-t border-slate-100 align-top">
           <td class="px-4 py-3">
+            <div class="flex items-start gap-3">
+              ${renderArchiveImage(item.skuImageUrl, `${item.skuCode} ${item.colorName}`, 'sm')}
+              <div>
             <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/specifications/${escapeHtml(item.skuId)}">${escapeHtml(item.skuCode)}</button>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.barcode || '-')}</div>
+              </div>
+            </div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.colorName)}</td>
           <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sizeName)}</td>
@@ -2011,7 +1958,6 @@ function renderStyleDetailPage(styleId: string): string {
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
       ${renderTechPackVersionLogDialog()}
-      ${renderImagePreviewModal()}
     </div>
   `
 }
@@ -2354,7 +2300,6 @@ function renderPcsStyleListPage(): string {
       ${renderSkuCreateDrawer()}
       ${renderStyleCompletionDrawer()}
       ${renderStyleCreateDrawer()}
-      ${renderImagePreviewModal()}
     </div>
   `
 }
@@ -2369,7 +2314,6 @@ function renderPcsSkuListPage(): string {
       ${renderSkuFilters(items.length)}
       ${renderSkuTable(items)}
       ${renderSkuCreateDrawer()}
-      ${renderImagePreviewModal()}
     </div>
   `
 }
@@ -2749,7 +2693,6 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       resetSkuCreateState()
       resetStyleCompletionState()
       resetVersionLogDialogState()
-      resetImagePreviewState()
       state.styleCreate = { open: false, styleName: '', styleNumber: '', productType: '成衣', categoryName: '' }
       return true
     case 'open-tech-pack-version-logs': {
@@ -2766,16 +2709,6 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
     }
     case 'close-tech-pack-version-logs':
       resetVersionLogDialogState()
-      return true
-    case 'open-image-preview':
-      state.imagePreview = {
-        open: true,
-        url: actionNode.dataset.url || '',
-        title: actionNode.dataset.title || '款式主图预览',
-      }
-      return true
-    case 'close-image-preview':
-      resetImagePreviewState()
       return true
     case 'set-style-main-image': {
       const url = actionNode.dataset.url || ''
@@ -2985,7 +2918,6 @@ export function isPcsProductArchiveDialogOpen(): boolean {
     state.skuCreate.open ||
     state.styleCompletion.open ||
     state.styleCreate.open ||
-    state.imagePreview.open ||
     state.versionLogDialog.open
   )
 }

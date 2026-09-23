@@ -3218,7 +3218,7 @@ export function linkTmfDyeCutContinuation(dyeOrderId: string, cutEntryId: string
     if (!pack || !production || ['DRAFT', 'WAIT_TECH_PACK_RELEASE', 'CANCELLED', 'COMPLETED', 'ON_HOLD'].includes(production.status)) throw new Error('生产单尚未具备接续条件，或已暂停、取消、完成。')
     assertTmfDyeCutContinuation(order, cutEntryId, pack)
     if (order.productionTmfContinuation?.cutEntryId === cutEntryId && order.receiverKind === 'FACTORY') return cloneWorkOrder(order)
-    if (order.downstreamWorkOrderId) throw new Error('本染色单已绑定下游印花单，不能同时直接交给织带厂截断。')
+    if (order.sourceSnapshot?.downstreamWorkOrderId || order.productionPrintContinuation) throw new Error('本染色单已绑定下游印花单，不能同时直接交给织带厂截断。')
     if (order.dispatchDocuments?.some(d => d.status !== '已作废') || listHandoverOrdersByTaskId(order.taskId, { includeWool: false }).some(h => getPdaHandoverRecordsByHead(h.handoverId).some(r => r.handoverRecordStatus !== 'VOIDED'))) throw new Error('已有交出草稿或实际交出，不能改换接收方。')
     order.productionTmfContinuation = { cutEntryId, factoryId: TMF_FACTORY_ID, factoryName: TMF_FACTORY_NAME }
     applyTmfDyeReceivingTarget(order)

@@ -16,6 +16,7 @@ import {
 } from './pcs-project-relation-repository.ts'
 import { getProjectPhaseNameByCode } from './pcs-project-phase-definitions.ts'
 import { getStyleArchiveById, updateStyleArchive } from './pcs-style-archive-repository.ts'
+import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
 import { getLiveProductLineById, getLiveSessionRecordById } from './pcs-live-testing-repository.ts'
 import { getVideoTestRecordById } from './pcs-video-testing-repository.ts'
 import {
@@ -89,6 +90,7 @@ export type ProjectTestingConclusion = '' | '通过' | '不通过' | '暂保留'
 export type UpstreamSyncResult = '待执行' | '成功' | '失败'
 
 export interface ProjectChannelProductRecord extends PcsProjectChannelProductRecord {
+  sourceTestingOrderId?: string
   scenario: ProjectChannelProductScenario
   conclusion: ProjectTestingConclusion
   testingStatusText: string
@@ -2429,6 +2431,87 @@ function invalidateChannelProductRecord(
 export function listProjectChannelProducts(): ProjectChannelProductRecord[] {
   ensureDemoState()
   return loadSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+/** 测款单第⑧步：直接在商品档案的渠道商品事实源建立本单记录，不再借用已删除的商品项目节点。 */
+export function createTestingOrderChannelProducts(input: {
+  testingOrderId: string
+  styleId: string
+  skuCodes: string[]
+  channelCodes: string[]
+  channelPrices: Record<string, number>
+  actor: string
+}): ProjectChannelProductRecord[] {
+  const style = getStyleArchiveById(input.styleId)
+  if (!style || !style.mainImageUrl) throw new Error('请先为本单款式补齐对应的真实图片。')
+  const skus = listSkuArchivesByStyleId(style.styleId).filter((sku) => input.skuCodes.includes(sku.skuCode))
+  if (skus.length === 0 || skus.length !== new Set(input.skuCodes).size) {
+    throw new Error('本单 SKU 与商品档案不一致，不能推送渠道。')
+  }
+  const channels = [...new Set(input.channelCodes)]
+  if (channels.length === 0 || channels.some((code) => !normalizePcsChannelCode(code))) {
+    throw new Error('请至少选择一个有效的测款渠道。')
+  }
+  const snapshot = loadSnapshot()
+  const timestamp = nowText()
+  const records = channels.map((channelCode) => {
+    const channelProductId = `channel_testing_${input.testingOrderId}_${channelCode}`
+    const channelProductCode = `CT-${style.styleCode}-${input.testingOrderId}-${channelCode.toUpperCase()}`
+    const storeId = getDefaultStoreId(channelCode)
+    const meta = getChannelMeta(channelCode, storeId)
+    const currencyCode = resolvePcsStoreCurrency(storeId, channelCode)
+    const channelPrice = input.channelPrices[channelCode]
+    if (!Number.isFinite(channelPrice) || channelPrice <= 0) {
+      throw new Error(`请填写 ${meta.channelName} 的 ${currencyCode} 渠道售价。`)
+    }
+    const existing = snapshot.records.find((item) =>
+      item.sourceTestingOrderId === input.testingOrderId && item.channelCode === channelCode,
+    )
+    if (existing) return existing
+    const specLines: ChannelListingSpecLineRecord[] = skus.map((sku, index) => ({
+      specLineId: `${channelProductId}-sku-${index + 1}`,
+      specLineCode: `${channelProductCode}-${index + 1}`,
+      listingBatchId: channelProductId,
+      productImageId: sku.skuId,
+      productImageUrl: sku.skuImageUrl || style.mainImageUrl,
+      productImageName: sku.skuName,
+      colorName: sku.colorName, sizeName: sku.sizeName, printName: sku.printName,
+      sellerSku: sku.skuCode, priceAmount: channelPrice,
+      currencyCode, stockQty: 0, lineStatus: '已上传',
+      upstreamSkuId: `MOCK-${channelCode}-${sku.skuCode}`,
+      uploadResultText: '原型模拟推送成功',
+    }))
+    return {
+      channelProductId, channelProductCode, listingBatchCode: channelProductCode,
+      upstreamChannelProductCode: `MOCK-${channelProductCode}`, upstreamProductId: `MOCK-${channelProductCode}`,
+      projectId: '', projectCode: '', projectName: '', projectNodeId: '',
+      channelCode, channelName: meta.channelName, storeId, storeName: meta.storeName,
+      skuId: skus[0].skuId, skuCode: skus[0].skuCode, skuName: skus[0].skuName,
+      styleListingTitle: style.styleName, listingTitle: style.styleName, listingDescription: '',
+      listingPrice: channelPrice, defaultPriceAmount: channelPrice,
+      currency: currencyCode, currencyCode, listingMainImageId: '', listingImageIds: [],
+      listingImageSource: '测款单款式图片', listingImageConfirmedAt: timestamp,
+      listingImageConfirmedBy: input.actor, listingImages: [], mainImageUrls: [style.mainImageUrl],
+      detailImageUrls: [], listingRemark: '测款单第⑧步原型模拟推送',
+      specLines, specLineCount: specLines.length, uploadedSpecLineCount: specLines.length,
+      listingBatchStatus: '已完成', uploadResultText: '原型模拟推送成功', uploadedAt: timestamp,
+      channelProductStatus: '已上架待测款', upstreamSyncStatus: '无需更新',
+      styleId: style.styleId, styleCode: style.styleCode, styleName: style.styleName,
+      invalidatedReason: '', createdAt: timestamp, updatedAt: timestamp, effectiveAt: timestamp,
+      invalidatedAt: '', lastUpstreamSyncAt: '', scenario: 'MEASURING', conclusion: '',
+      testingStatusText: '测款中', listingInstanceCode: channelProductCode,
+      linkedDesignRevisionTaskId: '', linkedDesignRevisionTaskCode: '', linkedLiveLineId: '',
+      linkedLiveLineCode: '', linkedVideoRecordId: '', linkedVideoRecordCode: '',
+      upstreamSyncNote: '原型模拟推送成功', upstreamSyncResult: '成功',
+      upstreamSyncBy: input.actor, upstreamSyncLog: `${timestamp} 原型模拟推送成功`,
+      sourceTestingOrderId: input.testingOrderId,
+    } satisfies ProjectChannelProductRecord
+  })
+  const newRecords = records.filter((item) => !snapshot.records.some((old) => old.channelProductId === item.channelProductId))
+  if (newRecords.length > 0) {
+    persistSnapshot({ version: STORE_VERSION, records: [...newRecords, ...snapshot.records] })
+  }
+  return records.map(cloneRecord)
 }
 
 export function listProjectChannelProductsSnapshot(): ProjectChannelProductRecord[] {

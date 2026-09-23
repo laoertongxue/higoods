@@ -6,8 +6,9 @@ import { renderCraftPrintingWorkOrderDetailPage } from '../src/pages/process-fac
 const rows = listPrintingWorkOrders()
 const html = renderCraftPrintingWorkOrdersPage()
 const headers = [...html.matchAll(/<th\b[\s\S]*?<\/th>/g)].map(x=>x[0])
-assert.equal(headers.length, 8)
-for (const label of ['加工单／商品','加工投入／上游','加工要求','处理进度','加工产出／下游','工厂／交期','操作']) assert(headers.some(x=>x.includes(label)),label)
+const expectedHeaders = ['选择','加工单／商品','加工投入／上游','加工要求','处理进度','加工产出／下游','时间','数量','操作']
+assert.equal(headers.length, expectedHeaders.length)
+expectedHeaders.forEach((label, index) => assert(headers[index].includes(label), `第 ${index + 1} 列应为 ${label}`))
 assert(!headers.some(x=>x.includes('数量进度')))
 assert(html.includes('全选本页') && html.includes('全选筛选结果'))
 assert(html.includes('data-process-filter-toggle'))
@@ -21,7 +22,7 @@ const sum=getPrintingWorkOrderSummary([mixed]);assert.equal(sum.byUnit.find(x=>x
 for (const row of rows.filter(x=>x.output.completedQty>0 && x.actualInput.receivedQty<x.plannedInput.plannedQty && !x.manuallyCompletedAt)) assert.equal(row.processingStatus,'PROCESSING','部分批次不能冒充整单加工完成')
 const detail=renderCraftPrintingWorkOrderDetailPage(rows[0].workOrderId)
 assert(detail.includes('交接记录') && detail.includes('加工投入／上游') && detail.includes('加工产出／下游'))
-console.log('PASS 印花七个业务列及选择列、选择范围、更多筛选、两端单位、历史未知数量、部分批次、详情交接')
+console.log('PASS 印花八个业务列及选择列、时间数量分列、选择范围、更多筛选、两端单位、历史未知数量、部分批次、详情交接')
 
 assert.equal(printingMaterialCode('主面料 / Navy 主面料'),'物料编码待完善')
 const changed = structuredClone(rows[0]);changed.actualInput.actualSku='ACTUAL-UNKNOWN';changed.actualInput.receivedQty=10

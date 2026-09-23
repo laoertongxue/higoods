@@ -6,11 +6,14 @@ import {
   listMaterialVariants,
   listVariantLineage,
   migrateLegacyBomLinesToBaseVariants,
+  mapLegacyBomItemsToBaseVariants,
   resetMaterialVariantStore,
 } from '../src/data/pcs-material-variant-repository.ts'
 import { MATERIAL_VARIANT_PROCESS_TYPES } from '../src/data/pcs-material-variant-types.ts'
 import type { MaterialArchiveKind } from '../src/data/pcs-material-archive-types.ts'
 import { getFcsCraftDictRef } from '../src/data/pcs-material-variant-fcs-dict.ts'
+import { listMaterialArchives, listMaterialSkuRecordsByMaterialId } from '../src/data/pcs-material-archive-repository.ts'
+import { getTechnicalDataVersionContent, listTechnicalDataVersions, updateTechnicalDataVersionContent } from '../src/data/pcs-technical-data-version-repository.ts'
 
 resetMaterialVariantStore()
 
@@ -97,6 +100,21 @@ assert.ok(getFcsCraftDictRef('craft-dye'), 'FCS 字典可只读引用（MAT-008�
 const migrated = migrateLegacyBomLinesToBaseVariants('mat_fabric_2', 'LEGACY-SKU-01')
 assert.equal(migrated.length, 1, '存量 BOM 行映射为基础态变种（MAT-010）')
 assert.equal(migrated[0].chainCategory, 'plain', '迁移结果为基础态（MAT-010）')
+const materialSku = listMaterialArchives('fabric').flatMap((item) => listMaterialSkuRecordsByMaterialId(item.materialId))[0]
+assert.ok(materialSku)
+const draftVersion = listTechnicalDataVersions().find((item) => item.versionStatus === 'DRAFT')
+assert.ok(draftVersion)
+const legacyLine = {
+  id: 'MAT-010-LEGACY-LINE', type: '面料' as const, name: materialSku.materialName,
+  spec: materialSku.specName, materialCode: materialSku.materialCode,
+  materialSkuId: materialSku.materialSkuId, unitConsumption: 1, lossRate: 0, supplier: '测试供应商',
+}
+const saved = updateTechnicalDataVersionContent(draftVersion.technicalVersionId, { bomItems: [legacyLine] })
+assert.ok(saved?.bomItems[0]?.variantId, '可编辑技术包 BOM 行写入基础态 variantId（MAT-010）')
+const reopened = getTechnicalDataVersionContent(draftVersion.technicalVersionId)
+assert.equal(reopened?.bomItems[0]?.variantId, saved!.bomItems[0]!.variantId, '再次读取沿用同一变种（MAT-010）')
+assert.equal(getMaterialVariantById(reopened!.bomItems[0]!.variantId!)?.materialSkuId, materialSku.materialSkuId, 'BOM 变种绑定原物料 SKU（MAT-010）')
+assert.equal(mapLegacyBomItemsToBaseVariants(reopened!.bomItems)[0].variantId, reopened!.bomItems[0]!.variantId, '重复映射幂等（MAT-010）')
 
 const variants = listMaterialVariants('mat_fabric_1')
 assert.ok(variants.length >= 4, '变种可列表展示（MAT-002）')

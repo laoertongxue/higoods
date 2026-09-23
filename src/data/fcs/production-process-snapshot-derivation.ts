@@ -67,7 +67,7 @@ export function deriveFormalProductionOrderProcessSnapshots(
           .map((id) => entries.find((item) => item.id === id))
           .find((item) => item?.stageCode === 'PREP' && item.routeObjectKey === candidate.routeObjectKey)
         const rootInput: MaterialSkuIdentity = {
-          id: replacement?.materialId || candidate.inputMaterialSkuId || bomItem.materialSkuId || materialCode,
+          id: replacement?.materialCode || candidate.inputMaterialSkuId || bomItem.materialSkuId || materialCode,
           code: replacement?.materialCode || candidate.inputMaterialSkuCode || materialCode,
           name: replacement?.materialName || candidate.inputMaterialName || `${bomItem.name}${bomItem.spec ? ` / ${bomItem.spec}` : ''}`,
           imageUrl: candidate.inputMaterialImageUrl || bomItem.materialImageUrl || '',

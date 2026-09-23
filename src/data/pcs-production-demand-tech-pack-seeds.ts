@@ -1,4 +1,5 @@
 import { productionDemands, type ProductionDemand } from './fcs/production-demands.ts'
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './fcs/post-finishing-production-source-fixtures.ts'
 
 export interface ProductionDemandTechPackSeed {
   demand: ProductionDemand
@@ -26,6 +27,7 @@ export function buildDemandTechnicalVersionCode(spuCode: string): string {
 }
 
 export function listProductionDemandTechPackSeeds(): ProductionDemandTechPackSeed[] {
+  const postFinishingSpus = new Set<string>(POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((source) => source.spuCode))
   const bySpu = new Map<string, ProductionDemand>()
   productionDemands
     .filter((demand) => demand.techPackStatus === 'RELEASED' && Boolean(demand.techPackVersionLabel))
@@ -41,7 +43,8 @@ export function listProductionDemandTechPackSeeds(): ProductionDemandTechPackSee
     })
 
   return Array.from(bySpu.values())
-    .sort((left, right) => left.spuCode.localeCompare(right.spuCode))
+    // 后补的后道样本排在既有样本之后，避免改变原有 seedIndex 及其工艺/物料演示分配。
+    .sort((left, right) => Number(postFinishingSpus.has(left.spuCode)) - Number(postFinishingSpus.has(right.spuCode)) || left.spuCode.localeCompare(right.spuCode))
     .map((demand, seedIndex) => ({
       demand,
       seedIndex,

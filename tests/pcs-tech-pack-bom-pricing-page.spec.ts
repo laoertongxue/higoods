@@ -21,7 +21,8 @@ import {
   listTechnicalDataVersions,
 } from '../src/data/pcs-technical-data-version-repository.ts'
 import type { TechnicalBomItem, TechnicalDataVersionContent } from '../src/data/pcs-technical-data-version-types.ts'
-import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
+import { getStyleArchiveById } from '../src/data/pcs-style-archive-repository.ts'
+import { listEngineeringIndependentSamplingRecords } from '../src/data/pcs-engineering-master-sampling.ts'
 import { assertFirstFormalProduction } from '../src/data/pcs-engineering-first-production-policy.ts'
 import {
   createEngineeringMasterOrder,
@@ -76,7 +77,13 @@ const pricedSku = createMaterial({ price: 12.3456, pricingUnit: '码', usageUnit
 const base = listTechnicalDataVersions()[0]
 assert.ok(base)
 resetEngineeringMasterRepository()
-const style = listStyleArchives().find((item) => {
+const style = listEngineeringIndependentSamplingRecords().filter((item) =>
+  item.status === 'COMPLETED'
+  && item.professionalTasks.some((task) =>
+    task.taskType === 'BASE_PATTERN'
+    && task.results.some((result) => result.status === 'APPROVED' && result.files.some((file) => file.extension === 'prj'))),
+).map((item) => getStyleArchiveById(item.targetStyleId)).find((item) => {
+  if (!item) return false
   try {
     assertFirstFormalProduction(item.styleCode)
     return true

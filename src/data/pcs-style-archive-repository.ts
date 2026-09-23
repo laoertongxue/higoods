@@ -1,5 +1,5 @@
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
-import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
+import { buildStyleFixture, isLegacyProductFixtureImage, migrateProductFixtureImage } from './pcs-product-archive-fixtures.ts'
 import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
 import type {
   StyleArchivePendingItem,
@@ -77,6 +77,11 @@ function normalizeBaseInfoStatus(status: string): string {
 
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
+  const mainImageUrl = migrateProductFixtureImage(record.styleCode, record.mainImageUrl || '')
+  const legacyGallery = (record.galleryImageUrls || []).some(isLegacyProductFixtureImage)
+  const galleryImageUrls = legacyGallery && fixture.mainImageUrl
+    ? [...new Set([...fixture.galleryImageUrls, ...(record.galleryImageUrls || []).filter((url) => !isLegacyProductFixtureImage(url))])]
+    : [...(record.galleryImageUrls || [])]
   return {
     ...cloneRecord(record),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
@@ -96,10 +101,10 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     currentTechPackVersionActivatedAt: record.currentTechPackVersionActivatedAt || '',
     currentTechPackVersionActivatedBy: record.currentTechPackVersionActivatedBy || '',
     mainImageId: record.mainImageId || '',
-    mainImageUrl: record.mainImageUrl || '',
+    mainImageUrl,
     galleryImageIds: Array.isArray(record.galleryImageIds) ? [...record.galleryImageIds] : [],
-    galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
-    imageSource: record.imageSource || (record.mainImageUrl ? '历史图片' : ''),
+    galleryImageUrls,
+    imageSource: mainImageUrl !== record.mainImageUrl ? '原型实拍素材（来源见图片台账）' : record.imageSource || (record.mainImageUrl ? '历史图片' : ''),
     sellingPointText: record.sellingPointText || fixture.sellingPointText,
     detailDescription: record.detailDescription || fixture.detailDescription,
     packagingInfo: record.packagingInfo || fixture.packagingInfo,

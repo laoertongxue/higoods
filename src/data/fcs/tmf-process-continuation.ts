@@ -24,7 +24,7 @@ export function assertTmfDyeCutContinuation(dye: DyeWorkOrder, cutEntryId: strin
  const source=dye.sourceSnapshot
  if(source?.sourceType!=='PRODUCTION_ORDER'||source.productionOrderId!==pack.productionOrderId||source.techPackVersionId!==pack.sourceTechPackVersionId)throw new Error('染色与截断必须来自同一生产单采用的技术包版本。')
  if(dye.status==='CANCELLED'||source.cancelledAt||dye.changeImpact?.length)throw new Error('染色单已取消或存在未处理变更。')
- if(dye.downstreamWorkOrderId||dye.productionPrintContinuation)throw new Error('染色已绑定下游印花单，不能同时直接交给织带厂截断。')
+ if(dye.sourceSnapshot?.downstreamWorkOrderId||dye.productionPrintContinuation)throw new Error('染色已绑定下游印花单，不能同时直接交给织带厂截断。')
  const from=pack.processEntries.find(e=>e.id===source.processEntryId),cut=pack.processEntries.find(e=>e.id===cutEntryId)
  if(from?.processCode!=='DYE'||cut?.processCode!==WEBBING_CUT_PROCESS||cut.predecessorEntryIds?.length!==1||cut.predecessorEntryIds[0]!==from.id)throw new Error('染色与织带截断不是唯一直接前后工序，不能跨节点接续。')
  if(from.outputObjectType!=='ACCESSORY'||cut.inputObjectType!=='ACCESSORY'||from.outputInventoryForm!=='CONTINUOUS'||cut.inputInventoryForm!=='CONTINUOUS')throw new Error('仅连续辅料可以由染色交给织带截断。')

@@ -1696,7 +1696,7 @@ function tmfTerminationItems(draft: TmfPurchaseState, productionOrderId: string)
     .filter((item) => item.category === category && item.objectId === objectId && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0)
 
   for (const issue of draft.processingIssues.filter((item) => ids.has(item.demandId) && item.targetFactoryId === TMF_FACTORY_ID)) {
-    const remaining = add(tmfInputRemainingOn(draft, issue) - scrapQuantity('CONTINUOUS_REMAINING', issue.id))
+    const remaining = tmfInputRemainingOn(draft, issue)
     const demand = demands.find((item) => item.id === issue.demandId)!
     if (remaining > 0.000001) items.push({ category: 'CONTINUOUS_REMAINING', objectId: issue.id, label: `厂内连续余料 · ${demand.garmentSize} ${demand.specification.cutLengthMm}mm`, quantity: remaining, unit: '米', actions: ['SCRAP'], custodian: 'TMF', detail: `投入 ${issue.id}；可退回原仓或主管确认报废` })
   }
@@ -1768,7 +1768,7 @@ export function scrapTmfContinuousRemaining(
     const demand = draft.demands.find((item) => item.id === issue.demandId)!
     assertTmfTerminationOpen(draft, demand.productionOrderId)
     if (draft.continuousScraps.some((item) => item.id === input.id)) throw new Error('处置编号已使用，请查看原记录。')
-    const remaining = add(tmfInputRemainingOn(draft, issue) - draft.terminationDisposals.filter((item) => item.category === 'CONTINUOUS_REMAINING' && item.objectId === issue.id && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0))
+    const remaining = tmfInputRemainingOn(draft, issue)
     if (input.meters > remaining + 0.000001) throw new Error(`本次报废超过厂内剩余 ${remaining} 米。`)
     draft.continuousScraps.push({ id: input.id, issueId: issue.id, meters: input.meters, reason: input.reason.trim(), scrappedAt: at, actor: structuredClone(actor) })
     draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'CONTINUOUS_REMAINING', action: 'SCRAP', objectId: issue.id, quantity: input.meters, unit: '米', reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })

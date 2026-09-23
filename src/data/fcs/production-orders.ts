@@ -27,6 +27,7 @@ import {
 import type { ProcessWorkOrderSourceSnapshot } from './process-work-order-domain.ts'
 import type { MergedProductionTaskType } from './merged-production-task.ts'
 import { applyKolGotoTechPackFixture } from './kol-goto-tech-pack-fixtures.ts'
+import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './post-finishing-production-source-fixtures.ts'
 
 export type ProductionOrderStatus = ProductionOrderRuntimeStatus
 
@@ -1767,9 +1768,29 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
 }
 
 const seededProductionOrders = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
+const postFinishingSourceOrders = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((source) => {
+  const order = buildProductionOrderFromSeed({
+    productionOrderId: source.productionOrderId, demandId: source.demandId,
+    status: 'EXECUTING', mainFactoryId: source.factoryId,
+    mainFactoryStatus: 'CONFIRMED', mainFactorySource: 'SEWING_TASK_ASSIGNMENT',
+    mainFactoryConfirmedAt: source.orderCreatedAt, mainFactoryConfirmedBy: '后道验收 Mock',
+    ownerPartyType: 'FACTORY', ownerPartyId: source.factoryId,
+    assignmentSummary: { directCount: 1, biddingCount: 0, totalTasks: 1, unassignedCount: 0 },
+    assignmentProgress: { status: 'DONE', directAssignedCount: 1, biddingLaunchedCount: 0, biddingAwardedCount: 0 },
+    biddingSummary: { activeTenderCount: 0, overdueTenderCount: 0 },
+    directDispatchSummary: { assignedFactoryCount: 1, rejectedCount: 0, overdueAckCount: 0 },
+    taskBreakdownSummary: { isBrokenDown: true, taskTypesTop3: ['后道验收来源任务'] },
+    ledgerDetails: { materialIssues: [], taskFactories: [], keyTimes: [], quantityQuality: [] },
+    riskFlags: [],
+    auditLogs: [createAuditLog(`LOG-${source.productionOrderId}-SOURCE`, 'MOCK_SOURCE', `后道验收 Mock：${source.demandId} → ${source.no} → ${source.sewingTaskNo}；已冻结同源演示技术包 Mock V1.0。`, source.orderCreatedAt, '原型样本')],
+    createdAt: source.orderCreatedAt, updatedAt: source.orderCreatedAt,
+  })
+  return { ...order, productionOrderNo: source.no, techPackSnapshot: order.techPackSnapshot ? { ...order.techPackSnapshot, productionOrderNo: source.no } : null }
+})
 productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   ...seededProductionOrders,
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
+  ...postFinishingSourceOrders,
 )
 export const productionOrders = productionOrderRuntimeStore as ProductionOrder[]
 // Stable identities of actual initial fixtures, before any demand conversion adds orders.

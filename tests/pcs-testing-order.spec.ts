@@ -18,7 +18,10 @@ import {
   TESTING_ORDER_STEP_TEAMS as TEAMS,
 } from '../src/data/pcs-testing-order-repository.ts'
 import { listStyleArchives } from '../src/data/pcs-style-archive-repository.ts'
+import { localizeProductFixtureImageUrl } from '../src/data/pcs-product-archive-fixtures.ts'
 import { listSkuArchives } from '../src/data/pcs-sku-archive-repository.ts'
+import { listMaterialArchives, listMaterialSkuRecordsByMaterialId } from '../src/data/pcs-material-archive-repository.ts'
+import { createTestingOrderChannelProducts, listProjectChannelProducts } from '../src/data/pcs-channel-product-project-repository.ts'
 import { renderPcsTestingOrderListPage } from '../src/pages/pcs-testing-order-list.ts'
 import { renderPcsTestingOrderDetailPage } from '../src/pages/pcs-testing-order-detail.ts'
 import { routes as pcsRoutes } from '../src/router/routes-pcs.ts'
@@ -86,6 +89,13 @@ assert.ok(
 
 const styles = listStyleArchives()
 assert.ok(styles.length > 0, '存在款式档案')
+assert.equal(
+  localizeProductFixtureImageUrl('https://file.higood.id/higood_live/proudcts/2026/04/16/c74d884c23376156c8dc13a5ff39d3fa.jpg'),
+  '/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg',
+  '已有同文件名实拍图使用仓库内稳定资源',
+)
+assert.equal(localizeProductFixtureImageUrl('https://example.com/custom-style.jpg'), 'https://example.com/custom-style.jpg',
+  '用户自有图片地址不被替换')
 
 const firstActive = listTestingOrders().find((item) => item.status === '进行中')
 assert.ok(firstActive, '种子含进行中测款单（TEST-021）')
@@ -98,6 +108,20 @@ assert.ok(ended, '种子含已结束单（TEST-021）')
 const reopen = createTestingOrder({ styleId: ended!.styleId })
 assert.equal(reopen.ok, true, '同 SPU 历史已结束单后可再开（TEST-021）')
 assert.ok(reopen.order, '新单创建成功')
+assert.equal(reopen.order!.archiveMode, 'linked', '关联既有 SPU/SKU 不应伪称新建档')
+const material = listMaterialArchives().flatMap((item) => listMaterialSkuRecordsByMaterialId(item.materialId))[0]
+assert.ok(material, '应有预计用料 Mock 物料 SKU')
+const styleBefore = listStyleArchives().length
+const skuBefore = listSkuArchives().length
+const createdArchiveOrder = createTestingOrder({ newArchive: {
+  styleName: '白色长袖女式上衣', styleImageUrl: '/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg',
+  colorName: '黑色', sizeName: 'M', materialSkuId: material.materialSkuId, expectedQuantity: 1.25,
+} })
+assert.equal(createdArchiveOrder.ok, true, '新款建档应可同时创建测款单（TEST-004）')
+assert.equal(listStyleArchives().length, styleBefore + 1, '新建 SPU 已写入档案（TEST-004）')
+assert.equal(listSkuArchives().length, skuBefore + 1, '新建 SKU 已写入档案（TEST-004）')
+assert.equal(createdArchiveOrder.order!.archiveMode, 'created')
+assert.equal(listSkuArchives().find((item) => item.skuCode === createdArchiveOrder.order!.skuCodes[0])?.expectedMaterials?.[0]?.quantity, 1.25, '预计用料写入新 SKU（TEST-004）')
 
 const buyerKill = listTestingOrders().find((item) => item.endReason === '买手确认淘汰')
 assert.ok(buyerKill, '买手淘汰场景（TEST-021）')
@@ -150,13 +174,39 @@ if (killBuyer) {
   assert.equal(killed.record!.status, '已结束', '已结束（TEST-008）')
 }
 
-const listing = listTestingOrders().find((item) => item.currentStepKey === 'channel-listing' || item.status === '进行中')
-if (listing && listing.status === '进行中') {
-  listing.currentStepKey = 'channel-listing'
-  const pushed = pushChannelProducts(listing.testingOrderId)
-  assert.equal(pushed.ok, true, '推送渠道并回写（TEST-011）')
-  assert.ok((pushed.pushed || []).length >= 0, '推送结果可读（TEST-011）')
-}
+const listing = createdArchiveOrder.order!
+listing.currentStepKey = 'channel-listing'
+listing.sampleInboundAt = '2026-09-23 12:00'
+listing.channelCodes = []
+listing.pricing.targetPrice = 100000
+listing.channelPrices = { tiktok: 100000, shopee: 19.99 }
+assert.equal(pushChannelProducts(listing.testingOrderId).ok, false, '未选渠道不得沿用默认渠道推送（TEST-011）')
+listing.channelCodes = ['tiktok', 'shopee']
+const channelBefore = listProjectChannelProducts().length
+const pushed = pushChannelProducts(listing.testingOrderId)
+assert.equal(pushed.ok, true, `推送本单渠道商品（TEST-011）：${pushed.message}`)
+assert.equal(pushed.pushed?.length, new Set(listing.channelCodes).size, '每个选定渠道恰好一条本单商品（TEST-011）')
+assert.equal(listing.currentStepKey, 'live-testing', '推送成功后进入⑨直播测款（TEST-011/013）')
+const channelAfter = listProjectChannelProducts()
+assert.equal(channelAfter.length, channelBefore + pushed.pushed!.length, '渠道商品确实新增（TEST-011）')
+assert.ok(channelAfter.filter((item) => pushed.pushed!.includes(item.channelProductId)).every((item) =>
+  item.styleId === listing.styleId && item.sourceTestingOrderId === listing.testingOrderId
+  && item.specLines.every((line) => listing.skuCodes.includes(line.sellerSku)),
+), '所有推送记录均属于本单 SPU/SKU（TEST-011）')
+assert.deepEqual(channelAfter.filter((item) => pushed.pushed!.includes(item.channelProductId)).map((item) => [item.channelCode, item.currencyCode, item.listingPrice]).sort(),
+  [['shopee', 'USD', 19.99], ['tiktok', 'IDR', 100000]], '每个渠道使用所属店铺币种和独立售价（TEST-011）')
+assert.equal(pushChannelProducts(listing.testingOrderId).ok, false, '离开⑧后不可重复推送（TEST-011）')
+assert.equal(listProjectChannelProducts().length, channelAfter.length, '重复推送不增记录（TEST-011）')
+assert.throws(() => createTestingOrderChannelProducts({
+  testingOrderId: listing.testingOrderId, styleId: listing.styleId, skuCodes: listing.skuCodes,
+  channelCodes: ['tiktok'], channelPrices: {}, actor: '测试',
+}), /IDR 渠道售价/, '已有渠道记录也不能绕过缺价门禁（TEST-011）')
+const laterChannel = createTestingOrderChannelProducts({
+  testingOrderId: 'to_later_same_style', styleId: listing.styleId, skuCodes: listing.skuCodes,
+  channelCodes: ['tiktok'], channelPrices: { tiktok: 110000 }, actor: '测试',
+})[0]
+assert.notEqual(laterChannel.channelProductCode, channelAfter.find((item) => item.channelProductId === pushed.pushed![0])?.channelProductCode,
+  '同款后续测款单的渠道商品编码保持唯一（TEST-011）')
 
 const order = listTestingOrders()[0]
 const listHtml = renderPcsTestingOrderListPage()

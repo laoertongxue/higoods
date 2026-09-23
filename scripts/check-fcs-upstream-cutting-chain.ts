@@ -68,7 +68,7 @@ function ensureProductionOrderSeedsDoNotInlineSnapshots(): void {
   const content = readRepoFile('src/data/fcs/production-orders.ts')
   const seedSectionIndex = content.indexOf('const productionOrderSeeds')
   assert(seedSectionIndex >= 0, 'production-orders.ts 缺少 productionOrderSeeds')
-  const seedSectionEnd = content.indexOf('\nfunction buildReleaseMaterialSwatchImageUrl', seedSectionIndex)
+  const seedSectionEnd = content.indexOf('\nfunction getReleaseMaterialImageUrl', seedSectionIndex)
   assert(seedSectionEnd > seedSectionIndex, 'production-orders.ts 无法识别 productionOrderSeeds 结束位置')
   const seedSection = content.slice(seedSectionIndex, seedSectionEnd)
 
