@@ -49,6 +49,7 @@
 
 说明：
 
+- **交付与接受**：功能提交 `f62108bd`，合并 `main` `1fce47c2` 已推送 `origin/main`（`delivered`）；产品确认人 laoertongxue 于 2026-09-23 明确接受 `1fce47c2`（GitHub commit comment `#commitcomment-201603472`，https://github.com/laoertongxue/higoods/commit/1fce47c2e7845e05fb142d51b0d5d4f25782ed61#commitcomment-201603472）。交付状态：**`accepted`**。
 - WP-02～WP-06 边界与总体设计 §5～§9、§11、§13 及实施计划 WP-02～WP-06 一致；档案门禁删除、回写清单冻结、变种血缘、测款单十步（含④样衣入库与 §4.5 团队展示）、样衣双类型/位置主数据/打标门禁均已落地。
 - `check-production-object-overview` 失败根因既有（PH-20260328-007）；本任务仅改脚本路径字面量，不纳入本记录通过条件。
 - 性能（AGENTS.md §7.2）：受影响页面冷加载与交互测量见 `/tmp/pcs-wp01/default-page-cold-load.json`（WP-01 已测，默认页切换 5/5 max 240ms < 500ms）。本包新增/修改页面（测款单列表、测款单详情、物料变种页签、样衣管理）在当前工作树与 HEAD `5fdc7a4c` 下以 `vite preview` 构建产物 + Playwright chromium headless 各测 ≥5 样本，全部 <500ms；原始耗时与脚本见收据配套证据（若某入口样本缺失则该项按未完成处理，不得标记已验证）。

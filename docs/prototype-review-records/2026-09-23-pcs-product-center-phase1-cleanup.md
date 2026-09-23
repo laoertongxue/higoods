@@ -45,6 +45,7 @@
 
 说明：
 
+- **交付与接受**：随 PCS 商品中心重构整体合并 `main` `1fce47c2` 推送 `origin/main`；产品确认人 laoertongxue 于 2026-09-23 接受该版本（GitHub commit comment `#commitcomment-201603472`）。交付状态：**`accepted`**。
 - 阶段① 删除边界与总体设计 §4.6、§5.2、实施计划 WP-01 一致；菜单、路由、页面、种子、事件处理器、store 死别名、包材分类、占位实现均已落地。
 - `check-production-object-overview` 失败为既有问题（FCS 打印花工单 `PH-20260328-007` 关联生产单 `PO-20260328-077` 在 Mock 生产单库中不存在；本任务唯一脚本改动在断言之后，且 `src/data/fcs/*` 未改），记为任务边界外既有失败，不纳入 WP-01 通过条件。
 - 性能（AGENTS.md §7.2）：默认页切换 `/pcs/products/styles` 冷加载测量 5 次全部通过。以 `/tmp/pcs-wp01/default-page-cold-load.json` 为真源，原始耗时 240 / 159 / 158 / 158 / 158 ms，max 240ms，阈值 500ms，判定通过。测量脚本 `/tmp/pcs-wp01/cold-load-default-page.mts`；环境：分支 `codex/shangpinzhongxinyouhua001` HEAD `5fdc7a4c` 工作树（后续业务修复会重跑该 JSON）、`vite preview` 构建产物 `http://127.0.0.1:4173`、Playwright chromium headless、每样本独立 context（`cacheEnabled: false`）、macOS。计时从 `page.goto` 到首屏正文就绪且含可交互元素（`button`/`a[href]`），内容抽查含商品中心默认页文案。删除路径不再进入业务页，无对应加载样本；保留页冒烟即时渲染，未另测交互入口（菜单/路由删除不新增交互样本）。历史行中「200/157/157/156/157ms，max 200ms」为过时口径，以当前 JSON 真值为准。

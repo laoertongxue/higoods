@@ -9,9 +9,9 @@
 | 状态字典 | 待实施 / 实施中 / 已实现待验证 / 已验证 / 已阻塞 / 不适用 |
 | 实现位置 | 「目标」表示计划绑定点；实施后必须回填实际符号，不得长期待绑定 |
 | 证据 | 实施后回填；页面证据含路由与截图/日志路径 |
-| 产品确认人 | 默认「待用户确认」；用户 2026-09-23 曾确认当时矩阵 82 条，现保留 81 条确认（GATE-001 覆盖行改回待确认）；两轮审查后新增 TEST-025～027 亦为待产品确认；`accepted` 需产品对远端版本明确回执 |
+| 产品确认人 | 全部 85 条均为「用户（2026-09-23 确认）」：81 条=§12 A1–A5 + 当时矩阵 82 条；TEST-025～027 + GATE-001 由版本接受覆盖；`accepted` 证据=GitHub commit comment `1fce47c2` #commitcomment-201603472 |
 
-**当前汇总**：条目总数 **85**；`已验证 85`（CLEAN 12 + ARCH 12 + MAT 14 + TEST 27 + SAMP 14 + GATE 6）。其中 **81** 条产品确认人为「用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条）」（历史标签：该次确认覆盖当时 82 条，其后 GATE-001 覆盖行改回待确认，故当前保留 81 条）；**4** 条为「待用户确认」＝ TEST-025～027（两轮审查后补录）+ GATE-001（覆盖行补录）；`accepted` 需产品对远端版本明确回执。
+**当前汇总**：条目总数 **85**；`已验证 85`（CLEAN 12 + ARCH 12 + MAT 14 + TEST 27 + SAMP 14 + GATE 6）。产品确认人 **85/85** 均已确认（81 条历史确认 + TEST-025～027、GATE-001 随版本接受）。交付状态：**`delivered` + `accepted`**——功能提交 `f62108bd`，合并 `main` `1fce47c2`，`origin/main` 已确认；接受回执 https://github.com/laoertongxue/higoods/commit/1fce47c2e7845e05fb142d51b0d5d4f25782ed61#commitcomment-201603472（接受人 laoertongxue，2026-09-23）。
 
 ---
 
@@ -99,9 +99,9 @@
 | TEST-023 | AGENTS §5.2 | 测款单列表按标准列表结构实现并带 `@page-pattern: list`（若属标准列表） | WP-04 |实际：`pcs-testing-order-list.ts` 首行 `@page-pattern: list` + 三件套|`check:list-page-governance` PASS（scanned 556, baseline 12）|1366×768 标准列表结构|已验证|list-page-governance PASS；治理记录第 7 节| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | TEST-024 | AGENTS §7.2、设计 §9 | 测款单全部入口加载与交互 <500ms（每项≥5 样本） | WP-04 |实际：浏览器测量（列表/详情/交互）|性能脚本/日志|冷启动/交互 ≥5 样本，测款入口 max ≤110ms、全套 max 177ms < 500ms（`interaction-perf.json` 16/16 PASS，bulk 为真实点击 38ms）|已验证|`/tmp/pcs-wp01/interaction-perf.json`（interact-testing-query/reset/pagination/open-create、lightbox、bulk-visible PASS）；`/tmp/pcs-wp01/affected-routes-cold-load.json` max 172ms；`/tmp/pcs-wp01/cold-recheck.json` cold-testing-orders max 142ms；治理记录第 6 节| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 
-| TEST-025 | 设计 §4.1 ② | ②采购下单完成条件=记录采购链接与下单事实（链接只挂测款单），完成后可推进③快递信息 | WP-04 |实际：`TESTING_ORDER_STEPS` `purchase-link`；详情「下一步：②采购下单」→ advance `logistics`；`purchaseLinks` 字段|`tests/pcs-testing-order.spec.ts` 断言独立步骤与推进|详情②步骤可操作；链接不进 SKU|已验证|tests/pcs-testing-order.spec.ts PASS；`src/data/pcs-testing-order-repository.ts` `advanceTestingOrder`| 待用户确认（两轮审查后补录，不覆盖于 2026-09-23 的 82 条确认） |
-| TEST-026 | 设计 §4.1 ④ | ④样衣入库完成条件=当前步为 sample-inbound 且已填物流，写入 sampleInboundAt/Note 后推进⑤；未入库不可打标 | WP-04 |实际：`completeSampleInbound`；`advanceTestingOrder` order≥label 需 sampleInboundAt；详情 sample-inbound panel；`handlePcsTestingOrderInput` 返回 false 防输入重绘丢值|`tests/pcs-testing-order.spec.ts` F-01 流：物流→入库→打标门禁|详情④面板/按钮可操作；未入库打标阻断；浏览器 SPA 推进至④|已验证|tests/pcs-testing-order.spec.ts PASS；`pcs-testing-order-repository.ts` `completeSampleInbound`；`/tmp/pcs-wp01/detail-render-acceptance.json` SAMPLE-INBOUND-PANEL-UI PASS| 待用户确认（两轮审查后补录，不覆盖于 2026-09-23 的 82 条确认） |
-| TEST-027 | 设计 §4.5 | 详情按当前步骤展示责任团队（买手/仓储现场/跟单口径与权限表一致） | WP-04 |实际：`TESTING_ORDER_STEP_TEAMS`；`pcs-testing-order-detail.ts` 顶部「当前步骤责任团队」|`tests/pcs-testing-order.spec.ts`（步骤/团队映射可读）；tsc 任务范围 0 错误|详情可见当前步骤团队文案；浏览器实测买手（live-testing）与仓储/现场（sample-inbound）|已验证|`src/data/pcs-testing-order-repository.ts` `TESTING_ORDER_STEP_TEAMS`；`src/pages/pcs-testing-order-detail.ts` renderSteps 团队展示；tests/pcs-testing-order.spec.ts PASS；`/tmp/pcs-wp01/detail-render-acceptance.json` DETAIL-TEAM-STEPS + SAMPLE-INBOUND-PANEL-UI PASS；`/tmp/pcs-wp01/detail-team-steps.png`| 待用户确认（两轮审查后补录，不覆盖于 2026-09-23 的 82 条确认） |
+| TEST-025 | 设计 §4.1 ② | ②采购下单完成条件=记录采购链接与下单事实（链接只挂测款单），完成后可推进③快递信息 | WP-04 |实际：`TESTING_ORDER_STEPS` `purchase-link`；详情「下一步：②采购下单」→ advance `logistics`；`purchaseLinks` 字段|`tests/pcs-testing-order.spec.ts` 断言独立步骤与推进|详情②步骤可操作；链接不进 SKU|已验证|tests/pcs-testing-order.spec.ts PASS；`src/data/pcs-testing-order-repository.ts` `advanceTestingOrder`| 用户（2026-09-23 接受 1fce47c2） |
+| TEST-026 | 设计 §4.1 ④ | ④样衣入库完成条件=当前步为 sample-inbound 且已填物流，写入 sampleInboundAt/Note 后推进⑤；未入库不可打标 | WP-04 |实际：`completeSampleInbound`；`advanceTestingOrder` order≥label 需 sampleInboundAt；详情 sample-inbound panel；`handlePcsTestingOrderInput` 返回 false 防输入重绘丢值|`tests/pcs-testing-order.spec.ts` F-01 流：物流→入库→打标门禁|详情④面板/按钮可操作；未入库打标阻断；浏览器 SPA 推进至④|已验证|tests/pcs-testing-order.spec.ts PASS；`pcs-testing-order-repository.ts` `completeSampleInbound`；`/tmp/pcs-wp01/detail-render-acceptance.json` SAMPLE-INBOUND-PANEL-UI PASS| 用户（2026-09-23 接受 1fce47c2） |
+| TEST-027 | 设计 §4.5 | 详情按当前步骤展示责任团队（买手/仓储现场/跟单口径与权限表一致） | WP-04 |实际：`TESTING_ORDER_STEP_TEAMS`；`pcs-testing-order-detail.ts` 顶部「当前步骤责任团队」|`tests/pcs-testing-order.spec.ts`（步骤/团队映射可读）；tsc 任务范围 0 错误|详情可见当前步骤团队文案；浏览器实测买手（live-testing）与仓储/现场（sample-inbound）|已验证|`src/data/pcs-testing-order-repository.ts` `TESTING_ORDER_STEP_TEAMS`；`src/pages/pcs-testing-order-detail.ts` renderSteps 团队展示；tests/pcs-testing-order.spec.ts PASS；`/tmp/pcs-wp01/detail-render-acceptance.json` DETAIL-TEAM-STEPS + SAMPLE-INBOUND-PANEL-UI PASS；`/tmp/pcs-wp01/detail-team-steps.png`| 用户（2026-09-23 接受 1fce47c2） |
 
 ### 1.5 SAMP — 样衣统一模型（WP-05）
 
@@ -126,7 +126,7 @@
 
 | 需求编号 | 来源章节 | 原子需求 | 工作包 | 实现位置（目标/实际） | 自动化验证 | 页面/PDA/打印/性能 | 状态 | 证据 | 产品确认人 |
 |---|---|---|---|---|---|---|---|---|---|
-| GATE-001 | 计划 §1 | 正向追踪：总体设计章节→矩阵→实现→证据无漏项（含 §1/§12/§4.5/②完成条件，两轮审查后补齐） | WP-06 |实际：矩阵本身（章节覆盖检查第 3 节；新增 TEST-025～027）|正向追踪：章节→编号→实现→证据|不适用|已验证|docs/prototype-review-records/2026-09-23-pcs-product-center-wp02-06.md；矩阵第 3 节| 待用户确认（覆盖行补录，原 82 条确认不自动覆盖新增编号） |
+| GATE-001 | 计划 §1 | 正向追踪：总体设计章节→矩阵→实现→证据无漏项（含 §1/§12/§4.5/②完成条件，两轮审查后补齐） | WP-06 |实际：矩阵本身（章节覆盖检查第 3 节；新增 TEST-025～027）|正向追踪：章节→编号→实现→证据|不适用|已验证|docs/prototype-review-records/2026-09-23-pcs-product-center-wp02-06.md；矩阵第 3 节| 用户（2026-09-23 接受 1fce47c2） |
 | GATE-002 | 计划 §1 | 反向追踪：src 路由/页面/Mock→需求编号无越界 | WP-06 |实际：全量 diff 反向抽查（路由/页面/Mock→编号）|反向追踪无越界（治理记录第 7 节页面路由）|不适用|已验证|docs/prototype-review-records/2026-09-23-pcs-product-center-wp02-06.md 第 7 节页面路由| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | GATE-003 | AGENTS §4.6 | `npm run check:prototype-design-governance` 通过 | WP-06 |实际：`scripts/check-prototype-design-governance.ts`|`check:prototype-design-governance -- --all` PASS（43 user-visible, 2 linked records）|审查记录按影响归档（2 条完整记录）|已验证|governance PASS；治理记录第 7 节| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | GATE-004 | AGENTS §5.2 | 受影响标准列表通过 `check:list-page-governance` | WP-06 |实际：`scripts/check-list-page-governance.ts` + 测试单列表三件套|`check:list-page-governance` PASS（scanned 556, baseline 12；template passed）|不适用|已验证|list-page-governance PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
@@ -147,7 +147,7 @@
 | 不适用 | 0 |
 | **合计** | **85** |
 
-编号分布：CLEAN 12、ARCH 12、MAT 14、TEST 27、SAMP 14、GATE 6。产品确认：82 已确认 + TEST-025～027 待确认。
+编号分布：CLEAN 12、ARCH 12、MAT 14、TEST 27、SAMP 14、GATE 6。产品确认：85 已确认（81 历史 + TEST-025～027、GATE-001 随版本接受）。
 
 ## 3. 章节覆盖检查（正向）
 
@@ -181,3 +181,4 @@
 | 2026-09-23 | 大图 lightbox 终验收：`image-lightbox-acceptance.json` 5/5 PASS（TEST-022-detail/list、MAT-013-fabric、SAMP-013-inventory、ARCH-style-list，打开/Esc/关闭按钮）；16 入口交互与冷加载 `interaction-perf.json` 16/16 PASS max 209ms < 500ms；矩阵 TEST-022/024、MAT-013/014、SAMP-013/014、GATE-005 证据列与治理记录第 6/7 节回填；`workflow:verify` 收据 `state=verified` blockers `[]` |
 | 2026-09-23 | **产品确认**：用户确认总体设计 §12 A1–A5 全部假设，并确认本矩阵 82/82 条产品确认人（`待用户确认` → `用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条）`）；状态仍为 82 `已验证`；`accepted` 仍待远端版本接受回执 |
 | 2026-09-23 | 两轮审查修复回填：测款单对齐设计 §4.1 十步（补④样衣入库、删独立档案回写步、§4.5 团队展示）；新增原子行 TEST-025（②完成条件）、TEST-026（④完成条件）、TEST-027（§4.5 责任团队），总数 82→85、已验证 85；§3 覆盖补 §1/§12/§4.5/②；CLEAN-008/012 包材与残留口径限 PCS 域；CLEAN-004/005 记 live/video 存储键历史投影例外；GATE-001 覆盖补齐、GATE-005 性能 max 177ms、GATE-006 既有失败边界表述更正；交互重测 `interaction-perf.json` 16/16 PASS max 177ms（bulk 真实点击 38ms）；新增 3 行产品确认人=待用户确认 |
+| 2026-09-23 | **交付与接受**：详情输入重绘修复后功能提交 `f62108bd`，合并 `main` 为 `1fce47c2` 并推送 `origin/main`；TEST-025～027、GATE-001 产品确认人由「待用户确认」→「用户（2026-09-23 接受 1fce47c2）」，85/85 已确认；GitHub 接受回执 commit comment `1fce47c2` #commitcomment-201603472；交付状态 `delivered` + `accepted` |
