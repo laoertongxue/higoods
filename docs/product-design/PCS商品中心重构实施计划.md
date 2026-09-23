@@ -20,7 +20,7 @@
 2. 分阶段专项契约 + 命名路由浏览器验收 + 全局治理检查通过；最后一次实质修改后证据重跑。
 3. 涉及页面/交互条目满足 `AGENTS.md` §7.2 性能门禁（默认 <500ms）或有明确授权例外。
 4. 生产准备 V2.4 相关命名页面回归通过（冻结验证）。
-5. 产品确认人对矩阵勾选 `accepted` 前，仅可声明 `verified`。
+5. 产品确认人对矩阵勾选 `accepted`：已于 2026-09-23 完成（回执 `1fce47c2` #commitcomment-201603472）。
 
 ## 2. 事实依据
 
@@ -107,7 +107,7 @@ WP-01 清理 ──▶ WP-02 商品档案 ──▶ WP-03 物料变种 ──▶
 |---|---|
 | 业务目标 | 两轮正反向追踪、治理与交付状态 |
 | 主要动作 | 正向：总体设计→矩阵→实现→证据；反向：代码/路由/Mock→需求编号；`npm run check:prototype-design-governance`；`check:list-page-governance`；构建；受影响性能门禁汇总；`npm run workflow:verify` 收据；CodeGraph sync |
-| 完成条件 | 矩阵状态闭环；收据绑定当前 HEAD；待产品 `accepted` |
+| 完成条件 | 矩阵状态闭环；收据绑定当前 HEAD；产品 `accepted`（已满足，`1fce47c2` #commitcomment-201603472） |
 | 需求编号 | GATE-001～GATE-006 |
 
 ## 6. 风险
