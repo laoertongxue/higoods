@@ -2,8 +2,6 @@ import { dispatchMaterialDecisionClick, dispatchMaterialDecisionInput, dispatchM
 import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey } from './pages/production-fulfillment/events'
 import './styles.css'
 import { WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE } from './data/fcs/wool-domain/demo-assets.ts'
-import { handleProductionObjectFloatingEntryEvent } from './components/production-object-floating-entry'
-import * as productionObjectOverviewModule from './components/production-object-overview'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
 import { closePdaImagePreview, handlePdaImagePreviewEvent } from './components/ui/pda-image-preview'
 import {
@@ -24,7 +22,8 @@ let nextStoreRenderMode: StoreRenderMode = 'full'
 let pdaMainTabPreloadStarted = false
 let productionListPreloadStarted = false
 
-const getProductionObjectOverviewModule = async () => productionObjectOverviewModule
+const getProductionObjectFloatingEntryModule = createRetryableModuleLoader(() => import('./components/production-object-floating-entry'))
+const getProductionObjectOverviewModule = createRetryableModuleLoader(() => import('./components/production-object-overview'))
 const getPdaCuttingInboundModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-inbound'))
 const getPdaCuttingHandoverModule = createRetryableModuleLoader(() => import('./pages/pda-cutting-handover'))
 const getFcsHandlersModule = createRetryableModuleLoader(() => import('./main-handlers/fcs-handlers'))
@@ -731,6 +730,17 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     normalizedPathname === productionPreparationTimingStatisticsRoutePath &&
     previousRenderedPagePathname !== productionPreparationTimingStatisticsRoutePath
   previousRenderedPagePathname = normalizedPathname
+  const isTmfPrototypeRoute = normalizedPathname.startsWith('/fcs/craft/accessory/webbing/')
+    || normalizedPathname.startsWith('/fcs/pda/accessory/webbing/')
+    || normalizedPathname.startsWith('/pms/tmf-')
+    || normalizedPathname.startsWith('/wls/raw/tmf-')
+    || normalizedPathname.startsWith('/print/tmf-')
+    || (normalizedPathname === '/fcs/print/preview'
+      && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType')?.startsWith('TMF_'))
+  if (isTmfPrototypeRoute) {
+    const prototypeData = await import('./data/fcs/tmf-base-demo.ts')
+    prototypeData.ensureTmfConnectedMockData()
+  }
   if (isSupplementManagementEntry) {
     const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
     supplementManagementPage.enterCraftCuttingSupplementManagementRoute()
@@ -1770,7 +1780,8 @@ root.addEventListener('click', async (event) => {
 
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
   if (productionObjectActionNode) {
-    if (handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) {
+    const productionObjectFloatingEntry = await getProductionObjectFloatingEntryModule()
+    if (productionObjectFloatingEntry.handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) {
       event.preventDefault()
       return
     }
@@ -1914,7 +1925,8 @@ root.addEventListener('input', async (event) => {
 
   const productionObjectActionNode = target.closest<HTMLElement>('[data-production-object-action]')
   if (productionObjectActionNode) {
-    if (handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) return
+    const productionObjectFloatingEntry = await getProductionObjectFloatingEntryModule()
+    if (productionObjectFloatingEntry.handleProductionObjectFloatingEntryEvent(productionObjectActionNode)) return
     const productionObjectOverview = await getProductionObjectOverviewModule()
     if (productionObjectOverview.handleProductionObjectOverviewEvent(productionObjectActionNode)) return
   }

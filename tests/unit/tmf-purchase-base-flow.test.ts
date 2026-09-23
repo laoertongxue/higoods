@@ -68,7 +68,8 @@ function purchase(id: string, qty: number, sku = 'WB30-WHT'): TmfMaterialPurchas
   return {
     purchaseOrderNo: `${id}-PO`, purchaseLineId: `${id}-PO-L1`, version: 1, supplierId: 'MOCK-SUP-TMF',
     supplierName: 'Mock 织带供货方', factoryOrgId: 'FAC-TMF', materialSkuId: sku, materialSpuId: sku.split('-')[0],
-    accessoryType: /^(RP|CORD|ROPE)/.test(sku) ? '绳子' : '织带', targetWarehouseId: 'MOCK-ACC-WH', productionStandard: 'Mock 基础生产标准 V1；材料配方待确认',
+    accessoryType: /^(RP|CORD|ROPE)/.test(sku) ? '绳子' : '织带', targetWarehouseId: 'MOCK-ACC-WH', productionStandard: 'Mock 半成品加工标准 V1；以实际原料耗用校验米制产出',
+    baseMaterialRecipe: { materialSkuId: 'YARN-DEMO-01', unit: 'kg', quantityPerMeter: 0.0001, specification: '测试配方：每米耗用 0.0001kg 演示纱线' },
     requirementNo: '', sourceRequirementLineNo: '', sourceProductPurchaseOrderNo: '', materialCode: sku, materialName: `Mock ${sku}`,
     materialType: '辅料', materialImageUrl: '', unit: '米', styleCode: '', styleName: '', styleImageUrl: '', warehouse: 'Mock 辅料仓',
     orderedQty: qty, receivedQty: 0, unitPrice: 1, currency: 'RMB', status: '待采购', orderDate: '2026-09-20', expectedArrivalDate: '2026-09-25',
@@ -76,7 +77,7 @@ function purchase(id: string, qty: number, sku = 'WB30-WHT'): TmfMaterialPurchas
   }
 }
 
-function startScenarioBase(order: TmfMaterialPurchaseOrder): string {
+function startScenarioBase(order: TmfMaterialPurchaseOrder, seedRaw = true): string {
   createTmfMaterialPurchase(order, buyer, `${order.purchaseOrderNo}:create`)
   assert.ok(listPmsMaterialPurchaseOrders().some((item) => item.purchaseOrderNo === order.purchaseOrderNo))
   assert.throws(() => generateTmfBaseOrder(order.purchaseOrderNo, factory, `${order.purchaseOrderNo}:early`), /尚未下达/)
@@ -85,7 +86,16 @@ function startScenarioBase(order: TmfMaterialPurchaseOrder): string {
   const base = getTmfPurchaseState().baseOrders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)!
   assert.equal(base.purchaseLineId, order.purchaseLineId, '基础单必须保留 PMS 原采购行身份，合行后仍可回溯原行')
   acceptTmfBaseOrder(base.id, factory, `${order.purchaseOrderNo}:accept`)
+  if (seedRaw) seedTestBaseRaw(order, base.id)
   return base.id
+}
+
+function seedTestBaseRaw(order: TmfMaterialPurchaseOrder, baseId: string): void {
+  const rawQty = Math.max(1, Math.round(order.orderedQty * order.baseMaterialRecipe.quantityPerMeter * 3000) / 1000)
+  receiveTmfBaseMaterialStock({ id: `${order.purchaseOrderNo}:raw-lot`, materialSkuId: order.baseMaterialRecipe.materialSkuId, warehouseId: 'MOCK-ACC-WH', location: 'RAW-A01', unit: order.baseMaterialRecipe.unit, receivedQty: rawQty, sourceReceiptNo: `${order.purchaseOrderNo}:raw-receipt`, sourceReceiptLineId: `${order.purchaseOrderNo}:raw-receipt-L1` }, warehouse, `${order.purchaseOrderNo}:raw-stock`)
+  dispatchTmfBaseMaterial({ id: `${order.purchaseOrderNo}:raw-issue`, baseOrderId: baseId, lotId: `${order.purchaseOrderNo}:raw-lot`, quantity: rawQty }, warehouse, `${order.purchaseOrderNo}:raw-dispatch`)
+  receiveTmfBaseMaterial({ issueId: `${order.purchaseOrderNo}:raw-issue`, materialSkuId: order.baseMaterialRecipe.materialSkuId, unit: order.baseMaterialRecipe.unit, quantity: rawQty }, factory, `${order.purchaseOrderNo}:raw-receive`)
+  consumeTmfBaseMaterial({ issueId: `${order.purchaseOrderNo}:raw-issue`, consumedQty: rawQty, scrapQty: 0, reason: '按原料配方完成本批半成品生产' }, factory, `${order.purchaseOrderNo}:raw-consume`)
 }
 
 function finishScenarioBase(order: TmfMaterialPurchaseOrder, baseId: string): string {
@@ -113,7 +123,8 @@ async function prepareWithRawMaterial(order: TmfMaterialPurchaseOrder, rawContra
   const raw = rawContract ?? scenario.baseProductionInput
   const source = getPmsMaterialPurchaseOrder(SCENARIO_RAW_PURCHASE_NO)
   if (!source) throw new Error('演示原料采购不存在，不能伪造原料前段')
-  const baseId = startScenarioBase(order)
+  order.baseMaterialRecipe = { materialSkuId: source.materialCode, unit: 'kg', quantityPerMeter: raw.consumed / order.orderedQty, specification: `规范 Mock 实际耗用 ${raw.consumed}kg / ${order.orderedQty}m` }
+  const baseId = startScenarioBase(order, false)
   if (source.status === '待采购') advancePmsMaterialPurchaseOrderStatus(SCENARIO_RAW_PURCHASE_NO, '已采购', PMS_BUYER_ACTOR)
   const prefix = order.purchaseOrderNo, lotId = `${prefix}-RAW-LOT`, issueId = `${prefix}-RAW-ISS`, returnId = `${prefix}-RAW-RETURN`, receiptId = `${prefix}-RAW-SOURCE`
   const receivedBefore = getPmsMaterialPurchaseOrder(SCENARIO_RAW_PURCHASE_NO)!.receivedQty
@@ -156,6 +167,17 @@ test('N01～N05：通过现有 PMS 入口下达，每条采购链从零执行到
     assert.equal(state.handovers.find((item) => item.purchaseOrderNo === pms.purchaseOrderNo)!.receivedMeters, scenario.purchaseQuantityM)
     assert.throws(() => registerPmsMaterialPurchaseArrival(pms.purchaseOrderNo, 10, PMS_BUYER_ACTOR), /不能手改/)
   }
+})
+
+test('半成品加工没有原料实收和足量耗用时禁止产出，补齐同一原料链后才能填报', () => {
+  const order = purchase('BASE-RAW-GATE', 100)
+  const baseId = startScenarioBase(order, false)
+  const before = structuredClone(getTmfPurchaseState())
+  assert.throws(() => reportTmfBaseProduction(baseId, 100, factory, 'BASE-RAW-GATE:blocked'), /基础原料|原料.*实收|耗用/)
+  assert.deepEqual(getTmfPurchaseState(), before, '被阻断的无原料产出不能留下部分账')
+  seedTestBaseRaw(order, baseId)
+  reportTmfBaseProduction(baseId, 100, factory, 'BASE-RAW-GATE:produce')
+  assert.equal(getTmfPurchaseState().baseOrders.find((item) => item.id === baseId)?.producedMeters, 100)
 })
 
 test('MOCK-007：规范场景使用同一采购行、基础单和生产需求身份，不复制孤立页面 Mock', () => {
@@ -526,6 +548,7 @@ test('采购追加：未开始同步计划，已执行保留原计划和实物�
   assert.equal(base.plannedMeters, 1100)
   assert.equal(base.purchaseVersion, 2)
   acceptTmfBaseOrder(base.id, factory, 'B23:accept')
+  seedTestBaseRaw(order, base.id)
   reportTmfBaseProduction(base.id, 400, factory, 'B23:produce')
   reviseTmfMaterialPurchase(order.purchaseOrderNo, { orderedQty: 1200, reason: '生产后追加，需主管处理', confirmed: true }, buyer, 'B24:change')
   base = getTmfPurchaseState().baseOrders.find((item) => item.id === base.id)!
@@ -2131,20 +2154,20 @@ test('织带加工单没有接单或开工门禁，投入实收后可直接加�
  reserveTmfContinuousMaterial({reservationId:'DIRECT-REPORT-R',demandId:demand.id,lotId:p.purchaseOrderNo+':batch',reservedMeters:50,reason:'按技术包投入'},warehouse,'DIRECT-REPORT:reserve')
  issueTmfContinuousMaterial({issueId:'DIRECT-REPORT-I',reservationId:'DIRECT-REPORT-R',targetFactoryId:'FAC-TMF',dispatchedMeters:50},warehouse,'DIRECT-REPORT:issue')
  receiveTmfProcessingMaterial({issueId:'DIRECT-REPORT-I',factoryId:'FAC-TMF',materialSkuId:p.materialSkuId,receivedMeters:50},factory,'DIRECT-REPORT:receive')
- reportTmfCutOutput({outputId:'DIRECT-REPORT-O',issueId:'DIRECT-REPORT-I',cutPieces:100,defectivePieces:0,actualCutLengthMm:500,actualFinishedLengthMm:500,lossMeters:0,reason:'确认接收后直接加工填报'},factory,'DIRECT-REPORT:output')
+ reportTmfCutOutput({outputId:'DIRECT-REPORT-O',issueId:'DIRECT-REPORT-I',cutPieces:100,defectivePieces:0,actualCutLengthMm:500,actualFinishedLengthMm:500,lossMeters:0,reason:'确认接受后直接加工填报'},factory,'DIRECT-REPORT:output')
  const projected=projectTmfWorkOrders(getTmfPurchaseState()).find(o=>o.productionOrderId===source.productionOrderId)!
  assert.equal(projected.processingStatus,'合格产出达量')
  assert.equal(getTmfPurchaseState().operations.some(o=>/接单|开工/.test(o.action)&&o.objectId===projected.id),false)
 })
 
-test('B23未执行采购1000减900：版本留痕、旧预览阻断、重接单后900实际生产实收',()=>{
+test('B23未执行采购1000减900：版本留痕、旧预览阻断、重新确认接受后900实际生产实收',()=>{
  const p=purchase('B23-REDUCE',1000)
  createTmfMaterialPurchase(p,buyer,'B23-REDUCE:create')
  advancePmsMaterialPurchaseOrderStatus(p.purchaseOrderNo,'已采购',PMS_BUYER_ACTOR)
  generateTmfBaseOrder(p.purchaseOrderNo,factory,'B23-REDUCE:generate')
  const baseId=getTmfPurchaseState().baseOrders.find(b=>b.purchaseOrderNo===p.purchaseOrderNo)!.id
  acceptTmfBaseOrder(baseId,factory,'B23-REDUCE:accept-before')
- const input={orderedQty:900,expectedVersion:1,reason:'未开工基础备货减100米',confirmed:true}
+ const input={orderedQty:900,expectedVersion:1,reason:'尚无加工填报，基础备货减100米',confirmed:true}
  const before=getTmfPurchaseState()
  assert.throws(()=>reviseTmfMaterialPurchase(p.purchaseOrderNo,input,factory,'B23-REDUCE:role'),/当前角色/)
  assert.throws(()=>reviseTmfMaterialPurchase(p.purchaseOrderNo,{...input,confirmed:false},buyer,'B23-REDUCE:confirm'),/确认/)
@@ -2159,8 +2182,9 @@ test('B23未执行采购1000减900：版本留痕、旧预览阻断、重接单�
  assert.equal(getPmsMaterialPurchaseOrder(p.purchaseOrderNo)!.receivedQty,0)
  assert.throws(()=>reviseTmfMaterialPurchase(p.purchaseOrderNo,{...input,orderedQty:800},buyer,'B23-REDUCE:stale'),/版本已变化/)
  assert.deepEqual(getTmfPurchaseState(),changed)
- assert.throws(()=>reportTmfBaseProduction(baseId,1,factory,'B23-REDUCE:early-report'),/确认接收/)
+ assert.throws(()=>reportTmfBaseProduction(baseId,1,factory,'B23-REDUCE:early-report'),/确认接受/)
  acceptTmfBaseOrder(baseId,factory,'B23-REDUCE:accept')
+ seedTestBaseRaw(p,baseId)
   assert.throws(()=>reportTmfBaseProduction(baseId,1000,factory,'B23-REDUCE:over'),/二次确认/)
  reportTmfBaseProduction(baseId,900,factory,'B23-REDUCE:produce')
  dispatchTmfBaseProduction({baseOrderId:baseId,handoverId:`${p.purchaseOrderNo}:handover`,batchId:`${p.purchaseOrderNo}:batch`,dispatchedMeters:900},factory,'B23-REDUCE:dispatch')

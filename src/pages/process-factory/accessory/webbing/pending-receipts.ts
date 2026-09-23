@@ -10,7 +10,6 @@ import {
   getTmfProcessingInputBalance, getTmfPurchaseState, receiveTmfDyeMaterial, receiveTmfPrintMaterial, receiveTmfProcessingMaterial,
   type TmfProcessingMaterialIssue, type TmfPurchaseActor,
 } from '../../../../data/pms/tmf-material-purchases.ts'
-import { ensureTmfConnectedMockData } from '../../../../data/fcs/tmf-base-demo.ts'
 
 const prefix = 'tmf-pending-receipts', selector = '[data-tmf-pending-receipts]'
 const actor: TmfPurchaseActor = { id: 'TMF-DEMO-SUPERVISOR', name: '织带厂主管（演示）', role: '织带厂主管' }
@@ -46,7 +45,7 @@ function open(issueId: string) {
   const row = rows().find((item) => item.issue.id === issueId); if (!row) throw new Error('投入不存在，请刷新核对。')
   selected = issueId; operationId = `${prefix}:${crypto.randomUUID()}`
   const kind = row.issue.printHandover ? '印花回料' : row.issue.dyeHandover ? '染色回料' : '印染首道'
-  const content = `<div class="space-y-2 text-sm"><p>${e(row.orderNo)} · ${e(kind)} · 投入 ${e(row.issue.id)}</p><p>${e(row.issue.materialSkuId)} · 上游发出 ${row.dispatched} 米；已收 ${row.received} 米；未收 ${row.remaining} 米</p><label class="block">本次实际接收（米）<input name="quantity" type="number" min="0.001" step="0.001" class="mt-1 w-full rounded border p-2" data-skip-page-rerender="true"></label><label class="block">实收身份<select name="role" class="mt-1 w-full rounded border p-2" data-skip-page-rerender="true"><option value="织带厂主管">织带厂主管</option><option value="织带厂员工">织带厂员工</option></select></label><p class="text-xs text-slate-500">实收以原交出记录为唯一数量事实；分批接收，未到部分保留在途。</p><p role="alert" class="text-red-700" data-tmf-pending-error></p></div>`
+  const content = `<div class="space-y-2 text-sm"><p>${e(row.orderNo)} · ${e(kind)} · 投入 ${e(row.issue.id)}</p><p>${e(row.issue.materialSkuId)} · 上游发出 ${row.dispatched} 米；已收 ${row.received} 米；未收 ${row.remaining} 米</p><label class="block">本次实际接收（米）<input name="quantity" type="number" min="0.001" step="0.001" class="mt-1 w-full rounded border p-2" data-skip-page-rerender="true"></label><p class="rounded bg-slate-50 p-2 text-xs">当前操作人：织带厂主管（演示）；身份由登录会话决定，页面不可切换。</p><p class="text-xs text-slate-500">实收以原交出记录为唯一数量事实；分批接收，未到部分保留在途。</p><p role="alert" class="text-red-700" data-tmf-pending-error></p></div>`
   const el = root()!.querySelector('[data-tmf-pending-dialog]')!
   el.innerHTML = renderDialog({ title: '登记投入实收', width: 'md', closeAction: { prefix, action: 'close', skipPageRerender: true } }, content, action('close', '关闭') + action('confirm', '确认实收'))
   hydrateIcons(el); el.setAttribute('tabindex', '-1'); (el as HTMLElement).focus({ preventScroll: true })
@@ -54,9 +53,10 @@ function open(issueId: string) {
 function bind() {
   const el = root(); if (!el || el.dataset.bound) return; el.dataset.bound = 'true'
   controller.installColumnDragEvents()
+  el.addEventListener('input', (event) => event.stopPropagation())
   el.addEventListener('change', (event) => { const field = event.target as HTMLSelectElement; if (field.getAttribute(`data-${prefix}-field`) === 'pageSize') { controller.setPageSize(Number(field.value)); refresh() } })
   el.addEventListener('keydown', (event) => { if (event.key === 'Escape') { const image = el.querySelector('[data-tmf-pending-image]'); if (image?.innerHTML) { image.innerHTML = ''; return } el.querySelector('[data-tmf-pending-dialog]')!.innerHTML = ''; state.showColumnSettings = false; controller.refresh({ table: false, pagination: false, overlays: true }) } })
-  el.addEventListener('click', (event) => {
+  el.addEventListener('click', async (event) => {
     const target = (event.target as HTMLElement).closest<HTMLElement>(`[data-${prefix}-action]`); if (!target) return
     event.stopPropagation()
     const name = target.getAttribute(`data-${prefix}-action`)!
@@ -75,18 +75,17 @@ function bind() {
         const row = rows().find((item) => item.issue.id === selected); if (!row) throw new Error('投入不存在，请刷新核对。')
         const quantity = Number(el.querySelector<HTMLInputElement>('[data-tmf-pending-dialog] [name="quantity"]')!.value)
         if (!Number.isFinite(quantity) || quantity <= 0 || quantity > row.remaining) throw new Error(`本次实收须为 0～${row.remaining} 米之间的正数。`)
-        const role = el.querySelector<HTMLSelectElement>('[data-tmf-pending-dialog] [name="role"]')!.value === '织带厂员工' ? '织带厂员工' : '织带厂主管'
-        const receiptActor: TmfPurchaseActor = { ...actor, role }
+        const receiptActor: TmfPurchaseActor = actor
         const issue = row.issue
-        if (issue.dyeHandover) void receiveTmfDyeMaterial({ issueId: issue.id, materialSkuId: issue.materialSkuId, receivedMeters: quantity }, receiptActor, operationId).then(() => { refresh(); el.querySelector('[data-tmf-pending-dialog]')!.innerHTML = '' })
-        else if (issue.printHandover) void receiveTmfPrintMaterial({ issueId: issue.id, materialSkuId: issue.materialSkuId, receivedMeters: quantity }, receiptActor, operationId).then(() => { refresh(); el.querySelector('[data-tmf-pending-dialog]')!.innerHTML = '' })
+        if (issue.dyeHandover) await receiveTmfDyeMaterial({ issueId: issue.id, materialSkuId: issue.materialSkuId, receivedMeters: quantity }, receiptActor, operationId)
+        else if (issue.printHandover) await receiveTmfPrintMaterial({ issueId: issue.id, materialSkuId: issue.materialSkuId, receivedMeters: quantity }, receiptActor, operationId)
         else { receiveTmfProcessingMaterial({ issueId: issue.id, factoryId: 'FAC-TMF', materialSkuId: issue.materialSkuId, receivedMeters: quantity }, receiptActor, operationId); refresh(); el.querySelector('[data-tmf-pending-dialog]')!.innerHTML = '' }
+        if (issue.dyeHandover || issue.printHandover) { refresh(); el.querySelector('[data-tmf-pending-dialog]')!.innerHTML = '' }
       }
     } catch (error) { const feedback = el.querySelector('[data-tmf-pending-error]') ?? el.querySelector('[data-tmf-pending-feedback]'); if (feedback) feedback.textContent = error instanceof Error ? error.message : '保存失败，请重试。' }
   })
 }
 export function renderTmfPendingReceiptsPage(): string {
-  ensureTmfConnectedMockData()
   state.currentPage = 1; state.sort = null
   controller.ensurePreferencesLoaded(); const view = controller.getView()
   if (typeof window !== 'undefined') requestAnimationFrame(bind)

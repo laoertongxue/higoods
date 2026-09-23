@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-20T15:08:31.474Z",
-  "source": "2026-09-20-adversarial-audit-rounds.mjs reverse scan",
-  "total": 154,
+  "generatedAt": "2026-09-23T00:00:00.000Z",
+  "source": "2026-09-23 current reverse scan after TMF connected Mock and work-order alignment",
+  "total": 163,
   "entries": [
     {
       "path": "src/data/app-shell-config.ts",
@@ -166,6 +166,17 @@
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
     },
     {
+      "path": "src/data/fcs/production-order-runtime-store.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "ROUTE-011",
+        "ROUTE-012",
+        "LINK-001",
+        "LINK-002"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
       "path": "src/data/fcs/production-order-tech-pack-runtime.ts",
       "disposition": "out-of-scope-shared",
       "requirementIds": [],
@@ -253,6 +264,34 @@
         "SCOPE-001"
       ],
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-reference-images.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "IMG-001",
+        "IMG-002",
+        "IMG-003",
+        "IMG-004",
+        "IMG-005",
+        "IMG-006",
+        "IMG-007",
+        "IMG-008",
+        "IMG-009",
+        "IMG-010"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
+      "path": "src/data/fcs/tmf-source-readers.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-013",
+        "PAGE-014",
+        "PAGE-016",
+        "PERF-004"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
     },
     {
       "path": "src/data/fcs/tmf-upstream-process-orders.ts",
@@ -416,6 +455,18 @@
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
     },
     {
+      "path": "src/data/pms/tmf-master-registry.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "MASTER-001",
+        "MASTER-002",
+        "MASTER-003",
+        "MASTER-004",
+        "MASTER-005"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
       "path": "src/data/pms/tmf-material-purchases.ts",
       "disposition": "in-scope",
       "requirementIds": [
@@ -467,12 +518,6 @@
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
     },
     {
-      "path": "src/pages/pcs-live-testing.ts",
-      "disposition": "out-of-scope-shared",
-      "requirementIds": [],
-      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
-    },
-    {
       "path": "src/pages/pcs-material-archives.ts",
       "disposition": "out-of-scope-shared",
       "requirementIds": [],
@@ -492,12 +537,6 @@
     },
     {
       "path": "src/pages/pcs-product-archives.ts",
-      "disposition": "out-of-scope-shared",
-      "requirementIds": [],
-      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
-    },
-    {
-      "path": "src/pages/pcs-video-testing.ts",
       "disposition": "out-of-scope-shared",
       "requirementIds": [],
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
@@ -584,21 +623,19 @@
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
     },
     {
+      "path": "src/pages/print/tmf-process-print-preview.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PRINT-004",
+        "PAGE-016"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
       "path": "src/pages/process-factory/accessory/lace/purchase-demands.ts",
       "disposition": "out-of-scope-shared",
       "requirementIds": [],
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
-    },
-    {
-      "path": "src/pages/process-factory/accessory/webbing/base-orders.ts",
-      "disposition": "in-scope",
-      "requirementIds": [
-        "ORDER-001",
-        "ORDER-003",
-        "PUR-001",
-        "PUR-004"
-      ],
-      "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
     },
     {
       "path": "src/pages/process-factory/accessory/webbing/continuous-return-receipts.ts",
@@ -610,6 +647,25 @@
         "STOCK-014"
       ],
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/continuous-stock.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-015",
+        "STOCK-001",
+        "STOCK-003"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/handover-records.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-014",
+        "PRINT-003"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
     },
     {
       "path": "src/pages/process-factory/accessory/webbing/material-preparation.ts",
@@ -643,6 +699,27 @@
         "STOCK-014"
       ],
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/pda-execution.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-016",
+        "ORDER-002",
+        "ORDER-006",
+        "ORDER-007"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/pending-receipts.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-013",
+        "ORDER-002",
+        "STOCK-007"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
     },
     {
       "path": "src/pages/process-factory/accessory/webbing/production-control-dialog.ts",
@@ -690,6 +767,16 @@
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
     },
     {
+      "path": "src/pages/process-factory/accessory/webbing/semi-finished-orders.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-001",
+        "PUR-001",
+        "ORDER-012"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
       "path": "src/pages/process-factory/accessory/webbing/supply-purchase-receipts.ts",
       "disposition": "in-scope",
       "requirementIds": [
@@ -703,6 +790,19 @@
         "STOCK-014"
       ],
       "reason": "文件包含TMF织带/绳子业务实现或其专项测试；按功能归属绑定矩阵需求。"
+    },
+    {
+      "path": "src/pages/process-factory/accessory/webbing/termination-disposition-dialog.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "TERM-001",
+        "TERM-002",
+        "TERM-003",
+        "TERM-004",
+        "TERM-005",
+        "HIST-002"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
     },
     {
       "path": "src/pages/process-factory/accessory/webbing/tip-material-dispatch-form.ts",
@@ -891,6 +991,15 @@
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
     },
     {
+      "path": "src/pages/production-order-progress-tracking.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "LINK-001",
+        "LINK-002"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
+    },
+    {
       "path": "src/pages/production/events.ts",
       "disposition": "out-of-scope-shared",
       "requirementIds": [],
@@ -1018,10 +1127,18 @@
       "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
     },
     {
-      "path": "src/router/routes-fcs.ts",
-      "disposition": "out-of-scope-shared",
-      "requirementIds": [],
-      "reason": "共享文件仅因引用或保留通用TMF字段被扫描到；本文件不定义TMF业务规则，不作为TMF专属交付范围。"
+      "path": "src/router/routes-tmf-webbing.ts",
+      "disposition": "in-scope",
+      "requirementIds": [
+        "PAGE-001",
+        "PAGE-013",
+        "PAGE-014",
+        "PAGE-015",
+        "PAGE-016",
+        "PERF-001",
+        "PERF-002"
+      ],
+      "reason": "当前文件直接实现 TMF 业务规则、页面入口或专项性能边界；按功能绑定当前矩阵需求。"
     },
     {
       "path": "src/router/routes-wls.ts",

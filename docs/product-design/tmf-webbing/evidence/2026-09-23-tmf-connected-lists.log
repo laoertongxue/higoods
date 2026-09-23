@@ -1,0 +1,16 @@
+[WebServer] (node:17694) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 7 tests using 1 worker
+
+(node:17696) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/tmf-webbing-connected-lists.spec.ts:21:1 › 采购需求使用采购模型，内建 Mock 自动出现并关联半成品加工单 (696ms)
+  ✓  2 tests/tmf-webbing-connected-lists.spec.ts:35:1 › 半成品加工单与织带加工单统一染色加工单七组数据模型，且无接单开工动作 (987ms)
+  ✓  3 tests/tmf-webbing-connected-lists.spec.ts:56:1 › 采购、半成品、织带加工、待接收、交出记录使用同一事实链 (1.4s)
+  ✓  4 tests/tmf-webbing-connected-lists.spec.ts:74:1 › 同一 SKU 多长度与绳子三种端头按技术包规格展示，批量打印保留加工单边界 (6.0s)
+  ✓  5 tests/tmf-webbing-connected-lists.spec.ts:104:1 › 查询、重置和列设置保持局部交互，1024宽度下页面主体不横向溢出 (5.4s)
+  ✓  6 tests/tmf-webbing-connected-lists.spec.ts:119:1 › PDA 在 360×640 从同一织带加工单进入，超量接收被阻断且角色不能在页面自选 (5.0s)
+  ✓  7 tests/tmf-webbing-connected-lists.spec.ts:135:1 › 待接收页面使用登录身份且错误数量保留在弹窗内，不产生未处理异步错误 (5.0s)
+
+  7 passed (25.7s)

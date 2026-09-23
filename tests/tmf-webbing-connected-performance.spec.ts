@@ -1,6 +1,8 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 
 type Sample = { route: string; scenario: string; run: number; milliseconds: number }
 const samples: Sample[] = []
@@ -149,7 +151,13 @@ test('五个 TMF 页面首次进入、刷新、站内切换和适用交互各 5 
   }
 
   const max = Math.max(...samples.map((sample) => sample.milliseconds))
-  const evidence = { generatedAt: new Date().toISOString(), branch: 'main', viewport: '1366x768', browser: 'Chromium', threshold: '<500ms', sampleCount: samples.length, maxMilliseconds: max, passed: samples.every((sample) => sample.milliseconds < 500), samples }
+  const branch = execFileSync('git', ['branch', '--show-current'], { encoding: 'utf8' }).trim()
+  const head = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+  const dirtyFiles = execFileSync('git', ['status', '--short'], { encoding: 'utf8' }).trim().split('\n').filter(Boolean)
+  const diff = execFileSync('git', ['diff', '--binary'], { encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 })
+  const evidence = { generatedAt: new Date().toISOString(), branch, head, workingTreeDiffSha256: createHash('sha256').update(diff).digest('hex'), dirtyFiles,
+    service: testInfo.project.use.baseURL, viewport: '1366x768（PDA 与打印由同批浏览器专项单独覆盖）', browser: 'Chromium', cacheConditions: '冷进入使用全新 browser context；刷新和站内路由切换保留同一上下文；每项包含首次操作',
+    dataVolume: '12 条 PMS/TMF 采购与半成品链、5 张织带加工单、8 条规格需求、正常/部分/边界状态并存', threshold: '<500ms', sampleCount: samples.length, maxMilliseconds: max, passed: samples.every((sample) => sample.milliseconds < 500), samples }
   const output = resolve('docs/product-design/tmf-webbing/evidence/2026-09-23-connected-lists-performance.json')
   mkdirSync(resolve('docs/product-design/tmf-webbing/evidence'), { recursive: true })
   writeFileSync(output, `${JSON.stringify(evidence, null, 2)}\n`)

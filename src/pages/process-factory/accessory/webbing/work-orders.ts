@@ -6,17 +6,19 @@ import type { StandardListColumn } from '../../../../components/ui/list-table.ts
 import { exportStandardListRows } from '../../../../components/ui/list-export.ts'
 import { escapeHtml as e } from '../../../../utils.ts'
 import { listTmfWorkOrders } from '../../../../data/fcs/tmf-work-order-view.ts'
-import { ensureTmfConnectedMockData } from '../../../../data/fcs/tmf-base-demo.ts'
-import { getTmfProcessingInputBalance, getTmfPurchaseState } from '../../../../data/pms/tmf-material-purchases.ts'
+import { buildUnifiedPrintPreviewLink } from '../../../../data/fcs/print-service.ts'
+import { getTmfProcessingInputBalance, getTmfPurchaseState, getTmfWorkCost } from '../../../../data/pms/tmf-material-purchases.ts'
+import { appStore } from '../../../../state/store.ts'
 
 const prefix = 'tmf-work-orders'
 const selector = '[data-tmf-work-orders]'
-const state: ProcessOrderListControllerState & { keyword: string; status: string } = {
+const state: ProcessOrderListControllerState & { keyword: string; status: string; selectedIds: Set<string> } = {
   currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 },
-  preferencesLoaded: false, showColumnSettings: false, keyword: '', status: '',
+  preferencesLoaded: false, showColumnSettings: false, keyword: '', status: '', selectedIds: new Set(),
 }
 const action = (name: string, label: string) => `<button class="rounded border px-3 py-2 text-sm" data-${prefix}-action="${name}" data-skip-page-rerender="true">${label}</button>`
 const field = (label: string, value: string) => `<div class="leading-5"><span class="text-slate-500">${e(label)}：</span>${value}</div>`
+const endMethod = (value: string) => ({ NONE: '无', METAL: '金属头', PLASTIC_WRAP: '塑料包头', SILICONE_DIP: '硅胶浸头' }[value] ?? '待核对')
 
 type Row = ReturnType<typeof listTmfWorkOrders>[number]
 const allRows = () => listTmfWorkOrders()
@@ -38,22 +40,24 @@ function statusTone(label: string): 'success' | 'warning' | 'info' | 'neutral' {
 }
 
 const columns: StandardListColumn<Row>[] = [
+  { key: 'selection', title: '选择', width: 64, required: true, leadingControlColumn: true, render: order => `<input type="checkbox" aria-label="选择 ${e(order.workOrderNo)}" ${state.selectedIds.has(order.id) ? 'checked' : ''} data-${prefix}-action="toggle-selection" data-id="${e(order.id)}" data-skip-page-rerender="true">` },
   {
     key: 'order', title: '加工单／商品', width: 245, required: true, freezeable: true, sortable: true,
-    sortValue: order => order.productionOrderNo,
-    render: order => `<div class="divide-y divide-slate-200 text-xs"><section class="space-y-1 pb-3">${field('加工厂','TMF - 辅料厂')}<div><span class="text-slate-500">织带加工单：</span><button class="font-medium text-blue-700 hover:underline" data-nav="${e(detailPath(order))}">${e(order.productionOrderNo)}</button></div>${field('生产单',e(order.productionOrderNo))}${field('技术包',`${e(order.versionId)} · ${e(order.routeEntryId)}`)}</section><section class="flex gap-2 pt-3">${order.material?.materialImageUrl ? `<button data-${prefix}-action="image" data-id="${e(order.id)}"><img class="h-12 w-12 rounded border object-cover" src="${e(order.material.materialImageUrl)}" alt="${e(order.material.materialName)}"></button>` : '<span class="text-amber-700">缺实物图</span>'}<div><div class="font-medium">${e(order.material?.materialName ?? order.demands[0].materialSkuId)}</div><div class="break-all text-slate-500">${e(order.demands[0].materialSkuId)}</div></div></section></div>`,
+    sortValue: order => order.workOrderNo,
+    render: order => `<div class="divide-y divide-slate-200 text-xs"><section class="space-y-1 pb-3">${field('加工厂','TMF - 辅料厂')}<div><span class="text-slate-500">织带加工单：</span><button class="font-medium text-blue-700 hover:underline" data-nav="${e(detailPath(order))}">${e(order.workOrderNo)}</button></div>${field('生产单',e(order.productionOrderNo))}${field('技术包',`${e(order.versionId)} · ${e(order.routeEntryId)}`)}</section><section class="flex gap-2 pt-3">${order.material?.materialImageUrl ? `<button data-${prefix}-action="image" data-id="${e(order.id)}"><img class="h-12 w-12 rounded border object-cover" src="${e(order.material.materialImageUrl)}" alt="${e(order.material.materialName)}"></button>` : '<span class="text-amber-700">缺实物图</span>'}<div><div class="font-medium">${e(order.material?.materialName ?? order.demands[0].materialSkuId)}</div><div class="break-all text-slate-500">${e(order.demands[0].materialSkuId)}</div></div></section></div>`,
   },
   {
     key: 'input', title: '加工投入／上游', width: 280, required: true, freezeable: true,
     render: order => `<div class="space-y-3 text-xs">${order.inputs.map((input) => {
       const lot = getTmfPurchaseState().lots.find((item) => item.id === input.lotId)
       const upstream = input.upstream?.orderNo ?? input.dyeHandover?.recordId ?? input.printHandover?.recordId ?? lot?.sourceHandoverId ?? input.reservationId
-      return `<section class="border-b pb-2 last:border-0">${field('投入单',e(input.id))}${field('物料 SKU',e(input.materialSkuId))}${field('上游单据',e(upstream))}${field('批次',e(input.lotId))}</section>`
+      const purchase = order.sourcePurchases.find((item) => item.purchaseOrderNo === lot?.sourcePurchaseOrderNo)
+      return `<section class="border-b pb-2 last:border-0">${field('投入单',e(input.id))}${field('物料 SKU',e(input.materialSkuId))}${field('上游单据',e(upstream))}${field('来源采购',e(purchase?.purchaseOrderNo ?? '待形成实际投入'))}${field('批次',e(input.lotId))}</section>`
     }).join('') || '<span class="text-amber-700">等待上游交出与备料</span>'}</div>`,
   },
   {
     key: 'requirement', title: '加工要求', width: 260, freezeable: true,
-    render: order => `<div class="space-y-2 text-xs">${order.demands.map((demand) => `<section class="border-b pb-2 last:border-0">${field('用途／尺码',`${e(demand.specification.usage)} · ${e(demand.garmentSize)}`)}${field('截断／成品',`${demand.specification.cutLengthMm} / ${demand.specification.finishedLengthMm} mm`)}${field('公差',`±${demand.specification.toleranceMm} mm`)}${field('切割方式',e(demand.specification.cuttingMethod))}${field('端头',demand.specification.tippingRequired ? `${e(demand.specification.endA.method)} / ${e(demand.specification.endB.method)}` : '无需打头')}</section>`).join('')}</div>`,
+    render: order => `<div class="space-y-2 text-xs">${order.demands.map((demand) => `<section class="border-b pb-2 last:border-0">${field('用途／尺码',`${e(demand.specification.usage)} · ${e(demand.garmentSize)}`)}${field('截断／成品',`${demand.specification.cutLengthMm} / ${demand.specification.finishedLengthMm} mm`)}${field('公差',`±${demand.specification.toleranceMm} mm`)}${field('切割方式',e(demand.specification.cuttingMethod))}${field('端头',demand.specification.tippingRequired ? `${e(endMethod(demand.specification.endA.method))} / ${e(endMethod(demand.specification.endB.method))}` : '无需打头')}</section>`).join('')}</div>`,
   },
   {
     key: 'progress', title: '处理进度', width: 145, required: true, freezeable: true,
@@ -66,7 +70,11 @@ const columns: StandardListColumn<Row>[] = [
   {
     key: 'time', title: '时间', width: 245, freezeable: true, sortable: true,
     sortValue: order => order.demands[0].requiredDeliveryDate ?? '',
-    render: order => `<div class="space-y-1 text-xs">${field('要求交期',e(order.demands[0].requiredDeliveryDate ?? '未提供'))}${field('上游交出',e(order.inputs.map((i) => i.dispatchedAt).sort()[0] ?? '尚未交出'))}${field('首次加工填报',e(order.outputs.map((o) => o.reportedAt).sort()[0] ?? '尚未填报'))}${field('最近发起交出',e(order.handovers.map((h) => h.dispatchedAt).sort().at(-1) ?? '尚未交出'))}</div>`,
+    render: order => `<div class="space-y-1 text-xs">${field('要求交期',e(order.demands[0].requiredDeliveryDate ?? '未提供'))}${field('上游交出',e(order.inputs.map((i) => i.dispatchedAt).sort()[0] ?? '尚未交出'))}${field('首次实收',e(order.firstReceivedAt ?? '尚未实收'))}${field('首次／最近填报',`${e(order.firstReportedAt ?? '尚未填报')} / ${e(order.lastReportedAt ?? '尚未填报')}`)}${field('最近发起交出',e(order.lastHandoverAt ?? '尚未交出'))}${field('下游实收',e(order.downstreamReceivedAt ?? '尚未实收'))}</div>`,
+  },
+  {
+    key: 'cost', title: '费用', width: 155, freezeable: true,
+    render: order => { const cost = getTmfWorkCost(order.id); return cost ? `<div class="text-xs">${field('单价',`${cost.unitPrice} ${cost.currency}/${e(cost.pricingUnit)}`)}${field('计价量',`${cost.pricingQuantity} ${e(cost.pricingUnit)}`)}${field('预估金额',`${cost.estimatedAmount} ${cost.currency}`)}</div>` : '<span class="text-xs text-amber-700">待维护计价</span>' },
   },
   {
     key: 'quantity', title: '数量', width: 225, freezeable: true, sortable: true, sortValue: order => order.requiredPieces,
@@ -85,7 +93,7 @@ const columns: StandardListColumn<Row>[] = [
       const hasReceived = order.inputs.some((input) => getTmfProcessingInputBalance(input.id).receivedMeters > 0)
       const handedPackageIds = new Set(order.handovers.map((handover) => handover.packageId))
       const hasDispatchable = order.packages.some((pkg) => !pkg.splitAt && !pkg.warehouseId && !handedPackageIds.has(pkg.id))
-      return `<div class="flex flex-col items-start gap-1">${hasPendingReceipt ? `<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'inputs'))}">确认接收</button>` : ''}${hasReceived ? `<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'inputs'))}">加工填报</button>` : ''}${hasDispatchable ? `<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'packages'))}">发起交出</button>` : ''}<button class="text-xs text-blue-700 hover:underline" data-nav="${e(detailPath(order))}">查看详情</button></div>`
+      return `<div class="grid grid-cols-2 gap-1">${hasPendingReceipt ? `<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'inputs'))}">确认接受</button>` : ''}${hasReceived ? `<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'inputs'))}">加工填报</button>` : ''}${hasDispatchable ? `<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'packages'))}">发起交出</button>` : ''}<button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order))}">查看</button><button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'times'))}">编辑计划／费用</button><button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'history'))}">日志</button><button class="rounded border px-2 py-1 text-xs" data-nav="${e(buildUnifiedPrintPreviewLink({ documentType: 'TMF_PROCESS_SHEET', sourceType: 'TMF_WORK_ORDER', sourceId: order.id }))}">打印流程卡</button><button class="rounded border px-2 py-1 text-xs" data-nav="${e(detailPath(order,'packages'))}">打印条码</button></div>`
     },
   },
 ]
@@ -96,7 +104,7 @@ const controller = createProcessOrderListController({ state, columns, eventPrefi
   locallyManagedEvents: true, pageSizeOptions: [10, 20, 50], defaultFrozenKeys: ['order'], columnSettingsTitle: '织带加工单列设置', emptyText: '暂无织带加工单。' })
 const stats = () => renderStandardListStats([
   { label: '加工单数', value: `${rows().length} 单` },
-  { label: '待确认接收', value: `${rows().filter((o) => o.receiptStatus !== '已接收').length} 单` },
+  { label: '待确认接受', value: `${rows().filter((o) => o.receiptStatus !== '已接收').length} 单` },
   { label: '加工中', value: `${rows().filter((o) => o.processingStatus === '加工中').length} 单` },
   { label: '已发起交出', value: `${rows().filter((o) => o.handovers.length > 0).length} 单` },
 ])
@@ -104,15 +112,17 @@ const root = () => document.querySelector<HTMLElement>(selector)
 function refresh() { controller.refresh({ overlays: true }); const el = root(); if (!el) return; el.querySelector('[data-tmf-work-stats]')!.innerHTML = stats() }
 function bind() {
   const el = root(); if (!el || el.dataset.bound) return; el.dataset.bound = 'true'; controller.installColumnDragEvents()
+  el.addEventListener('input', (event) => event.stopPropagation())
   el.addEventListener('error', (event) => { if (event.target instanceof HTMLImageElement) { const span = document.createElement('span'); span.textContent = '图片加载失败'; event.target.replaceWith(span) } }, true)
   el.addEventListener('keydown', (event) => { if (event.key === 'Escape') { el.querySelector('[data-tmf-work-image]')!.innerHTML = ''; state.showColumnSettings = false; controller.refresh({ table: false, pagination: false, overlays: true }) } })
-  el.addEventListener('change', (event) => { const input = event.target as HTMLSelectElement; if (input.getAttribute(`data-${prefix}-field`) === 'pageSize') { controller.setPageSize(Number(input.value)); refresh() } })
+  el.addEventListener('change', (event) => { const input = event.target as HTMLInputElement | HTMLSelectElement; if (input.getAttribute(`data-${prefix}-field`) === 'pageSize') { event.stopPropagation(); controller.setPageSize(Number(input.value)); refresh() } else if (input.getAttribute(`data-${prefix}-action`) === 'toggle-selection') { event.stopPropagation(); const id=(input as HTMLInputElement).dataset.id||''; if ((input as HTMLInputElement).checked) state.selectedIds.add(id); else state.selectedIds.delete(id); refresh() } })
   el.addEventListener('click', (event) => {
     const target = (event.target as HTMLElement).closest<HTMLElement>(`[data-${prefix}-action]`); if (!target) return
     const name = target.getAttribute(`data-${prefix}-action`); event.stopPropagation()
     if (name === 'query') { state.keyword = el.querySelector<HTMLInputElement>('[name="keyword"]')!.value.trim(); state.status = el.querySelector<HTMLSelectElement>('[name="status"]')!.value; state.currentPage = 1; refresh() }
     else if (name === 'reset') { state.keyword = state.status = ''; el.querySelector<HTMLInputElement>('[name="keyword"]')!.value = ''; el.querySelector<HTMLSelectElement>('[name="status"]')!.value = ''; state.currentPage = 1; state.sort = null; refresh() }
     else if (name === 'export') exportStandardListRows({ fileName: '织带加工单', columns, rows: rows() })
+    else if (name === 'batch-print') { if (!state.selectedIds.size) return; appStore.navigate(buildUnifiedPrintPreviewLink({ documentType: 'TMF_PROCESS_SHEET', sourceType: 'TMF_WORK_ORDER', sourceId: JSON.stringify([...state.selectedIds]) })) }
     else if (name === 'prev-page' || name === 'next-page') { controller.stepPage(name === 'prev-page' ? -1 : 1); refresh() }
     else if (name === 'sort-column') { controller.cycleSort(target.dataset.columnKey || ''); refresh() }
     else if (name === 'open-column-settings' || name === 'close-column-settings') { state.showColumnSettings = name === 'open-column-settings'; controller.refresh({ table: false, pagination: false, overlays: true }) }
@@ -124,7 +134,7 @@ function bind() {
 }
 
 export function renderTmfWorkOrdersPage() {
-  ensureTmfConnectedMockData(); state.currentPage = 1; state.sort = null; controller.ensurePreferencesLoaded(); const view = controller.getView()
+  state.currentPage = 1; state.sort = null; controller.ensurePreferencesLoaded(); const view = controller.getView()
   if (typeof window !== 'undefined') requestAnimationFrame(bind)
-  return `<div data-tmf-work-orders>${renderStandardListPage({ title: '织带加工单', primaryActionsHtml: '<span class="text-xs text-slate-500">TMF - 辅料厂 · 主管演示身份</span>', feedbackHtml: '<p role="status" data-tmf-work-feedback class="text-sm text-blue-700"></p>', filtersHtml: `<div class="rounded border bg-white p-3"><div class="flex flex-wrap gap-3"><label class="text-xs">加工单 / 生产单 / 技术包 / SKU<input name="keyword" value="${e(state.keyword)}" class="mt-1 block w-80 max-w-full rounded border p-2 text-sm"></label><label class="text-xs">处理进度<select name="status" class="mt-1 block rounded border p-2 text-sm"><option value="">全部</option>${['待接收','部分接收','已接收','待加工填报','加工中','合格产出达量','未交出','部分交出','合格产出已交出'].map((value) => `<option ${state.status === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div><div class="mt-3 flex gap-2">${action('query','查询')}${action('reset','重置')}${action('export','导出')}</div></div>`, statsHtml: `<div data-tmf-work-stats>${stats()}</div>`, listTitle: `织带加工单 · ${rows().length} 单`, listActionsHtml: action('open-column-settings','列设置'), tableHtml: `<div data-tmf-work-table>${view.tableHtml}</div>`, paginationHtml: `<div data-tmf-work-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-tmf-work-columns>${controller.renderColumnSettings()}</div><div data-tmf-work-image></div>` })}</div>`
+  return `<div data-tmf-work-orders>${renderStandardListPage({ title: '织带加工单', primaryActionsHtml: '<span class="text-xs text-slate-500">TMF - 辅料厂 · 主管演示身份</span>', feedbackHtml: '<p role="status" data-tmf-work-feedback class="text-sm text-blue-700"></p>', filtersHtml: `<div class="rounded border bg-white p-3"><div class="flex flex-wrap gap-3"><label class="text-xs">加工单 / 生产单 / 技术包 / SKU<input name="keyword" value="${e(state.keyword)}" class="mt-1 block w-80 max-w-full rounded border p-2 text-sm"></label><label class="text-xs">处理进度<select name="status" class="mt-1 block rounded border p-2 text-sm"><option value="">全部</option>${['待接收','部分接收','已接收','待加工填报','加工中','合格产出达量','未交出','部分交出','合格产出已交出'].map((value) => `<option ${state.status === value ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div><div class="mt-3 flex gap-2">${action('query','查询')}${action('reset','重置')}${action('export','导出')}</div></div>`, statsHtml: `<div data-tmf-work-stats>${stats()}</div>`, listTitle: `织带加工单 · ${rows().length} 单`, listActionsHtml: `<div class="flex gap-2">${action('batch-print',`批量打印流程卡（${state.selectedIds.size}）`)}${action('open-column-settings','列设置')}</div>`, tableHtml: `<div data-tmf-work-table>${view.tableHtml}</div>`, paginationHtml: `<div data-tmf-work-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-tmf-work-columns>${controller.renderColumnSettings()}</div><div data-tmf-work-image></div>` })}</div>`
 }

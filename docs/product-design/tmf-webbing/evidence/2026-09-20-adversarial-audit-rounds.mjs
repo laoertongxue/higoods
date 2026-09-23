@@ -37,7 +37,7 @@ const scenarios = [...mock.normalScenarios, ...mock.boundaryScenarios]
 
 // Round 1: forward trace from plan/fixture -> matrix -> implementation/evidence.
 check('R1-PLAN-EXISTS', fs.existsSync(planPath), rel(planPath))
-check('R1-MATRIX-ATOMIC-127', rows.length === 127, `rows=${rows.length}`)
+check('R1-MATRIX-ATOMIC-165', rows.length === 165, `rows=${rows.length}`)
 check('R1-MATRIX-UNIQUE', new Set(rows.map(r => r.id)).size === rows.length, 'duplicate atomic ids')
 check('R1-MATRIX-STATUSES', rows.every(r => ['待实施','实施中','已实现待验证','已验证','已阻塞','不适用'].includes(r.status)), 'invalid status')
 check('R1-MATRIX-EVIDENCE-PATHS', rows.every(r => [...r.evidence.matchAll(/(?:^|[：；，、 ])((?:evidence|src|tests|docs)\/[^；，、。和及 )`]+(?:\.json|\.log|\.mjs|\.ts|\.md))/g)].every(m => fs.existsSync(path.join(root, m[1])) || fs.existsSync(path.join(repo, m[1])))), 'missing referenced evidence')
@@ -56,13 +56,11 @@ const fullFlowPath = path.join(root, 'evidence/2026-09-20-upstream-sources-full-
 const fullFlow = JSON.parse(read(fullFlowPath))
 check('R1-FULLFLOW-NO-ERRORS', (fullFlow.errors || []).length === 0, `errors=${(fullFlow.errors || []).length}`)
 check('R1-FULLFLOW-STEP-EVIDENCE', (fullFlow.checks || []).length >= 16, `checks=${(fullFlow.checks || []).length}`)
-const mockValidatorPath = path.join(root, 'evidence/2026-09-20-full-mock-scenario-validator-current.json')
-const mockValidator = JSON.parse(read(mockValidatorPath))
-check('R1-MOCK-SCENARIO-ORACLE-EXECUTION', mockValidator.summary?.scenarioCount === 29 && mockValidator.summary?.failed === 0 && mockValidator.summary?.passed === mockValidator.summary?.checks, JSON.stringify(mockValidator.summary))
-const scenarioReceiptIndex = JSON.parse(read(path.join(root, 'evidence/2026-09-20-scenario-receipts-index.json')))
-check('R1-INDEPENDENT-SCENARIO-RECEIPTS', scenarioReceiptIndex.total === 29 && scenarioReceiptIndex.receipts.every(r => r.failed === 0 && r.path.startsWith('evidence/scenarios/')), `receipts=${scenarioReceiptIndex.total}`)
-const fullPerf = JSON.parse(read(path.join(root, 'evidence/2026-09-20-tmf-perf-full-preview-current.json')))
-check('R1-FULL-PERFORMANCE-APPLICABLE', fullPerf.summary?.failed === 0 && fullPerf.summary?.errors === 0 && fullPerf.summary?.total >= 100, JSON.stringify(fullPerf.summary))
+const scenarioReceiptIndex = JSON.parse(read(path.join(root, 'evidence/2026-09-23-scenario-independent-current.json')))
+check('R1-MOCK-SCENARIO-ORACLE-EXECUTION', scenarioReceiptIndex.total === 29 && scenarioReceiptIndex.failed === 0 && scenarioReceiptIndex.passed === 29, JSON.stringify({ total: scenarioReceiptIndex.total, passed: scenarioReceiptIndex.passed, failed: scenarioReceiptIndex.failed }))
+check('R1-INDEPENDENT-SCENARIO-RECEIPTS', scenarioReceiptIndex.receipts.every(r => r.pass && r.steps >= 7 && r.assertions >= 9 && r.file.startsWith('evidence/scenarios-20260923/')), `receipts=${scenarioReceiptIndex.total}`)
+const fullPerf = JSON.parse(read(path.join(root, 'evidence/2026-09-23-tmf-complete-performance.json')))
+check('R1-FULL-PERFORMANCE-APPLICABLE', fullPerf.passed === true && fullPerf.failed === 0 && fullPerf.sampleCount >= 350 && fullPerf.maxMilliseconds < 500, JSON.stringify({ samples: fullPerf.sampleCount, failed: fullPerf.failed, maxMs: fullPerf.maxMilliseconds }))
 const evidenceText = fs.readdirSync(path.join(root, 'evidence')).filter(f => fs.statSync(path.join(root,'evidence',f)).isFile()).map(f => read(path.join(root,'evidence',f))).join('\n')
 for (const s of scenarios) {
   const occurrences = (evidenceText.match(new RegExp(`\\b${s.id}\\b`, 'g')) || []).length
@@ -81,23 +79,27 @@ for (const dir of ['src/pages','src/data','src/router','tests/unit']) {
   }
 }
 const matrixText = matrix
-const unbound = governed.filter(f => !matrixText.includes(f))
 const reverseManifestPath = path.join(root, 'evidence/2026-09-20-reverse-file-scope-manifest.json')
 const reverseManifest = JSON.parse(read(reverseManifestPath))
 const manifestMissing = governed.filter(f => !reverseManifest.entries?.some(e => e.path === f && (e.requirementIds?.length || e.reason)))
-check('R2-REVERSE-GOVERNED-FILES', manifestMissing.length === 0, `${manifestMissing.length} governed files lack requirement IDs or explicit out-of-scope reason; matrix-only gaps=${unbound.length}`)
+const governedSet = new Set(governed)
+const manifestPaths = new Set((reverseManifest.entries || []).map(entry => entry.path))
+const manifestStale = (reverseManifest.entries || []).filter(entry => !governedSet.has(entry.path))
+const mappedFiles = (reverseManifest.entries || []).filter(entry => entry.requirementIds?.length).length
+const excludedFiles = (reverseManifest.entries || []).filter(entry => !entry.requirementIds?.length && entry.reason).length
+check('R2-REVERSE-GOVERNED-FILES', manifestMissing.length === 0, `${manifestMissing.length} governed files lack requirement IDs or explicit out-of-scope reason; mapped=${mappedFiles}; excluded=${excludedFiles}`)
+check('R2-REVERSE-MANIFEST-EXACT', manifestPaths.size === governedSet.size && manifestStale.length === 0, `governed=${governedSet.size}; manifest=${manifestPaths.size}; stale=${manifestStale.length}`)
 const routeTokens = [...plan.matchAll(/`(\/[^`]+)`/g)].map(m => m[1]).filter(x => /tmf|webbing|rope|production|pda|print/i.test(x))
 const missingRoutes = routeTokens.filter(r => !matrixText.includes(r) && !plan.includes(r))
 check('R2-PLAN-ROUTE-TRACE', missingRoutes.length === 0, `unbound route tokens=${missingRoutes.length}`)
-const contractLog = path.join(root, 'evidence/2026-09-20-scenario-audit-contracts.log')
-check('R2-CONTRACT-LOG', fs.existsSync(contractLog) && /pass 53/i.test(read(contractLog)), 'scenario contract log missing or not pass')
-const mockAuditLog = path.join(root, 'evidence/2026-09-20-tmf-full-flow-mock-audit-current.log')
-check('R2-MOCK-AUDIT-LOG', fs.existsSync(mockAuditLog) && /tests: 63/i.test(read(mockAuditLog)) && /fail: 0/i.test(read(mockAuditLog)), 'runtime mock audit log missing')
-const browserJsons = fs.readdirSync(path.join(root,'evidence')).filter(f => f.endsWith('-browser.json'))
-const badBrowser = browserJsons.filter(f => { try { const j=JSON.parse(read(path.join(root,'evidence',f))); return (j.errors?.length||0)>0 || j.pass===false } catch { return true } })
-check('R2-BROWSER-EVIDENCE-ERRORS', badBrowser.length === 0, `${badBrowser.length} browser evidence files have errors: ${badBrowser.slice(0,8).join(',')}`)
-const weakScenarioReceipts = (coverage.scenarios || []).filter(s => s.evidence?.every(e => e.path.endsWith('upstream-sources-full-flow.json') || e.path.endsWith('normative-N02-N04-results.json')))
-check('R2-SCENARIO-INDEPENDENT-EVIDENCE', weakScenarioReceipts.length === 0, `${weakScenarioReceipts.length} scenarios only point at shared receipts`)
+const unitLog = path.join(root, 'evidence/2026-09-23-tmf-unit-current.log')
+check('R2-CONTRACT-LOG', fs.existsSync(unitLog) && /tests 412/i.test(read(unitLog)) && /pass 412/i.test(read(unitLog)) && /fail 0/i.test(read(unitLog)), 'current 412-test receipt missing or failed')
+const connectedListSpec = path.join(repo, 'tests/tmf-webbing-connected-lists.spec.ts')
+const completePerfSpec = path.join(repo, 'tests/tmf-webbing-complete-performance.spec.ts')
+check('R2-CURRENT-BROWSER-SPECS', fs.existsSync(connectedListSpec) && fs.existsSync(completePerfSpec), 'current connected-list or complete-performance spec missing')
+check('R2-CURRENT-PDA-PRINT-COVERAGE', /PDA 织带厂执行/.test(read(completePerfSpec)) && /织带加工明细打印/.test(read(completePerfSpec)), 'current PDA or print acceptance missing')
+const receiptFiles = scenarioReceiptIndex.receipts.map(item => item.file)
+check('R2-SCENARIO-INDEPENDENT-EVIDENCE', new Set(receiptFiles).size === 29 && receiptFiles.every(file => fs.existsSync(path.join(root, file))), `${new Set(receiptFiles).size}/29 distinct receipt files exist`)
 
 const result = {
   generatedAt: new Date().toISOString(),

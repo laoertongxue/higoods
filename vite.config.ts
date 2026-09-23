@@ -113,6 +113,22 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 550,
+    modulePreload: {
+      resolveDependencies(filename, dependencies, context) {
+        // The FCS route registry and TMF demo seed only need production source
+        // data after a concrete production page/action has been selected. Keep
+        // the 700KB gzip production-source chunk out of the route-registry and
+        // five TMF first-screen preloads; its owning import still loads it on use.
+        if (
+          filename.includes('routes-fcs')
+          || filename.includes('tmf-base-demo')
+          || context.hostId.includes('tmf-material-purchases')
+        ) {
+          return dependencies.filter(file => !file.includes('/production-source-shared-'))
+        }
+        return dependencies
+      },
+    },
     rollupOptions: {
       output: {
         onlyExplicitManualChunks: true,
@@ -140,6 +156,20 @@ export default defineConfig({
               sharedUiModules.add(moduleId)
             }
           }
+          // TMF cold routes use only these small product/domain contracts. They are also
+          // referenced by DDS, but must not inherit the complete 700KB gzip production
+          // source chunk merely to validate a webbing route or read a factory identity.
+          const tmfDomainModules = [
+            '/src/data/fcs/webbing-production-demands.ts',
+            '/src/data/fcs/webbing-specifications.ts',
+            '/src/data/tech-pack-process-route.ts',
+            '/src/data/fcs/central-craft-factories.ts',
+            '/src/data/fcs/tmf-product-policy.ts',
+            '/src/data/fcs/tmf-source-readers.ts',
+            '/src/data/process-craft-dict.ts',
+            '/src/data/pcs-tmf-material-reference-seeds.ts',
+          ]
+          if (tmfDomainModules.some(modulePath => id.includes(modulePath))) return 'tmf-domain-shared'
           if (ddsModules.has(id) && !id.endsWith('.css')) {
             // Shared shell dependencies must never pull the DDS page into other routes.
             if (shellModules.has(id) || sharedUiModules.has(id)) return 'app-shared'

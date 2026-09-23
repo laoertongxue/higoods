@@ -180,6 +180,21 @@ export function getPmsMaterialRequirement(requirementNo: string): PmsMaterialReq
   return getRuntime().requirements.find((requirement) => requirement.requirementNo === requirementNo)
 }
 
+/**
+ * 注册原型内建、可追溯的 PMS 需求来源。它只负责准备原型初始数据；页面渲染不得调用。
+ * 同编号重复注册必须内容一致，避免用字符串假装存在上游需求。
+ */
+export function registerPmsMaterialRequirementPrototype(requirement: PmsMaterialRequirement): void {
+  const existing = getPmsMaterialRequirement(requirement.requirementNo)
+  if (existing) {
+    if (JSON.stringify(existing) !== JSON.stringify(requirement)) throw new Error(`PMS 面辅料需求 ${requirement.requirementNo} 已存在其他内容。`)
+    return
+  }
+  if (!requirement.requirementNo.trim() || !requirement.sourcePurchaseOrderNo.trim() || !requirement.lines.length) throw new Error('PMS 原型需求必须包含来源生产采购单和至少一条物料行。')
+  if (requirement.lines.some((line) => !line.lineNo.trim() || !line.materialCode.trim() || line.actualQty <= 0 || !line.generatedPurchaseOrderNo.trim())) throw new Error('PMS 原型需求行必须包含物料、数量和已生成采购单。')
+  getRuntime().requirements.unshift(structuredClone(requirement))
+}
+
 export interface PmsRequirementPushInput {
   lineNo: string
   actualQty: number

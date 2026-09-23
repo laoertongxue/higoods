@@ -51,3 +51,6 @@ export function readProductionOrderRuntimeFact(productionOrderId: string): Produ
     return order ?? live
   } catch { throw new Error('无法核对主生产单状态，请恢复来源记录后重试；未允许继续加工或发料。') }
 }
+
+registerTmfProductionOrderRuntimeReader(readProductionOrderRuntimeFact)
+import { registerTmfProductionOrderRuntimeReader } from './tmf-source-readers.ts'

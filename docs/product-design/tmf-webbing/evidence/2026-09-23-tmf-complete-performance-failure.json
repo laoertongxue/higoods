@@ -1,0 +1,30 @@
+{
+  "recordedAt": "2026-09-23",
+  "branch": "codex/tmf-audit-fixes",
+  "baseHead": "478a4964a7079316ede0d6aea7c258218b2221ad",
+  "command": "npx playwright test tests/tmf-webbing-complete-performance.spec.ts --workers=1",
+  "verdictAtRun": "失败",
+  "failedGroup": "采购需求：加载和标准列表交互每项5次均严格低于500ms",
+  "failedSamples": [
+    {
+      "surface": "采购需求",
+      "scenario": "冷启动首次进入",
+      "run": 1,
+      "milliseconds": 503.9,
+      "threshold": "<500ms",
+      "passed": false
+    }
+  ],
+  "remainingGroupsAtRun": 12,
+  "remainingGroupsStatus": "串行门禁在首个失败后停止，未执行",
+  "rootCause": "TMF冷路由在页面模块前串行加载无副作用的独立路由注册模块，多一次模块请求使首个冷启动样本越过门槛。",
+  "fix": "把小型TMF路由注册表静态纳入应用路由入口；实际页面仍由异步渲染器按需加载。",
+  "finalReplay": "2026-09-23-tmf-complete-performance.json",
+  "finalReplayResult": {
+    "groups": "13/13",
+    "samples": 350,
+    "maxMilliseconds": 399.4,
+    "failed": 0
+  },
+  "note": "保留失败原始值用于审计；最终通过结论只来自修复后的完整重放。"
+}

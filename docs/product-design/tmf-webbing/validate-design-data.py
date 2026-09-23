@@ -104,7 +104,7 @@ for row in rows:
 sections={int(n) for r in rows for n in re.findall(r'§(\d+)',r.split('|')[2])}
 check('所有规范章节覆盖；第2章为事实依据另由DOC追踪',set(range(1,15))-{2} <= sections)
 main=(ROOT/'织带厂管理产品方案.md').read_text()
-check('包含流程时序状态共4张图',main.count('```mermaid')==4)
+check('包含流程时序状态及V2.2串联流程共5张图',main.count('```mermaid')==5)
 check('Markdown围栏配对',len(re.findall(r'^```',main,re.M))%2==0)
 for filename in ['织带厂管理产品方案.md','实施计划.md','需求追踪矩阵.md']:
     text=(ROOT/filename).read_text()

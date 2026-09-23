@@ -43,8 +43,16 @@ export function buildTmfProcessSheetPrintDocument(input: PrintDocumentBuildInput
     headerFields: [field('采用版本', order.versionId), field('采用快照', order.snapshotId), field('工艺节点', order.routeEntryId),
       field('接收 / 加工 / 交出', `${order.receiptStatus} / ${order.processingStatus} / ${order.handoverStatus}`),
       field('生产限制', order.control?.status && order.control.status !== 'ACTIVE' ? order.control.reason : '无当前限制')],
-    // 当前物料来源仅有参考图，未有经确认的实际规格图，不冒充打印已具备真实素材。
-    imageBlocks: order.demands.map(d => ({ title: `${d.materialSkuId} · ${d.specification.usage} / ${d.garmentSize}`, imageLabel: '对应物料及加工规格实图', sourceLabel: '采用技术资料', fallbackLabel: '对应物料及加工规格实图待补，当前仅可核对预览' })),
+    imageBlocks: order.demands.map(d => {
+      const material = data.orders.find(purchase => purchase.materialSkuId === d.materialSkuId) ?? order.material
+      return {
+        title: `${d.materialSkuId} · ${d.specification.usage} / ${d.garmentSize}`,
+        imageUrl: material?.materialImageUrl,
+        imageLabel: `${material?.materialName ?? d.materialSkuId}半成品实拍图`,
+        sourceLabel: '采购物料实拍图（原型替代素材）',
+        fallbackLabel: '对应物料实拍图缺失，禁止打印',
+      }
+    }),
     qrCodes: [{ title: '查看当前加工单', value: buildPrintQrPayload({ ...input, businessNo: order.productionOrderNo, targetRoute, printVersionNo: order.versionId }), description: '扫码核对当前要求及执行状态，纸面不替代实收记录。', sizeMm: 30 }],
     barcodes: [{ title: '生产单号', value: encodeURIComponent(order.productionOrderNo), description: '加工单唯一来源请扫上方二维码' }],
     sections,
@@ -66,7 +74,9 @@ export function renderTmfProcessSheetTemplate(doc: PrintDocument): string {
   const fields = (values: PrintField[]) => `<dl style="display:grid;grid-template-columns:1fr 1fr;gap:6px">${values.map(f => `<div style="overflow-wrap:anywhere"><dt style="color:#475569;font-size:11px">${e(f.label)}</dt><dd style="margin:0">${e(f.value)}</dd></div>`).join('')}</dl>`
   return `<article class="print-paper-a4" data-tmf-print-signature="${e(tmfPrintFactsSignature(doc))}"><div class="print-card-sheet">
     <header><h1 class="print-card-title">${e(doc.printTitle)}</h1><p>${e(doc.printSubtitle)}</p></header>${fields(doc.headerFields)}
-    ${doc.imageBlocks.map(i => `<p data-print-image-missing class="text-amber-700">${e(i.title)}：${e(i.fallbackLabel)}</p>`).join('')}
+    ${doc.imageBlocks.map(i => i.imageUrl
+      ? `<figure class="print-avoid-break"><img data-print-image src="${e(i.imageUrl)}" alt="${e(i.imageLabel)}" style="display:block;max-width:180px;max-height:120px;object-fit:contain"><figcaption>${e(i.title)} · ${e(i.sourceLabel)}</figcaption></figure>`
+      : `<p data-print-image-missing class="text-amber-700">${e(i.title)}：${e(i.fallbackLabel)}</p>`).join('')}
     <div class="print-avoid-break">${renderRealQrPlaceholder({ value: doc.qrCodes[0].value, size: 112, title: doc.qrCodes[0].title, label: doc.qrCodes[0].title })}<p>${e(doc.qrCodes[0].description)}</p>${doc.barcodes[0] ? renderCode128Barcode(doc.barcodes[0].value, doc.barcodes[0].title) : '<p>请使用二维码追溯原单。</p>'}</div>
     ${doc.sections.map(s => `<section class="print-section print-avoid-break"><h2 class="print-section-title">${e(s.title)}</h2>${fields(s.fields)}<p class="print-note">${e(s.note)}</p></section>`).join('')}
     ${doc.tables.map(t => `<section class="print-section"><h2 class="print-section-title">${e(t.title)}</h2><table class="print-table" style="table-layout:fixed;width:100%"><thead><tr>${t.headers.map(h => `<th>${e(h)}</th>`).join('')}</tr></thead><tbody>${t.rows.length ? t.rows.map(r => `<tr>${r.map(c => `<td style="overflow-wrap:anywhere">${e(c)}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${t.headers.length}">暂无实际记录</td></tr>`}</tbody></table></section>`).join('')}

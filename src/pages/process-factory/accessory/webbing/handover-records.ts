@@ -6,23 +6,25 @@ import type { StandardListColumn } from '../../../../components/ui/list-table.ts
 import { exportStandardListRows } from '../../../../components/ui/list-export.ts'
 import { escapeHtml as e } from '../../../../utils.ts'
 import { getTmfPurchaseState } from '../../../../data/pms/tmf-material-purchases.ts'
-import { ensureTmfConnectedMockData } from '../../../../data/fcs/tmf-base-demo.ts'
+import { getTmfWorkOrderNo } from '../../../../data/fcs/tmf-work-order-view.ts'
 
 const prefix = 'tmf-handover-records', selector = '[data-tmf-handover-records]'
 const state: ProcessOrderListControllerState & { keyword: string; status: string } = { currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false, keyword: '', status: '' }
 const action = (name: string, label: string, id = '') => `<button type="button" class="rounded border px-2 py-1.5 text-xs" data-${prefix}-action="${name}" data-id="${e(id)}" data-skip-page-rerender="true">${label}</button>`
 
-interface Row { id: string; kind: '基础半成品' | '加工产出' | '连续余料'; source: string; material: string; target: string; dispatched: number; received: number; unit: string; at: string; status: string; workOrderId?: string; packageId?: string }
+interface Row { id: string; kind: '基础半成品' | '加工产出' | '连续余料'; source: string; material: string; target: string; dispatched: number; received: number; unit: string; at: string; receivedAt?: string; dispatcher: string; receiver: string; batch: string; difference: number; status: string; workOrderId?: string; packageId?: string }
 function rows(): Row[] {
   const data = getTmfPurchaseState()
-  const base: Row[] = data.handovers.map((handover) => ({ id: handover.id, kind: '基础半成品', source: handover.purchaseOrderNo, material: handover.materialSkuId, target: handover.warehouseId, dispatched: handover.dispatchedMeters, received: handover.receivedMeters, unit: '米', at: handover.dispatchedAt, status: handover.receivedMeters >= handover.dispatchedMeters ? '已收齐' : handover.receivedMeters > 0 ? '部分实收' : '待实收' }))
+  const operation = (objectId: string, pattern: RegExp) => data.operations.filter((item) => item.objectId === objectId && pattern.test(item.action)).sort((a,b) => a.occurredAt.localeCompare(b.occurredAt)).at(-1)
+  const base: Row[] = data.handovers.map((handover) => { const sent=operation(handover.baseOrderId,/发起交出/), received=operation(handover.id,/仓库实收/); return ({ id: handover.id, kind: '基础半成品', source: handover.purchaseOrderNo, material: handover.materialSkuId, target: handover.warehouseId, dispatched: handover.dispatchedMeters, received: handover.receivedMeters, unit: '米', at: handover.dispatchedAt, receivedAt: received?.occurredAt, dispatcher: sent?.actor.name ?? '待核对', receiver: received?.actor.name ?? '待接收', batch: handover.batchId, difference: handover.receivedMeters-handover.dispatchedMeters, status: handover.receivedMeters >= handover.dispatchedMeters ? '已收齐' : handover.receivedMeters > 0 ? '部分实收' : '待实收' }) })
   const output: Row[] = data.outputHandovers.map((handover) => {
     const pkg = data.packages.find((item) => item.id === handover.packageId)
     const demand = data.demands.find((item) => item.id === pkg?.demandId)
-    const workOrderId = demand ? JSON.stringify([demand.productionOrderId, demand.techPackSnapshotId, demand.routeEntryId]) : undefined
-    return { id: handover.id, kind: '加工产出', source: demand?.productionOrderNo ?? handover.packageId, material: pkg?.materialSkuId ?? '待核对', target: handover.warehouseId, dispatched: handover.dispatchedPieces, received: handover.receivedPieces, unit: pkg?.unit ?? '条', at: handover.dispatchedAt, status: handover.receivedPieces >= handover.dispatchedPieces ? '已收齐' : handover.receivedPieces > 0 ? '部分实收' : '待实收', workOrderId, packageId: handover.packageId }
+    const workOrderId = demand ? getTmfWorkOrderNo(demand) : undefined
+    const sent=operation(handover.packageId,/加工产出交回/),received=operation(handover.packageId,/回仓实收/)
+    return { id: handover.id, kind: '加工产出', source: demand?.productionOrderNo ?? handover.packageId, material: pkg?.materialSkuId ?? '待核对', target: handover.warehouseId, dispatched: handover.dispatchedPieces, received: handover.receivedPieces, unit: pkg?.unit ?? '条', at: handover.dispatchedAt, receivedAt: received?.occurredAt, dispatcher: sent?.actor.name ?? '待核对', receiver: received?.actor.name ?? '待接收', batch: handover.packageId, difference: handover.receivedPieces-handover.dispatchedPieces, status: handover.receivedPieces >= handover.dispatchedPieces ? '已收齐' : handover.receivedPieces > 0 ? '部分实收' : '待实收', workOrderId, packageId: handover.packageId }
   })
-  const returns: Row[] = data.continuousReturns.map((item) => ({ id: item.id, kind: '连续余料', source: `退料 ${item.sourceIssueId}`, material: item.materialSkuId, target: item.warehouseId, dispatched: item.dispatchedMeters, received: item.receivedMeters, unit: '米', at: item.dispatchedAt, status: item.receivedMeters >= item.dispatchedMeters ? '已收齐' : item.receivedMeters > 0 ? '部分实收' : '待实收' }))
+  const returns: Row[] = data.continuousReturns.map((item) => { const sent=operation(item.sourceIssueId,/连续余料交回/),received=operation(item.id,/连续余料回仓实收/);return ({ id: item.id, kind: '连续余料', source: `退料 ${item.sourceIssueId}`, material: item.materialSkuId, target: item.warehouseId, dispatched: item.dispatchedMeters, received: item.receivedMeters, unit: '米', at: item.dispatchedAt, receivedAt: received?.occurredAt, dispatcher: sent?.actor.name ?? '待核对', receiver: received?.actor.name ?? '待接收', batch: item.batchId, difference: item.receivedMeters-item.dispatchedMeters, status: item.receivedMeters >= item.dispatchedMeters ? '已收齐' : item.receivedMeters > 0 ? '部分实收' : '待实收' }) })
   return [...base, ...output, ...returns]
 }
 const filtered = () => rows().filter((row) => (!state.status || row.status === state.status) && (!state.keyword || [row.id, row.source, row.material, row.target].join(' ').toLowerCase().includes(state.keyword.toLowerCase())))
@@ -32,8 +34,10 @@ const columns: StandardListColumn<Row>[] = [
   { key: 'material', title: '物料', width: 200, required: true, render: (r) => `<div class="break-all">${e(r.material)}</div>` },
   { key: 'target', title: '去向', width: 160, render: (r) => e(r.target) },
   { key: 'quantity', title: '交出 / 实收', width: 150, required: true, render: (r) => `${r.dispatched} / ${r.received} ${e(r.unit)}` },
+  { key: 'responsibility', title: '责任交接', width: 230, required: true, render: (r) => `<div class="text-xs">批次／包 ${e(r.batch)}</div><div class="text-xs">交出人 ${e(r.dispatcher)}</div><div class="text-xs">接收人 ${e(r.receiver)}</div><div class="text-xs ${r.difference ? 'text-red-700' : 'text-emerald-700'}">差异 ${r.difference} ${e(r.unit)}</div>` },
   { key: 'status', title: '状态', width: 100, render: (r) => r.status },
   { key: 'at', title: '交出时间', width: 170, sortable: true, sortValue: (r) => r.at, render: (r) => e(r.at) },
+  { key: 'receivedAt', title: '实际接收时间', width: 170, render: (r) => e(r.receivedAt ?? '尚未实收') },
   { key: 'actions', title: '操作', width: 170, required: true, actionColumn: true, render: (r) => `${r.kind === '加工产出' ? `<button type="button" class="rounded border px-2 py-1.5 text-xs" data-nav="${e(buildUnifiedPrintPreviewLink({ documentType: 'TMF_HANDOVER_SHEET', sourceType: 'TMF_OUTPUT_HANDOVER', sourceId: r.id }))}">交出单打印</button>` : ''}${r.workOrderId ? `<button class="rounded border px-2 py-1.5 text-xs" data-nav="/fcs/craft/accessory/webbing/work-orders/${encodeURIComponent(r.workOrderId)}?packageId=${encodeURIComponent(r.packageId ?? '')}">加工单</button>` : ''}` },
 ]
 const controller = createProcessOrderListController({ state, columns, preferenceKey: 'higood:list:/fcs/craft/accessory/webbing/handover-records', eventPrefix: prefix, rootSelector: selector, tableSurfaceSelector: '[data-tmf-handover-table]', paginationSurfaceSelector: '[data-tmf-handover-pagination]', overlaysSurfaceSelector: '[data-tmf-handover-columns]', getRows: filtered, locallyManagedEvents: true, pageSizeOptions: [10, 20, 50], defaultFrozenKeys: ['handover'], columnSettingsTitle: '交出记录列设置', emptyText: '暂无基础半成品、加工产出或连续余料的交出记录。' })
@@ -43,6 +47,7 @@ function refresh() { controller.refresh({ overlays: true }); const el = root(); 
 function bind() {
   const el = root(); if (!el || el.dataset.bound) return; el.dataset.bound = 'true'
   controller.installColumnDragEvents()
+  el.addEventListener('input', (event) => event.stopPropagation())
   el.addEventListener('change', (event) => { const field = event.target as HTMLSelectElement; if (field.getAttribute(`data-${prefix}-field`) === 'pageSize') { controller.setPageSize(Number(field.value)); refresh() } })
   el.addEventListener('click', (event) => {
     const target = (event.target as HTMLElement).closest<HTMLElement>(`[data-${prefix}-action]`); if (!target) return
@@ -61,7 +66,6 @@ function bind() {
   })
 }
 export function renderTmfHandoverRecordsPage(): string {
-  ensureTmfConnectedMockData()
   state.currentPage = 1; state.sort = null
   controller.ensurePreferencesLoaded(); const view = controller.getView()
   if (typeof window !== 'undefined') requestAnimationFrame(bind)

@@ -11,7 +11,7 @@ export function tmfJakartaInput(value?: string): string {
   return value && zoned(value) ? formatTmfWorkTime(value).slice(0,16).replace(' ','T') : ''
 }
 
-/** 只投影确认接收、加工填报和交出形成的事实；不另设接单、开工或完工状态。 */
+/** 只投影确认接受、加工填报和交出形成的事实；不另设接单、开工或完工状态。 */
 export function projectTmfWorkTimes(data: TmfPurchaseState, workOrderId: string, now = new Date().toISOString()) {
   const demands=data.demands.filter(d=>JSON.stringify([d.productionOrderId,d.techPackSnapshotId,d.routeEntryId])===workOrderId)
   if(!demands.length)throw new Error('加工单不存在。')

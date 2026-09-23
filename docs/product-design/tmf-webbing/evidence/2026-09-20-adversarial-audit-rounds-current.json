@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-09-20T16:35:49.420Z",
-  "branch": "codex/tmf-webbing-management",
-  "head": "ed9daa9c1c75fccadd8eb0901ec1876bbee41928",
+  "generatedAt": "2026-09-23T10:48:00.513Z",
+  "branch": "codex/tmf-audit-fixes",
+  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
   "rounds": [
     {
       "name": "第一轮：正向追踪（方案/Mock→矩阵→实现/证据）",
@@ -12,9 +12,9 @@
           "detail": "docs/product-design/tmf-webbing/织带厂管理产品方案.md"
         },
         {
-          "name": "R1-MATRIX-ATOMIC-127",
+          "name": "R1-MATRIX-ATOMIC-165",
           "ok": true,
-          "detail": "rows=127"
+          "detail": "rows=165"
         },
         {
           "name": "R1-MATRIX-UNIQUE",
@@ -84,7 +84,7 @@
         {
           "name": "R1-MOCK-SCENARIO-ORACLE-EXECUTION",
           "ok": true,
-          "detail": "{\"scenarioCount\":29,\"checks\":126,\"passed\":126,\"failed\":0,\"byScenario\":{\"N01\":{\"passed\":6,\"failed\":0},\"N02\":{\"passed\":6,\"failed\":0},\"N03\":{\"passed\":6,\"failed\":0},\"N04\":{\"passed\":6,\"failed\":0},\"N05\":{\"passed\":6,\"failed\":0},\"B01\":{\"passed\":4,\"failed\":0},\"B02\":{\"passed\":4,\"failed\":0},\"B03\":{\"passed\":4,\"failed\":0},\"B04\":{\"passed\":4,\"failed\":0},\"B05\":{\"passed\":4,\"failed\":0},\"B06\":{\"passed\":4,\"failed\":0},\"B07\":{\"passed\":4,\"failed\":0},\"B08\":{\"passed\":4,\"failed\":0},\"B09\":{\"passed\":4,\"failed\":0},\"B10\":{\"passed\":4,\"failed\":0},\"B11\":{\"passed\":4,\"failed\":0},\"B12\":{\"passed\":4,\"failed\":0},\"B13\":{\"passed\":4,\"failed\":0},\"B14\":{\"passed\":4,\"failed\":0},\"B15\":{\"passed\":4,\"failed\":0},\"B16\":{\"passed\":4,\"failed\":0},\"B17\":{\"passed\":4,\"failed\":0},\"B18\":{\"passed\":4,\"failed\":0},\"B19\":{\"passed\":4,\"failed\":0},\"B20\":{\"passed\":4,\"failed\":0},\"B21\":{\"passed\":4,\"failed\":0},\"B22\":{\"passed\":4,\"failed\":0},\"B23\":{\"passed\":4,\"failed\":0},\"B24\":{\"passed\":4,\"failed\":0}}}"
+          "detail": "{\"total\":29,\"passed\":29,\"failed\":0}"
         },
         {
           "name": "R1-INDEPENDENT-SCENARIO-RECEIPTS",
@@ -94,152 +94,152 @@
         {
           "name": "R1-FULL-PERFORMANCE-APPLICABLE",
           "ok": true,
-          "detail": "{\"total\":100,\"failed\":0,\"maxMs\":256.19,\"notApplicableEntrypoints\":27,\"errors\":0}"
+          "detail": "{\"samples\":350,\"failed\":0,\"maxMs\":399.4}"
         },
         {
           "name": "R1-SCENARIO-N01-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=500"
+          "detail": "occurrences=702"
         },
         {
           "name": "R1-SCENARIO-N02-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=227"
+          "detail": "occurrences=321"
         },
         {
           "name": "R1-SCENARIO-N03-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=219"
+          "detail": "occurrences=264"
         },
         {
           "name": "R1-SCENARIO-N04-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=408"
+          "detail": "occurrences=478"
         },
         {
           "name": "R1-SCENARIO-N05-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=565"
+          "detail": "occurrences=691"
         },
         {
           "name": "R1-SCENARIO-B01-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=129"
+          "detail": "occurrences=149"
         },
         {
           "name": "R1-SCENARIO-B02-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=123"
+          "detail": "occurrences=150"
         },
         {
           "name": "R1-SCENARIO-B03-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=123"
+          "detail": "occurrences=150"
         },
         {
           "name": "R1-SCENARIO-B04-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=123"
+          "detail": "occurrences=143"
         },
         {
           "name": "R1-SCENARIO-B05-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=81"
+          "detail": "occurrences=133"
         },
         {
           "name": "R1-SCENARIO-B06-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=94"
+          "detail": "occurrences=124"
         },
         {
           "name": "R1-SCENARIO-B07-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=86"
+          "detail": "occurrences=106"
         },
         {
           "name": "R1-SCENARIO-B08-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=87"
+          "detail": "occurrences=101"
         },
         {
           "name": "R1-SCENARIO-B09-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=170"
+          "detail": "occurrences=191"
         },
         {
           "name": "R1-SCENARIO-B10-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=46"
         },
         {
           "name": "R1-SCENARIO-B11-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=22"
         },
         {
           "name": "R1-SCENARIO-B12-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=33"
         },
         {
           "name": "R1-SCENARIO-B13-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=27"
         },
         {
           "name": "R1-SCENARIO-B14-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=92"
+          "detail": "occurrences=107"
         },
         {
           "name": "R1-SCENARIO-B15-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=114"
+          "detail": "occurrences=153"
         },
         {
           "name": "R1-SCENARIO-B16-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=34"
         },
         {
           "name": "R1-SCENARIO-B17-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=41"
+          "detail": "occurrences=74"
         },
         {
           "name": "R1-SCENARIO-B18-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=88"
+          "detail": "occurrences=115"
         },
         {
           "name": "R1-SCENARIO-B19-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=27"
         },
         {
           "name": "R1-SCENARIO-B20-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=12"
+          "detail": "occurrences=23"
         },
         {
           "name": "R1-SCENARIO-B21-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=124"
+          "detail": "occurrences=151"
         },
         {
           "name": "R1-SCENARIO-B22-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=10"
+          "detail": "occurrences=15"
         },
         {
           "name": "R1-SCENARIO-B23-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=136"
+          "detail": "occurrences=151"
         },
         {
           "name": "R1-SCENARIO-B24-EVIDENCE",
           "ok": true,
-          "detail": "occurrences=166"
+          "detail": "occurrences=198"
         }
       ]
     },
@@ -249,7 +249,12 @@
         {
           "name": "R2-REVERSE-GOVERNED-FILES",
           "ok": true,
-          "detail": "0 governed files lack requirement IDs or explicit out-of-scope reason; matrix-only gaps=116"
+          "detail": "0 governed files lack requirement IDs or explicit out-of-scope reason; mapped=61; excluded=102"
+        },
+        {
+          "name": "R2-REVERSE-MANIFEST-EXACT",
+          "ok": true,
+          "detail": "governed=163; manifest=163; stale=0"
         },
         {
           "name": "R2-PLAN-ROUTE-TRACE",
@@ -259,33 +264,32 @@
         {
           "name": "R2-CONTRACT-LOG",
           "ok": true,
-          "detail": "scenario contract log missing or not pass"
+          "detail": "current 412-test receipt missing or failed"
         },
         {
-          "name": "R2-MOCK-AUDIT-LOG",
+          "name": "R2-CURRENT-BROWSER-SPECS",
           "ok": true,
-          "detail": "runtime mock audit log missing"
+          "detail": "current connected-list or complete-performance spec missing"
         },
         {
-          "name": "R2-BROWSER-EVIDENCE-ERRORS",
+          "name": "R2-CURRENT-PDA-PRINT-COVERAGE",
           "ok": true,
-          "detail": "0 browser evidence files have errors: "
+          "detail": "current PDA or print acceptance missing"
         },
         {
           "name": "R2-SCENARIO-INDEPENDENT-EVIDENCE",
           "ok": true,
-          "detail": "0 scenarios only point at shared receipts"
+          "detail": "29/29 distinct receipt files exist"
         }
       ]
     }
   ],
   "summary": {
-    "total": 53,
-    "passed": 53,
+    "total": 54,
+    "passed": 54,
     "failed": 0,
     "matrixStatuses": {
-      "已验证": 29,
-      "已实现待验证": 98
+      "已验证": 165
     }
   },
   "failures": [],

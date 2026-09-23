@@ -1,0 +1,222 @@
+{
+  "scenarioId": "B23",
+  "startedAt": "2026-09-23T10:48:00.097Z",
+  "steps": [
+    {
+      "index": 1,
+      "action": "基准全链重放：PMS 面辅料采购单下达",
+      "beforeSha256": "b163811176ffa20abf9343630156f6546e2b177675bf9fc94fe4473c31573c46",
+      "afterSha256": "b163811176ffa20abf9343630156f6546e2b177675bf9fc94fe4473c31573c46"
+    },
+    {
+      "index": 2,
+      "action": "基准全链重放：半成品加工完成、交出并由仓库实收",
+      "beforeSha256": "b163811176ffa20abf9343630156f6546e2b177675bf9fc94fe4473c31573c46",
+      "afterSha256": "a31aa598f368c7680bd9d65f3ce47a663546d9d26150287966c99adf99552ff7"
+    },
+    {
+      "index": 3,
+      "action": "基准全链重放：按采用技术包需求占用并向首道加工发料",
+      "beforeSha256": "a31aa598f368c7680bd9d65f3ce47a663546d9d26150287966c99adf99552ff7",
+      "afterSha256": "491c35b12aedc846cf2a683852d0eb6eb9f5f58743175312a0c127c9f773ad37"
+    },
+    {
+      "index": 4,
+      "action": "基准全链重放：染色：实际投入、损耗、产出并交给下游",
+      "beforeSha256": "491c35b12aedc846cf2a683852d0eb6eb9f5f58743175312a0c127c9f773ad37",
+      "afterSha256": "54b520f6bbb494fd59da6c1d10aaed898c80697d077fa019393b7dd877035965"
+    },
+    {
+      "index": 5,
+      "action": "基准全链重放：印花：实际投入、损耗、产出并交给下游",
+      "beforeSha256": "54b520f6bbb494fd59da6c1d10aaed898c80697d077fa019393b7dd877035965",
+      "afterSha256": "aeb4573fe0e72e82f84c117e270d2acb2d3850a492ca832475c3638a0afce67d"
+    },
+    {
+      "index": 6,
+      "action": "基准全链重放：TMF 确认接受上游实际交出",
+      "beforeSha256": "aeb4573fe0e72e82f84c117e270d2acb2d3850a492ca832475c3638a0afce67d",
+      "afterSha256": "ab9721b5722caa2a020449b76a69ad0b83abcbc0d3f2d6745e34b3c630e8dc1e"
+    },
+    {
+      "index": 7,
+      "action": "基准全链重放：TMF 按用途、尺码、长度和端头要求加工填报",
+      "beforeSha256": "ab9721b5722caa2a020449b76a69ad0b83abcbc0d3f2d6745e34b3c630e8dc1e",
+      "afterSha256": "5a6bb9bf31f51961807b9ec9e0048ebc7c6c296b2736d42ae4aa65dc0fef7495"
+    },
+    {
+      "index": 8,
+      "action": "基准全链重放：TMF 发起交出，仓库按包实收",
+      "beforeSha256": "5a6bb9bf31f51961807b9ec9e0048ebc7c6c296b2736d42ae4aa65dc0fef7495",
+      "afterSha256": "bb128af57761eb6d2165091295d58bdea7ab21728b55df21369a495bb830b5ea"
+    },
+    {
+      "index": 9,
+      "action": "基准全链重放：仓库按生产单分配发料，生产领料方实收",
+      "beforeSha256": "bb128af57761eb6d2165091295d58bdea7ab21728b55df21369a495bb830b5ea",
+      "afterSha256": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208"
+    },
+    {
+      "index": 10,
+      "action": "从 N01 独立副本定位边界注入点：未执行采购变更",
+      "beforeSha256": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208",
+      "afterSha256": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208"
+    },
+    {
+      "index": 11,
+      "action": "注入并阻断：1000改900",
+      "beforeSha256": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208",
+      "afterSha256": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208",
+      "blocked": true,
+      "reason": "计划同步且留版本"
+    },
+    {
+      "index": 12,
+      "action": "未执行前将采购 1000 改为 900 并沿同版本完成",
+      "beforeSha256": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208",
+      "afterSha256": "0d95f0db41514a3b51245b394348e3ea01376f37954b793b14824c0d3f2f2bdb"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "基准全链：采购计划",
+      "pass": true,
+      "actual": 1000,
+      "expected": 1000
+    },
+    {
+      "name": "基准全链：截断明细米数",
+      "pass": true,
+      "actual": 620,
+      "expected": 620
+    },
+    {
+      "name": "基准全链：TMF 投入守恒",
+      "pass": true,
+      "actual": 630,
+      "expected": 630
+    },
+    {
+      "name": "基准全链：采购实收终点",
+      "pass": true,
+      "actual": 1000,
+      "expected": 1000
+    },
+    {
+      "name": "基准全链：基础连续料终点",
+      "pass": true,
+      "actual": 350,
+      "expected": 350
+    },
+    {
+      "name": "基准全链：加工后连续余料终点",
+      "pass": true,
+      "actual": 8,
+      "expected": 8
+    },
+    {
+      "name": "基准全链：生产实收终点",
+      "pass": true,
+      "actual": 1000,
+      "expected": 1000
+    },
+    {
+      "name": "基准全链：全链米数守恒",
+      "pass": true,
+      "actual": 1000,
+      "expected": 1000
+    },
+    {
+      "name": "基准全链：截断和打头不新增 SKU",
+      "pass": true,
+      "actual": 0,
+      "expected": 0
+    },
+    {
+      "name": "1000改900阻断无副作用",
+      "pass": true,
+      "actual": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208",
+      "expected": "bbd57fb77d54f1f5a3160ff4718cf77eec92282537fefc6ada5e24a931d7f208"
+    },
+    {
+      "name": "采购减量终点守恒",
+      "pass": true,
+      "actual": 900,
+      "expected": 900
+    }
+  ],
+  "pass": true,
+  "type": "boundary",
+  "result": {
+    "boundary": {
+      "id": "B23",
+      "base": "N01",
+      "replayFrom": "采购下达",
+      "injectAt": "未执行采购变更",
+      "mutation": "1000改900",
+      "expected": "计划同步且留版本",
+      "recoveryAndFinal": "900基础实收，发650，终点白250+余8+条620+损22",
+      "checkAtEveryStep": [
+        "来源及对象引用",
+        "库存/占用/在途",
+        "单位守恒",
+        "分规格需求满足",
+        "采购实收不重计",
+        "不新增长度/端头SKU",
+        "刷新与角色一致"
+      ],
+      "runtimeValidationStatus": "待实施",
+      "numericalOracle": "recoveryOracles.B23"
+    },
+    "base": "N01",
+    "finalState": {
+      "scenarioId": "N01",
+      "purchase": {
+        "plannedM": 900,
+        "receivedM": 900
+      },
+      "continuous": {
+        "baseWarehouseM": 350,
+        "factoryM": 0,
+        "processedReturnM": 8
+      },
+      "upstream": [
+        {
+          "id": "N01-DYE",
+          "operation": "染色",
+          "inputM": 650,
+          "outputM": 640,
+          "lossM": 10
+        },
+        {
+          "id": "N01-PRINT",
+          "operation": "印花",
+          "inputM": 640,
+          "outputM": 630,
+          "lossM": 10
+        }
+      ],
+      "tmf": {
+        "receivedM": 630,
+        "netCutM": 620,
+        "cutLossM": 2,
+        "goodPieces": 0,
+        "frozenPieces": 0
+      },
+      "warehouse": {
+        "goodPieces": 0,
+        "inTransitPieces": 0
+      },
+      "production": {
+        "receivedPieces": 1000
+      },
+      "skuCountIncreaseFromCutTip": 0
+    }
+  },
+  "finishedAt": "2026-09-23T10:48:00.099Z",
+  "branch": "codex/tmf-audit-fixes",
+  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
+  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "fixture": "mock-full-flow.json",
+  "fixtureSha256": "da5d8cbcf6020a30a5cd5285a97193388a7569ef7823b093e315f080dd78607a"
+}

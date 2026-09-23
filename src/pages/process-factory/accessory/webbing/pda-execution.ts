@@ -16,6 +16,7 @@ const field = (name: string, label: string, type = 'text', value = '') => `<labe
 function bind(): void {
   const el = root(); if (!el || el.dataset.bound) return
   el.dataset.bound = 'true'
+  el.addEventListener('input', (event) => event.stopPropagation())
   let productionOrderNo = '', workOrderId = '', operationId = '', pendingAction = ''
   const host = el.querySelector<HTMLElement>('[data-tmf-pda-exec-content]')!
   const error = (text: string) => { const node = el.querySelector<HTMLElement>('[data-tmf-pda-exec-error]'); if (node) node.textContent = text }
@@ -75,7 +76,7 @@ function bind(): void {
     }
   }
 
-  el.addEventListener('click', (event) => {
+  el.addEventListener('click', async (event) => {
     const target = (event.target as HTMLElement).closest<HTMLElement>(`[data-${prefix}-action]`); if (!target) return
     event.stopPropagation()
     const name = target.getAttribute(`data-${prefix}-action`)!
@@ -91,8 +92,8 @@ function bind(): void {
           const row = getTmfWorkOrder(workOrderId)!.inputs.find((item) => item.id === target.dataset.id)!
           const quantity = Number(value('quantity'))
           if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('请填写正整数米数。')
-          if (row.dyeHandover) void receiveTmfDyeMaterial({ issueId: row.id, materialSkuId: row.materialSkuId, receivedMeters: quantity }, actor, operationId).then(taskScreen)
-          else if (row.printHandover) void receiveTmfPrintMaterial({ issueId: row.id, materialSkuId: row.materialSkuId, receivedMeters: quantity }, actor, operationId).then(taskScreen)
+          if (row.dyeHandover) { await receiveTmfDyeMaterial({ issueId: row.id, materialSkuId: row.materialSkuId, receivedMeters: quantity }, actor, operationId); taskScreen() }
+          else if (row.printHandover) { await receiveTmfPrintMaterial({ issueId: row.id, materialSkuId: row.materialSkuId, receivedMeters: quantity }, actor, operationId); taskScreen() }
           else { receiveTmfProcessingMaterial({ issueId: row.id, factoryId: 'FAC-TMF', materialSkuId: row.materialSkuId, receivedMeters: quantity }, actor, operationId); taskScreen() }
           return
         }

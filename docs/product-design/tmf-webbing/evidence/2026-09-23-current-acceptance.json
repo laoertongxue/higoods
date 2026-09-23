@@ -1,0 +1,90 @@
+{
+  "generatedAt": "2026-09-23T10:48:00.184Z",
+  "branch": "codex/tmf-audit-fixes",
+  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
+  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "verdict": "通过",
+  "gates": {
+    "unit": {
+      "passed": 412,
+      "failed": 0,
+      "path": "evidence/2026-09-23-tmf-unit-current.log",
+      "sha256": "fa7859dd62f77ba293007f666e026dd2f9da325b2b4d9c8311429984dbb6854c"
+    },
+    "build": {
+      "passed": true,
+      "path": "evidence/2026-09-23-tmf-build.log",
+      "sha256": "f011cbf081ced565a39886c103a9284565f5962dfa64837c456c8036fa3d6eb0"
+    },
+    "connectedBusinessBrowser": {
+      "passed": 7,
+      "failed": 0,
+      "path": "evidence/2026-09-23-tmf-connected-lists.log",
+      "sha256": "851ba5c5e65d2be8afdf88c5ee05a0956d780d249b087feb506f35271636e9f3"
+    },
+    "connectedPerformanceBrowser": {
+      "passed": 1,
+      "failed": 0,
+      "path": "evidence/2026-09-23-tmf-connected-performance.log",
+      "sha256": "208fd4115edef5dd7e1ffc7b8027d6027afa34ed06be9c05c71c0b424170833c"
+    },
+    "completePerformance": {
+      "samples": 350,
+      "maxMilliseconds": 399.4,
+      "failed": 0,
+      "threshold": "<500ms，任一样本 >=500ms 即失败",
+      "service": "http://127.0.0.1:4173",
+      "viewports": [
+        "1366x768",
+        "360x640"
+      ],
+      "path": "evidence/2026-09-23-tmf-complete-performance.json",
+      "sha256": "684e79a58e48c04bafb33b310b325181e6331424d299f5ac27aa6c2b2eb3eb96",
+      "priorFailurePreservedAt": "evidence/2026-09-23-tmf-complete-performance-failure.json",
+      "priorFailureSha256": "5fccb4fcd5220f9859296e332ef9cee08ccdcff87d63dc55243e8a1c1c842d54"
+    },
+    "normativeScenarios": {
+      "total": 29,
+      "passed": 29,
+      "failed": 0,
+      "distinctReceipts": 29,
+      "path": "evidence/2026-09-23-scenario-independent-current.json",
+      "sha256": "71b396fe04354616e377f025c7a5b7382273b23a4e6929210f41c937a23c9398"
+    }
+  },
+  "coverage": {
+    "web": [
+      "采购需求",
+      "半成品加工单",
+      "织带加工单",
+      "待接收",
+      "交出记录",
+      "织带加工单详情及全部页签"
+    ],
+    "pda": [
+      "织带厂执行首次进入",
+      "进入任务",
+      "投入接收",
+      "超量接收阻断"
+    ],
+    "print": [
+      "加工明细预览",
+      "对象对应物料图",
+      "二维码",
+      "条码",
+      "打印准备与 window.print 调用"
+    ],
+    "business": [
+      "PMS采购来源",
+      "半成品原料投入",
+      "连续料批次",
+      "技术包路线",
+      "同SKU多长度",
+      "金属/塑料/硅胶端头",
+      "交出",
+      "仓收",
+      "分配发料",
+      "生产实收"
+    ]
+  }
+}

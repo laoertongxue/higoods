@@ -5406,3 +5406,6 @@ export function buildSimpleCutPieceFactoryReceipts(): { heads: PdaHandoverHead[]
   }
   return { heads, records }
 }
+
+registerTmfPreparationHandoverReader(readCurrentPreparationHandoverRecord)
+import { registerTmfPreparationHandoverReader } from './tmf-source-readers.ts'

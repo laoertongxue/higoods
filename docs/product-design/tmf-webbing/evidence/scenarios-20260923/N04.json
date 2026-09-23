@@ -1,0 +1,304 @@
+{
+  "scenarioId": "N04",
+  "startedAt": "2026-09-23T10:47:59.174Z",
+  "steps": [
+    {
+      "index": 1,
+      "action": "PMS 面辅料采购单下达",
+      "beforeSha256": "9bfd8e149ea921f6f828ee5c20783ccc926b9ef0e8aefc029d3aa0c03b087cfc",
+      "afterSha256": "9bfd8e149ea921f6f828ee5c20783ccc926b9ef0e8aefc029d3aa0c03b087cfc"
+    },
+    {
+      "index": 2,
+      "action": "半成品加工完成、交出并由仓库实收",
+      "beforeSha256": "9bfd8e149ea921f6f828ee5c20783ccc926b9ef0e8aefc029d3aa0c03b087cfc",
+      "afterSha256": "358b473a55b96fd3514ce5c4f1792763af06beefa8c74582b54c75a9c083f6a7"
+    },
+    {
+      "index": 3,
+      "action": "按采用技术包需求占用并向首道加工发料",
+      "beforeSha256": "358b473a55b96fd3514ce5c4f1792763af06beefa8c74582b54c75a9c083f6a7",
+      "afterSha256": "855c2c7a061dc071223df8069738930be1c2689fdcc6eb5518639d2adcafe228"
+    },
+    {
+      "index": 4,
+      "action": "TMF 确认接受上游实际交出",
+      "beforeSha256": "855c2c7a061dc071223df8069738930be1c2689fdcc6eb5518639d2adcafe228",
+      "afterSha256": "a9f41af72ed65a1abf89c306ed21537ecf43579cedcad60371562b1b768c4160"
+    },
+    {
+      "index": 5,
+      "action": "TMF 按用途、尺码、长度和端头要求加工填报",
+      "beforeSha256": "a9f41af72ed65a1abf89c306ed21537ecf43579cedcad60371562b1b768c4160",
+      "afterSha256": "63caed45a895ce70893cf559984a7c8aadd42936140cd264455e09768af2d54c"
+    },
+    {
+      "index": 6,
+      "action": "TMF 发起交出，仓库按包实收",
+      "beforeSha256": "63caed45a895ce70893cf559984a7c8aadd42936140cd264455e09768af2d54c",
+      "afterSha256": "aa5bd304a99658da412155eda7df1198203b7f34022dbdd93d975aa986e7e00e"
+    },
+    {
+      "index": 7,
+      "action": "仓库按生产单分配发料，生产领料方实收",
+      "beforeSha256": "aa5bd304a99658da412155eda7df1198203b7f34022dbdd93d975aa986e7e00e",
+      "afterSha256": "095b20f5f0053b4dc02e0b3dd3bad79c821d8a4c3609989cecdd33b5269dfb1f"
+    }
+  ],
+  "assertions": [
+    {
+      "name": "采购计划",
+      "pass": true,
+      "actual": 100,
+      "expected": 100
+    },
+    {
+      "name": "截断明细米数",
+      "pass": true,
+      "actual": 65,
+      "expected": 65
+    },
+    {
+      "name": "TMF 投入守恒",
+      "pass": true,
+      "actual": 67,
+      "expected": 67
+    },
+    {
+      "name": "采购实收终点",
+      "pass": true,
+      "actual": 100,
+      "expected": 100
+    },
+    {
+      "name": "基础连续料终点",
+      "pass": true,
+      "actual": 33,
+      "expected": 33
+    },
+    {
+      "name": "加工后连续余料终点",
+      "pass": true,
+      "actual": 1,
+      "expected": 1
+    },
+    {
+      "name": "生产实收终点",
+      "pass": true,
+      "actual": 50,
+      "expected": 50
+    },
+    {
+      "name": "全链米数守恒",
+      "pass": true,
+      "actual": 100,
+      "expected": 100
+    },
+    {
+      "name": "截断和打头不新增 SKU",
+      "pass": true,
+      "actual": 0,
+      "expected": 0
+    }
+  ],
+  "pass": true,
+  "type": "normal",
+  "result": {
+    "scenario": {
+      "id": "N04",
+      "isMock": true,
+      "references": {
+        "purchase": "N04-PO",
+        "purchaseLine": "N04-PO-L1",
+        "baseOrder": "N04-BASE",
+        "productionOrder": "N04-PROD",
+        "techPack": "N04-TP-V1",
+        "cutOrder": "N04-CUT"
+      },
+      "baseSku": "CORD-BLK",
+      "purchaseQuantityM": 100,
+      "issuedM": 67,
+      "processingStages": [],
+      "cutInputM": 67,
+      "details": [
+        {
+          "id": "N04-D1",
+          "bomItemId": "N04-BOM1",
+          "garmentSize": "S",
+          "productionOrderId": "N04-PROD",
+          "techPackVersion": "N04-TP-V1",
+          "inputSku": "CORD-BLK",
+          "cutLengthMm": 1300,
+          "finishedLengthMm": 1300,
+          "finishedLengthIncludesTip": false,
+          "measurementCondition": "Mock：自然平放；实际工艺待确认",
+          "toleranceMm": 2,
+          "quantity": 50,
+          "unit": "根",
+          "endTreatment": "硅胶浸头",
+          "endCount": 1,
+          "outputId": "N04-OUT1",
+          "packageId": "N04-PKG1",
+          "skuCreatedByCutOrTip": false,
+          "tipSpecification": "Mock单端浸头；用量仅假设，覆盖长度待确认",
+          "productionGarmentQty": 50,
+          "piecesPerGarment": 1
+        }
+      ],
+      "netCutM": 65,
+      "cutLossM": 1,
+      "continuousReturnM": 1,
+      "headMaterials": {
+        "sku": "SILICONE-M01",
+        "unit": "kg",
+        "received": 0.2,
+        "consumed": 0.15,
+        "scrapped": 0.01,
+        "remaining": 0.04,
+        "specification": "Mock单端浸头；用量仅假设，覆盖长度待确认"
+      },
+      "steps": [
+        {
+          "step": 1,
+          "action": "下达采购并生成基础单",
+          "purchaseLineId": "N04-PO-L1",
+          "expectedPurchaseReceivedM": 0,
+          "expectedWarehouseContinuousM": 0,
+          "plannedAt": "2026-09-24T09:00:00+07:00"
+        },
+        {
+          "step": 2,
+          "action": "基础完工、交出、仓库实收",
+          "quantityM": 100,
+          "expectedPurchaseReceivedM": 100,
+          "expectedWarehouseContinuousM": 100,
+          "plannedAt": "2026-09-24T10:00:00+07:00"
+        },
+        {
+          "step": 3,
+          "action": "确认技术包、展开生产需求、占用",
+          "reservedM": 67,
+          "physicalStockM": 100,
+          "availableM": 33,
+          "plannedAt": "2026-09-24T11:00:00+07:00"
+        },
+        {
+          "step": 4,
+          "action": "基础仓发料并由首加工方实收",
+          "issuedM": 67,
+          "warehouseBaseM": 33,
+          "inTransitAfterReceiptM": 0,
+          "plannedAt": "2026-09-24T12:00:00+07:00"
+        },
+        {
+          "step": 5,
+          "action": "TMF截断、按需打头、分类产出",
+          "receivedM": 67,
+          "netCutM": 65,
+          "returnContinuousM": 1,
+          "lossM": 1,
+          "outputs": [
+            "N04-OUT1"
+          ],
+          "plannedAt": "2026-09-24T13:00:00+07:00"
+        },
+        {
+          "step": 6,
+          "action": "余料退仓、分规格产出交仓实收",
+          "expectedWarehouseBaseM": 33,
+          "expectedReturnedProcessedM": 1,
+          "warehousePiecesByDemand": {
+            "N04-D1": 50
+          },
+          "expectedPurchaseReceivedM": 100,
+          "plannedAt": "2026-09-24T14:00:00+07:00"
+        },
+        {
+          "step": 7,
+          "action": "生产单分配、出库、领料方实收",
+          "receivedPiecesByDemand": {
+            "N04-D1": 50
+          },
+          "warehousePieces": 0,
+          "pieceTransit": 0,
+          "expectedPurchaseReceivedM": 100,
+          "plannedAt": "2026-09-24T15:00:00+07:00"
+        }
+      ],
+      "expectedFinal": {
+        "baseContinuousM": 33,
+        "processedContinuousReturnM": 1,
+        "warehousePieces": 0,
+        "productionReceivedPieces": 50,
+        "netPiecesEquivalentM": 65,
+        "totalProcessLossM": 1,
+        "purchaseReceivedM": 100,
+        "skuCountIncreaseFromCutTip": 0
+      },
+      "baseProductionInput": {
+        "materialSku": "YARN-DEMO-01",
+        "unit": "kg",
+        "received": 12,
+        "consumed": 10,
+        "returned": 1,
+        "remaining": 1,
+        "note": "仅演示输入材料账；不是该物料实际配方或产米单耗"
+      },
+      "route": [
+        "基础生产",
+        "辅料仓收货",
+        "定长截断",
+        "打头",
+        "加工产出回仓",
+        "生产单发料",
+        "生产领料实收"
+      ],
+      "independentTipMaterialsMustBeReceivedBeforeUse": true
+    },
+    "state": {
+      "scenarioId": "N04",
+      "purchase": {
+        "plannedM": 100,
+        "receivedM": 100
+      },
+      "continuous": {
+        "baseWarehouseM": 33,
+        "factoryM": 0,
+        "processedReturnM": 1
+      },
+      "upstream": [],
+      "tmf": {
+        "receivedM": 67,
+        "netCutM": 65,
+        "cutLossM": 1,
+        "goodPieces": 0,
+        "frozenPieces": 0
+      },
+      "warehouse": {
+        "goodPieces": 0,
+        "inTransitPieces": 0
+      },
+      "production": {
+        "receivedPieces": 50
+      },
+      "skuCountIncreaseFromCutTip": 0
+    },
+    "final": {
+      "baseContinuousM": 33,
+      "processedContinuousReturnM": 1,
+      "warehousePieces": 0,
+      "productionReceivedPieces": 50,
+      "netPiecesEquivalentM": 65,
+      "totalProcessLossM": 1,
+      "purchaseReceivedM": 100,
+      "skuCountIncreaseFromCutTip": 0,
+      "calculatedTotalLossM": 1
+    }
+  },
+  "finishedAt": "2026-09-23T10:47:59.175Z",
+  "branch": "codex/tmf-audit-fixes",
+  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
+  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "fixture": "mock-full-flow.json",
+  "fixtureSha256": "da5d8cbcf6020a30a5cd5285a97193388a7569ef7823b093e315f080dd78607a"
+}

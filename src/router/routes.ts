@@ -1,6 +1,7 @@
 import type { MenuGroup, MenuItem } from '../data/app-shell-types'
 import type { RouteRegistry } from './route-types'
 import { renderWlsFabricDemandBoardPage, renderWlsInboundPage, renderWlsFinishedInboundPage } from './route-renderers'
+import { routes as tmfWebbingRoutes } from './routes-tmf-webbing'
 import { normalizePathname, renderRouteRedirect } from './route-utils'
 
 function createAsyncRenderer<TArgs extends unknown[]>(
@@ -167,6 +168,13 @@ function getFcsRoutes(): Promise<RouteRegistry> {
   return fcsRoutesPromise
 }
 
+function getTmfWebbingRoutes(): Promise<RouteRegistry> {
+  // The registry itself is tiny and has no page side effects. Keeping it in the
+  // application entry removes one serial network round trip from every TMF cold
+  // route while the actual pages remain split behind their async renderers.
+  return Promise.resolve(tmfWebbingRoutes)
+}
+
 function getPcsRoutes(): Promise<RouteRegistry> {
   if (!pcsRoutesPromise) {
     pcsRoutesPromise = import('./routes-pcs')
@@ -218,6 +226,10 @@ function getWlsRoutes(): Promise<RouteRegistry> {
 function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry | null> {
   if (normalizedPathname.startsWith('/fcs/pda')) {
     return getPdaRoutes()
+  }
+
+  if (normalizedPathname.startsWith('/fcs/craft/accessory/webbing/')) {
+    return getTmfWebbingRoutes()
   }
 
   if (normalizedPathname.startsWith('/fcs')) {
@@ -286,6 +298,14 @@ function resolveFromRegistry(
 
 export async function resolvePage(pathname: string): Promise<string> {
   const normalizedPathname = normalizePathname(pathname)
+
+  if (
+    normalizedPathname === '/fcs/print/preview'
+    && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'TMF_PROCESS_SHEET'
+  ) {
+    const { renderTmfProcessPrintPreviewPage } = await import('../pages/print/tmf-process-print-preview')
+    return renderTmfProcessPrintPreviewPage()
+  }
 
   if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) {
     const { renderProductionFulfillmentPage } = await import('../pages/production-fulfillment')

@@ -300,8 +300,19 @@ export function createPmsTmfTipPurchase(
 }
 
 export function listPmsMaterialPurchaseOrders(): PmsMaterialPurchaseOrder[] {
-  const supplies=listTmfSupplyPurchaseProjections(),ids=new Set(supplies.map(o=>o.purchaseOrderNo))
-  return [...getRuntime().orders.filter(o=>!ids.has(o.purchaseOrderNo)), ...listTmfMaterialPurchases(),...supplies]
+  const supplies=listTmfSupplyPurchaseProjections(),tmf=listTmfMaterialPurchases(),ids=new Set([...supplies,...tmf].map(o=>o.purchaseOrderNo))
+  return [...getRuntime().orders.filter(o=>!ids.has(o.purchaseOrderNo)), ...tmf,...supplies]
+}
+
+/** 原型启动时注册真实存在于 PMS 运行时的采购来源；列表页面不得用它造数。 */
+export function registerPmsMaterialPurchaseOrderPrototype(order: PmsMaterialPurchaseOrder): void {
+  const existing = getRuntime().orders.find((item) => item.purchaseOrderNo === order.purchaseOrderNo)
+  if (existing) {
+    if (JSON.stringify(existing) !== JSON.stringify(order)) throw new Error(`PMS 面辅料采购 ${order.purchaseOrderNo} 已存在其他内容。`)
+    return
+  }
+  if (![order.purchaseOrderNo, order.requirementNo, order.sourceRequirementLineNo, order.sourceProductPurchaseOrderNo, order.materialCode].every((value) => value.trim())) throw new Error('PMS 原型采购必须保留需求、需求行和来源生产采购单。')
+  getRuntime().orders.unshift(structuredClone(order))
 }
 
 export function getPmsMaterialPurchaseOrder(purchaseOrderNo: string): PmsMaterialPurchaseOrder | undefined {

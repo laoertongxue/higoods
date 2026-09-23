@@ -1,0 +1,275 @@
+{
+  "generatedAt": "2026-09-23T10:48:00.139Z",
+  "branch": "codex/tmf-audit-fixes",
+  "head": "478a4964a7079316ede0d6aea7c258218b2221ad",
+  "workingTreeDiffSha256": "f6cf6039bfe3c6dcef4bd58b795dc57a286e25e97de1d8936dff5f966e5dee8f",
+  "executionModel": "29 个场景逐个启动独立 Node 子进程；每个场景建立独立可变账本，正常场景推进采购→半成品→上游加工→TMF接收→截断/打头→交出→仓收→生产实收，边界场景验证异常阻断无副作用、恢复动作及最终数量守恒。",
+  "fixture": "mock-full-flow.json",
+  "fixtureSha256": "da5d8cbcf6020a30a5cd5285a97193388a7569ef7823b093e315f080dd78607a",
+  "total": 29,
+  "passed": 29,
+  "failed": 0,
+  "receipts": [
+    {
+      "id": "N01",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/N01.json",
+      "sha256": "e5a927d63a8f092fb01de5e5551cffef25778b9bee8f2c8af162faf7b46128c5",
+      "steps": 9,
+      "assertions": 9,
+      "failure": null
+    },
+    {
+      "id": "N02",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/N02.json",
+      "sha256": "c897a29fe9753ca3b73d614dd02a203c21f0532bdf93edf14a0f6371208c3232",
+      "steps": 7,
+      "assertions": 9,
+      "failure": null
+    },
+    {
+      "id": "N03",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/N03.json",
+      "sha256": "c38815c384404df77a7dd14e5e3c012f7e5e829a23cf2be064a2d1739cef7f01",
+      "steps": 7,
+      "assertions": 9,
+      "failure": null
+    },
+    {
+      "id": "N04",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/N04.json",
+      "sha256": "1ec811b64a3412a61093f94dd0bc093cbc1371589f23020c40c676a9dc4c9e1b",
+      "steps": 7,
+      "assertions": 9,
+      "failure": null
+    },
+    {
+      "id": "N05",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/N05.json",
+      "sha256": "617afb2528170627358738733db8084e4d5b02d0a6ea2a3f52e194cb5eee7ab3",
+      "steps": 7,
+      "assertions": 9,
+      "failure": null
+    },
+    {
+      "id": "B01",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B01.json",
+      "sha256": "a4eca97baf09a7e8e270aeba913bd405e1d961c8b43282b051a7984153000c6c",
+      "steps": 13,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B02",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B02.json",
+      "sha256": "c9fb61b3a972c74525242c932ccfa5ac10024f52b1b1f0b975579bb3ad7a70fc",
+      "steps": 12,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B03",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B03.json",
+      "sha256": "7ed13856b8fe923e92695774527a912715ea8f50201818dfdbd914574812f3f7",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B04",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B04.json",
+      "sha256": "e12ab3788a33a0fa47f2490db3e8256c5ec112389af8056ae47c9f16411d3884",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B05",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B05.json",
+      "sha256": "2b3be5d3c746173d70f0914d0c93570f8f744f8e654842a419900e75c9dc16b8",
+      "steps": 12,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B06",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B06.json",
+      "sha256": "c2337d44299bd095eb0223eee8b0ae16fb2d569d30cdee6a7efbf8d10369ac1e",
+      "steps": 10,
+      "assertions": 13,
+      "failure": null
+    },
+    {
+      "id": "B07",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B07.json",
+      "sha256": "019e16fcda7e572f40b87e61bff3e7bd207da46b8c96ff6f822661b596bafcef",
+      "steps": 10,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B08",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B08.json",
+      "sha256": "45dbe60614471a03bd9256152fdaf608ec973407498c4360898ef227cdfc6057",
+      "steps": 10,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B09",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B09.json",
+      "sha256": "3a0abbb9e23af8f85cb0372a9d724ba764b2a7a3cc1650838c5dde0b735fcf9e",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B10",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B10.json",
+      "sha256": "0069c0d26bb7fd5ccb8d56f067562a92275e2798fea4fd06f8e40e55941dca36",
+      "steps": 13,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B11",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B11.json",
+      "sha256": "685be0b11db4adb68b6a82457c4ffaa288ceff2ff8b87974744119940a23620b",
+      "steps": 13,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B12",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B12.json",
+      "sha256": "3bb377e614bde24e3f4f7817c47bf51846020684596703dc809b986e5c5ca133",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B13",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B13.json",
+      "sha256": "2346f3e9c0dd4acf3a054a70c9e5241b0b398ee67e4d9860cfca3bc5dfa9723e",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B14",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B14.json",
+      "sha256": "572ef0c0b5ed3671ce525904fe176bc29a002ed9ad591e53c1e30f812f51784b",
+      "steps": 12,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B15",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B15.json",
+      "sha256": "18c966869c95874d6367d7362d5473307d53ea0662d08dddd585d477134eca1b",
+      "steps": 10,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B16",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B16.json",
+      "sha256": "d72c76b8f0f0bd712f70c79e928e1e782d3857e347b92e26c9424aba05c7c45b",
+      "steps": 13,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B17",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B17.json",
+      "sha256": "00d3a981a1fd8b551e3fbe6769258cd19774f21b83671bb6575cb88367e7e3d6",
+      "steps": 10,
+      "assertions": 12,
+      "failure": null
+    },
+    {
+      "id": "B18",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B18.json",
+      "sha256": "65889465264e887373d572c5249053219304ce331398e602f85056de43e313be",
+      "steps": 10,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B19",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B19.json",
+      "sha256": "31ad2403ff094fe3be21b069b9f89d6c0d7a3977dbd603c36f7c277c7d44d96e",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B20",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B20.json",
+      "sha256": "98ab0b46255826d1981860f3d0c0ddb187e98f803fe0317012582d78df87273b",
+      "steps": 10,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B21",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B21.json",
+      "sha256": "1fdac719769baab624671ffa8ce1a614c65c1f9c035074198a2330e4ecc591f3",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B22",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B22.json",
+      "sha256": "43aeab513b2f0f73c1b61ca872b94654f0d5e05fc4288e2e414ce8c5ee7d9dc6",
+      "steps": 10,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B23",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B23.json",
+      "sha256": "69753835684c94e684bb464d248d2b120fb0952d2510546184dcb4b5ad3281fe",
+      "steps": 12,
+      "assertions": 11,
+      "failure": null
+    },
+    {
+      "id": "B24",
+      "pass": true,
+      "file": "evidence/scenarios-20260923/B24.json",
+      "sha256": "1184aa94c584f3c60539ffebc408cac3da220ae661bdb0a58e9e3718885a5157",
+      "steps": 12,
+      "assertions": 12,
+      "failure": null
+    }
+  ]
+}

@@ -1,5 +1,4 @@
-import { readProductionOrderRuntimeFact } from '../fcs/production-order-runtime-store.ts'
-import { readCurrentPreparationHandoverRecord } from '../fcs/pda-handover-events.ts'
+import { readTmfPreparationHandoverRecord as readCurrentPreparationHandoverRecord, readTmfProductionOrderRuntimeFact as readProductionOrderRuntimeFact } from '../fcs/tmf-source-readers.ts'
 import type { PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
 import { getBrowserLocalStorage, writeBrowserStorageItem } from '../browser-storage.ts'
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
@@ -302,6 +301,13 @@ export interface TmfMaterialPurchaseOrder extends PmsMaterialPurchaseOrder {
   accessoryType: '织带' | '绳子'
   targetWarehouseId: string
   productionStandard: string
+  /** 半成品加工的可执行基础原料配方；用于校验实际耗用能否支撑米制产出。 */
+  baseMaterialRecipe: {
+    materialSkuId: string
+    unit: 'kg' | 'g'
+    quantityPerMeter: number
+    specification: string
+  }
   /** 建立时解析的原型内建主档身份；映射前历史记录无此字段，不批量改写。 */
   masterRefs?: {
     supplier: { masterId: string; code: string; name: string; source: string }
@@ -323,6 +329,7 @@ export interface TmfBaseProductionOrder {
   plannedMeters: number
   dueDate: string
   productionStandard: string
+  baseMaterialRecipe: TmfMaterialPurchaseOrder['baseMaterialRecipe']
   producedMeters: number
   acceptedAt?: string
   startedAt?: string
@@ -492,7 +499,7 @@ function current(): TmfPurchaseState {
     if (![saved.baseMaterialLots,saved.baseMaterialIssues,saved.baseMaterialReturns].every(Array.isArray)) throw new Error('基础原料账格式不符')
     saved.purchaseReturns ??= []
     if (!Array.isArray(saved.purchaseReturns)) throw new Error('基础采购退货记录格式不符')
-    // 旧原型曾保存“接单／开工／完工”动作。本业务已统一为确认接收、加工填报、发起交出，读取时直接丢弃旧字段。
+    // 旧原型曾保存“接单／开工／完工”动作。本业务已统一为确认接受、加工填报、发起交出，读取时直接丢弃旧字段。
     delete (saved as TmfPurchaseState & { workExecutions?: unknown }).workExecutions
     saved.workPlans ??= []
     if (!Array.isArray(saved.workPlans)) throw new Error('加工计划记录格式不符')
@@ -595,6 +602,12 @@ export function createTmfMaterialPurchase(
       if (!value?.trim()) throw new Error('请补齐采购来源、供应方、物料、目标仓、交期及基础生产标准。')
     }
     if (order.factoryOrgId !== TMF_FACTORY_ID || !['织带', '绳子'].includes(order.accessoryType) || order.unit !== '米') throw new Error('仅接收明确关联 TMF 的米制织带／绳子基础采购。')
+    const recipe = order.baseMaterialRecipe
+    if (!recipe || !recipe.materialSkuId.trim() || !recipe.specification.trim() || !['kg', 'g'].includes(recipe.unit)
+      || !Number.isFinite(recipe.quantityPerMeter) || recipe.quantityPerMeter <= 0) {
+      throw new Error('半成品采购必须带有可执行的基础原料配方、单位和每米标准耗用。')
+    }
+    assertTmfRawMaterialMaster(recipe.materialSkuId)
     // 主档映射：供应方、织带／绳子物料与目标仓必须解析到原型内建权威主档才能创建。
     const masters = assertTmfBasePurchaseMasters({ supplierId: order.supplierId, materialSkuId: order.materialSkuId, targetWarehouseId: order.targetWarehouseId })
     if (order.version !== 1 || order.receivedQty !== 0 || order.status !== '待采购') throw new Error('新采购必须从未实收的待采购状态创建。')
@@ -624,9 +637,9 @@ export function generateTmfBaseOrder(purchaseOrderNo: string, actor: TmfPurchase
     const order = draft.orders.find((item) => item.purchaseOrderNo === purchaseOrderNo)
     if (!order || !['已采购', '部分到货'].includes(order.status)) throw new Error('采购尚未下达或已终止，不能生成半成品加工单。')
     if (draft.baseOrders.some((item) => item.purchaseLineId === order.purchaseLineId)) return { reason: '原采购明细已有半成品加工单，沿用原单' }
-    draft.baseOrders.push({ id: `TMF-BASE-${order.purchaseLineId}`, purchaseOrderNo, purchaseLineId: order.purchaseLineId, purchaseVersion: order.version,
+    draft.baseOrders.push({ id: `TMF-SEMI-${order.purchaseLineId}`, purchaseOrderNo, purchaseLineId: order.purchaseLineId, purchaseVersion: order.version,
       materialSkuId: order.materialSkuId, targetWarehouseId: order.targetWarehouseId, plannedMeters: order.orderedQty,
-      dueDate: order.expectedArrivalDate, productionStandard: order.productionStandard,
+      dueDate: order.expectedArrivalDate, productionStandard: order.productionStandard, baseMaterialRecipe: structuredClone(order.baseMaterialRecipe),
       producedMeters: 0, changePending: false })
     return { quantity: order.orderedQty }
   })
@@ -638,10 +651,26 @@ export function reportTmfBaseProduction(
 ): void {
   allowed(actor, ['织带厂员工', '织带厂主管'])
   meters(producedMeters)
-  commit(operationId, '基础生产填报', baseOrderId, actor, { producedMeters, overPlan: overPlan ?? null }, (draft, at) => {
+  commit(operationId, '半成品加工填报', baseOrderId, actor, { producedMeters, overPlan: overPlan ?? null }, (draft, at) => {
     const base = draft.baseOrders.find((item) => item.id === baseOrderId)
     if (!base || base.cancelledAt || base.changePending) throw new Error('半成品加工单不存在、已终止或有采购变更待处理。')
-    if (!base.acceptedAt) throw new Error('请先确认接收半成品加工单，再填报加工产出。')
+    if (!base.acceptedAt) throw new Error('请先确认接受半成品加工单，再填报加工产出。')
+    if (!base.baseMaterialRecipe) throw new Error('半成品加工单缺少基础原料配方，请先补齐采购生产标准后再填报。')
+    const issues = draft.baseMaterialIssues.filter((item) => item.baseOrderId === base.id)
+    const received = issues.reduce((sum, item) => add(sum, item.receivedQty), 0)
+    if (!issues.length || received <= 0) throw new Error('尚未收到本半成品加工单的基础原料，不能填报产出。')
+    const normalizedConsumed = issues.reduce((sum, item) => {
+      const lot = draft.baseMaterialLots.find((candidate) => candidate.id === item.lotId)
+      if (!lot || lot.materialSkuId !== base.baseMaterialRecipe.materialSkuId) return sum
+      const consumed = lot.unit === base.baseMaterialRecipe.unit
+        ? item.consumedQty
+        : lot.unit === 'g' ? item.consumedQty / 1000 : item.consumedQty * 1000
+      return add(sum, consumed)
+    }, 0)
+    const requiredConsumed = add(base.producedMeters, producedMeters) * base.baseMaterialRecipe.quantityPerMeter
+    if (normalizedConsumed + 0.000001 < requiredConsumed) {
+      throw new Error(`基础原料实际耗用不足：累计产出 ${add(base.producedMeters, producedMeters)} 米至少需要 ${requiredConsumed} ${base.baseMaterialRecipe.unit}，当前已耗用 ${normalizedConsumed} ${base.baseMaterialRecipe.unit}。`)
+    }
     // 半成品加工不单独建立“开工”动作；首次实际填报即是加工开始的事实时间。
     base.startedAt ??= at
     const overage = add(base.producedMeters, producedMeters) - base.plannedMeters
@@ -660,9 +689,9 @@ export function reportTmfBaseProduction(
 
 export function acceptTmfBaseOrder(baseOrderId: string, actor: TmfPurchaseActor, operationId: string): void {
   allowed(actor, ['织带厂主管'])
-  commit(operationId, '半成品加工单确认接收', baseOrderId, actor, {}, (draft, at) => {
+  commit(operationId, '半成品加工单确认接受', baseOrderId, actor, {}, (draft, at) => {
     const base = draft.baseOrders.find((item) => item.id === baseOrderId)
-    if (!base || base.acceptedAt || base.cancelledAt || base.changePending) throw new Error('当前半成品加工单无法确认接收，请检查状态及采购变更。')
+    if (!base || base.acceptedAt || base.cancelledAt || base.changePending) throw new Error('当前半成品加工单无法确认接受，请检查状态及采购变更。')
     base.acceptedAt = at
     return {}
   })
@@ -1696,7 +1725,7 @@ function tmfTerminationItems(draft: TmfPurchaseState, productionOrderId: string)
     .filter((item) => item.category === category && item.objectId === objectId && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0)
 
   for (const issue of draft.processingIssues.filter((item) => ids.has(item.demandId) && item.targetFactoryId === TMF_FACTORY_ID)) {
-    const remaining = tmfInputRemainingOn(draft, issue)
+    const remaining = add(tmfInputRemainingOn(draft, issue), -scrapQuantity('CONTINUOUS_REMAINING', issue.id))
     const demand = demands.find((item) => item.id === issue.demandId)!
     if (remaining > 0.000001) items.push({ category: 'CONTINUOUS_REMAINING', objectId: issue.id, label: `厂内连续余料 · ${demand.garmentSize} ${demand.specification.cutLengthMm}mm`, quantity: remaining, unit: '米', actions: ['SCRAP'], custodian: 'TMF', detail: `投入 ${issue.id}；可退回原仓或主管确认报废` })
   }
@@ -1768,7 +1797,7 @@ export function scrapTmfContinuousRemaining(
     const demand = draft.demands.find((item) => item.id === issue.demandId)!
     assertTmfTerminationOpen(draft, demand.productionOrderId)
     if (draft.continuousScraps.some((item) => item.id === input.id)) throw new Error('处置编号已使用，请查看原记录。')
-    const remaining = tmfInputRemainingOn(draft, issue)
+    const remaining = add(tmfInputRemainingOn(draft, issue), -draft.terminationDisposals.filter((item) => item.category === 'CONTINUOUS_REMAINING' && item.objectId === issue.id && item.action === 'SCRAP').reduce((sum, item) => add(sum, item.quantity), 0))
     if (input.meters > remaining + 0.000001) throw new Error(`本次报废超过厂内剩余 ${remaining} 米。`)
     draft.continuousScraps.push({ id: input.id, issueId: issue.id, meters: input.meters, reason: input.reason.trim(), scrappedAt: at, actor: structuredClone(actor) })
     draft.terminationDisposals.push({ id: `${input.id}:D`, productionOrderId: demand.productionOrderId, category: 'CONTINUOUS_REMAINING', action: 'SCRAP', objectId: issue.id, quantity: input.meters, unit: '米', reason: input.reason.trim(), actor: structuredClone(actor), occurredAt: at })
@@ -2344,7 +2373,7 @@ export function dispatchTmfBaseMaterial(input:{id:string;baseOrderId:string;lotI
  commit(operationId,'基础生产原料发出',input.baseOrderId,actor,input,draft=>{
   baseMaterialQuantity(input.quantity)
   const base=draft.baseOrders.find(b=>b.id===input.baseOrderId),lot=draft.baseMaterialLots.find(l=>l.id===input.lotId)
-  if(!base||!base.acceptedAt||base.cancelledAt||base.changePending)throw new Error('半成品加工单须已确认接收，且没有待处理变更或终止。')
+  if(!base||!base.acceptedAt||base.cancelledAt||base.changePending)throw new Error('半成品加工单须已确认接受，且没有待处理变更或终止。')
   if(!lot||input.quantity>lot.onHandQty)throw new Error('来源原料库存不足。')
   if(!input.id.trim()||draft.baseMaterialIssues.some(i=>i.id===input.id))throw new Error('发料单号缺失或重复。')
   lot.onHandQty=add(lot.onHandQty,-input.quantity)
@@ -2368,7 +2397,7 @@ export function consumeTmfBaseMaterial(input:{issueId:string;consumedQty:number;
  commit(operationId,'半成品加工原料耗用',input.issueId,actor,input,(draft,at)=>{
   baseMaterialQuantity(input.consumedQty,true);baseMaterialQuantity(input.scrapQty,true)
   const issue=draft.baseMaterialIssues.find(i=>i.id===input.issueId),base=draft.baseOrders.find(b=>b.id===issue?.baseOrderId),lot=draft.baseMaterialLots.find(l=>l.id===issue?.lotId)
-  if(!issue||!base||!lot||!base.acceptedAt||base.cancelledAt||base.changePending)throw new Error('半成品加工单尚未确认接收、已终止或有待处理变更，不能登记耗用。')
+  if(!issue||!base||!lot||!base.acceptedAt||base.cancelledAt||base.changePending)throw new Error('半成品加工单尚未确认接受、已终止或有待处理变更，不能登记耗用。')
   const total=add(input.consumedQty,input.scrapQty)
   if(total<=0||total>baseMaterialAvailable(draft,issue))throw new Error('本次耗用及损耗须大于零且不能超过厂内实收可用原料。')
   if(!input.reason.trim())throw new Error('请填写实际耗用及损耗依据，不按产出米数自动推算。')

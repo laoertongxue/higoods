@@ -164,12 +164,6 @@ import {
   renderCraftWoolWaitProcessWarehousePage,
   renderLaceHandoverRecordsPage,
   renderLacePurchaseDemandsPage,
-  renderTmfSemiFinishedFlowPage,
-  renderTmfWorkOrdersPage,
-  renderTmfPendingReceiptsPage,
-  renderTmfHandoverRecordsPage,
-  renderTmfPdaExecution,
-  renderTmfWorkOrderDetailPage,
   renderLaceWorkOrderDetailPage,
   renderLaceWorkOrdersPage,
   renderPostFinishingQcOrdersPage,
@@ -435,12 +429,6 @@ export const routes: RouteRegistry = {
     '/fcs/craft/accessory/lace': () =>
       renderRouteRedirect('/fcs/craft/accessory/lace/purchase-demands', '正在跳转到花边采购需求'),
     '/fcs/craft/accessory/lace/purchase-demands': () => renderLacePurchaseDemandsPage(),
-    '/fcs/craft/accessory/webbing/purchase-demands': () => renderTmfSemiFinishedFlowPage('purchase-demands'),
-    '/fcs/craft/accessory/webbing/work-orders': () => renderTmfWorkOrdersPage(),
-    '/fcs/craft/accessory/webbing/semi-finished-orders': () => renderTmfSemiFinishedFlowPage('semi-finished-orders'),
-    '/fcs/craft/accessory/webbing/pending-receipts': () => renderTmfPendingReceiptsPage(),
-    '/fcs/craft/accessory/webbing/handover-records': () => renderTmfHandoverRecordsPage(),
-    '/fcs/craft/accessory/webbing/pda': () => renderTmfPdaExecution(),
     '/fcs/craft/accessory/lace/work-orders': () => renderLaceWorkOrdersPage(),
     '/fcs/craft/accessory/lace/handover-records': () => renderLaceHandoverRecordsPage(),
     '/fcs/craft/post-finishing': () =>
@@ -493,10 +481,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/fcs\/(?:history\/retired-process-records|craft\/cutting\/cut-piece-orders|dye-print-orders)\/([^/]+)$/,
       render: (match) => renderRetiredProcessHistoryPage(decodeURIComponent(match[1])),
-    },
-    {
-      pattern: /^\/fcs\/craft\/accessory\/webbing\/work-orders\/([^/?]+)(?:\?.*)?$/,
-      render: (match) => renderTmfWorkOrderDetailPage(decodeURIComponent(match[1])),
     },
     {
       pattern: /^\/fcs\/craft\/accessory\/lace\/work-orders\/([^/?]+)(?:\?.*)?$/,
