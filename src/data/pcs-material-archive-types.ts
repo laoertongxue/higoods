@@ -48,6 +48,14 @@ export interface MaterialSkuRecord {
   pantoneCode?: string
   /** TMF 织带／绳子半成品的花型编号；无印花时为空。 */
   patternCode?: string
+  /** 设计改款目标 SKU 的已确认加工链；不从编码推断工艺。 */
+  designRevisionProcesses?: Array<'DYEING' | 'PRINTING'>
+  /** 首道仓库发料 SKU。 */
+  designRevisionRawSkuId?: string
+  /** 同时染色、印花时染后中间品 SKU。 */
+  designRevisionDyedSkuId?: string
+  /** 与该目标 SKU 对应的正式花型图片。 */
+  patternImageUrl?: string
   specName: string
   sizeName: string
   skuImageUrl: string

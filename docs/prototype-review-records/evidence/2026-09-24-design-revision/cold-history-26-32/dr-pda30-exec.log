@@ -1,0 +1,4 @@
+F090 /fcs/pda/exec {"cold":558.5,"reload":431.5}
+F090 /fcs/pda/exec/DWO-AUTO-000001 {"cold":424.6000000014901,"reload":332.29999999701977}
+FAC-FLOWER /fcs/pda/exec {"cold":437.29999999701977,"reload":332.3999999985099}
+FAC-FLOWER /fcs/pda/exec/PWO-PRINT-AUTO-000001 {"cold":384.8999999985099,"reload":282.30000000447035}

@@ -1,0 +1,131 @@
+
+> higoods-vanilla-clone@1.0.0 check:cutting:all
+> npm run check:cutting-sewing-dispatch && npm run check:progress-statistics-linkage && npm run check:cutting-marker-plan-formulas && npm run check:cutting-binding-strip-flow && npm run check:cutting-wait-handover-transfer-bag-flow && npm run check:cutting-clean-mainline && npm run check:pda-cutting-wait-handover-entry-routing && npm run check:pda-cutting-inbound-workflow && npm run check:pda-cutting-transfer-bag-handover && npm run check:web-cutting-transfer-bag-actions && npm run check:transfer-bag-three-status && npm run check:transfer-bag-repack-recovery && npm run check:transfer-bag-mobile-closed-loop
+
+
+> higoods-vanilla-clone@1.0.0 check:cutting-sewing-dispatch
+> tsx scripts/check-cutting-sewing-dispatch.ts
+
+check:cutting-sewing-dispatch passed
+(node:40069) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:progress-statistics-linkage
+> tsx scripts/check-progress-statistics-linkage.ts
+
+check:progress-statistics-linkage passed
+(node:40096) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:cutting-marker-plan-formulas
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-cutting-marker-plan-formulas.ts
+
+唛架计划层公式与状态检查通过
+唛架成衣件数（件）：12
+系统单件成衣用量（m/件）：0.7
+高低层矩阵成衣件数（件）：12
+捆条原算长度样例（m）：21
+捆条计划长度样例（m）：4
+模式数：4
+(node:40122) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:cutting-binding-strip-flow
+> node --import tsx scripts/check-cutting-binding-strip-flow.ts
+
+捆条加工单流转检查通过
+捆条需求明细：19 条
+捆条加工单：16 单
+唯一捆条菲票：19 张
+示例汇总长度：113.57 m
+按钮目标响应：列表 0.46ms / 捆条菲票 2.39ms / 库存 1.10ms / 预览 4.80ms
+(node:40147) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:cutting-wait-handover-transfer-bag-flow
+> tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts
+
+
+===== 裁床待交出仓与中转袋流转治理检查 =====
+通过: 266
+失败: 0
+
+全部断言通过 ✅
+(node:40174) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:cutting-clean-mainline
+> tsx scripts/check-cutting-clean-mainline.ts
+
+{
+  "项目代码清洁性": "通过",
+  "裁片单与数量账": "通过",
+  "菲票生成与打印追踪": "通过",
+  "待交出仓库存与车缝分配": "通过",
+  "通用交出与特殊工艺回仓": "通过",
+  "差异关闭捆条到账": "通过",
+  "主链路事件账": {
+    "totalEventCount": 189,
+    "stageCounts": {
+      "数量账": 111,
+      "铺布裁剪差异": 10,
+      "菲票生成": 54,
+      "交出记录": 7,
+      "裁片单关闭": 3,
+      "特殊工艺回仓": 3,
+      "PDA执行写回": 1
+    },
+    "productionOrderCount": 13,
+    "cutOrderCount": 42
+  }
+}
+(node:40201) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:pda-cutting-wait-handover-entry-routing
+> tsx scripts/check-pda-cutting-wait-handover-entry-routing.ts
+
+PASS check-pda-cutting-wait-handover-entry-routing
+(node:40247) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:pda-cutting-inbound-workflow
+> tsx scripts/check-pda-cutting-inbound-workflow.ts
+
+[check-pda-cutting-inbound-workflow] 两种 PDA 扫码工作流检查通过
+(node:40278) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:pda-cutting-transfer-bag-handover
+> tsx scripts/check-pda-cutting-transfer-bag-handover.ts
+
+PDA 中转袋整袋交出专项检查通过：同工厂多任务、只扫袋、阶段阻断、跨工厂拆袋提示、不可重复交出和事实快照均已闭环。
+(node:40305) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:web-cutting-transfer-bag-actions
+> tsx scripts/check-web-cutting-transfer-bag-actions.ts
+
+PASS check-web-cutting-transfer-bag-actions
+
+> higoods-vanilla-clone@1.0.0 check:transfer-bag-three-status
+> tsx scripts/check-transfer-bag-three-status.ts
+
+check:transfer-bag-three-status passed
+(node:40359) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:transfer-bag-repack-recovery
+> tsx scripts/check-transfer-bag-repack-recovery.ts
+
+[performance] 2,000 事件特殊工艺带袋回仓 20.1ms
+PASS check-transfer-bag-repack-recovery
+(node:40438) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:transfer-bag-mobile-closed-loop
+> tsx scripts/check-transfer-bag-mobile-closed-loop.ts
+
+check:transfer-bag-mobile-closed-loop passed：独立回收、报废、两事实顺序入口和只读扫码详情均已闭环。
+(node:40465) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

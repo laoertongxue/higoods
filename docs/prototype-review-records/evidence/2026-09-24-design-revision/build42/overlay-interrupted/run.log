@@ -1,0 +1,35 @@
+
+Running 2 tests using 1 worker
+
+(node:30748) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 (1.8m)
+
+
+  1) tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 ───────────────
+
+    Test was interrupted.
+
+    Error: locator.click: Test ended.
+    Call log:
+      - waiting for locator('[data-dye-work-orders-overlay] > div').getByRole('button', { name: '关闭', exact: true }).last()
+
+
+      36 |     await measure('edit:reopenPersisted',async()=>{await action(a).filter({visible:true}).first().click();await expect(d.locator('textarea').first()).toHaveValue('设计改款原型验收备注')})
+      37 |    }
+    > 38 |    await measure('close:'+a,async()=>{await d.getByRole('button',{name:'关闭',exact:true}).last().click();await expect(d).toHaveCount(0)})
+         |                                                                                                 ^
+      39 |   }
+      40 |   expect(await p.locator('main').last().innerText()).toContain('ES-DR-025')
+      41 |   await c.close()
+        at fn (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:38:97)
+        at measure (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:11:213)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:38:4
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 interrupted
+    tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 ────────────────
+  1 did not run

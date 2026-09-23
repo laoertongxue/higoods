@@ -1,0 +1,90 @@
+
+Running 28 tests using 1 worker
+
+(node:27545) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (12.7s)
+  ✓   2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (8.2s)
+  ✓   3 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › dye 产出卷选择与交出草稿生成五次 (9.4s)
+  ✘   4 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 (1.0m)
+(node:27680) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   5 tests/pcs-design-revision-list-actions.spec.ts:7:1 › 设计改款列表查询、导出、排序后全选本页和跨页批量复制 (2.3s)
+  ✓   6 tests/pcs-design-revision-list-actions.spec.ts:83:1 › 染印组合筛选读取已保存草稿的目标结果 SKU (904ms)
+{"measuredAt":"2026-09-23T20:48:10.029Z","baseURL":"http://127.0.0.1:4732","viewport":"1366x768","browser":"149.0.7827.55","cache":"five new empty contexts; reload and actions retain cache","timing":"event.timeStamp to asserted result + visible image decode + two frames, including assertion overhead","distIndexSha256":"76c380649764e6e0f86d817c8e0f4b395a23b46d958422996fa54194c602aad6","samples":{"coldNavigation":[351.70000000298023,357.1000000014901,356.09999999403954,353.29999999701977,351.20000000298023],"reload":[167.19999999552965,175.19999999552965,172.69999999552965,180.39999999850988,170.70000000298023],"keywordInput":[39.39990234375,39.5,38.800048828125,40.7001953125,36.599853515625],"query":[62.800048828125,63.300048828125,62.10009765625,63.199951171875,63.300048828125],"reset":[65.099853515625,65,63.699951171875,65.2001953125,65.099853515625],"moreFilters":[30.5,30.300048828125,30.5,29,30.39990234375],"patternFilter":[39.10009765625,39,38.699951171875,39.60009765625,38.699951171875],"emptyQuery":[30.400146484375,28.60009765625,30.599853515625,30.39990234375,30.599853515625],"export":[46.099853515625,45.300048828125,46.89990234375,45.5,47.199951171875],"sortAscending":[63.800048828125,63.10009765625,63.599853515625,63.89990234375,63.800048828125],"sortDescending":[63.800048828125,73.39990234375,63.099853515625,64,63.300048828125],"sortReset":[63.89990234375,63.5,58.099853515625,63.800048828125,63.89990234375],"pageSize20":[72.39990234375,72.599853515625,56.400146484375,72.300048828125,71.7998046875],"pageSize10":[51.300048828125,50.599853515625,50.599853515625,51,53.300048828125],"openCreate":[62.199951171875,62,60,65.400146484375,64.2001953125],"closeCreate":[47,63.60009765625,47.2001953125,47.400146484375,45.300048828125],"openStyleImage":[47.199951171875,63.5,47.199951171875,63.800048828125,63.5],"closeStyleImage":[47.599853515625,47.300048828125,47.400146484375,47.39990234375,47.300048828125],"nextPage":[63.699951171875,61.300048828125,63.10009765625,63.39990234375,63.300048828125],"previousPage":[61.5,63.60009765625,63.60009765625,63.699951171875,63.800048828125],"selectPage":[47.400146484375,63.199951171875,63.400146484375,47.400146484375,47.300048828125],"clearSelection":[45.39990234375,63.699951171875,47.300048828125,47.39990234375,47.5],"openColumns":[62.599853515625,63.900146484375,63,66.2001953125,63.099853515625],"unfreezeCode":[115.39990234375,96.60009765625,96.699951171875,113.39990234375,96.800048828125],"freezeCode":[96.699951171875,96.39990234375,96.699951171875,96.599853515625,96.5],"hideColumn":[80,82.10009765625,79.7998046875,98.800048828125,80.400146484375],"restoreColumns":[63.60009765625,63.699951171875,62,63.39990234375,63.800048828125],"closeColumns":[47.10009765625,47.199951171875,46.89990234375,46.800048828125,47.10009765625],"listStatus:DRAFT":[37,35.10009765625,33.10009765625,33.89990234375,34.60009765625],"query:listStatus:DRAFT":[64.099853515625,66,64.199951171875,64,63.39990234375],"listStatus:IN_PROGRESS":[33.5,32,33.199951171875,30.400146484375,33],"query:listStatus:IN_PROGRESS":[64,62.400146484375,62.199951171875,64.199951171875,64.10009765625],"listStatus:COMPLETED":[33.5,33,33.699951171875,31.89990234375,35.400146484375],"query:listStatus:COMPLETED":[64.099853515625,64,95.300048828125,64,63.2001953125],"teamFilter:买手":[29.800048828125,29.599853515625,45.89990234375,46,29.800048828125],"query:teamFilter:买手":[47.300048828125,47.39990234375,47.39990234375,47.300048828125,47.400146484375],"listProcessing:NONE":[32.199951171875,35.10009765625,35.10009765625,32.5,35.300048828125],"query:listProcessing:NONE":[80.89990234375,80.599853515625,80.5,80.800048828125,80.7998046875],"listProcessing:DYE_ONLY":[33.800048828125,35.300048828125,35.39990234375,33.39990234375,34.900146484375],"query:listProcessing:DYE_ONLY":[31.099853515625,47.5,49.5,30.89990234375,46],"listProcessing:PRINT_ONLY":[34.699951171875,34.099853515625,34,34.60009765625,34.199951171875],"query:listProcessing:PRINT_ONLY":[47.599853515625,46.800048828125,45.60009765625,47.39990234375,47.300048828125],"listProcessing:BOTH":[33.199951171875,34.5,34.5,34.099853515625,33.900146484375],"query:listProcessing:BOTH":[47.5,47.5,47.5,47.5,49.39990234375],"listStartDate":[32.2001953125,33.599853515625,33.5,33.39990234375,31.39990234375],"listEndDate":[41.199951171875,39.5,39.199951171875,39.599853515625,39.300048828125],"dateQuery":[47.300048828125,47.89990234375,47.39990234375,47.39990234375,61.89990234375],"invalidDateQuery":[63.5,64,64,64,63.89990234375],"dragColumn":[116.39990234375,116.400146484375,116.5,116.5,115.39990234375],"navigateTaskDetail":[230.199951171875,230.39990234375,213.699951171875,213.2001953125,230.5],"navigateBackToList":[231.699951171875,231.7001953125,231.800048828125,215.19970703125,231.5],"copyDraft":[178.199951171875,178.099853515625,180.199951171875,180.300048828125,178.10009765625]}}
+  ✓   7 tests/pcs-design-revision-list-performance.spec.ts:31:1 › 设计改款列表冷进入、刷新和核心列表操作五次性能 (33.2s)
+  ✓   8 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › dye PDA 设计改款加工单接单与刷新持久化五次 (6.6s)
+  ✓   9 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 (6.7s)
+  ✓  10 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › F090 PDA 详情图片及交出单导航五次 (11.1s)
+  ✓  11 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 (9.6s)
+  ✓  12 tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 (14.2s)
+  ✓  13 tests/pcs-design-revision-pda-gap.spec.ts:13:1 › 设计改款印花 PDA 使用实际领料和工序事实，不出现花型测试或无关转印 (8.8s)
+  ✓  14 tests/pcs-design-revision-pda-gap.spec.ts:61:1 › 设计改款 PDA 完单后交出状态一致，禁止再次交出 (702ms)
+  ✓  15 tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 (773ms)
+  ✓  16 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › F090 PDA 列表筛选、四个状态与底部跨页导航五次 (19.9s)
+  ✓  17 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › FAC-FLOWER PDA 列表筛选、四个状态与底部跨页导航五次 (14.2s)
+  ✓  18 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA warehouse-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.3s)
+  ✓  19 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA dye-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.2s)
+  ✓  20 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA print-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.3s)
+{"measuredAt":"2026-09-23T20:50:19.385Z","baseURL":"http://127.0.0.1:4732","viewport":"1024x768","browser":"149.0.7827.55","cache":"coldNavigation uses a new empty context; reload and actions use that same context","endCondition":"target results and visible images ready, then two animation frames; event.timeStamp for actions","distIndexSha256":"76c380649764e6e0f86d817c8e0f4b395a23b46d958422996fa54194c602aad6","samples":{"coldNavigation":[339.8999999985099,338.5,337.20000000298023,361.6000000014901,379.70000000298023],"reload":[175.70000000298023,160.19999999552965,169,183.89999999850988,176.09999999403954],"firstPreview":[81.79999999701977,81.69999999552965,81.79999999701977,83.89999999850988,79.60000000149012],"closeButton":[50.70000000298023,48.899999998509884,48.80000000447035,50.29999999701977,48.80000000447035],"reopenForMask":[48.5,48.600000001490116,48.70000000298023,48.599999994039536,48.70000000298023],"closeMask":[48.5,48.5,48.30000000447035,48.29999999701977,49],"reopenForEscape":[48.399999998509884,48.5,48.600000001490116,48.600000001490116,48.5],"closeEscape":[44.70000000298023,44.69999999552965,45.100000001490116,47.20000000298023,44.79999999701977]}}
+  ✓  21 tests/pcs-design-revision-sample-preview-performance.spec.ts:31:1 › Mock 样衣图片的冷进入、刷新和预览操作各五次均低于 500ms (5.8s)
+  ✓  22 tests/pcs-design-revision-transfer-print.spec.ts:5:1 › 设计改款仓库调拨送货单包含来源、实际卷码和数量，打印不增加库存 (6.5s)
+  ✓  23 tests/pcs-design-revision-work-preview.spec.ts:4:1 › 目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣 (578ms)
+  ✓  24 tests/pcs-design-revision-work-preview.spec.ts:33:1 › 同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别计算 (950ms)
+  ✓  25 tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 (4.4s)
+  ✓  26 tests/pcs-design-revision-work-preview.spec.ts:136:1 › 普通生产来源印花信息单仍展示原生产单号 (458ms)
+  ✓  27 tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 (707ms)
+  ✓  28 tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 (1.0s)
+
+
+  1) tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 ───────────────
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.check: Test ended.
+    Call log:
+      - waiting for locator('main table tbody tr').first().locator('[data-dispatch-roll]').first()
+        - locator resolved to <input disabled class="mt-0.5" type="checkbox" data-dispatch-roll="" value="PWO-PRINT-004|ROLL-PH-20260328-004-0001" aria-label="选择卷 M_20260328004_PH-20260328-004_0001"/>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        113 × waiting for element to be visible, enabled and stable
+            - element is not enabled
+          - retrying click action
+            - waiting 500ms
+
+
+      69 |   const row=p.locator('main table tbody tr').filter({hasText:craft==='dye'?order.dyeOrderNo:order.businessView.printOrderNo}).first()
+      70 |   const roll=row.locator(craft==='dye'?'[data-dye-output-select]':'[data-dispatch-roll]').first()
+    > 71 |   await measure('selectOriginalRoll',async()=>{await roll.check();await expect(action('create')).toBeEnabled()})
+         |                                                           ^
+      72 |   await measure('createPreview',async()=>{await action('create').click();await expect(p.getByRole('dialog')).toContainText('20')})
+      73 |   await measure('cancelPreview',async()=>{await action(craft==='dye'?'close-overlay':'cancel-preview').last().click();await expect(p.getByRole('dialog')).toHaveCount(0)})
+      74 |   await measure('reopenPreview',async()=>{await action('create').click();await expect(p.getByRole('dialog')).toBeVisible()})
+        at fn (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:71:59)
+        at measure (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:67:194)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:71:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 ────────────────
+  27 passed (4.5m)

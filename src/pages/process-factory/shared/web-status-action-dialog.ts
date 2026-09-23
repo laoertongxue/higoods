@@ -1,5 +1,5 @@
 import { executeProcessWebAction, type ProcessWebSourceType } from '../../../data/fcs/process-web-status-actions.ts'
-import { escapeHtml } from '../../../utils'
+import { escapeHtml, localDateTimeText } from '../../../utils'
 
 type ToastFn = (message: string) => void
 
@@ -91,7 +91,7 @@ export function openProcessWebStatusActionDialog(config: ProcessWebStatusActionD
   const objectQty = actionNode.dataset.objectQty || ''
   const qtyUnit = actionNode.dataset.qtyUnit || ''
   const objectType = actionNode.dataset.objectType || ''
-  const operatedAt = '2026-04-29 10:00'
+  const operatedAt = localDateTimeText().slice(0, 16)
   const allFields = [
     ...requiredFields,
     ...optionalFields.filter((field) => field !== '备注' && !requiredFields.includes(field)),
@@ -217,7 +217,7 @@ export function confirmProcessWebStatusAction(callbacks: ProcessWebStatusActionD
     fields['样衣到位时间'] ||
     fields['到位时间'] ||
     fields['排缸时间'] ||
-    '2026-04-29 10:00'
+    localDateTimeText().slice(0, 16)
   const objectQtyField = resolveObjectQtyField(fields)
   const objectQty = objectQtyField ? Number(objectQtyField[1]) : undefined
   const qtyUnit = fields['单位'] || dialog.dataset.qtyUnit || undefined

@@ -1,0 +1,9 @@
+
+Running 2 tests using 1 worker
+
+(node:32423) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/pcs-design-revision-factory-overlays.spec.ts:5:36 › dye 工厂查看编辑日志卷码和备注入口五次 (19.7s)
+  ✓  2 tests/pcs-design-revision-factory-overlays.spec.ts:5:36 › print 工厂查看编辑日志卷码和备注入口五次 (27.5s)
+
+  2 passed (47.7s)

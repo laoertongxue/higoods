@@ -23,7 +23,7 @@ let process:'dye'|'water'='dye',api=dyeApi
 const processLabel=()=>process==='water'?'水溶':'染色'
 const route=(next:'pending'|'documents')=>`/fcs/craft/dyeing/${process==='water'?'water-soluble-':''}${next==='pending'?'pending-handover':'handover-documents'}`
 const orderRoute=(id:string)=>process==='water'?`/fcs/craft/dyeing/water-soluble-orders?orderId=${encodeURIComponent(id)}`:`/fcs/craft/dyeing/work-orders?dyeOrderId=${encodeURIComponent(id)}`
-const loadRows=():OutputWorkOrderRow[]=>process==='water'?water.listWaterOutputRows():listDyeWorkOrderOnlineRows().map(row=>({...row,orderId:row.dyeOrderId}))
+const loadRows=():OutputWorkOrderRow[]=>process==='water'?water.listWaterOutputRows():listDyeWorkOrderOnlineRows({ forOutputList: true }).map(row=>({...row,orderId:row.dyeOrderId}))
 import { renderDyeDispatchPrint, dyeDispatchQuantities } from './dispatch-print.ts'
 
 type Mode = 'pending' | 'documents'
@@ -60,8 +60,8 @@ function allItems(): Item[] {
 }
 function filtered(): Item[] {
   return allItems().filter(item=>{
-    if(item.order){const r=item.order, available=api.rolls(r.orderId).some(roll=>api.isAvailable(r.orderId,roll)); const inDoc=api.docs().some(doc=>doc.status==='草稿'&&doc.lines.some(l=>l.orderId===r.orderId));
-      return (!factory||r.factoryId===factory)&&(!receiver||r.receiverName===receiver)&&(!status||(status==='已建单据'?inDoc:!inDoc))&&(!ready||(ready==='可创建'?available:!available))&&(!keyword||`${r.workOrderNo} ${r.taskNo} ${r.productCode} ${r.productionOrderNo} ${r.purchaseOrderNo} ${r.colorSku}`.toLowerCase().includes(keyword.toLowerCase()))&&(!dateFrom||r.orderedAt.slice(0,10)>=dateFrom)&&(!dateTo||r.orderedAt.slice(0,10)<=dateTo)
+    if(item.order){const r=item.order; const available=ready ? api.rolls(r.orderId).some(roll=>api.isAvailable(r.orderId,roll)) : false; const inDoc=status ? api.docs().some(doc=>doc.status==='草稿'&&doc.lines.some(l=>l.orderId===r.orderId)) : false;
+      return (!factory||r.factoryId===factory)&&(!receiver||r.receiverName===receiver)&&(!status||(status==='已建单据'?inDoc:!inDoc))&&(!ready||(ready==='可创建'?available:!available))&&(!keyword||`${r.workOrderNo} ${r.taskNo} ${r.designRevisionTaskNo || ''} ${r.productCode} ${r.productionOrderNo} ${r.purchaseOrderNo} ${r.colorSku}`.toLowerCase().includes(keyword.toLowerCase()))&&(!dateFrom||r.orderedAt.slice(0,10)>=dateFrom)&&(!dateTo||r.orderedAt.slice(0,10)<=dateTo)
     }
     const d=item.doc!;if((dateFrom||dateTo)&&!d.createdAt)return false;return (!factory||d.lines[0]?.factoryId===factory)&&(!receiver||d.lines.some(l=>l.receiver===receiver))&&(!status||getDyeDispatchStatus(d)===status)&&(!keyword||`${d.id} ${d.lines.map(l=>`${l.orderNo} ${l.taskNo} ${l.sku}`).join(' ')}`.toLowerCase().includes(keyword.toLowerCase()))&&(!dateFrom||d.createdAt.slice(0,10)>=dateFrom)&&(!dateTo||d.createdAt.slice(0,10)<=dateTo)
   })
@@ -73,7 +73,7 @@ function columns(): StandardListColumn<Item>[] {
   if(mode==='pending')return [
     {key:'select',title:'选择',width:46,required:true,leadingControlColumn:true,renderHeader:visible=>`<input data-preserve-native-click="true" type="checkbox" aria-label="选择本页可交卷" data-dye-output-action="select-page" ${visible.some(i=>api.rolls(i.id).some(r=>api.isAvailable(i.id,r)))?'':'disabled'}>`,render:item=>`<input data-preserve-native-click="true" aria-label="选择 ${e(item.order!.workOrderNo)} 的可交卷" type="checkbox" data-dye-output-select-order="${e(item.id)}" ${api.rolls(item.id).some(r=>api.isAvailable(item.id,r))?'':'disabled'} ${api.rolls(item.id).filter(r=>api.isAvailable(item.id,r)).length>0&&api.rolls(item.id).filter(r=>api.isAvailable(item.id,r)).every(r=>selected.has(`${item.id}|${r.id}`))?'checked':''}>`},
     {key:'order',title:'加工单 / 商品',width:245,required:true,freezeable:true,sortable:true,sortValue:i=>i.order!.workOrderNo,render:i=>{const r=i.order!;return line('工厂',r.factoryName)+link(r.workOrderNo,orderRoute(r.orderId))+line('任务单',r.taskNo)+`<div class="mt-2 border-t pt-2">${objectImage(r.productImageUrl,r.productName,r.productCode)}</div>`}},
-    {key:'source',title:'需求 / 生产单 / 接收方',width:240,freezeable:true,sortable:true,sortValue:i=>i.order!.receiverName,render:i=>{const r=i.order!;return line('需求单',r.purchaseOrderNo)+line('生产单',r.productionOrderNo||'备料，未关联生产单')+`<div class="mt-2 border-t pt-2">${r.downstreamPartner?dyePartnerFields(r.downstreamPartner).map(([a,b])=>line(a,b)).join(''):line('接收方',r.receiverName)}</div>`}},
+    {key:'source',title:'需求 / 生产单 / 接收方',width:240,freezeable:true,sortable:true,sortValue:i=>i.order!.receiverName,render:i=>{const r=i.order!;return (r.sourceType==='DESIGN_REVISION'?line('需求来源','设计改款任务')+line('设计改款任务',r.designRevisionTaskNo||r.purchaseOrderNo):line('需求单',r.purchaseOrderNo)+line('生产单',r.productionOrderNo||'备料，未关联生产单'))+`<div class="mt-2 border-t pt-2">${r.downstreamPartner?dyePartnerFields(r.downstreamPartner).map(([a,b])=>line(a,b)).join(''):line('接收方',r.receiverName)}</div>`}},
     {key:'material',title:'产出物料',width:255,freezeable:true,render:i=>{const r=i.order!;return objectImage(r.outputImageUrl,r.materialName,r.colorSku)+`<div class="mt-2 text-xs">${line('类型',r.isYarn?'纱线':r.materialName.includes('花边')?'辅料':'面料')}${line('成分',r.composition)}${r.materialSpec?line('规格',r.materialSpec):line('幅宽 / 克重',`${r.width} / ${r.weightGsm} g/m²`)}</div>`}},
     {key:'quantity',title:'数量',width:170,sortable:true,sortValue:i=>api.available(i.id),render:i=>{const r=i.order!;return line('使用',`${r.rawMaterialQty.toFixed(2)} ${r.qtyUnit}`)+line('完成',`${r.completedQty.toFixed(2)} ${r.qtyUnit}`)+line('未交出',`${api.available(i.id).toFixed(2)} ${r.qtyUnit}`)+line('产出卷数',`${api.rolls(i.id).length} 卷`)}},
     {key:'rolls',title:'待交卷 / 条码状态',width:270,render:i=>{const r=i.order!,rolls=api.rolls(i.id).filter(r=>!r.dispatchId);return badge(stateOf(r),stateOf(r)==='已维护并打印')+`<div class="mt-2 space-y-2">${rolls.map(roll=>`<label class="flex items-start gap-2 text-xs"><input data-preserve-native-click="true" type="checkbox" class="mt-1" aria-label="选择卷 ${e(roll.barcode)}" data-dye-output-select="${e(i.id+'|'+roll.id)}" ${selected.has(i.id+'|'+roll.id)?'checked':''} ${api.isAvailable(i.id,roll)?'':'disabled'}><span>${e(roll.rollNo)} · ${roll.qty.toFixed(2)} ${e(r.qtyUnit)}<span class="block text-muted-foreground">${roll.qty<=0?'待维护卷长':!roll.printedAt?'待打印':api.isAvailable(i.id,roll)?'可建单':'单据占用'}</span></span></label>`).join('')}</div>`}},
@@ -91,7 +91,27 @@ function columns(): StandardListColumn<Item>[] {
 const preferenceKey = () => `higood-list:${route(mode)}`
 function defaults(): StandardListColumnPreferences {const cols=columns();return {order:cols.map(c=>c.key),visibleKeys:cols.map(c=>c.key),frozenKeys:[mode==='pending'?'order':'document'],pageSize:15}}
 function persist(){preferences=normalizeListColumnPreferences(columns(),preferences,sizes);saveListColumnPreferences(window.localStorage,preferenceKey(),preferences)}
+// Reuse the same current facts within one synchronous render only. Actions still read live facts.
 function listBody(): string {
+  const live = api
+  const rolls = new Map<string, ReturnType<typeof live.rolls>>()
+  const available = new Map<string, number>()
+  const rollAvailable = new Map<string, boolean>()
+  let documents: ReturnType<typeof live.docs> | undefined
+  api = {
+    ...live,
+    rolls(id) { if (!rolls.has(id)) rolls.set(id, live.rolls(id)); return rolls.get(id)! },
+    docs() { return documents ??= live.docs() },
+    available(id) { if (!available.has(id)) available.set(id, live.available(id)); return available.get(id)! },
+    isAvailable(id, roll) {
+      const key = `${id}|${roll.id}`
+      if (!rollAvailable.has(key)) rollAvailable.set(key, live.isAvailable(id, roll))
+      return rollAvailable.get(key)!
+    },
+  }
+  try { return renderListBody() } finally { api = live }
+}
+function renderListBody(): string {
   const cols=columns(), items=sortStandardListRows(filtered(),sort,(item,key)=>cols.find(c=>c.key===key)?.sortValue?.(item)), paging=paginateStandardListRows(items,page,preferences.pageSize)
   page=paging.currentPage
   const tabs=`<nav aria-label="加工厂" class="flex overflow-x-auto border-b bg-slate-50 px-2 pt-2">${DYE_FACTORY_TABS.filter(t=>t.id!=='unassigned').map(t=>`<button type="button" data-dye-output-action="factory" data-id="${e(t.id)}" class="shrink-0 rounded-t-md border px-5 py-2 text-sm font-semibold ${factory===t.id?'border-b-white border-t-2 border-t-sky-500 bg-white text-sky-700':'mx-1 text-slate-500'}">${e(t.label)}</button>`).join('')}</nav>`

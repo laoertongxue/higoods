@@ -1,0 +1,30 @@
+499.5 (root)  -1 -1
+267.2 Te output-documents-CZMh6rLa.js 19 4184 (e,t="dye"){const o=q!==t;return q=t,m=t==="water"?wr:kt,k=e,he=St(),(o||nt!==k||typeof document>"u"||!document.querySelector("[data-dye-output-page]"))&&(R=1,M=null,v="",Ce=!1,$.c
+267.2 Hr output-documents-CZMh6rLa.js 19 4897 (){return Te("pending")}function Mr(){return Te("documents")}function Kr(e,t="",o){if(e==="barcodes"){$t(t,o);return}window.location.href=`/fcs/craft/dyeing/${e==="pending"?"pendin
+267.2  routes-fcs-D5_MWzH4.js 1 1736 async(...s)=>{i||(i=t().catch(c=>{throw i=null,c}));const y=await i;if(["renderUnifiedDispatchWorkbenchPage","renderSewingOutsourcingTasksPage","renderCraftCuttingWarehouseManageme
+255.4 kt dye-work-order-online-view-XbYJe8FE.js 0 16725 (){const e=Fe(),r=[...We(),...we()],a={sources:k(),receipts:ve(),deliveries:Ye(),dispatches:qe(),warehouseFacts:r.map(o=>{var t;return{documentNo:o.docNo,approvedAt:o.approvedAt,se
+255.4 St output-documents-CZMh6rLa.js 14 556 ()=>q==="water"?Je():Ve().map(e=>({...e,orderId:e.dyeOrderId})),ge="dye-output",Xe=[10,15,20,50];let k="pending",V="",Z="",G="",_="",X="",j="",U="",R=1,K=!1,Ce=!1,M=null,w={order:[
+182.6  dye-work-order-online-view-XbYJe8FE.js 0 17118 o=>ft(o,a,lt(o.dyeOrderId),r)))}function W(e,r){return r==="全部"||e===(r==="是")}function E(e){return e.trim().toLocaleLowerCase("zh-CN")}function Rt(e,r){return r==="workOrderNo"?e.
+182.6  dye-work-order-online-view-XbYJe8FE.js 0 17108 ()=>e.map(o=>ft(o,a,lt(o.dyeOrderId),r)))}function W(e,r){return r==="全部"||e===(r==="是")}function E(e){return e.trim().toLocaleLowerCase("zh-CN")}function Rt(e,r){return r==="workO
+182.6 ye process-order-task-links-DiUDXuRI.js 0 23026 (t){M+=1;try{return t()}finally{--M===0&&(j=void 0)}}export{fe as g,ye as w};
+143.5 fe process-order-task-links-DiUDXuRI.js 0 22203 (t){const d=z(t),o=d&&T.find(n=>n.taskId===d.baseTaskId);if(d&&o&&d.productionOrderId===o.productionOrderId){const n=J().filter(i=>i.baseTaskId===o.taskId&&i.productionOrderId===d.
+138.8 K process-order-task-links-DiUDXuRI.js 0 5389 (t,d,o){const r=x(),p=ce(),c=t?w(t):[],n=!t||c.length===0||c.some(e=>e.processCode==="WOOL"||e.processCode==="PROC_WOOL")?ee({productionOrderId:t}):[],f=ae(),l=new Map(f.map(e=>[e.
+80.6 Qne app-shared-BnX8kTk4.js 64 1210696 (e){const t=e&&!e.has("PRINT")?VU():void 0,r=e&&!e.has("DYE")?sU():void 0,o=(t&&!t.needsRestoration?t.orders:jU()).map(n=>({taskId:n.taskId,taskNo:n.taskNo,factoryId:n.printFactory
+79.1 jU app-shared-BnX8kTk4.js 64 1086861 (){return Pr(!1),n0().map(ot)}function VU(){if(li)throw new Error(li);return{orders:Jf?n0().map(ot):[],needsRestoration:!Jf&&typeof localStorage<"u"&&localStorage.getItem(Dn)!==nul
+78.5 Pr app-shared-BnX8kTk4.js 64 1078226 (e=!0){if(li)throw new Error(li);if(Jf){e&&O2();return}Jf=!0,xae(),Bae(),Hae(),Yae(),$ae(),zae();for(const r of G)for(const o of MM(r,"PRINT"))ah(o);const t=see(["PWO-PRINT-001","P
+69.1 na app-shared-BnX8kTk4.js 64 899138 (e){var o;qr();const t=e?[H.get(e)].filter(a=>!!a):[...H.values()],r=ss({includeWool:!1,taskIds:new Set(t.map(a=>a.taskId))}).filter(a=>a.headType==="HANDOUT");for(const a of H.val
+69.1 yN app-shared-BnX8kTk4.js 64 952818 (){return na(),mN().map(e=>{const t=H.get(e.dyeOrderId)??e;return ol(t),he({...e,acceptanceStatus:t.acceptanceStatus,acceptedAt:t.acceptedAt,acceptedBy:t.acceptedBy,rejectedAt:t.re
+67.4 qr app-shared-BnX8kTk4.js 64 941553 (){if(!Hf){Hf=!0,moe(),noe(),FM.forEach(e=>{var r;const t=H.get(e.workOrderId);!t||(r=t.materialReceipts)!=null&&r.length||(t.materialReceipts=[{receiptId:`DYE-SEED-RECEIPT-${e.wor
+64.2 (idle)  -1 -1
+62.9  app-shared-BnX8kTk4.js 0 0 var d6=Object.defineProperty;var c6=(e,t,r)=>t in e?d6(e,t,{enumerable:!0,configurable:!0,writable:!0,value:r}):e[t]=r;var WN=(e,t,r)=>c6(e,typeof t!="symbol"?t+"":t,r);const u6="m
+58.3 (program)  -1 -1
+50.2 Fe special-craft-task-orders-CE3-jmJJ.js 0 82240 (){const e=oe();if(re===Be())return e.taskOrders;const t=Te(),r=[];if(e.taskOrders=e.taskOrders.map(n=>{const a=at(n,t,e.taskOrders);return a!==n&&JSON.stringify(a)!==JSON.stringif
+50.2 ae special-craft-task-orders-CE3-jmJJ.js 0 91734 (){const e=new Set($e.filter(t=>!t.restoredAt).map(t=>t.taskOrderId));return[...Fe(),...Ae()].filter(t=>!e.has(t.taskOrderId))}function en(){return structuredClone(oe())}function t
+48.7 oe special-craft-task-orders-CE3-jmJJ.js 0 79346 (){if(!$){const e=Ot([]),t=e.flatMap(m=>m.taskOrders),r=t.filter(m=>m.targetObject==="已裁部位"&&m.feiTicketNos.length===0),n=new Set(r.map(m=>m.taskOrderId)),a=r.map(m=>{var g,p,f,S,C
+47.9 moe app-shared-BnX8kTk4.js 64 905969 (){const e=tM(ue),t=e[0],r=e[1]??e[0],o=lc(7,910,910),a=lc(8,980,980),s=lc(8,980,900),n=lc(9,860,860),i=lc(9,860,842),d=lc(10,1180,1172),c="TASK-DYE-000734";[{taskId:"TASK-DYE-0007
+46.5  app-shared-BnX8kTk4.js 64 1034461 (e,t)=>{const r=Uae(e,t);ee.set(r.printOrderId,r),Fae(r)})}function $ae(){ee.forEach(e=>{const t=pi(e),r=Ve.get(e.printOrderId);r&&r.forEach(a=>{a.qtyUnit=t});const o=Ze.get(e.prin
+46.5 Bae app-shared-BnX8kTk4.js 64 1034368 (){Array.from(ee.values()).sort((e,t)=>e.printOrderNo.localeCompare(t.printOrderNo)).forEach((e,t)=>{const r=Uae(e,t);ee.set(r.printOrderId,r),Fae(r)})}function $ae(){ee.forEach(e=
+45.0 Fae app-shared-BnX8kTk4.js 64 1032243 (e){var o,a,s,n,i,d;if(e.productionTmfContinuation){CF(e);return}const t=sa({sourceType:e.sourceType,productionOrderNo:e.sourceProductionOrderNo||e.productionOrderIds[0],supplement
+41.9 vn app-shared-BnX8kTk4.js 64 892070 (e){var i,d,c,u;const t=Bd(e.taskId);if(!t)return{recordIds:[]};const r=Ue(t);if(!r)return{handoverOrderId:t,recordIds:[]};if(de(r.handoverId,r).length===0||e.createNewBatch){const
+40.5 S0 app-shared-BnX8kTk4.js 64 1533287 (e,t=!0,r){return[...t?VB():Hd(),...FN().heads].filter(o=>(!e||due(o,e))&&(!r||r.has(o.taskId))).sort((o,a)=>{const s=br(a.lastRecordAt||a.completedByWarehouseAt||""),n=br(o.lastRe
+40.5 ss app-shared-BnX8kTk4.js 64 1537603 (e={}){return S0(void 0,e.includeWool!==!1,e.taskIds)}function LTe(e){return ss().filter(t=>t.headType===e)}function MTe(e){return S0(e)}function Fh(e){const t=At(e);if(!(t!=null&&

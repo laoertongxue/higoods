@@ -1,0 +1,58 @@
+
+Running 1 test using 1 worker
+
+(node:13131) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 (1.0m)
+
+
+  1) tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 ───────
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.click: Test ended.
+    Call log:
+      - waiting for locator('[data-pda-execd-action="dye-plan-vat"]')
+        - locator resolved to <button disabled data-dye-order-id="DWO-AUTO-000001" data-pda-execd-action="dye-plan-vat" class="inline-flex h-8 w-full items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">↵                排染缸↵              </button>
+      - attempting click action
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+        - waiting 20ms
+        2 × waiting for element to be visible, enabled and stable
+          - element is not enabled
+        - retrying click action
+          - waiting 100ms
+        113 × waiting for element to be visible, enabled and stable
+            - element is not enabled
+          - retrying click action
+            - waiting 500ms
+
+
+      18 |  await writeFile(info.outputPath('performance.json'),JSON.stringify({samples,distSha:createHash('sha256').update(await readFile('dist/index.html')).digest('hex')},null,2))
+      19 |  }
+    > 20 |  await measure('planVat',async()=>{await button('dye-plan-vat').click();await expect(p.getByText('已排染缸',{exact:true})).toBeVisible()})
+         |                                                                 ^
+      21 |  await measure('startDye',async()=>{await button('dye-start-dye').click();await expect(button('dye-complete-dye')).toBeEnabled()})
+      22 |  await measure('completeDye',async()=>{await button('dye-complete-dye').click();await expect(button('dye-start-node','DEHYDRATE')).toBeEnabled()})
+      23 |  for(const node of ['DEHYDRATE','DRY','SET','ROLL','PACK']){
+        at fn (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-dye-execution.spec.ts:20:65)
+        at measure (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-dye-execution.spec.ts:16:129)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-dye-execution.spec.ts:20:2
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-dy-1618d-改款-PDA-染色和全部后处理按实际数量推进，刷新保存/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-pda-dy-1618d-改款-PDA-染色和全部后处理按实际数量推进，刷新保存/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-dy-1618d-改款-PDA-染色和全部后处理按实际数量推进，刷新保存/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-pda-dy-1618d-改款-PDA-染色和全部后处理按实际数量推进，刷新保存/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 ────────

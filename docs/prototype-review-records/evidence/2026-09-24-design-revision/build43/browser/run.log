@@ -1,0 +1,63 @@
+
+Running 30 tests using 1 worker
+
+(node:32616) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (9.6s)
+  ✓   2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (6.7s)
+  ✓   3 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › dye 产出卷选择与交出草稿生成五次 (6.9s)
+  ✓   4 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 (7.5s)
+  ✓   5 tests/pcs-design-revision-list-actions.spec.ts:7:1 › 设计改款列表查询、导出、排序后全选本页和跨页批量复制 (1.8s)
+  ✓   6 tests/pcs-design-revision-list-actions.spec.ts:83:1 › 染印组合筛选读取已保存草稿的目标结果 SKU (761ms)
+{"measuredAt":"2026-09-23T21:21:24.473Z","baseURL":"http://127.0.0.1:4732","viewport":"1366x768","browser":"149.0.7827.55","cache":"five new empty contexts; reload and actions retain cache","timing":"event.timeStamp to asserted result + visible image decode + two frames, including assertion overhead","distIndexSha256":"f8f62da439969fecfb651b8f279810bd8e990a2c098cf45ce02e257f9912c554","samples":{"coldNavigation":[291.8999999985099,302.5,299.1000000014901,298.5,299.8999999985099],"reload":[107.79999999701977,114.80000000447035,114.89999999850988,114.79999999701977,114.89999999850988],"keywordInput":[22.800048828125,22.800048828125,22.699951171875,22.7001953125,22.800048828125],"query":[34.900146484375,36.699951171875,36.2001953125,35.89990234375,36.5],"reset":[32.599853515625,32.699951171875,49.199951171875,32.699951171875,32.39990234375],"moreFilters":[32.60009765625,32.699951171875,32.5,32.60009765625,31.89990234375],"patternFilter":[30.39990234375,30.60009765625,29.5,30.39990234375,31.60009765625],"emptyQuery":[30.2998046875,29.099853515625,30.400146484375,30.400146484375,30],"export":[32.400146484375,49.10009765625,49.10009765625,49,31.89990234375],"sortAscending":[48.199951171875,48.400146484375,48.10009765625,48.900146484375,46.39990234375],"sortDescending":[49.099853515625,49.2001953125,49.099853515625,49.10009765625,50.599853515625],"sortReset":[49,47.199951171875,47.5,48.199951171875,46.699951171875],"pageSize20":[46.89990234375,47.699951171875,49.199951171875,47.5,47.699951171875],"pageSize10":[42.10009765625,47.39990234375,41.199951171875,41.5,47.5],"openCreate":[46.5,49.10009765625,49.10009765625,49.10009765625,49.2001953125],"closeCreate":[32.5,47.10009765625,32.5,32.5,47],"openStyleImage":[47.400146484375,49.099853515625,49.10009765625,49.10009765625,49.099853515625],"closeStyleImage":[49.099853515625,49.099853515625,49.10009765625,51.10009765625,49.2001953125],"nextPage":[49,49,49,49,46.699951171875],"previousPage":[47.10009765625,49,49,49.099853515625,45.10009765625],"selectPage":[49.199951171875,47.10009765625,49.099853515625,49.10009765625,49.2001953125],"clearSelection":[49,47.2998046875,49.099853515625,49,49.099853515625],"openColumns":[48.89990234375,49.10009765625,49.10009765625,49,48.89990234375],"unfreezeCode":[82.300048828125,82.39990234375,82.300048828125,82.199951171875,82.39990234375],"freezeCode":[82.199951171875,81.300048828125,83.900146484375,81.800048828125,81.800048828125],"hideColumn":[83.7998046875,82.39990234375,82.300048828125,82.300048828125,82.39990234375],"restoreColumns":[48.5,65.699951171875,65.699951171875,51,65.599853515625],"closeColumns":[32.099853515625,49,50.60009765625,49.099853515625,50],"listStatus:DRAFT":[18.89990234375,25.10009765625,27.099853515625,27.39990234375,31.599853515625],"query:listStatus:DRAFT":[32.300048828125,49.099853515625,49.10009765625,49,47.099853515625],"listStatus:IN_PROGRESS":[19.2998046875,26.800048828125,28,26.60009765625,26.7001953125],"query:listStatus:IN_PROGRESS":[32.300048828125,48.7001953125,49.199951171875,49,49.199951171875],"listStatus:COMPLETED":[19.699951171875,24.10009765625,26.39990234375,25.7001953125,26.199951171875],"query:listStatus:COMPLETED":[49.10009765625,51.10009765625,48.60009765625,47.400146484375,49.2001953125],"teamFilter:买手":[35.699951171875,25.900146484375,27.699951171875,33.7998046875,26.39990234375],"query:teamFilter:买手":[32.400146484375,48.89990234375,32.5,32.699951171875,32.5],"listProcessing:NONE":[28.300048828125,25.300048828125,24.800048828125,27.800048828125,26.699951171875],"query:listProcessing:NONE":[66.10009765625,82.400146484375,65.800048828125,65.89990234375,65.89990234375],"listProcessing:DYE_ONLY":[27.199951171875,29.599853515625,27.5,25.800048828125,26.89990234375],"query:listProcessing:DYE_ONLY":[30.800048828125,32.699951171875,32.10009765625,32.5,32.39990234375],"listProcessing:PRINT_ONLY":[27.300048828125,26.800048828125,23.699951171875,26.89990234375,27],"query:listProcessing:PRINT_ONLY":[32.39990234375,48.5,31,32.60009765625,30.5],"listProcessing:BOTH":[27,26.900146484375,24.5,27,27.10009765625],"query:listProcessing:BOTH":[32.39990234375,32.39990234375,32.39990234375,33.699951171875,34.099853515625],"listStartDate":[27.199951171875,26.2001953125,27.300048828125,26.89990234375,24.60009765625],"listEndDate":[30.199951171875,29.699951171875,30.39990234375,30.099853515625,30.199951171875],"dateQuery":[48.39990234375,48.89990234375,49.10009765625,49,49.2998046875],"invalidDateQuery":[49.10009765625,47.199951171875,49,50.89990234375,47.400146484375],"dragColumn":[99.900146484375,115.699951171875,116.400146484375,116.300048828125,116.39990234375],"navigateTaskDetail":[149,148.80029296875,149.999755859375,149.099853515625,148.999755859375],"navigateBackToList":[149,149.199951171875,145.300048828125,132.599853515625,149.39990234375],"copyDraft":[164.5,164.699951171875,164.60009765625,164.199951171875,164.5]}}
+  ✓   7 tests/pcs-design-revision-list-performance.spec.ts:31:1 › 设计改款列表冷进入、刷新和核心列表操作五次性能 (26.8s)
+  ✓   8 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › dye PDA 设计改款加工单接单与刷新持久化五次 (4.8s)
+  ✓   9 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 (5.2s)
+  ✓  10 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › F090 PDA 详情图片及交出单导航五次 (9.4s)
+  ✓  11 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 (8.9s)
+  ✓  12 tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 (13.6s)
+  ✓  13 tests/pcs-design-revision-pda-gap.spec.ts:13:1 › 设计改款印花 PDA 使用实际领料和工序事实，不出现花型测试或无关转印 (7.5s)
+  ✓  14 tests/pcs-design-revision-pda-gap.spec.ts:61:1 › 设计改款 PDA 完单后交出状态一致，禁止再次交出 (573ms)
+  ✓  15 tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 (629ms)
+  ✓  16 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › dye 设计改款产出就绪后仅允许逐卷交出 (4.7s)
+  ✓  17 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › print 设计改款产出就绪后仅允许逐卷交出 (4.3s)
+  ✓  18 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › F090 PDA 列表筛选、四个状态与底部跨页导航五次 (15.2s)
+  ✓  19 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › FAC-FLOWER PDA 列表筛选、四个状态与底部跨页导航五次 (11.0s)
+  ✓  20 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA warehouse-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (9.6s)
+  ✓  21 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA dye-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (9.4s)
+  ✓  22 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA print-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (9.3s)
+{"measuredAt":"2026-09-23T21:23:23.766Z","baseURL":"http://127.0.0.1:4732","viewport":"1024x768","browser":"149.0.7827.55","cache":"coldNavigation uses a new empty context; reload and actions use that same context","endCondition":"target results and visible images ready, then two animation frames; event.timeStamp for actions","distIndexSha256":"f8f62da439969fecfb651b8f279810bd8e990a2c098cf45ce02e257f9912c554","samples":{"coldNavigation":[297.69999999552965,295.79999999701977,294.69999999552965,292.6000000014901,289.8999999985099],"reload":[98.39999999850988,115,98.59999999403954,98.5,98.29999999701977],"firstPreview":[82.29999999701977,82.39999999850988,82.60000000149012,82.39999999850988,82.5],"closeButton":[49.19999999552965,49.20000000298023,51.19999999552965,49.100000001490116,49.29999999701977],"reopenForMask":[49,48.900000005960464,49,48.899999998509884,49],"closeMask":[50.600000001490116,48.70000000298023,48.600000001490116,48.899999998509884,49.899999998509884],"reopenForEscape":[45.600000001490116,47.70000000298023,47.100000001490116,47.400000005960464,47],"closeEscape":[48.899999998509884,49.100000001490116,47.399999998509884,46.70000000298023,46.600000001490116]}}
+  ✓  23 tests/pcs-design-revision-sample-preview-performance.spec.ts:31:1 › Mock 样衣图片的冷进入、刷新和预览操作各五次均低于 500ms (5.0s)
+  ✓  24 tests/pcs-design-revision-transfer-print.spec.ts:5:1 › 设计改款仓库调拨送货单包含来源、实际卷码和数量，打印不增加库存 (4.9s)
+  ✓  25 tests/pcs-design-revision-work-preview.spec.ts:4:1 › 目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣 (511ms)
+  ✓  26 tests/pcs-design-revision-work-preview.spec.ts:33:1 › 同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别计算 (881ms)
+  ✓  27 tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 (3.8s)
+  ✓  28 tests/pcs-design-revision-work-preview.spec.ts:136:1 › 普通生产来源印花信息单仍展示原生产单号 (407ms)
+  ✓  29 tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 (606ms)
+  ✘  30 tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 (371ms)
+
+
+  1) tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 ───────────
+
+    Error: page.evaluate: TypeError: Cannot read properties of null (reading 'find')
+        at eval (eval at evaluate (:303:30), <anonymous>:4:28)
+        at UtilityScript.evaluate (<anonymous>:305:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at eval (eval at evaluate (:303:30), <anonymous>:4:28)
+        at UtilityScript.evaluate (<anonymous>:305:16)
+        at UtilityScript.<anonymous> (<anonymous>:1:44)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-work-preview.spec.ts:175:14
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-work-p-62890-衣提交关联存储失败时页面保留成果，重试完成且刷新不重复/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-work-p-62890-衣提交关联存储失败时页面保留成果，重试完成且刷新不重复/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-work-p-62890-衣提交关联存储失败时页面保留成果，重试完成且刷新不重复/error-context.md
+
+  1 failed
+    tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 ────────────
+  29 passed (3.2m)

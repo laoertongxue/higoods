@@ -1,0 +1,13 @@
+
+Running 6 tests using 1 worker
+
+(node:38334) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/pcs-design-revision-work-preview.spec.ts:4:1 › 目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣 (508ms)
+  ✓  2 tests/pcs-design-revision-work-preview.spec.ts:33:1 › 同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别计算 (875ms)
+  ✓  3 tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 (3.9s)
+  ✓  4 tests/pcs-design-revision-work-preview.spec.ts:136:1 › 普通生产来源印花信息单仍展示原生产单号 (404ms)
+  ✓  5 tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 (594ms)
+  ✓  6 tests/pcs-design-revision-work-preview.spec.ts:175:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 (931ms)
+
+  6 passed (7.6s)

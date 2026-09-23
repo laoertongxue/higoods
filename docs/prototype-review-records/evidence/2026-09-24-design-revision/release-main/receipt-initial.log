@@ -1,0 +1,25 @@
+
+> higoods-vanilla-clone@1.0.0 workflow:verify
+> node --experimental-strip-types scripts/task-completion-receipt.ts verify --output /tmp/dr-main-release/task-receipt.json --task-boundary PCS设计改款W1-W6已实现调整与GAP补证合并main，保留main新功能，仅提交显式文件清单 --base origin/main
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: CodeGraph 状态缺少 pendingChanges
+    at parseCodeGraphStatus (file:///Users/laoer/.codex/worktrees/design-revision-main-release/higoods/scripts/workflow-governance/task-receipt.ts:133:3)
+    at codegraphStatus (file:///Users/laoer/.codex/worktrees/design-revision-main-release/higoods/scripts/task-completion-receipt.ts:67:10)
+    at verify (file:///Users/laoer/.codex/worktrees/design-revision-main-release/higoods/scripts/task-completion-receipt.ts:132:18)
+    at file:///Users/laoer/.codex/worktrees/design-revision-main-release/higoods/scripts/task-completion-receipt.ts:201:27
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

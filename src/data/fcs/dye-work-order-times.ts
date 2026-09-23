@@ -122,12 +122,15 @@ export function buildDyeWorkOrderTimes(input: {
     return occurred ? [event(`${node.nodeRecordId}:batch:${index + 1}`, node[key], `第 ${index + 1} 批 · ${node.nodeName} · ${node.nodeRecordId}`)] : []
   })
   const noProduction = order.sourceType === 'STOCK' ? '不适用（备货创建）' : '关联单据时间未记录'
-  return [
-    { key: 'creation', label: '单据创建', items: [
+  const creationItems = order.sourceType === 'DESIGN_REVISION'
+    ? [point('orderedAt', [event(order.dyeOrderNo, order.createdAt)], '历史时间未记录')]
+    : [
       point('demandCreatedAt', (production?.demands ?? []).map(demand => event(demand.id, demand.createdAt)), noProduction),
       point('productionCreatedAt', production ? [event(production.number, production.createdAt)] : [], noProduction),
       point('orderedAt', [event(order.dyeOrderNo, order.createdAt)], '历史时间未记录'),
-    ] },
+    ]
+  return [
+    { key: 'creation', label: '单据创建', items: creationItems },
     { key: 'receipt', label: '上游接收', items: [
       point('pendingReceiptAt', [
         ...upstream.map(source => event(source.id, source.type === 'HANDOUT' ? source.handedOutAt : source.approvedAt, source.documentNo)),

@@ -1,0 +1,236 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: pcs-design-revision-pda-dye-execution.spec.ts >> 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存
+- Location: tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1
+
+# Error details
+
+```
+Test timeout of 60000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e6]:
+    - generic [ref=e7]:
+      - generic "全能力测试工厂（F090）" [ref=e8]: 全能力测试工厂
+      - generic [ref=e9]: 执行 · F090
+    - button "打开当前待办" [ref=e10]:
+      - img [ref=e11]
+      - generic [ref=e14]: 待办
+      - generic [ref=e15]: "71"
+    - button "打开账号信息" [ref=e16]:
+      - generic [ref=e17]: 全
+      - generic [ref=e18]: 全能力测
+      - img [ref=e19]
+  - generic [ref=e22]:
+    - generic [ref=e23]:
+      - button "返回执行列表" [ref=e24]:
+        - img [ref=e25]
+        - text: 返回执行列表
+      - heading "任务详情" [level=1] [ref=e27]
+    - article [ref=e28]:
+      - generic [ref=e30]:
+        - generic [ref=e31]: DY-20260923-000001
+        - generic [ref=e32]: 待开工
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - generic [ref=e35]: 需求来源
+          - generic [ref=e36]: 设计改款任务
+          - generic [ref=e37]: 设计改款任务号
+          - link "ES-DR-025" [ref=e38] [cursor=pointer]:
+            - /url: /pcs/production-preparation/design-revision/ES-ID-DR-025
+          - generic [ref=e39]: 加工单 / 来源单号
+          - generic [ref=e40]: DY-20260923-000001
+          - generic [ref=e41]: 原始任务
+          - generic [ref=e42]: DY-20260923-000001
+          - generic [ref=e43]: 当前工序
+          - generic [ref=e44]: 设计改款染色
+          - generic [ref=e45]: 覆盖工序
+          - generic [ref=e46]: 设计改款染色
+          - generic [ref=e47]: 所在列表
+          - generic [ref=e48]: 待开工
+          - generic [ref=e49]: 计划染色面料Yard数
+          - generic [ref=e50]: 计划染色面料Yard数：20 Yard
+          - generic [ref=e51]: 当前工厂
+          - generic [ref=e52]: 全能力测试工厂（F090）
+          - generic [ref=e53]: 派发方式
+          - generic [ref=e54]: 直接派发
+          - generic [ref=e55]: 接收方
+          - generic [ref=e56]: 印花加工单 PH-20260923-000001
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - generic [ref=e59]: 任务二维码
+            - generic [ref=e60]: DY-20260923-000001
+          - img "任务 DY-20260923-000001 二维码" [ref=e62]
+    - article [ref=e65]:
+      - generic [ref=e67]:
+        - heading "染色任务" [level=2] [ref=e68]:
+          - img [ref=e69]
+          - text: 染色任务
+        - generic [ref=e72]: 等待处理
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - button "查看DY-20260923-000001 款式图大图" [ref=e75]:
+            - img "DY-20260923-000001 款式图" [ref=e76]
+          - button "查看DR-COTTON-001-RAW 实物图大图" [ref=e77]:
+            - img "DR-COTTON-001-RAW 实物图" [ref=e78]
+          - generic [ref=e79]:
+            - generic [ref=e80]: DR-COTTON-001-RAW
+            - generic [ref=e81]: DY-20260923-000001
+        - generic [ref=e82]:
+          - generic [ref=e83]:
+            - generic [ref=e84]: 接收状态
+            - generic [ref=e85]: 已收齐
+          - generic [ref=e86]:
+            - generic [ref=e87]: 加工状态
+            - generic [ref=e88]: 未开始
+          - generic [ref=e89]:
+            - generic [ref=e90]: 交出状态
+            - generic [ref=e91]: 未到交出
+        - generic [ref=e92]:
+          - generic [ref=e93]: 染色加工单
+          - generic [ref=e94]: DY-20260923-000001
+          - generic [ref=e95]: 当前状态
+          - generic [ref=e96]: 等待处理
+          - generic [ref=e97]: 目标颜色
+          - generic [ref=e98]: White
+          - generic [ref=e99]: 色号
+          - generic [ref=e100]: 11-0601 TPX
+          - generic [ref=e101]: 接收方
+          - generic [ref=e102]: 印花待加工仓
+          - generic [ref=e103]: 染缸候选
+          - generic [ref=e104]: VAT-F090-01
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - heading "等原料" [level=3] [ref=e108]
+              - generic [ref=e109]: 等原料
+            - generic [ref=e110]:
+              - generic [ref=e111]: 原料面料：DR-COTTON-001-RAW
+              - generic [ref=e112]: 开始时间：—
+              - generic [ref=e113]: 完成时间：—
+            - generic [ref=e114]:
+              - button "开始等原料" [disabled] [ref=e115]
+              - button "确认来源单据已到" [disabled] [ref=e116]
+          - generic [ref=e117]:
+            - heading "接收原料" [level=3] [ref=e118]
+            - paragraph [ref=e119]: 累计已收 20 Yard
+            - link "扫码接收本厂来货" [ref=e120] [cursor=pointer]:
+              - /url: /fcs/pda/factory-receipts?orderId=DWO-AUTO-000001
+          - generic [ref=e121]:
+            - generic [ref=e122]:
+              - heading "待排染缸" [level=3] [ref=e123]
+              - generic [ref=e124]: 待排染缸
+            - generic [ref=e125]:
+              - generic [ref=e126]: 染缸编号：未选择
+              - generic [ref=e127]: 染缸容量：—
+              - generic [ref=e128]: 可染类型：—
+            - button "排染缸" [disabled] [ref=e130]
+          - generic [ref=e131]:
+            - generic [ref=e132]:
+              - heading "染色" [level=3] [ref=e133]
+              - generic [ref=e134]: 待染色
+            - generic [ref=e135]:
+              - generic [ref=e136]: 染缸编号：未选择
+              - generic [ref=e137]: 开始时间：—
+              - generic [ref=e138]: 完成时间：—
+              - generic [ref=e139]: 投入面料 Yard 数：0 Yard
+              - generic [ref=e140]: 染色完成面料 Yard 数：0 Yard
+            - generic [ref=e141]:
+              - button "开始染色" [disabled] [ref=e142]
+              - button "完成染色" [disabled] [ref=e143]
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - heading "后处理" [level=3] [ref=e146]
+              - generic [ref=e147]: 按节点推进
+            - generic [ref=e148]:
+              - generic [ref=e149]:
+                - generic [ref=e150]: 脱水
+                - generic [ref=e151]:
+                  - generic [ref=e152]: 开始：—
+                  - generic [ref=e153]: 完成：—
+                - generic [ref=e154]:
+                  - button "开始脱水" [disabled] [ref=e155]
+                  - button "完成脱水" [disabled] [ref=e156]
+              - generic [ref=e157]:
+                - generic [ref=e158]: 烘干
+                - generic [ref=e159]:
+                  - generic [ref=e160]: 开始：—
+                  - generic [ref=e161]: 完成：—
+                - generic [ref=e162]:
+                  - button "开始烘干" [disabled] [ref=e163]
+                  - button "完成烘干" [disabled] [ref=e164]
+              - generic [ref=e165]:
+                - generic [ref=e166]: 定型
+                - generic [ref=e167]:
+                  - generic [ref=e168]: 开始：—
+                  - generic [ref=e169]: 完成：—
+                - generic [ref=e170]:
+                  - button "开始定型" [disabled] [ref=e171]
+                  - button "完成定型" [disabled] [ref=e172]
+              - generic [ref=e173]:
+                - generic [ref=e174]: 打卷
+                - generic [ref=e175]:
+                  - generic [ref=e176]: 开始：—
+                  - generic [ref=e177]: 完成：—
+                - generic [ref=e178]:
+                  - button "开始打卷" [disabled] [ref=e179]
+                  - button "完成打卷" [disabled] [ref=e180]
+              - generic [ref=e181]:
+                - generic [ref=e182]: 包装
+                - generic [ref=e183]:
+                  - generic [ref=e184]: 开始：—
+                  - generic [ref=e185]: 完成：—
+                - generic [ref=e186]:
+                  - button "开始包装" [disabled] [ref=e187]
+                  - button "完成包装" [disabled] [ref=e188]
+          - generic [ref=e189]:
+            - generic [ref=e190]:
+              - heading "待送货" [level=3] [ref=e191]
+              - generic [ref=e192]: 待收货确认
+            - generic [ref=e193]:
+              - generic [ref=e194]: 交出单：未生成
+              - generic [ref=e195]: 交出记录：0 条
+              - generic [ref=e196]: 待收货：0 条
+              - generic [ref=e197]: 实收染色面料 Yard 数：0 Yard
+            - generic [ref=e198]:
+              - button "查看交出单" [disabled] [ref=e199]
+              - button "去染色待交出列表" [disabled] [ref=e200]
+          - generic [ref=e201]:
+            - generic [ref=e202]:
+              - heading "收货确认" [level=3] [ref=e203]
+              - generic [ref=e204]: 待收货确认
+            - generic [ref=e205]:
+              - generic [ref=e206]: 接收方：印花待加工仓
+              - generic [ref=e207]: 实收染色面料 Yard 数：0 Yard
+              - generic [ref=e208]: 差异面料 Yard 数：0 Yard
+              - generic [ref=e209]: 收货状态：待收货确认
+              - generic [ref=e210]: 备注：仓库确认收货后更新状态
+    - article [ref=e211]:
+      - heading "操作" [level=2] [ref=e213]
+  - navigation [ref=e215]:
+    - button "接单" [ref=e216]:
+      - img [ref=e217]
+      - generic [ref=e220]: 接单
+    - button "执行" [ref=e221]:
+      - img [ref=e222]
+      - generic [ref=e224]: 执行
+    - button "交接" [ref=e225]:
+      - img [ref=e226]
+      - generic [ref=e229]: 交接
+    - button "仓管" [ref=e230]:
+      - img [ref=e231]
+      - generic [ref=e234]: 仓管
+    - button "结算" [ref=e235]:
+      - img [ref=e236]
+      - generic [ref=e239]: 结算
+```

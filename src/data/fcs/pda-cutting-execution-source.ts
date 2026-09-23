@@ -2266,6 +2266,28 @@ export function getPdaCuttingExecutionSnapshot(taskId: string, executionKey?: st
   return getPdaCuttingTaskSnapshot(taskId, executionKey, snapshot)
 }
 
+// List cards consume identity, quantities and the next action only. Build these from
+// the same execution rows without loading marker-plan editing targets and history.
+export function getPdaCuttingTaskListSummary(taskId: string) {
+  const snapshot = getSnapshot()
+  const records = getSourceExecutionsByTaskId(taskId, snapshot)
+  if (!records.length) return null
+  const selected = resolveExecutionRecord(taskId, undefined, snapshot) ?? records[0]
+  const rows = records.map((record, index) => buildTaskOrderLine(record, index + 1, snapshot))
+  const line = rows.find(row => row.executionOrderId === selected.executionOrderId) ?? rows[0]
+  const original = getCutOrderRecord(selected)
+  return {
+    productionOrderNo: selected.productionOrderNo,
+    cutOrderGroups: buildTaskCutOrderGroups(rows, selected.executionOrderId),
+    cutPieceOrderCount: rows.length,
+    nextRecommendedAction: line.nextActionLabel,
+    materialAlias: line.materialAlias || selected.materialAlias || original?.materialAlias || '',
+    materialSku: selected.materialSku,
+    materialTypeLabel: line.materialTypeLabel,
+    orderQty: original?.requiredQty || 0,
+  }
+}
+
 export function getPdaCuttingTaskSnapshot(
   taskId: string,
   executionKey?: string,

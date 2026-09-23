@@ -1,3 +1,5 @@
+import type { DesignRevisionMaterialSkuSnapshot } from './pcs-design-revision-material-sku.ts'
+
 export type EngineeringBomOperatorRole = '买手' | '跟单' | '版师' | '管理员'
 
 export type EngineeringBomRequirementFlag = '是' | '否'
@@ -23,6 +25,7 @@ export interface EngineeringBomTaskLinkageRow {
 export interface EngineeringBomMaterialLineDraft {
   bomItemId?: string
   materialSkuId: string
+  designRevisionSkuSnapshot?: DesignRevisionMaterialSkuSnapshot
   sequenceNo?: number
   styleCode?: string
   productColor?: string
@@ -30,6 +33,7 @@ export interface EngineeringBomMaterialLineDraft {
   materialImageUrl?: string
   specification?: string
   usage: number
+  quantityBasis?: 'PER_SAMPLE' | 'ORDER_TOTAL'
   sampleQuantity: number
   usageUnit: string
   lossRate: number

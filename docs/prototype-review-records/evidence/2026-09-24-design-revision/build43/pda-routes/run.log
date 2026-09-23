@@ -1,0 +1,13 @@
+F090 /fcs/pda/task-receive {"cold":397.90000000596046,"reload":309}
+F090 /fcs/pda/task-receive/DWO-AUTO-000001 {"cold":353.3999999985099,"reload":269.09999999403954}
+F090 /fcs/pda/exec {"cold":499.20000000298023,"reload":382}
+F090 /fcs/pda/exec/DWO-AUTO-000001 {"cold":402.1000000014901,"reload":308.79999999701977}
+F090 /fcs/pda/handover {"cold":298.1000000014901,"reload":214.79999999701977}
+F090 /fcs/pda/factory-receipts {"cold":355.1000000014901,"reload":282.19999999552965}
+FAC-FLOWER /fcs/pda/task-receive {"cold":390.70000000298023,"reload":280.8999999985099}
+FAC-FLOWER /fcs/pda/task-receive/PWO-PRINT-AUTO-000001 {"cold":322.3999999985099,"reload":231.89999999850988}
+FAC-FLOWER /fcs/pda/exec {"cold":404.8999999985099,"reload":300.5}
+FAC-FLOWER /fcs/pda/exec/PWO-PRINT-AUTO-000001 {"cold":408.70000000298023,"reload":282}
+FAC-FLOWER /fcs/pda/handover {"cold":284.5,"reload":207.59999999403954}
+FAC-FLOWER /fcs/pda/factory-receipts {"cold":368.70000000298023,"reload":284}
+DYE-GOTO-GLOBAL /fcs/pda/factory-receipts {"cold":372,"reload":293}

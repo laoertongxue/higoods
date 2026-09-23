@@ -15,6 +15,8 @@ import {
   DEDICATED_CUTTING_FACTORY_NAME,
   DEDICATED_POST_FACTORY_ID,
   DEDICATED_POST_FACTORY_NAME,
+  GOTO_GLOBAL_FACTORY_ID,
+  GOTO_GLOBAL_FACTORY_NAME,
   KOL_GOTO_FACTORY_ID,
   KOL_GOTO_FACTORY_NAME,
   OWN_WOOL_FACTORY_ID,
@@ -329,6 +331,7 @@ export const initialFactoryPdaUsers: FactoryPdaUser[] = [
   ...ownWoolFactoryPdaUsers,
   ...dedicatedPostFactoryPdaUsers,
   ...kolGotoFactoryPdaUsers,
+  ...createFactoryPdaUsersForFactory(GOTO_GLOBAL_FACTORY_ID, GOTO_GLOBAL_FACTORY_NAME),
   ...specialCraftDedicatedFactoryPdaUsers,
   ...onboardingOfficialFactoryPdaUsers,
 ]
@@ -487,6 +490,7 @@ export const initialFactoryPdaRoles: FactoryPdaRole[] = [
   ...generatePresetRolesForFactory(OWN_WOOL_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(DEDICATED_POST_FACTORY_ID, INIT_NOW),
   ...generatePresetRolesForFactory(KOL_GOTO_FACTORY_ID, INIT_NOW),
+  ...generatePresetRolesForFactory(GOTO_GLOBAL_FACTORY_ID, INIT_NOW),
   ...specialCraftDedicatedFactories.flatMap((factory) => generatePresetRolesForFactory(factory.id, INIT_NOW)),
   ...[34, 35, 36].flatMap((seed) => generatePresetRolesForFactory(`FACTORY-ONBOARD-${String(seed).padStart(4, '0')}`, '2026-05-09 16:00:00')),
 ]

@@ -105,7 +105,7 @@ let ordersSnapshot: PrepProcessOrderFact[] | undefined
 let displayRows = new Map<string, PrintingWorkOrderBusinessRecord>()
 
 function getOrders(): PrepProcessOrderFact[] {
-  if (!ordersSnapshot) { ensureProductionDemandEarlyProcessAcceptanceData(); ordersSnapshot = listPrepProcessOrders('PRINT', { includeExecutionDetails: false }); displayRows = new Map(listPrintingWorkOrders().map(row => [row.workOrderId, row])) }
+  if (!ordersSnapshot) { ensureProductionDemandEarlyProcessAcceptanceData('PRINT'); ordersSnapshot = listPrepProcessOrders('PRINT', { includeExecutionDetails: false }); displayRows = new Map(listPrintingWorkOrders().map(row => [row.workOrderId, row])) }
   return ordersSnapshot
 }
 

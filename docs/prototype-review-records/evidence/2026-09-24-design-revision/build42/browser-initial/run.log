@@ -1,0 +1,332 @@
+
+Running 32 tests using 1 worker
+
+(node:29565) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (12.8s)
+  ✓   2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (8.3s)
+  ✓   3 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › dye 产出卷选择与交出草稿生成五次 (9.4s)
+  ✘   4 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 (1.5s)
+(node:29658) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   5 tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 (11.0s)
+(node:29701) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   6 tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 (25.5s)
+(node:29795) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   7 tests/pcs-design-revision-list-actions.spec.ts:7:1 › 设计改款列表查询、导出、排序后全选本页和跨页批量复制 (2.4s)
+  ✓   8 tests/pcs-design-revision-list-actions.spec.ts:83:1 › 染印组合筛选读取已保存草稿的目标结果 SKU (921ms)
+{"measuredAt":"2026-09-23T21:01:23.270Z","baseURL":"http://127.0.0.1:4732","viewport":"1366x768","browser":"149.0.7827.55","cache":"five new empty contexts; reload and actions retain cache","timing":"event.timeStamp to asserted result + visible image decode + two frames, including assertion overhead","distIndexSha256":"3dc6942f7d2e68c894a96ca77110d6af2eb7336aa22a621147a2701ffb5ff121","samples":{"coldNavigation":[364.30000000447035,353.29999999701977,362.20000000298023,359.70000000298023,357.80000000447035],"reload":[183.10000000149012,169,168.10000000149012,180.80000000447035,170.69999999552965],"keywordInput":[34.10009765625,39.800048828125,36.599853515625,40.2998046875,37.300048828125],"query":[61.5,63.400146484375,63.300048828125,63.5,63.10009765625],"reset":[64.800048828125,65,65.099853515625,65.199951171875,67],"moreFilters":[30.10009765625,30.5,30.199951171875,30.39990234375,30.60009765625],"patternFilter":[37.199951171875,38.800048828125,39.099853515625,38.2001953125,38.2998046875],"emptyQuery":[45.199951171875,30.699951171875,30.60009765625,30.800048828125,30],"export":[47.10009765625,47.300048828125,47.2998046875,47.10009765625,46.699951171875],"sortAscending":[60.300048828125,63.5,63.800048828125,63.300048828125,63.89990234375],"sortDescending":[64.10009765625,63.800048828125,63,63.89990234375,63.7998046875],"sortReset":[64,63.800048828125,61.89990234375,63.10009765625,61.89990234375],"pageSize20":[71.5,72.7001953125,73.800048828125,73,73.699951171875],"pageSize10":[46.5,45.300048828125,47.5,49.60009765625,47.5],"openCreate":[64,63,64.199951171875,64.10009765625,64.300048828125],"closeCreate":[47.199951171875,46.60009765625,47.099853515625,47.10009765625,47.10009765625],"openStyleImage":[47.199951171875,46.7998046875,47,63.60009765625,63.89990234375],"closeStyleImage":[47.400146484375,47,47.400146484375,47.39990234375,47.5],"nextPage":[63.5,63,63.599853515625,63.599853515625,63.5],"previousPage":[63.5,63.300048828125,63.60009765625,62.5,62.7001953125],"selectPage":[47.39990234375,57.199951171875,47.300048828125,47.300048828125,45.400146484375],"clearSelection":[47.099853515625,46.900146484375,47.5,47.199951171875,47.5],"openColumns":[64,70.199951171875,64,66.199951171875,62.699951171875],"unfreezeCode":[113.5,99.10009765625,114.60009765625,113.599853515625,96.7001953125],"freezeCode":[98.39990234375,94,96.400146484375,96.400146484375,95.900146484375],"hideColumn":[80.099853515625,80,94.5,80,80.099853515625],"restoreColumns":[63.5,63.7001953125,63.2001953125,63.5,63.7998046875],"closeColumns":[46.800048828125,46.800048828125,45.699951171875,48.699951171875,46.89990234375],"listStatus:DRAFT":[31.5,36.7998046875,36.60009765625,35.800048828125,35.800048828125],"query:listStatus:DRAFT":[64.2001953125,64,64.2001953125,61.300048828125,80.800048828125],"listStatus:IN_PROGRESS":[34.2001953125,34.199951171875,33.300048828125,32.199951171875,28.60009765625],"query:listStatus:IN_PROGRESS":[64.10009765625,65.60009765625,63.89990234375,63.699951171875,63.60009765625],"listStatus:COMPLETED":[33.300048828125,32.10009765625,31.900146484375,33.5,35.5],"query:listStatus:COMPLETED":[64.10009765625,64,64.199951171875,65.800048828125,64],"teamFilter:买手":[28,32.400146484375,29.199951171875,28.300048828125,29.900146484375],"query:teamFilter:买手":[47.5,45.5,47.5,47,47.5],"listProcessing:NONE":[35.10009765625,34.699951171875,34.699951171875,31,34.89990234375],"query:listProcessing:NONE":[80.800048828125,80.89990234375,80.400146484375,96.300048828125,80.89990234375],"listProcessing:DYE_ONLY":[32.400146484375,35,28.89990234375,33.800048828125,33.10009765625],"query:listProcessing:DYE_ONLY":[31,49.400146484375,49.39990234375,47.699951171875,31.099853515625],"listProcessing:PRINT_ONLY":[34.5,33.7998046875,35.800048828125,34.300048828125,32.699951171875],"query:listProcessing:PRINT_ONLY":[47.60009765625,47.400146484375,31,49.5,49.599853515625],"listProcessing:BOTH":[34.400146484375,34.10009765625,34.800048828125,32.39990234375,33.900146484375],"query:listProcessing:BOTH":[30.900146484375,47.2998046875,47.599853515625,47.699951171875,47.5],"listStartDate":[33.900146484375,33.300048828125,35.800048828125,34,33.2998046875],"listEndDate":[39.5,39.199951171875,40.199951171875,39.60009765625,39.5],"dateQuery":[64.10009765625,63.800048828125,63.699951171875,64,62.800048828125],"invalidDateQuery":[63.900146484375,64.099853515625,65.7001953125,63.5,64.099853515625],"dragColumn":[116.60009765625,116.39990234375,114.699951171875,118.60009765625,116.60009765625],"navigateTaskDetail":[229.900146484375,230.199951171875,214.10009765625,226.300048828125,230.199951171875],"navigateBackToList":[229.60009765625,231.600341796875,215.199951171875,231.60009765625,229.60009765625],"copyDraft":[178.300048828125,178.39990234375,178.699951171875,178.300048828125,178.300048828125]}}
+  ✓   9 tests/pcs-design-revision-list-performance.spec.ts:31:1 › 设计改款列表冷进入、刷新和核心列表操作五次性能 (33.4s)
+  ✓  10 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › dye PDA 设计改款加工单接单与刷新持久化五次 (6.7s)
+  ✓  11 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 (6.8s)
+  ✓  12 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › F090 PDA 详情图片及交出单导航五次 (11.2s)
+  ✘  13 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 (8.4s)
+(node:29948) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  14 tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 (14.3s)
+  ✓  15 tests/pcs-design-revision-pda-gap.spec.ts:13:1 › 设计改款印花 PDA 使用实际领料和工序事实，不出现花型测试或无关转印 (8.9s)
+  ✓  16 tests/pcs-design-revision-pda-gap.spec.ts:61:1 › 设计改款 PDA 完单后交出状态一致，禁止再次交出 (705ms)
+  ✘  17 tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 (739ms)
+(node:30033) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  18 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › dye 设计改款产出就绪后仅允许逐卷交出 (10.5s)
+(node:30040) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  19 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › print 设计改款产出就绪后仅允许逐卷交出 (657ms)
+(node:30046) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  20 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › F090 PDA 列表筛选、四个状态与底部跨页导航五次 (20.0s)
+  ✓  21 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › FAC-FLOWER PDA 列表筛选、四个状态与底部跨页导航五次 (14.2s)
+  ✓  22 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA warehouse-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.3s)
+  ✓  23 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA dye-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.2s)
+  ✓  24 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA print-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.2s)
+{"measuredAt":"2026-09-23T21:03:44.985Z","baseURL":"http://127.0.0.1:4732","viewport":"1024x768","browser":"149.0.7827.55","cache":"coldNavigation uses a new empty context; reload and actions use that same context","endCondition":"target results and visible images ready, then two animation frames; event.timeStamp for actions","distIndexSha256":"3dc6942f7d2e68c894a96ca77110d6af2eb7336aa22a621147a2701ffb5ff121","samples":{"coldNavigation":[340.29999999701977,340.29999999701977,344.1000000014901,337.70000000298023,337.3999999985099],"reload":[172.89999999850988,174,167.5,168.30000000447035,169.10000000149012],"firstPreview":[79.70000000298023,82.39999999850988,81.60000000149012,81.79999999701977,81.80000000447035],"closeButton":[48.79999999701977,48.099999994039536,48.80000000447035,50.29999999701977,50.600000001490116],"reopenForMask":[48.5,48.70000000298023,48.600000001490116,48.600000001490116,48.400000005960464],"closeMask":[48.20000000298023,48.399999998509884,48.400000005960464,48.5,49.20000000298023],"reopenForEscape":[48.29999999701977,48.399999998509884,47.5,48.5,48.20000000298023],"closeEscape":[44.79999999701977,44.899999998509884,45.899999998509884,44.600000001490116,45.70000000298023]}}
+  ✓  25 tests/pcs-design-revision-sample-preview-performance.spec.ts:31:1 › Mock 样衣图片的冷进入、刷新和预览操作各五次均低于 500ms (5.7s)
+  ✓  26 tests/pcs-design-revision-transfer-print.spec.ts:5:1 › 设计改款仓库调拨送货单包含来源、实际卷码和数量，打印不增加库存 (6.6s)
+  ✓  27 tests/pcs-design-revision-work-preview.spec.ts:4:1 › 目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣 (578ms)
+  ✓  28 tests/pcs-design-revision-work-preview.spec.ts:33:1 › 同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别计算 (950ms)
+  ✓  29 tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 (4.4s)
+  ✓  30 tests/pcs-design-revision-work-preview.spec.ts:136:1 › 普通生产来源印花信息单仍展示原生产单号 (440ms)
+  ✓  31 tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 (710ms)
+  ✓  32 tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 (1.1s)
+
+
+  1) tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 ───────────────
+
+    TypeError: expect(received).toHaveLength(expected)
+
+    Matcher error: received value must have a length property whose value must be a number
+
+    Received has value: undefined
+
+      81 |   await measure('saveDraft',async()=>{await action(craft==='dye'?'save-document':'commit-preview').click();await expect(action('scan')).toBeVisible()})
+      82 |   const saved=await p.evaluate(({key,craft})=>{const o=JSON.parse(localStorage.getItem(key)!).state.workOrders.find(([,o]:any)=>o.sourceType==='DESIGN_REVISION')[1];return(craft==='dye'?o:o.businessView).dispatchDocuments.at(-1)},{key,craft})
+    > 83 |   expect(saved.status).toBe('草稿');expect(saved.lines[0].rolls).toHaveLength(1);expect(saved.scans).toHaveLength(0)
+         |                                                                                                    ^
+      84 |   await p.reload();const persisted=await p.evaluate(key=>localStorage.getItem(key),key);expect(persisted).toContain(saved.id)
+      85 |   await c.close()
+      86 |  }
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:83:100
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 ───────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('dialog').last()
+    Expected: visible
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for getByRole('dialog').last()
+
+
+      16 |   const action=(a:string)=>p.locator(craft==='dye'?`[data-dye-work-orders-action="${a}"]`:`[data-printing-action="${a}"]`)
+      17 |   for(const a of craft==='dye'?['view','edit','logs','barcodes','remark']:['edit-info','logs','open-barcodes','remarks']){
+    > 18 |    await measure('open:'+a,async()=>{await action(a).filter({visible:true}).first().click();await expect(p.getByRole('dialog').last()).toBeVisible()})
+         |                                                                                                                                        ^
+      19 |    const d=p.getByRole('dialog').last()
+      20 |    const images=d.locator('[data-pda-image-preview-url], [data-printing-action="preview-image"]')
+      21 |    for(let i=0;i<await images.count();i++){
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:18:136
+        at measure (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:11:207)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:18:4
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  3) tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 ─────────────
+
+    Error: image:edit-info:1
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 500
+    Received:   1308.7000000029802
+
+      35 |  }
+      36 |  expect(errors).toEqual([])
+    > 37 |  for(const[key,vs]of Object.entries(samples)){expect(vs).toHaveLength(5);for(const ms of vs)expect(ms,key).toBeLessThan(500)}
+         |                                                                                                            ^
+      38 | })
+      39 |
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:37:108
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #5: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-5.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/error-context.md
+
+    attachment #7: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  4) tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 ────
+
+    Error: expect(received).toBeGreaterThanOrEqual(expected)
+
+    Expected: >= 2
+    Received:    0
+
+      12 |     const measure=async(key:string,run:()=>Promise<void>,ev='click')=>{await p.evaluate(ev=>document.addEventListener(ev,e=>sessionStorage.setItem('detail-start',String(performance.timeOrigin+e.timeStamp)),{capture:true,once:true}),ev);await run();const ms=await p.evaluate(async()=>{await Promise.all([...document.images].filter(i=>{const r=i.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0}).map(i=>i.decode()));await new Promise<void>(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r())));return performance.timeOrigin+performance.now()-Number(sessionStorage.getItem('detail-start'))});(samples[key]??=[]).push(ms);await writeFile(info.outputPath('performance.json'),JSON.stringify({factory,samples,errors,distSha:createHash('sha256').update(await readFile('dist/index.html')).digest('hex')},null,2))}
+      13 |     await p.goto(`${baseURL}/fcs/pda/exec/${task}`)
+    > 14 |     const images=p.locator('[data-pda-image-preview-url]');expect(await images.count()).toBeGreaterThanOrEqual(2)
+         |                                                                                         ^
+      15 |     for(let index=0;index<await images.count();index++)for(const close of ['button','escape','shade']){
+      16 |       await measure(`image:${index}:open:${close}`,async()=>{await images.nth(index).click();await expect(p.locator('[data-pda-image-preview-root] img')).toBeVisible()})
+      17 |       await measure(`image:${index}:close:${close}`,async()=>{if(close==='escape')await p.keyboard.press('Escape');else if(close==='shade')await p.locator('[data-pda-image-preview-root] [aria-label="关闭大图预览"]').click({position:{x:3,y:3}});else await p.locator('[data-pda-image-preview-root]').getByRole('button',{name:'关闭',exact:true}).click();await expect(p.locator('[data-pda-image-preview-root]')).toHaveCount(0)},close==='escape'?'keydown':'click')
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-detail-navigation.spec.ts:14:89
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/test-failed-5.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #5: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/error-context.md
+
+    attachment #7: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-pda-de-e02a0-FAC-FLOWER-PDA-详情图片及交出单导航五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  5) tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 ───────────────────────
+
+    Error: expect(received).toBeGreaterThan(expected)
+
+    Expected: > 0
+    Received:   0
+
+      77 |  const page=await context.newPage();await page.goto(`${baseURL}/fcs/pda/exec/${dye.taskId}`)
+      78 |  const actions=page.locator('[data-pda-execd-action^="dye-start"],[data-pda-execd-action^="dye-complete"],[data-pda-execd-action="dye-plan-vat"]')
+    > 79 |  expect(await actions.count()).toBeGreaterThan(0)
+         |                                ^
+      80 |  for(let i=0;i<await actions.count();i++)await expect(actions.nth(i)).toBeDisabled()
+      81 |  await context.close()
+      82 | })
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-gap.spec.ts:79:32
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-gap-设计改款染色-PDA-完单后全部加工入口禁用/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-pda-gap-设计改款染色-PDA-完单后全部加工入口禁用/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-gap-设计改款染色-PDA-完单后全部加工入口禁用/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-pda-gap-设计改款染色-PDA-完单后全部加工入口禁用/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  6) tests/pcs-design-revision-pda-gap.spec.ts:84:38 › dye 设计改款产出就绪后仅允许逐卷交出 ────────────────────────
+
+    Error: expect(locator).toBeDisabled() failed
+
+    Locator: locator('[data-pda-execd-action="dye-submit-handover"]')
+    Expected: disabled
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeDisabled" with timeout 10000ms
+      - waiting for locator('[data-pda-execd-action="dye-submit-handover"]')
+
+
+      91 |   const c=await browser.newContext({viewport:{width:390,height:844},storageState:{cookies:[],origins:[{origin:new URL(baseURL!).origin,localStorage:Object.entries(values).map(([name,value])=>({name,value}))}]}}),p=await c.newPage()
+      92 |   await p.goto(`${baseURL}/fcs/pda/exec/${order.taskId}`)
+    > 93 |   await expect(p.locator(`[data-pda-execd-action="${craft}-submit-handover"]`)).toBeDisabled()
+         |                                                                                 ^
+      94 |   await expect(p.getByText(`请在管理端${craft==='dye'?'染色':'印花'}待交出列表逐卷建单、扫码并确认交出。`,{exact:true})).toBeVisible()
+      95 |   await p.evaluate(()=>document.addEventListener('click',e=>(window as any).__start=e.timeStamp,{once:true,capture:true}))
+      96 |   await p.locator('[data-pda-execd-action="view-handover-order"]').first().click()
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-gap.spec.ts:93:81
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-gap-dye-设计改款产出就绪后仅允许逐卷交出/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-pda-gap-dye-设计改款产出就绪后仅允许逐卷交出/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-gap-dye-设计改款产出就绪后仅允许逐卷交出/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-pda-gap-dye-设计改款产出就绪后仅允许逐卷交出/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7) tests/pcs-design-revision-pda-gap.spec.ts:84:38 › print 设计改款产出就绪后仅允许逐卷交出 ──────────────────────
+
+    Error: expect(locator).toBeDisabled() failed
+
+    Locator: locator('[data-pda-execd-action="print-submit-handover"]')
+    Expected: disabled
+    Error: strict mode violation: locator('[data-pda-execd-action="print-submit-handover"]') resolved to 2 elements:
+        1) <button disabled data-task-id="PWO-PRINT-AUTO-000001" data-pda-execd-action="print-submit-handover" data-handover-order-id="HO-PWOPRINTAUTO000001" class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50">↵                发起交出↵              </button> aka getByRole('button', { name: '发起交出' }).first()
+        2) <button disabled data-task-id="PWO-PRINT-AUTO-000001" data-pda-execd-action="print-submit-handover" class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted">…</button> aka getByRole('button', { name: '发起交出' }).nth(1)
+
+    Call log:
+      - Expect "toBeDisabled" with timeout 10000ms
+      - waiting for locator('[data-pda-execd-action="print-submit-handover"]')
+
+
+      91 |   const c=await browser.newContext({viewport:{width:390,height:844},storageState:{cookies:[],origins:[{origin:new URL(baseURL!).origin,localStorage:Object.entries(values).map(([name,value])=>({name,value}))}]}}),p=await c.newPage()
+      92 |   await p.goto(`${baseURL}/fcs/pda/exec/${order.taskId}`)
+    > 93 |   await expect(p.locator(`[data-pda-execd-action="${craft}-submit-handover"]`)).toBeDisabled()
+         |                                                                                 ^
+      94 |   await expect(p.getByText(`请在管理端${craft==='dye'?'染色':'印花'}待交出列表逐卷建单、扫码并确认交出。`,{exact:true})).toBeVisible()
+      95 |   await p.evaluate(()=>document.addEventListener('click',e=>(window as any).__start=e.timeStamp,{once:true,capture:true}))
+      96 |   await p.locator('[data-pda-execd-action="view-handover-order"]').first().click()
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-pda-gap.spec.ts:93:81
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-gap-print-设计改款产出就绪后仅允许逐卷交出/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-pda-gap-print-设计改款产出就绪后仅允许逐卷交出/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-gap-print-设计改款产出就绪后仅允许逐卷交出/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-pda-gap-print-设计改款产出就绪后仅允许逐卷交出/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  7 failed
+    tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 ────────────────
+    tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 ────────────────
+    tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 ──────────────
+    tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 ─────
+    tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 ────────────────────────
+    tests/pcs-design-revision-pda-gap.spec.ts:84:38 › dye 设计改款产出就绪后仅允许逐卷交出 ─────────────────────────
+    tests/pcs-design-revision-pda-gap.spec.ts:84:38 › print 设计改款产出就绪后仅允许逐卷交出 ───────────────────────
+  25 passed (4.4m)

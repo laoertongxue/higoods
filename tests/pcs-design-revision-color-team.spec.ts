@@ -1,41 +1,24 @@
 import assert from 'node:assert/strict'
 
-import {
-  confirmEngineeringIndependentColorRequirement,
-  getEngineeringIndependentProfessionalTaskCurrentTeam,
-  listEngineeringIndependentSamplingRecords,
-  resetEngineeringIndependentSamplingRepository,
-  startEngineeringIndependentProfessionalTask,
-} from '../src/data/pcs-engineering-master-sampling.ts'
+import { listEngineeringIndependentSamplingRecords, resetEngineeringIndependentSamplingRepository } from '../src/data/pcs-engineering-master-sampling.ts'
+import { resolveDesignRevisionMaterialSku } from '../src/data/pcs-design-revision-material-sku.ts'
 
 resetEngineeringIndependentSamplingRepository(true)
-const record = listEngineeringIndependentSamplingRecords().find((item) =>
-  item.professionalTasks.some((task) =>
-    (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && task.status === 'WAIT_START',
-  ),
-)
-assert.ok(record, '演示数据必须包含一条待开始的设计改款调色任务')
-const colorTask = record.professionalTasks.find((task) =>
-  (task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && task.status === 'WAIT_START',
-)!
-const buyer = { role: '买手', userId: record.buyerId, userName: record.buyerName }
+const records = listEngineeringIndependentSamplingRecords()
+assert.ok(records.length > 0, '演示数据应包含设计改款任务')
+assert.ok(records.every((record) => record.professionalTasks.every((task) =>
+  task.taskType === 'BASE_PATTERN' || task.taskType === 'DISPLAY_SAMPLE',
+)), '设计改款 Mock 不应生成在线调色或花型任务')
 
-assert.equal(colorTask.ownerTeamName, '染厂')
-assert.equal(getEngineeringIndependentProfessionalTaskCurrentTeam(colorTask), '买手')
-confirmEngineeringIndependentColorRequirement({
-  taskId: colorTask.taskId,
-  actor: buyer,
-  pantoneColorCode: '19-4052 TCX',
-  colorName: '经典蓝',
-})
-assert.throws(() => startEngineeringIndependentProfessionalTask({
-  taskId: colorTask.taskId,
-  actor: buyer,
-}), /当前应由染厂处理/)
-const started = startEngineeringIndependentProfessionalTask({
-  taskId: colorTask.taskId,
-  actor: { role: '染厂', userId: 'DYE-1', userName: '染厂-1' },
-})
-assert.equal(started.professionalTasks.find((task) => task.taskId === colorTask.taskId)?.status, 'IN_PROGRESS')
+const dyed = resolveDesignRevisionMaterialSku('dr_cotton_dyed')
+const printed = resolveDesignRevisionMaterialSku('dr_cotton_dye_print')
+assert.equal(dyed.requiresDye, true)
+assert.equal(dyed.requiresPrint, false)
+assert.ok(dyed.colorName && dyed.pantoneCode, '目标染色 SKU 应带出颜色与潘通号')
+assert.equal(printed.requiresDye, true)
+assert.equal(printed.requiresPrint, true)
+assert.ok(printed.colorName && printed.pantoneCode && printed.patternCode && printed.patternImageUrl,
+  '目标染印 SKU 应同时带出染色与花型信息')
+assert.equal(printed.dyedSkuCode, dyed.targetSkuCode, '同一份面料先染后印')
 
 console.log('pcs-design-revision-color-team.spec PASS')

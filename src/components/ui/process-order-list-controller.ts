@@ -165,21 +165,26 @@ export function createProcessOrderListController<Row>(options: ProcessOrderListC
     document.addEventListener('dragstart', (event) => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>(`${options.rootSelector} [data-standard-list-column-drag]`) : null
       if (!target) return
+      if (options.locallyManagedEvents) event.stopPropagation()
       draggedColumnKey = target.dataset.dragSource || ''
       event.dataTransfer?.setData('text/plain', draggedColumnKey)
-    })
+    }, Boolean(options.locallyManagedEvents))
     document.addEventListener('dragover', (event) => {
-      if (event.target instanceof Element && event.target.closest(`${options.rootSelector} [data-drop-target]`)) event.preventDefault()
-    })
+      if (event.target instanceof Element && event.target.closest(`${options.rootSelector} [data-drop-target]`)) {
+        event.preventDefault()
+        if (options.locallyManagedEvents) event.stopPropagation()
+      }
+    }, Boolean(options.locallyManagedEvents))
     document.addEventListener('drop', (event) => {
       const target = event.target instanceof Element ? event.target.closest<HTMLElement>(`${options.rootSelector} [data-drop-target]`) : null
+      if (target && options.locallyManagedEvents) event.stopPropagation()
       const sourceKey = draggedColumnKey || event.dataTransfer?.getData('text/plain') || ''
       const targetKey = target?.dataset.dropTarget || ''
       draggedColumnKey = ''
       if (!sourceKey || !targetKey || sourceKey === targetKey || !reorderColumn(sourceKey, targetKey)) return
       event.preventDefault()
       refresh({ pagination: false, overlays: true })
-    })
+    }, Boolean(options.locallyManagedEvents))
   }
 
   return {

@@ -2,6 +2,7 @@ import { getPrintingWorkflowFacts } from '../../../data/fcs/printing-task-domain
 import { printingOrderIsOverdue } from '../../../data/fcs/printing-statistics.ts'
 import { PRINTING_DEMAND_SOURCE_LABEL, formatPrintingQty, type PrintingWorkOrderBusinessRecord } from '../../../data/fcs/printing-work-order-business.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { localProductFixtureImageUrl } from '../../../data/pcs-product-archive-fixtures.ts'
 
 const workflowFacts = new WeakMap<PrintingWorkOrderBusinessRecord, ReturnType<typeof getPrintingWorkflowFacts>>()
 export function printingPresentationFacts(order: PrintingWorkOrderBusinessRecord): ReturnType<typeof getPrintingWorkflowFacts> {
@@ -14,8 +15,9 @@ export function printingDemandFields(order: PrintingWorkOrderBusinessRecord): Ar
   const source = order.demandSource
   return [
     ['需求来源', `${PRINTING_DEMAND_SOURCE_LABEL[source.type]} · ${source.sourceNo || source.sourceLabel || '来源待补充'}`],
-    ['需求单', source.demandNo || (source.type === 'STOCK' ? '不适用（备货）' : '历史未记录')],
-    ['生产单', source.productionOrderNo || source.originalProductionOrderNo || (source.type === 'STOCK' ? '不适用（备货）' : '历史未记录')],
+    ...(source.type === 'DESIGN_REVISION'
+      ? [['设计改款任务', source.sourceNo || '来源待补充'] as [string, string]]
+      : [['需求单', source.demandNo || (source.type === 'STOCK' ? '不适用（备货）' : '历史未记录')] as [string, string], ['生产单', source.productionOrderNo || source.originalProductionOrderNo || (source.type === 'STOCK' ? '不适用（备货）' : '历史未记录')] as [string, string]]),
     ['创建方式', order.creationMethod || '历史未记录'], ['售卖类型', order.salesType || (source.type === 'STOCK' ? '不适用（备货）' : '历史未记录')],
     ['是否补料', order.historicalSupplement || Boolean(source.supplementOrderNo) || source.type === 'SUPPLEMENT' ? '是' : '否'],
     ...(source.stockPlanNo ? [['备货计划', source.stockPlanNo] as [string, string]] : []),
@@ -26,7 +28,7 @@ export function printingDemandFields(order: PrintingWorkOrderBusinessRecord): Ar
 
 export function renderPrintingDemandSource(order: PrintingWorkOrderBusinessRecord): string {
   const fields = printingDemandFields(order)
-  return `<div class="rounded border border-blue-100 bg-blue-50 px-2 py-1.5 text-xs text-blue-800" data-printing-demand-source><p class="font-semibold">${escapeHtml(fields[0][0])}：${escapeHtml(fields[0][1])}</p>${fields.slice(1, 3).map(([label, value]) => `<p class="mt-1">${escapeHtml(label)}：${escapeHtml(value)}</p>`).join('')}</div>`
+  return `<div class="rounded border border-blue-100 bg-blue-50 px-2 py-1.5 text-xs text-blue-800" data-printing-demand-source><p class="font-semibold">${escapeHtml(fields[0][0])}：${escapeHtml(fields[0][1])}</p>${fields.slice(1, order.demandSource.type === 'DESIGN_REVISION' ? 2 : 3).map(([label, value]) => `<p class="mt-1">${escapeHtml(label)}：${escapeHtml(value)}</p>`).join('')}</div>`
 }
 
 export function printingNeedsTransfer(order: PrintingWorkOrderBusinessRecord): boolean {
@@ -65,5 +67,6 @@ export function renderPrintingQuantityGroups(order: PrintingWorkOrderBusinessRec
 export function renderPrintingObjectImage(image: { imageUrl: string; imageAlt: string }, size = 'h-12 w-12'): string {
   const missing = !image.imageUrl || (/花型/.test(image.imageAlt) && /sample[.-]/.test(image.imageUrl))
   if (missing) return `<span class="${size} flex shrink-0 items-center justify-center rounded border border-amber-200 bg-amber-50 p-1 text-center text-xs text-amber-800" role="img" aria-label="${escapeHtml(image.imageAlt)}：缺少对应图片">${/花型/.test(image.imageAlt) ? '正式花型待补充' : '缺少对应图片'}</span>`
-  return `<button type="button" class="${size} relative shrink-0 overflow-hidden rounded-md border bg-slate-50" data-printing-action="preview-image" data-image-url="${escapeHtml(image.imageUrl)}" data-image-alt="${escapeHtml(image.imageAlt)}" aria-label="查看${escapeHtml(image.imageAlt)}大图"><span class="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500">加载中</span><img class="relative h-full w-full object-cover" src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageAlt)}" loading="lazy" onload="this.previousElementSibling.hidden=true" onerror="this.hidden=true;this.previousElementSibling.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 items-center justify-center p-1 text-[10px] text-red-600">图片加载失败</span></button>`
+  const imageUrl = localProductFixtureImageUrl(image.imageUrl)
+  return `<button type="button" class="${size} relative shrink-0 overflow-hidden rounded-md border bg-slate-50" data-printing-action="preview-image" data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(image.imageAlt)}" aria-label="查看${escapeHtml(image.imageAlt)}大图"><span class="absolute inset-0 flex items-center justify-center text-[10px] text-slate-500">加载中</span><img class="relative h-full w-full object-cover" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(image.imageAlt)}" loading="lazy" onload="this.previousElementSibling.hidden=true" onerror="this.hidden=true;this.previousElementSibling.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="absolute inset-0 items-center justify-center p-1 text-[10px] text-red-600">图片加载失败</span></button>`
 }

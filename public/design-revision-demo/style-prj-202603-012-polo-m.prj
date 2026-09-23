@@ -1,0 +1,19 @@
+{
+  "fixtureId": "HG-DEMO-STYLE-PRJ-202603-012-M-V1",
+  "designRevisionTaskNo": "ES-DR-001",
+  "styleCode": "STYLE-PRJ-202603-012",
+  "title": "Kaos Polos Premium M 码原型演示纸样",
+  "source": "Prototype CAD geometry for the design-revision mock flow; not a production cutting file",
+  "unit": "cm",
+  "baseSize": "M",
+  "parts": [
+    { "code": "FRONT", "count": 1, "points": [[0,68],[0,19],[4,12],[11,3],[18,0],[23,7],[27,10],[27,68]] },
+    { "code": "BACK", "count": 1, "points": [[0,68],[0,19],[4,12],[11,3],[18,0],[23,7],[27,10],[27,68]] },
+    { "code": "SHORT-SLEEVE", "count": 2, "points": [[0,17],[3,10],[9,2],[17,0],[25,2],[31,10],[34,17],[29,28],[5,28]] },
+    { "code": "POLO-COLLAR", "count": 2, "points": [[0,0],[40,0],[39,8],[1,8]] },
+    { "code": "PLACKET", "count": 2, "points": [[0,0],[4,0],[4,18],[0,18]] }
+  ],
+  "sizeRules": {
+    "M": { "bodyWidth": 54, "bodyLength": 68, "sleeveLength": 28 }
+  }
+}

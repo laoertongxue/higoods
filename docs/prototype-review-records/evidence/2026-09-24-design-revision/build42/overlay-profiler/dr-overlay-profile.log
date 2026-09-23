@@ -1,0 +1,42 @@
+open 0 {
+  src: 'http://127.0.0.1:4732/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg',
+  t: 26,
+  decode: 0.10000000149011612,
+  paint: 22.299999997019768
+}
+close 0 30.299999997019768
+open 1 {
+  src: 'http://127.0.0.1:4732/materials/fei-ticket/white-poplin.png',
+  t: 24.299999997019768,
+  decode: 0,
+  paint: 23.100000001490116
+}
+close 1 1286.5999999940395
+open 2 {
+  src: 'http://127.0.0.1:4732/materials/fei-ticket/blue-white-print-cotton.png',
+  t: 25.200000002980232,
+  decode: 0.10000000149011612,
+  paint: 24.100000001490116
+}
+close 2 31.80000000447035
+open 0 {
+  src: 'http://127.0.0.1:4732/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg',
+  t: 25.69999999552965,
+  decode: 0.10000000149011612,
+  paint: 23.399999998509884
+}
+close 0 31.200000002980232
+open 1 {
+  src: 'http://127.0.0.1:4732/materials/fei-ticket/white-poplin.png',
+  t: 25.899999998509884,
+  decode: 0.10000000149011612,
+  paint: 23
+}
+close 1 31
+open 2 {
+  src: 'http://127.0.0.1:4732/materials/fei-ticket/blue-white-print-cotton.png',
+  t: 27.599999994039536,
+  decode: 0.10000000149011612,
+  paint: 20.80000000447035
+}
+close 2 30.899999998509884

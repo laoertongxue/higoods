@@ -1,0 +1,196 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: pcs-design-revision-work-preview.spec.ts >> 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复
+- Location: tests/pcs-design-revision-work-preview.spec.ts:173:1
+
+# Error details
+
+```
+Error: page.evaluate: TypeError: Cannot read properties of null (reading 'find')
+    at eval (eval at evaluate (:303:30), <anonymous>:4:28)
+    at UtilityScript.evaluate (<anonymous>:305:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: HG
+      - generic [ref=e8]: HiGood
+    - generic [ref=e10]:
+      - button "商品中心系统 (PCS)" [ref=e11]:
+        - generic [ref=e12]: 商品中心系统
+        - generic [ref=e13]: (PCS)
+      - button "采购管理系统 (PMS)" [ref=e15]:
+        - generic [ref=e16]: 采购管理系统
+        - generic [ref=e17]: (PMS)
+      - button "工厂生产协同系统 (FCS)" [ref=e18]:
+        - generic [ref=e19]: 工厂生产协同系统
+        - generic [ref=e20]: (FCS)
+      - button "工艺工厂运营系统 (PFOS)" [ref=e21]:
+        - generic [ref=e22]: 工艺工厂运营系统
+        - generic [ref=e23]: (PFOS)
+      - button "仓储物流系统 (WLS)" [ref=e24]:
+        - generic [ref=e25]: 仓储物流系统
+        - generic [ref=e26]: (WLS)
+      - button "直播运营系统 (LOS)" [ref=e27]:
+        - generic [ref=e28]: 直播运营系统
+        - generic [ref=e29]: (LOS)
+      - button "订单管理系统 (OMS)" [ref=e30]:
+        - generic [ref=e31]: 订单管理系统
+        - generic [ref=e32]: (OMS)
+      - button "业财一体化系统 (BFIS)" [ref=e33]:
+        - generic [ref=e34]: 业财一体化系统
+        - generic [ref=e35]: (BFIS)
+      - button "数据决策系统 (DDS)" [ref=e36]:
+        - generic [ref=e37]: 数据决策系统
+        - generic [ref=e38]: (DDS)
+    - generic [ref=e39]:
+      - button "通知" [ref=e40]:
+        - img [ref=e41]
+      - button "管理员" [ref=e45]:
+        - img [ref=e47]
+        - generic [ref=e50]: 管理员
+        - img [ref=e51]
+  - generic [ref=e53]:
+    - complementary [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - heading "商品中心系统" [level=2] [ref=e59]
+            - paragraph [ref=e60]: PCS
+          - button "收起菜单" [ref=e61]:
+            - img [ref=e62]
+        - generic [ref=e67]:
+          - button "商品中心系统" [ref=e68]:
+            - generic [ref=e70]: 商品中心系统
+            - img [ref=e71]
+          - generic [ref=e73]:
+            - button "商品测款" [ref=e75]:
+              - img [ref=e77]
+              - generic [ref=e79]: 商品测款
+              - img [ref=e80]
+            - button "生产准备管理" [ref=e83]:
+              - img [ref=e85]
+              - generic [ref=e91]: 生产准备管理
+              - img [ref=e92]
+            - button "技术资料" [ref=e95]:
+              - img [ref=e97]
+              - generic [ref=e99]: 技术资料
+              - img [ref=e100]
+            - button "样衣管理" [ref=e103]:
+              - img [ref=e105]
+              - generic [ref=e111]: 样衣管理
+              - img [ref=e112]
+            - button "商品&物料档案" [ref=e115]:
+              - img [ref=e117]
+              - generic [ref=e120]: 商品&物料档案
+              - img [ref=e121]
+            - button "系统设置" [ref=e124]:
+              - img [ref=e126]
+              - generic [ref=e129]: 系统设置
+              - img [ref=e130]
+    - main [ref=e132]:
+      - generic [ref=e135]:
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - heading "销售展示样衣任务" [level=1] [ref=e140]
+                - generic [ref=e141]: 已完成
+              - paragraph [ref=e142]: ES-DR-002 · 目标款式 STYLE-PRJ-202603-011 · 来源：设计改款
+            - link "返回主任务" [ref=e143] [cursor=pointer]:
+              - /url: /pcs/production-preparation/design-revision/ES-ID-DR-002
+          - generic [ref=e144]:
+            - generic [ref=e145]:
+              - button "Jaket Hoodie Unisex 连帽夹克" [ref=e146]:
+                - img "Jaket Hoodie Unisex 连帽夹克" [ref=e148]
+              - generic [ref=e149]:
+                - paragraph [ref=e150]: Jaket Hoodie Unisex 连帽夹克
+                - paragraph [ref=e151]: STYLE-PRJ-202603-011
+            - generic [ref=e152]:
+              - paragraph [ref=e153]: 当前需处理的团队
+              - paragraph [ref=e154]: "-"
+            - generic [ref=e155]:
+              - paragraph [ref=e156]: 需要先完成
+              - paragraph [ref=e157]: 基码纸样
+            - generic [ref=e158]:
+              - paragraph [ref=e159]: 完成后去向
+              - paragraph [ref=e160]: 设计改款任务自动完成
+          - generic [ref=e162]:
+            - paragraph [ref=e163]: 当前动作
+            - paragraph [ref=e164]: 本项工作已完成
+        - generic [ref=e165]:
+          - generic [ref=e166]:
+            - generic [ref=e167]:
+              - heading "买手确认的制作要求" [level=2] [ref=e168]
+              - paragraph [ref=e169]: 要求合计 1 件
+            - generic [ref=e170]: 实际 1 件 · 数量一致
+          - table [ref=e172]:
+            - rowgroup [ref=e173]:
+              - row "颜色 尺码 要求数量 制作要求 确认人" [ref=e174]:
+                - columnheader "颜色" [ref=e175]
+                - columnheader "尺码" [ref=e176]
+                - columnheader "要求数量" [ref=e177]
+                - columnheader "制作要求" [ref=e178]
+                - columnheader "确认人" [ref=e179]
+            - rowgroup [ref=e180]:
+              - row "整款 M 1 件 历史演示样衣要求 买手-阿乐 2026-07-02 09:00:00" [ref=e181]:
+                - cell "整款" [ref=e182]
+                - cell "M" [ref=e183]
+                - cell "1 件" [ref=e184]
+                - cell "历史演示样衣要求" [ref=e185]
+                - cell "买手-阿乐 2026-07-02 09:00:00" [ref=e186]:
+                  - text: 买手-阿乐
+                  - generic [ref=e187]: 2026-07-02 09:00:00
+        - generic [ref=e188]:
+          - heading "成果记录" [level=2] [ref=e189]
+          - paragraph [ref=e190]: Mock 演示：概念效果图仅用于展示提交流程，不代表实物样衣照片或真实生产成果。
+          - article [ref=e192]:
+            - generic [ref=e193]:
+              - strong [ref=e194]: 整款 / M 销售展示样衣
+              - generic [ref=e195]: 已通过
+            - generic [ref=e196]:
+              - generic [ref=e197]:
+                - term [ref=e198]: 版本
+                - definition [ref=e199]: v1.0
+              - generic [ref=e200]:
+                - term [ref=e201]: 制作数量
+                - definition [ref=e202]: 1 件
+              - generic [ref=e203]:
+                - term [ref=e204]: 颜色
+                - definition [ref=e205]: 整款
+              - generic [ref=e206]:
+                - term [ref=e207]: 尺码
+                - definition [ref=e208]: M
+              - generic [ref=e209]:
+                - term [ref=e210]: 使用纸样
+                - definition [ref=e211]: 基码纸样 v1.0
+              - generic [ref=e212]:
+                - term [ref=e213]: 对应制作要求
+                - definition [ref=e214]: 整款 / M / 1 件
+              - generic [ref=e215]:
+                - term [ref=e216]: 说明
+                - definition [ref=e217]: 已按买手确认的颜色、尺码和数量完成销售展示样衣。
+            - paragraph [ref=e218]: Mock 演示图片 · 未核验为本次实际制作样衣的实拍照片。
+            - generic [ref=e220]:
+              - generic [ref=e221]: es-id-dr-002-display_sample-1-1.jpg · 281 KB · 第 1 轮
+              - generic [ref=e222]:
+                - button "查看大图" [ref=e223]
+                - link "下载" [ref=e224] [cursor=pointer]:
+                  - /url: /materials/archive/4b45b816574f99080d0b06f30c9464af.jpg
+        - generic [ref=e225]:
+          - heading "操作记录" [level=2] [ref=e226]
+          - paragraph [ref=e228]: 2026-07-02 09:00:00 · 买手-阿乐 · 创建任务 · 设计改款任务已创建，并上传设计稿：es-dr-002-design-1.jpg。本次需要重新制版。基于参照款和设计稿完成目标款式的设计改款。
+  - button "查生产" [ref=e229]:
+    - img [ref=e230]
+```

@@ -1,0 +1,13 @@
+
+Running 6 tests using 1 worker
+
+(node:24188) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (15.9s)
+  ✓  2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (8.1s)
+  ✓  3 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › dye PDA 设计改款加工单接单与刷新持久化五次 (6.6s)
+  ✓  4 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 (6.8s)
+  ✓  5 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › F090 PDA 详情图片及交出单导航五次 (11.1s)
+  ✓  6 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 (9.7s)
+
+  6 passed (58.7s)

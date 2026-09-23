@@ -1668,17 +1668,17 @@ function buildLinkedSupplementTaskOrders(
   const contexts = listLinkedProductionOrderContexts()
   if (contexts.length === 0) return []
   const candidateContexts = contexts
+  // Garment eligibility depends on the BOM, not on the selected operation.
+  const garmentCandidateContexts = candidateContexts.filter(({ order, snapshot }) => {
+    const productionSkuCodes = new Set(order.demandSnapshot.skuLines.map((line) => line.skuCode))
+    return snapshot.bomItems.some((item) => item.type === '成衣'
+      && (item.applicableSkuCodes ?? []).some((skuCode) => productionSkuCodes.has(skuCode)))
+  })
 
   const supplements: SpecialCraftTaskOrder[] = []
   operations.forEach((operation, operationIndex) => {
     const operationCandidateContexts = operation.targetObject === '成衣'
-      ? candidateContexts.filter(({ order, snapshot }) => {
-          const productionSkuCodes = new Set(order.demandSnapshot.skuLines.map((line) => line.skuCode))
-          return snapshot.bomItems.some((item) =>
-            item.type === '成衣'
-            && (item.applicableSkuCodes ?? []).some((skuCode) => productionSkuCodes.has(skuCode)),
-          )
-        })
+      ? garmentCandidateContexts
       : operation.targetObject === '辅料'
         ? candidateContexts.filter(({ snapshot }) => {
             const processEntry = findAccessoryProcessEntry(snapshot, operation)

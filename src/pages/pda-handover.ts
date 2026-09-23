@@ -14,8 +14,8 @@ import {
   getPdaHandoutHeads,
   getPdaPostFinishingHandoutHeads,
   getPdaPostFinishingPickupHeads,
-  getPdaPickupHeads,
   getPdaCompletedHeads,
+  listPdaHandoverHeadsByFactory,
   buildSimpleCutPieceFactoryReceipts,
   type PdaHandoverHead,
 } from '../data/fcs/pda-handover-events'
@@ -128,7 +128,6 @@ const state: PdaHandoverState = {
   bindingLastResolvedCode: '',
 }
 
-let specialCraftSeedScheduled = false
 let materialInboundMessage = ''
 let sewingPickupCommandVersionId = ''
 let sewingPickupCommandId = ''
@@ -292,22 +291,6 @@ function getHandoverSourceTypeLabel(head: PdaHandoverHead): string {
 function renderHandoverSourceField(head: PdaHandoverHead): string {
   const source = getPdaHandoverSourceDisplay(head)
   return `<div><span class="text-muted-foreground">${source.label}：</span>${escapeHtml(source.value)}</div>`
-}
-
-function scheduleSpecialCraftHandoverSeed(): void {
-  if (specialCraftSeedScheduled || typeof window === 'undefined') return
-  specialCraftSeedScheduled = true
-
-  window.setTimeout(async () => {
-    try {
-      const module = await import('../data/fcs/cutting/special-craft-fei-ticket-flow.ts')
-      module.ensureSpecialCraftFeiTicketFlowSeeded()
-      window.dispatchEvent(new CustomEvent('higood:request-render'))
-    } catch (error) {
-      specialCraftSeedScheduled = false
-      console.warn('特殊工艺交接数据预热失败', error)
-    }
-  }, 0)
 }
 
 function getPickupSummaryMeta(head: PdaHandoverHead): { label: string; className: string; hint: string } {
@@ -1034,7 +1017,9 @@ export function renderPdaHandoverPage(): string {
     // The normal PDA shell also reads the same ledger for its todo count. Do not render false zero counts.
     return `<main class="min-h-screen bg-slate-100 p-4"><section class="rounded-xl border border-amber-300 bg-amber-50 p-4"><h1 class="text-base font-semibold">接收记录</h1><p role="alert" class="mt-3 text-sm">${escapeHtml(simpleReceiptReadError)}</p><a href="/fcs/pda/handover?tab=pickup" class="mt-4 inline-flex min-h-11 items-center rounded-lg border bg-white px-4 text-sm font-medium">恢复存储后重新加载</a></section></main>`
   }
-  const simpleReceiptHeads = getPdaCompletedHeads(selectedFactoryId).filter((head) => head.simpleCutPieceReceipt)
+  // One current snapshot supplies all tabs; special-craft details initialize their own data when opened.
+  const factoryHeads = listPdaHandoverHeadsByFactory(selectedFactoryId)
+  const simpleReceiptHeads = factoryHeads.filter((head) => head.completionStatus === 'COMPLETED' && head.simpleCutPieceReceipt)
   syncTabWithQuery(isPostFinishingFactory, simpleReceiptHeads.length > 0)
   const materialOrderNo = getCurrentSearchParams().get('materialOrderNo') || ''
   const selectedMaterialOrder = materialOrderNo ? getPostFinishingMaterialTransferOrder(materialOrderNo) : undefined
@@ -1047,18 +1032,16 @@ export function renderPdaHandoverPage(): string {
   const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
   const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
   const canManageSewingSelfReturnMode = isPostFinishingFactory && runtime.roleId === 'ROLE_ADMIN'
-  if (!isPostFinishingFactory && hasSpecialCraftOrders) {
-    scheduleSpecialCraftHandoverSeed()
-  }
   const pickupHeads = isPostFinishingFactory
     ? getPdaPostFinishingPickupHeads()
-    : getPdaPickupHeads(selectedFactoryId)
+    : factoryHeads.filter((head) => head.headType === 'PICKUP' && head.completionStatus === 'OPEN')
   const visiblePickupHeads = pickupHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
-  const factoryWoolHandoutHeads = getPdaHandoutHeads(selectedFactoryId)
+  const factoryHandoutHeads = factoryHeads.filter((head) => head.headType === 'HANDOUT' && head.completionStatus === 'OPEN')
+  const factoryWoolHandoutHeads = factoryHandoutHeads
     .filter((head) => head.processBusinessCode === 'WOOL')
   const handoutHeads = isPostFinishingFactory
     ? mergeHandoverHeadsById(getPdaPostFinishingHandoutHeads(), factoryWoolHandoutHeads)
-    : getPdaHandoutHeads(selectedFactoryId)
+    : factoryHandoutHeads
   const visibleHandoutHeads = handoutHeads.filter((head) => !isPhysicalScanWorkOrderHead(head))
   const shippedOrders = isPostFinishingFactory
     ? listPostFinishingFullFlowOutboundOrders().filter((order) => (

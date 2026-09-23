@@ -654,7 +654,7 @@ export function matchMobileTaskKeyword(task: ProcessTask | null | undefined, key
 export function listMobileExecutionTasks(params: ListMobileExecutionTasksParams = {}): ProcessTask[] {
   const currentFactoryId = normalizeString(params.currentFactoryId) || TEST_FACTORY_ID
   const statusTab = normalizeTabKey(params.statusTab)
-  let tasks = (params.processType === 'POST_FINISHING' ? listPostFinishingMobileExecutionTasks() : listPdaMobileExecutionTasks())
+  let tasks = (params.processType === 'POST_FINISHING' ? listPostFinishingMobileExecutionTasks() : listPdaMobileExecutionTasks(currentFactoryId))
     .filter((task) => isMobileTaskVisibleForFactory(task, currentFactoryId))
     .map((task) => scopeOnboardingCuttingDemoTask(task, currentFactoryId))
 
@@ -674,7 +674,12 @@ export function listMobileExecutionTasks(params: ListMobileExecutionTasksParams 
     tasks = tasks.filter((task) => matchMobileTaskKeyword(task, params.keyword))
   }
 
-  return [...tasks].sort(compareTasks)
+  // Resolve visibility once per task rather than during every sort comparison.
+  const visibility = new Map(tasks.map(task => [task, currentFactoryId === TEST_FACTORY_ID || isMobileTaskVisibleForFactory(task, TEST_FACTORY_ID) ? 0 : 1]))
+  const ranks = new Map(tasks.map(task => [task, ['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED', 'DONE'].indexOf(getMobileTaskTabKey(task))]))
+  return [...tasks].sort((left, right) => visibility.get(left)! - visibility.get(right)!
+    || ranks.get(left)! - ranks.get(right)!
+    || (left.taskNo || left.taskId).localeCompare(right.taskNo || right.taskId, 'zh-Hans-CN'))
 }
 
 export function getMobileExecutionTaskById(taskId: string): ProcessTask | null {

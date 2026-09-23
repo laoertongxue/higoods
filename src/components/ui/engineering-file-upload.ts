@@ -29,7 +29,18 @@ export function renderEngineeringFileUpload(input: {
   </section>`
 }
 
-export function renderEngineeringUploadPreview(preview: { url: string; fileName: string } | null, eventPrefix: string): string {
+export function renderEngineeringUploadPreview(preview: { url: string; fileName: string; notice?: string } | null, eventPrefix: string): string {
   if (!preview) return ''
-  return `<div class="fixed inset-0 z-[110] flex items-center justify-center p-5" role="dialog" aria-modal="true" aria-label="${escapeHtml(preview.fileName)}大图"><button type="button" class="absolute inset-0 bg-slate-950/75" data-${eventPrefix}-upload-preview-close aria-label="关闭大图"></button><section class="relative z-10 max-h-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl"><header class="flex items-center justify-between gap-4 border-b px-4 py-3"><p class="truncate font-medium">${escapeHtml(preview.fileName)}</p><button type="button" class="rounded border px-3 py-1 text-sm" data-${eventPrefix}-upload-preview-close>关闭</button></header><div class="flex min-h-40 items-center justify-center bg-slate-100 p-4"><img src="${escapeHtml(preview.url)}" alt="${escapeHtml(preview.fileName)}高清大图" class="max-h-[80vh] max-w-[88vw] object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><p hidden class="p-8 text-sm text-red-600">图片加载失败，请重新上传原文件。</p></div></section></div>`
+  return `<div class="fixed inset-0 z-[110] flex items-center justify-center p-5" role="dialog" aria-modal="true" aria-label="${escapeHtml(preview.fileName)}大图">
+    <button type="button" class="absolute inset-0 bg-slate-950/75" data-${eventPrefix}-upload-preview-close aria-label="关闭大图"></button>
+    <section class="relative z-10 max-h-full max-w-5xl overflow-hidden rounded-lg bg-white shadow-2xl">
+      <header class="flex items-center justify-between gap-4 border-b px-4 py-3"><p class="truncate font-medium">${escapeHtml(preview.fileName)}</p><button type="button" class="rounded border px-3 py-1 text-sm" data-${eventPrefix}-upload-preview-close>关闭</button></header>
+      ${preview.notice ? `<p class="border-b border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-800">${escapeHtml(preview.notice)}</p>` : ''}
+      <div class="relative flex min-h-40 items-center justify-center bg-slate-100 p-4">
+        <p class="absolute text-sm text-slate-600" role="status">图片加载中…</p>
+        <img src="${escapeHtml(preview.url)}" alt="${escapeHtml(preview.fileName)}高清大图" class="max-h-[80vh] max-w-[88vw] object-contain" onload="this.previousElementSibling.hidden=true" onerror="this.hidden=true;this.previousElementSibling.hidden=true;this.nextElementSibling.hidden=false">
+        <p hidden class="p-8 text-sm text-red-600">图片加载失败，请重新上传原文件。</p>
+      </div>
+    </section>
+  </div>`
 }

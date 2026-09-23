@@ -49,7 +49,7 @@ for (let i=1;i<=3;i++) {
 // Online factory tab names, bound to existing local factory identities.
 export const DYE_FACTORY_TABS = [
   {id: '', label: '全部加工厂'}, {id: 'ID-F003', label: 'GTG'}, {id: 'ID-F002', label: 'MJS'},
-  {id: 'DYE-GOTO-GLOBAL', label: 'goto_global'}, {id: 'F090', label: '测试专用工厂'}, {id: 'unassigned', label: '待分配'},
+  {id: 'F090', label: '测试专用工厂'}, {id: 'unassigned', label: '待分配'},
 ]
 export function dyeFactoryTabLabel(id: string, fallback: string): string {
   return DYE_FACTORY_TABS.find(item => item.id === id)?.label || fallback

@@ -16,6 +16,7 @@ import {
 } from './dyeing-task-domain.ts'
 import {
   bindDesignRevisionPrintProfessionalResult,
+  getPrintOrderHandoverSummary,
   getPrintWorkOrderById,
   getPrintWorkOrderStatusLabel,
 } from './printing-task-domain.ts'
@@ -58,12 +59,24 @@ function buildInput(
       bomItemId: line.bomItemId,
       bomItemIds: [line.bomItemId],
       materialSkuCode: line.materialSkuCode,
+      targetMaterialSkuCode: line.targetMaterialSkuCode,
+      rawMaterialSkuCode: line.rawMaterialSkuCode,
+      dyedMaterialSkuCode: line.dyedMaterialSkuCode,
+      pantoneCode: line.pantoneCode,
+      patternCode: line.patternCode,
+      patternImageUrl: line.patternImageUrl,
+      inputMaterialSkuCode: line.materialSkuCode,
+      outputMaterialSkuCode: line.processType === 'DYEING' && line.dyedMaterialSkuCode
+        ? line.dyedMaterialSkuCode : line.targetMaterialSkuCode || line.materialSkuCode,
       materialName: line.materialName,
+      materialCode: line.materialCode,
       materialReceivingKind: line.materialReceivingKind,
       materialImageUrl: line.materialImageUrl,
       materialColor: line.targetColor,
       materialComposition: line.materialComposition,
       materialSpecification: line.materialSpecification,
+      materialWidthCm: line.materialWidthCm,
+      materialGsm: line.materialGsm,
       receivingTeamId: request.receivingTeamId,
       receivingTeamName: request.receivingTeamName,
       receivingFactoryId: request.receivingFactoryId,
@@ -77,6 +90,14 @@ function buildInput(
     materialId: line.materialSkuId,
     materialName: line.materialName,
     materialItems: [{ sourceBomItemId: line.bomItemId, materialId: line.materialSkuId, materialName: line.materialName, materialType: line.materialType }],
+    inputMaterialSkuId: line.materialSkuId,
+    inputMaterialSkuCode: line.materialSkuCode,
+    inputMaterialName: line.materialName,
+    inputMaterialImageUrl: line.processType === 'PRINTING' ? line.dyedMaterialImageUrl || line.materialImageUrl : line.materialImageUrl,
+    outputMaterialSkuId: line.processType === 'DYEING' ? line.dyedMaterialSkuId || line.targetMaterialSkuId : line.targetMaterialSkuId,
+    outputMaterialSkuCode: line.processType === 'DYEING' ? line.dyedMaterialSkuCode || line.targetMaterialSkuCode : line.targetMaterialSkuCode,
+    outputMaterialName: line.materialName,
+    outputMaterialImageUrl: line.processType === 'DYEING' ? line.dyedMaterialImageUrl || line.targetMaterialImageUrl : line.targetMaterialImageUrl || line.patternImageUrl,
     targetColor: line.targetColor,
     plannedQty: line.plannedQty,
     qtyUnit: line.qtyUnit,
@@ -86,7 +107,7 @@ function buildInput(
     spuName: request.targetSpuName,
     requiredDeliveryDate: request.createdAt.slice(0, 10),
     createdBy: request.createdBy,
-    dyeSampleWaitType: 'WAIT_COLOR_CARD',
+    dyeSampleWaitType: 'NONE',
   }
 }
 
@@ -98,19 +119,22 @@ function rollbackBatches(batches: Array<PreparedProcessWorkOrderBatch | null>): 
   if (errors.length) throw new AggregateError(errors, '设计改款加工单回滚失败。')
 }
 
-function hasBoundResult(source: { professionalResultId?: string; professionalResultVersion?: string; professionalResultAttachments?: unknown[] } | undefined): boolean {
-  return Boolean(source?.professionalResultId && source.professionalResultVersion && source.professionalResultAttachments?.length)
-}
-
 function readStatus(ref: Pick<DesignRevisionProcessWorkOrderReference, 'processType' | 'processOrderId'>): DesignRevisionProcessWorkOrderStatusView {
   if (ref.processType === 'PRINTING') {
     const order = getPrintWorkOrderById(ref.processOrderId)
     if (!order) return { ...ref, processOrderCode: '', status: 'NOT_FOUND', statusLabel: '加工单不存在', blockReason: '未找到印花加工单，请核对后重试。', professionalResultId: '', professionalResultVersion: '', prerequisiteProcessOrderId: '' }
     const source = order.sourceSnapshot
     const base = { ...ref, processOrderCode: order.printOrderNo, professionalResultId: source?.professionalResultId || '', professionalResultVersion: source?.professionalResultVersion || '', prerequisiteProcessOrderId: source?.upstreamWorkOrderId || '' }
-    if (!hasBoundResult(source)) return { ...base, status: 'WAIT_PROFESSIONAL_RESULT', statusLabel: '待花型成果', blockReason: '等待买手审核花型成果。' }
     if (order.status === 'CANCELLED' || order.status === 'REJECTED') return { ...base, status: 'BLOCKED', statusLabel: getPrintWorkOrderStatusLabel(order.status), blockReason: order.rejectionReason || '加工单已结束，不能继续处理。' }
-    if (order.status === 'COMPLETED') return { ...base, status: 'COMPLETED', statusLabel: '已完成', blockReason: '' }
+    const receivedQty = getPrintOrderHandoverSummary(order.printOrderId).writtenBackQty
+    const completedOutputQty = order.businessView?.output.completedQty || 0
+    if (source?.sourceType === 'DESIGN_REVISION' && completedOutputQty + 0.0001 >= order.plannedQty && receivedQty + 0.0001 >= order.plannedQty) {
+      return { ...base, status: 'COMPLETED', statusLabel: '已完成并确认接收', blockReason: '' }
+    }
+    if (order.status === 'COMPLETED') {
+      if (source?.sourceType === 'DESIGN_REVISION' && receivedQty + 0.0001 < order.plannedQty) return { ...base, status: 'WAIT_HANDOVER', statusLabel: '待 goto_global 确认接收', blockReason: `已确认 ${receivedQty}/${order.plannedQty} ${order.qtyUnit}` }
+      return { ...base, status: 'COMPLETED', statusLabel: '已完成并确认接收', blockReason: '' }
+    }
     if (!order.printFactoryId) return { ...base, status: 'WAIT_ASSIGNMENT', statusLabel: '待分配印花加工厂', blockReason: '' }
     if (order.acceptanceStatus !== 'ACCEPTED') return { ...base, status: 'WAIT_FACTORY_ACCEPTANCE', statusLabel: '待印花工厂接单', blockReason: '' }
     if (source?.upstreamWorkOrderId) {
@@ -129,9 +153,16 @@ function readStatus(ref: Pick<DesignRevisionProcessWorkOrderReference, 'processT
   if (!order) return { ...ref, processOrderCode: '', status: 'NOT_FOUND', statusLabel: '加工单不存在', blockReason: '未找到染色加工单，请核对后重试。', professionalResultId: '', professionalResultVersion: '', prerequisiteProcessOrderId: '' }
   const source = order.sourceSnapshot
   const base = { ...ref, processOrderCode: order.dyeOrderNo, professionalResultId: source?.professionalResultId || '', professionalResultVersion: source?.professionalResultVersion || '', prerequisiteProcessOrderId: '' }
-  if (!hasBoundResult(source)) return { ...base, status: 'WAIT_PROFESSIONAL_RESULT', statusLabel: '待调色成果', blockReason: '等待买手审核调色成果。' }
   if (order.status === 'REJECTED' || order.status === 'PRODUCTION_PAUSED' || order.status === 'HANDOVER_DIFFERENCE') return { ...base, status: 'BLOCKED', statusLabel: getDyeCurrentStepLabel(order), blockReason: order.rejectionReason || order.waitingReason || '加工单当前不能继续处理。' }
-  if (order.status === 'COMPLETED') return { ...base, status: 'COMPLETED', statusLabel: '已完成', blockReason: '' }
+  const receivedQty = getDyeOrderHandoverSummary(order.dyeOrderId).writtenBackQty
+  const completedOutputQty = (order.outputRolls || []).reduce((sum, roll) => sum + roll.qty, 0)
+  if (source?.sourceType === 'DESIGN_REVISION' && completedOutputQty + 0.0001 >= order.plannedQty && receivedQty + 0.0001 >= order.plannedQty) {
+    return { ...base, status: 'COMPLETED', statusLabel: '已完成并确认接收', blockReason: '' }
+  }
+  if (order.status === 'COMPLETED') {
+    if (source?.sourceType === 'DESIGN_REVISION' && receivedQty + 0.0001 < order.plannedQty) return { ...base, status: 'WAIT_HANDOVER', statusLabel: source.downstreamWorkOrderId ? '待印花厂确认接收' : '待 goto_global 确认接收', blockReason: `已确认 ${receivedQty}/${order.plannedQty} ${order.qtyUnit}` }
+    return { ...base, status: 'COMPLETED', statusLabel: '已完成并确认接收', blockReason: '' }
+  }
   if (!order.dyeFactoryId) return { ...base, status: 'WAIT_ASSIGNMENT', statusLabel: '待分配染色加工厂', blockReason: '' }
   if (order.acceptanceStatus !== 'ACCEPTED') return { ...base, status: 'WAIT_FACTORY_ACCEPTANCE', statusLabel: '待染色工厂接单', blockReason: '' }
   if (['WAIT_MATERIAL', 'INPUT_RECEIVED'].includes(order.status)) return { ...base, status: 'WAIT_MATERIAL', statusLabel: getDyeCurrentStepLabel(order), blockReason: '' }
@@ -210,11 +241,11 @@ registerDesignRevisionProcessWorkOrderPort({
                 designRevisionTaskId: request.designRevisionTaskId,
                 professionalTaskId: line.professionalTaskId,
                 materialId: line.materialId,
-                materialSkuId: line.materialSkuId,
-                materialSkuCode: line.materialSkuCode,
+                materialSkuId: line.dyedMaterialSkuId || line.targetMaterialSkuId || line.materialSkuId,
+                materialSkuCode: line.dyedMaterialSkuCode || line.targetMaterialSkuCode || line.materialSkuCode,
                 materialName: line.materialName,
                 kind: line.materialReceivingKind,
-                imageUrl: line.materialImageUrl,
+                imageUrl: line.dyedMaterialImageUrl || line.targetMaterialImageUrl || line.materialImageUrl,
                 color: line.targetColor,
                 composition: line.materialComposition,
                 specification: line.materialSpecification,

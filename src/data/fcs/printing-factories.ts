@@ -11,7 +11,6 @@ export const PRINTING_FACTORIES = [
   { id: 'PRINT-FACTORY-IRIJAYA', name: 'Irijaya printing' },
   { id: 'PRINT-FACTORY-MIDDAY-89', name: 'MIDDAY 89' },
   { id: 'PRINT-FACTORY-TEETWO', name: 'TEETWO KONVEKSI' },
-  { id: 'DYE-GOTO-GLOBAL', name: 'goto_global' },
   { id: 'ID-FAC-001165', name: 'sipatax' },
   { id: 'F090', name: '测试专用工厂' },
 ] as const

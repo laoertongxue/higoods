@@ -1,0 +1,61 @@
+
+Running 2 tests using 1 worker
+
+(node:22063) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (18.6s)
+(node:22094) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (8.4s)
+
+
+  1) tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 ──────────
+
+    Error: openDetail
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 500
+    Received:   2613.60000000149
+
+      45 |   }
+      46 |   expect(errors).toEqual([])
+    > 47 |   for(const [key,values] of Object.entries(samples))for(const ms of values)expect(ms,key).toBeLessThan(500)
+         |                                                                                           ^
+      48 | })
+      49 |
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:47:91
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #5: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/test-failed-5.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/error-context.md
+
+    attachment #7: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factor-694ea--dye-设计改款交出草稿扫码、防错、确认和持久化五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 ───────────
+  1 passed (28.0s)

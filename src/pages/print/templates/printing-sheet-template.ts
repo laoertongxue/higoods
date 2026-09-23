@@ -4,6 +4,7 @@ import { getPrintingWorkOrderById, type PrintingWorkOrderBusinessRecord } from '
 import { buildPrintQrPayload, createPrintDocumentId, getPrintGeneratedAt, type PrintDocument, type PrintDocumentBuildInput, type PrintField } from '../../../data/fcs/print-service.ts'
 import { renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import { escapeHtml } from '../../../utils.ts'
+import { localProductFixtureImageUrl } from '../../../data/pcs-product-archive-fixtures.ts'
 
 const INFO_TEMPLATE = 'PRINTING_INFO_SHEET_V3'
 const CONFIRMATION_TEMPLATE = 'PRINTING_CONFIRMATION_V3'
@@ -27,7 +28,8 @@ export function printingSheetQuantities(order:Order):[string,string] {
   return [`${number(qty)} ${unit}`,'—']
 }
 function sheetImages(order:Order,type:SheetType):PrintDocument['imageBlocks'] {
-  const toImage=(title:string,image:{imageUrl:string;imageAlt:string},sourceLabel:string)=>({title,...image,imageLabel:image.imageAlt,sourceLabel,fallbackLabel:`${title}待补充`})
+  const toImage=(title:string,image:{imageUrl:string;imageAlt:string},sourceLabel:string)=>({title,...image,imageUrl:localProductFixtureImageUrl(image.imageUrl),imageLabel:image.imageAlt,sourceLabel,fallbackLabel:`${title}待补充`})
+  if(type==='PRINTING_CONFIRMATION'&&order.demandSource.type==='DESIGN_REVISION')return [toImage('正',order.requirement.frontPattern,order.requirement.frontPattern.patternNo),...(order.requirement.printSide==='双面'&&order.requirement.insidePattern?[toImage('里',order.requirement.insidePattern,order.requirement.insidePattern.patternNo)]:[])]
   if(type==='PRINTING_CONFIRMATION'&&order.requirement.printSide==='双面')return [toImage('正',order.requirement.frontPattern,order.requirement.frontPattern.patternNo),...(order.requirement.insidePattern?[toImage('里',order.requirement.insidePattern,order.requirement.insidePattern.patternNo)]:[{title:'里',imageUrl:'',imageLabel:'里面花型待补充',sourceLabel:'',fallbackLabel:'里面花型待补充'}])]
   return order.demandSource.type==='STOCK' ? [toImage('Photo',order.output,order.output.sku)] : [toImage('Photo',order.product,order.product.spu)]
 }
@@ -35,12 +37,14 @@ function buildSheet(input:PrintDocumentBuildInput,type:SheetType):PrintDocument 
   const orders=requireOrders(input.sourceId),order=orders[0], confirmation=type==='PRINTING_CONFIRMATION'
   const generatedAt=getPrintGeneratedAt(),template=confirmation?CONFIRMATION_TEMPLATE:INFO_TEMPLATE
   const title=confirmation?'印花确认单':'印花信息单', quantity=printingSheetQuantities(order), demand=new Map(printingDemandFields(order))
+  const designRevision = order.demandSource.type === 'DESIGN_REVISION'
+  const sourceRef = designRevision ? demand.get('设计改款任务') || order.demandSource.sourceNo : demand.get(confirmation ? '需求单' : '生产单')
   return {
     printDocumentId:createPrintDocumentId(input,template),documentType:type,documentTitle:orders.length>1?`${title}（批量 ${orders.length} 张）`:title,sourceType:'PRINTING_WORK_ORDER',sourceId:input.sourceId,
     templateCode:template,paperType:'A4',orientation:'portrait',printTitle:title,printSubtitle:'',relatedObjectIds:orders.map(o=>o.workOrderId),
-    headerFields:fields([['Printing order',order.printOrderNo],['Printing order time',order.orderedAt],['SPU',order.product.spu||'—'],['Requirement / Need',quantity.join(' / ')],['Fabric',order.plannedInput.materialName],[confirmation?'需求单号':'Purchase Order (PO)',demand.get(confirmation?'需求单':'生产单')||'—'],[confirmation?'面料 SKU':'Fabric SKU',printingMaterialCode(order.output.sku,true)]]),
+    headerFields:fields([['Printing order',order.printOrderNo],['Printing order time',order.orderedAt],['SPU',order.product.spu||'—'],['Requirement / Need',quantity.join(' / ')],['Fabric',order.plannedInput.materialName],[designRevision?'设计改款任务号':confirmation?'需求单号':'Purchase Order (PO)',sourceRef||'—'],[confirmation?'面料 SKU':'Fabric SKU',printingMaterialCode(order.output.sku,true)]]),
     imageBlocks:sheetImages(order,type),qrCodes:[{title:'QR',value:qrPayload(order,type),description:'扫码查看印花加工单',sizeMm:confirmation?25:26}],barcodes:[],
-    sections:confirmation?[{sectionId:'source',title:'印花来源',fields:fields([['印花来源',order.salesType||'—'],['工艺名称',order.requirement.craftName],['收货人',order.handover.receiverName||'—']])}]:[{sectionId:'usage',title:'原料使用',fields:fields([['The quantity of raw materials used',`${number(order.actualInput.usedQty)} ${order.plannedInput.qtyUnit}`],['The roll of raw materials used',order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty>0&&!order.actualInput.usedRollCount)?'—':String(order.actualInput.usedRollCount)]])}],
+    sections:confirmation?[{sectionId:'source',title:'印花来源',fields:fields([['印花来源',order.salesType||'—'],['工艺名称',order.requirement.craftName],[designRevision?'计划接收方':'收货人',designRevision?order.receivingTargetName||'—':order.handover.receiverName||'—']])}]:[{sectionId:'usage',title:'原料使用',fields:fields([['The quantity of raw materials used',`${number(order.actualInput.usedQty)} ${order.plannedInput.qtyUnit}`],['The roll of raw materials used',order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty>0&&!order.actualInput.usedRollCount)?'—':String(order.actualInput.usedRollCount)]])}],
     tables:[],signatureBlocks:[],differenceBlocks:[],footerFields:[],printMeta:{generatedAt,generatedBy:'Web 打印操作员',printNotice:'按线上印花纸单打印；签字格留给现场签认。',returnHref:`/fcs/craft/printing/work-orders/${encodeURIComponent(order.workOrderId)}`},
   }
 }
@@ -55,6 +59,7 @@ const cell=(value:string,colspan=1,rowspan=1,cls='')=>`<td colspan="${colspan}" 
 const val=(value:string|undefined)=>escapeHtml(value||'—')
 function confirmation(order:Order):string {
   const f=printingPresentationFacts(order),demand=new Map(printingDemandFields(order)),[yards,meters]=printingSheetQuantities(order),double=order.requirement.printSide==='双面'
+  const designRevision = order.demandSource.type === 'DESIGN_REVISION'
   const photos=sheetImages(order,'PRINTING_CONFIRMATION').map(img=>`<div class="pp-photo">${image(img)}${double?`<div>${img.title}</div>`:''}</div>`).join('')
   const time=(stage:'ARTWORK'|'PRINT'|'TRANSFER',action:'START'|'FINISH')=>val(stage==='ARTWORK' ? (action==='FINISH'?order.artworkConfirmedAt:order.productionActions?.filter(record=>record.stage===stage&&record.action===action&&(record.requirementVersion||1)===(order.requirementVersion||1)).at(-1)?.at) : stage==='PRINT' ? (action==='START'?f.printStartedAt:f.printFinishedAt) : (action==='START'?f.transferStartedAt:f.transferFinishedAt))
   const transfer=printingNeedsTransfer(order)
@@ -62,12 +67,12 @@ function confirmation(order:Order):string {
   return `<article class="pp-confirm" data-printing-confirmation="${escapeHtml(order.workOrderId)}">${supplement?'<div class="pp-supplement">补料 / Bahan Tambahan</div><div class="pp-stamp">补料 / Bahan Tambahan</div>':''}<table class="pp-confirm-table"><colgroup>${Array(7).fill('<col>').join('')}</colgroup><tbody>
     <tr>${cell('Printing order')}${cell(val(order.printOrderNo))}${cell('Printing order time')}${cell(val(order.orderedAt),2)}<td colspan="2" rowspan="8" class="pp-media"><div class="pp-photos ${double?'pp-double':''}">${photos}</div><div class="pp-qr">${qr(order,'PRINTING_CONFIRMATION')}</div></td></tr>
     <tr>${cell('SPU')}${cell(val(order.product.spu))}${cell('Requirement / Need')}${cell(yards)}${cell(meters)}</tr>
-    <tr>${cell('Fabric')}${cell(val(order.plannedInput.materialName))}${cell('需求单号')}${cell(`需求单号：${val(demand.get('需求单'))}`,2)}</tr>
+    <tr>${cell('Fabric')}${cell(val(order.plannedInput.materialName))}${cell(designRevision?'设计改款任务号':'需求单号')}${cell(`${designRevision?'设计改款任务号':'需求单号'}：${val(designRevision?demand.get('设计改款任务'):demand.get('需求单'))}`,2)}</tr>
     <tr>${cell('面料 SKU')}${cell(val(printingMaterialCode(order.output.sku,true)),4)}</tr>
-    <tr><td colspan="5" class="pp-source"><div>${['印花来源',val(order.salesType),'工艺名称',val(order.requirement.craftName),'收货人',val(order.handover.receiverName)].map(x=>`<span>${x}</span>`).join('')}</div></td></tr>
+    <tr><td colspan="5" class="pp-source"><div>${['印花来源',val(order.salesType),'工艺名称',val(order.requirement.craftName),designRevision?'计划接收方':'收货人',val(designRevision?order.receivingTargetName:order.handover.receiverName)].map(x=>`<span>${x}</span>`).join('')}</div></td></tr>
     <tr>${cell('Urgent')}${cell('')}${cell('Printing accuracy')}${cell('—',2)}</tr>
-    <tr>${cell('Edit confirmation',1,2,'pp-section')}${cell('',1,2)}${cell('Confirmation time')}${cell(time('ARTWORK','START'),2)}</tr>
-    <tr>${cell('Completion time')}${cell(time('ARTWORK','FINISH'),2)}</tr>
+    <tr>${cell(designRevision?'目标花型由 SKU 确定':'Edit confirmation',1,2,'pp-section')}${cell(designRevision?val(order.requirement.frontPattern.patternNo):'',1,2)}${cell(designRevision?'目标 SKU':'Confirmation time')}${cell(designRevision?val(order.output.sku):time('ARTWORK','START'),2)}</tr>
+    <tr>${cell(designRevision?'花型编号':'Completion time')}${cell(designRevision?val(order.requirement.frontPattern.patternNo):time('ARTWORK','FINISH'),2)}</tr>
     <tr>${cell('Print confirmation',1,2,'pp-section')}${cell('',1,2)}${cell('Confirmation time')}${cell(time('PRINT','START'))}${cell('Printing length')}${cell('Printing width')}${cell('Qty (roll)')}</tr>
     <tr>${cell('Confirmation time')}${cell(time('PRINT','FINISH'))}${cell('M',1,1,'pp-unit')}${cell('CM',1,1,'pp-unit')}${cell('')}</tr>
     <tr>${cell('Pattern transfer<br>confirmation',1,2,'pp-section')}${cell('',1,2)}${cell('Confirmation time')}${cell(transfer?time('TRANSFER','START'):'—')}${cell('Printing length')}${cell('Printing width')}${cell('Qty (roll)')}</tr>
@@ -78,10 +83,11 @@ function confirmation(order:Order):string {
 }
 function information(order:Order):string {
   const [yards,meters]=printingSheetQuantities(order), demand=new Map(printingDemandFields(order))
+  const designRevision = order.demandSource.type === 'DESIGN_REVISION'
   return `<article class="pp-info" data-printing-info="${escapeHtml(order.workOrderId)}"><table><tbody>
     <tr>${cell('Printing order')}${cell(val(order.printOrderNo))}${cell('Printing order time')}${cell(val(order.orderedAt),2)}${cell('Photo',2)}</tr>
     <tr>${cell('SPU')}${cell(val(order.product.spu))}${cell('Requirement / Need')}${cell(yards)}${cell(meters)}<td colspan="2" rowspan="4"><div class="pp-info-media">${qr(order,'PRINTING_INFO_SHEET')}${sheetImages(order,'PRINTING_INFO_SHEET').map(image).join('')}</div></td></tr>
-    <tr>${cell('Fabric')}${cell(val(order.plannedInput.materialName))}${cell('Purchase Order (PO)')}${cell(val(demand.get('生产单')),2)}</tr>
+    <tr>${cell('Fabric')}${cell(val(order.plannedInput.materialName))}${cell(designRevision?'设计改款任务号':'Purchase Order (PO)')}${cell(val(designRevision?demand.get('设计改款任务'):demand.get('生产单')),2)}</tr>
     <tr>${cell('Fabric SKU')}${cell(val(printingMaterialCode(order.output.sku,true)),4)}</tr>
     <tr>${cell('The quantity of raw materials used')}${cell(`${number(order.actualInput.usedQty)} ${escapeHtml(order.plannedInput.qtyUnit)}`)}${cell('The roll of raw materials used')}${cell(order.historicalRollQuantitiesUnknown || (order.actualInput.usedQty>0&&!order.actualInput.usedRollCount)?'—':String(order.actualInput.usedRollCount),2)}</tr>
   </tbody></table></article>`

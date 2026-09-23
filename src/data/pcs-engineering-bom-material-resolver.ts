@@ -12,6 +12,7 @@ function roundCny(value: number): number {
 
 export function calculateEngineeringBomTotalRequirement(input: {
   usage: number
+  quantityBasis?: 'PER_SAMPLE' | 'ORDER_TOTAL'
   sampleQuantity: number
   lossRate: number
   conversionToPricingUnit?: number
@@ -23,7 +24,7 @@ export function calculateEngineeringBomTotalRequirement(input: {
   }
   const conversion = input.conversionToPricingUnit ?? 1
   if (!Number.isFinite(conversion) || conversion <= 0) throw new Error('单位换算系数必须大于 0。')
-  return input.usage * conversion * input.sampleQuantity * (1 + input.lossRate)
+  return input.usage * conversion * (input.quantityBasis === 'ORDER_TOTAL' ? 1 : input.sampleQuantity) * (1 + input.lossRate)
 }
 
 export function resolveEngineeringBomTechnicalProcessSequence(
@@ -49,6 +50,8 @@ export function resolveEngineeringBomConversion(
   if (direct && Number.isFinite(direct.factor) && direct.factor > 0) return direct.factor
   const reverse = conversions.find((item) => item.fromUnit === pricingUnit && item.toUnit === usageUnit)
   if (reverse && Number.isFinite(reverse.factor) && reverse.factor > 0) return 1 / reverse.factor
+  if (usageUnit === '米' && pricingUnit === 'Yard') return 1 / 0.9144
+  if (usageUnit === 'Yard' && pricingUnit === '米') return 0.9144
   throw new Error(`物料 ${sku?.materialSkuCode || materialSkuId} 缺少 ${usageUnit} 到 ${pricingUnit} 的单位换算关系，无法加入 BOM。`)
 }
 

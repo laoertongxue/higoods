@@ -1,0 +1,117 @@
+
+Running 13 tests using 1 worker
+
+(node:30342) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (12.9s)
+  ✓   2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (8.3s)
+  ✓   3 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › dye 产出卷选择与交出草稿生成五次 (9.4s)
+  ✓   4 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 (9.8s)
+  ✘   5 tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 (11.0s)
+(node:30510) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘   6 tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 (25.3s)
+(node:30572) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   7 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › F090 PDA 详情图片及交出单导航五次 (11.2s)
+  ✓   8 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 (9.7s)
+  ✓   9 tests/pcs-design-revision-pda-gap.spec.ts:13:1 › 设计改款印花 PDA 使用实际领料和工序事实，不出现花型测试或无关转印 (8.7s)
+  ✓  10 tests/pcs-design-revision-pda-gap.spec.ts:61:1 › 设计改款 PDA 完单后交出状态一致，禁止再次交出 (702ms)
+  ✓  11 tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 (776ms)
+  ✓  12 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › dye 设计改款产出就绪后仅允许逐卷交出 (6.6s)
+  ✓  13 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › print 设计改款产出就绪后仅允许逐卷交出 (5.0s)
+
+
+  1) tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 ───────────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator:  locator('[data-dye-work-orders-overlay] > div')
+    Expected: visible
+    Received: hidden
+    Timeout:  10000ms
+
+    Call log:
+      - Expect "toBeVisible" with timeout 10000ms
+      - waiting for locator('[data-dye-work-orders-overlay] > div')
+        22 × locator resolved to <div data-skip-page-rerender="true">…</div>
+           - unexpected value "hidden"
+
+
+      17 |   for(const a of craft==='dye'?['view','edit','logs','barcodes','remark']:['edit-info','logs','open-barcodes','remarks']){
+      18 |    const d=craft==='dye'&&a!=='barcodes'?p.locator('[data-dye-work-orders-overlay] > div'):p.getByRole('dialog').last()
+    > 19 |    await measure('open:'+a,async()=>{await action(a).filter({visible:true}).first().click();await expect(d).toBeVisible()})
+         |                                                                                                             ^
+      20 |    const images=d.locator('[data-pda-image-preview-url], [data-printing-action="preview-image"]')
+      21 |    for(let i=0;i<await images.count();i++){
+      22 |     const preview=p.locator(craft==='dye'?'[data-pda-image-preview-root]':'[data-printing-image-preview]')
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:19:109
+        at measure (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:11:207)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:19:4
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-overlays-dye-工厂查看编辑日志卷码和备注入口五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2) tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 ─────────────
+
+    Error: image:edit-info:1
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 500
+    Received:   1294.8999999985099
+
+      35 |     await measure('edit:save',async()=>{await action(craft==='dye'?'save-edit':'submit-dialog').filter({visible:true}).last().click();await expect(d).toHaveCount(0)})
+      36 |     await measure('edit:reopenPersisted',async()=>{await action(a).filter({visible:true}).first().click();await expect(d.locator('textarea').first()).toHaveValue('设计改款原型验收备注')})
+    > 37 |    }
+         |     ^
+      38 |    await measure('close:'+a,async()=>{await d.getByRole('button',{name:'关闭',exact:true}).last().click();await expect(d).toHaveCount(0)})
+      39 |   }
+      40 |   expect(await p.locator('main').last().innerText()).toContain('ES-DR-025')
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:37:108
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #5: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-5.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/error-context.md
+
+    attachment #7: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  2 failed
+    tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › dye 工厂查看编辑日志卷码和备注入口五次 ────────────────
+    tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 ──────────────
+  11 passed (2.0m)

@@ -1,4 +1,5 @@
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './fcs/post-finishing-production-source-fixtures.ts'
+import { localDateTimeText } from '../utils.ts'
 import {
   calculateEngineeringBomTotalRequirement,
   resolveEngineeringBomMaterialLine,
@@ -57,13 +58,16 @@ import {
   regenerateEngineeringBomVersionFromSource,
   resolveEngineeringBomPricingPlan,
   restoreEngineeringBomRepositoryState,
+  saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
   setEngineeringBomVersionsEditingLock,
 } from './pcs-engineering-bom-repository.ts'
 import type { EngineeringUploadedFile } from './pcs-engineering-file-upload.ts'
 import { assertEngineeringUploadedFilesReady } from './pcs-engineering-file-upload.ts'
 import { getEngineeringTaskUploadedFile } from './pcs-engineering-task-upload-repository.ts'
-import { upsertProjectRelation } from './pcs-project-relation-repository.ts'
+import { resolveDesignRevisionMaterialSku } from './pcs-design-revision-material-sku.ts'
+import { GOTO_GLOBAL_FACTORY_ID, GOTO_GLOBAL_FACTORY_NAME } from './fcs/factory-mock-data.ts'
+import { getProjectRelationStoreSnapshot, replaceProjectRelationStore, upsertProjectRelation } from './pcs-project-relation-repository.ts'
 
 const STORAGE_KEY = 'higood-pcs-design-revision-v1'
 const DESIGN_REVISION_WHOLE_STYLE_SCOPE = '整款'
@@ -78,10 +82,10 @@ const TASK_META: Record<EngineeringIndependentProfessionalTaskType, { name: stri
 
 export const DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS = [
   {
-    teamId: 'PCS-DISPLAY-SAMPLE-TEAM',
-    teamName: '制作团队',
-    receivingFactoryId: 'ID-F014',
-    receivingFactoryName: 'CV Satellite Tangerang Barat',
+    teamId: GOTO_GLOBAL_FACTORY_ID,
+    teamName: `${GOTO_GLOBAL_FACTORY_NAME} 中央车缝工厂`,
+    receivingFactoryId: GOTO_GLOBAL_FACTORY_ID,
+    receivingFactoryName: `${GOTO_GLOBAL_FACTORY_NAME} 中央车缝工厂`,
     receivingLocationId: 'PCS-DISPLAY-SAMPLE-AREA',
     receivingLocationName: '销售展示样衣制作区',
   },
@@ -103,7 +107,7 @@ export interface EngineeringIndependentSamplingRepositoryState {
 }
 
 function nowText(): string {
-  return new Date().toISOString().replace('T', ' ').slice(0, 19)
+  return localDateTimeText(new Date())
 }
 
 function cloneSampleRequirement(line: EngineeringSampleRequirementLine): EngineeringSampleRequirementLine {
@@ -146,7 +150,9 @@ function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringI
   return {
     ...record,
     designFiles: (record.designFiles || []).map((file) => ({ ...file })),
+    creationDesignFileIds: [...(record.creationDesignFileIds || record.designFiles.slice(0, 1).map((file) => file.fileId))],
     reusedPatternFiles: (record.reusedPatternFiles || []).map((file) => ({ ...file })),
+    creationSampleRequirements: (record.creationSampleRequirements || []).map((line) => ({ ...line })),
     relatedProfessionalTaskIds: [...record.relatedProfessionalTaskIds],
     professionalTasks: record.professionalTasks.map(cloneTask),
     selectedTaskTypes: [...record.selectedTaskTypes],
@@ -163,7 +169,11 @@ function normalizeRecord(record: EngineeringIndependentSamplingRecord): Engineer
     ...record,
     samplingType: 'DESIGN_REVISION',
     designFiles: Array.isArray(record.designFiles) ? record.designFiles.map((file) => ({ ...file })) : [],
+    creationDesignFileIds: Array.isArray(record.creationDesignFileIds)
+      ? [...record.creationDesignFileIds]
+      : Array.isArray(record.designFiles) ? record.designFiles.slice(0, 1).map((file) => file.fileId) : [],
     reusedPatternFiles: Array.isArray(record.reusedPatternFiles) ? record.reusedPatternFiles.map((file) => ({ ...file })) : [],
+    creationSampleRequirements: (record.creationSampleRequirements || []).map((line) => ({ ...line })),
     targetMode: record.targetMode || 'ARCHIVED_STYLE',
     temporarySpuName: record.temporarySpuName || '',
     linkedFormalStyleId: record.linkedFormalStyleId || '',
@@ -342,15 +352,13 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       })
     }
   })
-  const statuses = ['DRAFT', 'IN_PROGRESS', 'WAIT_CONFIRMATION', 'COMPLETED', 'IN_PROGRESS', 'COMPLETED'] as const
+  const statuses = ['DRAFT', 'IN_PROGRESS', 'COMPLETED', 'IN_PROGRESS', 'COMPLETED', 'DRAFT'] as const
   return Array.from({ length: 24 }, (_, index) => {
     const target = styles[index % styles.length]
     const type: EngineeringIndependentSamplingType = 'DESIGN_REVISION'
     const source = styles[(index + 1) % styles.length]
     const createdAt = `2026-07-${String(index + 1).padStart(2, '0')} 09:00:00`
-    const selected: EngineeringIndependentProfessionalTaskType[] = index % 3 === 0
-      ? ['BASE_PATTERN', 'DISPLAY_SAMPLE', 'PATTERN_ARTWORK']
-      : ['PATTERN_ARTWORK', index % 2 ? 'COLOR_FABRIC' : 'COLOR_YARN']
+    const selected: EngineeringIndependentProfessionalTaskType[] = ['BASE_PATTERN', 'DISPLAY_SAMPLE']
     const code = `ES-DR-${String(index + 1).padStart(3, '0')}`
     const taskId = code.replace(/^ES-/, 'ES-ID-')
     const existingBomVersionIds = new Set(
@@ -373,10 +381,10 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
     initializeEngineeringIndependentManualMaterialPlan(record, buyer, createdAt)
     const defaultLines = createDefaultBomLines(target.styleCode).map((line) => ({
       ...line,
-      printRequirement: index % 3 === 0 ? '是' as const : '否' as const,
-      printRequirementText: index % 3 === 0 ? '满印花型' : '无',
-      dyeRequirement: index % 4 === 0 ? '是' as const : '否' as const,
-      purchaseRequirement: index % 5 === 0 ? '是' as const : '否' as const,
+      printRequirement: '否' as const,
+      printRequirementText: '以目标物料 SKU 为准',
+      dyeRequirement: '否' as const,
+      purchaseRequirement: '否' as const,
     }))
     record.bomVersionIds.forEach((versionId) => {
       const version = getEngineeringBomVersionById(versionId)
@@ -399,9 +407,9 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
     })
     record.bomConversionConfirmedBy = buyer.userName
     record.bomConversionConfirmedAt = createdAt
-    // STYLE-PRJ-202603-011 同时提供一条已完成且已确认的前期成果，供生产准备单
-    // 草稿 EM-002 在命名页面演示“复用／重做／不采用”。其余场景仍保留进行中与返工。
-    const seedStatus = index === 1 ? 'COMPLETED' : statuses[index % statuses.length]
+    // 保留已完成的设计改款历史样例，供生产准备单采用纸样和设计资料。
+    const seedStatus = ['STYLE-PRJ-202603-011', 'STYLE-PRJ-202603-009', 'STYLE-PRJ-202603-003'].includes(target.styleCode)
+      ? 'COMPLETED' : statuses[index % statuses.length]
     const buyerPreparationReady = seedStatus !== 'DRAFT' || index % 12 === 6
     if (buyerPreparationReady) {
       record.bomConversionStatus = 'CONFIRMED'
@@ -429,12 +437,12 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       record.taskPlanConfirmedBy = buyer.userName
       record.taskPlanConfirmedAt = createdAt
       const seededSampleRequirements = selected.includes('DISPLAY_SAMPLE')
-        ? normalizeIndependentSampleRequirements(record, undefined, buyer.userName, createdAt)
+        ? normalizeIndependentSampleRequirements(record, [{ targetColor: DESIGN_REVISION_WHOLE_STYLE_SCOPE, targetSize: DESIGN_REVISION_DEFAULT_SAMPLE_SIZE, requiredQuantity: 1, requirementNote: '历史演示样衣要求' }], buyer.userName, createdAt)
         : []
       record.professionalTasks = createProfessionalTasks(record, selected, createdAt, seededSampleRequirements)
       record.relatedProfessionalTaskIds = record.professionalTasks.map((task) => task.taskId)
       record.status = seedStatus
-      if (record.status === 'WAIT_CONFIRMATION' || record.status === 'COMPLETED') {
+      if (record.status === 'COMPLETED') {
         record.professionalTasks.forEach((task) => {
           task.status = 'COMPLETED'; task.startedAt = createdAt; task.submittedAt = createdAt; task.completedAt = createdAt
           task.results = task.taskType === 'DISPLAY_SAMPLE'
@@ -472,45 +480,8 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
           }]
         })
       } else if (record.professionalTasks[0]) {
-        record.professionalTasks[0].status = index === 7 ? 'REWORK' : 'IN_PROGRESS'
+        record.professionalTasks[0].status = 'IN_PROGRESS'
         record.professionalTasks[0].startedAt = createdAt
-        if (index === 7) {
-          record.professionalTasks[0].results = [{
-            resultId: `${record.professionalTasks[0].taskId}-R1`,
-            title: `${record.professionalTasks[0].taskName}成果（待返工）`,
-            version: 'v1.0',
-            description: '花型比例需要调整。',
-            applicablePartOrSize: '',
-            sampleQuantity: 0,
-            sampleColor: '',
-            sampleSize: '',
-            sourcePatternVersion: '',
-            imageUrl: target.mainImageUrl,
-            files: [createSeedUploadedFile(record.professionalTasks[0].taskId, 'PATTERN_ARTWORK', target.mainImageUrl, createdAt)],
-            status: 'REJECTED',
-            rejectReason: '花型比例需要调整后重新提交。',
-          }]
-        }
-        if (index === 1 && record.professionalTasks[1]) {
-          record.professionalTasks[1].status = 'WAIT_REVIEW'
-          record.professionalTasks[1].startedAt = createdAt
-          record.professionalTasks[1].submittedAt = createdAt
-          record.professionalTasks[1].results = [{
-            resultId: `${record.professionalTasks[1].taskId}-R1`,
-            title: `${record.professionalTasks[1].taskName}成果（待审核）`,
-            version: 'v1.0',
-            description: '等待买手审核本轮成果。',
-            applicablePartOrSize: '',
-            sampleQuantity: 0,
-            sampleColor: '',
-            sampleSize: '',
-            sourcePatternVersion: '',
-            imageUrl: target.mainImageUrl,
-            files: [createSeedUploadedFile(record.professionalTasks[1].taskId, 'PATTERN_ARTWORK', target.mainImageUrl, createdAt)],
-            status: 'WAIT_REVIEW',
-            rejectReason: '',
-          }]
-        }
       }
       if (record.status === 'COMPLETED') {
         record.resultVersion = 'v1.0'; record.resultSummary = '前期样衣与专业成果已完成并确认。'; record.confirmedBy = buyer.userName; record.confirmedAt = createdAt
@@ -595,8 +566,10 @@ export interface CreateEngineeringIndependentSamplingInput {
   temporarySpuName?: string
   creationReason: string
   designFiles: EngineeringUploadedFile[]
+  reuseDesignFileReferences?: boolean
   patternHandling?: 'REUSE' | 'REMAKE'
   reusedPatternFiles?: EngineeringUploadedFile[]
+  creationSampleRequirements?: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'>>
   buyer: { role: string; userId: string; userName: string }
   createdAt: string
 }
@@ -604,35 +577,37 @@ export interface CreateEngineeringIndependentSamplingInput {
 function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: string): EngineeringIndependentSamplingRecord {
   requireBuyer(input.buyer)
   const targetMode = input.targetMode || 'ARCHIVED_STYLE'
-  const target = targetMode === 'ARCHIVED_STYLE' ? getStyleArchiveById(input.targetStyleId || '') : null
-  if (targetMode === 'ARCHIVED_STYLE' && !target) throw new Error('目标商品／款式档案不存在。')
-  const temporarySpuName = targetMode === 'TEMPORARY_SPU' ? input.temporarySpuName?.trim() || '' : ''
-  if (targetMode === 'TEMPORARY_SPU' && !temporarySpuName) throw new Error('请填写线下临时 SPU 名称。')
-  const source = getStyleArchiveById(input.sourceStyleId)
-  if (!source) throw new Error('参照商品／款式档案不存在。')
-  if (target && (source.styleId === target.styleId || source.styleCode === target.styleCode)) throw new Error('参照 SPU 与目标 SPU 不能相同。')
-  assertEngineeringUploadedFilesReady(input.designFiles, '设计稿')
+  if (targetMode !== 'ARCHIVED_STYLE') throw new Error('新建设计改款任务必须选择已建档目标 SPU。')
+  const target = getStyleArchiveById(input.targetStyleId || '')
+  if (!target) throw new Error('目标商品／款式档案不存在。')
+  const temporarySpuName = ''
+  const source = input.sourceStyleId ? getStyleArchiveById(input.sourceStyleId) : null
+  if (input.sourceStyleId && !source) throw new Error('参照商品／款式档案不存在。')
+  if (source && target && (source.styleId === target.styleId || source.styleCode === target.styleCode)) throw new Error('参照 SPU 与目标 SPU 不能相同。')
+  if (!input.reuseDesignFileReferences && !input.designFiles.length) throw new Error('买手创建任务时必须上传款式设计稿。')
+  if (!input.reuseDesignFileReferences && !input.creationReason?.trim()) throw new Error('请填写设计改款目标。')
+  if (input.designFiles.length) assertEngineeringUploadedFilesReady(input.designFiles, '设计稿')
   if (input.designFiles.some((file) => file.purpose !== 'DESIGN_IMAGE')) throw new Error('设计稿文件类型不正确。')
-  if (input.designFiles.some((file) => file.uploadedById !== input.buyer.userId || file.uploadedByTeam !== '买手')) throw new Error('设计稿必须由当前买手上传。')
+  if (!input.reuseDesignFileReferences && input.designFiles.some((file) => file.uploadedById !== input.buyer.userId || file.uploadedByTeam !== '买手')) throw new Error('设计稿必须由当前买手上传。')
   const patternHandling = input.patternHandling || 'REMAKE'
   const reusedPatternFiles = input.reusedPatternFiles || []
   if (patternHandling === 'REUSE') {
-    assertEngineeringUploadedFilesReady(reusedPatternFiles, '复用基码纸样')
-    if (!reusedPatternFiles.some((file) => file.purpose === 'PATTERN_SOURCE' && file.extension === 'prj')) throw new Error('纸样不变时必须由买手上传并保存真实 .prj 基码纸样。')
-    if (reusedPatternFiles.some((file) => file.uploadedById !== input.buyer.userId || file.uploadedByTeam !== '买手')) throw new Error('复用基码纸样必须由当前买手上传。')
+    if (reusedPatternFiles.length) assertEngineeringUploadedFilesReady(reusedPatternFiles, '复用基码纸样')
+    if (reusedPatternFiles.length && !reusedPatternFiles.some((file) => file.purpose === 'PATTERN_SOURCE' && file.extension === 'prj')) throw new Error('复用基码纸样须引用已保存的 .prj 文件。')
   }
   const creationReason = input.creationReason?.trim() || ''
-  if (!creationReason) throw new Error('请填写本次设计改款要求。')
   const taskId = code.replace(/^ES-/, 'ES-ID-')
   const record: EngineeringIndependentSamplingRecord = {
     samplingTaskId: taskId, samplingTaskCode: code, samplingType: 'DESIGN_REVISION',
-    sourceStyleId: source.styleId, sourceStyleCode: source.styleCode,
+    sourceStyleId: source?.styleId || '', sourceStyleCode: source?.styleCode || '',
     targetMode,
     targetStyleId: target?.styleId || '', targetStyleCode: target?.styleCode || '', targetStyleName: target?.styleName || temporarySpuName,
     temporarySpuName,
     linkedFormalStyleId: '', linkedFormalStyleCode: '', linkedFormalStyleName: '', linkedAt: '', linkedBy: '',
     status: 'DRAFT', creationReason, designFiles: input.designFiles.map((file) => ({ ...file })),
+    creationDesignFileIds: input.designFiles.map((file) => file.fileId),
     patternHandling, reusedPatternFiles: reusedPatternFiles.map((file) => ({ ...file })),
+    creationSampleRequirements: (input.creationSampleRequirements || []).map((line) => ({ ...line })),
     buyerId: input.buyer.userId, buyerName: input.buyer.userName,
     merchandiserId: '', merchandiserName: '',
     displaySampleTeamId: '', displaySampleTeamName: '',
@@ -649,7 +624,7 @@ function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: str
     buyerPreparationReturnedBy: '', buyerPreparationReturnedAt: '', buyerPreparationReturnReason: '',
     operationLogs: [], createdBy: input.buyer.userName, createdAt: input.createdAt, updatedAt: input.createdAt,
   }
-  addLog(record, '创建任务', input.buyer, `设计改款任务已创建，并上传设计稿：${record.designFiles.map((file) => file.fileName).join('、')}。${patternHandling === 'REUSE' ? `已上传复用纸样：${record.reusedPatternFiles.map((file) => file.fileName).join('、')}。` : '本次需要重新制版。'}${record.creationReason}`, input.createdAt)
+  addLog(record, '创建任务', input.buyer, `设计改款任务已创建，并上传设计稿：${record.designFiles.map((file) => file.fileName).join('、')}。${patternHandling === 'REUSE' ? `已引用复用纸样：${record.reusedPatternFiles.map((file) => file.fileName).join('、')}。` : '本次需要重新制版。'}${record.creationReason}`, input.createdAt)
   return record
 }
 
@@ -700,7 +675,7 @@ function initializeEngineeringIndependentManualMaterialPlan(
   }]
   record.materialConversionLines = []
   record.bomConversionStatus = 'WAIT_MATERIAL_DECISION'
-  addLog(record, '建立物料与费用方案', actor, '物料由买手手工添加；系统未带入参照款物料。', createdAt)
+  addLog(record, '建立物料与费用方案', actor, '买手可选择目标物料 SKU 并调整用量。', createdAt)
 }
 
 export function createEngineeringIndependentSampling(input: CreateEngineeringIndependentSamplingInput): EngineeringIndependentSamplingRecord {
@@ -710,6 +685,18 @@ export function createEngineeringIndependentSampling(input: CreateEngineeringInd
   try {
     const record = buildRecord(input, code)
     initializeEngineeringIndependentManualMaterialPlan(record, input.buyer, input.createdAt)
+    const referenceBom = record.sourceStyleCode ? listEngineeringBomHistory(record.sourceStyleCode)[0] : undefined
+    if (referenceBom?.materialLines.length && record.bomDraftVersionId) {
+      regenerateEngineeringBomVersionFromSource({
+        targetVersionId: record.bomDraftVersionId,
+        sourceVersionId: referenceBom.bomDraftVersionId,
+        role: '买手',
+        userId: input.buyer.userId,
+        userName: input.buyer.userName,
+        regeneratedAt: input.createdAt,
+      })
+      addLog(record, '带入参照款物料', input.buyer, `已带入 ${referenceBom.materialLines.length} 行参照物料；提交前须逐行核对目标结果 SKU。`, input.createdAt)
+    }
     writeRecords([...records, record])
     syncDesignRevisionProjectRelation(record)
     return cloneRecord(record)
@@ -717,6 +704,63 @@ export function createEngineeringIndependentSampling(input: CreateEngineeringInd
     restoreEngineeringBomRepositoryState(bomSnapshot)
     throw error
   }
+}
+
+export function saveEngineeringIndependentSamplingDraftRequirements(input: {
+  samplingTaskId: string
+  actor: { role: string; userId: string; userName: string }
+  sampleRequirements: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'>>
+  savedAt?: string
+}): EngineeringIndependentSamplingRecord {
+  requireBuyer(input.actor)
+  const records = readRecords()
+  const record = records.find((item) => item.samplingTaskId === input.samplingTaskId)
+  if (!record || record.status !== 'DRAFT') throw new Error('只有设计改款草稿可以保存制作要求。')
+  if (!isTaskBuyerOrAdministrator(record, input.actor)) throw new Error('只有任务买手本人或管理员可以保存。')
+  if (!input.sampleRequirements.length || input.sampleRequirements.some((line) => !line.targetColor.trim() || !line.targetSize.trim() || !Number.isInteger(line.requiredQuantity) || line.requiredQuantity <= 0)) throw new Error('请完整填写每行颜色、尺码和大于 0 的整数件数。')
+  record.creationSampleRequirements = input.sampleRequirements.map((line) => ({ ...line, targetColor: line.targetColor.trim(), targetSize: line.targetSize.trim(), requirementNote: line.requirementNote.trim() }))
+  addLog(record, '保存草稿', input.actor, `已保存 ${record.creationSampleRequirements.length} 行销售展示样衣制作要求。`, input.savedAt || nowText())
+  writeRecords(records)
+  return cloneRecord(record)
+}
+
+/** 逐张复制创建输入；任何一张失败时只回滚该张草稿。 */
+export function copyEngineeringIndependentSamplingDrafts(input: {
+  samplingTaskIds: string[]
+  actor: { role: string; userId: string; userName: string }
+  createdAt: string
+}): Array<{ sourceTaskId: string; draftTaskId: string; error: string }> {
+  requireBuyer(input.actor)
+  return [...new Set(input.samplingTaskIds)].map((sourceTaskId) => {
+    const samplingSnapshot = captureEngineeringIndependentSamplingRepositoryState()
+    const bomSnapshot = captureEngineeringBomRepositoryState()
+    const relationSnapshot = getProjectRelationStoreSnapshot()
+    try {
+      const source = getEngineeringIndependentSamplingRecord(sourceTaskId)
+      if (!source) throw new Error('原设计改款任务不存在。')
+      if (source.targetMode !== 'ARCHIVED_STYLE' || !getStyleArchiveById(source.targetStyleId)) throw new Error('原任务没有可用的已建档目标 SPU。')
+      const creationDesignFileIds = source.creationDesignFileIds || source.designFiles.slice(0, 1).map((file) => file.fileId)
+      const creationDesignFiles = creationDesignFileIds.map((fileId) => source.designFiles.find((file) => file.fileId === fileId))
+      if (!creationDesignFiles.length || creationDesignFiles.some((file) => !file)) throw new Error('原任务建单设计稿已缺失，不能复制。')
+      const draft = createEngineeringIndependentSampling({
+        sourceStyleId: source.sourceStyleId,
+        targetStyleId: source.targetStyleId,
+        creationReason: source.creationReason,
+        designFiles: creationDesignFiles as EngineeringUploadedFile[],
+        reuseDesignFileReferences: true,
+        patternHandling: source.patternHandling,
+        reusedPatternFiles: source.reusedPatternFiles,
+        buyer: input.actor,
+        createdAt: input.createdAt,
+      })
+      return { sourceTaskId, draftTaskId: draft.samplingTaskId, error: '' }
+    } catch (error) {
+      restoreEngineeringIndependentSamplingRepositoryState(samplingSnapshot)
+      restoreEngineeringBomRepositoryState(bomSnapshot)
+      replaceProjectRelationStore(relationSnapshot)
+      return { sourceTaskId, draftTaskId: '', error: error instanceof Error ? error.message : '复制失败。' }
+    }
+  })
 }
 
 export function replaceEngineeringIndependentDesignFiles(input: {
@@ -963,8 +1007,7 @@ export function confirmEngineeringIndependentColorMappings(input: {
   mappings: Array<{ targetColor: string; sourceColor: string; targetSizeNames: string[]; mappingType?: EngineeringIndependentColorMapping['mappingType'] }>
   confirmedAt?: string
 }): EngineeringIndependentSamplingRecord {
-  throw new Error('设计改款不再维护新款颜色或参考色，请在整款物料与费用方案中手工新增物料。')
-
+  throw new Error('设计改款不再维护线上颜色映射，请在 BOM 中选择已确定颜色的目标物料 SKU。')
 }
 
 export function confirmEngineeringIndependentMaterialConversions(input: {
@@ -980,8 +1023,7 @@ export function confirmEngineeringIndependentMaterialConversions(input: {
   }>
   confirmedAt?: string
 }): EngineeringIndependentSamplingRecord {
-  throw new Error('设计改款不再处理参考物料，所有物料必须由买手在整款方案中手工新增。')
-
+  throw new Error('设计改款不再处理线上物料转换，请在 BOM 中选择目标物料 SKU。')
 }
 
 export function completeEngineeringIndependentBuyerPreparation(input: {
@@ -1000,6 +1042,11 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
   }
   if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt) throw new Error('方案确认后不能再修改。')
   const issues: string[] = []
+  if (record.targetMode !== 'ARCHIVED_STYLE' || !getStyleArchiveById(record.targetStyleId)) issues.push('请选择已建档目标 SPU。')
+  if (!record.creationReason.trim()) issues.push('请填写设计改款要求。')
+  try { assertEngineeringUploadedFilesReady(record.designFiles, '买手款式设计稿') } catch (error) { issues.push(error instanceof Error ? error.message : '请上传买手款式设计稿。') }
+  if (!record.designFiles.some((file) => file.purpose === 'DESIGN_IMAGE' && file.mimeType.startsWith('image/'))) issues.push('买手款式设计稿缺少已保存图片。')
+  if (record.patternHandling === 'REUSE' && !record.reusedPatternFiles.some((file) => file.purpose === 'PATTERN_SOURCE' && file.extension === 'prj')) issues.push('请引用已保存的基码纸样 .prj 文件。')
   if (!record.bomVersionIds.length) issues.push('物料与费用方案不存在，请刷新页面后重试。')
   const pricingPlan = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', record.samplingTaskId)
   if (!pricingPlan) {
@@ -1026,6 +1073,9 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
       try {
         const resolved = resolveEngineeringBomMaterialLine(line)
         if (resolved.priceStatus === '标准单价失效') issues.push(`第 ${index + 1} 行物料 ${resolved.materialSkuCode} 标准单价失效。`)
+        const snapshot = resolveDesignRevisionMaterialSku(line.materialSkuId)
+        if ((line.dyeRequirement === '是') !== snapshot.requiresDye || (line.printRequirement === '是') !== snapshot.requiresPrint) issues.push(`第 ${index + 1} 行加工要求与目标 SKU 不一致，请重新选择 SKU。`)
+        if (line.lossRate !== 0) issues.push(`第 ${index + 1} 行设计改款损耗率必须为 0。`)
       } catch (error) {
         issues.push(`第 ${index + 1} 行物料不完整：${error instanceof Error ? error.message : '请检查物料、用量、样衣数量、损耗率和单位。'}`)
       }
@@ -1043,6 +1093,18 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
   const bomSnapshot = captureEngineeringBomRepositoryState()
   const recordSnapshot = cloneRecord(record)
   try {
+    record.bomVersionIds.forEach((versionId) => {
+      const version = getEngineeringBomVersionById(versionId)
+      if (!version) throw new Error(`物料方案 ${versionId} 不存在。`)
+      saveEngineeringBomVersion({
+        versionId, role: input.actor.role as '买手' | '管理员', userId: input.actor.userId,
+        userName: input.actor.userName, updatedAt: at,
+        materialLines: version.materialLines.map((line) => ({
+          ...line, lossRate: 0,
+          designRevisionSkuSnapshot: resolveDesignRevisionMaterialSku(line.materialSkuId, at),
+        })),
+      })
+    })
     setEngineeringBomVersionsEditingLock({
       versionIds: record.bomVersionIds,
       locked: true,
@@ -1122,22 +1184,14 @@ export function regenerateEngineeringIndependentBomFromReference(input: {
   regeneratedAt?: string
 }): EngineeringIndependentSamplingRecord {
   throw new Error('设计改款不再支持按参考色生成 BOM，所有物料必须由买手手工新增。')
-
 }
 
 export function suggestEngineeringIndependentTaskTypesForBomLines(
   record: EngineeringIndependentSamplingRecord,
-  bomLines: Array<Pick<EngineeringBomMaterialLineDraft, 'materialSkuId' | 'dyeRequirement' | 'printRequirement'>>,
+  _bomLines: Array<Pick<EngineeringBomMaterialLineDraft, 'materialSkuId' | 'dyeRequirement' | 'printRequirement'>>,
 ): EngineeringIndependentProfessionalTaskType[] {
   const suggestions = new Set<EngineeringIndependentProfessionalTaskType>(['DISPLAY_SAMPLE'])
   if (record.patternHandling === 'REMAKE') suggestions.add('BASE_PATTERN')
-  if (bomLines.some((line) => line.printRequirement === '是')) suggestions.add('PATTERN_ARTWORK')
-  bomLines.filter((line) => line.dyeRequirement === '是').forEach((line) => {
-    const sku = getMaterialSkuRecordById(line.materialSkuId)
-    const kind = sku ? getMaterialArchiveById(sku.materialId)?.kind : undefined
-    if (kind === 'yarn') suggestions.add('COLOR_YARN')
-    else suggestions.add('COLOR_FABRIC')
-  })
   return [...suggestions]
 }
 
@@ -1193,28 +1247,22 @@ function normalizeIndependentSampleRequirements(
   issuedBy: string,
   issuedAt: string,
 ): EngineeringSampleRequirementLine[] {
-  const source = requirements?.length ? requirements : undefined
+  const source = requirements?.length ? requirements : record.creationSampleRequirements?.length ? record.creationSampleRequirements : undefined
   source?.forEach((item) => {
     if (!Number.isInteger(Number(item.requiredQuantity)) || Number(item.requiredQuantity) <= 0) {
       throw new Error('销售展示样衣数量必须为大于 0 的整数。')
     }
   })
-  const quantity = source
-    ? source.reduce((sum, item) => sum + Number(item.requiredQuantity), 0)
-    : 1
-  if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('销售展示样衣数量必须为大于 0 的整数。')
-  const notes = source
-    ? [...new Set(source.map((item) => item.requirementNote.trim()).filter(Boolean))].join('；')
-    : ''
-  return [{
-    requirementLineId: source?.[0]?.requirementLineId?.trim() || `${record.samplingTaskId}-DISPLAY-REQ-1`,
-    targetColor: record.colorMappings[0]?.targetColor || DESIGN_REVISION_WHOLE_STYLE_SCOPE,
-    targetSize: DESIGN_REVISION_DEFAULT_SAMPLE_SIZE,
-    requiredQuantity: quantity,
-    requirementNote: notes,
+  if (!source?.length) throw new Error('请填写销售展示样衣的颜色、尺码和数量。')
+  return source.map((item, index) => ({
+    requirementLineId: ('requirementLineId' in item && typeof item.requirementLineId === 'string' ? item.requirementLineId.trim() : '') || `${record.samplingTaskId}-DISPLAY-REQ-${index + 1}`,
+    targetColor: item.targetColor.trim() || DESIGN_REVISION_WHOLE_STYLE_SCOPE,
+    targetSize: item.targetSize.trim() || DESIGN_REVISION_DEFAULT_SAMPLE_SIZE,
+    requiredQuantity: Number(item.requiredQuantity),
+    requirementNote: item.requirementNote.trim(),
     issuedBy,
     issuedAt,
-  }]
+  }))
 }
 
 function createProfessionalTasks(
@@ -1258,13 +1306,8 @@ function processTaskForLine(
   processCode: 'DYE' | 'PRINT',
   materialSkuId: string,
 ): EngineeringIndependentProfessionalTask {
-  const sku = getMaterialSkuRecordById(materialSkuId)
-  const kind = sku ? getMaterialArchiveById(sku.materialId)?.kind : undefined
-  const type: EngineeringIndependentProfessionalTaskType = processCode === 'PRINT'
-    ? 'PATTERN_ARTWORK'
-    : kind === 'yarn' ? 'COLOR_YARN' : 'COLOR_FABRIC'
-  const task = tasks.find((item) => item.taskType === type)
-  if (!task) throw new Error(`物料 ${sku?.materialSkuCode || materialSkuId} 需要${processCode === 'PRINT' ? '印花' : '染色'}，但未生成对应专业任务。`)
+  const task = tasks.find((item) => item.taskType === 'DISPLAY_SAMPLE')
+  if (!task) throw new Error(`物料 ${materialSkuId} 需要${processCode === 'PRINT' ? '印花' : '染色'}，但未生成销售展示样衣任务。`)
   return task
 }
 
@@ -1334,9 +1377,11 @@ function buildDesignRevisionProcessEntries(input: {
     const mapping = input.record.colorMappings.find((item) => item.targetColor === version.productColor)
     if (!mapping) throw new Error(`颜色“${version.productColor}”缺少已确认的颜色关系。`)
     return version.materialLines.flatMap((line, index): DesignRevisionProcessWorkOrderLineInput[] => {
+      const snapshot = line.designRevisionSkuSnapshot || resolveDesignRevisionMaterialSku(line.materialSkuId, input.record.taskPlanConfirmedAt)
+      if (snapshot.targetSkuId !== line.materialSkuId) throw new Error('BOM 目标 SKU 与加工快照不一致。')
       const processTypes: Array<'DYEING' | 'PRINTING'> = [
-        ...(line.dyeRequirement === '是' ? ['DYEING' as const] : []),
-        ...(line.printRequirement === '是' ? ['PRINTING' as const] : []),
+        ...(snapshot.requiresDye ? ['DYEING' as const] : []),
+        ...(snapshot.requiresPrint ? ['PRINTING' as const] : []),
       ]
       if (!processTypes.length) return []
       if (sampleQuantity <= 0) throw new Error('存在需要印花／染色的物料，请先填写销售展示样衣数量。')
@@ -1347,17 +1392,21 @@ function buildDesignRevisionProcessEntries(input: {
       const bomItemId = line.bomItemId || `${versionId}-LINE-${index + 1}`
       const plannedQty = Math.round(calculateEngineeringBomTotalRequirement({
           usage: line.usage,
+          quantityBasis: line.quantityBasis,
           sampleQuantity,
-          lossRate: line.lossRate,
+          lossRate: 0,
           conversionToPricingUnit: resolved.conversionToPricingUnit,
         }) * 10_000) / 10_000
       return processTypes.map((processType) => {
         const task = processTaskForLine(input.tasks, processType === 'PRINTING' ? 'PRINT' : 'DYE', line.materialSkuId)
+        const inputSkuId = processType === 'DYEING' || !snapshot.requiresDye ? snapshot.rawSkuId : snapshot.dyedSkuId
+        const inputSku = getMaterialSkuRecordById(inputSkuId)
+        if (!inputSku || inputSku.status !== 'ACTIVE') throw new Error(`${snapshot.targetSkuCode} 的加工前序 SKU 不可用。`)
         const processQuantity = resolveDesignRevisionProcessQuantity({
           processType,
           plannedQty,
           qtyUnit: resolved.pricingUnit,
-          materialSkuId: line.materialSkuId,
+          materialSkuId: inputSkuId,
           materialName: archive.materialName,
         })
         return {
@@ -1366,19 +1415,32 @@ function buildDesignRevisionProcessEntries(input: {
           professionalTaskNo: task.taskId,
           targetSpuImageUrl,
           targetColorId: mapping.mappingId,
-          targetColor: version.productColor,
+          targetColor: snapshot.colorName || version.productColor,
           bomVersionId: version.bomDraftVersionId,
           bomVersionLabel: version.versionCode,
           bomItemId,
           materialId: archive.materialId,
-          materialSkuId: line.materialSkuId,
-          materialSkuCode: sku.materialSkuCode,
+          materialSkuId: inputSkuId,
+          materialSkuCode: inputSku.materialSkuCode,
+          targetMaterialSkuId: snapshot.targetSkuId,
+          targetMaterialSkuCode: snapshot.targetSkuCode,
+          rawMaterialSkuCode: snapshot.rawSkuCode,
+          dyedMaterialSkuCode: snapshot.dyedSkuCode,
+          dyedMaterialSkuId: snapshot.dyedSkuId,
+          dyedMaterialImageUrl: snapshot.dyedSkuId ? getMaterialSkuRecordById(snapshot.dyedSkuId)?.skuImageUrl || '' : '',
+          targetMaterialImageUrl: snapshot.materialImageUrl,
+          pantoneCode: snapshot.pantoneCode,
+          patternCode: snapshot.patternCode,
+          patternImageUrl: snapshot.patternImageUrl,
           materialName: archive.materialName,
+          materialCode: archive.materialCode,
           materialType: archive.kind,
           materialReceivingKind: archive.kind === 'fabric' ? 'FABRIC' : archive.kind === 'yarn' ? 'YARN' : 'ACCESSORY',
-          materialImageUrl: sku.skuImageUrl || archive.mainImageUrl,
+          materialImageUrl: inputSku.skuImageUrl || archive.mainImageUrl,
           materialComposition: archive.composition,
           materialSpecification: [sku.specName, archive.specSummary].filter(Boolean).join(' / '),
+          materialWidthCm: Number.parseFloat(archive.widthText || '') || 0,
+          materialGsm: Number.parseFloat(archive.gramWeightText || '') || 0,
           plannedQty: processQuantity.plannedQty,
           qtyUnit: processQuantity.qtyUnit,
         }
@@ -1405,6 +1467,9 @@ export function confirmEngineeringIndependentSamplingPlan(input: {
   if (incompleteBom) throw new Error('整款物料与费用方案尚未添加物料，不能确认本次工作安排。')
   if (!input.selectedTaskTypes.length) throw new Error('请至少选择一个专业任务。')
   if (!input.selectedTaskTypes.includes('DISPLAY_SAMPLE')) throw new Error('设计改款任务必须包含销售展示样衣任务。')
+  if (input.selectedTaskTypes.some((taskType) => taskType !== 'BASE_PATTERN' && taskType !== 'DISPLAY_SAMPLE')) {
+    throw new Error('设计改款只生成基码纸样和销售展示样衣任务；花型和调色已在线下完成。')
+  }
   const assignment = {
     teamId: input.displaySampleAssignment.teamId.trim(),
     teamName: input.displaySampleAssignment.teamName.trim(),
@@ -1415,6 +1480,9 @@ export function confirmEngineeringIndependentSamplingPlan(input: {
   }
   if (!assignment.teamId || !assignment.teamName || !assignment.receivingFactoryId || !assignment.receivingFactoryName || !assignment.receivingLocationId || !assignment.receivingLocationName) {
     throw new Error('请选择销售展示样衣制作团队、实际接收工厂和接收地点。')
+  }
+  if (assignment.receivingFactoryId !== GOTO_GLOBAL_FACTORY_ID) {
+    throw new Error('设计改款印染面辅料的最终接收方必须是 goto_global 中央车缝工厂。')
   }
   const requiredTypes = suggestEngineeringIndependentTaskTypes(record)
   const missingRequired = requiredTypes.filter((taskType) => !input.selectedTaskTypes.includes(taskType))
@@ -1485,7 +1553,7 @@ export function repairEngineeringIndependentProfessionalTaskProcessOrders(input:
   const records = readRecords()
   const { record, task } = findTask(records, input.taskId)
   if (!isTaskBuyerOrAdministrator(record, input.actor)) throw new Error('只有任务买手本人或管理员可以修复加工单关联。')
-  if (!['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(task.taskType)) throw new Error('当前任务不需要印花／染色加工单。')
+  if (task.taskType !== 'DISPLAY_SAMPLE' && !['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(task.taskType)) throw new Error('当前任务不需要印花／染色加工单。')
   const sampleRequirements = record.professionalTasks.find((item) => item.taskType === 'DISPLAY_SAMPLE')?.sampleRequirements || []
   const targetSpu = targetSpuIdentity(record)
   const transaction = prepareDesignRevisionProcessWorkOrders({
@@ -1554,7 +1622,7 @@ function unlockDependents(record: EngineeringIndependentSamplingRecord, complete
 
 function refreshParentStatus(record: EngineeringIndependentSamplingRecord): void {
   if (record.status === 'COMPLETED' || record.status === 'DRAFT') return
-  record.status = record.professionalTasks.length > 0 && record.professionalTasks.every((task) => task.status === 'COMPLETED') ? 'WAIT_CONFIRMATION' : 'IN_PROGRESS'
+  record.status = 'IN_PROGRESS'
 }
 
 function requiredExecutionRole(task: EngineeringIndependentProfessionalTask): string {
@@ -1662,8 +1730,15 @@ export function submitEngineeringIndependentProfessionalTask(input: {
   submittedAt?: string
 }): EngineeringIndependentSamplingRecord {
   const records = readRecords(); const { record, task } = findTask(records, input.taskId)
+  const originalRecords = task.taskType === 'DISPLAY_SAMPLE' ? records.map(cloneRecord) : []
+  const originalRelations = task.taskType === 'DISPLAY_SAMPLE' ? getProjectRelationStoreSnapshot() : null
   requireTaskExecutor(task, input.actor)
-  if (!['IN_PROGRESS', 'REWORK'].includes(task.status)) throw new Error('请先开始专业任务。')
+  if (!['IN_PROGRESS', 'REWORK', ...(task.taskType === 'DISPLAY_SAMPLE' ? ['WAIT_START'] : [])].includes(task.status)) throw new Error('当前任务尚不能提交。')
+  if (task.taskType === 'DISPLAY_SAMPLE') {
+    if (task.dependsOnTaskIds.some((id) => record.professionalTasks.find((item) => item.taskId === id)?.status !== 'COMPLETED')) throw new Error('基码纸样尚未完成。')
+    const pending = readDesignRevisionProcessWorkOrderStatuses(task.processWorkOrderRefs).filter((status) => status.status !== 'COMPLETED')
+    if (pending.length) throw new Error(`印染面辅料尚未完成交接：${[...new Set(pending.map((item) => item.blockReason || item.statusLabel))].join('；')}`)
+  }
   if (!input.results.length || input.results.some((item) => !item.title.trim())) throw new Error('请逐项填写成果名称。')
   input.results.forEach((result) => validateIndependentProfessionalResultFiles(task, result.files))
   if (task.taskType === 'BASE_PATTERN' && input.results.some((result) => !result.version?.trim() || !result.description?.trim() || !result.applicablePartOrSize?.trim())) {
@@ -1711,6 +1786,7 @@ export function submitEngineeringIndependentProfessionalTask(input: {
   }
   if ((task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && (!task.colorRequirementConfirmedAt || !task.pantoneColorCode || !task.colorName)) throw new Error('请先由买手确认潘通色号和颜色名称。')
   const at = input.submittedAt || nowText(); task.submittedAt = at
+  if (task.taskType === 'DISPLAY_SAMPLE' && !task.startedAt) task.startedAt = at
   task.dyeColorCode = input.dyeColorCode?.trim() || task.dyeColorCode
   const submittedResults = input.results.map((result, index) => ({
     resultId: `${task.taskId}-R${index + 1}`,
@@ -1738,7 +1814,31 @@ export function submitEngineeringIndependentProfessionalTask(input: {
     task.results = submittedResults
   }
   if (task.taskType === 'BASE_PATTERN' || task.taskType === 'DISPLAY_SAMPLE') { task.status = 'COMPLETED'; task.completedAt = at; unlockDependents(record, task.taskId) } else task.status = 'WAIT_REVIEW'
-  addLog(record, '提交专业成果', input.actor, `${task.taskName}已提交 ${task.results.length} 项成果。`, at); refreshParentStatus(record); writeRecords(records); return cloneRecord(record)
+  addLog(record, '提交专业成果', input.actor, `${task.taskName}已提交 ${task.results.length} 项成果。`, at)
+  if (task.taskType === 'DISPLAY_SAMPLE') {
+    record.status = 'COMPLETED'
+    record.resultVersion = task.results[0]?.version || '样衣提交版'
+    record.resultSummary = `销售展示样衣已提交 ${task.results.reduce((sum, item) => sum + item.sampleQuantity, 0)} 件。`
+    record.confirmedBy = input.actor.userName
+    record.confirmedAt = at
+    addLog(record, '设计改款自动完成', input.actor, record.resultSummary, at)
+  } else refreshParentStatus(record)
+  writeRecords(records)
+  if (record.status === 'COMPLETED') {
+    try {
+      syncDesignRevisionProjectRelation(record)
+    } catch (error) {
+      // 关联仓库持续写入失败时，仍先恢复样衣及父任务，不能让关联恢复异常跳过回滚。
+      writeRecords(originalRecords)
+      try {
+        if (originalRelations) replaceProjectRelationStore(originalRelations)
+      } catch {
+        // 关联写入失败未改变持久化数据；恢复调用已重置其内存快照。
+      }
+      throw new Error(`样衣成果未提交，任务已恢复，请重试。${error instanceof Error ? error.message : ''}`)
+    }
+  }
+  return cloneRecord(record)
 }
 
 export function reviewEngineeringIndependentProfessionalTask(input: { taskId: string; actor: { role: string; userId: string; userName: string }; decisions: Array<{ resultId: string; approved: boolean; reason?: string }>; reviewedAt?: string }): EngineeringIndependentSamplingRecord {

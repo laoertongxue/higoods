@@ -29,6 +29,10 @@ export function migrateProductFixtureImage(styleCode: string, current: string, c
   return reviewedStyleImage(styleCode, colorName) || current
 }
 
+export function localProductFixtureImageUrl(url: string): string {
+  return localizeProductFixtureImageUrl(url)
+}
+
 const PRODUCT_TITLE_POOL = [
   'Atasan Pakaian Wanita Bergaya Kekinian Mode Terbaru',
   'Atasan Pakaian Wanita Kerah Bulat Lengan Panjang Warna Solid Gaya Kekinian',

@@ -188,6 +188,7 @@ function roundQty(value: number): number {
 }
 
 function getKolGotoTask(taskId: string): ProcessTask {
+  ensureKolGotoPdaScenarios()
   ensureFormalKolActions()
   const task = processTasks.find((item) => item.taskId === taskId)
   assertKolGotoWholeOrderTask(task, 'KOL PDA 操作')
@@ -225,6 +226,7 @@ export function getKolGotoMaterialSourceIssue(taskId: string): string {
 }
 
 export function listKolGotoPickupBatches(taskId?: string): KolGotoPickupBatch[] {
+  ensureKolGotoPdaScenarios()
   ensureFormalKolActions()
   return structuredClone(taskId ? pickupBatches.filter((item) => item.taskId === taskId) : pickupBatches)
 }
@@ -460,6 +462,7 @@ function getKolGotoHandoutHeadId(taskId: string): string {
 }
 
 export function listKolGotoHandoutRecords(taskId: string): PdaHandoverRecord[] {
+  ensureKolGotoPdaScenarios()
   return getPdaHandoverRecordsByHead(getKolGotoHandoutHeadId(taskId))
 }
 
@@ -696,6 +699,7 @@ export function completeKolGotoWholeOrderTask(input: {
 }
 
 export function listKolGotoTasks(): ProcessTask[] {
+  ensureKolGotoPdaScenarios()
   ensureFormalKolActions()
   return processTasks.filter((task) => isKolGotoWholeOrderTask(task)).map((task) => structuredClone(task))
 }
@@ -714,9 +718,12 @@ function submitSeedPickup(taskId: string, clientSubmissionId: string, pickedAt: 
 }
 
 let kolGotoPdaScenariosSeeded = false
+let kolGotoPdaScenariosSeeding = false
 
 export function ensureKolGotoPdaScenarios(): void {
-  if (kolGotoPdaScenariosSeeded) return
+  if (kolGotoPdaScenariosSeeded || kolGotoPdaScenariosSeeding) return
+  kolGotoPdaScenariosSeeding = true
+  try {
   const taskByOrderId = new Map(listKolGotoTasks().map((task) => [task.productionOrderId, task]))
   const repeatedPickupTask = taskByOrderId.get('PO-202603-0005')
   if (repeatedPickupTask && repeatedPickupTask.status !== 'DONE') {
@@ -770,6 +777,7 @@ export function ensureKolGotoPdaScenarios(): void {
     })
   }
   kolGotoPdaScenariosSeeded = true
+  } finally {
+    kolGotoPdaScenariosSeeding = false
+  }
 }
-
-ensureKolGotoPdaScenarios()

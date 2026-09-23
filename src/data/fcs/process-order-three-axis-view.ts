@@ -128,9 +128,9 @@ function deriveReceiverView(input: {
   }
 }
 
-export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder, source = getDyeMaterialReceiptOptions(order.dyeOrderId, order), warehouseDocuments?: readonly CentralTransferDocument[]): ProcessOrderThreeAxisView {
+/** Status-only readers do not need to build unrelated production routes and warehouse documents. */
+export function getDyeWorkOrderProgressView(order: DyeWorkOrder, sourceAvailableQty: number): Pick<ProcessOrderThreeAxisView, 'receiptStatus' | 'processingStatus' | 'handoverStatus' | 'receivedInputQty' | 'completedQty' | 'handedOverQty' | 'downstreamReceivedQty'> {
   const receivedInputQty = (order.materialReceipts ?? []).reduce((sum, item) => sum + item.qty, 0)
-  const sourceAvailableQty = source.options.reduce((sum, item) => sum + item.availableQty, 0)
   const currentNodes = listDyeExecutionNodeRecords(order.dyeOrderId)
   const executionNodes = [...(order.completedExecutionBatches ?? []).flat(), ...currentNodes]
   const dyeStarts = executionNodes.filter(node => node.nodeCode === 'DYE').map(node => node.startedAt).filter((value): value is string => Boolean(value))
@@ -153,15 +153,21 @@ export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder, source = getDy
       manuallyCompletedAt: completedAt,
     }),
     handoverStatus: deriveProcessOrderHandoverStatus({ completedQty, handedOverQty: summary.submittedQty }),
+    receivedInputQty,
+    completedQty,
+    handedOverQty: summary.submittedQty,
+    downstreamReceivedQty: summary.writtenBackQty,
+  }
+}
+
+export function getDyeWorkOrderThreeAxisView(order: DyeWorkOrder, source = getDyeMaterialReceiptOptions(order.dyeOrderId, order), warehouseDocuments?: readonly CentralTransferDocument[]): ProcessOrderThreeAxisView {
+  return {
+    ...getDyeWorkOrderProgressView(order, source.options.reduce((sum, item) => sum + item.availableQty, 0)),
     sourceMode: source.sourceMode,
     sourceDocumentNos: unique([
       ...source.options.map(item => item.documentNo),
       ...(order.materialReceipts ?? []).map(item => getPreparationMaterialSourceDocumentNo(item.upstreamRecordId, warehouseDocuments) || item.upstreamRecordId),
     ]),
-    receivedInputQty,
-    completedQty,
-    handedOverQty: summary.submittedQty,
-    downstreamReceivedQty: summary.writtenBackQty,
     receiver: deriveReceiverView({
       documentId: order.dyeOrderId,
       sourceType: order.sourceType,

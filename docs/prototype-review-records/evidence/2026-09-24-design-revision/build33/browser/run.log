@@ -1,0 +1,17 @@
+
+Running 10 tests using 1 worker
+
+(node:21678) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 (14.4s)
+  ✓   2 tests/pcs-design-revision-pda-gap.spec.ts:13:1 › 设计改款印花 PDA 使用实际领料和工序事实，不出现花型测试或无关转印 (8.9s)
+  ✓   3 tests/pcs-design-revision-pda-gap.spec.ts:61:1 › 设计改款 PDA 完单后交出状态一致，禁止再次交出 (716ms)
+  ✓   4 tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 (786ms)
+  ✓   5 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › F090 PDA 列表筛选、四个状态与底部跨页导航五次 (20.0s)
+  ✓   6 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › FAC-FLOWER PDA 列表筛选、四个状态与底部跨页导航五次 (14.3s)
+  ✓   7 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA warehouse-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.4s)
+  ✓   8 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA dye-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.1s)
+  ✓   9 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA print-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (10.2s)
+  ✓  10 tests/pcs-design-revision-transfer-print.spec.ts:5:1 › 设计改款仓库调拨送货单包含来源、实际卷码和数量，打印不增加库存 (6.5s)
+
+  10 passed (1.6m)

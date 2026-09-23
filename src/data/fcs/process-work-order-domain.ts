@@ -6,6 +6,7 @@ import {
   listPrintExecutionNodeRecords,
   listPrintWorkOrders,
   readPrintWorkOrdersWithoutInitialization,
+  listPrintWorkOrderSourceReferences,
   listPrintWorkOrderListRecords,
   type PrintExecutionNodeRecord,
   type PrintReviewRecord,
@@ -89,7 +90,7 @@ export const PROCESS_WORK_ORDER_SOURCE_LABEL: Record<ProcessWorkOrderSourceType,
   PRODUCTION_DEMAND: '生产需求单提前创建',
   STOCK: '备货手动创建',
   CUT_PIECE_SUPPLEMENT: '裁片补料生成',
-  DESIGN_REVISION: '设计改款生成',
+  DESIGN_REVISION: '设计改款任务',
 }
 
 export interface ProcessWorkOrderSourceSnapshot {
@@ -126,12 +127,21 @@ export interface ProcessWorkOrderSourceSnapshot {
   bomItemId?: string
   bomItemIds?: string[]
   materialSkuCode?: string
+  targetMaterialSkuCode?: string
+  rawMaterialSkuCode?: string
+  dyedMaterialSkuCode?: string
+  pantoneCode?: string
+  patternCode?: string
+  patternImageUrl?: string
   materialName?: string
+  materialCode?: string
   materialReceivingKind?: 'FABRIC' | 'ACCESSORY' | 'YARN'
   materialImageUrl?: string
   materialColor?: string
   materialComposition?: string
   materialSpecification?: string
+  materialWidthCm?: number
+  materialGsm?: number
   supplementRecordId?: string
   supplementRecordNo?: string
   originalCutOrderId?: string
@@ -641,7 +651,7 @@ export function listProcessWorkOrderRelationSources(executionRouteCodes?: Readon
     ? readPrintWorkOrdersWithoutInitialization() : undefined
   const dyeRead = executionRouteCodes && !executionRouteCodes.has('DYE')
     ? readDyeWorkOrdersWithoutInitialization() : undefined
-  const printOrders = (printRead && !printRead.needsRestoration ? printRead.orders : listPrintWorkOrders()).map((order): ProcessWorkOrderRelationSource => ({
+  const printOrders = (printRead && !printRead.needsRestoration ? printRead.orders : listPrintWorkOrderSourceReferences()).map((order): ProcessWorkOrderRelationSource => ({
     taskId: order.taskId, taskNo: order.taskNo, factoryId: order.printFactoryId, factoryName: order.printFactoryName,
     sourceArtifactIds: order.sourceArtifactIds ? [...order.sourceArtifactIds] : undefined,
     workOrderId: order.printOrderId,

@@ -1,0 +1,4252 @@
+{
+  "runId": "2026-09-23T20-19-41.804Z",
+  "distSha": "e8b9140d4deb2ae3af7f950701cfcb7b9e3d6672c9c21ad5aff0b555b48785de",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "routes": [
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/task-receive",
+      "samples": {
+        "cold": [
+          425.80000000447035,
+          412.79999999701977,
+          387.29999999701977,
+          387.5,
+          391.59999999403954
+        ],
+        "reload": [
+          305.5,
+          314.69999999552965,
+          280.19999999552965,
+          281.80000000447035,
+          297.3999999985099
+        ]
+      },
+      "errors": [],
+      "text": "全能力测试工厂\n接单 · F090\n待办\n73\n全\n全能力测\n待接单任务 3\n待报价招标单 1\n已报价招标单\n已中标任务\nTASK-SEW-000511-F090-1\n正常\n生产单号： PO-20260328-051\n工序： 车缝\n任务数量： 920 件\n接单截止： 2026-09-24 12:19:42\n任务截止： 2026-03-31 18:00:00\n派单价： -\n当前工厂：全能力测试工厂（F090）\n\n派单备注：车缝直接派单待接单\n\n查看详情\n拒单\n接单\nTASK-PRINT-000716\n正常\n生产单号： PO14677\n工序： 印花\n任务数量： 100 Yard\n接单截止： -\n任务截止： -\n派单价： 1,200 IDR/Yard\n当前工厂：全能力测试工厂（F090）\n\n派单备注：印花加工单已分配，待工厂接单。\n\n查看详情\n拒单\n接单\nTASK-DYE-WATER-PO-202603-081\n正常\n生产单号： PO-202603-081\n工序： 染色\n任务数量： 4368 米\n接单截止： -\n任务截止： -\n派单价： 1,500 IDR/Yard\n当前工厂：全能力测试工厂（F090）\n\n派单备注：染色加工单已分配，待工厂接单。\n\n查看详情\n拒单\n接单\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      73",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "全\n      全能力测",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "搜索任务号 / 招标单号 / 生产单号",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-field",
+              "keyword"
+            ]
+          ]
+        },
+        {
+          "text": "待接单任务\n              3",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "pending-accept"
+            ]
+          ]
+        },
+        {
+          "text": "待报价招标单\n              1",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "pending-quote"
+            ]
+          ]
+        },
+        {
+          "text": "已报价招标单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "quoted"
+            ]
+          ]
+        },
+        {
+          "text": "已中标任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "awarded"
+            ]
+          ]
+        },
+        {
+          "text": "查看详情",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-SEW-000511-F090-1"
+            ]
+          ]
+        },
+        {
+          "text": "拒单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "open-reject"
+            ],
+            [
+              "data-task-id",
+              "TASK-SEW-000511-F090-1"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "accept-task"
+            ],
+            [
+              "data-task-id",
+              "TASK-SEW-000511-F090-1"
+            ]
+          ]
+        },
+        {
+          "text": "查看详情",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-000716"
+            ]
+          ]
+        },
+        {
+          "text": "拒单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "open-reject"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-000716"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "accept-task"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-000716"
+            ]
+          ]
+        },
+        {
+          "text": "查看详情",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-DYE-WATER-PO-202603-081"
+            ]
+          ]
+        },
+        {
+          "text": "拒单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "open-reject"
+            ],
+            [
+              "data-task-id",
+              "TASK-DYE-WATER-PO-202603-081"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "accept-task"
+            ],
+            [
+              "data-task-id",
+              "TASK-DYE-WATER-PO-202603-081"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/task-receive/DWO-AUTO-000001",
+      "samples": {
+        "cold": [
+          355.8999999985099,
+          352.8999999985099,
+          340.5,
+          344.8999999985099,
+          341.8999999985099
+        ],
+        "reload": [
+          257.79999999701977,
+          248.39999999850988,
+          261.80000000447035,
+          258.30000000447035,
+          268.79999999701977
+        ]
+      },
+      "errors": [],
+      "text": "全能力测试工厂\n接单 · F090\n待办\n61\n全\n全能力测\n任务详情\nDY-20260923-000001\n原始任务:\nDY-20260923-000001\n设计改款任务:\nES-DR-025\n工序序号:\n1\n工序名称:\n设计改款染色\n工序编码:\nDYE\n阶段:\n准备阶段\n数量:\n20 METER\n款式信息 / SPU 缩略图\nSTYLE-PRJ-202603-012\nKaos Polos Premium 高端纯色T恤\n交付日期：2026-09-23\n直接派单\n已分配\n已接单\n直接派单信息\n直接派单时间:\n2026-09-15 11:20:00\n币种 / 单位:\nIDR / Yard\n直接派单价:\n1,500 IDR/Yard\n派单备注：染色加工单已分配，待工厂接单。\n承接工厂\n全能力测试工厂（F090）\nJakarta Test Lane 90, Jakarta, DKI Jakarta\n操作日志\n\n暂无日志\n\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      61",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "全\n      全能力测",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-trd-action",
+              "back"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/exec",
+      "samples": {
+        "cold": [
+          484.19999999552965,
+          489,
+          474.5,
+          492.3999999985099,
+          486.90000000596046
+        ],
+        "reload": [
+          372.3999999985099,
+          382.20000000298023,
+          365.6000000014901,
+          382.20000000298023,
+          382
+        ]
+      },
+      "errors": [],
+      "text": "全能力测试工厂\n执行 · F090\n待办\n73\n全\n全能力测\n待开工 (8)\n进行中 (27)\n生产暂停 (5)\n已完工 (3)\n加工中(5)\n已完成(6)\n扫码捆条加工单\n识别加工单\nBT-260313-086-01-16\nPO-202603-086 · tdv_demand_SPU_SHIRT_086-bom-main\n加工中\n1 个规格 · 计划 1260 米\n实收 34.94 / 已加工 756 / 已交出 0 米\n加工填报\nBT-260306-101-05-36\nPO-202603-0004 · tdv_demand_SPU_2024_010-bom-black-stretch-twill-select-a\n加工中\n1 个规格 · 计划 1470 米\n实收 40.77 / 已加工 882 / 已交出 0 米\n加工填报\nBT-260306-101-04-06\nPO-202603-0101 · MAT-SUPPLEMENT-SECONDARY-010\n加工中\n1 个规格 · 计划 504 米\n实收 13.98 / 已加工 302.4 / 已交出 0 米\n加工填报\nBT-260303-002-01-11\nPO-202603-0002 · tdv_demand_SPU_2024_005-bom-main\n加工中\n1 个规格 · 计划 1050 米\n实收 29.12 / 已加工 630 / 已交出 0 米\n加工填报\nBT-260302-004-01-01\nPO-202603-0004 · tdv_demand_SPU_2024_010-bom-black-stretch-twill\n加工中\n2 个规格 · 计划 3570 米\n实收 91.73 / 已加工 1344 / 已交出 0 米\n加工填报\n加工中(7)\n已完成(2)\n扫码加工单\n识别加工单\n款式图缺失\nHJ260918-010-Q1-step2\nPO-MZ-010 · PO-MZ-010\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 100 片\n加工填报\n款式图缺失\nHJ260918-011-Q1-step2\nPO-MZ-011 · PO-MZ-011\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 100 片\n加工填报\n款式图缺失\nHJ260918-012-Q1-step2\nPO-MZ-012 · PO-MZ-012\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 100 片\n加工填报\n款式图缺失\nHJ260918-010-Q2-step1\nPO-MZ-010 · PO-MZ-010\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 100 片\n加工填报\n款式图缺失\nHJ260918-011-Q2-step1\nPO-MZ-011 · PO-MZ-011\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 100 片\n加工填报\n款式图缺失\nHJ260918-012-Q2-step1\nPO-MZ-012 · PO-MZ-012\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 100 片\n加工填报\n款式图缺失\nHJ260918-009-Q2-step1\nPO-MZ-009 · PO-MZ-009\n加工中\n曲牙绣 · 已裁部位\n已接收 100 / 已完成 0 片\n加工填报\n其他执行任务\nTASK-SEW-000513-F090-3\nTASK-SEW-000513-F090-3\n执行：待开工\n直接派发\n生产单号\nPO-20260328-131\n原始任务\nTASK-SEW-000513-F090-3\n当前工序\n车缝\n数量\n本单成衣件数：940 件\n任务截止\n2026-03-30 20:00:00\n开工时限\n2026-03-30 00:05:00\n开工条件\n可开工\n\n已满足开工前置，可开工\n\n开工已逾期，请立即补录开工信息\n开工\nTASK-PRINT-000714\nTASK-PRINT-000714\n执行：待开工\n直接派发\n生产单号\nPO-202603-0015\n原始任务\nTASK-PRINT-000714\n当前工序\n印花\n数量\n计划印花面料Yard数：100 Yard\n开工时限\n2026-03-17 01:00:00\n开工条件\n可开工\n\n可先开工准备，实际开始印花前需确认接收到位\n\n开工已逾期，请立即补录开工信息\n开工\nTASK-CUT-PDA-NO-PICKUP-0301\n1 张裁片单 · 1 张铺布单 · 下一步 去接收\n执行：待开工\n直接派发\n当前工序\n裁片\n裁片单\n1 张\n铺布单\n1 张\n下一步\n去接收\n面料\n主面料 · 主料\n数量\n1,000 件\n任务截止\n2026-03-20 18:00:00\n开工时限\n2026-03-19 00:10:00\n开工条件\n待接收确认\n\n裁床接收未完成，暂不可开工\n\n去交接确认\nTASKGEN-202603-0002-001\nTASKGEN-202603-0002-001\n执行：待开工\n直接派发\n生产单号\nPO-202603-0002\n原始任务\nTASKGEN-202603-0002-001\n当前工序\n裁片\n数量\n本单裁片片数：2500 片\n任务截止\n2026-06-12 18:00:00\n开工时限\n—\n覆盖工序：裁片\n开工条件\n待接收确认\n\n待来料或执行明细同步，暂不可开工\n\n查看前置状态\n水溶加工单\nSRJG-20260914-DEMO-001\n执行：待开工\n仅水溶花边\nMAT-WATER-ONLY-081\n计划 240 米\n当前步骤\n待交出\n下一步\n去交出\n生产单号\nPO-202603-081\n查看任务\n水溶加工单\nSRJG-20260914-DEMO-002\n执行：待开工\n仅水溶花边\nMAT-WATER-ONLY-081\n计划 180 米\n当前步骤\n待交出\n下一步\n去交出\n生产单号\nPO-202603-087\n查看任务\n水溶加工单\nSRJG-20260914-DEMO-003\n执行：待开工\n仅水溶花边\nMAT-WATER-ONLY-081\n计划 120 米\n当前步骤\n待交出\n下一步\n去交出\n生产单号\nPO-202603-088\n查看任务\n水溶加工单\nSRJG-20260914-DEMO-004\n执行：待开工\n仅水溶花边\nMAT-WATER-ONLY-081\n计划 160 米\n当前步骤\n待交出\n下一步\n去交出\n生产单号\nPO-202603-081\n查看任务\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      73",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "全\n      全能力测",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "待开工\n              (8)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "NOT_STARTED"
+            ]
+          ]
+        },
+        {
+          "text": "进行中\n              (27)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "IN_PROGRESS"
+            ]
+          ]
+        },
+        {
+          "text": "生产暂停\n              (5)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "BLOCKED"
+            ]
+          ]
+        },
+        {
+          "text": "已完工\n              (3)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "DONE"
+            ]
+          ]
+        },
+        {
+          "text": "搜索任务号 / 加工单号 / 生产单号 / 物料",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-field",
+              "searchKeyword"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工中(5)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-binding-tab"
+            ],
+            [
+              "data-tab",
+              "IN_PROGRESS"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "已完成(6)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-binding-tab"
+            ],
+            [
+              "data-tab",
+              "DONE"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "扫描捆条加工单 / 菲票",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-field",
+              "bindingSearchKeyword"
+            ],
+            [
+              "data-pda-scan-enter",
+              "true"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "识别加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "scan-binding-order"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/blue-white-print-cotton.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "tdv_demand_SPU_SHIRT_086-bom-main · 主面料"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-binding-work-order"
+            ],
+            [
+              "data-source-type",
+              "BINDING_PROCESS_ORDER"
+            ],
+            [
+              "data-work-order-id",
+              "binding:cut-order-po-202603-086-tdv-demand-spu-shirt-086-bom-main-蓝白印花-tdv-demand-spu-shirt-086-pattern-main-v1-0-150cm"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/black-stretch-twill.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "tdv_demand_SPU_2024_010-bom-black-stretch-twill-select-a · Black 弹力斜纹主面料 A"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-binding-work-order"
+            ],
+            [
+              "data-source-type",
+              "BINDING_PROCESS_ORDER"
+            ],
+            [
+              "data-work-order-id",
+              "binding:cut-order-po-202603-0004-tdv-demand-spu-2024-010-bom-black-stretch-twill-select-a-black-tdv-demand-spu-2024-010-pattern-main-v1-0-150cm"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/charcoal-splice-fabric.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "MAT-SUPPLEMENT-SECONDARY-010 · 拼接面料"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-binding-work-order"
+            ],
+            [
+              "data-source-type",
+              "BINDING_PROCESS_ORDER"
+            ],
+            [
+              "data-work-order-id",
+              "binding:cut-order-po-202603-0101-mat-supplement-secondary-010-charcoal-tdv-demand-spu-2024-010-pattern-main-v1-0-150cm"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/grey-main-fabric.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "tdv_demand_SPU_2024_005-bom-main · 主面料"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-binding-work-order"
+            ],
+            [
+              "data-source-type",
+              "BINDING_PROCESS_ORDER"
+            ],
+            [
+              "data-work-order-id",
+              "binding:cut-order-po-202603-0002-tdv-demand-spu-2024-005-bom-main-grey-tdv-demand-spu-2024-005-pattern-main-v2-1-150cm"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/black-stretch-twill.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "tdv_demand_SPU_2024_010-bom-black-stretch-twill · Black 弹力斜纹主面料"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-binding-work-order"
+            ],
+            [
+              "data-source-type",
+              "BINDING_PROCESS_ORDER"
+            ],
+            [
+              "data-work-order-id",
+              "binding:cut-order-po-202603-0004-tdv-demand-spu-2024-010-bom-black-stretch-twill-black-tdv-demand-spu-2024-010-pattern-main-v1-0-150cm"
+            ]
+          ]
+        },
+        {
+          "text": "加工中(7)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-special-craft-tab"
+            ],
+            [
+              "data-tab",
+              "IN_PROGRESS"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "已完成(2)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-special-craft-tab"
+            ],
+            [
+              "data-tab",
+              "DONE"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "扫描生产单 / 加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-field",
+              "specialCraftScanKeyword"
+            ],
+            [
+              "data-pda-scan-enter",
+              "true"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "识别加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "scan-special-craft-order"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-010:WOOL-STAGE-010:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-010:Q1:step2"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-010"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-011:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step2"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-011"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-012:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step2"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-012"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-010:WOOL-STAGE-010:Q2:CARDIGAN-CREAM-M:WOOL-STAGE-010:Q2:step1"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-010"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-011:WOOL-STAGE-011:Q2:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q2:step1"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-011"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-012:WOOL-STAGE-012:Q2:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q2:step1"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-012"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "WSC:WOOL-STAGE-009:WOOL-STAGE-009:Q2:CARDIGAN-CREAM-M:WOOL-STAGE-009:Q2:step1"
+            ],
+            [
+              "data-source-task-id",
+              "TASK-WOOL-STAGE-009"
+            ]
+          ]
+        },
+        {
+          "text": "开工",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "go-start"
+            ],
+            [
+              "data-task-id",
+              "TASK-SEW-000513-F090-3"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-SEW-000513-F090-3"
+            ]
+          ]
+        },
+        {
+          "text": "开工",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "go-start"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-000714"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-000714"
+            ]
+          ]
+        },
+        {
+          "text": "去交接确认",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "go-prerequisite"
+            ],
+            [
+              "data-task-id",
+              "TASK-CUT-PDA-NO-PICKUP-0301"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-CUT-PDA-NO-PICKUP-0301"
+            ]
+          ]
+        },
+        {
+          "text": "查看前置状态",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "go-prerequisite"
+            ],
+            [
+              "data-task-id",
+              "TASKGEN-202603-0002-001__ORDER"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASKGEN-202603-0002-001__ORDER"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/process-orders/white-water-soluble-lace-12-15mm.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "仅水溶花边 实物图"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "查看任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-WATER-OUTPUT-DEMO-1"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/process-orders/white-water-soluble-lace-12-15mm.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "仅水溶花边 实物图"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "查看任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-WATER-OUTPUT-DEMO-2"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/process-orders/white-water-soluble-lace-12-15mm.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "仅水溶花边 实物图"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "查看任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-WATER-OUTPUT-DEMO-3"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/materials/process-orders/white-water-soluble-lace-12-15mm.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "仅水溶花边 实物图"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "查看任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-WATER-OUTPUT-DEMO-4"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/exec/DWO-AUTO-000001",
+      "samples": {
+        "cold": [
+          405.3999999985099,
+          387.90000000596046,
+          421.6000000014901,
+          443.1000000014901,
+          397.8999999985099
+        ],
+        "reload": [
+          290.1000000014901,
+          298.79999999701977,
+          315.3999999985099,
+          332,
+          298.79999999701977
+        ]
+      },
+      "errors": [],
+      "text": "全能力测试工厂\n执行 · F090\n待办\n61\n全\n全能力测\n返回执行列表\n任务详情\nDY-20260923-000001\n已完工\n需求来源\n设计改款任务\n设计改款任务号\nES-DR-025\n加工单 / 来源单号\nDY-20260923-000001\n原始任务\nDY-20260923-000001\n当前工序\n设计改款染色\n覆盖工序\n设计改款染色\n所在列表\n已完工\n计划染色面料Yard数\n计划染色面料Yard数：20 Yard\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\nFLOWER\n任务二维码\nDY-20260923-000001\n交出单\n交出单号\nHDO-WOAUTO000001\n状态\n已收货\n已交出\n20 Yard\n已收货\n20 Yard\n差异\n0 Yard\n异议\n0 条\n待收货\n0 条\n染色任务\n已完成\nDR-COTTON-001-RAW\nDY-20260923-000001\n接收状态\n已收齐\n加工状态\n加工完成\n交出状态\n全部交出\n\n已由 PPIC 于 2030-01-01 12:31:00 人工完成单据。\n\n染色加工单\nDY-20260923-000001\n当前状态\n已完成\n目标颜色\nWhite\n色号\n11-0601 TPX\n接收方\n印花待加工仓\n染缸候选\nVAT-F090-01\n等原料\n等原料\n原料面料：DR-COTTON-001-RAW\n开始时间：—\n完成时间：—\n开始等原料\n确认来源单据已到\n待排染缸\n已排染缸\n染缸编号：VAT-F090-01\n染缸容量：800 kg/缸\n可染类型：棉 / 涤纶 / 混纺\n排染缸\n染色\n染色完成\n染缸编号：VAT-F090-01\n开始时间：2026-09-24 03:21:41\n完成时间：2026-09-24 03:21:41\n投入面料 Yard 数：20 Yard\n染色完成面料 Yard 数：20 Yard\n开始染色\n完成染色\n后处理\n包装完成\n脱水\n开始：2026-09-24 03:21:41\n完成：2026-09-24 03:21:41\n开始脱水\n完成脱水\n烘干\n开始：2026-09-24 03:21:41\n完成：2026-09-24 03:21:41\n开始烘干\n完成烘干\n定型\n开始：2026-09-24 03:21:41\n完成：2026-09-24 03:21:41\n开始定型\n完成定型\n打卷\n开始：2026-09-24 03:21:41\n完成：2026-09-24 03:21:41\n开始打卷\n完成打卷\n包装\n开始：2026-09-24 03:21:41\n完成：2026-09-24 03:21:41\n开始包装\n完成包装\n待送货\n全部交出\n交出单：HDO-WOAUTO000001\n交出记录：1 条\n待收货：0 条\n实收染色面料 Yard 数：20 Yard\n查看交出单\n去染色待交出列表\n收货确认\n全部交出\n接收方：印花待加工仓\n实收染色面料 Yard 数：20 Yard\n差异面料 Yard 数：0 Yard\n收货状态：全部交出\n备注：交出记录已生成，等待接收方确认收货\n操作\n查看交出单\n新增交出记录\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      61",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "全\n      全能力测",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "返回执行列表",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "back"
+            ]
+          ]
+        },
+        {
+          "text": "ES-DR-025",
+          "attributes": []
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "DY-20260923-000001 款式图"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "DR-COTTON-001-RAW 实物图"
+            ]
+          ]
+        },
+        {
+          "text": "开始等原料",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-material-wait"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "确认来源单据已到",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-material-wait"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "排染缸",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-plan-vat"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "开始染色",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-dye"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "完成染色",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-dye"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "开始脱水",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DEHYDRATE"
+            ]
+          ]
+        },
+        {
+          "text": "完成脱水",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DEHYDRATE"
+            ]
+          ]
+        },
+        {
+          "text": "开始烘干",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DRY"
+            ]
+          ]
+        },
+        {
+          "text": "完成烘干",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DRY"
+            ]
+          ]
+        },
+        {
+          "text": "开始定型",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "SET"
+            ]
+          ]
+        },
+        {
+          "text": "完成定型",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "SET"
+            ]
+          ]
+        },
+        {
+          "text": "开始打卷",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "ROLL"
+            ]
+          ]
+        },
+        {
+          "text": "完成打卷",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "ROLL"
+            ]
+          ]
+        },
+        {
+          "text": "开始包装",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "PACK"
+            ]
+          ]
+        },
+        {
+          "text": "完成包装",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "PACK"
+            ]
+          ]
+        },
+        {
+          "text": "查看交出单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "view-handover-order"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-DWOAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "去染色待交出列表",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "go-dye-pending-handover"
+            ],
+            [
+              "data-task-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "查看交出单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "view-handover-order"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-DWOAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "新增交出记录",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "new-handover-record"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-DWOAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/handover",
+      "samples": {
+        "cold": [
+          287.5,
+          290.30000000447035,
+          288,
+          287.5,
+          291.19999999552965
+        ],
+        "reload": [
+          208.60000000149012,
+          199.39999999850988,
+          198.09999999403954,
+          198,
+          197.89999999850988
+        ]
+      },
+      "errors": [],
+      "text": "全能力测试工厂\n交接 · F090\n待办\n45\n全\n全能力测\n待接收 4\n待交出 8\n扫码接收捆条面料\n识别加工单\n扫码确认接收\n识别加工单\n水溶\nPO-202603-088\n待仓库/工厂处理\n雅加达中心仓\n全能力测试工厂\n应收\n1134 米\n已收\n0 米\n待收\n1134 米\n确认接收\n水溶\nPO-202603-087\n待仓库/工厂处理\n雅加达中心仓\n全能力测试工厂\n应收\n1512 米\n已收\n0 米\n待收\n1512 米\n确认接收\n裁片\nPO-202603-0003\n存在数量差异\n五仓裁片仓\nPT Mulia Cutting Center\n应收\n8 卷\n已收\n0 卷\n待收\n8 卷\n确认接收\n裁片\nPO-20260319-013\n待仓库/工厂处理\n一仓裁床仓\n全能力测试工厂\n应收\n10 卷\n已收\n0 卷\n待收\n10 卷\n确认接收\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      45",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "全\n      全能力测",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "待接收\n              4",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "pickup"
+            ]
+          ]
+        },
+        {
+          "text": "待交出\n              8",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "handout"
+            ]
+          ]
+        },
+        {
+          "text": "扫描捆条加工单 / 菲票",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-field",
+              "bindingScanKeyword"
+            ],
+            [
+              "data-pda-scan-enter",
+              "true"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "识别加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "scan-binding-order"
+            ]
+          ]
+        },
+        {
+          "text": "扫描生产单 / 加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-field",
+              "specialCraftScanKeyword"
+            ],
+            [
+              "data-pda-scan-enter",
+              "true"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "识别加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "scan-special-craft-order"
+            ]
+          ]
+        },
+        {
+          "text": "确认接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "open-detail"
+            ],
+            [
+              "data-event-id",
+              "PKH-ISSUE-WATER-PO-202603-088"
+            ]
+          ]
+        },
+        {
+          "text": "确认接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "open-detail"
+            ],
+            [
+              "data-event-id",
+              "PKH-ISSUE-WATER-PO-202603-087"
+            ]
+          ]
+        },
+        {
+          "text": "确认接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "open-detail"
+            ],
+            [
+              "data-event-id",
+              "PKH-MOCK-CUT-020-F004"
+            ]
+          ]
+        },
+        {
+          "text": "确认接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "open-detail"
+            ],
+            [
+              "data-event-id",
+              "PKH-MOCK-CUT-089"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/factory-receipts",
+      "samples": {
+        "cold": [
+          357.1000000014901,
+          351.5,
+          376.1000000014901,
+          382.29999999701977,
+          355.5
+        ],
+        "reload": [
+          272.19999999552965,
+          265.69999999552965,
+          282,
+          298.59999999403954,
+          267.6000000014901
+        ]
+      },
+      "errors": [],
+      "text": "当前接收人：测试专用工厂 / 全能力测试工厂_操作工\n\n待接收 · 测试专用工厂 / 全能力测试工厂_操作工\n扫码接收\n\n共 14 张本厂单据；也可选择下方来货。\n\nWDEMO-HO:WOOL-STAGE-009:KNITTING:Q2\n上游：周哥毛织厂\nQ / 第2片\nWOOL-STAGE-009:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-009:KNITTING:Q2\n接收这批货\nWDEMO-HO:WOOL-STAGE-010:KNITTING:Q2\n上游：周哥毛织厂\nQ / 第2片\nWOOL-STAGE-010:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-010:KNITTING:Q2\n接收这批货\nWDEMO-CF:WOOL-STAGE-010:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-010:Q1:step1:HANDOVER\n上游：APF - 辅助工艺\nQ / 第1片\nWOOL-STAGE-010:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-010:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-010:Q1:step1:HANDOVER\n接收这批货\nWDEMO-HO:WOOL-STAGE-011:KNITTING:Q2\n上游：周哥毛织厂\nQ / 第2片\nWOOL-STAGE-011:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-011:KNITTING:Q2\n接收这批货\nWDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER\n上游：APF - 辅助工艺\nQ / 第1片\nWOOL-STAGE-011:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER\n接收这批货\nWDEMO-HO:WOOL-STAGE-012:KNITTING:Q2\n上游：周哥毛织厂\nQ / 第2片\nWOOL-STAGE-012:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2\n接收这批货\nWDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER\n上游：APF - 辅助工艺\nQ / 第1片\nWOOL-STAGE-012:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER\n接收这批货\nWDEMO-HO:WOOL-STAGE-013:KNITTING:Q2\n上游：周哥毛织厂\nQ / 第2片\nWOOL-STAGE-013:Q2:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第2片\n批次：WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2\n接收这批货\nWDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER\n上游：APF - 辅助工艺\nQ / 第1片\nWOOL-STAGE-013:Q1:CARDIGAN-CREAM-M\n奶油色\nWOOL_PIECE · 毛织片\nCARDIGAN-CREAM / M / Q / 第1片\n批次：WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER\n接收这批货\nDB-PRINT-DEMO-001\n上游：面料中央仓(GKP)\n本白棉府绸\nFAB-P200-WHITE\n本白\n面料 · 100% 棉\n幅宽 160 cm / 克重 200 g/㎡\n批次：PRINT-IN-001\n接收这批货\n上一页下一页",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "扫码接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              ""
+            ],
+            [
+              "data-factory-receiving-action",
+              "scan"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第2片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-HO:WOOL-STAGE-009:KNITTING:Q2"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第2片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-HO:WOOL-STAGE-010:KNITTING:Q2"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第1片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-CF:WOOL-STAGE-010:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-010:Q1:step1:HANDOVER"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第2片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-HO:WOOL-STAGE-011:KNITTING:Q2"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第1片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-CF:WOOL-STAGE-011:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-011:Q1:step1:HANDOVER"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第2片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-HO:WOOL-STAGE-012:KNITTING:Q2"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第1片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-CF:WOOL-STAGE-012:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-012:Q1:step1:HANDOVER"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第2片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-HO:WOOL-STAGE-013:KNITTING:Q2"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/cardigan-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "Q / 第1片"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "WRC:WDEMO-CF:WOOL-STAGE-013:Q1:CARDIGAN-CREAM-M:WOOL-STAGE-013:Q1:step1:HANDOVER"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "本白棉府绸"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "PRINT-SRC-001"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "上一页",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              ""
+            ],
+            [
+              "data-factory-receiving-action",
+              "prev-page"
+            ]
+          ]
+        },
+        {
+          "text": "下一页",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              ""
+            ],
+            [
+              "data-factory-receiving-action",
+              "next-page"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "FAC-FLOWER",
+      "path": "/fcs/pda/task-receive",
+      "samples": {
+        "cold": [
+          353.8999999985099,
+          357.5,
+          353.20000000298023,
+          353.6000000014901,
+          354.5
+        ],
+        "reload": [
+          277.59999999403954,
+          281.70000000298023,
+          279.3999999985099,
+          265,
+          264
+        ]
+      },
+      "errors": [],
+      "text": "FLOWER\n接单 · FAC-FLOWER\n待办\n9\nF\nFLOW\n待接单任务\n待报价招标单\n已报价招标单\n已中标任务\n\n暂无待接单任务\n\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      9",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "F\n      FLOW",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "搜索任务号 / 招标单号 / 生产单号",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-field",
+              "keyword"
+            ]
+          ]
+        },
+        {
+          "text": "待接单任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "pending-accept"
+            ]
+          ]
+        },
+        {
+          "text": "待报价招标单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "pending-quote"
+            ]
+          ]
+        },
+        {
+          "text": "已报价招标单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "quoted"
+            ]
+          ]
+        },
+        {
+          "text": "已中标任务",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-tr-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "awarded"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "FAC-FLOWER",
+      "path": "/fcs/pda/task-receive/PWO-PRINT-AUTO-000001",
+      "samples": {
+        "cold": [
+          305.3999999985099,
+          323.1000000014901,
+          321.6000000014901,
+          315.09999999403954,
+          309.70000000298023
+        ],
+        "reload": [
+          225.29999999701977,
+          216,
+          214.89999999850988,
+          229.39999999850988,
+          230.80000000447035
+        ]
+      },
+      "errors": [],
+      "text": "FLOWER\n接单 · FAC-FLOWER\n待办\n9\nF\nFLOW\n任务详情\nPH-20260923-000001\n原始任务:\nPH-20260923-000001\n设计改款任务:\nES-DR-025\n工序序号:\n1\n工序名称:\n设计改款印花\n工序编码:\nPRINT\n阶段:\n准备阶段\n数量:\n20 METER\n款式信息 / SPU 缩略图\nSTYLE-PRJ-202603-012\nKaos Polos Premium 高端纯色T恤\n交付日期：2026-09-23\n直接派单\n已分配\n已接单\n直接派单信息\n直接派单时间:\n2026-09-24 03:21:41\n币种 / 单位:\nIDR / Yard\n直接派单价:\n1,200 IDR/Yard\n派单备注：正式生产单已生成加工单，待分配工厂。\n承接工厂\nFLOWER（FLOWER）\n印尼雅加达 辅助工艺工艺园区\n操作日志\n\n暂无日志\n\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      9",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "F\n      FLOW",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-trd-action",
+              "back"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "FAC-FLOWER",
+      "path": "/fcs/pda/exec",
+      "samples": {
+        "cold": [
+          402.20000000298023,
+          429.30000000447035,
+          429,
+          402.19999999552965,
+          403.79999999701977
+        ],
+        "reload": [
+          289,
+          314.8999999985099,
+          299.1000000014901,
+          299.1000000014901,
+          299.1000000014901
+        ]
+      },
+      "errors": [],
+      "text": "FLOWER\n执行 · FAC-FLOWER\n待办\n9\nF\nFLOW\n待开工 (2)\n进行中 (3)\n生产暂停 (0)\n已完工 (1)\n加工中(9)\n已完成(5)\n扫码加工单\n识别加工单\nAUX-202603-0002-8192-02\nSPU-2024-005 · PO-202603-0002\n加工中\n烫画 · 成衣\n已接收 500 / 已完成 225 件\n加工填报\nAUX-202603-0002-8192-05\nSPU-2024-005 · PO-202603-0002\n加工中\n烫画 · 成衣\n已接收 800 / 已完成 360 件\n加工填报\nAUX-202603-0002-8192-08\nSPU-2024-005 · PO-202603-0002\n加工中\n烫画 · 成衣\n已接收 700 / 已完成 315 件\n加工填报\nAUX-202603-0002-8192-09\nSPU-2024-005 · PO-202603-0002\n加工中\n烫画 · 成衣\n已接收 800 / 已完成 360 件\n加工填报\nAUX-202603-0002-6384-02\nSPU-2024-005 · PO-202603-0002\n加工中\n直喷 · 成衣\n已接收 500 / 已完成 225 件\n加工填报\nAUX-202603-0002-6384-03\nSPU-2024-005 · PO-202603-0002\n加工中\n直喷 · 成衣\n已接收 700 / 已完成 315 件\n加工填报\nAUX-202603-0002-6384-05\nSPU-2024-005 · PO-202603-0002\n加工中\n直喷 · 成衣\n已接收 500 / 已完成 225 件\n加工填报\nAUX-202603-0002-6384-08\nSPU-2024-005 · PO-202603-0002\n加工中\n直喷 · 成衣\n已接收 800 / 已完成 360 件\n加工填报\nAUX-202603-0002-6384-09\nSPU-2024-005 · PO-202603-0002\n加工中\n直喷 · 成衣\n已接收 500 / 已完成 225 件\n加工填报\n其他执行任务\nTK-PRINT-DEMO-01-1\nTK-PRINT-DEMO-01-1\n执行：待开工\n直接派发\n生产单号\nPO-202603-0014\n原始任务\nTK-PRINT-DEMO-01-1\n当前工序\n印花\n数量\n计划印花面料Yard数：100 Yard\n开工时限\n2026-09-16 00:05:00\n开工条件\n可开工\n\n可先开工准备，实际开始印花前需确认接收到位\n\n开工已逾期，请立即补录开工信息\n开工\nTK-PRINT-DEMO-01-2\nTK-PRINT-DEMO-01-2\n执行：待开工\n直接派发\n生产单号\nPO-202603-0014\n原始任务\nTK-PRINT-DEMO-01-2\n当前工序\n印花\n数量\n计划印花面料Yard数：100 Yard\n开工时限\n2026-09-16 00:05:00\n开工条件\n可开工\n\n可先开工准备，实际开始印花前需确认接收到位\n\n开工已逾期，请立即补录开工信息\n开工\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      9",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "F\n      FLOW",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "待开工\n              (2)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "NOT_STARTED"
+            ]
+          ]
+        },
+        {
+          "text": "进行中\n              (3)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "IN_PROGRESS"
+            ]
+          ]
+        },
+        {
+          "text": "生产暂停\n              (0)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "BLOCKED"
+            ]
+          ]
+        },
+        {
+          "text": "已完工\n              (1)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "DONE"
+            ]
+          ]
+        },
+        {
+          "text": "搜索任务号 / 加工单号 / 生产单号 / 物料",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-field",
+              "searchKeyword"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工中(9)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-special-craft-tab"
+            ],
+            [
+              "data-tab",
+              "IN_PROGRESS"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "已完成(5)",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "switch-special-craft-tab"
+            ],
+            [
+              "data-tab",
+              "DONE"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "扫描生产单 / 加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-field",
+              "specialCraftScanKeyword"
+            ],
+            [
+              "data-pda-scan-enter",
+              "true"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "识别加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "scan-special-craft-order"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-SFER-02-d9d69288"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-003"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-SFER-05-d9d6928b"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-003"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-SFER-08-d9d6928e"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-003"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-SFER-09-d9d6928f"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-003"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-RINT-02-593876c1"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-004"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-RINT-03-593876c2"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-004"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-RINT-05-593876c4"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-004"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-RINT-08-593876c7"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-004"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载失败",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-image-preview-url",
+              "/jacket-sample.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "SPU-2024-005 · Jaket Hoodie Unisex"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "加工填报",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-special-craft-work-order"
+            ],
+            [
+              "data-source-type",
+              "SPECIAL_CRAFT"
+            ],
+            [
+              "data-work-order-id",
+              "AUX-TASK-PO2026030002-RINT-09-593876c8"
+            ],
+            [
+              "data-source-task-id",
+              "TASKGEN-202603-0002-004"
+            ]
+          ]
+        },
+        {
+          "text": "开工",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "go-start"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-DEMO-01-1"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-DEMO-01-1"
+            ]
+          ]
+        },
+        {
+          "text": "开工",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "go-start"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-DEMO-01-2"
+            ]
+          ]
+        },
+        {
+          "text": "",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-exec-action",
+              "open-detail"
+            ],
+            [
+              "data-task-id",
+              "TASK-PRINT-DEMO-01-2"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "FAC-FLOWER",
+      "path": "/fcs/pda/exec/PWO-PRINT-AUTO-000001",
+      "samples": {
+        "cold": [
+          354.70000000298023,
+          369.79999999701977,
+          372,
+          367.59999999403954,
+          357.40000000596046
+        ],
+        "reload": [
+          259,
+          265.59999999403954,
+          265.5,
+          265.5,
+          265.6000000014901
+        ]
+      },
+      "errors": [],
+      "text": "FLOWER\n执行 · FAC-FLOWER\n待办\n9\nF\nFLOW\n返回执行列表\n任务详情\nPH-20260923-000001\n已完工\n需求来源\n设计改款任务\n设计改款任务号\nES-DR-025\n加工单 / 来源单号\nPH-20260923-000001\n原始任务\nPH-20260923-000001\n当前工序\n设计改款印花\n覆盖工序\n设计改款印花\n所在列表\n已完工\n计划印花BOM原物料Yard数\n计划印花BOM原物料Yard数：20 Yard\n当前工厂\nFLOWER（FLOWER）\n派发方式\n直接派发\n接收方\ngoto_global 中央车缝工厂\n任务二维码\nPH-20260923-000001\n交出单\n交出单号\nHDO-NTAUTO000001\n状态\n已收货\n已交出\n20 Yard\n已收货\n20 Yard\n差异\n0 Yard\n异议\n0 条\n待收货\n0 条\n印花任务\n已完成\n印花加工单\nPH-20260923-000001\n花型\nDR-BLUE-FLOWER-001 / 目标物料 SKU 已确定\n当前状态\n已完成\n接收方\n销售展示样衣制作区\n打印机候选\n未配置\n打印\n打印完成\n打印机编号：未开始\n打印速度：—\n开始时间：2026-09-24 03:21:41\n结束时间：2026-09-24 03:21:42\n实际完成（打印完成BOM原物料Yard数）：20 Yard\n开始打印\n完成打印\n登记产出与损耗\n待送货\n全部交出\n交出单：HDO-NTAUTO000001\n交出记录：1 条\n待收货：0 条\n实收BOM原物料Yard数：20 Yard\n查看交出单\n发起交出\n收货确认\n全部交出\n接收方：销售展示样衣制作区\n实收BOM原物料Yard数：20 Yard\n差异BOM原物料Yard数：0 Yard\n收货状态：全部交出\n备注：下游接收事实已登记\n操作\n查看交出单\n新增交出记录\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      9",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "F\n      FLOW",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "返回执行列表",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "back"
+            ]
+          ]
+        },
+        {
+          "text": "ES-DR-025",
+          "attributes": []
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "STYLE-PRJ-202603-012 款式图"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/blue-white-print-cotton.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "DR-COTTON-001-WHITE-BLUE-PRINT 花型图"
+            ]
+          ]
+        },
+        {
+          "text": "开始打印",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "print-start-printing"
+            ],
+            [
+              "data-print-order-id",
+              "PWO-PRINT-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "完成打印",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "print-complete-printing"
+            ],
+            [
+              "data-print-order-id",
+              "PWO-PRINT-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "登记产出与损耗",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "print-register-output"
+            ],
+            [
+              "data-print-order-id",
+              "PWO-PRINT-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "查看交出单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "view-handover-order"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-PWOPRINTAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "发起交出",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "print-submit-handover"
+            ],
+            [
+              "data-task-id",
+              "PWO-PRINT-AUTO-000001"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-PWOPRINTAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "查看交出单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "view-handover-order"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-PWOPRINTAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "新增交出记录",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "new-handover-record"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-PWOPRINTAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "FAC-FLOWER",
+      "path": "/fcs/pda/handover",
+      "samples": {
+        "cold": [
+          257,
+          267.79999999701977,
+          269.1000000014901,
+          257.6000000014901,
+          273.3999999985099
+        ],
+        "reload": [
+          178,
+          182.69999999552965,
+          181.5,
+          180.09999999403954,
+          180.5
+        ]
+      },
+      "errors": [],
+      "text": "FLOWER\n交接 · FAC-FLOWER\n待办\n2\nF\nFLOW\n待接收\n待交出 1\n扫码确认接收\n识别加工单\n可先扫码确认接收；暂无其他待处理接收单\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      2",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "F\n      FLOW",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "待接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "pickup"
+            ]
+          ]
+        },
+        {
+          "text": "待交出\n              1",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "switch-tab"
+            ],
+            [
+              "data-tab",
+              "handout"
+            ]
+          ]
+        },
+        {
+          "text": "扫描生产单 / 加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-field",
+              "specialCraftScanKeyword"
+            ],
+            [
+              "data-pda-scan-enter",
+              "true"
+            ],
+            [
+              "data-skip-page-rerender",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "识别加工单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-handover-action",
+              "scan-special-craft-order"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "factory": "FAC-FLOWER",
+      "path": "/fcs/pda/factory-receipts",
+      "samples": {
+        "cold": [
+          369.19999999552965,
+          373.69999999552965,
+          382.30000000447035,
+          369.3999999985099,
+          358.69999999552965
+        ],
+        "reload": [
+          290.90000000596046,
+          298.6000000014901,
+          298.8999999985099,
+          282.19999999552965,
+          284.29999999701977
+        ]
+      },
+      "errors": [],
+      "text": "当前接收人：FLOWER / FLOWER_操作工\n\n待接收 · FLOWER / FLOWER_操作工\n扫码接收\n\n共 6 张本厂单据；也可选择下方来货。\n\nDB-PRINT-DEMO-01-1\n上游：面料中央仓(GKP)\n本白棉府绸\nFAB-P200-WHITE\n本白\n面料 · 100% 棉\n幅宽 160 cm / 克重 200 g/㎡\n批次：TEST-01-1\n接收这批货\nDB-PRINT-DEMO-01-2\n上游：面料中央仓(GKP)\n本白棉府绸\nFAB-P200-WHITE\n本白\n面料 · 100% 棉\n幅宽 160 cm / 克重 200 g/㎡\n批次：TEST-01-2\n接收这批货\nDB-PRINT-DEMO-01-3\n上游：面料中央仓(GKP)\n本白棉府绸\nFAB-P200-WHITE\n本白\n面料 · 100% 棉\n幅宽 160 cm / 克重 200 g/㎡\n批次：TEST-01-3\n接收这批货\nDB-PRINT-DEMO-01-4\n上游：面料中央仓(GKP)\n本白棉府绸\nFAB-P200-WHITE\n本白\n面料 · 100% 棉\n幅宽 160 cm / 克重 200 g/㎡\n批次：TEST-01-4\n接收这批货\nDB-PRINT-DEMO-01-5\n上游：面料中央仓(GKP)\n本白棉府绸\nFAB-P200-WHITE\n本白\n面料 · 100% 棉\n幅宽 160 cm / 克重 200 g/㎡\n批次：TEST-01-5\n接收这批货\nSJ-DYE-1790191301617-4\n上游：全能力测试工厂\n设计改款白底蓝花棉布\nDR-COTTON-001-WHITE\nWhite\n面料 · 100% 棉\n棉布 / 幅宽 150 cm / 克重 180 g/㎡\n批次：DY-20260923-000001-B1\n接收这批货\n上一页下一页",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "扫码接收",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              ""
+            ],
+            [
+              "data-factory-receiving-action",
+              "scan"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "本白棉府绸"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "DEMO-PRINT-IN-01-1"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "本白棉府绸"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "DEMO-PRINT-IN-01-2"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "本白棉府绸"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "DEMO-PRINT-IN-01-3"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "本白棉府绸"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "DEMO-PRINT-IN-01-4"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "本白棉府绸"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "DEMO-PRINT-IN-01-5"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "设计改款白底蓝花棉布"
+            ]
+          ]
+        },
+        {
+          "text": "接收这批货",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              "DYE-DISPATCH-SJ-DYE-1790191301617-4-DWO-AUTO-000001"
+            ],
+            [
+              "data-factory-receiving-action",
+              "receive"
+            ]
+          ]
+        },
+        {
+          "text": "上一页",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              ""
+            ],
+            [
+              "data-factory-receiving-action",
+              "prev-page"
+            ]
+          ]
+        },
+        {
+          "text": "下一页",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-id",
+              ""
+            ],
+            [
+              "data-factory-receiving-action",
+              "next-page"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "browser": "149.0.7827.55"
+}

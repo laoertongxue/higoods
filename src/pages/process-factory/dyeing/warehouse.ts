@@ -103,8 +103,9 @@ function installTableEvents(){
  tableEventsInstalled=true
  const handle=(event:Event)=>{
   const target=event.target instanceof Element?event.target:null
+  if(target?.closest('[data-dye-wh-filter]')){event.stopPropagation();return}
   const filterAction=target?.closest<HTMLElement>('[data-dye-wh-filter-action]')?.dataset.dyeWhFilterAction
-  if(event.type==='click'&&filterAction){event.preventDefault();const scope=document.querySelector<HTMLElement>('[data-dye-wh-page]')!;const value=(key:string)=>(scope.querySelector(`[data-dye-wh-filter="${key}"]`) as HTMLInputElement).value;warehouseFilters=filterAction==='reset'?{timeRange:'ALL'}:{factoryId:value('factory'),status:value('status'),keyword:value('keyword'),timeRange:value('time') as 'ALL'|'7D'|'30D'};scope.outerHTML=renderDyeingWarehousePage(warehouseMode);return}
+  if(event.type==='click'&&filterAction){event.preventDefault();event.stopPropagation();const scope=document.querySelector<HTMLElement>('[data-dye-wh-page]')!;const value=(key:string)=>(scope.querySelector(`[data-dye-wh-filter="${key}"]`) as HTMLInputElement).value;warehouseFilters=filterAction==='reset'?{timeRange:'ALL'}:{factoryId:value('factory'),status:value('status'),keyword:value('keyword'),timeRange:value('time') as 'ALL'|'7D'|'30D'};scope.outerHTML=renderDyeingWarehousePage(warehouseMode);return}
   const root=target?.closest<HTMLElement>('[data-dye-warehouse-table]'),entry=root?tables.get(root.dataset.dyeWarehouseTable||''):undefined
   if(!entry)return
   const action=target?.closest<HTMLElement>('[data-dye-warehouse-action]')?.dataset.dyeWarehouseAction
@@ -121,9 +122,10 @@ function installTableEvents(){
    else if(action==='toggle-column-visibility'||action==='toggle-column-freeze')entry.controller.updateColumnPreference(action,key,node instanceof HTMLInputElement?node.checked:undefined)
    else return
   }else return
-  if(!(target instanceof HTMLInputElement))event.preventDefault();entry.controller.refresh({overlays:true})
+  event.stopPropagation();if(!(target instanceof HTMLInputElement))event.preventDefault();entry.controller.refresh({overlays:true})
  }
- document.addEventListener('click',handle);document.addEventListener('change',handle)
+ // These local controls are fully handled here; do not load unrelated global print handlers.
+ document.addEventListener('click',handle,true);document.addEventListener('change',handle,true);document.addEventListener('input',handle,true)
 }
 function renderTable(headers:string[],rows:string[][],_width=''):string {
  const key=(typeof window==='undefined'?'warehouse':window.location.pathname.split('/').at(-1))+'-'+headers.join('|')

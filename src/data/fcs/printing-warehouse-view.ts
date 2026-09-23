@@ -73,7 +73,7 @@ export function getPrintingWarehouseView(filters:PrintingWarehouseViewFilters={}
   }
   const outputInboundItems:PrintingOutputStock[]=[],outboundRecords:PrintingWarehouseView['outboundRecords']=[]
   for(const order of orders){
-    const heads=listHandoverOrdersByTaskId(getPrintWorkOrderById(order.workOrderId)?.taskId || order.taskNo),records=heads.flatMap(h=>getPdaHandoverRecordsByHead(h.handoverId)).filter(r=>r.handoverRecordStatus!=='VOIDED')
+    const heads=listHandoverOrdersByTaskId(getPrintWorkOrderById(order.workOrderId)?.taskId || order.taskNo, {includeWool:false}),records=heads.flatMap(h=>getPdaHandoverRecordsByHead(h.handoverId,h)).filter(r=>r.handoverRecordStatus!=='VOIDED')
     const defaultWarehouse=warehouses.find(w=>w.factoryId===order.printFactoryId&&w.warehouseKind==='WAIT_HANDOVER')
     for(const roll of order.barcodes){
       if(!(roll.lengthY>0)||(roll.quantityConfirmed!==true&&!roll.handoverRecordId))continue

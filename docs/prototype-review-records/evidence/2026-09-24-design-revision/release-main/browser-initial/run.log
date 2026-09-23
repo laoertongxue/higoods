@@ -1,0 +1,119 @@
+
+Running 32 tests using 1 worker
+
+(node:37550) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (9.5s)
+  ✓   2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (6.6s)
+  ✓   3 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › dye 产出卷选择与交出草稿生成五次 (6.1s)
+  ✓   4 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 (7.1s)
+  ✓   5 tests/pcs-design-revision-list-actions.spec.ts:7:1 › 设计改款列表查询、导出、排序后全选本页和跨页批量复制 (1.9s)
+  ✓   6 tests/pcs-design-revision-list-actions.spec.ts:83:1 › 染印组合筛选读取已保存草稿的目标结果 SKU (882ms)
+{"measuredAt":"2026-09-23T23:36:05.395Z","baseURL":"http://127.0.0.1:4733","viewport":"1366x768","browser":"149.0.7827.55","cache":"five new empty contexts; reload and actions retain cache","timing":"event.timeStamp to asserted result + visible image decode + two frames, including assertion overhead","distIndexSha256":"0e12efb69da2eb7d8ec9118eea4dbd28820432532bf4c1d6483163e214fd3f7a","samples":{"coldNavigation":[297.5,301.59999999403954,304.1000000014901,302.19999999552965,303.3999999985099],"reload":[121.70000000298023,121,117,116.59999999403954,114.29999999701977],"keywordInput":[22,27.300048828125,22.699951171875,21.5,22.2001953125],"query":[34.60009765625,35.5,34.199951171875,35.400146484375,34.400146484375],"reset":[32.2998046875,32.60009765625,31.300048828125,32.5,32.599853515625],"moreFilters":[32.60009765625,32.7001953125,32.60009765625,32.5,32.60009765625],"patternFilter":[30.5,30.300048828125,30.39990234375,30.699951171875,30.39990234375],"emptyQuery":[30.699951171875,32.10009765625,32.300048828125,32.699951171875,32.5],"export":[48.900146484375,49,49.099853515625,32.5,48.800048828125],"sortAscending":[48.5,48.7001953125,49,49.10009765625,48.599853515625],"sortDescending":[63.7001953125,65.5,65.699951171875,49.2998046875,63.800048828125],"sortReset":[49.10009765625,49.199951171875,49.300048828125,49.300048828125,49.10009765625],"pageSize20":[47.60009765625,47.800048828125,47.7001953125,31.699951171875,47.7001953125],"pageSize10":[40.39990234375,41.89990234375,40.89990234375,30.10009765625,41.10009765625],"openCreate":[49.199951171875,49.199951171875,49.099853515625,49.10009765625,49.099853515625],"closeCreate":[32.5,32.5,32.5,32.800048828125,32.5],"openStyleImage":[45.300048828125,49.10009765625,49,32.699951171875,48.699951171875],"closeStyleImage":[32.5,32.5,32.7001953125,32.199951171875,47.099853515625],"nextPage":[82.300048828125,82.5,82.300048828125,65.199951171875,82.39990234375],"previousPage":[49.099853515625,49.300048828125,49.199951171875,48.60009765625,49],"selectPage":[32.599853515625,32.599853515625,32.699951171875,32.10009765625,30.800048828125],"clearSelection":[32.5,32.5,32.5,32.10009765625,32.300048828125],"openColumns":[45.800048828125,49.2001953125,49.300048828125,49.2998046875,49.099853515625],"unfreezeCode":[82.400146484375,82.099853515625,82.5,82.699951171875,81.39990234375],"freezeCode":[81.39990234375,81.39990234375,80.89990234375,80,82.60009765625],"hideColumn":[82.5,82.39990234375,81.900146484375,82.5,82.5],"restoreColumns":[47.89990234375,48.400146484375,48.89990234375,49.099853515625,65.7998046875],"closeColumns":[48.39990234375,49,47.300048828125,49,48.89990234375],"listStatus:DRAFT":[27.89990234375,27.199951171875,27.900146484375,29.300048828125,27.300048828125],"query:listStatus:DRAFT":[115.800048828125,115.5,115.39990234375,115.7998046875,115.800048828125],"listStatus:IN_PROGRESS":[32.89990234375,37.10009765625,35.10009765625,35.300048828125,18.800048828125],"query:listStatus:IN_PROGRESS":[47.7998046875,49.199951171875,49.300048828125,49.10009765625,49.099853515625],"listStatus:COMPLETED":[35.300048828125,19.60009765625,19.39990234375,19.89990234375,18],"query:listStatus:COMPLETED":[73.199951171875,49.2998046875,48.89990234375,47.900146484375,49.300048828125],"teamFilter:买手":[24.89990234375,32,32.400146484375,30.5,32.39990234375],"query:teamFilter:买手":[47.300048828125,32.5,32.5,31.89990234375,32.7001953125],"listProcessing:NONE":[28.300048828125,27.10009765625,27,26.2001953125,27.099853515625],"query:listProcessing:NONE":[65.89990234375,63.800048828125,65.800048828125,65.599853515625,65.800048828125],"listProcessing:DYE_ONLY":[27.199951171875,27.300048828125,27.400146484375,27.599853515625,27.800048828125],"query:listProcessing:DYE_ONLY":[32.39990234375,32.5,32.099853515625,32.5,32.599853515625],"listProcessing:PRINT_ONLY":[25,27,27.10009765625,27,27.2001953125],"query:listProcessing:PRINT_ONLY":[32.39990234375,47,32.39990234375,32.39990234375,32.300048828125],"listProcessing:BOTH":[25,26.900146484375,27.2998046875,24.89990234375,26.7998046875],"query:listProcessing:BOTH":[32.5,32.39990234375,32.5,32.39990234375,32.5],"listStartDate":[26.099853515625,26.60009765625,26.39990234375,26.5,26.300048828125],"listEndDate":[29.89990234375,30,29.5,29.89990234375,29.7001953125],"dateQuery":[49,65.599853515625,65.7001953125,65.699951171875,65.7001953125],"invalidDateQuery":[49.10009765625,48.300048828125,49.199951171875,49.099853515625,49],"dragColumn":[99.800048828125,99.800048828125,114.39990234375,113.10009765625,116.400146484375],"navigateTaskDetail":[148.900146484375,151.199951171875,132.60009765625,133.199951171875,149],"navigateBackToList":[132.5,115.800048828125,147.19970703125,149,132.800048828125],"copyDraft":[164.800048828125,162.89990234375,164.60009765625,164.699951171875,165]}}
+  ✓   7 tests/pcs-design-revision-list-performance.spec.ts:31:1 › 设计改款列表冷进入、刷新和核心列表操作五次性能 (27.2s)
+  ✓   8 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › dye PDA 设计改款加工单接单与刷新持久化五次 (4.5s)
+  ✓   9 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 (4.7s)
+  ✓  10 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › F090 PDA 详情图片及交出单导航五次 (9.9s)
+  ✓  11 tests/pcs-design-revision-pda-detail-navigation.spec.ts:5:98 › FAC-FLOWER PDA 详情图片及交出单导航五次 (9.4s)
+  ✓  12 tests/pcs-design-revision-pda-dye-execution.spec.ts:5:1 › 设计改款 PDA 染色和全部后处理按实际数量推进，刷新保存 (13.4s)
+  ✓  13 tests/pcs-design-revision-pda-gap.spec.ts:13:1 › 设计改款印花 PDA 使用实际领料和工序事实，不出现花型测试或无关转印 (7.6s)
+  ✓  14 tests/pcs-design-revision-pda-gap.spec.ts:61:1 › 设计改款 PDA 完单后交出状态一致，禁止再次交出 (560ms)
+  ✓  15 tests/pcs-design-revision-pda-gap.spec.ts:73:2 › 设计改款染色 PDA 完单后全部加工入口禁用 (615ms)
+  ✓  16 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › dye 设计改款产出就绪后仅允许逐卷交出 (4.6s)
+  ✓  17 tests/pcs-design-revision-pda-gap.spec.ts:84:38 › print 设计改款产出就绪后仅允许逐卷交出 (4.2s)
+  ✓  18 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › F090 PDA 列表筛选、四个状态与底部跨页导航五次 (15.4s)
+  ✓  19 tests/pcs-design-revision-pda-navigation.spec.ts:5:47 › FAC-FLOWER PDA 列表筛选、四个状态与底部跨页导航五次 (11.1s)
+  ✓  20 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA warehouse-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (9.2s)
+  ✓  21 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA dye-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (9.0s)
+  ✓  22 tests/pcs-design-revision-pda-receiving.spec.ts:9:3 › PDA print-dispatched 按原卷实收、刷新可读且重复扫码不能重复入库 (9.0s)
+{"measuredAt":"2026-09-23T23:38:03.851Z","baseURL":"http://127.0.0.1:4733","viewport":"1024x768","browser":"149.0.7827.55","cache":"coldNavigation uses a new empty context; reload and actions use that same context","endCondition":"target results and visible images ready, then two animation frames; event.timeStamp for actions","distIndexSha256":"0e12efb69da2eb7d8ec9118eea4dbd28820432532bf4c1d6483163e214fd3f7a","samples":{"coldNavigation":[300.19999999552965,296.3999999985099,296.5,295.79999999701977,282.3999999985099],"reload":[115,115,114.89999999850988,115,111.70000000298023],"firstPreview":[82.40000000596046,82.40000000596046,82.39999999850988,82.39999999850988,82.5],"closeButton":[49.30000000447035,49.30000000447035,49.19999999552965,49.29999999701977,49.30000000447035],"reopenForMask":[49.100000001490116,49,49.100000001490116,48.900000005960464,49],"closeMask":[48.600000001490116,42.899999998509884,46.80000000447035,48.899999998509884,48.5],"reopenForEscape":[47.399999998509884,49,47.29999999701977,46.5,47.100000001490116],"closeEscape":[47.29999999701977,49.100000001490116,47.29999999701977,46.79999999701977,46.80000000447035]}}
+  ✓  23 tests/pcs-design-revision-sample-preview-performance.spec.ts:31:1 › Mock 样衣图片的冷进入、刷新和预览操作各五次均低于 500ms (5.0s)
+  ✓  24 tests/pcs-design-revision-transfer-print.spec.ts:5:1 › 设计改款仓库调拨送货单包含来源、实际卷码和数量，打印不增加库存 (6.3s)
+  ✓  25 tests/pcs-design-revision-work-preview.spec.ts:4:1 › 目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣 (447ms)
+  ✓  26 tests/pcs-design-revision-work-preview.spec.ts:33:1 › 同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别计算 (878ms)
+  ✘  27 tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 (11.1s)
+(node:38113) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  28 tests/pcs-design-revision-work-preview.spec.ts:136:1 › 普通生产来源印花信息单仍展示原生产单号 (568ms)
+  ✘  29 tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 (10.7s)
+(node:38137) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  30 tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 (896ms)
+(node:38143) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  31 tests/pcs-design-revision-factory-overlays.spec.ts:5:36 › dye 工厂查看编辑日志卷码和备注入口五次 (19.3s)
+  ✓  32 tests/pcs-design-revision-factory-overlays.spec.ts:5:36 › print 工厂查看编辑日志卷码和备注入口五次 (27.3s)
+
+
+  1) tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 ─────────────────
+
+    Error: expect(locator).toHaveAttribute(expected) failed
+
+    Locator: locator('img[alt*="STYLE-PRJ-202603-012"]').first()
+    Expected pattern: /\/materials\/archive\/c74d884c23376156c8dc13a5ff39d3fa\.jpg$/
+    Received string:  "/materials/pcs-reviewed/tee-black.jpg"
+    Timeout: 10000ms
+
+    Call log:
+      - Expect "toHaveAttribute" with timeout 10000ms
+      - waiting for locator('img[alt*="STYLE-PRJ-202603-012"]').first()
+        20 × locator resolved to <img class="h-full w-full object-cover" src="/materials/pcs-reviewed/tee-black.jpg" onload="this.nextElementSibling.hidden=true" alt="STYLE-PRJ-202603-012 Kaos Polos Premium 高端纯色T恤" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"/>
+           - unexpected value "/materials/pcs-reviewed/tee-black.jpg"
+
+
+      67 |   await page.goto(dyeHref!)
+      68 |   const dyeStyle = page.locator('img[alt*="STYLE-PRJ-202603-012"]').first()
+    > 69 |   await expect(dyeStyle).toHaveAttribute('src', /\/materials\/archive\/c74d884c23376156c8dc13a5ff39d3fa\.jpg$/)
+         |                          ^
+      70 |   await expect.poll(() => dyeStyle.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true)
+      71 |   await dyeStyle.locator('..').click()
+      72 |   await expect(page.locator('[data-pda-image-preview-root] img')).toHaveAttribute('src', /\/materials\/archive\/c74d884c23376156c8dc13a5ff39d3fa\.jpg$/)
+        at /Users/laoer/.codex/worktrees/design-revision-main-release/higoods/tests/pcs-design-revision-work-preview.spec.ts:69:26
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-work-preview-设计改款生成的染印单展示可加载的款式与物料图片/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-work-preview-设计改款生成的染印单展示可加载的款式与物料图片/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-work-preview-设计改款生成的染印单展示可加载的款式与物料图片/error-context.md
+
+  2) tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 ──────────
+
+    Error: expect(locator).toHaveText(expected) failed
+
+    Locator: getByRole('dialog').getByRole('status')
+    Expected: "图片加载中…"
+    Timeout: 10000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toHaveText" with timeout 10000ms
+      - waiting for getByRole('dialog').getByRole('status')
+
+
+      154 |   const dialog = page.getByRole('dialog')
+      155 |   await expect(dialog).toContainText('未核验为本次实际制作样衣的实拍照片')
+    > 156 |   await expect(dialog.getByRole('status')).toHaveText('图片加载中…')
+          |                                            ^
+      157 |   releaseImage()
+      158 |   const image = dialog.locator('img')
+      159 |   await expect(image).toHaveAttribute('src', '/materials/archive/4b45b816574f99080d0b06f30c9464af.jpg')
+        at /Users/laoer/.codex/worktrees/design-revision-main-release/higoods/tests/pcs-design-revision-work-preview.spec.ts:156:44
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-work-p-401d9-成-Mock-样衣成果逐条说明图片性质并可打开本地大图/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: video (video/webm) ──────────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-work-p-401d9-成-Mock-样衣成果逐条说明图片性质并可打开本地大图/video.webm
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-work-p-401d9-成-Mock-样衣成果逐条说明图片性质并可打开本地大图/error-context.md
+
+  2 failed
+    tests/pcs-design-revision-work-preview.spec.ts:54:1 › 设计改款生成的染印单展示可加载的款式与物料图片 ──────────────────
+    tests/pcs-design-revision-work-preview.spec.ts:144:1 › 已完成 Mock 样衣成果逐条说明图片性质并可打开本地大图 ───────────
+  30 passed (4.3m)

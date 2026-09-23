@@ -1,0 +1,43 @@
+{
+  "craft": "print",
+  "samples": {
+    "open:edit-info": [
+      81.5
+    ],
+    "image:edit-info:0": [
+      82.5
+    ],
+    "imageClose:edit-info:0": [
+      46.600000001490116
+    ],
+    "image:edit-info:1": [
+      82.69999999552965
+    ],
+    "imageClose:edit-info:1": [
+      1252.3999999985099
+    ],
+    "image:edit-info:2": [
+      82.70000000298023
+    ],
+    "imageClose:edit-info:2": [
+      31.899999998509884
+    ],
+    "expand:edit-info:0": [
+      32.5
+    ],
+    "edit:field:0": [
+      29.700000002980232
+    ],
+    "edit:field:1": [
+      23.19999999552965
+    ],
+    "edit:field:2": [
+      23.700000002980232
+    ],
+    "edit:remarkInput": [
+      25.399999998509884
+    ]
+  },
+  "errors": [],
+  "distSha": "3dc6942f7d2e68c894a96ca77110d6af2eb7336aa22a621147a2701ffb5ff121"
+}

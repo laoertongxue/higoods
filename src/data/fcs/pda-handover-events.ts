@@ -943,7 +943,10 @@ function hydrateHandoverHeadDomain(head: PdaHandoverHead, records: PdaHandoverRe
   const submittedQtyTotal = sumBy(effectiveRecords, (record) => resolveSubmittedQty(record))
   const writtenBackQtyTotal = sumBy(effectiveRecords, (record) => resolveReceiverWrittenQty(record) ?? 0)
   const diffQtyTotal = sumBy(effectiveRecords, (record) => deriveDiffQty(record) ?? 0)
-  const factoryMarkedComplete = head.factoryMarkedComplete ?? head.completionStatus === 'COMPLETED'
+  // Design-revision process completion is recorded on its task; there is no second factory completion action.
+  const factoryMarkedComplete = head.sourceType === 'DESIGN_REVISION'
+    ? head.taskStatus === 'DONE'
+    : head.factoryMarkedComplete ?? head.completionStatus === 'COMPLETED'
   const derivedHandoverOrderStatus =
     head.headType === 'HANDOUT'
       ? deriveHandoverOrderStatus(effectiveRecords, factoryMarkedComplete)
@@ -3555,7 +3558,10 @@ function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
 }
 
 function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
-  if (head.factoryCompletionRequired) {
+  if (head.sourceType === 'DESIGN_REVISION') {
+    const task = listPdaGenericProcessTasks().find(item => item.taskId === head.taskId)
+    if (task) head = { ...head, taskStatus: task.status === 'DONE' ? 'DONE' : 'IN_PROGRESS' }
+  } else if (head.factoryCompletionRequired) {
     const task = getRuntimeTaskById(head.taskId)
     if (task) head = { ...head, taskStatus: mapTaskStatus(task) }
   }
@@ -3762,24 +3768,32 @@ function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
 function findHead(handoverId: string): PdaHandoverHead | undefined {
   const simple = buildSimpleCutPieceFactoryReceipts().heads.find((h) => h.handoverId === handoverId)
   if (simple) return simple
+  const added = handoverHeadAdditions.get(handoverId)
+  if (added && added.processBusinessCode !== 'WOOL') {
+    return added.headType === 'PICKUP' ? refreshPickupHeadSummary(cloneHead(added)) : refreshHandoutHeadSummary(cloneHead(added))
+  }
   const nonWoolHead = buildNonWoolHeadsInternal().find((item) => item.handoverId === handoverId)
   if (nonWoolHead) return nonWoolHead
   return listWoolFactHandoverHeads().find((item) => item.handoverId === handoverId)
 }
 
 function findRecord(recordId: string): PdaHandoverRecord | undefined {
-  const head = buildHeadsInternal().find((item) => item.headType === 'HANDOUT')
-  if (!head) {
-    for (const one of buildHeadsInternal().filter((item) => item.headType === 'HANDOUT')) {
-      const found = getHandoutRecordsForHeadInternal(one).find((item) => item.recordId === recordId)
-      if (found) return found
-    }
-    return undefined
+  const overrideHeadId = handoutRecordOverrides.get(recordId)?.handoverId
+  const added = Array.from(handoutRecordAdditions.values()).flat().find(record => record.recordId === recordId)
+  const storedHeadId = overrideHeadId || added?.handoverId
+  if (storedHeadId) {
+    const head = findHead(storedHeadId)
+    if (head?.headType === 'HANDOUT') return getHandoutRecordsForHeadInternal(head).find(record => record.recordId === recordId)
   }
-
-  const allHeads = buildHeadsInternal().filter((item) => item.headType === 'HANDOUT')
-  for (const one of allHeads) {
-    const found = getHandoutRecordsForHeadInternal(one).find((item) => item.recordId === recordId)
+  // Search the existing non-wool facts first; only construct wool projections for an unresolved ID.
+  for (const head of buildNonWoolHeadsInternal()) {
+    if (head.headType !== 'HANDOUT') continue
+    const found = getHandoutRecordsForHeadInternal(head).find(record => record.recordId === recordId)
+    if (found) return found
+  }
+  for (const head of listWoolFactHandoverHeads()) {
+    if (head.headType !== 'HANDOUT') continue
+    const found = getHandoutRecordsForHeadInternal(head).find(record => record.recordId === recordId)
     if (found) return found
   }
   return undefined
@@ -4120,8 +4134,9 @@ export function listPdaHandoverRecordsByHeadId(handoverId: string): PdaHandoverR
   return getPdaHandoverRecordsByHead(handoverId)
 }
 
-export function getPdaHandoverRecordsByHead(handoverId: string): PdaHandoverRecord[] {
-  const head = findHead(handoverId)
+export function getPdaHandoverRecordsByHead(handoverId: string, currentHead?: PdaHandoverHead): PdaHandoverRecord[] {
+  // Batch readers already have the current head. Do not rebuild all handovers for every row.
+  const head = currentHead?.handoverId === handoverId ? currentHead : findHead(handoverId)
   if (!head || head.headType !== 'HANDOUT') return []
   return getHandoutRecordsForHeadInternal(head)
 }

@@ -1,3 +1,5 @@
+import { getProcessOrderReceivingFacts } from '../data/fcs/factory-receiving.ts'
+import { localProductFixtureImageUrl } from '../data/pcs-product-archive-fixtures.ts'
 import { renderWoolCraftDetail, handleWoolCraftActionUi } from './process-factory/wool/craft-actions.ts'
 import { recordRuntimeTaskExecution } from '../data/fcs/runtime-process-tasks.ts'
 import { getRuntimeTaskById } from '../data/fcs/runtime-process-tasks.ts'
@@ -5,7 +7,7 @@ import { getDyeMaterialReceiptOptions, receiveDyeMaterial } from '../data/fcs/dy
 import { getWaterSolubleReceivedMaterialQty } from '../data/fcs/water-soluble-task-domain.ts'
 import { getWaterSolubleMaterialReceiptOptions, executeWaterSolubleInputReceipt } from '../data/fcs/water-soluble-material-receipts.ts'
 import { getDyeOrderImageManifest, getWaterSolubleOrderImageManifest } from '../data/fcs/process-order-image-manifest.ts'
-import { getDyeWorkOrderThreeAxisView } from '../data/fcs/process-order-three-axis-view.ts'
+import { getDyeWorkOrderProgressView, getDyeWorkOrderThreeAxisView } from '../data/fcs/process-order-three-axis-view.ts'
 import {
   PROCESS_ORDER_HANDOVER_STATUS_LABEL,
   PROCESS_ORDER_PROCESSING_STATUS_LABEL,
@@ -106,6 +108,12 @@ import {
 } from '../data/fcs/production-order-identity.ts'
 import { resolveProductionObjectRequest } from '../data/fcs/production-object-overview.ts'
 import {
+  getPrintingWorkflowFacts,
+  getPrintingWorkOrderById,
+  startPrintingProduction,
+  recordPrintingProductionStage,
+  completePrintingWorkOrder,
+  completePrintWorkOrderDocument,
   getPrintExecutionNodeRecord,
   getPrintOrderHandoverSummary,
   getPrintReviewRecordByOrderId,
@@ -521,17 +529,22 @@ function renderPdaObjectCode({
   objectId,
   label,
   relatedProductionOrderNo,
+  sourceType,
   className = 'text-left font-mono text-blue-600 hover:underline',
 }: {
   objectType: ProductionObjectCodeType
   objectId?: string | null
   label?: string | null
   relatedProductionOrderNo?: string | null
+  sourceType?: ProcessTask['sourceType']
   className?: string
 }): string {
   const objectCode = (label || objectId || '').trim()
   const targetId = (objectId || '').trim()
   if (!targetId || !objectCode) return escapeHtml(objectCode || '-')
+  // Design revision has no production-order overview. Keep its existing plain ID
+  // without constructing the unrelated production/material search index.
+  if (sourceType === 'DESIGN_REVISION') return escapeHtml(objectCode)
 
   const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
   const resolved = preferred.status === 'READY' || !relatedProductionOrderNo
@@ -666,6 +679,7 @@ function renderHandoverOrderCard(handoverOrder: PdaHandoverHead): string {
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
           <span class="text-xs text-muted-foreground">交出单号</span>
           <span class="text-xs font-medium">${renderPdaObjectCode({
+            sourceType: handoverOrder.sourceType,
             objectType: 'HANDOVER_ORDER',
             objectId: handoverOrder.handoverOrderNo || handoverOrderId,
             relatedProductionOrderNo: handoverOrder.productionOrderNo,
@@ -741,7 +755,7 @@ function renderPrintingStatusBadge(label: string, tone: 'muted' | 'info' | 'warn
 }
 
 function getReceiptStatusMeta(status: string | undefined): { label: string; tone: 'muted' | 'info' | 'warning' | 'success' | 'danger' } {
-  if (status === 'FULL_HANDOVER') return { label: '全部交出', tone: 'success' }
+  if (status === 'FULL_HANDOVER' || status === 'COMPLETED') return { label: '全部交出', tone: 'success' }
   if (status === 'PARTIAL_HANDOVER') return { label: '部分交出', tone: 'warning' }
   if (status === 'HANDOVER_DIFFERENCE') return { label: '收货差异', tone: 'danger' }
   if (status === 'WAIT_RECEIVE' || status === 'HANDOVER_WAIT_RECEIVE') return { label: '交出待收货', tone: 'warning' }
@@ -750,7 +764,8 @@ function getReceiptStatusMeta(status: string | undefined): { label: string; tone
 
 function canOperatePrintingNode(task: ProcessTask): boolean {
   const currentFactoryId = getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
-  return isMobileTaskVisibleForFactory(task, currentFactoryId) && task.status !== 'NOT_STARTED' && task.status !== 'CANCELLED'
+  return isMobileTaskVisibleForFactory(task, currentFactoryId) && task.status !== 'CANCELLED' && task.status !== 'DONE'
+    && (task.sourceType === 'DESIGN_REVISION' ? task.acceptanceStatus === 'ACCEPTED' : task.status !== 'NOT_STARTED')
 }
 
 function getPrintRawMaterialQtyNoun(printOrder: PrintWorkOrder): string {
@@ -770,6 +785,9 @@ function renderPrintingTaskCard(
   printOrder: PrintWorkOrder,
   handoverOrder: PdaHandoverHead | null,
 ): string {
+  const isDesignRevision = printOrder.sourceType === 'DESIGN_REVISION'
+  const workflow = isDesignRevision ? getPrintingWorkflowFacts(printOrder.printOrderId) : undefined
+  const statusLabel = isDesignRevision && ['WAIT_ARTWORK', 'WAIT_COLOR_TEST', 'WAIT_PRINT'].includes(printOrder.status) ? workflow!.stageLabel : getPrintWorkOrderStatusLabel(printOrder.status)
   const colorTestNode = getPrintExecutionNodeRecord(printOrder.printOrderId, 'COLOR_TEST')
   const printNode = getPrintExecutionNodeRecord(printOrder.printOrderId, 'PRINT')
   const transferNode = getPrintExecutionNodeRecord(printOrder.printOrderId, 'TRANSFER')
@@ -834,14 +852,17 @@ function renderPrintingTaskCard(
             <i data-lucide="palette" class="h-4 w-4"></i>
             印花任务
           </h2>
-          ${renderPrintingStatusBadge(getPrintWorkOrderStatusLabel(printOrder.status), printOrder.status === 'FULL_HANDOVER' ? 'success' : printOrder.status === 'HANDOVER_DIFFERENCE' ? 'danger' : printOrder.status === 'WAIT_HANDOVER' || printOrder.status === 'HANDOVER_WAIT_RECEIVE' || printOrder.status === 'PARTIAL_HANDOVER' ? 'warning' : 'info')}
+          ${renderPrintingStatusBadge(statusLabel, printOrder.status === 'FULL_HANDOVER' ? 'success' : printOrder.status === 'HANDOVER_DIFFERENCE' ? 'danger' : printOrder.status === 'WAIT_HANDOVER' || printOrder.status === 'HANDOVER_WAIT_RECEIVE' || printOrder.status === 'PARTIAL_HANDOVER' ? 'warning' : 'info')}
         </div>
       </header>
 
       <div class="space-y-4 p-4 text-sm">
+        ${isDesignRevision ? `<div class="flex flex-wrap gap-3">${renderProcessTaskImage(printOrder.sourceSnapshot?.targetSpuImageUrl || '', `${printOrder.sourceSnapshot?.targetSpuCode} 款式图`)}${renderProcessTaskImage(printOrder.sourceSnapshot?.patternImageUrl || '', `${printOrder.sourceSnapshot?.targetMaterialSkuCode} 花型图`)}</div>` : ''}
+        ${isDesignRevision && printOrder.status === 'FULL_HANDOVER' && canOperate ? `<button class="min-h-11 w-full rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground" data-pda-execd-action="print-complete-document" data-print-order-id="${escapeHtml(printOrder.printOrderId)}">人工完成单据</button>` : ''}
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
           <span class="text-xs text-muted-foreground">印花加工单</span>
           <span class="text-xs font-medium">${renderPdaObjectCode({
+            sourceType: task.sourceType,
             objectType: 'PRINT_WORK_ORDER',
             objectId: printOrder.printOrderNo,
             relatedProductionOrderNo: printOrder.sourceProductionOrderNo || printOrder.sourceProductionOrderId || task.productionOrderId,
@@ -849,7 +870,7 @@ function renderPrintingTaskCard(
           <span class="text-xs text-muted-foreground">花型</span>
           <span class="text-xs">${escapeHtml(printOrder.patternNo)} / ${escapeHtml(printOrder.patternVersion)}</span>
           <span class="text-xs text-muted-foreground">当前状态</span>
-          <span class="text-xs">${escapeHtml(getPrintWorkOrderStatusLabel(printOrder.status))}</span>
+          <span class="text-xs">${escapeHtml(statusLabel)}</span>
           <span class="text-xs text-muted-foreground">接收方</span>
           <span class="text-xs">${escapeHtml(printOrder.targetTransferWarehouseName)}</span>
           <span class="text-xs text-muted-foreground">打印机候选</span>
@@ -857,7 +878,7 @@ function renderPrintingTaskCard(
         </div>
 
         <div class="grid gap-3 xl:grid-cols-2">
-          <section class="rounded-lg border bg-background p-3">
+          ${isDesignRevision ? '' : `          <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">花型测试</h3>
               ${colorTestBadge}
@@ -885,7 +906,8 @@ function renderPrintingTaskCard(
                 完成花型测试
               </button>
             </div>
-          </section>
+          </section>`}
+
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
@@ -904,7 +926,7 @@ function renderPrintingTaskCard(
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
                 data-pda-execd-action="print-start-printing"
                 data-print-order-id="${escapeHtml(printOrder.printOrderId)}"
-                ${!canOperate || !colorTestNode?.finishedAt || Boolean(printNode?.startedAt) ? 'disabled' : ''}
+                ${!canOperate || (isDesignRevision ? !workflow?.artworkConfirmed || (!workflow.startedAt && workflow.availableInputQty <= 0) || Boolean(workflow.completedAt) : !colorTestNode?.finishedAt) || Boolean(printNode?.startedAt) ? 'disabled' : ''}
               >
                 开始打印
               </button>
@@ -919,7 +941,7 @@ function renderPrintingTaskCard(
             </div>
           </section>
 
-          <section class="rounded-lg border bg-background p-3">
+          ${!isDesignRevision || workflow?.requiresTransfer ? `<section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">转印</h3>
               ${transferBadge}
@@ -948,7 +970,9 @@ function renderPrintingTaskCard(
                 完成转印
               </button>
             </div>
-          </section>
+          </section>` : ''}
+
+          ${isDesignRevision ? `<button class="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-primary-foreground disabled:opacity-50" data-pda-execd-action="print-register-output" data-print-order-id="${escapeHtml(printOrder.printOrderId)}" ${!canOperate || workflow?.completedAt || !(workflow?.requiresTransfer ? workflow.transferFinishedAt : workflow?.printFinishedAt) ? 'disabled' : ''}>登记产出与损耗</button>` : ''}
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
@@ -959,6 +983,7 @@ function renderPrintingTaskCard(
               <div><span class="text-muted-foreground">交出单：</span>${
                 handoverOrder || printOrder.handoverOrderNo || printOrder.handoverOrderId
                   ? renderPdaObjectCode({
+                    sourceType: task.sourceType,
                       objectType: 'HANDOVER_ORDER',
                       objectId: handoverOrder?.handoverOrderNo || printOrder.handoverOrderNo || printOrder.handoverOrderId,
                       relatedProductionOrderNo: handoverOrder?.productionOrderNo || printOrder.sourceProductionOrderNo || printOrder.sourceProductionOrderId || task.productionOrderId,
@@ -983,11 +1008,12 @@ function renderPrintingTaskCard(
                 data-pda-execd-action="print-submit-handover"
                 data-task-id="${escapeHtml(printOrder.taskId)}"
                 data-handover-order-id="${escapeHtml(handoverOrder?.handoverOrderId || handoverOrder?.handoverId || '')}"
-                ${!handoverOrder || printOrder.status === 'WAIT_PRINT' || printOrder.status === 'PRINTING' || printOrder.status === 'WAIT_TRANSFER' || printOrder.status === 'TRANSFERRING' ? 'disabled' : ''}
+                ${!handoverOrder || isDesignRevision || printOrder.status === 'WAIT_PRINT' || printOrder.status === 'PRINTING' || printOrder.status === 'WAIT_TRANSFER' || printOrder.status === 'TRANSFERRING' ? 'disabled' : ''}
               >
                 发起交出
               </button>
             </div>
+            ${isDesignRevision ? '<p class="mt-2 text-xs text-muted-foreground">请在管理端印花待交出列表逐卷建单、扫码并确认交出。</p>' : ''}
           </section>
 
           <section class="rounded-lg border bg-background p-3 xl:col-span-2">
@@ -1010,9 +1036,10 @@ function renderPrintingTaskCard(
 }
 
 function canOperateDyeingNode(task: ProcessTask, dyeOrderId: string): boolean {
+  if (task.sourceType === 'DESIGN_REVISION' && task.status === 'DONE') return false
   const currentFactoryId = getPdaSession()?.factoryId || task.assignedFactoryId || TEST_FACTORY_ID
   return isMobileTaskVisibleForFactory(task, currentFactoryId)
-    && task.status !== 'NOT_STARTED'
+    && (task.status !== 'NOT_STARTED' || (task.sourceType === 'DESIGN_REVISION' && getDyeWorkOrderById(dyeOrderId)?.acceptanceStatus === 'ACCEPTED'))
     && task.status !== 'CANCELLED'
     && getDyeWorkOrderOnlineRecord(dyeOrderId).status !== '取消'
 }
@@ -1215,9 +1242,15 @@ function renderDyeMaterialReceiptPanel(order: DyeWorkOrder): string {
 }
 
 function renderDyeTaskImage(order: DyeWorkOrder, kind: 'product' | 'material'): string {
-  const images = getDyeOrderImageManifest(order.dyeOrderId)!
-  const url = images[kind]
+  const images = getDyeOrderImageManifest(order.dyeOrderId)
+  const url = images?.[kind] || (kind === 'product' ? order.sourceSnapshot?.targetSpuImageUrl : order.sourceSnapshot?.materialImageUrl) || ''
   const title = kind === 'product' ? `${order.sourceProductionOrderNo || order.dyeOrderNo} 款式图` : `${order.rawMaterialSku} 实物图`
+  return renderProcessTaskImage(url, title)
+}
+
+function renderProcessTaskImage(sourceUrl: string, title: string): string {
+  const url = localProductFixtureImageUrl(sourceUrl)
+  if (!url) return `<span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg border bg-white px-1 text-center text-[10px] text-amber-700" role="status">${escapeHtml(title)}缺少图片</span>`
   return `<button type="button" class="relative h-14 w-14 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border bg-white" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(title)}" aria-label="查看${escapeHtml(title)}大图"><img class="h-full w-full object-cover" src="${escapeHtml(url)}" alt="${escapeHtml(title)}" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.textContent='图片加载失败';this.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white px-1 text-center text-[10px] text-muted-foreground">图片加载中</span></button>`
 }
 
@@ -1226,6 +1259,7 @@ function renderDyeingTaskCard(
   dyeOrder: DyeWorkOrder,
   handoverOrder: PdaHandoverHead | null,
 ): string {
+  const isDesignRevision = dyeOrder.sourceType === 'DESIGN_REVISION'
   if (shouldRenderCombinedDyeCurrentAction(dyeOrder)) return renderDyeMaterialReceiptPanel(dyeOrder) + renderCombinedDyeCurrentActionCard(task, dyeOrder)
   const sampleNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'SAMPLE')
   const materialReadyNode = getDyeExecutionNodeRecord(dyeOrder.dyeOrderId, 'INPUT_RECEIVED')
@@ -1248,8 +1282,15 @@ function renderDyeingTaskCard(
   const canCompleteDye = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '完工')
   const canContinuePostProcess = onlineStatus === '染色中' || onlineStatus === '染色完成'
   const canSubmitHandover = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '交出')
+  const dyeQuantityNoun = getQtyUnitLabel(dyeOrder.qtyUnit) === 'Yard' ? '面料 Yard 数' : '面料米数'
   const canManuallyComplete = dyeOrder.status === 'WAIT_MANUAL_COMPLETION' && Boolean(getPdaSession()) && !validateWaterSolublePdaActor(getPdaSession()!, dyeOrder.dyeFactoryId, 'OPERATE')
-  const axes = getDyeWorkOrderThreeAxisView(dyeOrder)
+  const designReceiving = dyeOrder.sourceType === 'DESIGN_REVISION'
+    ? getProcessOrderReceivingFacts(dyeOrder.dyeOrderId, 'dye', dyeOrder.dyeFactoryId) : undefined
+  const sourceAvailableQty = designReceiving?.sources.reduce((sum, source) => sum + source.lines
+    .filter(line => line.dyeOrderId === dyeOrder.dyeOrderId && line.unit === dyeOrder.qtyUnit)
+    .reduce((qty, line) => qty + Math.max(0, line.sentQty - designReceiving.receipts.flatMap(receipt => receipt.lines)
+      .filter(receipt => receipt.sourceLineId === line.id).reduce((received, receipt) => received + receipt.qty, 0)), 0), 0) ?? 0
+  const axes = designReceiving ? getDyeWorkOrderProgressView(dyeOrder, sourceAvailableQty) : getDyeWorkOrderThreeAxisView(dyeOrder)
 
   const sampleWaitBadge = dyeOrder.sampleWaitFinishedAt
     ? renderPrintingStatusBadge('等样衣/色样完成', 'success')
@@ -1309,6 +1350,7 @@ function renderDyeingTaskCard(
         <div class="grid grid-cols-2 gap-x-4 gap-y-1">
           <span class="text-xs text-muted-foreground">染色加工单</span>
           <span class="text-xs font-medium">${renderPdaObjectCode({
+            sourceType: task.sourceType,
             objectType: 'DYE_WORK_ORDER',
             objectId: dyeOrder.dyeOrderNo,
             relatedProductionOrderNo: dyeOrder.sourceProductionOrderNo || dyeOrder.sourceProductionOrderId || task.productionOrderId,
@@ -1326,7 +1368,7 @@ function renderDyeingTaskCard(
         </div>
 
         <div class="grid gap-3 xl:grid-cols-2">
-          <section class="rounded-lg border bg-background p-3">
+          ${isDesignRevision ? '' : `          <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">等样衣/色样</h3>
               ${sampleWaitBadge}
@@ -1354,7 +1396,8 @@ function renderDyeingTaskCard(
                 确认样衣到位
               </button>
             </div>
-          </section>
+          </section>`}
+
 
           <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
@@ -1386,7 +1429,7 @@ function renderDyeingTaskCard(
             </div>
           </section>
 
-          <section class="rounded-lg border bg-background p-3">
+          ${isDesignRevision ? '' : `          <section class="rounded-lg border bg-background p-3">
             <div class="flex items-center justify-between gap-2">
               <h3 class="text-sm font-medium">打样</h3>
               ${sampleTestBadge}
@@ -1414,7 +1457,8 @@ function renderDyeingTaskCard(
                 完成打样
               </button>
             </div>
-          </section>
+          </section>`}
+
 
           ${renderDyeMaterialReceiptPanel(dyeOrder)}
           <section class="rounded-lg border bg-background p-3">
@@ -1448,8 +1492,8 @@ function renderDyeingTaskCard(
               <div><span class="text-muted-foreground">染缸编号：</span>${escapeHtml(dyeNode?.dyeVatNo || vatPlanNode?.dyeVatNo || '未选择')}</div>
               <div><span class="text-muted-foreground">开始时间：</span>${escapeHtml(dyeNode?.startedAt || '—')}</div>
               <div><span class="text-muted-foreground">完成时间：</span>${escapeHtml(dyeNode?.finishedAt || '—')}</div>
-              <div><span class="text-muted-foreground">投入面料米数：</span>${dyeNode?.inputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">染色完成面料米数：</span>${dyeNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">投入${dyeQuantityNoun}：</span>${dyeNode?.inputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">染色完成${dyeQuantityNoun}：</span>${dyeNode?.outputQty ?? 0} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -1522,6 +1566,7 @@ function renderDyeingTaskCard(
               <div><span class="text-muted-foreground">交出单：</span>${
                 handoverOrder || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId
                   ? renderPdaObjectCode({
+                    sourceType: task.sourceType,
                       objectType: 'HANDOVER_ORDER',
                       objectId: handoverOrder?.handoverOrderNo || dyeOrder.handoverOrderNo || dyeOrder.handoverOrderId,
                       relatedProductionOrderNo: handoverOrder?.productionOrderNo || dyeOrder.sourceProductionOrderNo || dyeOrder.sourceProductionOrderId || task.productionOrderId,
@@ -1530,7 +1575,7 @@ function renderDyeingTaskCard(
               }</div>
               <div><span class="text-muted-foreground">交出记录：</span>${handoverSummary.recordCount} 条</div>
               <div><span class="text-muted-foreground">待收货：</span>${handoverSummary.pendingWritebackCount} 条</div>
-              <div><span class="text-muted-foreground">实收染色面料米数：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实收染色${dyeQuantityNoun}：</span>${handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
             </div>
             <div class="mt-3 grid grid-cols-2 gap-2">
               <button
@@ -1543,11 +1588,11 @@ function renderDyeingTaskCard(
               </button>
               <button
                 class="inline-flex h-8 items-center justify-center rounded-md border text-xs hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
-                data-pda-execd-action="dye-submit-handover"
+                data-pda-execd-action="go-dye-pending-handover"
                 data-task-id="${escapeHtml(dyeOrder.taskId)}"
                 ${!canSubmitHandover || !handoverOrder || (dyeOrder.status !== 'WAIT_HANDOVER' && dyeOrder.status !== 'HANDOVER_WAIT_RECEIVE') ? 'disabled' : ''}
               >
-                发起交出
+                去染色待交出列表
               </button>
             </div>
           </section>
@@ -1559,8 +1604,8 @@ function renderDyeingTaskCard(
             </div>
             <div class="mt-3 space-y-1 text-xs">
               <div><span class="text-muted-foreground">接收方：</span>${escapeHtml(dyeOrder.targetTransferWarehouseName)}</div>
-              <div><span class="text-muted-foreground">实收染色面料米数：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
-              <div><span class="text-muted-foreground">差异面料米数：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">实收染色${dyeQuantityNoun}：</span>${review?.receivedQty ?? handoverSummary.writtenBackQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
+              <div><span class="text-muted-foreground">差异${dyeQuantityNoun}：</span>${review?.diffQty ?? handoverSummary.diffQty} ${escapeHtml(getQtyUnitLabel(dyeOrder.qtyUnit))}</div>
               <div><span class="text-muted-foreground">收货状态：</span>${escapeHtml(reviewMeta.label)}</div>
               <div><span class="text-muted-foreground">备注：</span>${escapeHtml(review?.remark || '仓库确认收货后更新状态')}</div>
             </div>
@@ -3711,6 +3756,8 @@ export function renderPdaExecDetailPage(taskId: string): string {
     || sourceInfo.taskOrderNo
   const sourceObjectType = getPdaSourceObjectType(sourceInfo)
 
+  const designRevisionSource = (dyeWorkOrder || printWorkOrder)?.sourceSnapshot
+  const isDesignRevisionTask = designRevisionSource?.sourceType === 'DESIGN_REVISION'
   const content = `
     <div class="space-y-4 bg-background p-4 pb-6">
       ${accessNotice}
@@ -3726,6 +3773,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
         <header class="border-b px-4 py-3">
           <div class="flex items-center justify-between gap-2 text-sm">
             <span class="font-semibold">${renderPdaObjectCode({
+              sourceType: task.sourceType,
               objectType: 'PROCESS_DOC',
               objectId: taskDisplayNo,
               relatedProductionOrderNo: task.productionOrderId,
@@ -3737,15 +3785,18 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
         <div class="space-y-3 p-4 text-sm">
           <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-            <span class="text-xs text-muted-foreground">生产单号</span>
+            ${isDesignRevisionTask ? `<span class="text-xs text-muted-foreground">需求来源</span><span class="text-xs">设计改款任务</span><span class="text-xs text-muted-foreground">设计改款任务号</span><a class="break-all text-xs text-blue-700" href="/pcs/production-preparation/design-revision/${escapeHtml(designRevisionSource?.designRevisionTaskId || '')}">${escapeHtml(designRevisionSource?.designRevisionTaskNo || '')}</a>` : `            <span class="text-xs text-muted-foreground">生产单号</span>
             <span class="text-xs font-medium">${renderPdaObjectCode({
+              sourceType: task.sourceType,
               objectType: 'PRODUCTION_ORDER',
               objectId: task.productionOrderId,
             })}</span>
+`}
             <span class="text-xs text-muted-foreground">加工单 / 来源单号</span>
             <span class="text-xs font-medium">${
               sourceObjectNo
                 ? renderPdaObjectCode({
+              sourceType: task.sourceType,
                     objectType: sourceObjectType,
                     objectId: sourceObjectNo,
                     relatedProductionOrderNo: task.productionOrderId,
@@ -3754,6 +3805,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
             }</span>
             <span class="text-xs text-muted-foreground">原始任务</span>
             <span class="text-xs font-medium">${renderPdaObjectCode({
+              sourceType: task.sourceType,
               objectType: 'PROCESS_DOC',
               objectId: getRootTaskDisplayNo(task),
               relatedProductionOrderNo: task.productionOrderId,
@@ -4074,11 +4126,13 @@ export function renderPdaExecDetailPage(taskId: string): string {
                                       class="inline-flex h-9 items-center justify-center rounded-md border text-sm hover:bg-muted"
                                       data-pda-execd-action="${printWorkOrder ? 'print-submit-handover' : 'dye-submit-handover'}"
                                       data-task-id="${escapeHtml(task.taskId)}"
+                                      ${task.sourceType === 'DESIGN_REVISION' ? 'disabled' : ''}
                                     >
                                       <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
                                       发起交出
                                     </button>
                                   </div>
+                                  ${task.sourceType === 'DESIGN_REVISION' ? `<p class="text-xs text-muted-foreground">请在管理端${printWorkOrder ? '印花' : '染色'}待交出列表逐卷建单、扫码并确认交出。</p>` : ''}
                                 `
                               : `
                                   <button
@@ -4137,7 +4191,7 @@ export function renderPdaExecDetailPage(taskId: string): string {
                             </button>
                             <button
                               class="inline-flex h-9 items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
-                              data-pda-execd-action="new-handover-record"
+                              ${handoverOrder.sourceType === 'DESIGN_REVISION' ? 'disabled' : ''} data-pda-execd-action="new-handover-record"
                               data-handover-order-id="${escapeHtml(handoverOrder.handoverOrderId || handoverOrder.handoverId)}"
                             >
                               <i data-lucide="plus" class="mr-2 h-4 w-4"></i>
@@ -4854,6 +4908,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     return true
   }
 
+  if (action === 'go-dye-pending-handover') {
+    appStore.navigate('/fcs/craft/dyeing/pending-handover')
+    return true
+  }
+
   if (action === 'go-warehouse') {
     appStore.navigate('/fcs/pda/warehouse/wait-process')
     return true
@@ -4873,6 +4932,10 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     const handoverTask = getMobileExecutionTaskById(taskId)
     if (!handoverTask?.assignedFactoryId || handoverTask.assignedFactoryId !== handoverSession.factoryId) {
       showPdaExecDetailToast('当前加工单不属于登录工厂，不能交出')
+      return true
+    }
+    if (handoverTask.sourceType === 'DESIGN_REVISION' && ['DONE', 'CANCELLED'].includes(handoverTask.status)) {
+      showPdaExecDetailToast('任务已完成或取消，不能再次交出')
       return true
     }
     const printOrderForQty = action === 'print-submit-handover' ? getPrintWorkOrderByTaskId(taskId) : undefined
@@ -4975,6 +5038,11 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       showPdaExecDetailToast('交出单未生成')
       return true
     }
+    const head = getHandoverOrderById(handoverOrderId)
+    if (action === 'new-handover-record' && head?.sourceType === 'DESIGN_REVISION' && getTaskFactById(head.taskId)?.status === 'DONE') {
+      showPdaExecDetailToast('任务已完成，不能新增交出记录')
+      return true
+    }
     appStore.navigate(
       action === 'new-handover-record'
         ? `/fcs/pda/handover/${handoverOrderId}?action=new-record`
@@ -4990,6 +5058,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     || action === 'print-complete-printing'
     || action === 'print-start-transfer'
     || action === 'print-complete-transfer'
+    || action === 'print-register-output'
+    || action === 'print-complete-document'
   ) {
     const printOrderId = actionNode.dataset.printOrderId
     if (!printOrderId) return true
@@ -5005,6 +5075,49 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     }
 
     try {
+      if (printOrder.sourceType === 'DESIGN_REVISION') {
+        const operatorName = getPdaSession()?.userName || '印花工厂'
+        if (action === 'print-complete-document') {
+          if (!window.confirm('确认本单全部产出已接收且数量无差异，完成印花加工单？')) return true
+          completePrintWorkOrderDocument(printOrderId, { operatorName })
+          showPdaExecDetailToast('印花加工单已完成')
+          return true
+        }
+        const facts = getPrintingWorkflowFacts(printOrderId)
+        const inputNumber = (label: string, initial: number): number | null => {
+          const value = window.prompt(label, String(initial))
+          if (value === null) return null
+          if (!value.trim() || !Number.isFinite(Number(value)) || Number(value) < 0) throw new Error('请输入有效的非负数量。')
+          return Number(value)
+        }
+        if (action === 'print-register-output') {
+          const view = getPrintingWorkOrderById(printOrderId)!
+          const qty = inputNumber(`累计完成数量（${printOrder.qtyUnit}）`, view.actualInput.usedQty)
+          if (qty === null) return true
+          const rolls = inputNumber('累计完成卷数', Math.max(1, view.output.completedRollCount))
+          if (rolls === null) return true
+          const usedRolls = inputNumber('累计用料卷数', view.actualInput.receivedRollCount)
+          if (usedRolls === null) return true
+          const loss = inputNumber(`本批损耗（${printOrder.qtyUnit}，无损耗填 0）`, 0)
+          if (loss === null) return true
+          completePrintingWorkOrder(printOrderId, {usedQty:view.actualInput.usedQty,usedRollCount:usedRolls,completedQty:qty,completedRollCount:rolls,lossQty:loss,printerNo:view.printerNo || '',operatorName,finishOrder:false})
+          showPdaExecDetailToast('产出已记录，请维护产出卷实测数量后交出')
+          return true
+        }
+        if (action.includes('color-test')) throw new Error('花型信息由目标物料 SKU 带出，无需花型测试。')
+        const stage = action.endsWith('transfer') ? 'TRANSFER' as const : 'PRINT' as const
+        const stageAction = action.includes('-start-') ? 'START' as const : 'FINISH' as const
+        if (stage === 'PRINT' && stageAction === 'START' && !facts.startedAt) {
+          const qty = inputNumber(`本批实际领料数量（${printOrder.qtyUnit}）`, facts.availableInputQty)
+          if (qty === null) return true
+          startPrintingProduction(printOrderId,{id:`PDA-USE-${Date.now()}`,qty,operatorName})
+        }
+        const qty = stageAction === 'FINISH' ? inputNumber(`累计完成数量（${printOrder.qtyUnit}）`, getPrintingWorkOrderById(printOrderId)!.actualInput.usedQty) : undefined
+        if (qty === null) return true
+        recordPrintingProductionStage(printOrderId,{id:`PDA-STAGE-${Date.now()}`,stage,action:stageAction,qty,operatorName})
+        showPdaExecDetailToast('加工记录已保存')
+        return true
+      }
       if (action === 'print-start-color-test') {
         executeMobileProcessAction({
           sourceType: 'PRINT',
@@ -5215,7 +5328,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     const task = getTaskFactById(dyeOrder.taskId)
     if (!task) return true
     if (!canOperateDyeingNode(task, dyeOrderId)) {
-      showPdaExecDetailToast('请先开工')
+      showPdaExecDetailToast(task.status === 'DONE' ? '任务已完成，不能再次加工' : '请先开工')
       return true
     }
     if (dyeOrder.requiresWaterSoluble && action === 'dye-complete-dye') {
@@ -5419,8 +5532,8 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       }
 
       if (action === 'dye-complete-dye') {
-        const inputQtyText = window.prompt('请输入投入面料米数（可选）', String(dyeOrder.plannedQty))?.trim() || ''
-        const outputQtyText = window.prompt('请输入染色完成面料米数（可选）', String(dyeOrder.plannedQty))?.trim() || ''
+        const inputQtyText = window.prompt(`请输入投入面料数量（${dyeOrder.qtyUnit}）`, String(dyeOrder.plannedQty))?.trim() || ''
+        const outputQtyText = window.prompt(`请输入染色完成面料数量（${dyeOrder.qtyUnit}）`, String(dyeOrder.plannedQty))?.trim() || ''
         executeMobileProcessAction({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,

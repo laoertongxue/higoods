@@ -1027,10 +1027,10 @@ function buildInitialDifferenceRecords(handoverRecords: ProcessHandoverRecord[])
     .map(buildDifferenceRecordFromHandover)
 }
 
-const processWarehouseRecords: ProcessWarehouseRecord[] = buildInitialWarehouseRecords()
-const processHandoverRecords: ProcessHandoverRecord[] = buildInitialHandoverRecords(processWarehouseRecords)
-const processHandoverDifferenceRecords: ProcessHandoverDifferenceRecord[] = buildInitialDifferenceRecords(processHandoverRecords)
-const processWarehouseReviewRecords: ProcessWarehouseReviewRecord[] = buildInitialReviewRecords(processHandoverRecords)
+const processWarehouseRecords: ProcessWarehouseRecord[] = []
+const processHandoverRecords: ProcessHandoverRecord[] = []
+const processHandoverDifferenceRecords: ProcessHandoverDifferenceRecord[] = []
+const processWarehouseReviewRecords: ProcessWarehouseReviewRecord[] = []
 function removeRetiredWoolPieceWarehouseFacts(): void {
   const keep = (row: { sourceTaskOrderId: string }) => !retiredWoolPieceTaskIds.has(row.sourceTaskOrderId)
   processWarehouseRecords.splice(0, processWarehouseRecords.length, ...processWarehouseRecords.filter(keep))
@@ -1051,6 +1051,7 @@ export interface ProcessWarehouseMutationSnapshot {
 }
 
 export function captureProcessWarehouseMutationState(): ProcessWarehouseMutationSnapshot {
+  ensureProcessWarehouseInitialized()
   return structuredClone({
     warehouseRecords: processWarehouseRecords,
     handoverRecords: processHandoverRecords,
@@ -1060,6 +1061,7 @@ export function captureProcessWarehouseMutationState(): ProcessWarehouseMutation
 }
 
 export function restoreProcessWarehouseMutationState(snapshot: ProcessWarehouseMutationSnapshot): void {
+  ensureProcessWarehouseInitialized()
   const restored = structuredClone(snapshot)
   processWarehouseRecords.splice(0, processWarehouseRecords.length, ...restored.warehouseRecords)
   processHandoverRecords.splice(0, processHandoverRecords.length, ...restored.handoverRecords)
@@ -1068,21 +1070,32 @@ export function restoreProcessWarehouseMutationState(snapshot: ProcessWarehouseM
   removeRetiredWoolPieceWarehouseFacts()
 }
 
-processHandoverDifferenceRecords.forEach((difference) => {
-  const handover = processHandoverRecords.find((record) => record.handoverRecordId === difference.handoverRecordId)
-  if (handover) handover.relatedDifferenceRecordId = difference.differenceRecordId
-})
+let processWarehouseInitialized = false
+function ensureProcessWarehouseInitialized(): void {
+  if (processWarehouseInitialized) return
+  processWarehouseInitialized = true
+  processWarehouseRecords.push(...buildInitialWarehouseRecords())
+  processHandoverRecords.push(...buildInitialHandoverRecords(processWarehouseRecords))
+  processHandoverDifferenceRecords.push(...buildInitialDifferenceRecords(processHandoverRecords))
+  processWarehouseReviewRecords.push(...buildInitialReviewRecords(processHandoverRecords))
+  processHandoverDifferenceRecords.forEach((difference) => {
+    const handover = processHandoverRecords.find((record) => record.handoverRecordId === difference.handoverRecordId)
+    if (handover) handover.relatedDifferenceRecordId = difference.differenceRecordId
+  })
 
-processWarehouseReviewRecords.forEach((review) => {
-  const handover = processHandoverRecords.find((record) => record.handoverRecordId === review.handoverRecordId)
-  if (handover) handover.relatedReviewRecordId = review.reviewRecordId
-  const difference = processHandoverDifferenceRecords.find((record) => record.handoverRecordId === review.handoverRecordId)
-  if (difference) review.relatedDifferenceRecordId = difference.differenceRecordId
-  const warehouse = processWarehouseRecords.find((record) => record.warehouseRecordId === handover?.warehouseRecordId)
-  if (warehouse && !warehouse.relatedReviewRecordIds.includes(review.reviewRecordId)) {
-    warehouse.relatedReviewRecordIds.push(review.reviewRecordId)
-  }
-})
+  processWarehouseReviewRecords.forEach((review) => {
+    const handover = processHandoverRecords.find((record) => record.handoverRecordId === review.handoverRecordId)
+    if (handover) handover.relatedReviewRecordId = review.reviewRecordId
+    const difference = processHandoverDifferenceRecords.find((record) => record.handoverRecordId === review.handoverRecordId)
+    if (difference) review.relatedDifferenceRecordId = difference.differenceRecordId
+    const warehouse = processWarehouseRecords.find((record) => record.warehouseRecordId === handover?.warehouseRecordId)
+    if (warehouse && !warehouse.relatedReviewRecordIds.includes(review.reviewRecordId)) {
+      warehouse.relatedReviewRecordIds.push(review.reviewRecordId)
+    }
+  })
+
+  removeRetiredWoolPieceWarehouseFacts()
+}
 
 function matchesWarehouseFilter(record: ProcessWarehouseRecord, filter: ProcessWarehouseRecordFilter = {}): boolean {
   if (filter.recordType && record.recordType !== filter.recordType) return false
@@ -1143,40 +1156,49 @@ function liveProcessWarehouseRecords(): ProcessWarehouseRecord[] {
 }
 
 export function listProcessWarehouseRecords(filter: ProcessWarehouseRecordFilter = {}): ProcessWarehouseRecord[] {
+  ensureProcessWarehouseInitialized()
   return liveProcessWarehouseRecords().filter((record) => matchesWarehouseFilter(record, filter)).map(cloneWarehouseRecord)
 }
 
 export function listWaitProcessWarehouseRecords(filter: Omit<ProcessWarehouseRecordFilter, 'recordType'> = {}): ProcessWarehouseRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessWarehouseRecords({ ...filter, recordType: 'WAIT_PROCESS' })
 }
 
 export function listWaitHandoverWarehouseRecords(filter: Omit<ProcessWarehouseRecordFilter, 'recordType'> = {}): ProcessWarehouseRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessWarehouseRecords({ ...filter, recordType: 'WAIT_HANDOVER' })
 }
 
 export function listProcessHandoverRecords(filter: ProcessHandoverRecordFilter = {}): ProcessHandoverRecord[] {
+  ensureProcessWarehouseInitialized()
   return [...processHandoverRecords, ...buildWoolCraftWarehouseProjection().handoverRecords].filter((record) => matchesHandoverFilter(record, filter)).map(cloneHandoverRecord)
 }
 
 export function listProcessWarehouseReviewRecords(filter: ProcessWarehouseReviewRecordFilter = {}): ProcessWarehouseReviewRecord[] {
+  ensureProcessWarehouseInitialized()
   return processWarehouseReviewRecords.filter((record) => matchesReviewFilter(record, filter)).map(cloneReviewRecord)
 }
 
 export function listProcessHandoverDifferenceRecords(filter: ProcessHandoverDifferenceRecordFilter = {}): ProcessHandoverDifferenceRecord[] {
+  ensureProcessWarehouseInitialized()
   return processHandoverDifferenceRecords.filter((record) => matchesDifferenceFilter(record, filter)).map(cloneDifferenceRecord)
 }
 
 export function getProcessWarehouseRecordById(recordId: string): ProcessWarehouseRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const record = liveProcessWarehouseRecords().find((item) => item.warehouseRecordId === recordId)
   return record ? cloneWarehouseRecord(record) : undefined
 }
 
 export function getProcessHandoverRecordById(recordId: string): ProcessHandoverRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const record = [...processHandoverRecords, ...buildWoolCraftWarehouseProjection().handoverRecords].find((item) => item.handoverRecordId === recordId)
   return record ? cloneHandoverRecord(record) : undefined
 }
 
 export function attachProcessHandoverRecordFeiTickets(handoverRecordId: string, feiTicketIds: string[]): ProcessHandoverRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const record = processHandoverRecords.find((item) => item.handoverRecordId === handoverRecordId)
   if (!record) return undefined
   const nextFeiTicketIds = Array.from(new Set([...record.relatedFeiTicketIds, ...feiTicketIds].filter(Boolean)))
@@ -1189,36 +1211,44 @@ export function attachProcessHandoverRecordFeiTickets(handoverRecordId: string, 
 }
 
 export function getProcessHandoverDifferenceRecordById(differenceRecordId: string): ProcessHandoverDifferenceRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const record = processHandoverDifferenceRecords.find((item) => item.differenceRecordId === differenceRecordId)
   return record ? cloneDifferenceRecord(record) : undefined
 }
 
 export function getProcessWarehouseReviewRecordById(reviewRecordId: string): ProcessWarehouseReviewRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const record = processWarehouseReviewRecords.find((item) => item.reviewRecordId === reviewRecordId)
   return record ? cloneReviewRecord(record) : undefined
 }
 
 export function getWarehouseRecordsByWorkOrderId(workOrderId: string): ProcessWarehouseRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessWarehouseRecords({ workOrderId })
 }
 
 export function getHandoverRecordsByWorkOrderId(workOrderId: string): ProcessHandoverRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessHandoverRecords({ workOrderId })
 }
 
 export function getReviewRecordsByWorkOrderId(workOrderId: string): ProcessWarehouseReviewRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessWarehouseReviewRecords({ workOrderId })
 }
 
 export function getDifferenceRecordsByWorkOrderId(workOrderId: string): ProcessHandoverDifferenceRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessHandoverDifferenceRecords({ workOrderId })
 }
 
 export function getHandoverRecordsByWarehouseRecordId(warehouseRecordId: string): ProcessHandoverRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessHandoverRecords({ warehouseRecordId })
 }
 
 export function getDifferenceRecordsByHandoverRecordId(handoverRecordId: string): ProcessHandoverDifferenceRecord[] {
+  ensureProcessWarehouseInitialized()
   return listProcessHandoverDifferenceRecords({ handoverRecordId })
 }
 
@@ -1253,10 +1283,12 @@ function upsertWarehouseRecord(payload: WarehouseRecordPayload, recordType: Proc
 }
 
 export function createWaitProcessWarehouseRecord(payload: WarehouseRecordPayload): ProcessWarehouseRecord {
+  ensureProcessWarehouseInitialized()
   return upsertWarehouseRecord(payload, 'WAIT_PROCESS')
 }
 
 export function createWaitHandoverWarehouseRecord(payload: WarehouseRecordPayload): ProcessWarehouseRecord {
+  ensureProcessWarehouseInitialized()
   return upsertWarehouseRecord(payload, 'WAIT_HANDOVER')
 }
 
@@ -1264,6 +1296,7 @@ export function updateWarehouseRecordQty(
   recordId: string,
   payload: Partial<Pick<ProcessWarehouseRecord, 'plannedObjectQty' | 'receivedObjectQty' | 'availableObjectQty' | 'handedOverObjectQty' | 'writtenBackObjectQty' | 'diffObjectQty' | 'status' | 'updatedAt'>>,
 ): ProcessWarehouseRecord | undefined {
+  ensureProcessWarehouseInitialized()
   if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
@@ -1281,6 +1314,7 @@ export function updateWarehouseRecordQty(
 }
 
 export function markWarehouseRecordInProcess(recordId: string, payload: { operatorName?: string; operatedAt?: string; remark?: string } = {}): ProcessWarehouseRecord | undefined {
+  ensureProcessWarehouseInitialized()
   if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
@@ -1291,6 +1325,7 @@ export function markWarehouseRecordInProcess(recordId: string, payload: { operat
 }
 
 export function markWarehouseRecordReadyToHandover(recordId: string, payload: { operatedAt?: string; remark?: string } = {}): ProcessWarehouseRecord | undefined {
+  ensureProcessWarehouseInitialized()
   if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
@@ -1301,6 +1336,7 @@ export function markWarehouseRecordReadyToHandover(recordId: string, payload: { 
 }
 
 export function closeWarehouseRecord(recordId: string, payload: { closedAt?: string; remark?: string } = {}): ProcessWarehouseRecord | undefined {
+  ensureProcessWarehouseInitialized()
   if (isWoolCraftWarehouseProjectionId(recordId)) throw new Error('毛织片库存由实际接收、加工和交出记录计算，不能直接改库存状态或数量。')
   const record = processWarehouseRecords.find((item) => item.warehouseRecordId === recordId)
   if (!record) return undefined
@@ -1311,6 +1347,7 @@ export function closeWarehouseRecord(recordId: string, payload: { closedAt?: str
 }
 
 export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayload): ProcessHandoverRecord {
+  ensureProcessWarehouseInitialized()
   const sourceTaskOrderId = payload.sourceTaskOrderId || payload.sourceWorkOrderId || ''
   if (retiredWoolPieceTaskIds.has(sourceTaskOrderId)) throw new Error('旧毛织片工艺单已清除，请从横机逐片工艺单操作。')
   if (buildWoolCraftWarehouseProjection().taskOrderIds.has(sourceTaskOrderId)) throw new Error('毛织片仓储由实际接收、加工填报和交出记录生成，请在毛织工艺加工单操作。')
@@ -1399,6 +1436,7 @@ export function createProcessHandoverRecord(payload: ProcessHandoverRecordPayloa
 }
 
 export function createProcessHandoverDifferenceRecord(payload: DifferenceRecordPayload): ProcessHandoverDifferenceRecord {
+  ensureProcessWarehouseInitialized()
   const existed = processHandoverDifferenceRecords.find((record) => record.handoverRecordId === payload.handoverRecordId)
   const diffQty = roundQty(payload.diffObjectQty ?? (payload.actualObjectQty - payload.expectedObjectQty))
   const next: ProcessHandoverDifferenceRecord = {
@@ -1468,6 +1506,7 @@ export function writeBackProcessHandoverRecord(
   },
   dependencyOverrides: Partial<ProcessHandoverPostReceiptDependencies> = {},
 ): ProcessHandoverRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const handover = processHandoverRecords.find((record) => record.handoverRecordId === handoverRecordId)
   if (!handover) return undefined
   if (!Number.isFinite(payload.receiveObjectQty) || payload.receiveObjectQty < 0) {
@@ -1628,6 +1667,7 @@ export function writeBackProcessHandoverRecord(
 }
 
 export function createProcessWarehouseReviewRecord(payload: ReviewRecordPayload): ProcessWarehouseReviewRecord {
+  ensureProcessWarehouseInitialized()
   const existed = processWarehouseReviewRecords.find((record) => record.handoverRecordId === payload.handoverRecordId)
   const diffQty = roundQty(payload.diffObjectQty ?? (payload.expectedObjectQty - payload.actualObjectQty))
   const next: ProcessWarehouseReviewRecord = {
@@ -1680,6 +1720,7 @@ export function handleProcessHandoverDifference(
     remark?: string
   },
 ): ProcessHandoverDifferenceRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const difference = processHandoverDifferenceRecords.find((record) => record.differenceRecordId === differenceRecordId)
   if (!difference) return undefined
   const handledAt = payload.handledAt || nowText()
@@ -1769,6 +1810,7 @@ export function applySpecialCraftDifferenceToFeiTickets(
     reason?: string
   },
 ): ProcessHandoverDifferenceRecord | undefined {
+  ensureProcessWarehouseInitialized()
   const difference = processHandoverDifferenceRecords.find((record) => record.differenceRecordId === differenceRecordId)
   if (!difference || difference.craftType !== 'SPECIAL_CRAFT') return difference ? cloneDifferenceRecord(difference) : undefined
   applySpecialCraftHandoverDifferenceToFeiTickets({
@@ -1794,6 +1836,7 @@ export function applySpecialCraftDifferenceToFeiTickets(
 }
 
 export function getProcessWarehouseSummary(filter: ProcessWarehouseRecordFilter = {}) {
+  ensureProcessWarehouseInitialized()
   const waitProcess = listWaitProcessWarehouseRecords(filter)
   const waitHandover = listWaitHandoverWarehouseRecords(filter)
   const handovers = listProcessHandoverRecords({

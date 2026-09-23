@@ -1,0 +1,488 @@
+{
+  "runId": "2026-09-23T19-12-59.061Z",
+  "distSha": "96919a9fd2f55543bbaa3b2169b3d66f76e51d9688e5f0378c5c73f2ad109543",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "routes": [
+    {
+      "factory": "F090",
+      "path": "/fcs/pda/exec/DWO-AUTO-000001",
+      "samples": {
+        "cold": [
+          970.5999999940395,
+          933.8000000044703,
+          929.6999999955297,
+          936.7999999970198,
+          931.7000000029802
+        ],
+        "reload": [
+          790.6000000014901,
+          784,
+          798.7999999970198,
+          782,
+          797.1000000014901
+        ]
+      },
+      "errors": [],
+      "text": "全能力测试工厂\n执行 · F090\n待办\n71\n全\n全能力测\n返回执行列表\n任务详情\nDY-20260923-000001\n已完工\n需求来源\n设计改款任务\n设计改款任务号\nES-DR-025\n加工单 / 来源单号\nDY-20260923-000001\n原始任务\nDY-20260923-000001\n当前工序\n设计改款染色\n覆盖工序\n设计改款染色\n所在列表\n已完工\n计划染色面料Yard数\n计划染色面料Yard数：20 Yard\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\nFLOWER\n任务二维码\nDY-20260923-000001\n交出单\n交出单号\nHDO-WOAUTO000001\n状态\n已收货\n已交出\n20 Yard\n已收货\n20 Yard\n差异\n0 Yard\n异议\n0 条\n待收货\n0 条\n染色任务\n已完成\nDR-COTTON-001-RAW\nDY-20260923-000001\n接收状态\n已收齐\n加工状态\n加工完成\n交出状态\n全部交出\n\n已由 PPIC 于 2030-01-01 12:31:00 人工完成单据。\n\n染色加工单\nDY-20260923-000001\n当前状态\n已完成\n目标颜色\nWhite\n色号\n11-0601 TPX\n接收方\n印花待加工仓\n染缸候选\nVAT-F090-01\n等原料\n等原料\n原料面料：DR-COTTON-001-RAW\n开始时间：—\n完成时间：—\n开始等原料\n确认来源单据已到\n待排染缸\n已排染缸\n染缸编号：VAT-F090-01\n染缸容量：800 kg/缸\n可染类型：棉 / 涤纶 / 混纺\n排染缸\n染色\n染色完成\n染缸编号：VAT-F090-01\n开始时间：2026-09-24 03:01:01\n完成时间：2026-09-24 03:01:02\n投入面料 Yard 数：20 Yard\n染色完成面料 Yard 数：20 Yard\n开始染色\n完成染色\n后处理\n包装完成\n脱水\n开始：2026-09-24 03:01:02\n完成：2026-09-24 03:01:02\n开始脱水\n完成脱水\n烘干\n开始：2026-09-24 03:01:02\n完成：2026-09-24 03:01:02\n开始烘干\n完成烘干\n定型\n开始：2026-09-24 03:01:02\n完成：2026-09-24 03:01:02\n开始定型\n完成定型\n打卷\n开始：2026-09-24 03:01:02\n完成：2026-09-24 03:01:02\n开始打卷\n完成打卷\n包装\n开始：2026-09-24 03:01:02\n完成：2026-09-24 03:01:02\n开始包装\n完成包装\n待送货\n全部交出\n交出单：HDO-WOAUTO000001\n交出记录：1 条\n待收货：0 条\n实收染色面料 Yard 数：20 Yard\n查看交出单\n去染色待交出列表\n收货确认\n全部交出\n接收方：印花待加工仓\n实收染色面料 Yard 数：20 Yard\n差异面料 Yard 数：0 Yard\n收货状态：全部交出\n备注：交出记录已生成，等待接收方确认收货\n操作\n查看交出单\n新增交出记录\n接单\n执行\n交接\n仓管\n结算",
+      "width": 390,
+      "imageFailures": [],
+      "actions": [
+        {
+          "text": "待办\n      71",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-todo-modal"
+            ],
+            [
+              "data-pda-todo-trigger",
+              "true"
+            ]
+          ]
+        },
+        {
+          "text": "全\n      全能力测",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-shell-action",
+              "open-account-modal"
+            ]
+          ]
+        },
+        {
+          "text": "返回执行列表",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "back"
+            ]
+          ]
+        },
+        {
+          "text": "ES-DR-025",
+          "attributes": []
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/archive/c74d884c23376156c8dc13a5ff39d3fa.jpg"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "DY-20260923-000001 款式图"
+            ]
+          ]
+        },
+        {
+          "text": "图片加载中",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-skip-page-rerender",
+              "true"
+            ],
+            [
+              "data-pda-image-preview-url",
+              "/materials/fei-ticket/white-poplin.png"
+            ],
+            [
+              "data-pda-image-preview-title",
+              "DR-COTTON-001-RAW 实物图"
+            ]
+          ]
+        },
+        {
+          "text": "开始等原料",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-material-wait"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "确认来源单据已到",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-material-wait"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "排染缸",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-plan-vat"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "开始染色",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-dye"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "完成染色",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-dye"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "开始脱水",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DEHYDRATE"
+            ]
+          ]
+        },
+        {
+          "text": "完成脱水",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DEHYDRATE"
+            ]
+          ]
+        },
+        {
+          "text": "开始烘干",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DRY"
+            ]
+          ]
+        },
+        {
+          "text": "完成烘干",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "DRY"
+            ]
+          ]
+        },
+        {
+          "text": "开始定型",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "SET"
+            ]
+          ]
+        },
+        {
+          "text": "完成定型",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "SET"
+            ]
+          ]
+        },
+        {
+          "text": "开始打卷",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "ROLL"
+            ]
+          ]
+        },
+        {
+          "text": "完成打卷",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "ROLL"
+            ]
+          ]
+        },
+        {
+          "text": "开始包装",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-start-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "PACK"
+            ]
+          ]
+        },
+        {
+          "text": "完成包装",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "dye-complete-node"
+            ],
+            [
+              "data-dye-order-id",
+              "DWO-AUTO-000001"
+            ],
+            [
+              "data-node-code",
+              "PACK"
+            ]
+          ]
+        },
+        {
+          "text": "查看交出单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "view-handover-order"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-DWOAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "去染色待交出列表",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "go-dye-pending-handover"
+            ],
+            [
+              "data-task-id",
+              "DWO-AUTO-000001"
+            ]
+          ]
+        },
+        {
+          "text": "查看交出单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "view-handover-order"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-DWOAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "新增交出记录",
+          "disabled": true,
+          "attributes": [
+            [
+              "data-pda-execd-action",
+              "new-handover-record"
+            ],
+            [
+              "data-handover-order-id",
+              "HO-DWOAUTO000001"
+            ]
+          ]
+        },
+        {
+          "text": "接单",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/task-receive"
+            ],
+            [
+              "data-pda-tab",
+              "task-receive"
+            ]
+          ]
+        },
+        {
+          "text": "执行",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/exec"
+            ],
+            [
+              "data-pda-tab",
+              "exec"
+            ]
+          ]
+        },
+        {
+          "text": "交接",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/handover"
+            ],
+            [
+              "data-pda-tab",
+              "handover"
+            ]
+          ]
+        },
+        {
+          "text": "仓管",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/warehouse"
+            ],
+            [
+              "data-pda-tab",
+              "warehouse"
+            ]
+          ]
+        },
+        {
+          "text": "结算",
+          "disabled": false,
+          "attributes": [
+            [
+              "data-nav",
+              "/fcs/pda/settlement"
+            ],
+            [
+              "data-pda-tab",
+              "settlement"
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "browser": "149.0.7827.55"
+}

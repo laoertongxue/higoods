@@ -906,7 +906,7 @@ export function renderPdaTaskReceiveDetailPage(taskId: string): string {
           <div class="space-y-3 p-4">
             <div class="grid grid-cols-2 gap-3 text-sm">
               ${renderField('原始任务', getRootTaskDisplayNo(task))}
-              ${renderField('生产单号', getTaskProductionOrderNo(task))}
+              ${renderField(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号', task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : getTaskProductionOrderNo(task))}
               ${renderField('工序序号', String(task.seq))}
               ${renderField('工序名称', displayProcessName)}
               ${renderField('工序编码', task.processBusinessCode || task.processCode)}

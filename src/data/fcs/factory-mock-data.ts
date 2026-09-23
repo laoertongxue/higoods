@@ -35,6 +35,8 @@ export const DEDICATED_POST_FACTORY_NAME = 'HiGood 后道工厂'
 export const KOL_GOTO_FACTORY_ID = 'KOL-GOTO-001'
 export const KOL_GOTO_FACTORY_CODE = 'KOL-GOTO'
 export const KOL_GOTO_FACTORY_NAME = 'kol goto'
+export const GOTO_GLOBAL_FACTORY_ID = 'DYE-GOTO-GLOBAL'
+export const GOTO_GLOBAL_FACTORY_NAME = 'goto_global'
 
 const thirdPartySewingSeatCountByFactoryId: Record<string, number> = {
   'ID-F021': 48,
@@ -418,6 +420,29 @@ const kolGotoFactory: Factory = {
   },
 }
 
+/** 设计改款销售展示样衣的中央车缝工厂；沿用既有 goto_global 组织编号。 */
+const gotoGlobalFactory: Factory = {
+  id: GOTO_GLOBAL_FACTORY_ID,
+  code: 'GOTO-GLOBAL',
+  name: GOTO_GLOBAL_FACTORY_NAME,
+  factoryShortName: GOTO_GLOBAL_FACTORY_NAME,
+  address: '印尼中央车缝工厂',
+  contact: '中央工厂负责人',
+  phone: '',
+  status: 'active',
+  cooperationMode: 'exclusive',
+  processAbilities: buildProcessAbilities([], 'CENTRAL_GARMENT'),
+  qualityScore: 90,
+  deliveryScore: 90,
+  createdAt: '2026-09-23 09:00:00',
+  updatedAt: '2026-09-23 09:00:00',
+  factoryTier: 'CENTRAL',
+  factoryType: 'CENTRAL_GARMENT',
+  pdaEnabled: true,
+  pdaTenantId: GOTO_GLOBAL_FACTORY_ID,
+  eligibility: { allowDispatch: true, allowBid: false, allowExecute: true, allowSettle: false },
+}
+
 export const specialCraftDedicatedFactories: Factory[] = [...new Set(specialCraftDedicatedFactorySeeds.map((seed) => seed.factoryId))].map((factoryId) => {
   const seeds = specialCraftDedicatedFactorySeeds.filter((seed) => seed.factoryId === factoryId)
   const seed = seeds[0]
@@ -465,6 +490,7 @@ export const specialCraftDedicatedFactories: Factory[] = [...new Set(specialCraf
 
 export const mockFactories: Factory[] = [
   kolGotoFactory,
+  gotoGlobalFactory,
   dedicatedPostFactory,
   ...generatedFactories,
   allProcessCraftTestFactory,

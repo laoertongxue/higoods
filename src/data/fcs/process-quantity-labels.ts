@@ -119,7 +119,7 @@ export function getProcessQtyUnit(context: ProcessQuantityContext): ProcessQtyUn
     return normalizedUnit
   }
   if (context.processType === 'DYE' && getProcessObjectType(context) === '面料') {
-    return normalizedUnit === '卷' ? '卷' : '米'
+    return normalizedUnit === '卷' ? '卷' : normalizedUnit === 'Yard' ? 'Yard' : '米'
   }
   if (context.processType === 'CUTTING' && getProcessObjectType(context) === '裁片') return '片'
   if (context.processType === 'SPECIAL_CRAFT' && getProcessObjectType(context) === '裁片') return '片'

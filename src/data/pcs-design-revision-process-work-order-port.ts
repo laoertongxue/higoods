@@ -11,12 +11,25 @@ export interface DesignRevisionProcessWorkOrderLineInput {
   materialId: string
   materialSkuId: string
   materialSkuCode: string
+  targetMaterialSkuId?: string
+  targetMaterialSkuCode?: string
+  rawMaterialSkuCode?: string
+  dyedMaterialSkuCode?: string
+  dyedMaterialSkuId?: string
+  dyedMaterialImageUrl?: string
+  targetMaterialImageUrl?: string
+  pantoneCode?: string
+  patternCode?: string
+  patternImageUrl?: string
   materialName: string
+  materialCode?: string
   materialType: string
   materialReceivingKind: 'FABRIC' | 'ACCESSORY' | 'YARN'
   materialImageUrl: string
   materialComposition: string
   materialSpecification: string
+  materialWidthCm?: number
+  materialGsm?: number
   plannedQty: number
   qtyUnit: string
 }

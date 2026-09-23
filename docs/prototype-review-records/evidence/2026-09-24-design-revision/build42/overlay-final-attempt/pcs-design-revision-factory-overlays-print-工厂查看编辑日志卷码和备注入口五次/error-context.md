@@ -1,0 +1,797 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: pcs-design-revision-factory-overlays.spec.ts >> print 工厂查看编辑日志卷码和备注入口五次
+- Location: tests/pcs-design-revision-factory-overlays.spec.ts:4:36
+
+# Error details
+
+```
+Error: expect(locator).toHaveCount(expected) failed
+
+Locator:  getByRole('dialog').last()
+Expected: 0
+Received: 1
+Timeout:  10000ms
+
+Call log:
+  - Expect "toHaveCount" with timeout 10000ms
+  - waiting for getByRole('dialog').last()
+    24 × locator resolved to 1 element
+       - unexpected value "1"
+
+```
+
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e6]:
+      - generic [ref=e7]: HG
+      - generic [ref=e8]: HiGood
+    - generic [ref=e10]:
+      - button "商品中心系统 (PCS)" [ref=e11]:
+        - generic [ref=e12]: 商品中心系统
+        - generic [ref=e13]: (PCS)
+      - button "采购管理系统 (PMS)" [ref=e14]:
+        - generic [ref=e15]: 采购管理系统
+        - generic [ref=e16]: (PMS)
+      - button "工厂生产协同系统 (FCS)" [ref=e17]:
+        - generic [ref=e18]: 工厂生产协同系统
+        - generic [ref=e19]: (FCS)
+      - button "工艺工厂运营系统 (PFOS)" [ref=e20]:
+        - generic [ref=e21]: 工艺工厂运营系统
+        - generic [ref=e22]: (PFOS)
+      - button "仓储物流系统 (WLS)" [ref=e24]:
+        - generic [ref=e25]: 仓储物流系统
+        - generic [ref=e26]: (WLS)
+      - button "直播运营系统 (LOS)" [ref=e27]:
+        - generic [ref=e28]: 直播运营系统
+        - generic [ref=e29]: (LOS)
+      - button "订单管理系统 (OMS)" [ref=e30]:
+        - generic [ref=e31]: 订单管理系统
+        - generic [ref=e32]: (OMS)
+      - button "业财一体化系统 (BFIS)" [ref=e33]:
+        - generic [ref=e34]: 业财一体化系统
+        - generic [ref=e35]: (BFIS)
+      - button "数据决策系统 (DDS)" [ref=e36]:
+        - generic [ref=e37]: 数据决策系统
+        - generic [ref=e38]: (DDS)
+    - generic [ref=e39]:
+      - button "通知" [ref=e40]:
+        - img [ref=e41]
+      - button "管理员" [ref=e45]:
+        - img [ref=e47]
+        - generic [ref=e50]: 管理员
+        - img [ref=e51]
+  - generic [ref=e53]:
+    - complementary [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - generic [ref=e58]:
+            - heading "工艺工厂运营系统" [level=2] [ref=e59]
+            - paragraph [ref=e60]: PFOS
+          - button "收起菜单" [ref=e61]:
+            - img [ref=e62]
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - button "裁床厂管理" [ref=e68]:
+              - img [ref=e70]
+              - generic [ref=e76]: 裁床厂管理
+              - img [ref=e77]
+            - generic [ref=e79]:
+              - button "裁床总览" [ref=e81]:
+                - img [ref=e83]
+                - generic [ref=e89]: 裁床总览
+                - img [ref=e90]
+              - button "裁前准备" [ref=e93]:
+                - img [ref=e95]
+                - generic [ref=e101]: 裁前准备
+                - img [ref=e102]
+              - button "接收管理" [ref=e105]:
+                - img [ref=e107]
+                - generic [ref=e112]: 接收管理
+                - img [ref=e113]
+              - button "铺布执行" [ref=e116]:
+                - img [ref=e118]
+                - generic [ref=e120]: 铺布执行
+                - img [ref=e121]
+              - button "裁后处理" [ref=e124]:
+                - img [ref=e126]
+                - generic [ref=e131]: 裁后处理
+                - img [ref=e132]
+              - button "裁床仓库管理" [ref=e135]:
+                - img [ref=e137]
+                - generic [ref=e140]: 裁床仓库管理
+                - img [ref=e141]
+              - button "裁床统计" [ref=e144]:
+                - img [ref=e146]
+                - generic [ref=e148]: 裁床统计
+                - img [ref=e149]
+          - generic [ref=e151]:
+            - button "印花厂管理" [ref=e152]:
+              - img [ref=e154]
+              - generic [ref=e160]: 印花厂管理
+              - img [ref=e161]
+            - generic [ref=e164]:
+              - button "印花管理" [ref=e165]:
+                - img [ref=e167]
+                - generic [ref=e173]: 印花管理
+                - img [ref=e174]
+              - generic [ref=e176]:
+                - button "待接收" [ref=e177]:
+                  - img [ref=e179]
+                  - text: 待接收
+                - button "印花加工单" [ref=e184]:
+                  - img [ref=e186]
+                  - text: 印花加工单
+                - button "印花待加工仓" [ref=e189]:
+                  - img [ref=e191]
+                  - text: 印花待加工仓
+                - button "印花待交出仓" [ref=e194]:
+                  - img [ref=e196]
+                  - text: 印花待交出仓
+                - button "印花待交出列表" [ref=e201]:
+                  - img [ref=e203]
+                  - text: 印花待交出列表
+                - button "印花交出单据" [ref=e206]:
+                  - img [ref=e208]
+                  - text: 印花交出单据
+                - button "印花统计" [ref=e211]:
+                  - img [ref=e213]
+                  - text: 印花统计
+                - button "印花大屏" [ref=e215]:
+                  - img [ref=e217]
+                  - text: 印花大屏
+          - generic [ref=e219]:
+            - button "染厂管理" [ref=e220]:
+              - img [ref=e222]
+              - generic [ref=e224]: 染厂管理
+              - img [ref=e225]
+            - button "染厂管理" [ref=e229]:
+              - img [ref=e231]
+              - generic [ref=e233]: 染厂管理
+              - img [ref=e234]
+          - generic [ref=e236]:
+            - button "毛织厂管理" [ref=e237]:
+              - img [ref=e239]
+              - generic [ref=e241]: 毛织厂管理
+              - img [ref=e242]
+            - button "毛织管理" [ref=e246]:
+              - img [ref=e248]
+              - generic [ref=e250]: 毛织管理
+              - img [ref=e251]
+          - generic [ref=e253]:
+            - button "辅料工厂管理" [ref=e254]:
+              - img [ref=e256]
+              - generic [ref=e259]: 辅料工厂管理
+              - img [ref=e260]
+            - generic [ref=e262]:
+              - button "花边厂管理" [ref=e264]:
+                - generic [ref=e267]: 花边厂管理
+                - img [ref=e268]
+              - button "织带厂管理" [ref=e271]:
+                - img [ref=e273]
+                - generic [ref=e276]: 织带厂管理
+                - img [ref=e277]
+          - generic [ref=e279]:
+            - button "后道工厂管理" [ref=e280]:
+              - img [ref=e282]
+              - generic [ref=e287]: 后道工厂管理
+              - img [ref=e288]
+            - button "后道工厂管理" [ref=e292]:
+              - img [ref=e294]
+              - generic [ref=e299]: 后道工厂管理
+              - img [ref=e300]
+          - generic [ref=e302]:
+            - button "辅助工艺工厂管理" [ref=e303]:
+              - img [ref=e305]
+              - generic [ref=e307]: 辅助工艺工厂管理
+              - img [ref=e308]
+            - generic [ref=e310]:
+              - button "打揽加工单" [ref=e312]:
+                - img [ref=e314]
+                - generic [ref=e316]: 打揽加工单
+              - button "打条加工单" [ref=e318]:
+                - img [ref=e320]
+                - generic [ref=e322]: 打条加工单
+              - button "烫画加工单" [ref=e324]:
+                - img [ref=e326]
+                - generic [ref=e328]: 烫画加工单
+              - button "直喷加工单" [ref=e330]:
+                - img [ref=e332]
+                - generic [ref=e334]: 直喷加工单
+              - button "布包扣加工单" [ref=e336]:
+                - img [ref=e338]
+                - generic [ref=e340]: 布包扣加工单
+              - button "绣花加工单" [ref=e342]:
+                - img [ref=e344]
+                - generic [ref=e346]: 绣花加工单
+              - button "压褶加工单" [ref=e348]:
+                - img [ref=e350]
+                - generic [ref=e352]: 压褶加工单
+              - button "贝壳绣加工单" [ref=e354]:
+                - img [ref=e356]
+                - generic [ref=e358]: 贝壳绣加工单
+              - button "曲牙绣加工单" [ref=e360]:
+                - img [ref=e362]
+                - generic [ref=e364]: 曲牙绣加工单
+              - button "一字贝绣花加工单" [ref=e366]:
+                - img [ref=e368]
+                - generic [ref=e370]: 一字贝绣花加工单
+              - button "盘扣加工单" [ref=e372]:
+                - img [ref=e374]
+                - generic [ref=e376]: 盘扣加工单
+              - button "花朵加工单" [ref=e378]:
+                - img [ref=e380]
+                - generic [ref=e382]: 花朵加工单
+              - button "打褶加工单" [ref=e384]:
+                - img [ref=e386]
+                - generic [ref=e388]: 打褶加工单
+              - button "烫钻加工单" [ref=e390]:
+                - img [ref=e392]
+                - generic [ref=e394]: 烫钻加工单
+              - button "辅助工艺待加工仓" [ref=e396]:
+                - img [ref=e398]
+                - generic [ref=e401]: 辅助工艺待加工仓
+              - button "辅助工艺待交出仓" [ref=e403]:
+                - img [ref=e405]
+                - generic [ref=e410]: 辅助工艺待交出仓
+          - generic [ref=e411]:
+            - button "特种工艺工厂管理" [ref=e412]:
+              - img [ref=e414]
+              - generic [ref=e416]: 特种工艺工厂管理
+              - img [ref=e417]
+            - generic [ref=e419]:
+              - button "模板工序加工单" [ref=e421]:
+                - img [ref=e423]
+                - generic [ref=e425]: 模板工序加工单
+              - button "激光开袋加工单" [ref=e427]:
+                - img [ref=e429]
+                - generic [ref=e431]: 激光开袋加工单
+              - button "特种车缝（花样机）加工单" [ref=e433]:
+                - img [ref=e435]
+                - generic [ref=e437]: 特种车缝（花样机）加工单
+              - button "橡筋定长切割加工单" [ref=e439]:
+                - img [ref=e441]
+                - generic [ref=e443]: 橡筋定长切割加工单
+              - button "特种工艺待加工仓" [ref=e445]:
+                - img [ref=e447]
+                - generic [ref=e450]: 特种工艺待加工仓
+              - button "特种工艺待交出仓" [ref=e452]:
+                - img [ref=e454]
+                - generic [ref=e459]: 特种工艺待交出仓
+    - main [ref=e460]:
+      - generic [ref=e462]:
+        - generic [ref=e464]:
+          - button "印花加工单" [ref=e465]
+          - button [ref=e466]:
+            - img [ref=e467]
+        - button "全部关闭" [ref=e472]
+      - generic [ref=e475]:
+        - generic [ref=e477]:
+          - generic [ref=e479]:
+            - tablist "加工厂切换" [ref=e481]:
+              - tab "全部加工厂 66" [selected] [ref=e482]
+              - tab "FLOWER 14" [ref=e483]
+              - tab "ANJANI 5" [ref=e484]
+              - tab "BAGUS 5" [ref=e485]
+              - tab "Clint 5" [ref=e486]
+              - group "更多加工厂" [ref=e487]:
+                - generic "更多" [ref=e488] [cursor=pointer]:
+                  - generic [ref=e489]: 更多
+                  - img [ref=e490]
+            - generic [ref=e492]:
+              - generic [ref=e493]:
+                - generic [ref=e494]:
+                  - generic [ref=e495]: 综合查询
+                  - textbox "综合查询" [ref=e496]:
+                    - /placeholder: 单号、商品、物料或花型
+                    - text: PH-20260923-000001
+                - generic [ref=e497]:
+                  - generic [ref=e498]: 接收状态
+                  - combobox "接收状态" [ref=e499]:
+                    - option "全部" [selected]
+                    - option "待来源"
+                    - option "待接收"
+                    - option "部分接收"
+                    - option "已收齐"
+                    - option "差异待处理"
+                - generic [ref=e500]:
+                  - generic [ref=e501]: 加工状态
+                  - combobox "加工状态" [ref=e502]:
+                    - option "全部" [selected]
+                    - option "待分配"
+                    - option "待接收投入"
+                    - option "未开始"
+                    - option "加工中"
+                    - option "加工完成"
+                    - option "已取消"
+                - generic [ref=e503]:
+                  - generic [ref=e504]: 交出状态
+                  - combobox "交出状态" [ref=e505]:
+                    - option "全部" [selected]
+                    - option "未到交出"
+                    - option "待交出"
+                    - option "部分交出"
+                    - option "全部交出"
+                - generic [ref=e506]:
+                  - generic [ref=e507]: 加工厂
+                  - combobox "加工厂" [ref=e508]:
+                    - option "全部" [selected]
+                    - option "FLOWER"
+                    - option "ANJANI"
+                    - option "BAGUS"
+                    - option "Clint"
+                    - option "DANIS"
+                    - option "Irijaya printing"
+                    - option "MIDDAY 89"
+                    - option "TEETWO KONVEKSI"
+                    - option "sipatax"
+                    - option "测试专用工厂"
+              - generic [ref=e509]:
+                - button "查询" [ref=e510]:
+                  - img [ref=e511]
+                  - text: 查询
+                - button "重置" [ref=e514]:
+                  - img [ref=e515]
+                  - text: 重置
+                - button "导出" [ref=e518]:
+                  - img [ref=e519]
+                  - text: 导出
+                - button "更多筛选" [ref=e522]
+          - generic [ref=e524]:
+            - generic [ref=e525]:
+              - generic [ref=e526]: 加工单数
+              - strong [ref=e527]:
+                - generic [ref=e528]: "1"
+            - generic [ref=e529]:
+              - generic [ref=e530]: 计划投入
+              - strong [ref=e531]:
+                - generic [ref=e532]: 20.00 Yard
+            - generic [ref=e533]:
+              - generic [ref=e534]: 本厂实收
+              - strong [ref=e535]:
+                - generic [ref=e536]: 20.00 Yard
+            - generic [ref=e537]:
+              - generic [ref=e538]: 实际使用
+              - strong [ref=e539]:
+                - generic [ref=e540]: 20.00 Yard
+            - generic [ref=e541]:
+              - generic [ref=e542]: 完成数量
+              - strong [ref=e543]:
+                - generic [ref=e544]: 20.00 Yard
+            - generic [ref=e545]:
+              - generic [ref=e546]: 下游待接收
+              - strong [ref=e547]:
+                - generic [ref=e548]: 0.00 Yard
+          - generic [ref=e549]:
+            - generic [ref=e550]:
+              - heading "共 1 条 · 已选 0 条" [level=2] [ref=e551]
+              - generic [ref=e552]:
+                - button "批量打印印花确认单（0）" [disabled] [ref=e553]
+                - button "列设置" [ref=e554]:
+                  - img [ref=e555]
+                  - text: 列设置
+            - table [ref=e561]:
+              - rowgroup [ref=e572]:
+                - row "全选本页 ▾ 按加工单／商品升序排列 按加工投入／上游升序排列 按加工要求升序排列 处理进度 按加工产出／下游升序排列 按时间升序排列 按数量升序排列 操作" [ref=e573]:
+                  - columnheader "全选本页 ▾" [ref=e574]:
+                    - generic [ref=e575]:
+                      - checkbox "全选本页" [ref=e576]
+                      - combobox "批量选择范围" [ref=e577] [cursor=pointer]:
+                        - option "▾" [selected]
+                        - option "全选本页"
+                        - option "全选筛选结果"
+                        - option "清空选择"
+                  - columnheader "按加工单／商品升序排列" [ref=e578]:
+                    - button "按加工单／商品升序排列" [ref=e579]:
+                      - generic [ref=e580]: 加工单／商品
+                      - img [ref=e582]
+                  - columnheader "按加工投入／上游升序排列" [ref=e585]:
+                    - button "按加工投入／上游升序排列" [ref=e586]:
+                      - generic [ref=e587]: 加工投入／上游
+                      - img [ref=e589]
+                  - columnheader "按加工要求升序排列" [ref=e592]:
+                    - button "按加工要求升序排列" [ref=e593]:
+                      - generic [ref=e594]: 加工要求
+                      - img [ref=e596]
+                  - columnheader "处理进度" [ref=e599]
+                  - columnheader "按加工产出／下游升序排列" [ref=e600]:
+                    - button "按加工产出／下游升序排列" [ref=e601]:
+                      - generic [ref=e602]: 加工产出／下游
+                      - img [ref=e604]
+                  - columnheader "按时间升序排列" [ref=e607]:
+                    - button "按时间升序排列" [ref=e608]:
+                      - generic [ref=e609]: 时间
+                      - img [ref=e611]
+                  - columnheader "按数量升序排列" [ref=e614]:
+                    - button "按数量升序排列" [ref=e615]:
+                      - generic [ref=e616]: 数量
+                      - img [ref=e618]
+                  - columnheader "操作" [ref=e621]
+              - rowgroup [ref=e622]:
+                - row [ref=e623]:
+                  - cell "选择 PH-20260923-000001" [ref=e624]:
+                    - checkbox "选择 PH-20260923-000001" [ref=e625]
+                  - cell "加工厂：FLOWER 需求来源：设计改款任务 · ES-DR-025 设计改款任务：ES-DR-025 印花加工单：PH-20260923-000001 任务单：PH-20260923-000001 售卖类型：销售展示样衣 创建方式：设计改款样衣创建 查看STYLE-PRJ-202603-012 Kaos Polos Premium 高端纯色T恤对应图片大图 Kaos Polos Premium 高端纯色T恤 STYLE-PRJ-202603-012" [ref=e626]:
+                    - generic [ref=e627]:
+                      - generic [ref=e628]:
+                        - paragraph [ref=e629]: 加工厂：FLOWER
+                        - generic [ref=e630]:
+                          - paragraph [ref=e631]: 需求来源：设计改款任务 · ES-DR-025
+                          - paragraph [ref=e632]: 设计改款任务：ES-DR-025
+                        - paragraph [ref=e633]:
+                          - text: 印花加工单：
+                          - link "PH-20260923-000001" [ref=e634] [cursor=pointer]:
+                            - /url: /fcs/craft/printing/work-orders/PWO-PRINT-AUTO-000001
+                        - paragraph [ref=e635]: 任务单：PH-20260923-000001
+                        - paragraph [ref=e636]: 售卖类型：销售展示样衣
+                        - paragraph [ref=e637]: 创建方式：设计改款样衣创建
+                      - generic [ref=e639]:
+                        - button "查看STYLE-PRJ-202603-012 Kaos Polos Premium 高端纯色T恤对应图片大图" [ref=e640]:
+                          - img "STYLE-PRJ-202603-012 Kaos Polos Premium 高端纯色T恤对应图片" [ref=e641]
+                        - generic [ref=e642]:
+                          - paragraph [ref=e643]: Kaos Polos Premium 高端纯色T恤
+                          - paragraph [ref=e644]: STYLE-PRJ-202603-012
+                  - cell "查看DR-COTTON-001-WHITE BOM原物料实拍图大图 实际投入 设计改款白底蓝花棉布 DR-COTTON-001-WHITE 物料类型：BOM原物料 成分：100% 棉 克重 180 g/㎡ · 幅宽 150 cm 上游 工厂名称：全能力测试工厂 工厂编号：F090 工厂类型：染色厂 SJ-DYE-1790195301202-4 交出单 单据状态：已实际交出 计划数量：20 Yard 交出数量：20 Yard" [ref=e646]:
+                    - generic [ref=e647]:
+                      - generic [ref=e649]:
+                        - button "查看DR-COTTON-001-WHITE BOM原物料实拍图大图" [ref=e650]:
+                          - img "DR-COTTON-001-WHITE BOM原物料实拍图" [ref=e651]
+                        - generic [ref=e652]:
+                          - paragraph [ref=e653]: 实际投入
+                          - paragraph [ref=e654]: 设计改款白底蓝花棉布
+                          - paragraph [ref=e655]: DR-COTTON-001-WHITE
+                          - paragraph [ref=e656]: 物料类型：BOM原物料
+                          - paragraph [ref=e657]: 成分：100% 棉
+                          - paragraph [ref=e658]: 克重 180 g/㎡ · 幅宽 150 cm
+                      - generic [ref=e660]:
+                        - paragraph [ref=e661]: 上游
+                        - generic [ref=e662]:
+                          - paragraph [ref=e663]: 工厂名称：全能力测试工厂
+                          - paragraph [ref=e664]: 工厂编号：F090
+                          - paragraph [ref=e665]: 工厂类型：染色厂
+                          - generic [ref=e666]:
+                            - paragraph [ref=e667]:
+                              - link "SJ-DYE-1790195301202-4" [ref=e668] [cursor=pointer]:
+                                - /url: /fcs/craft/printing/pending-receipts?workOrderId=PWO-PRINT-AUTO-000001&sourceId=DYE-DISPATCH-SJ-DYE-1790195301202-4-DWO-AUTO-000001
+                              - text: 交出单
+                            - paragraph [ref=e669]: 单据状态：已实际交出
+                            - paragraph [ref=e670]: 计划数量：20 Yard
+                            - paragraph [ref=e671]: 交出数量：20 Yard
+                  - cell "工艺：印花 加工方式：数码印花 印花面别：单面 深浅：标准 温度：按工艺卡 设备：PRINT-01 查看DR-BLUE-FLOWER-001 正面花型图大图 正面花型 DR-BLUE-FLOWER-001 目标物料 SKU 已确定" [ref=e672]:
+                    - generic [ref=e673]:
+                      - paragraph [ref=e674]:
+                        - text: 工艺：
+                        - strong [ref=e675]: 印花
+                      - paragraph [ref=e676]: 加工方式：数码印花
+                      - paragraph [ref=e677]: 印花面别：单面
+                      - paragraph [ref=e678]: 深浅：标准
+                      - paragraph [ref=e679]: 温度：按工艺卡
+                      - paragraph [ref=e680]: 设备：PRINT-01
+                      - generic [ref=e682]:
+                        - button "查看DR-BLUE-FLOWER-001 正面花型图大图" [ref=e683]:
+                          - img "DR-BLUE-FLOWER-001 正面花型图" [ref=e684]
+                        - generic [ref=e685]:
+                          - paragraph [ref=e686]: 正面花型
+                          - paragraph [ref=e687]: DR-BLUE-FLOWER-001
+                          - paragraph [ref=e688]: 目标物料 SKU 已确定
+                  - cell "接收 已收齐 加工 加工完成 加工完成 交出 全部交出" [ref=e689]:
+                    - generic [ref=e690]:
+                      - paragraph [ref=e691]:
+                        - text: 接收
+                        - generic [ref=e692]: 已收齐
+                      - paragraph [ref=e693]:
+                        - text: 加工
+                        - generic [ref=e694]: 加工完成
+                      - paragraph [ref=e695]: 加工完成
+                      - paragraph [ref=e696]:
+                        - text: 交出
+                        - generic [ref=e697]: 全部交出
+                  - cell "查看DR-COTTON-001-WHITE 印花成品BOM原物料实拍图大图 设计改款白底蓝花棉布 DR-COTTON-001-WHITE-BLUE-PRINT 物料类型：BOM原物料 成分：100% 棉 克重 180 g/㎡ · 幅宽 150 cm 下游 下道：待确定 接收方：goto_global 中央车缝工厂 接收仓：销售展示样衣制作区 接收方编号：DYE-GOTO-GLOBAL 接收人：中央工厂仓管" [ref=e698]:
+                    - generic [ref=e699]:
+                      - generic [ref=e700]:
+                        - button "查看DR-COTTON-001-WHITE 印花成品BOM原物料实拍图大图" [ref=e701]:
+                          - img "DR-COTTON-001-WHITE 印花成品BOM原物料实拍图" [ref=e702]
+                        - generic [ref=e703]:
+                          - paragraph [ref=e704]: 设计改款白底蓝花棉布
+                          - paragraph [ref=e705]: DR-COTTON-001-WHITE-BLUE-PRINT
+                          - paragraph [ref=e706]: 物料类型：BOM原物料
+                          - paragraph [ref=e707]: 成分：100% 棉
+                          - paragraph [ref=e708]: 克重 180 g/㎡ · 幅宽 150 cm
+                      - generic [ref=e710]:
+                        - paragraph [ref=e711]: 下游
+                        - text: 下道：待确定
+                        - paragraph [ref=e712]: 接收方：goto_global 中央车缝工厂
+                        - paragraph [ref=e713]: 接收仓：销售展示样衣制作区
+                        - paragraph [ref=e714]: 接收方编号：DYE-GOTO-GLOBAL
+                        - paragraph [ref=e715]: 接收人：中央工厂仓管
+                  - cell "单据创建 加工单创建：2026-09-23 09:03:00 上游接收 待接收生成：2026-09-24 04:28:21 上游发出：2026-09-24 04:28:21 首次实收：2030-01-01 12:30:00 最近实收：2030-01-01 12:30:00 接收次数：1 次 印花生产 计划完成：尚未安排 实际开工：2026-09-24 04:28:21 打印完成：2026-09-24 04:28:21 最近批次完成：2026-09-24 04:28:21 整单加工完成：2026-09-24 04:28:21 下游交出 首次建交出单：2026-09-24 04:28:21 工厂扫齐卷：2026-09-24 04:28:22 最近实际交出：2026-09-24 04:28:22 最近下游实收：2030-01-01 12:40:00 交出单数：1 张" [ref=e716]:
+                    - generic [ref=e717]:
+                      - generic [ref=e718]:
+                        - paragraph [ref=e719]: 单据创建
+                        - paragraph [ref=e720]: 加工单创建：2026-09-23 09:03:00
+                      - generic [ref=e721]:
+                        - paragraph [ref=e722]: 上游接收
+                        - paragraph [ref=e723]: 待接收生成：2026-09-24 04:28:21
+                        - paragraph [ref=e724]: 上游发出：2026-09-24 04:28:21
+                        - paragraph [ref=e725]: 首次实收：2030-01-01 12:30:00
+                        - paragraph [ref=e726]: 最近实收：2030-01-01 12:30:00
+                        - paragraph [ref=e727]: 接收次数：1 次
+                      - generic [ref=e728]:
+                        - paragraph [ref=e729]: 印花生产
+                        - paragraph [ref=e730]: 计划完成：尚未安排
+                        - paragraph [ref=e731]: 实际开工：2026-09-24 04:28:21
+                        - paragraph [ref=e732]: 打印完成：2026-09-24 04:28:21
+                        - paragraph [ref=e733]: 最近批次完成：2026-09-24 04:28:21
+                        - paragraph [ref=e734]: 整单加工完成：2026-09-24 04:28:21
+                      - generic [ref=e735]:
+                        - paragraph [ref=e736]: 下游交出
+                        - paragraph [ref=e737]: 首次建交出单：2026-09-24 04:28:21
+                        - paragraph [ref=e738]: 工厂扫齐卷：2026-09-24 04:28:22
+                        - paragraph [ref=e739]: 最近实际交出：2026-09-24 04:28:22
+                        - paragraph [ref=e740]: 最近下游实收：2030-01-01 12:40:00
+                        - paragraph [ref=e741]: 交出单数：1 张
+                  - cell "计划 计划投入：20.00 Yard 计划产出：20.00 Yard 上游接收 上游发出：20.00 Yard 来源未收：0.00 Yard 本厂实收：20.00 Yard 实收包装数：1 包 加工 备料剩余：0.00 Yard 实际使用：20.00 Yard 在制/待核算：0.00 Yard 合格完成：20.00 Yard 已核算损耗：0.00 Yard 交出与下游 建单占用：0.00 Yard 可建单：0.00 Yard 实际交出：20.00 Yard 下游实收：20.00 Yard 下游待接收：0.00 Yard" [ref=e742]:
+                    - generic [ref=e743]:
+                      - generic [ref=e744]:
+                        - paragraph [ref=e745]: 计划
+                        - paragraph [ref=e746]: 计划投入：20.00 Yard
+                        - paragraph [ref=e747]: 计划产出：20.00 Yard
+                      - generic [ref=e748]:
+                        - paragraph [ref=e749]: 上游接收
+                        - paragraph [ref=e750]: 上游发出：20.00 Yard
+                        - paragraph [ref=e751]: 来源未收：0.00 Yard
+                        - paragraph [ref=e752]: 本厂实收：20.00 Yard
+                        - paragraph [ref=e753]: 实收包装数：1 包
+                      - generic [ref=e754]:
+                        - paragraph [ref=e755]: 加工
+                        - paragraph [ref=e756]: 备料剩余：0.00 Yard
+                        - paragraph [ref=e757]: 实际使用：20.00 Yard
+                        - paragraph [ref=e758]: 在制/待核算：0.00 Yard
+                        - paragraph [ref=e759]: 合格完成：20.00 Yard
+                        - paragraph [ref=e760]: 已核算损耗：0.00 Yard
+                      - generic [ref=e761]:
+                        - paragraph [ref=e762]: 交出与下游
+                        - paragraph [ref=e763]: 建单占用：0.00 Yard
+                        - paragraph [ref=e764]: 可建单：0.00 Yard
+                        - paragraph [ref=e765]: 实际交出：20.00 Yard
+                        - paragraph [ref=e766]: 下游实收：20.00 Yard
+                        - paragraph [ref=e767]: 下游待接收：0.00 Yard
+                  - cell "查看 调整投入 打印印花信息单 打印印花确认单 产出卷条码 日志 编辑信息 查看备注" [ref=e768]:
+                    - generic [ref=e769]:
+                      - link "查看" [ref=e770] [cursor=pointer]:
+                        - /url: /fcs/craft/printing/work-orders/PWO-PRINT-AUTO-000001
+                      - button "调整投入" [disabled] [ref=e771]
+                      - link "打印印花信息单" [ref=e772] [cursor=pointer]:
+                        - /url: /fcs/print/preview?documentType=PRINTING_INFO_SHEET&sourceType=PRINTING_WORK_ORDER&sourceId=PWO-PRINT-AUTO-000001
+                      - link "打印印花确认单" [ref=e773] [cursor=pointer]:
+                        - /url: /fcs/print/preview?documentType=PRINTING_CONFIRMATION&sourceType=PRINTING_WORK_ORDER&sourceId=PWO-PRINT-AUTO-000001
+                      - button "产出卷条码" [ref=e774]
+                      - button "日志" [ref=e775]
+                      - button "编辑信息" [ref=e776]
+                      - button "查看备注" [ref=e777]
+            - generic [ref=e780]:
+              - paragraph [ref=e781]: 共 1 条，当前 1-1
+              - generic [ref=e782]:
+                - combobox [ref=e783]:
+                  - option "10 条/页" [selected]
+                  - option "20 条/页"
+                  - option "50 条/页"
+                - button "上一页" [disabled] [ref=e784]
+                - generic [ref=e785]: 1 / 1
+                - button "下一页" [disabled] [ref=e786]
+        - dialog "编辑印花信息" [ref=e787]:
+          - button "关闭弹窗" [ref=e788]
+          - generic [ref=e789]:
+            - generic [ref=e790]:
+              - generic [ref=e791]:
+                - heading "编辑印花信息" [level=2] [ref=e792]
+                - paragraph [ref=e793]: PH-20260923-000001 · DR-COTTON-001-WHITE-BLUE-PRINT
+              - button "关闭" [ref=e794]
+            - generic [ref=e795]:
+              - generic [ref=e796]:
+                - generic [ref=e797]:
+                  - button "查看STYLE-PRJ-202603-012 Kaos Polos Premium 高端纯色T恤对应图片大图" [ref=e798]:
+                    - img "STYLE-PRJ-202603-012 Kaos Polos Premium 高端纯色T恤对应图片" [ref=e799]
+                  - generic [ref=e800]:
+                    - paragraph [ref=e801]: Kaos Polos Premium 高端纯色T恤
+                    - paragraph [ref=e802]: STYLE-PRJ-202603-012
+                - generic [ref=e803]:
+                  - button "查看DR-COTTON-001-WHITE BOM原物料实拍图大图" [ref=e804]:
+                    - img "DR-COTTON-001-WHITE BOM原物料实拍图" [ref=e805]
+                  - generic [ref=e806]:
+                    - paragraph [ref=e807]: 设计改款白底蓝花棉布
+                    - paragraph [ref=e808]: DR-COTTON-001-WHITE
+              - generic [ref=e809]:
+                - paragraph [ref=e810]: 需求来源：设计改款任务 · ES-DR-025
+                - paragraph [ref=e811]: 设计改款任务：ES-DR-025
+              - generic [ref=e812]:
+                - paragraph [ref=e813]: 加工厂：FLOWER
+                - paragraph [ref=e814]: 任务单：PH-20260923-000001
+                - paragraph [ref=e815]: 本厂实收：20.00 Yard
+                - paragraph [ref=e816]: 实际使用：20.00 Yard
+                - paragraph [ref=e817]: 合格完成：20.00 Yard
+                - paragraph [ref=e818]: 实际交出：20.00 Yard
+              - generic [ref=e819]:
+                - generic [ref=e820]:
+                  - generic [ref=e821]: 工艺名称
+                  - textbox "工艺名称" [ref=e822]:
+                    - /placeholder: ""
+                    - text: 印花
+                - generic [ref=e823]:
+                  - generic [ref=e824]: 加工方式
+                  - textbox "加工方式" [ref=e825]:
+                    - /placeholder: ""
+                    - text: 数码印花
+                - generic [ref=e826]:
+                  - generic [ref=e827]: 印花面别
+                  - combobox "印花面别" [disabled] [ref=e828]:
+                    - option "单面" [selected]
+                    - option "双面"
+                - generic [ref=e829]:
+                  - generic [ref=e830]: 深浅
+                  - textbox "深浅" [ref=e831]:
+                    - /placeholder: ""
+                    - text: 标准
+                - generic [ref=e832]:
+                  - generic [ref=e833]: 适用温度
+                  - textbox "适用温度" [ref=e834]:
+                    - /placeholder: ""
+                    - text: 按工艺卡
+                - generic [ref=e835]:
+                  - generic [ref=e836]: 打印设备
+                  - textbox "打印设备" [ref=e837]:
+                    - /placeholder: ""
+                    - text: PRINT-01
+                - generic [ref=e838]:
+                  - generic [ref=e839]: 计划完成时间
+                  - textbox "计划完成时间" [ref=e840]:
+                    - /placeholder: ""
+              - generic [ref=e841]:
+                - group "正面花型" [ref=e842]:
+                  - generic [ref=e843]: 正面花型
+                  - generic [ref=e844]:
+                    - button "查看DR-BLUE-FLOWER-001 正面花型图大图" [ref=e845]:
+                      - img "DR-BLUE-FLOWER-001 正面花型图" [ref=e846]
+                    - generic [ref=e847]: 正面花型 · DR-BLUE-FLOWER-001
+                  - generic [ref=e848]:
+                    - generic [ref=e849]:
+                      - generic [ref=e850]: 花型编号
+                      - textbox "花型编号" [ref=e851]:
+                        - /placeholder: ""
+                        - text: DR-BLUE-FLOWER-001
+                    - generic [ref=e852]:
+                      - generic [ref=e853]: 版本
+                      - textbox "版本" [ref=e854]:
+                        - /placeholder: ""
+                        - text: 目标物料 SKU 已确定
+                    - generic [ref=e855]:
+                      - generic [ref=e856]: 花型名称
+                      - textbox "花型名称" [ref=e857]:
+                        - /placeholder: ""
+                        - text: 正面花型
+                    - generic [ref=e858]:
+                      - generic [ref=e859]: 正式图片地址
+                      - textbox "正式图片地址" [ref=e860]:
+                        - /placeholder: ""
+                        - text: /materials/fei-ticket/blue-white-print-cotton.png
+                - group "反面花型（双面时必填）" [ref=e861]:
+                  - generic [ref=e862]: 反面花型（双面时必填）
+                  - generic [ref=e863]:
+                    - generic [ref=e864]:
+                      - generic [ref=e865]: 花型编号
+                      - textbox "花型编号" [ref=e866]:
+                        - /placeholder: ""
+                    - generic [ref=e867]:
+                      - generic [ref=e868]: 版本
+                      - textbox "版本" [ref=e869]:
+                        - /placeholder: ""
+                    - generic [ref=e870]:
+                      - generic [ref=e871]: 花型名称
+                      - textbox "花型名称" [ref=e872]:
+                        - /placeholder: ""
+                    - generic [ref=e873]:
+                      - generic [ref=e874]: 正式图片地址
+                      - textbox "正式图片地址" [ref=e875]:
+                        - /placeholder: ""
+              - generic [ref=e876]:
+                - paragraph [ref=e877]: 当前印花要求版本：V1
+                - paragraph [ref=e878]: 变更影响范围：后续未开工批次
+                - paragraph [ref=e879]: 设计改款花型和工艺由买手选中的目标物料 SKU 确定，此处只可调整打印设备、交期和备注。
+              - paragraph [ref=e880]: 本单已结束，不能变更印花要求。
+              - generic [ref=e881]:
+                - text: 备注
+                - textbox "备注" [ref=e882]: 设计改款原型验收备注
+              - group [ref=e883]:
+                - generic "查看实际时间（只读）" [ref=e884] [cursor=pointer]
+                - generic [ref=e885]:
+                  - generic [ref=e886]:
+                    - paragraph [ref=e887]: 单据创建
+                    - paragraph [ref=e888]: 加工单创建：2026-09-23 09:03:00
+                  - generic [ref=e889]:
+                    - paragraph [ref=e890]: 上游接收
+                    - paragraph [ref=e891]: 待接收生成：2026-09-24 04:28:21
+                    - paragraph [ref=e892]: 上游发出：2026-09-24 04:28:21
+                    - paragraph [ref=e893]: 首次实收：2030-01-01 12:30:00
+                    - paragraph [ref=e894]: 最近实收：2030-01-01 12:30:00
+                    - paragraph [ref=e895]: 接收次数：1 次
+                  - generic [ref=e896]:
+                    - paragraph [ref=e897]: 印花生产
+                    - paragraph [ref=e898]: 计划完成：尚未安排
+                    - paragraph [ref=e899]: 实际开工：2026-09-24 04:28:21
+                    - paragraph [ref=e900]: 打印完成：2026-09-24 04:28:21
+                    - paragraph [ref=e901]: 最近批次完成：2026-09-24 04:28:21
+                    - paragraph [ref=e902]: 整单加工完成：2026-09-24 04:28:21
+                  - generic [ref=e903]:
+                    - paragraph [ref=e904]: 下游交出
+                    - paragraph [ref=e905]: 首次建交出单：2026-09-24 04:28:21
+                    - paragraph [ref=e906]: 工厂扫齐卷：2026-09-24 04:28:22
+                    - paragraph [ref=e907]: 最近实际交出：2026-09-24 04:28:22
+                    - paragraph [ref=e908]: 最近下游实收：2030-01-01 12:40:00
+                    - paragraph [ref=e909]: 交出单数：1 张
+            - generic [ref=e910]:
+              - button "取消" [ref=e911]
+              - button "保存" [active] [ref=e912]
+  - button "查生产" [ref=e913]:
+    - img [ref=e914]
+```
+
+# Test source
+
+```ts
+  1  | import {test,expect} from '@playwright/test'
+  2  | import {readFile,writeFile} from 'node:fs/promises'
+  3  | import {createHash} from 'node:crypto'
+  4  | for(const craft of ['dye','print'])test(`${craft} 工厂查看编辑日志卷码和备注入口五次`,async({browser,baseURL},info)=>{
+  5  |  test.setTimeout(120000)
+  6  |  const samples:Record<string,number[]>={},errors:string[]=[]
+  7  |  for(let n=0;n<5;n++){
+  8  |   const values=JSON.parse(await readFile('output/playwright/design-revision-gap/fixtures/completed.json','utf8'));delete values.fcs_pda_session
+  9  |   const c=await browser.newContext({viewport:{width:1366,height:768},storageState:{cookies:[],origins:[{origin:new URL(baseURL!).origin,localStorage:Object.entries(values).map(([name,value])=>({name,value:String(value)}))}]}}),p=await c.newPage()
+  10 |   p.on('pageerror',e=>errors.push(e.message))
+  11 |   const measure=async(key:string,fn:()=>Promise<void>,event='click')=>{await p.evaluate(event=>document.addEventListener(event,e=>(window as any).__overlayStart=e.timeStamp,{once:true,capture:true}),event);await fn();const ms=await p.evaluate(async()=>{const scope=document.querySelector('[data-printing-image-preview], [data-pda-image-preview-root]')||[...document.querySelectorAll('[role=dialog]')].at(-1)||document.querySelector('[data-dye-work-orders-overlay] > div')||document;await Promise.all([...scope.querySelectorAll('img')].filter(i=>{const r=i.getBoundingClientRect();return r.width&&r.height&&r.top<innerHeight&&r.bottom>0}).map(i=>i.decode()));await new Promise<void>(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r())));return performance.now()-(window as any).__overlayStart});(samples[key]??=[]).push(ms);await writeFile(info.outputPath('performance.json'),JSON.stringify({craft,samples,errors,distSha:createHash('sha256').update(await readFile('dist/index.html')).digest('hex')},null,2))}
+  12 |   await p.goto(`${baseURL}/fcs/craft/${craft==='dye'?'dyeing':'printing'}/work-orders`)
+  13 |   const keyword=p.locator(craft==='dye'?'[data-dye-work-orders-field="keyword"]':'[data-printing-work-orders-field="keyword"]')
+  14 |   await keyword.fill(craft==='dye'?'DY-20260923-000001':'PH-20260923-000001')
+  15 |   await p.getByRole('button',{name:'查询',exact:true}).click()
+  16 |   const action=(a:string)=>p.locator(craft==='dye'?`[data-dye-work-orders-action="${a}"]`:`[data-printing-action="${a}"]`)
+  17 |   for(const a of craft==='dye'?['view','edit','logs','barcodes','remark']:['edit-info','logs','open-barcodes','remarks']){
+  18 |    const d=craft==='dye'&&a!=='barcodes'?p.locator('[data-dye-work-orders-overlay] > div'):p.getByRole('dialog').last()
+  19 |    await measure('open:'+a,async()=>{await action(a).filter({visible:true}).first().click();await expect(d.locator('h2,h3').first()).toBeVisible()})
+  20 |    const images=d.locator('[data-pda-image-preview-url], [data-printing-action="preview-image"]')
+  21 |    for(let i=0;i<await images.count();i++){
+  22 |     const preview=p.locator(craft==='dye'?'[data-pda-image-preview-root]':'[data-printing-image-preview]')
+  23 |     await measure(`image:${a}:${i}`,async()=>{await images.nth(i).click();await expect(preview.locator('img')).toBeVisible()})
+  24 |     await measure(`imageClose:${a}:${i}`,async()=>{await p.keyboard.press('Escape');await expect(preview).toHaveCount(0)},'keydown')
+  25 |    }
+  26 |    for(const [i,summary]of (await d.locator('summary').all()).entries())await measure(`expand:${a}:${i}`,async()=>{await summary.click();await expect(summary.locator('..')).toHaveAttribute('open','')})
+  27 |    if(a==='edit'||a==='edit-info'){
+  28 |     const fields=d.locator('input:not([readonly]):not([type="hidden"]):not(:disabled),select:not(:disabled),textarea:not([readonly]):not(:disabled)').filter({visible:true})
+  29 |     for(let i=0;i<await fields.count();i++){
+  30 |      const input=fields.nth(i),value=await input.inputValue(),tag=await input.evaluate(e=>e.tagName)
+  31 |      await measure(`edit:field:${i}`,async()=>{if(tag==='SELECT')await input.selectOption(value);else await input.fill(value);await expect(input).toHaveValue(value)},tag==='SELECT'?'change':'input')
+  32 |     }
+  33 |     const field=d.locator('textarea').first()
+  34 |     if(await field.count())await measure('edit:remarkInput',async()=>{await field.fill('设计改款原型验收备注');await expect(field).toHaveValue('设计改款原型验收备注')},'input')
+> 35 |     await measure('edit:save',async()=>{await action(craft==='dye'?'save-edit':'submit-dialog').filter({visible:true}).last().click();await expect(d).toHaveCount(0)})
+     |                                                                                                                                                       ^ Error: expect(locator).toHaveCount(expected) failed
+  36 |     await measure('edit:reopenPersisted',async()=>{await action(a).filter({visible:true}).first().click();await expect(d.locator('textarea').first()).toHaveValue('设计改款原型验收备注')})
+  37 |    }
+  38 |    await measure('close:'+a,async()=>{if(craft==='dye'&&a!=='barcodes')await action('close-overlay').filter({visible:true}).last().click();else await d.getByRole('button',{name:'关闭',exact:true}).last().click();await expect(d).toHaveCount(0)})
+  39 |   }
+  40 |   expect(await p.locator('main').last().innerText()).toContain('ES-DR-025')
+  41 |   await c.close()
+  42 |  }
+  43 |  expect(errors).toEqual([])
+  44 |  for(const[key,vs]of Object.entries(samples)){expect(vs).toHaveLength(5);for(const ms of vs)expect(ms,key).toBeLessThan(500)}
+  45 | })
+  46 |
+```

@@ -1,0 +1,44 @@
+
+Running 1 test using 1 worker
+
+(node:28120) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✘  1 tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 (1.0m)
+
+
+  1) tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 ───────────────
+
+    Test timeout of 60000ms exceeded.
+
+    Error: locator.check: Test ended.
+    Call log:
+      - waiting for locator('main table tbody tr').filter({ hasText: 'PH-20260923-000001' }).first().locator('[data-dispatch-roll]').first()
+
+
+      71 |   const row=p.locator('main table tbody tr').filter({hasText:orderNo}).first()
+      72 |   const roll=row.locator(craft==='dye'?'[data-dye-output-select]':'[data-dispatch-roll]').first()
+    > 73 |   await measure('selectOriginalRoll',async()=>{await roll.check();await expect(action('create')).toBeEnabled()})
+         |                                                           ^
+      74 |   await measure('createPreview',async()=>{await action('create').click();await expect(p.getByRole('dialog')).toContainText('20')})
+      75 |   await measure('cancelPreview',async()=>{await action(craft==='dye'?'close-overlay':'cancel-preview').last().click();await expect(p.getByRole('dialog')).toHaveCount(0)})
+      76 |   await measure('reopenPreview',async()=>{await action('create').click();await expect(p.getByRole('dialog')).toBeVisible()})
+        at fn (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:73:59)
+        at measure (/Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:67:194)
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-handover.spec.ts:73:3
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/error-context.md
+
+    attachment #3: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-factory-handover-print-产出卷选择与交出草稿生成五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/pcs-design-revision-factory-handover.spec.ts:60:37 › print 产出卷选择与交出草稿生成五次 ────────────────

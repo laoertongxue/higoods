@@ -600,6 +600,10 @@ async function closeDialogsOnEscape(): Promise<boolean> {
     }
   }
 
+  // Printing dialogs and image previews already handle Escape locally. Loading
+  // the aggregate FCS closer here initializes unrelated cutting/warehouse pages.
+  if (pagePath.startsWith('/fcs/craft/printing/')) return false
+
   const handlerSystem = getCurrentHandlerSystem(pathname)
   try {
     if (handlerSystem === 'pcs') {

@@ -429,8 +429,11 @@ export interface EngineeringIndependentSamplingRecord {
   status: EngineeringIndependentSamplingStatus
   creationReason: string
   designFiles: EngineeringUploadedFile[]
+  creationDesignFileIds?: string[]
   patternHandling: EngineeringIndependentPatternHandling
   reusedPatternFiles: EngineeringUploadedFile[]
+  /** 创建草稿时填写的样衣要求；正式下达后以样衣任务的 sampleRequirements 为准。 */
+  creationSampleRequirements?: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'>>
   buyerId: string
   buyerName: string
   merchandiserId: string

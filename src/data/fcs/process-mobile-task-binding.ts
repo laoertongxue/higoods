@@ -387,10 +387,10 @@ function listThirdPartyCuttingMarkerPreconditionTasks(existingTaskIds: Set<strin
     })
 }
 
-export function listPdaMobileExecutionTasks(): ProcessTask[] {
+export function listPdaMobileExecutionTasks(currentFactoryId?: string): ProcessTask[] {
   applyPendingDispatchAutoAcceptance()
-  listPrintWorkOrders()
-  listDyeWorkOrders()
+  const canonicalPrintTasks = listPrintMobileExecutionTasks()
+  const canonicalDyeTasks = listDyeMobileExecutionTasks()
 
   const waterSolubleTasks = listWaterSolubleMobileTasks()
   const waterSolubleArtifactIds = new Set(listWaterSolubleWorkOrders().map((order) => order.sourceArtifactId))
@@ -402,14 +402,15 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
     return coveredProcess.sourceArtifactIds.length === 1
       && waterSolubleArtifactIds.has(coveredProcess.sourceArtifactIds[0])
   }
-  const canonicalPrintTasks = listPrintMobileExecutionTasks()
-  const canonicalDyeTasks = listDyeMobileExecutionTasks()
   const canonicalPreparationTaskIds = new Set([
     ...canonicalPrintTasks.map((task) => task.taskId),
     ...canonicalDyeTasks.map((task) => task.taskId),
     ...waterSolubleTasks.map((task) => task.taskId),
   ])
-  const baseTasks = listPdaTaskFlowTasks().filter((task) =>
+  const projectionFactoryId = currentFactoryId && !normalizeKolGotoFactoryId(currentFactoryId)
+    ? (isOnboardingCuttingDemoFactory(currentFactoryId) ? TEST_FACTORY_ID : currentFactoryId)
+    : undefined
+  const baseTasks = listPdaTaskFlowTasks(undefined, projectionFactoryId).filter((task) =>
     !isSpecialCraftTask(task)
     && getMobileTaskProcessType(task) !== 'WOOL'
     && !canonicalPreparationTaskIds.has(task.taskId)
@@ -441,6 +442,15 @@ export function listPdaMobileExecutionTasks(): ProcessTask[] {
 }
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
+  // A process detail needs its own canonical task, not initialization of every factory domain.
+  if (taskId.startsWith('TASK-PRINT-') || taskId.startsWith('PWO-PRINT-')) {
+    const task = listPrintMobileExecutionTasks(taskId).find(item => item.taskId === taskId)
+    if (task) return task
+  }
+  if (taskId.startsWith('TASK-DYE-') || taskId.startsWith('DWO-')) {
+    const task = listDyeMobileExecutionTasks(taskId).find(item => item.taskId === taskId)
+    if (task) return task
+  }
   const specialCraftOrder = getSpecialCraftTaskOrderById(taskId)
   if (specialCraftOrder) return mapSpecialCraftTaskOrderToMobileTask(specialCraftOrder, 1)
   return listPdaMobileExecutionTasks().find((task) => task.taskId === taskId) ?? null

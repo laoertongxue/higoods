@@ -1520,9 +1520,9 @@ function getKolGotoMockOrigin(status: TaskStatus): PdaTaskMockOrigin {
   return 'EXEC_NOT_STARTED'
 }
 
-function buildKolGotoPdaTasks(): PdaGenericTaskMock[] {
+function buildKolGotoPdaTasks(taskId?: string): PdaGenericTaskMock[] {
   return processTasks
-    .filter((task) => isKolGotoWholeOrderTask(task))
+    .filter((task) => (!taskId || task.taskId === taskId) && isKolGotoWholeOrderTask(task))
     .map((task) => {
       const order = productionOrders.find((item) => item.productionOrderId === task.productionOrderId)
       if (!order) throw new Error(`缺少 KOL-GOTO 整单任务生产单：${task.productionOrderId}`)
@@ -1638,7 +1638,7 @@ export function listPdaGenericProcessTasks(): PdaGenericTaskMock[] {
 /** Point reads of registered dye/print tasks need no unrelated KOL task clones. */
 export function getPdaGenericProcessTaskById(taskId: string): PdaGenericTaskMock | undefined {
   return PDA_GENERIC_PROCESS_TASKS.find(task => task.taskId === taskId)
-    || buildKolGotoPdaTasks().find(task => task.taskId === taskId)
+    || buildKolGotoPdaTasks(taskId)[0]
     || PDA_TEST_FACTORY_PROCESS_TASKS.find(task => task.taskId === taskId)
 }
 

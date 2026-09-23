@@ -93,7 +93,7 @@ const state: {
 let listSnapshot: PrintingWorkOrderBusinessRecord[] | undefined
 function listRows(): PrintingWorkOrderBusinessRecord[] {
   if (!listSnapshot) {
-    ensureProductionDemandEarlyProcessAcceptanceData()
+    ensureProductionDemandEarlyProcessAcceptanceData('PRINT')
     listSnapshot = listPrintingWorkOrders()
     // 关联事实按实际展示的行懒加载；首屏不预计算所有分页的上游单据。
   }

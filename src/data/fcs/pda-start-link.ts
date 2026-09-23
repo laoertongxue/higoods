@@ -523,7 +523,7 @@ export function getStartDueBase(task: ProcessTask): { baseAt?: string; source?: 
   return {}
 }
 
-export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now()): {
+export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now(), prerequisite: StartPrerequisiteInfo = getStartPrerequisite(task)): {
   startDueAt?: string
   startDueSource?: StartDueSource
   startRiskStatus: StartRiskStatus
@@ -531,7 +531,6 @@ export function getTaskStartDueInfo(task: ProcessTask, nowMs: number = Date.now(
   prerequisiteMet: boolean
 } {
   const startRule = getTaskStartRuleState(task)
-  const prerequisite = getStartPrerequisite(task)
   const { baseAt, source } = getStartDueBase(task)
 
   if (!startRule.required || !baseAt || !source) {

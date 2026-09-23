@@ -101,7 +101,7 @@ let ordersSnapshot: PrepProcessOrderFact[] | undefined
 let displayRows = new Map<string, DyeWorkOrderOnlineRow>()
 
 function getOrders(): PrepProcessOrderFact[] {
-  if (!ordersSnapshot) { ensureProductionDemandEarlyProcessAcceptanceData(); ordersSnapshot = listPrepProcessOrders('DYE', { includeExecutionDetails: false }); displayRows = new Map(listDyeWorkOrderOnlineRows().map(row => [row.dyeOrderId, row])) }
+  if (!ordersSnapshot) { ensureProductionDemandEarlyProcessAcceptanceData('DYE'); ordersSnapshot = listPrepProcessOrders('DYE', { includeExecutionDetails: false }); displayRows = new Map(listDyeWorkOrderOnlineRows().map(row => [row.dyeOrderId, row])) }
   return ordersSnapshot
 }
 

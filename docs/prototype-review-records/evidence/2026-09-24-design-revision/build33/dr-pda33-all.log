@@ -1,0 +1,12 @@
+F090 /fcs/pda/task-receive {"cold":425.80000000447035,"reload":314.69999999552965}
+F090 /fcs/pda/task-receive/DWO-AUTO-000001 {"cold":355.8999999985099,"reload":268.79999999701977}
+F090 /fcs/pda/exec {"cold":492.3999999985099,"reload":382.20000000298023}
+F090 /fcs/pda/exec/DWO-AUTO-000001 {"cold":443.1000000014901,"reload":332}
+F090 /fcs/pda/handover {"cold":291.19999999552965,"reload":208.60000000149012}
+F090 /fcs/pda/factory-receipts {"cold":382.29999999701977,"reload":298.59999999403954}
+FAC-FLOWER /fcs/pda/task-receive {"cold":357.5,"reload":281.70000000298023}
+FAC-FLOWER /fcs/pda/task-receive/PWO-PRINT-AUTO-000001 {"cold":323.1000000014901,"reload":230.80000000447035}
+FAC-FLOWER /fcs/pda/exec {"cold":429.30000000447035,"reload":314.8999999985099}
+FAC-FLOWER /fcs/pda/exec/PWO-PRINT-AUTO-000001 {"cold":372,"reload":265.6000000014901}
+FAC-FLOWER /fcs/pda/handover {"cold":273.3999999985099,"reload":182.69999999552965}
+FAC-FLOWER /fcs/pda/factory-receipts {"cold":382.30000000447035,"reload":298.8999999985099}

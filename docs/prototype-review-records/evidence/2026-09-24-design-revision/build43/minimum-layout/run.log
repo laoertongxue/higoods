@@ -1,0 +1,91 @@
+{
+  "distSha": "f8f62da439969fecfb651b8f279810bd8e990a2c098cf45ce02e257f9912c554",
+  "measuredAt": "2026-09-23T21:33:37.262Z",
+  "checks": [
+    {
+      "path": "/fcs/craft/dyeing/work-orders",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/dyeing/pending-receipts",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/dyeing/pending-handover",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/dyeing/handover-documents",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/dyeing/wait-process-warehouse",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/dyeing/wait-handover-warehouse",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/printing/work-orders",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/printing/pending-receipts",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/printing/pending-handover",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/printing/handover-documents",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/printing/wait-process-warehouse",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    },
+    {
+      "path": "/fcs/craft/printing/wait-handover-warehouse",
+      "width": 1280,
+      "height": 720,
+      "documentWidth": 1280,
+      "result": "通过"
+    }
+  ],
+  "browser": "149.0.7827.55"
+}

@@ -348,50 +348,57 @@ function applyAcceptanceState(row: EarlyProcessAcceptanceRow, result: EarlyProce
   replacementByScenario.set(row.scenarioId, result.workOrderId)
 }
 
-let acceptanceDataEnsured = false
+const acceptanceDataEnsured = new Set<EarlyProcessCode>()
 
-export function ensureProductionDemandEarlyProcessAcceptanceData(): void {
-  if (acceptanceDataEnsured) return
-  const replacementByScenario = new Map<string, string>()
-  for (const row of EARLY_PROCESS_ACCEPTANCE_ROWS) {
-    const demand = demandById(row.productionDemandId)
-    const candidate = candidateFor(demand, row.processCode)
-    const replacesWorkOrderId = row.replacesScenarioId ? replacementByScenario.get(row.replacesScenarioId) : undefined
-    const existing = listEarlyOrders(row.processCode).find((order) => {
-      const source = order.sourceSnapshot
-      return source?.productionDemandId === row.productionDemandId
-        && source.generationRevision === (row.generationRevision || 1)
-        && source.inputMaterialSkuCode === row.inputSku
-        && source.outputMaterialSkuCode === row.outputSku
-    })
-    if (existing) {
-      replacementByScenario.set(row.scenarioId, row.processCode === 'DYE' ? (existing as DyeWorkOrder).dyeOrderId : (existing as PrintWorkOrder).printOrderId)
-      continue
+export function ensureProductionDemandEarlyProcessAcceptanceData(onlyProcessCode?: EarlyProcessCode): void {
+  for (const processCode of onlyProcessCode ? [onlyProcessCode] : ['DYE', 'PRINT'] as const) {
+    if (acceptanceDataEnsured.has(processCode)) continue
+    const replacementByScenario = new Map<string, string>()
+    // Each process fixture is one batch. A dyeing list initializes dyeing
+    // examples only; printing examples are initialized when printing is used.
+    const mutate = processCode === 'DYE' ? runDyeProcessMutation : runPrintProcessMutation
+    mutate(() => {
+    for (const row of EARLY_PROCESS_ACCEPTANCE_ROWS.filter(item => item.processCode === processCode)) {
+      const demand = demandById(row.productionDemandId)
+      const candidate = candidateFor(demand, row.processCode)
+      const replacesWorkOrderId = row.replacesScenarioId ? replacementByScenario.get(row.replacesScenarioId) : undefined
+      const existing = listEarlyOrders(row.processCode).find((order) => {
+        const source = order.sourceSnapshot
+        return source?.productionDemandId === row.productionDemandId
+          && source.generationRevision === (row.generationRevision || 1)
+          && source.inputMaterialSkuCode === row.inputSku
+          && source.outputMaterialSkuCode === row.outputSku
+      })
+      if (existing) {
+        replacementByScenario.set(row.scenarioId, row.processCode === 'DYE' ? (existing as DyeWorkOrder).dyeOrderId : (existing as PrintWorkOrder).printOrderId)
+        continue
+      }
+      const result = createProductionDemandEarlyProcessWorkOrder({
+        processCode: row.processCode,
+        productionDemandId: row.productionDemandId,
+        professionalTaskId: candidate.professionalTaskId,
+        inputMaterialSkuCode: row.inputSku,
+        outputMaterialSkuCode: row.outputSku,
+        materialName: candidate.defaultMaterialName,
+        materialImageUrl: candidate.defaultMaterialImageUrl,
+        targetColor: candidate.defaultTargetColor,
+        estimatedUnitConsumption: row.unitConsumption,
+        estimatedLossRate: row.lossRate,
+        qtyUnit: candidate.defaultQtyUnit,
+        requiresWaterSoluble: row.requiresWaterSoluble,
+        plannedFinishAt: demand.requiredDeliveryDate || undefined,
+        factoryId: row.processCode === 'DYE' ? 'F090' : 'FAC-FLOWER',
+        factoryName: row.processCode === 'DYE' ? '全能力测试工厂（F090）' : 'FLOWER',
+        operatorName: '管理员',
+        operatorRole: '管理员',
+        generationRevision: row.generationRevision,
+        replacesWorkOrderId,
+      }, `2026-09-16 ${row.processCode === 'DYE' ? '09' : '10'}:${row.scenarioId.slice(-2)}:00`)
+      applyAcceptanceState(row, result, replacementByScenario)
     }
-    const result = createProductionDemandEarlyProcessWorkOrder({
-      processCode: row.processCode,
-      productionDemandId: row.productionDemandId,
-      professionalTaskId: candidate.professionalTaskId,
-      inputMaterialSkuCode: row.inputSku,
-      outputMaterialSkuCode: row.outputSku,
-      materialName: candidate.defaultMaterialName,
-      materialImageUrl: candidate.defaultMaterialImageUrl,
-      targetColor: candidate.defaultTargetColor,
-      estimatedUnitConsumption: row.unitConsumption,
-      estimatedLossRate: row.lossRate,
-      qtyUnit: candidate.defaultQtyUnit,
-      requiresWaterSoluble: row.requiresWaterSoluble,
-      plannedFinishAt: demand.requiredDeliveryDate || undefined,
-      factoryId: row.processCode === 'DYE' ? 'F090' : 'FAC-FLOWER',
-      factoryName: row.processCode === 'DYE' ? '全能力测试工厂（F090）' : 'FLOWER',
-      operatorName: '管理员',
-      operatorRole: '管理员',
-      generationRevision: row.generationRevision,
-      replacesWorkOrderId,
-    }, `2026-09-16 ${row.processCode === 'DYE' ? '09' : '10'}:${row.scenarioId.slice(-2)}:00`)
-    applyAcceptanceState(row, result, replacementByScenario)
+    })
+    acceptanceDataEnsured.add(processCode)
   }
-  acceptanceDataEnsured = true
 }
 
 export interface ProductionDemandEarlyMatchGroup {

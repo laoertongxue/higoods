@@ -1,4 +1,5 @@
 import { DYE_INPUT_TRANSFER_FIXTURES } from './process-order-input-transfer-fixtures.ts'
+import { localProductFixtureImageUrl } from '../pcs-product-archive-fixtures.ts'
 import { DYE_TIME_LABELS, buildDyeWorkOrderTimes, latestDyeEventTime, formatDyeTimeItem, type DyeTimeContext, type DyeTimeSection, type DyeTimeKey } from './dye-work-order-times.ts'
 import { productionDemands } from './production-demands.ts'
 import {listFactoryReceipts, listFactoryDeliveryNotes} from './factory-receiving.ts'
@@ -40,9 +41,10 @@ import {
   type ProcessOrderProcessingStatus,
   type ProcessOrderReceiptStatus,
 } from './process-order-flow-contract.ts'
-import { getDyeWorkOrderThreeAxisView } from './process-order-three-axis-view.ts'
+import { getDyeWorkOrderThreeAxisView, getDyeWorkOrderProgressView } from './process-order-three-axis-view.ts'
 import { getDyeOrderImageManifest } from './process-order-image-manifest.ts'
 import { productionOrders } from './production-orders.ts'
+import { getDesignRevisionMaterialTransferPlan } from './design-revision-material-transfer.ts'
 
 export type DyeWorkOrderKeywordField =
   | 'all'
@@ -120,6 +122,7 @@ export interface DyeWorkOrderOnlineRow {
   workOrderNo: string
   platformWorkOrderNo: string
   taskNo: string
+  designRevisionTaskNo: string
   productionOrderNo: string
   productCode: string
   productName: string
@@ -239,6 +242,28 @@ function buildUpstreamDocuments(order: DyeWorkOrder, source: ReturnType<typeof g
     for(const line of src.lines.filter(l=>l.dyeOrderId===order.dyeOrderId))if(!documents.some(d=>d.documentNo===src.documentNo&&d.unit===line.unit))documents.push({name:src.origin.name,partner:src.origin,documentNo:src.documentNo,documentType:src.type==='HANDOUT'?'加工单':src.type==='ISSUE'?'出库单':'调拨单',status:src.type==='HANDOUT'?'已实际交出':src.approvedAt?'审核通过':'待审核',plannedQty:line.plannedQty,sentQty:line.sentQty,unit:line.unit,href:`/fcs/craft/dyeing/pending-receipts?sourceId=${encodeURIComponent(src.id)}`})
   }
   if (!documents.length) {
+    if (order.sourceType === 'DESIGN_REVISION') {
+      const plan = getDesignRevisionMaterialTransferPlan('DYEING', order.dyeOrderId)
+      if (plan) {
+        const warehouseId = plan.originName === '辅料中央仓' ? 'WH-FITTING-001'
+          : plan.originName === '纱线中央仓' ? 'WH-MAOSHA-001' : 'WH-FABRIC-001'
+        const partner = warehousePartner(warehouseId, plan.originName)
+        documents.push({
+          name: plan.originName,
+          partner,
+          documentNo: `DB-${order.dyeOrderNo}`,
+          documentType: '调拨单',
+          status: plan.status === 'WAIT_ASSIGNMENT' ? '调拨计划已创建，待分配染色厂'
+            : plan.status === 'WAIT_WAREHOUSE_DISPATCH' ? '调拨计划已创建，待仓库实发'
+              : '已实发',
+          plannedQty: plan.plannedQty,
+          sentQty: plan.sentQty,
+          unit: plan.qtyUnit,
+        })
+      }
+    }
+  }
+  if (!documents.length) {
     const demo = DYE_DEMO_DETAILS[order.dyeOrderId]
     const scenario = DYE_DEMO_PARTNER_SCENARIOS[order.dyeOrderId]
     const partner = scenario?.upstream || warehousePartner(order.sourceWarehouseId || '', '上游仓库待关联')
@@ -343,10 +368,19 @@ export function getDyePendingReceiptQty(records: ReturnType<typeof getDyeOrderHa
   }, 0))
 }
 
-function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: ProcessOrderTaskRelationView | undefined, warehouseDocs: Array<ReturnType<typeof listWarehouseIssueOrders>[number] | ReturnType<typeof listWarehouseInternalTransferOrders>[number]>): DyeWorkOrderOnlineRow {
+function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: ProcessOrderTaskRelationView | undefined, warehouseDocs: Array<ReturnType<typeof listWarehouseIssueOrders>[number] | ReturnType<typeof listWarehouseInternalTransferOrders>[number]>, forOutputList = false): DyeWorkOrderOnlineRow {
   const online = getDyeWorkOrderOnlineRecord(order.dyeOrderId, order)
-  const source = getDyeMaterialReceiptOptions(order.dyeOrderId, order, warehouseDocs)
-  const axes = getDyeWorkOrderThreeAxisView(order, source, warehouseDocs)
+  const downstreamPartner = order.downstreamPartner || DYE_DEMO_PARTNER_SCENARIOS[order.dyeOrderId]?.downstream
+  const useOutputFacts = forOutputList && Boolean(downstreamPartner)
+  const source = useOutputFacts
+    ? { requiresSource: false, requiresUpstream: false, sourceMode: 'UNRESOLVED' as const, options: [] }
+    : getDyeMaterialReceiptOptions(order.dyeOrderId, order, warehouseDocs)
+  // A saved receiving partner already identifies the handover destination. The output list
+  // does not need pending-input eligibility or a full production-route projection.
+  const axes = useOutputFacts ? {
+    ...getDyeWorkOrderProgressView(order, 0), sourceMode: source.sourceMode, sourceDocumentNos: [],
+    receiver: { ready: true, receiverName: downstreamPartner!.name, receiverWarehouseName: downstreamPartner!.kind === 'WAREHOUSE' ? downstreamPartner!.name : '不适用（直接交加工厂）' },
+  } : getDyeWorkOrderThreeAxisView(order, source, warehouseDocs)
   const presentation = DYE_WORK_ORDER_PRESENTATION_FACTS[order.dyeOrderId] || {}
   const demo = DYE_DEMO_DETAILS[order.dyeOrderId]
   const images = getDyeOrderImageManifest(order.dyeOrderId)
@@ -396,7 +430,6 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
     : /纱|yarn/i.test(`${materialName} ${order.rawMaterialSku}`) ? '纱线' : '面料'
   const isYarn = materialType === '纱线' || /纱|yarn/i.test(materialType)
   const upstreamDocuments = buildUpstreamDocuments(order, source, relation, warehouseDocs)
-  const downstreamPartner = DYE_DEMO_PARTNER_SCENARIOS[order.dyeOrderId]?.downstream
   const outputRolls = getDyeOutputRolls(order.dyeOrderId)
   const composition = demo?.composition || (order.composition && ![snapshot?.materialName, ...(snapshot?.materialItems ?? []).map(item => item.materialName)].includes(order.composition) && !/主面料|放行|补料|净色/.test(order.composition) ? order.composition : '成分待补充')
   const width = isYarn ? '不适用（纱线）' : demo ? `${demo.widthCm} cm` : order.width || '—'
@@ -409,7 +442,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
     }:undefined
   const yarnNet=(weights:YarnWeight[])=>weights.reduce((n,w)=>n+w.netGrams,0)/1000
   const demandIds = sourceProductionOrder ? [...new Set([sourceProductionOrder.demandId, ...(sourceProductionOrder.sourceDemandIds ?? [])].filter(Boolean))] : []
-  const timeSections = buildDyeWorkOrderTimes({
+  const timeSections = forOutputList ? [] : buildDyeWorkOrderTimes({
     order, production: sourceProductionOrder ? {
       number: sourceProductionOrder.productionOrderNo, createdAt: sourceProductionOrder.createdAt,
       demands: demandIds.map(id => ({id, createdAt: productionDemands.find(demand => demand.demandId === id)?.createdAt || ''})),
@@ -456,10 +489,11 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
     workOrderNo: order.dyeOrderNo,
     platformWorkOrderNo: order.dyeOrderNo,
     taskNo: order.taskNo,
-    productionOrderNo: order.sourceType === 'DESIGN_REVISION' ? order.sourceSnapshot?.designRevisionTaskNo || '' : order.sourceSnapshot?.matchedProductionOrderNo || order.sourceProductionOrderNo || '',
+    designRevisionTaskNo: order.sourceType === 'DESIGN_REVISION' ? order.sourceSnapshot?.designRevisionTaskNo || order.sourceSnapshot?.designRevisionTaskId || '' : '',
+    productionOrderNo: order.sourceType === 'DESIGN_REVISION' ? '' : order.sourceSnapshot?.matchedProductionOrderNo || order.sourceProductionOrderNo || '',
     productCode,
     productName,
-    productImageUrl: order.sourceSnapshot?.targetSpuImageUrl || images?.product || presentation.productImageUrl || '',
+    productImageUrl: localProductFixtureImageUrl(order.sourceSnapshot?.targetSpuImageUrl || images?.product || presentation.productImageUrl || ''),
     purchaseOrderNo: order.sourceSnapshot?.productionDemandNo || order.sourceSnapshot?.productionDemandId || demandIds.join(' / ') || (order.sourceType === 'STOCK'
       ? '备货创建'
       : order.sourceType === 'CUT_PIECE_SUPPLEMENT'
@@ -467,7 +501,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
         : order.sourceType === 'PRODUCTION_DEMAND'
           ? '生产需求提前创建'
         : order.sourceType === 'DESIGN_REVISION'
-          ? (order.sourceSnapshot?.designRevisionTaskNo || '设计改款')
+          ? ''
         : '关联需求单未记录'),
     purchaseType: presentation.purchaseType || sourceProductionOrder?.demandSnapshot.saleType || (order.sourceType === 'STOCK'
       ? '备货'
@@ -480,14 +514,14 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
     receiverInventoryQty: 0,
     gtgInventoryQty: 0,
     materialName,
-    materialImageUrl: snapshot?.inputMaterialImageUrl || images?.material || presentation.materialImageUrl || '',
+    materialImageUrl: snapshot?.inputMaterialImageUrl || order.sourceSnapshot?.materialImageUrl || images?.material || presentation.materialImageUrl || '',
     rawMaterialSku: demo?.rawSku || order.rawMaterialSku,
     colorSku: demo?.outputSku || outputMaterial?.sku || snapshot?.outputMaterialSkuCode || '',
     colorNo: demo?.colorNo || [order.colorNo, order.targetColor].find(value => value && !/^(TDV|tdv)[-_]/.test(value)) || '目标色号待补充',
     composition, width, weightGsm,
     processName: order.dyeProcessName || '匹染',
     factoryId: online.factoryId,
-    factoryName: online.factoryName,
+    factoryName: order.sourceType === 'DESIGN_REVISION' ? order.dyeFactoryName || online.factoryName : online.factoryName,
     receiverName: downstreamPartner?.name || axes.receiver.receiverName,
     receiverWarehouseName: downstreamPartner ? (downstreamPartner.kind === 'WAREHOUSE' ? downstreamPartner.name : '不适用（直接交加工厂）') : axes.receiver.receiverWarehouseName,
     receiverReady: axes.receiver.ready,
@@ -535,14 +569,16 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
   }
 }
 
-export function listDyeWorkOrderOnlineRows(): DyeWorkOrderOnlineRow[] {
+export function listDyeWorkOrderOnlineRows(options: { forOutputList?: boolean } = {}): DyeWorkOrderOnlineRow[] {
   const orders = listDyeWorkOrders()
   const warehouseDocs = [...listWarehouseIssueOrders(), ...listWarehouseInternalTransferOrders()]
-  const timeContext: DyeTimeContext = {sources: listFactoryReceivingSources(), receipts: listFactoryReceipts(), deliveries: listFactoryDeliveryNotes(), dispatches: listDyeDispatchDocuments(),
+  const timeContext: DyeTimeContext = options.forOutputList ? { sources: [], receipts: [], deliveries: [], dispatches: [], warehouseFacts: [], upstreamHandovers: [] } : {sources: listFactoryReceivingSources(), receipts: listFactoryReceipts(), deliveries: listFactoryDeliveryNotes(), dispatches: listDyeDispatchDocuments(),
     warehouseFacts: warehouseDocs.map(doc => ({documentNo: doc.docNo, approvedAt: doc.approvedAt,
       sentAt: DYE_INPUT_TRANSFER_FIXTURES.find(fixture => fixture.taskId === doc.runtimeTaskId && doc.lines.some(line => line.lineId === `ISSUE-DYE-${fixture.workOrderId}-L001`))?.issuedAt})),
-    upstreamHandovers: listPdaHandoverHeads().flatMap(head => getPdaHandoverRecordsByHead(head.handoverId)),
+    upstreamHandovers: listPdaHandoverHeads().flatMap(head => getPdaHandoverRecordsByHead(head.handoverId, head)),
   }
+  // Output lists use quantities and handover facts, not the detail timeline or route-link columns.
+  if (options.forOutputList) return withProcessOrderTaskRelationRead(() => orders.map(order => makeRow(order, timeContext, undefined, warehouseDocs, true)))
   return withProcessOrderTaskRelationRead(() => orders.map(order => makeRow(order, timeContext, getProcessOrderTaskRelationView(order.dyeOrderId), warehouseDocs)))
 }
 
@@ -560,7 +596,7 @@ function keywordValue(row: DyeWorkOrderOnlineRow, field: DyeWorkOrderKeywordFiel
   if (field === 'productionOrderNo') return row.productionOrderNo
   if (field === 'purchaseOrderNo') return row.purchaseOrderNo
   if (field === 'productCode') return row.productCode
-  return [row.workOrderNo, row.taskNo, row.productionOrderNo, row.purchaseOrderNo, row.sourceLabel, row.productCode, row.productName, row.materialName, row.rawMaterialSku, ...row.inputMaterials.map(item=>item.sku), row.upstreamName, row.receiverName, row.handoverOrderNo, ...row.inputSourceDocumentNos, ...row.upstreamDocuments.flatMap(item=>[item.documentNo, ...dyePartnerFields(item.partner).map(([,value])=>value)]), ...(row.downstreamPartner ? dyePartnerFields(row.downstreamPartner).map(([,value])=>value) : []), ...row.downstreamLinks.map(item => item.label)].join(' ')
+  return [row.workOrderNo, row.taskNo, row.designRevisionTaskNo, row.productionOrderNo, row.purchaseOrderNo, row.sourceLabel, row.productCode, row.productName, row.materialName, row.rawMaterialSku, ...row.inputMaterials.map(item=>item.sku), row.upstreamName, row.receiverName, row.handoverOrderNo, ...row.inputSourceDocumentNos, ...row.upstreamDocuments.flatMap(item=>[item.documentNo, ...dyePartnerFields(item.partner).map(([,value])=>value)]), ...(row.downstreamPartner ? dyePartnerFields(row.downstreamPartner).map(([,value])=>value) : []), ...row.downstreamLinks.map(item => item.label)].join(' ')
 }
 
 export function filterDyeWorkOrderOnlineRows(
@@ -630,7 +666,8 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
     ? [
         ['平台加工单号', (row) => row.platformWorkOrderNo],
         ['需求来源', (row) => row.sourceLabel],
-        ['生产单号', (row) => row.productionOrderNo || '备货创建'],
+        ['设计改款任务号', (row) => row.designRevisionTaskNo],
+        ['生产单号', (row) => row.productionOrderNo || (row.sourceType === 'DESIGN_REVISION' ? '不适用' : '备货创建')],
         ['面料名称', (row) => row.materialName],
         ['原料SKU', (row) => row.rawMaterialSku],
         ['计划数量', (row) => `${row.plannedQty} ${row.qtyUnit}`],
@@ -642,7 +679,8 @@ export function buildDyeWorkOrderCsv(rows: DyeWorkOrderOnlineRow[], kind: DyeWor
         ['平台加工单号', (row) => row.platformWorkOrderNo],
         ['任务单号', (row) => row.taskNo],
         ['需求来源', (row) => row.sourceLabel],
-        ['生产单号', (row) => row.productionOrderNo || '备货创建'],
+        ['设计改款任务号', (row) => row.designRevisionTaskNo],
+        ['生产单号', (row) => row.productionOrderNo || (row.sourceType === 'DESIGN_REVISION' ? '不适用' : '备货创建')],
         ['商品编码', (row) => row.productCode],
         ['商品名称', (row) => row.productName],
         ['生产需求单号', (row) => row.purchaseOrderNo],

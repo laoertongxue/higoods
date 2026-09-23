@@ -1,0 +1,8 @@
+
+Running 1 test using 1 worker
+
+(node:34272) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/pcs-design-revision-work-preview.spec.ts:173:1 › 样衣提交关联存储失败时页面保留成果，重试完成且刷新不重复 (887ms)
+
+  1 passed (1.2s)

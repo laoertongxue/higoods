@@ -8,6 +8,7 @@ import {
   type PrintField,
 } from '../../../data/fcs/print-service.ts'
 import { listDyeWorkOrderOnlineRows, type DyeWorkOrderOnlineRow } from '../../../data/fcs/dye-work-order-online-view.ts'
+import { localProductFixtureImageUrl } from '../../../data/pcs-product-archive-fixtures.ts'
 import { escapeHtml } from '../../../utils.ts'
 
 type FlowCardInput = PrintDocumentBuildInput | string
@@ -53,16 +54,16 @@ function buildSingle(input: PrintDocumentBuildInput, row: DyeWorkOrderOnlineRow)
       ['需求来源 Sumber permintaan', row.sourceLabel, true],
       ['下单日期 Tgl', row.orderedAt.split(' ')[0] || row.orderedAt],
       ['是否加急 Mendesak', '否 Tidak'],
-      ['需求单号 No. Permintaan', row.purchaseOrderNo],
+      ['需求单号 No. Permintaan', row.sourceType === 'DESIGN_REVISION' ? row.designRevisionTaskNo : row.purchaseOrderNo],
       ['面料接收人 Penerima kain', row.fabricReceiver],
       ['是否补料', row.isReplenishment ? '是' : '否'],
       ['开单日期 Tgl buka', generatedAt],
-      ['生产单号 No. Produksi', row.productionOrderNo || '备货创建'],
+      ['生产单号 No. Produksi', row.sourceType === 'DESIGN_REVISION' ? '不适用（设计改款）' : row.productionOrderNo || '备货创建'],
     ]),
     imageBlocks: [
-      { title: '投入物料', imageUrl: row.materialImageUrl, imageLabel: row.materialName, sourceLabel: '投入物料档案', fallbackLabel: '投入物料图待补充' },
-      { title: '目标色样', imageUrl: row.sampleImageUrl, imageLabel: row.colorNo, sourceLabel: '原型留样效果图', fallbackLabel: '色样尚未提供' },
-      { title: '商品 SPU', imageUrl: row.productImageUrl, imageLabel: row.productCode, sourceLabel: '商品资料', fallbackLabel: '暂无商品图' },
+      { title: '投入物料', imageUrl: localProductFixtureImageUrl(row.materialImageUrl), imageLabel: row.materialName, sourceLabel: '投入物料档案', fallbackLabel: '投入物料图待补充' },
+      { title: '目标色样', imageUrl: localProductFixtureImageUrl(row.sampleImageUrl), imageLabel: row.colorNo, sourceLabel: '原型留样效果图', fallbackLabel: '色样尚未提供' },
+      { title: '商品 SPU', imageUrl: localProductFixtureImageUrl(row.productImageUrl), imageLabel: row.productCode, sourceLabel: '商品资料', fallbackLabel: '暂无商品图' },
     ],
     qrCodes: [{ title: '染色加工单二维码', value: qrPayload, description: '扫码查看平台染色加工单', sizeMm: 32 }],
     barcodes: [],
@@ -184,6 +185,7 @@ function renderSingle(document: PrintDocument, sequence = 1, total = 1): string 
   const values = [...document.headerFields, ...document.sections.flatMap(section => section.fields)]
   const field = (label: string) => escapeHtml(values.find(item => item.label === label)?.value.replace(/^—$/, '') || '')
   const supplement = field('是否补料') === '是'
+  const designRevision = field('需求来源 Sumber permintaan') === '设计改款任务'
   const qr = document.qrCodes[0]
   const picture = (title: string) => {
     const img = document.imageBlocks.find(item => item.title === title)
@@ -193,7 +195,7 @@ function renderSingle(document: PrintDocument, sequence = 1, total = 1): string 
   return `<article class="dye-flow-card" data-dye-flow-source="${escapeHtml(document.sourceId)}" data-dye-flow-sequence="${sequence}">
     ${supplement ? '<div class="dye-flow-supplement">补料 / Bahan Tambahan</div>' : ''}
     <div class="dye-flow-heading"><span class="dye-flow-sequence">${sequence}</span><h1>染整生产流程卡<br><span>Kartu Alur Produksi<br>Pencelupan dan Penyempurnaan</span></h1>${qr ? renderRealQrPlaceholder({value: qr.value, size: 140, title: qr.title, label: ''}) : ''}${supplement ? '<div class="dye-flow-stamp">补料 / Bahan Tambahan</div>' : ''}</div>
-    <div class="dye-flow-meta"><div class="dye-flow-demand-source" data-dye-flow-demand-source><b>需求来源 Sumber permintaan</b> ${field('需求来源 Sumber permintaan')}</div><div><b>下单日期 Tgl</b> ${field('下单日期 Tgl')}</div><div><b>是否加急 Mendesak</b> ${field('是否加急 Mendesak')}</div><div><b>开单日期 Tgl buka</b> ${field('开单日期 Tgl buka')}</div><div><b>生产单号 No. Produksi</b> ${field('生产单号 No. Produksi')}</div><div class="dye-flow-meta-wide"><b>需求单号 No. Permintaan</b> ${field('需求单号 No. Permintaan')}</div><div class="dye-flow-meta-wide"><b>面料接收人 Penerima kain</b> ${field('面料接收人 Penerima kain')}</div></div>
+    <div class="dye-flow-meta"><div class="dye-flow-demand-source" data-dye-flow-demand-source><b>需求来源 Sumber permintaan</b> ${field('需求来源 Sumber permintaan')}</div><div><b>下单日期 Tgl</b> ${field('下单日期 Tgl')}</div><div><b>是否加急 Mendesak</b> ${field('是否加急 Mendesak')}</div><div><b>开单日期 Tgl buka</b> ${field('开单日期 Tgl buka')}</div><div><b>生产单号 No. Produksi</b> ${field('生产单号 No. Produksi')}</div><div class="dye-flow-meta-wide"><b>${designRevision ? '设计改款任务号' : '需求单号 No. Permintaan'}</b> ${field('需求单号 No. Permintaan')}</div><div class="dye-flow-meta-wide"><b>面料接收人 Penerima kain</b> ${field('面料接收人 Penerima kain')}</div></div>
     <table class="dye-flow-table"><colgroup>${'<col style="width:16.666%">'.repeat(6)}</colgroup><tbody>
       <tr><th rowspan="4">色样备注 Cat sampel${picture('目标色样')}<small>${field('正式色样')}</small></th><th colspan="2">纱线 RAINBOW 色卡</th><td></td><th>辅料 GCC 色卡</th><td></td></tr>
       <tr><th colspan="2">TPG 色卡</th><td></td><th>TCX 色卡</th><td></td></tr>

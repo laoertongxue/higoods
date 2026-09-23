@@ -97,6 +97,10 @@ function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
     ...record,
     pantoneCode: record.pantoneCode || '',
     patternCode: record.patternCode || '',
+    designRevisionProcesses: [...(record.designRevisionProcesses || [])],
+    designRevisionRawSkuId: record.designRevisionRawSkuId || '',
+    designRevisionDyedSkuId: record.designRevisionDyedSkuId || '',
+    patternImageUrl: record.patternImageUrl || '',
     unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
   }
 }
@@ -620,6 +624,7 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       materialCode: 'FLSZ26041134',
       materialSkuCode: 'FLSZ26041134-blue',
       materialName: '欧根纱刺绣蕾丝小花',
+      designRevisionProcesses: [],
       colorName: 'blue',
       specName: '小花刺绣',
       sizeName: '标准',
@@ -927,6 +932,22 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
       updatedBy: '设备管理员',
     },
   ]
+
+  // 设计改款演示物料：目标 SKU 明确指向加工结果；同一批白坯先染白、再印蓝花。
+  const revisionMaterialId = 'material_design_revision_cotton_001'
+  const revisionBase = skuRecords[0]
+  records.push({ ...records[0], materialId: revisionMaterialId, materialCode: 'DR-COTTON-001', materialName: '设计改款白底蓝花棉布', specSummary: '幅宽 150 cm / 克重 180 g/㎡', composition: '100% 棉', widthText: '150 cm', gramWeightText: '180 g/㎡', mainImageUrl: '/materials/fei-ticket/blue-white-print-cotton.png', galleryImageUrls: ['/materials/fei-ticket/blue-white-print-cotton.png'], unitConversions: [{ fromUnit: '米', toUnit: 'Yard', factor: 1 / 0.9144 }], skuCount: 4, usedStyleCount: 0, usedTechPackCount: 0, remark: '设计改款演示用的白坯、染后中间品与最终印花 SKU。' })
+  const revisionSku = (id: string, code: string, image: string, processes: MaterialSkuRecord['designRevisionProcesses'], extra: Partial<MaterialSkuRecord> = {}): MaterialSkuRecord => ({
+    ...revisionBase, materialSkuId: id, materialId: revisionMaterialId, materialCode: 'DR-COTTON-001', materialName: '设计改款白底蓝花棉布',
+    materialSkuCode: code, barcode: code, skuImageUrl: image, colorName: 'White', specName: '棉布', sizeName: '标准', pricingUnit: 'Yard',
+    designRevisionProcesses: processes, ...extra,
+  })
+  skuRecords.push(
+    revisionSku('dr_cotton_raw', 'DR-COTTON-001-RAW', '/materials/fei-ticket/white-poplin.png', []),
+    revisionSku('dr_cotton_dyed', 'DR-COTTON-001-WHITE', '/materials/fei-ticket/white-poplin.png', ['DYEING'], { designRevisionRawSkuId: 'dr_cotton_raw', pantoneCode: '11-0601 TPX' }),
+    revisionSku('dr_cotton_print', 'DR-COTTON-001-BLUE-PRINT', '/materials/fei-ticket/blue-white-print-cotton.png', ['PRINTING'], { designRevisionRawSkuId: 'dr_cotton_raw', patternCode: 'DR-BLUE-FLOWER-001', patternImageUrl: '/materials/fei-ticket/blue-white-print-cotton.png' }),
+    revisionSku('dr_cotton_dye_print', 'DR-COTTON-001-WHITE-BLUE-PRINT', '/materials/fei-ticket/blue-white-print-cotton.png', ['DYEING', 'PRINTING'], { designRevisionRawSkuId: 'dr_cotton_raw', designRevisionDyedSkuId: 'dr_cotton_dyed', pantoneCode: '11-0601 TPX', patternCode: 'DR-BLUE-FLOWER-001', patternImageUrl: '/materials/fei-ticket/blue-white-print-cotton.png' }),
+  )
 
   const usageRecords: MaterialUsageRecord[] = [
     buildUsageRecord('material_fabric_001', 0, { styleCode: 'SPU-SHIRT-086', consumptionText: '1.65 Yard/件', updatedAt: '2026-04-16 09:12' }),

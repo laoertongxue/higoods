@@ -218,7 +218,7 @@ function filteredRows(allRows: DyeWorkOrderOnlineRow[]): DyeWorkOrderOnlineRow[]
 }
 
 function currentRows(): DyeWorkOrderOnlineRow[] {
-  ensureProductionDemandEarlyProcessAcceptanceData()
+  ensureProductionDemandEarlyProcessAcceptanceData('DYE')
   return state.rowsSnapshot ??= listDyeWorkOrderOnlineRows()
 }
 

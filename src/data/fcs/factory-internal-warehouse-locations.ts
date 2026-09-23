@@ -1,5 +1,5 @@
 import { PRINTING_FACTORIES } from './printing-factories.ts'
-import { KOL_GOTO_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
+import { GOTO_GLOBAL_FACTORY_ID, KOL_GOTO_FACTORY_ID, mockFactories } from './factory-mock-data.ts'
 import type { Factory, FactoryType } from './factory-types.ts'
 import { buildCuttingWarehouseAreaList } from './cutting/warehouse-location-mock.ts'
 import {
@@ -232,7 +232,7 @@ function buildFactoryAreaList(
 export function buildDefaultFactoryInternalWarehouses(factories: ReadonlyArray<Pick<Factory, 'id' | 'name' | 'factoryType' | 'createdAt' | 'updatedAt'>> = mockFactories): FactoryInternalWarehouse[] {
   const seenIds = new Set<string>()
   return factories
-    .filter((factory) => factory.id === KOL_GOTO_FACTORY_ID || !SEWING_FACTORY_TYPES.has(factory.factoryType))
+    .filter((factory) => factory.id === KOL_GOTO_FACTORY_ID || factory.id === GOTO_GLOBAL_FACTORY_ID || !SEWING_FACTORY_TYPES.has(factory.factoryType))
     .filter((factory) => {
       if (seenIds.has(factory.id)) return false
       seenIds.add(factory.id)

@@ -201,9 +201,8 @@ function getSpecialCraftTodoMeta(task: PdaTaskFlowMock): {
   return { todoType: '待加工填报', title: `${workOrder.operationName}加工单可加工填报` }
 }
 
-function buildTaskReceiveTodos(factoryId: string): FactoryMobileTodo[] {
-  applyPendingDispatchAutoAcceptance()
-  return listPdaTaskFlowTasks(undefined, factoryId)
+function buildTaskReceiveTodos(factoryId: string, tasks: PdaTaskFlowMock[]): FactoryMobileTodo[] {
+  return tasks
     .filter(
       (task) =>
         task.assignedFactoryId === factoryId
@@ -252,8 +251,8 @@ function buildPostFinishingTaskReceiveTodos(factoryId: string): FactoryMobileTod
     }))
 }
 
-function buildExecTodos(factoryId: string): FactoryMobileTodo[] {
-  const acceptedTasks = listPdaTaskFlowTasks(undefined, factoryId).filter(
+function buildExecTodos(factoryId: string, tasks: PdaTaskFlowMock[]): FactoryMobileTodo[] {
+  const acceptedTasks = tasks.filter(
     (task) =>
       task.assignedFactoryId === factoryId
       && (isWoolTask(task) || task.acceptanceStatus === 'ACCEPTED'),
@@ -621,11 +620,14 @@ export function getFactoryMobileTodos(factoryId: string, roleId?: string): Facto
       .sort(compareTodo)
   }
 
+  const tenderTodos = buildTenderQuoteTodos(factoryId)
+  applyPendingDispatchAutoAcceptance()
+  const tasks = listPdaTaskFlowTasks(undefined, factoryId)
   return [
-    ...buildTenderQuoteTodos(factoryId),
-    ...buildTaskReceiveTodos(factoryId),
+    ...tenderTodos,
+    ...buildTaskReceiveTodos(factoryId, tasks),
     ...buildPickupTodos(factoryId),
-    ...buildExecTodos(factoryId),
+    ...buildExecTodos(factoryId, tasks),
     ...buildHandoutTodos(factoryId),
     ...buildDifferenceTodos(factoryId),
     ...buildSettlementTodos(factoryId),

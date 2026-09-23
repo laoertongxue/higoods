@@ -1,0 +1,22 @@
+
+> higoods-vanilla-clone@1.0.0 check:fcs-end-to-end
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-fcs-end-to-end.ts
+
+{
+  "任务收入链样例": "PSL-TASK-00102",
+  "工厂确认质量链样例": "QDL-QC-NEW-010",
+  "自动确认质量链样例": "LEDGER-QC-RIB-202603-0003-0003",
+  "裁决质量链样例": "QDL-QC-NEW-004",
+  "已预付批次样例": "PPB-202603-0001",
+  "飞书付款审批编号": "FPA-202603-008800",
+  "银行流水号": "BSN-00930000",
+  "资料快照差异样例": {
+    "factoryId": "ID-F002",
+    "currentVersionNo": "V2",
+    "statementId": "ST-LINK-2026-0007",
+    "statementVersionNo": "V1",
+    "batchId": "PPB-LINK-0005"
+  }
+}
+(node:40022) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

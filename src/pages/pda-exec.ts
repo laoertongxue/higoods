@@ -6,7 +6,7 @@ import {
 } from '../data/fcs/page-adapters/task-execution-adapter'
 import {
   getPdaTaskFlowTaskById,
-  getPdaCuttingTaskSnapshot,
+  getPdaCuttingTaskListSummary,
   isCuttingSpecialTask,
   listPdaCuttingExecutionRowsByTaskId,
   resolvePdaTaskDetailPath,
@@ -32,7 +32,6 @@ import {
   getMobileTaskProcessType,
   listPdaMobileExecutionTasks,
 } from '../data/fcs/process-mobile-task-binding.ts'
-import { canFactoryAccessSpecialCraftPdaTask } from '../data/fcs/special-craft-pda-scope.ts'
 import { getPrintWorkOrderByTaskId } from '../data/fcs/printing-task-domain.ts'
 import { getDyeWorkOrderByTaskId } from '../data/fcs/dyeing-task-domain.ts'
 import { listWoolWorkOrders } from '../data/fcs/wool-task-domain.ts'
@@ -42,20 +41,18 @@ import {
 } from '../data/fcs/wool-pda-scan.ts'
 import {
   getSpecialCraftPdaCandidateByWorkOrderId,
-  hasSpecialCraftOrdersForFactory,
   resolveSpecialCraftPdaScan,
   type SpecialCraftPdaScanCandidate,
 } from '../data/fcs/special-craft-pda-scan.ts'
 import { listSpecialCraftTaskOrders } from '../data/fcs/special-craft-task-orders.ts'
 import {
   getBindingProcessPdaCandidateByWorkOrderId,
-  hasBindingProcessOrdersForFactory,
   resolveBindingProcessPdaScan,
   type BindingProcessPdaScanCandidate,
 } from '../data/fcs/binding-process-pda-scan.ts'
 import { buildBindingProcessOrders } from './process-factory/cutting/binding-strip-orders.ts'
 import { DEDICATED_POST_FACTORY_ID } from '../data/fcs/factory-mock-data.ts'
-import { getKolGotoHandoutQty } from '../data/fcs/kol-goto-pda-domain.ts'
+import { getKolGotoHandoutQty, ensureKolGotoPdaScenarios } from '../data/fcs/kol-goto-pda-domain.ts'
 import { isKolGotoFactory, isKolGotoWholeOrderTask, normalizeKolGotoFactoryId } from '../data/fcs/kol-goto-special-flow.ts'
 import {
   formatProcessQuantityWithUnit,
@@ -440,7 +437,6 @@ function getAcceptedTasks(factoryId: string): ProcessTask[] {
   return listMobileExecutionTasks({
     currentFactoryId: resolvedFactoryId,
   })
-    .filter((task) => canFactoryAccessSpecialCraftPdaTask(resolvedFactoryId, task))
     .filter((task) => {
       const processType = getMobileTaskProcessType(task)
       if (processType === 'SPECIAL_CRAFT') return false
@@ -451,10 +447,21 @@ function getAcceptedTasks(factoryId: string): ProcessTask[] {
     })
 }
 
+let listStartFacts = new WeakMap<ProcessTask, { prerequisite: ReturnType<typeof getStartPrerequisite>; due: ReturnType<typeof getTaskStartDueInfo> }>()
+function getListStartFacts(task: ProcessTask) {
+  const existing = listStartFacts.get(task)
+  if (existing) return existing
+  const prerequisite = getStartPrerequisite(task)
+  const result = { prerequisite, due: getTaskStartDueInfo(task, Date.now(), prerequisite) }
+  listStartFacts.set(task, result)
+  return result
+}
+
 function getFilteredTasks(
   tasksByStatus: Record<TaskStatusTab, ProcessTask[]>,
   activeTab: TaskStatusTab,
 ): ProcessTask[] {
+  listStartFacts = new WeakMap()
   let tasks = tasksByStatus[activeTab]
 
   if (activeTab === 'IN_PROGRESS' && state.riskParam === 'due-soon') {
@@ -546,11 +553,11 @@ function getPrimaryCuttingExecutionRow(task: ProcessTask): CuttingExecutionRow |
   return listPdaCuttingExecutionRowsByTaskId(task.taskId)[0] ?? null
 }
 
-type CuttingTaskDetail = NonNullable<ReturnType<typeof getPdaCuttingTaskSnapshot>>
+type CuttingTaskDetail = NonNullable<ReturnType<typeof getPdaCuttingTaskListSummary>>
 
 function getCuttingTaskDetail(task: ProcessTask): CuttingTaskDetail | null {
   if (!isCuttingSpecialTask(task)) return null
-  return getPdaCuttingTaskSnapshot(task.taskId)
+  return getPdaCuttingTaskListSummary(task.taskId)
 }
 
 function getCuttingTaskListSummary(detail: CuttingTaskDetail | null): string {
@@ -620,8 +627,7 @@ function getNotStartedPrimaryAction(
 }
 
 function getNotStartedSortRank(task: ProcessTask): number {
-  const prereq = getStartPrerequisite(task)
-  const startInfo = getTaskStartDueInfo(task)
+  const { prerequisite: prereq, due: startInfo } = getListStartFacts(task)
   if (prereq.met && startInfo.startRiskStatus === 'OVERDUE') return 0
   if (prereq.met && startInfo.startRiskStatus === 'DUE_SOON') return 1
   if (prereq.met) return 2
@@ -640,8 +646,10 @@ function compareOptionalDate(left?: string, right?: string): number {
 }
 
 function sortNotStartedTasks(tasks: ProcessTask[]): ProcessTask[] {
+  // Compare a single current priority per task; a sort comparator must not rebuild receipt facts.
+  const ranks = new Map(tasks.map(task => [task.taskId, getNotStartedSortRank(task)]))
   return [...tasks].sort((left, right) => {
-    const rankDiff = getNotStartedSortRank(left) - getNotStartedSortRank(right)
+    const rankDiff = ranks.get(left.taskId)! - ranks.get(right.taskId)!
     if (rankDiff !== 0) return rankDiff
     const leftDeadline = (left as ProcessTask & { taskDeadline?: string }).taskDeadline
     const rightDeadline = (right as ProcessTask & { taskDeadline?: string }).taskDeadline
@@ -949,6 +957,7 @@ function updatePdaExecCardListInPlace(): void {
   if (!listNode) return
 
   const selectedFactoryId = getCurrentFactoryId()
+  if (isKolGotoFactory(selectedFactoryId)) ensureKolGotoPdaScenarios()
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
   if (isKolGotoFactory(selectedFactoryId)) {
     listNode.innerHTML = renderKolGotoExecCardList(acceptedTasks)
@@ -991,7 +1000,8 @@ function applyPdaExecAutoLoad(
     nextCards = rows.slice(currentVisibleCount, targetVisibleCount).map(renderBindingFactCard).join('')
     state.bindingVisibleCount = targetVisibleCount
   } else {
-    const acceptedTasks = getAcceptedTasks(selectedFactoryId)
+    if (isKolGotoFactory(selectedFactoryId)) ensureKolGotoPdaScenarios()
+  const acceptedTasks = getAcceptedTasks(selectedFactoryId)
     const tasksByStatus = buildPdaExecTasksByStatus(acceptedTasks)
     const rows = getFilteredTasks(tasksByStatus, state.activeTab)
     total = rows.length
@@ -1122,10 +1132,9 @@ function resolvePdaExecCardDetailPath(taskId: string): string {
 function renderNotStartedCard(task: ProcessTask): string {
   const displayProcessName = getTaskProcessDisplayName(task)
   const qtyDisplayMeta = resolveTaskQtyDisplayMeta(task, displayProcessName)
-  const prereq = getStartPrerequisite(task)
+  const { prerequisite: prereq, due: startInfo } = getListStartFacts(task)
   const taskDeadline = (task as ProcessTask & { taskDeadline?: string }).taskDeadline
   const deadline = getDeadlineStatus(taskDeadline, task.finishedAt)
-  const startInfo = getTaskStartDueInfo(task)
   const startDueAt = startInfo.startDueAt || '—'
   const cuttingDetail = getCuttingTaskDetail(task)
   const cuttingRow = getPrimaryCuttingExecutionRow(task)
@@ -1212,8 +1221,8 @@ function renderNotStartedCard(task: ProcessTask): string {
                   <div class="truncate font-medium">${escapeHtml(materialText)}</div>
                 `
               : `
-                  <div class="text-muted-foreground">生产单号</div>
-                  <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+                  <div class="text-muted-foreground">${task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号'}</div>
+                  <div class="truncate font-medium">${escapeHtml(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : task.productionOrderId)}</div>
                   <div class="text-muted-foreground">原始任务</div>
                   <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
                   <div class="text-muted-foreground">当前工序</div>
@@ -1320,8 +1329,8 @@ function renderInProgressCard(task: ProcessTask): string {
                   <div class="truncate font-medium">${escapeHtml(cuttingDetail.nextRecommendedAction)}</div>
                 `
               : `
-                  <div class="text-muted-foreground">生产单号</div>
-                  <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+                  <div class="text-muted-foreground">${task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号'}</div>
+                  <div class="truncate font-medium">${escapeHtml(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : task.productionOrderId)}</div>
                   <div class="text-muted-foreground">原始任务</div>
                   <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
                   <div class="text-muted-foreground">当前工序</div>
@@ -1463,8 +1472,8 @@ function renderBlockedCard(task: ProcessTask): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div class="text-muted-foreground">生产单号</div>
-          <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+          <div class="text-muted-foreground">${task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号'}</div>
+          <div class="truncate font-medium">${escapeHtml(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : task.productionOrderId)}</div>
           <div class="text-muted-foreground">原始任务</div>
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
@@ -1523,8 +1532,8 @@ function renderDoneCard(task: ProcessTask): string {
         </div>
 
         <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-          <div class="text-muted-foreground">生产单号</div>
-          <div class="truncate font-medium">${escapeHtml(task.productionOrderId)}</div>
+          <div class="text-muted-foreground">${task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号'}</div>
+          <div class="truncate font-medium">${escapeHtml(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : task.productionOrderId)}</div>
           <div class="text-muted-foreground">原始任务</div>
           <div class="truncate font-medium">${escapeHtml(getTaskRootNo(task))}</div>
           <div class="text-muted-foreground">当前工序</div>
@@ -1818,6 +1827,7 @@ export function renderPdaExecPage(): string {
   syncTabWithQuery()
 
   const selectedFactoryId = getCurrentFactoryId()
+  if (isKolGotoFactory(selectedFactoryId)) ensureKolGotoPdaScenarios()
   const acceptedTasks = getAcceptedTasks(selectedFactoryId)
   if (isKolGotoFactory(selectedFactoryId)) {
     return renderKolGotoExecListPage(acceptedTasks)
@@ -1845,8 +1855,6 @@ export function renderPdaExecPage(): string {
     syncMilestoneOverdueExceptions()
   })
   const hasWoolOrders = hasWoolOrdersForFactory(selectedFactoryId)
-  const hasSpecialCraftOrders = hasSpecialCraftOrdersForFactory(selectedFactoryId)
-  const hasBindingOrders = hasBindingProcessOrdersForFactory(selectedFactoryId)
 
   const tasksByStatus: Record<TaskStatusTab, ProcessTask[]> = {
     NOT_STARTED: [],

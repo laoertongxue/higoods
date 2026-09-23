@@ -236,7 +236,16 @@ export function projectPdaTaskLegacyAcceptance(task: ProcessTask): ProcessTask {
   }
 }
 
+let receiveRenderTasks: Map<string, ProcessTask> | null = null
+
+function listReceiveTaskFacts(): ProcessTask[] {
+  if (receiveRenderTasks) return [...receiveRenderTasks.values()]
+  const tasks = listPdaMobileExecutionTasks(getCurrentFactoryId()).map(projectPdaTaskLegacyAcceptance)
+  return tasks
+}
+
 function getTaskFactById(taskId: string): ProcessTask | null {
+  if (receiveRenderTasks?.has(taskId)) return receiveRenderTasks.get(taskId)!
   const task = getPdaMobileExecutionTaskById(taskId) ?? getPdaTaskFlowTaskById(taskId) ?? null
   return task ? projectPdaTaskLegacyAcceptance(task) : null
 }
@@ -543,7 +552,7 @@ function getActiveBiddingTenders(): BiddingTender[] {
 }
 
 export function listPdaAwardedTendersForFactory(selectedFactoryId: string): AwardedTender[] {
-  const taskFacts = listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance)
+  const taskFacts = listReceiveTaskFacts()
   const awardedTaskIds = new Set(
     listPdaAwardedTenderNoticesByFactoryId(selectedFactoryId).map((item) => item.taskId),
   )
@@ -585,7 +594,7 @@ export function listPdaAwardedTendersForFactory(selectedFactoryId: string): Awar
 
 function getPendingAcceptTasks(selectedFactoryId: string): ProcessTask[] {
   const tasks = filterReceivePendingAcceptTasks(
-    listPdaMobileExecutionTasks().map(projectPdaTaskLegacyAcceptance),
+    listReceiveTaskFacts(),
     selectedFactoryId,
   )
   if (!isPostFinishingDirectOnlyFactory(selectedFactoryId)) return tasks
@@ -600,7 +609,7 @@ function getFilteredPendingTasks(pendingAcceptTasks: ProcessTask[]): ProcessTask
       keyword &&
       !task.taskId.includes(keyword) &&
       !(task.taskNo || '').includes(keyword) &&
-      !getTaskProductionOrderNo(task).includes(keyword) &&
+      ![getTaskProductionOrderNo(task), task.sourceSnapshot?.designRevisionTaskNo, task.sourceSnapshot?.designRevisionTaskId].some(value => value?.includes(keyword)) &&
       !(task.productionOrderId || '').includes(keyword) &&
       !displayProcessName.includes(keyword)
     ) {
@@ -658,7 +667,7 @@ function formatPendingAcceptDispatchPrice(task: ProcessTask): string {
 function renderPendingAcceptFieldGrid(task: ProcessTask): string {
   return `
     <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-      ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
+      ${renderFieldRow(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号', task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : getTaskProductionOrderNo(task))}
       ${renderFieldRow('工序', getTaskProcessDisplayName(task))}
       ${renderFieldRow('任务数量', formatPendingAcceptTaskQty(task))}
       ${renderFieldRow('接单截止', task.acceptDeadline || '-')}
@@ -1236,7 +1245,7 @@ function renderKolGotoReceiveReadOnlyPage(factoryName: string): string {
     .filter((task) => {
       const keyword = state.keyword.trim().toLowerCase()
       if (!keyword) return true
-      return [task.taskId, task.taskNo, task.productionOrderId, getTaskProductionOrderNo(task), task.saleTypeSnapshot]
+      return [task.taskId, task.taskNo, task.productionOrderId, getTaskProductionOrderNo(task), task.sourceSnapshot?.designRevisionTaskNo, task.saleTypeSnapshot]
         .some((value) => String(value || '').toLowerCase().includes(keyword))
     })
   const content = `
@@ -1271,7 +1280,7 @@ function renderKolGotoReceiveReadOnlyPage(factoryName: string): string {
                   ? `<button class="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted" data-pda-tr-action="open-kol-image" data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(imageAlt)}"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(imageAlt)}" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" /><span hidden class="px-1 text-center text-[10px] text-red-700">图片加载失败</span></button>`
                   : '<div class="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg border border-red-200 bg-red-50 p-2 text-center text-[11px] text-red-700">缺少对应款式图</div>'}
                 <div class="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1 text-xs">
-                ${renderFieldRow('生产单号', getTaskProductionOrderNo(task))}
+                ${renderFieldRow(task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? '设计改款任务' : '生产单号', task.sourceSnapshot?.sourceType === 'DESIGN_REVISION' ? task.sourceSnapshot.designRevisionTaskNo || task.sourceSnapshot.designRevisionTaskId || '来源未记录' : getTaskProductionOrderNo(task))}
                 ${renderFieldRow('售卖类型', task.saleTypeSnapshot || '-')}
                 ${renderFieldRow('任务', getTaskProcessDisplayName(task))}
                 ${renderFieldRow('数量', `${task.qty} ${task.qtyDisplayUnit || '件'}`)}
@@ -1294,6 +1303,15 @@ function renderKolGotoReceiveReadOnlyPage(factoryName: string): string {
 }
 
 export function renderPdaTaskReceivePage(): string {
+  try {
+    return renderPdaTaskReceivePageContent()
+  } finally {
+    // Reuse facts only within this synchronous render. Actions always read fresh data.
+    receiveRenderTasks = null
+  }
+}
+
+function renderPdaTaskReceivePageContent(): string {
   if (!getPdaRuntimeContext()) {
     return renderPdaLoginRedirect()
   }
@@ -1308,6 +1326,7 @@ export function renderPdaTaskReceivePage(): string {
     return renderKolGotoReceiveReadOnlyPage(factoryName)
   }
 
+  receiveRenderTasks = new Map(listReceiveTaskFacts().map(task => [task.taskId, task]))
   const pendingAcceptTasks = getPendingAcceptTasks(selectedFactoryId)
   const activeBiddingTenders = getActiveBiddingTenders()
   syncQuoteDialogWithQuery(activeBiddingTenders)

@@ -93,9 +93,18 @@ function writeSnapshot(snapshot: EngineeringBomVersionStoreSnapshot): void {
 }
 
 function nextIdentity(records: EngineeringBomVersionRecord[]): { id: string; code: string } {
-  const sequence = records.length + 1
+  // Copying a confirmed design-revision plan can replace several draft rows
+  // with fewer rows. The row count can then move backwards while Date.now()
+  // remains in the same millisecond, so an existing BOM id would be reused.
+  const highestSequence = records.reduce((highest, record) => {
+    const match = /^BOM-V(\d+)$/.exec(record.versionCode)
+    return match ? Math.max(highest, Number(match[1])) : highest
+  }, 0)
+  let sequence = Math.max(records.length, highestSequence) + 1
+  const timestamp = Date.now().toString(36)
+  while (records.some((record) => record.bomDraftVersionId === `BOM-${timestamp}-${String(sequence).padStart(3, '0')}`)) sequence += 1
   return {
-    id: `BOM-${Date.now().toString(36)}-${String(sequence).padStart(3, '0')}`,
+    id: `BOM-${timestamp}-${String(sequence).padStart(3, '0')}`,
     code: `BOM-V${String(sequence).padStart(3, '0')}`,
   }
 }

@@ -1,0 +1,139 @@
+
+Running 1 test using 1 worker
+
+(node:31527) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+image:edit-info:0 afterFn 57.5
+imageClose:edit-info:0 afterFn 26.80000000447035
+image:edit-info:1 afterFn 55.899999998509884
+imageClose:edit-info:1 afterFn 7
+image:edit-info:2 afterFn 51.30000000447035
+imageClose:edit-info:2 afterFn 2.399999998509884
+image:logs:0 afterFn 20.600000001490116
+imageClose:logs:0 afterFn 2.5999999940395355
+image:logs:1 afterFn 23.399999998509884
+imageClose:logs:1 afterFn 2.7000000029802322
+image:open-barcodes:0 afterFn 21.399999998509884
+imageClose:open-barcodes:0 afterFn 2.600000001490116
+image:open-barcodes:1 afterFn 59
+imageClose:open-barcodes:1 afterFn 2.4000000059604645
+image:remarks:0 afterFn 51.70000000298023
+imageClose:remarks:0 afterFn 2.5
+image:remarks:1 afterFn 46.600000001490116
+imageClose:remarks:1 afterFn 2.4000000059604645
+image:edit-info:0 afterFn 55.29999999701977
+imageClose:edit-info:0 afterFn 24.30000000447035
+image:edit-info:1 afterFn 55.79999999701977
+imageClose:edit-info:1 afterFn 2.3000000044703484
+image:edit-info:2 afterFn 49.899999998509884
+imageClose:edit-info:2 afterFn 2.399999998509884
+image:logs:0 afterFn 20.600000001490116
+imageClose:logs:0 afterFn 2.5
+image:logs:1 afterFn 57.5
+imageClose:logs:1 afterFn 2.4000000059604645
+image:open-barcodes:0 afterFn 21.5
+imageClose:open-barcodes:0 afterFn 2.600000001490116
+image:open-barcodes:1 afterFn 60
+imageClose:open-barcodes:1 afterFn 2.399999998509884
+image:remarks:0 afterFn 18
+imageClose:remarks:0 afterFn 3.2999999970197678
+image:remarks:1 afterFn 50.5
+imageClose:remarks:1 afterFn 2.600000001490116
+image:edit-info:0 afterFn 58.20000000298023
+imageClose:edit-info:0 afterFn 25.100000001490116
+image:edit-info:1 afterFn 53.30000000447035
+imageClose:edit-info:1 afterFn 2.399999998509884
+image:edit-info:2 afterFn 50
+imageClose:edit-info:2 afterFn 2.2999999970197678
+image:logs:0 afterFn 19.799999997019768
+imageClose:logs:0 afterFn 2.5
+image:logs:1 afterFn 56.899999998509884
+imageClose:logs:1 afterFn 2.5
+image:open-barcodes:0 afterFn 21.69999999552965
+imageClose:open-barcodes:0 afterFn 2.5999999940395355
+image:open-barcodes:1 afterFn 58.70000000298023
+imageClose:open-barcodes:1 afterFn 2.4000000059604645
+image:remarks:0 afterFn 22
+imageClose:remarks:0 afterFn 2.7000000029802322
+image:remarks:1 afterFn 56.100000001490116
+imageClose:remarks:1 afterFn 2.899999998509884
+image:edit-info:0 afterFn 53.69999999552965
+imageClose:edit-info:0 afterFn 24.799999997019768
+image:edit-info:1 afterFn 23.299999997019768
+imageClose:edit-info:1 afterFn 3.8000000044703484
+image:edit-info:2 afterFn 4.5
+imageClose:edit-info:2 afterFn 2.2000000029802322
+image:logs:0 afterFn 49.899999998509884
+imageClose:logs:0 afterFn 4.100000001490116
+image:logs:1 afterFn 47.399999998509884
+imageClose:logs:1 afterFn 2.0999999940395355
+image:open-barcodes:0 afterFn 20.799999997019768
+imageClose:open-barcodes:0 afterFn 2.5
+image:open-barcodes:1 afterFn 57.600000001490116
+imageClose:open-barcodes:1 afterFn 2.5
+image:remarks:0 afterFn 19.099999994039536
+imageClose:remarks:0 afterFn 2.5
+image:remarks:1 afterFn 55
+imageClose:remarks:1 afterFn 2.600000001490116
+image:edit-info:0 afterFn 56
+imageClose:edit-info:0 afterFn 22.600000001490116
+image:edit-info:1 afterFn 57.29999999701977
+imageClose:edit-info:1 afterFn 2.1999999955296516
+image:edit-info:2 afterFn 50.29999999701977
+imageClose:edit-info:2 afterFn 2.3000000044703484
+image:logs:0 afterFn 20.399999998509884
+imageClose:logs:0 afterFn 2.5
+image:logs:1 afterFn 56.69999999552965
+imageClose:logs:1 afterFn 2.399999998509884
+image:open-barcodes:0 afterFn 21.700000002980232
+imageClose:open-barcodes:0 afterFn 2.399999998509884
+image:open-barcodes:1 afterFn 60.29999999701977
+imageClose:open-barcodes:1 afterFn 2.399999998509884
+image:remarks:0 afterFn 48.79999999701977
+imageClose:remarks:0 afterFn 2.2000000029802322
+image:remarks:1 afterFn 48.19999999552965
+imageClose:remarks:1 afterFn 2.2000000029802322
+  ✘  1 tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 (33.7s)
+
+
+  1) tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 ─────────────
+
+    Error: imageClose:edit-info:1
+
+    expect(received).toBeLessThan(expected)
+
+    Expected: < 500
+    Received:   1233.2000000029802
+
+      42 |  }
+      43 |  expect(errors).toEqual([])
+    > 44 |  for(const[key,vs]of Object.entries(samples)){expect(vs).toHaveLength(5);for(const ms of vs)expect(ms,key).toBeLessThan(500)}
+         |                                                                                                            ^
+      45 | })
+      46 |
+        at /Users/laoer/.codex/worktrees/design-revision-implementation/higoods/tests/pcs-design-revision-factory-overlays.spec.ts:44:108
+
+    attachment #1: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-1.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #2: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-3.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #3: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-4.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #4: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-2.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    attachment #5: screenshot (image/png) ──────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/test-failed-5.png
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+    Error Context: test-results/playwright/pcs-design-revision-factory-overlays-print-工厂查看编辑日志卷码和备注入口五次/error-context.md
+
+  1 failed
+    tests/pcs-design-revision-factory-overlays.spec.ts:4:36 › print 工厂查看编辑日志卷码和备注入口五次 ──────────────

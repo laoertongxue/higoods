@@ -140,9 +140,9 @@ export function isGarmentWarehouseOutboundPdaTaskForFactory(
 ): boolean {
   if (!task) return false
   const factory = getFactoryMasterRecordById(factoryId)
+  if (factory?.factoryType !== 'CENTRAL_GARMENT') return false
   const workOrder = findTaskWorkOrder(task)
-  return factory?.factoryType === 'CENTRAL_GARMENT'
-    && workOrder?.targetObject === '成衣'
+  return workOrder?.targetObject === '成衣'
     && workOrder.status === '待接收'
 }
 

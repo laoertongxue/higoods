@@ -1,0 +1,28 @@
+
+Running 4 tests using 1 worker
+
+(node:22849) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓  1 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › dye 设计改款交出草稿扫码、防错、确认和持久化五次 (12.2s)
+  ✓  2 tests/pcs-design-revision-factory-handover.spec.ts:5:39 › print 设计改款交出草稿扫码、防错、确认和持久化五次 (8.3s)
+  ✓  3 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › dye PDA 设计改款加工单接单与刷新持久化五次 (6.5s)
+  ✘  4 tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 (0ms)
+
+
+  1) tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 ───────────
+
+    Error: ENOENT: no such file or directory, open 'output/playwright/design-revision-gap/fixtures/print-assigned.json'
+
+    Error Context: test-results/playwright/pcs-design-revision-pda-ac-14709-print-PDA-设计改款加工单接单与刷新持久化五次/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/playwright/pcs-design-revision-pda-ac-14709-print-PDA-设计改款加工单接单与刷新持久化五次/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/playwright/pcs-design-revision-pda-ac-14709-print-PDA-设计改款加工单接单与刷新持久化五次/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    tests/pcs-design-revision-pda-acceptance.spec.ts:5:72 › print PDA 设计改款加工单接单与刷新持久化五次 ────────────
+  3 passed (27.6s)

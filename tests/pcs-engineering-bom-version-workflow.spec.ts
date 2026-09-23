@@ -13,6 +13,7 @@ import {
   resetEngineeringMasterRepository,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { ensureEngineeringMasterDemoData } from '../src/data/pcs-engineering-master-view-model.ts'
+import { resetEngineeringIndependentSamplingRepository } from '../src/data/pcs-engineering-master-sampling.ts'
 import { resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
 import {
   renderPcsTechnicalDataBomPricingDetailPage,
@@ -124,5 +125,28 @@ assert.deepEqual(
   masterBeforeRejectedConfirmation,
   '生产准备单 BOM 与价格确认失败不得启用或改写任何专业任务',
 )
+
+// Millisecond-resolution ids must stay unique even when source-plan copying
+// replaces several draft rows with fewer rows during a dense Mock seed.
+const originalNow = Date.now
+try {
+  Date.now = () => 1790208000000
+  resetStyleArchiveRepository()
+  resetEngineeringBomRepository()
+  resetEngineeringIndependentSamplingRepository(true)
+  resetEngineeringMasterRepository()
+  resetTechnicalDataVersionRepository()
+  ensureEngineeringMasterDemoData()
+  const seededMasters = listEngineeringMasterOrders()
+  const seededVersions = listEngineeringBomVersions()
+  assert.equal(new Set(seededVersions.map((version) => version.bomDraftVersionId)).size, seededVersions.length,
+    '同一毫秒连续生成时 BOM ID 不得重复')
+  seededMasters.forEach((master) => {
+    assert.ok(listEngineeringBomVersionsByOwner('ENGINEERING_MASTER', master.masterOrderId).length > 0,
+      `${master.masterOrderCode} 不能因 BOM ID 冲突而丢失草稿`)
+  })
+} finally {
+  Date.now = originalNow
+}
 
 console.log('pcs-engineering-bom-version-workflow.spec.ts PASS')
