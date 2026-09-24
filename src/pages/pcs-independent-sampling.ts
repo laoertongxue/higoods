@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { getProjectById } from '../data/pcs-project-repository.ts'
 import { localDateTimeText } from '../utils.ts'
 import { renderEngineeringFileUpload, renderEngineeringUploadPreview } from '../components/ui/engineering-file-upload.ts'
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
@@ -96,6 +97,8 @@ const ui = {
   taskDrafts: {} as Record<string, Record<string, string>>,
   preview: null as { url: string; fileName: string; notice?: string } | null,
   feedback: '', ok: true,
+  extraFilters: {} as Record<string, string>,
+  appliedExtraFilters: {} as Record<string, string>,
   teamFilter: '',
   listKeyword: '',
   listStatus: '',
@@ -222,14 +225,14 @@ function renderDesignRevisionStyleRelation(row: EngineeringIndependentSamplingRe
   const target = getStyleArchiveById(row.targetStyleId)
   const sourceHtml = source
     ? imageButton(source.mainImageUrl, source.styleName, `<span class="block"><strong>${escapeHtml(source.styleCode)}</strong><small class="block text-slate-500">${escapeHtml(source.styleName)}</small></span>`)
-    : '<span class="text-red-600">参照款缺失</span>'
+    : '<span class="text-red-600">未选择原款式</span>'
   const targetHtml = target
     ? imageButton(target.mainImageUrl, target.styleName, `<span class="block"><strong>${escapeHtml(target.styleCode)}</strong><small class="block text-slate-500">${escapeHtml(target.styleName)}</small></span>`)
     : row.targetMode === 'TEMPORARY_SPU' && !row.linkedFormalStyleId
       ? imageButton(row.designFiles.at(-1)?.dataUrl || '', row.temporarySpuName, `<span class="block"><strong>线下临时 SPU</strong><small class="block text-slate-500">${escapeHtml(row.temporarySpuName)}</small></span>`)
       : escapeHtml(row.targetStyleName)
 
-  return `<div class="flex min-w-0 flex-col items-start gap-1" data-design-revision-style-relation><div class="min-w-0" data-design-revision-style-source>${sourceHtml}</div><div class="h-5 text-left leading-5 text-slate-500" data-design-revision-style-arrow aria-hidden="true">→</div><div class="min-w-0" data-design-revision-style-target>${targetHtml}</div></div>`
+  return `<div class="flex min-w-0 flex-col items-start gap-1" data-design-revision-style-relation><span class="mb-1 rounded bg-blue-50 px-2 py-1 text-xs text-blue-700">${samplingStatusText(row)}</span><div class="min-w-0" data-design-revision-style-source>${sourceHtml}</div><div class="h-5 text-left leading-5 text-slate-500" data-design-revision-style-arrow aria-hidden="true">→</div><div class="min-w-0" data-design-revision-style-target>${targetHtml}</div><div class="mt-2 flex items-center gap-2"><span class="text-xs text-slate-500">设计稿</span>${renderDesignRevisionArtwork(row)}</div><div class="mt-1 space-y-0.5 text-xs text-slate-500"><p>原款式买手：${escapeHtml(styleBuyer(row.sourceStyleId))}</p><p>新款式买手：${escapeHtml(row.buyerName)}</p><p>添加人：${escapeHtml(row.createdBy)}</p><p>品牌：${escapeHtml(target?.brandName || '未记录')} · ${escapeHtml(target?.categoryCodeName || target?.categoryName || '未记录')}</p><p>添加 ${escapeHtml(row.createdAt)}</p><p>更新 ${escapeHtml(row.updatedAt || '—')}</p><p>工作下达 ${escapeHtml(row.taskPlanConfirmedAt || '—')}</p><p>完成 ${escapeHtml(row.confirmedAt || '—')}</p><p>设计稿上传 ${escapeHtml(row.designFiles.at(-1)?.uploadedAt || '—')}</p></div></div>`
 }
 
 function renderDesignRevisionArtwork(row: EngineeringIndependentSamplingRecord): string {
@@ -237,36 +240,6 @@ function renderDesignRevisionArtwork(row: EngineeringIndependentSamplingRecord):
   if (!file?.dataUrl) return '<span class="text-red-600">缺少设计稿</span>'
   const imageUrl = localStyleFixtureImageUrl(file.dataUrl)
   return `<button type="button" class="inline-flex rounded border bg-slate-50 p-1 hover:border-blue-400" title="点击查看设计稿大图" aria-label="查看设计稿 ${escapeHtml(file.fileName)} 大图" data-${PREFIX}-action="open-image" data-image-url="${escapeHtml(imageUrl)}" data-image-alt="${escapeHtml(file.fileName)}" data-design-revision-design-thumbnail><span class="flex h-16 w-16 items-center justify-center overflow-hidden rounded bg-white"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(file.fileName)}" class="h-full w-full object-cover" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="px-1 text-center text-[10px] text-red-600">图片加载失败</span></span></button>`
-}
-
-function renderDesignRevisionWorkItems(row: EngineeringIndependentSamplingRecord): string {
-  if (!row.professionalTasks.length) return '<span class="text-slate-400" data-design-revision-work-items>—</span>'
-  return `<div class="space-y-1.5" data-design-revision-work-items>${row.professionalTasks.map((task) => `<div class="flex min-w-0 items-center justify-between gap-2" data-design-revision-work-item><span class="truncate" title="${escapeHtml(task.taskName)}">${escapeHtml(task.taskName)}</span><span class="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600" data-design-revision-owner-team>${escapeHtml(task.ownerTeamName)}</span></div>`).join('')}</div>`
-}
-
-function renderDesignRevisionTimeValue(value: string): string {
-  return value
-    ? `<time class="whitespace-nowrap tabular-nums text-slate-700">${escapeHtml(value)}</time>`
-    : '<span class="text-slate-400">—</span>'
-}
-
-function renderDesignRevisionTimePoint(label: string, value: string, marker = ''): string {
-  return `<div class="flex min-w-0 items-baseline gap-1.5" ${marker}><span class="shrink-0 text-slate-500">${escapeHtml(label)}</span>${renderDesignRevisionTimeValue(value)}</div>`
-}
-
-function renderDesignRevisionTimes(row: EngineeringIndependentSamplingRecord): string {
-  const latestDesignUploadedAt = row.designFiles.at(-1)?.uploadedAt || ''
-  const materialAndCostConfirmedAt = row.buyerPreparationConfirmedAt || row.bomConversionConfirmedAt
-  const reopenedAt = row.buyerPreparationReturnedAt
-    ? renderDesignRevisionTimePoint('方案重开', row.buyerPreparationReturnedAt, 'data-design-revision-reopened-at')
-    : ''
-  const taskTimes = row.professionalTasks.map((task) => {
-    const colorConfirmedAt = task.colorRequirementConfirmedAt
-      ? renderDesignRevisionTimePoint('颜色确认', task.colorRequirementConfirmedAt, 'data-design-revision-color-confirmed-at')
-      : ''
-    return `<section class="border-t border-slate-100 pt-1.5" data-design-revision-work-item-times><p class="mb-1 font-medium text-slate-700">${escapeHtml(task.taskName)}</p><div class="grid grid-cols-2 gap-x-3 gap-y-0.5">${renderDesignRevisionTimePoint('计划完成', task.plannedCompleteAt)}${renderDesignRevisionTimePoint('开始', task.startedAt)}${colorConfirmedAt}${renderDesignRevisionTimePoint('提交', task.submittedAt)}${renderDesignRevisionTimePoint('完成', task.completedAt)}</div></section>`
-  }).join('')
-  return `<div class="space-y-1.5 text-xs leading-5" data-design-revision-times><div class="grid grid-cols-2 gap-x-3 gap-y-0.5">${renderDesignRevisionTimePoint('创建', row.createdAt, 'data-design-revision-created-at')}${renderDesignRevisionTimePoint('设计稿上传', latestDesignUploadedAt, 'data-design-revision-design-uploaded-at')}${renderDesignRevisionTimePoint('物料费用确认', materialAndCostConfirmedAt, 'data-design-revision-material-cost-confirmed-at')}${renderDesignRevisionTimePoint('工作安排确认', row.taskPlanConfirmedAt, 'data-design-revision-plan-confirmed-at')}${reopenedAt}</div>${taskTimes}<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-slate-100 pt-1.5">${renderDesignRevisionTimePoint('设计改款完成', row.confirmedAt, 'data-design-revision-completed-at')}${renderDesignRevisionTimePoint('最后更新', row.updatedAt, 'data-design-revision-updated-at')}</div></div>`
 }
 
 function styleOptions(selected = ''): string {
@@ -297,7 +270,7 @@ function renderReusablePatternPicker(): string {
 function renderCreationBasicFields(): string {
   const designRule = ENGINEERING_UPLOAD_RULES.DESIGN_IMAGE
   const fileRows = (files: EngineeringUploadedFile[], removeAction: string, imagePreview: boolean) => files.map((file) => `<div class="flex items-center justify-between rounded border bg-white px-3 py-2 text-sm"><div>${imagePreview ? imageButton(file.dataUrl, file.fileName) : ''}<p class="font-medium">${escapeHtml(file.fileName)}</p><p class="text-xs text-slate-500">${formatEngineeringUploadSize(file.sizeBytes)} · ${escapeHtml(file.uploadedByName)} · ${escapeHtml(file.uploadedAt)}</p></div><div class="flex gap-3">${imagePreview ? `<button type="button" class="text-blue-700" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(file.dataUrl)}" data-file-name="${escapeHtml(file.fileName)}">查看</button>` : ''}<button type="button" class="text-red-600" data-${PREFIX}-action="${removeAction}" data-file-id="${escapeHtml(file.fileId)}">删除</button></div></div>`).join('')
-  return `<section class="rounded-lg bg-white p-5" data-design-revision-creation-fields><h2 class="mb-4 font-semibold">基本信息与设计稿</h2><div class="grid gap-4 md:grid-cols-2"><label class="block space-y-1 text-sm"><span>参照款式（SPU）</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="sourceStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.sourceStyleId)}</select>${ui.createDraft.sourceStyleId ? styleCard(ui.createDraft.sourceStyleId, '参照款式').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>已建档目标 SPU <span class="text-red-600">*</span></span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="targetStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.targetStyleId)}</select>${ui.createDraft.targetStyleId ? styleCard(ui.createDraft.targetStyleId, '目标款式').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>买手</span><input class="h-10 w-full rounded border bg-slate-50 px-3" value="${escapeHtml(BUYER.userName)}" readonly></label><label class="block space-y-1 text-sm"><span>基码纸样</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="patternHandling"><option value="REMAKE" ${ui.createDraft.patternHandling === 'REMAKE' ? 'selected' : ''}>需要重新制作</option><option value="REUSE" ${ui.createDraft.patternHandling === 'REUSE' ? 'selected' : ''}>纸样不变，直接复用</option></select></label><label class="block space-y-1 text-sm md:col-span-2"><span>本次设计改款要求</span><textarea class="min-h-20 w-full rounded border p-3" data-${PREFIX}-field="creationReason" placeholder="填写本次需要改什么">${escapeHtml(ui.createDraft.creationReason)}</textarea></label><section class="space-y-3 bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">设计稿 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">${designRule.extensions.map((item) => `.${item}`).join('、')} · 单个不超过 ${Math.round(designRule.maxSizeBytes / 1024 / 1024)} MB</p></div><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">选择本地设计稿<input class="sr-only" type="file" accept="${escapeHtml(designRule.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-design-upload></label><div class="space-y-2">${fileRows(ui.createDraft.designFiles, 'remove-create-design', true) || '<p class="text-xs text-amber-700">请选择本次设计稿，保存草稿或提交时一并保存。</p>'}</div></section>${renderReusablePatternPicker()}</div></section>`
+  return `<section class="rounded-lg bg-white p-5" data-design-revision-creation-fields><h2 class="mb-4 font-semibold">基本信息与设计稿</h2><div class="grid gap-4 md:grid-cols-2"><label class="block space-y-1 text-sm"><span>原款式（SPU）</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="sourceStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.sourceStyleId)}</select>${ui.createDraft.sourceStyleId ? styleCard(ui.createDraft.sourceStyleId, '原款式（SPU）').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>新款式（SPU） <span class="text-red-600">*</span></span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="targetStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.targetStyleId)}</select>${ui.createDraft.targetStyleId ? styleCard(ui.createDraft.targetStyleId, '新款式（SPU）').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>买手</span><input class="h-10 w-full rounded border bg-slate-50 px-3" value="${escapeHtml(BUYER.userName)}" readonly></label><label class="block space-y-1 text-sm"><span>基码纸样</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="patternHandling"><option value="REMAKE" ${ui.createDraft.patternHandling === 'REMAKE' ? 'selected' : ''}>需要重新制作</option><option value="REUSE" ${ui.createDraft.patternHandling === 'REUSE' ? 'selected' : ''}>纸样不变，直接复用</option></select></label><label class="block space-y-1 text-sm md:col-span-2"><span>本次设计改款要求</span><textarea class="min-h-20 w-full rounded border p-3" data-${PREFIX}-field="creationReason" placeholder="填写本次需要改什么">${escapeHtml(ui.createDraft.creationReason)}</textarea></label><section class="space-y-3 bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">设计稿 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">${designRule.extensions.map((item) => `.${item}`).join('、')} · 单个不超过 ${Math.round(designRule.maxSizeBytes / 1024 / 1024)} MB</p></div><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">选择本地设计稿<input class="sr-only" type="file" accept="${escapeHtml(designRule.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-design-upload></label><div class="space-y-2">${fileRows(ui.createDraft.designFiles, 'remove-create-design', true) || '<p class="text-xs text-amber-700">请选择本次设计稿，保存草稿或提交时一并保存。</p>'}</div></section>${renderReusablePatternPicker()}</div></section>`
 }
 
 function renderDialogHost(): string {
@@ -316,10 +289,18 @@ function listRows(): EngineeringIndependentSamplingRecord[] {
     if (ui.appliedTeamFilter && !getEngineeringIndependentCurrentTeams(record).includes(ui.appliedTeamFilter)) return false
     if (ui.appliedStatus && record.status !== ui.appliedStatus) return false
     if (ui.appliedPattern && (record.patternHandling === 'REMAKE' ? 'REMAKE' : 'REUSE') !== ui.appliedPattern) return false
-    if (ui.appliedStartDate && record.createdAt.slice(0, 10) < ui.appliedStartDate) return false
-    if (ui.appliedEndDate && record.createdAt.slice(0, 10) > ui.appliedEndDate) return false
+    const facts = recordFilterFacts(record)
+    for (const [key, value] of Object.entries(ui.appliedExtraFilters)) {
+      if (!value || key === 'timeType') continue
+      if (['brand', 'category', 'patternUploaded', 'hasDyeOrder', 'hasPrintOrder'].includes(key)) { if (facts[key] !== value) return false }
+      else if (!(facts[key] || '').toLocaleLowerCase().includes(value.toLocaleLowerCase())) return false
+    }
+    const date = facts[ui.appliedExtraFilters.timeType || 'created']?.slice(0, 10) || ''
+    if ((ui.appliedStartDate || ui.appliedEndDate) && !date) return false
+    if (ui.appliedStartDate && date < ui.appliedStartDate) return false
+    if (ui.appliedEndDate && date > ui.appliedEndDate) return false
     if (ui.appliedProcessing) {
-      const refs = record.professionalTasks.flatMap((task) => task.processWorkOrderRefs)
+      const refs = processRefs(record)
       let dye = refs.some((ref) => ref.processType === 'DYEING')
       let print = refs.some((ref) => ref.processType === 'PRINTING')
       if (record.status === 'DRAFT') {
@@ -340,8 +321,8 @@ function listRows(): EngineeringIndependentSamplingRecord[] {
       if (combination !== ui.appliedProcessing) return false
     }
     if (!ui.appliedKeyword) return true
-    const refs = record.professionalTasks.flatMap((task) => task.processWorkOrderRefs)
-    return [record.samplingTaskCode, record.targetStyleCode, record.sourceStyleCode, record.buyerName, ...refs.map((ref) => ref.processOrderCode)].some((text) => text.toLocaleLowerCase().includes(ui.appliedKeyword.toLocaleLowerCase()))
+    const refs = processRefs(record)
+    return [record.samplingTaskId, record.samplingTaskCode, record.targetStyleCode, record.sourceStyleCode, record.createdBy, record.buyerName, ...refs.map((ref) => ref.processOrderCode)].some((text) => text.toLocaleLowerCase().includes(ui.appliedKeyword.toLocaleLowerCase()))
   })
 }
 function teamOptions(): string[] {
@@ -349,7 +330,7 @@ function teamOptions(): string[] {
 }
 
 function renderDesignRevisionProcessOrders(row: EngineeringIndependentSamplingRecord, processType: 'DYEING' | 'PRINTING'): string {
-  const refs = row.professionalTasks.flatMap((task) => task.processWorkOrderRefs).filter((ref) => ref.processType === processType)
+  const refs = processRefs(row).filter((ref) => ref.processType === processType)
   if (!refs.length) return '<span class="text-slate-400">无需加工</span>'
   const statusViews = readDesignRevisionProcessWorkOrderStatuses(refs)
   return `<div class="space-y-2">${refs.map((ref) => {
@@ -373,10 +354,53 @@ function renderDesignRevisionProcessOrders(row: EngineeringIndependentSamplingRe
   }).join('')}</div>`
 }
 
+function taskTiming(task: EngineeringIndependentProfessionalTask): string {
+  return `<div class="mt-1 space-y-0.5 text-xs text-slate-500"><p>负责 ${escapeHtml(task.ownerTeamName)}</p><p>当前处理 ${escapeHtml(getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '—')}</p><p>计划完成 ${escapeHtml(task.plannedCompleteAt || '—')}</p><p>开始 ${escapeHtml(task.startedAt || '—')}</p><p>提交 ${escapeHtml(task.submittedAt || '—')}</p><p>完成 ${escapeHtml(task.completedAt || '—')}</p></div>`
+}
+function processRefs(record: EngineeringIndependentSamplingRecord) {
+  return [...new Map([...record.professionalTasks.flatMap(task => task.processWorkOrderRefs), ...(record.historicalProcessWorkOrderRefs || [])].map(ref => [`${ref.processType}:${ref.processOrderId}`, ref])).values()]
+}
+function patternFiles(record: EngineeringIndependentSamplingRecord) {
+  return [...record.reusedPatternFiles, ...record.professionalTasks.filter(task => task.taskType === 'BASE_PATTERN').flatMap(task => task.results.flatMap(result => result.files))].filter(file => file.purpose === 'PATTERN_SOURCE')
+}
+function styleBuyer(styleId: string): string {
+  const style = getStyleArchiveById(styleId)
+  return style?.sourceProjectId ? getProjectById(style.sourceProjectId)?.ownerName || '未记录' : '未记录'
+}
+function recordFilterFacts(record: EngineeringIndependentSamplingRecord): Record<string, string> {
+  const style = getStyleArchiveById(record.targetStyleId)
+  const files = patternFiles(record)
+  const refs = processRefs(record)
+  return { originalSpu: record.sourceStyleCode, newSpu: record.targetStyleCode, creator: record.createdBy,
+    originalBuyer: styleBuyer(record.sourceStyleId), newBuyer: record.buyerName,
+    patternMaker: [...new Set(files.map(file => file.uploadedByName))].join('、'),
+    patternUploaded: files.length ? 'YES' : 'NO', brand: style?.brandName || '', category: style?.categoryCodeName || style?.categoryName || '',
+    hasDyeOrder: refs.some(ref => ref.processType === 'DYEING') ? 'YES' : 'NO', hasPrintOrder: refs.some(ref => ref.processType === 'PRINTING') ? 'YES' : 'NO',
+    created: record.createdAt, completed: record.confirmedAt, patternUploadedAt: files.map(file => file.uploadedAt).sort().at(-1) || '' }
+}
+function renderMaterialCosts(row: EngineeringIndependentSamplingRecord): string {
+  const lines = materialPlanVersions(row).flatMap(version => version.materialLines)
+  let total = 0
+  let invalid = false
+  const materials = lines.map(line => {
+    try {
+      const item = resolveEngineeringBomMaterialLine(line)
+      if (item.materialCostCny === null) invalid = true
+      total += item.materialCostCny || 0
+      const sku = getMaterialSkuRecordById(line.materialSkuId)
+      const archive = sku && getMaterialArchiveById(sku.materialId)
+      return `<div class="py-1">${imageButton(sku?.skuImageUrl || archive?.mainImageUrl || line.materialImageUrl || '', item.materialName, `<strong class="block text-xs">${escapeHtml(item.materialName)}</strong><span class="block break-all text-xs">${escapeHtml(item.materialSkuCode)}</span>`)}<p class="mt-1 text-xs">需要 ${Number(item.totalRequirementQuantity.toFixed(4))} ${escapeHtml(item.pricingUnit)} · 单价 ¥${item.standardUnitPriceCny?.toFixed(2) || '未维护'}</p><p class="text-xs">小计 ¥${item.materialCostCny?.toFixed(2) || '未核定'} · ${line.dyeRequirement === '是' ? '染色' : ''}${line.dyeRequirement === '是' && line.printRequirement === '是' ? ' → ' : ''}${line.printRequirement === '是' ? '印花' : line.dyeRequirement === '是' ? '' : '无需印染'}</p></div>`
+    } catch { invalid = true; return `<p class="text-xs text-amber-700">${escapeHtml(line.materialSkuId)}：物料资料需补齐</p>` }
+  }).join('')
+  const costs = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', row.samplingTaskId)?.customCosts || []
+  const fees = costs.reduce((sum, cost) => sum + cost.amountIdr, 0)
+  return `<div class="space-y-1" data-design-revision-material-costs>${materials || '<p class="text-slate-400">尚未添加物料</p>'}<div class="mt-2 border-t pt-2 text-xs">${costs.map(cost => `<p>${escapeHtml(cost.title)}：Rp ${cost.amountIdr.toLocaleString('id-ID')}${cost.note ? ` · ${escapeHtml(cost.note)}` : ''}</p>`).join('') || '<p>无其他费用</p>'}<p class="mt-1 font-medium">物料 ¥${total.toFixed(2)} · 费用 Rp ${fees.toLocaleString('id-ID')}</p><p class="text-slate-500">方案确认 ${escapeHtml(row.buyerPreparationConfirmedAt || row.bomConversionConfirmedAt || '—')}</p><p class="font-medium">综合 ¥${(total + fees / getLatestPcsExchangeRate().idrPerCny).toFixed(2)}${invalid ? '（部分待核定）' : ''}</p></div></div>`
+}
+
 function renderDesignRevisionBasePattern(row: EngineeringIndependentSamplingRecord): string {
   const task = row.professionalTasks.find((item) => item.taskType === 'BASE_PATTERN')
-  if (!task) return row.patternHandling === 'REUSE' ? '复用已有纸样' : '待生成'
-  return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · ${escapeHtml(task.ownerTeamName)}</p><p class="text-xs">完成 ${escapeHtml(task.completedAt || '—')}</p>`
+  if (!task) return row.patternHandling === 'REUSE' ? `复用已有纸样<p class="text-xs">上传 ${escapeHtml(patternFiles(row).map(file => file.uploadedAt).sort().at(-1) || '—')}</p>` : '待生成'
+  return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · ${escapeHtml(task.ownerTeamName)}</p>${taskTiming(task)}<p class="text-xs">纸样上传：${patternFiles(row).length ? '是' : '否'}</p><p class="text-xs">上传人 ${escapeHtml(recordFilterFacts(row).patternMaker || '—')}</p><p class="text-xs">上传 ${escapeHtml(recordFilterFacts(row).patternUploadedAt || '—')}</p>`
 }
 
 function renderDesignRevisionSampleTask(row: EngineeringIndependentSamplingRecord): string {
@@ -384,7 +408,7 @@ function renderDesignRevisionSampleTask(row: EngineeringIndependentSamplingRecor
   if (!task) return '<span class="text-slate-400">待生成</span>'
   const planned = (task.sampleRequirements || []).reduce((sum, line) => sum + line.requiredQuantity, 0)
   const delivered = task.results.reduce((sum, result) => sum + result.sampleQuantity, 0)
-  return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${planned} 件要求 · ${delivered} 件已交</p><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · 提交 ${escapeHtml(task.submittedAt || '—')}</p>`
+  return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${planned} 件要求 · ${delivered} 件已交</p><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · 提交 ${escapeHtml(task.submittedAt || '—')}</p>${taskTiming(task)}`
 }
 
 function renderDesignRevisionFilters(): string {
@@ -392,7 +416,7 @@ function renderDesignRevisionFilters(): string {
   const field = (label: string, control: string, className = 'min-w-0') => `<label class="${className}"><span class="mb-1 block text-xs text-muted-foreground">${label}</span>${control}</label>`
   const input = (key: string, value: string, type = 'text', placeholder = '') => `<input type="${type}" class="${inputClass}" data-${PREFIX}-field="${key}" value="${escapeHtml(value)}" placeholder="${placeholder}">`
   const select = (key: string, value: string, options: string[][]) => `<select class="${inputClass} border-input bg-background" data-${PREFIX}-field="${key}">${options.map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`
-  const advancedCount = [ui.listPattern, ui.listProcessing, ui.listStartDate, ui.listEndDate].filter(Boolean).length
+  const advancedCount = [...Object.values(ui.extraFilters), ui.listPattern, ui.listProcessing, ui.listStartDate, ui.listEndDate].filter(Boolean).length
   return `<div class="rounded-lg border bg-white p-3">
     <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
       ${field('综合查询', input('listKeyword', ui.listKeyword, 'text', '任务号、SPU、买手或加工单号'), 'min-w-0 sm:col-span-2')}
@@ -403,8 +427,12 @@ function renderDesignRevisionFilters(): string {
       <div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
         ${field('基码纸样', select('listPattern', ui.listPattern, [['', '全部'], ['REMAKE', '需要制作'], ['REUSE', '复用纸样']]))}
         ${field('染印组合', select('listProcessing', ui.listProcessing, [['', '全部'], ['NONE', '无需印染'], ['DYE_ONLY', '仅染色'], ['PRINT_ONLY', '仅印花'], ['BOTH', '先染后印']]))}
-        ${field('创建开始日期', input('listStartDate', ui.listStartDate, 'date'))}
-        ${field('创建结束日期', input('listEndDate', ui.listEndDate, 'date'))}
+        ${[['originalSpu', '原款式（SPU）'], ['newSpu', '新款式（SPU）'], ['originalBuyer', '原款式买手'], ['newBuyer', '新款式买手'], ['creator', '添加人'], ['patternMaker', '纸样上传人／版师']].map(([key, label]) => field(label, input(`extra:${key}`, ui.extraFilters[key] || ''))).join('')}
+        ${[['brand', '品牌'], ['category', '款式品类']].map(([key, label]) => field(label, select(`extra:${key}`, ui.extraFilters[key] || '', [['', '全部'], ...[...new Set(listEngineeringIndependentSamplingRecords().map(record => recordFilterFacts(record)[key]).filter(Boolean))].sort().map(text => [text, text])]))).join('')}
+        ${[['patternUploaded', '是否上传纸样'], ['hasDyeOrder', '是否创建染色单'], ['hasPrintOrder', '是否创建印花单']].map(([key, label]) => field(label, select(`extra:${key}`, ui.extraFilters[key] || '', [['', '全部'], ['YES', '是'], ['NO', '否']]))).join('')}
+        ${field('时间类型', select('extra:timeType', ui.extraFilters.timeType || '', [['', '添加时间'], ['completed', '完成时间'], ['patternUploadedAt', '上传纸样时间']]))}
+        ${field('开始日期', input('listStartDate', ui.listStartDate, 'date'))}
+        ${field('结束日期', input('listEndDate', ui.listEndDate, 'date'))}
       </div>
     </div>
     <div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>
@@ -419,25 +447,19 @@ function renderDesignRevisionFilters(): string {
 function listColumns(): StandardListColumn<EngineeringIndependentSamplingRecord>[] {
   return [
     { key: 'select', title: '勾选', width: 56, leadingControlColumn: true, required: true, freezeable: true, render: (row) => `<input type="checkbox" aria-label="选择 ${escapeHtml(row.samplingTaskCode)}" data-${PREFIX}-select-task="${escapeHtml(row.samplingTaskId)}" ${ui.selectedTaskIds.has(row.samplingTaskId) ? 'checked' : ''}>` },
-    { key: 'code', title: '任务号', width: 140, required: true, freezeable: true, sortable: true, sortValue: (row) => row.samplingTaskCode, render: (row) => `<a class="font-medium text-blue-700 hover:underline" href="/pcs/production-preparation/design-revision/${escapeHtml(row.samplingTaskId)}">${escapeHtml(row.samplingTaskCode)}</a>` },
-    { key: 'style', title: '参照款式 → 目标款式', width: 390, required: true, render: renderDesignRevisionStyleRelation },
-    { key: 'design', title: '设计稿', width: 110, required: true, render: renderDesignRevisionArtwork },
-    { key: 'status', title: '状态', width: 140, sortable: true, sortValue: samplingStatusText, render: (row) => `<span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${samplingStatusText(row)}</span>` },
-    { key: 'team', title: '当前需处理的团队', width: 150, render: (row) => escapeHtml(getEngineeringIndependentCurrentTeam(row)) },
-    { key: 'workItems', title: '工作项 / 负责团队', width: 260, required: true, render: renderDesignRevisionWorkItems },
-    { key: 'basePattern', title: '基码纸样', width: 220, required: true, render: renderDesignRevisionBasePattern },
-    { key: 'dyeOrders', title: '染色加工单', width: 330, required: true, render: (row) => renderDesignRevisionProcessOrders(row, 'DYEING') },
-    { key: 'printOrders', title: '印花加工单', width: 330, required: true, render: (row) => renderDesignRevisionProcessOrders(row, 'PRINTING') },
-    { key: 'sampleTask', title: '销售展示样衣', width: 240, required: true, render: renderDesignRevisionSampleTask },
-    { key: 'bom', title: '物料与费用', width: 170, render: (row) => row.bomVersionIds.length ? `<a class="text-blue-700 hover:underline" href="/pcs/production-preparation/design-revision/${escapeHtml(row.samplingTaskId)}">查看整款方案</a>` : '<span class="text-slate-400">尚未建立</span>' },
-    { key: 'owner', title: '买手', width: 120, render: (row) => escapeHtml(row.buyerName) },
-    { key: 'times', title: '时间', width: 520, required: true, sortable: true, sortValue: (row) => row.updatedAt, render: renderDesignRevisionTimes },
+    { key: 'code', title: '任务号', width: 110, required: true, freezeable: true, sortable: true, sortValue: (row) => row.samplingTaskCode, render: (row) => `<a class="font-medium text-blue-700 hover:underline" href="/pcs/production-preparation/design-revision/${escapeHtml(row.samplingTaskId)}">${escapeHtml(row.samplingTaskCode)}</a>` },
+    { key: 'style', title: '原款式-->新款式', width: 260, required: true, render: renderDesignRevisionStyleRelation },
+    { key: 'bom', title: '物料与费用', width: 275, render: renderMaterialCosts },
+    { key: 'basePattern', title: '基码纸样', width: 175, required: true, render: renderDesignRevisionBasePattern },
+    { key: 'dyeOrders', title: '染色加工单', width: 235, required: true, render: (row) => renderDesignRevisionProcessOrders(row, 'DYEING') },
+    { key: 'printOrders', title: '印花加工单', width: 235, required: true, render: (row) => renderDesignRevisionProcessOrders(row, 'PRINTING') },
+    { key: 'sampleTask', title: '销售展示样衣', width: 200, required: true, render: renderDesignRevisionSampleTask },
     { key: 'action', title: '操作', width: 100, actionColumn: true, render: (row) => `<a class="inline-flex h-8 items-center rounded border px-3 text-xs" href="/pcs/production-preparation/design-revision/${escapeHtml(row.samplingTaskId)}">查看详情</a>` },
   ]
 }
 
 const listController = createProcessOrderListController({
-    state: listState, columns: listColumns(), preferenceKey: 'higood-pcs-design-revision-list-preferences-v2',
+    state: listState, columns: listColumns(), preferenceKey: 'higood-pcs-design-revision-list-preferences-v3',
     pageSizeOptions: [10, 20, 50], eventPrefix: PREFIX, rootSelector: '[data-independent-sampling-list="DESIGN_REVISION"]',
     tableSurfaceSelector: '[data-independent-sampling-table]', paginationSurfaceSelector: '[data-independent-sampling-pagination]', overlaysSurfaceSelector: '[data-independent-sampling-overlays]',
     defaultFrozenKeys: ['code'], columnSettingsTitle: '设计改款任务列表列设置', emptyText: '暂无设计改款任务', getRows: listRows,
@@ -467,7 +489,7 @@ function independentTaskCurrentAction(task: EngineeringIndependentProfessionalTa
 const displaySampleColumns: StandardListColumn<DisplaySampleListRow>[] = [
   { key: 'task', title: '任务号', width: 230, required: true, freezeable: true, sortable: true, sortValue: ({ task }) => task.taskId, render: ({ task }) => `<a class="font-medium text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a>` },
   { key: 'source', title: '由哪张单发起', width: 160, sortable: true, sortValue: ({ record }) => record.samplingTaskCode, render: ({ record }) => `<p class="font-medium">${escapeHtml(record.samplingTaskCode)}</p><p class="text-xs text-slate-500">${TASK_TYPE_TEXT}</p>` },
-  { key: 'style', title: '目标款式', width: 300, required: true, render: ({ record }) => { const style = getStyleArchiveById(record.targetStyleId); return style ? imageButton(style.mainImageUrl, style.styleName, `<span class="block"><strong>${escapeHtml(style.styleCode)}</strong><small class="block text-slate-500">${escapeHtml(style.styleName)}</small></span>`) : imageButton(record.designFiles.at(-1)?.dataUrl || '', record.temporarySpuName || record.targetStyleName, `<span class="block"><strong>线下临时 SPU</strong><small class="block text-slate-500">${escapeHtml(record.temporarySpuName || record.targetStyleName)}</small></span>`) } },
+  { key: 'style', title: '新款式（SPU）', width: 300, required: true, render: ({ record }) => { const style = getStyleArchiveById(record.targetStyleId); return style ? imageButton(style.mainImageUrl, style.styleName, `<span class="block"><strong>${escapeHtml(style.styleCode)}</strong><small class="block text-slate-500">${escapeHtml(style.styleName)}</small></span>`) : imageButton(record.designFiles.at(-1)?.dataUrl || '', record.temporarySpuName || record.targetStyleName, `<span class="block"><strong>线下临时 SPU</strong><small class="block text-slate-500">${escapeHtml(record.temporarySpuName || record.targetStyleName)}</small></span>`) } },
   { key: 'team', title: '当前需处理的团队', width: 160, render: ({ task }) => escapeHtml(getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '-') },
   { key: 'actionText', title: '当前动作', width: 220, render: ({ task }) => escapeHtml(independentTaskCurrentAction(task)) },
   { key: 'status', title: '状态', width: 120, sortable: true, sortValue: ({ task }) => professionalTaskStatusText(task), render: ({ task }) => `<span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(professionalTaskStatusText(task))}</span>` },
@@ -852,7 +874,7 @@ function renderDesignRevisionBasicInfo(
   currentStep: number,
 ): string {
   const objective = record.creationReason.trim() || '未填写设计改款目标'
-  return `<section class="overflow-hidden rounded-lg bg-white" data-design-revision-basic-info><header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex flex-wrap items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(record.samplingTaskCode)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(samplingStatusText(record))}</span></div><p class="mt-1 text-sm text-slate-500">设计改款 · 买手：${escapeHtml(record.buyerName)}</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/production-preparation/design-revision">返回列表</a></header><div class="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]" data-design-revision-basic-columns><div class="space-y-4"><section class="rounded-lg bg-blue-50/60 px-5 py-4" data-design-revision-objective><p class="text-sm font-medium text-blue-700">设计改款目标</p><p class="mt-2 whitespace-pre-wrap text-base font-medium leading-7 text-slate-900">${escapeHtml(objective)}</p></section><div class="grid gap-4 md:grid-cols-2">${styleCard(record.sourceStyleId, '参照款式').replace('rounded-lg border bg-white p-4', 'p-2')}${targetStyleCard(record, '目标款式').replace('rounded-lg border bg-white p-4', 'p-2')}</div><div class="grid gap-4 md:grid-cols-2"><div class="rounded-lg bg-slate-50 p-4"><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(getEngineeringIndependentCurrentTeam(record) || '已完成')}</p></div><div class="rounded-lg bg-slate-50 p-4"><p class="text-xs text-slate-500">当前步骤</p><p class="mt-1 font-medium">${escapeHtml(SAMPLING_STEPS[currentStep].title)}</p></div></div></div>${renderDesignFileHistory(record)}</div></section>`
+  return `<section class="overflow-hidden rounded-lg bg-white" data-design-revision-basic-info><header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex flex-wrap items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(record.samplingTaskCode)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(samplingStatusText(record))}</span></div><p class="mt-1 text-sm text-slate-500">设计改款 · 买手：${escapeHtml(record.buyerName)}</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/production-preparation/design-revision">返回列表</a></header><div class="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]" data-design-revision-basic-columns><div class="space-y-4"><section class="rounded-lg bg-blue-50/60 px-5 py-4" data-design-revision-objective><p class="text-sm font-medium text-blue-700">设计改款目标</p><p class="mt-2 whitespace-pre-wrap text-base font-medium leading-7 text-slate-900">${escapeHtml(objective)}</p></section><div class="grid gap-4 md:grid-cols-2">${styleCard(record.sourceStyleId, '原款式（SPU）').replace('rounded-lg border bg-white p-4', 'p-2')}${targetStyleCard(record, '新款式（SPU）').replace('rounded-lg border bg-white p-4', 'p-2')}</div><div class="grid gap-4 md:grid-cols-2"><div class="rounded-lg bg-slate-50 p-4"><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(getEngineeringIndependentCurrentTeam(record) || '已完成')}</p></div><div class="rounded-lg bg-slate-50 p-4"><p class="text-xs text-slate-500">当前步骤</p><p class="mt-1 font-medium">${escapeHtml(SAMPLING_STEPS[currentStep].title)}</p></div></div></div>${renderDesignFileHistory(record)}</div></section>`
 }
 
 export function renderPcsIndependentSamplingDetailPage(id: string): string {
@@ -1008,7 +1030,7 @@ export function renderPcsIndependentSamplingProfessionalTaskPage(taskId: string)
       ? `<section class="rounded-lg border bg-white p-4">${renderDisplaySampleSubmission(task)}<button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="submit-task" data-task-id="${escapeHtml(task.taskId)}">提交本次工作</button></section>`
       : `<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">提交本次成果</h2><div class="mt-3 grid gap-3">${renderProfessionalResultFields(task)}${uploadPurposes(task).map(({ purpose, label, requiredHint }) => renderEngineeringFileUpload({ taskId: task.taskId, purpose, files: listEngineeringTaskUploadedFiles(task.taskId, 'TASK', purpose), label, requiredHint, eventPrefix: PREFIX })).join('')}</div><button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="submit-task" data-task-id="${escapeHtml(task.taskId)}">提交本次工作</button></section>`
     : ''
-  return `<section class="space-y-4 p-4"><header class="rounded-lg border bg-white"><div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(task.taskName)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(professionalTaskStatusText(task))}</span></div><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.samplingTaskCode)} · 目标款式 ${escapeHtml(targetLabel)} · 来源：设计改款</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/production-preparation/design-revision/${escapeHtml(record.samplingTaskId)}">返回主任务</a></div><div class="grid gap-4 px-5 py-4 md:grid-cols-[2fr_1fr_1fr_1fr]">${targetBlock}<div><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(currentTeam)}</p></div><div><p class="text-xs text-slate-500">需要先完成</p><p class="mt-1 font-medium">${escapeHtml(dependencyNames(record, task))}</p></div><div><p class="text-xs text-slate-500">完成后去向</p><p class="mt-1 font-medium">${escapeHtml(nextTeam(record, task))}</p></div></div><div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-5 py-4"><div><p class="text-xs text-slate-500">当前动作</p><p class="mt-1 text-sm">${escapeHtml(currentAction)}</p></div>${task.status === 'WAIT_START' && task.taskType === 'BASE_PATTERN' ? `<button class="rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="start-task" data-task-id="${escapeHtml(task.taskId)}">开始任务</button>` : ''}</div></header>${feedbackHtml()}${missingProcessOrders ? `<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"><span>${canRepairProcessOrders ? '原加工单关联已失效，请按当前物料与加工要求重新建立。' : '原加工单关联已失效，请先补充销售展示样衣数量。'}</span>${canRepairProcessOrders ? `<button class="rounded border border-amber-300 bg-white px-3 py-2 font-medium" data-${PREFIX}-action="repair-process-orders" data-task-id="${escapeHtml(task.taskId)}">重新生成加工单关联</button>` : `<a class="rounded border border-amber-300 bg-white px-3 py-2 font-medium" href="/pcs/production-preparation/design-revision/${escapeHtml(record.samplingTaskId)}?step=buyer">返回主任务补充</a>`}</section>` : ''}${task.taskType === 'DISPLAY_SAMPLE' ? renderDisplaySampleRequirementSummary(task) : ''}${submitSection}<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">成果记录</h2>${task.taskType === 'DISPLAY_SAMPLE' ? '<p class="mt-2 rounded bg-blue-50 px-3 py-2 text-xs text-blue-800" data-sample-mock-disclaimer>Mock 演示：概念效果图仅用于展示提交流程，不代表实物样衣照片或真实生产成果。</p>' : ''}<div class="mt-3 grid gap-3 md:grid-cols-2">${resultCards}</div>${task.status === 'WAIT_REVIEW' ? `<button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="review-task" data-task-id="${escapeHtml(task.taskId)}">买手提交整张审核</button>` : ''}</section><section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">操作记录</h2><div class="mt-3 space-y-2">${record.operationLogs.filter((log) => log.detail.includes(task.taskName) || log.action === '创建任务' || log.action === '修复加工单关联').map((log) => `<p class="border-b pb-2 text-sm"><span class="text-slate-500">${escapeHtml(log.occurredAt)}</span> · ${escapeHtml(log.operatorName)} · ${escapeHtml(log.action)} · ${escapeHtml(log.detail)}</p>`).join('') || '<p class="text-sm text-slate-500">暂无操作记录</p>'}</div></section>${renderDialogHost()}</section>`
+  return `<section class="space-y-4 p-4"><header class="rounded-lg border bg-white"><div class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(task.taskName)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(professionalTaskStatusText(task))}</span></div><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.samplingTaskCode)} · 新款式（SPU） ${escapeHtml(targetLabel)} · 来源：设计改款</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/production-preparation/design-revision/${escapeHtml(record.samplingTaskId)}">返回主任务</a></div><div class="grid gap-4 px-5 py-4 md:grid-cols-[2fr_1fr_1fr_1fr]">${targetBlock}<div><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(currentTeam)}</p></div><div><p class="text-xs text-slate-500">需要先完成</p><p class="mt-1 font-medium">${escapeHtml(dependencyNames(record, task))}</p></div><div><p class="text-xs text-slate-500">完成后去向</p><p class="mt-1 font-medium">${escapeHtml(nextTeam(record, task))}</p></div></div><div class="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-5 py-4"><div><p class="text-xs text-slate-500">当前动作</p><p class="mt-1 text-sm">${escapeHtml(currentAction)}</p></div>${task.status === 'WAIT_START' && task.taskType === 'BASE_PATTERN' ? `<button class="rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="start-task" data-task-id="${escapeHtml(task.taskId)}">开始任务</button>` : ''}</div></header>${feedbackHtml()}${missingProcessOrders ? `<section class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"><span>${canRepairProcessOrders ? '原加工单关联已失效，请按当前物料与加工要求重新建立。' : '原加工单关联已失效，请先补充销售展示样衣数量。'}</span>${canRepairProcessOrders ? `<button class="rounded border border-amber-300 bg-white px-3 py-2 font-medium" data-${PREFIX}-action="repair-process-orders" data-task-id="${escapeHtml(task.taskId)}">重新生成加工单关联</button>` : `<a class="rounded border border-amber-300 bg-white px-3 py-2 font-medium" href="/pcs/production-preparation/design-revision/${escapeHtml(record.samplingTaskId)}?step=buyer">返回主任务补充</a>`}</section>` : ''}${task.taskType === 'DISPLAY_SAMPLE' ? renderDisplaySampleRequirementSummary(task) : ''}${submitSection}<section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">成果记录</h2>${task.taskType === 'DISPLAY_SAMPLE' ? '<p class="mt-2 rounded bg-blue-50 px-3 py-2 text-xs text-blue-800" data-sample-mock-disclaimer>Mock 演示：概念效果图仅用于展示提交流程，不代表实物样衣照片或真实生产成果。</p>' : ''}<div class="mt-3 grid gap-3 md:grid-cols-2">${resultCards}</div>${task.status === 'WAIT_REVIEW' ? `<button class="mt-4 rounded bg-blue-600 px-4 py-2 text-white" data-${PREFIX}-action="review-task" data-task-id="${escapeHtml(task.taskId)}">买手提交整张审核</button>` : ''}</section><section class="rounded-lg border bg-white p-4"><h2 class="font-semibold">操作记录</h2><div class="mt-3 space-y-2">${record.operationLogs.filter((log) => log.detail.includes(task.taskName) || log.action === '创建任务' || log.action === '修复加工单关联').map((log) => `<p class="border-b pb-2 text-sm"><span class="text-slate-500">${escapeHtml(log.occurredAt)}</span> · ${escapeHtml(log.operatorName)} · ${escapeHtml(log.action)} · ${escapeHtml(log.detail)}</p>`).join('') || '<p class="text-sm text-slate-500">暂无操作记录</p>'}</div></section>${renderDialogHost()}</section>`
 }
 
 function syncSampleRequirementsFromDom(samplingTaskId: string): void {
@@ -1095,6 +1117,7 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
       rerender()
       return true
     }
+    ui.appliedExtraFilters = { ...ui.extraFilters }
     ui.appliedKeyword = ui.listKeyword.trim()
     ui.appliedStatus = ui.listStatus
     ui.appliedTeamFilter = ui.teamFilter
@@ -1107,6 +1130,7 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
     return true
   }
   if (action === 'reset') {
+    ui.extraFilters = {}; ui.appliedExtraFilters = {}
     ui.listKeyword = ''; ui.listStatus = ''; ui.teamFilter = ''; ui.listPattern = ''; ui.listProcessing = ''; ui.listStartDate = ''; ui.listEndDate = ''
     ui.appliedKeyword = ''; ui.appliedStatus = ''; ui.appliedTeamFilter = ''; ui.appliedPattern = ''; ui.appliedProcessing = ''; ui.appliedStartDate = ''; ui.appliedEndDate = ''
     listState.currentPage = 1
@@ -1116,9 +1140,9 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   if (action === 'export') {
     const rows = listRows()
     if (!rows.length) { setFeedback('当前查询没有可导出的任务。', false); rerender(); return true }
-    const columns = ['任务号', '目标SPU', '状态', '买手', '基码纸样任务', '染色加工单', '印花加工单', '销售展示样衣任务', '创建时间', '完成时间']
+    const columns = ['任务号', '原款式（SPU）', '原款式买手', '添加人', '新款式（SPU）', '状态', '买手', '基码纸样任务', '染色加工单', '印花加工单', '销售展示样衣任务', '创建时间', '完成时间']
     const quote = (value: unknown) => `"${String(value ?? '').replaceAll('"', '""')}"`
-    const csv = '\ufeff' + [columns, ...rows.map((record) => [record.samplingTaskCode, record.targetStyleCode, samplingStatusText(record), record.buyerName, record.professionalTasks.find((task) => task.taskType === 'BASE_PATTERN')?.taskId || '', record.professionalTasks.flatMap((task) => task.processWorkOrderRefs).filter((ref) => ref.processType === 'DYEING').map((ref) => ref.processOrderCode).join('；'), record.professionalTasks.flatMap((task) => task.processWorkOrderRefs).filter((ref) => ref.processType === 'PRINTING').map((ref) => ref.processOrderCode).join('；'), record.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')?.taskId || '', record.createdAt, record.confirmedAt])].map((line) => line.map(quote).join(',')).join('\n')
+    const csv = '\ufeff' + [columns, ...rows.map((record) => [record.samplingTaskCode, record.sourceStyleCode, styleBuyer(record.sourceStyleId), record.createdBy, record.targetStyleCode, samplingStatusText(record), record.buyerName, record.professionalTasks.find((task) => task.taskType === 'BASE_PATTERN')?.taskId || '', processRefs(record).filter((ref) => ref.processType === 'DYEING').map((ref) => ref.processOrderCode).join('；'), processRefs(record).filter((ref) => ref.processType === 'PRINTING').map((ref) => ref.processOrderCode).join('；'), record.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')?.taskId || '', record.createdAt, record.confirmedAt])].map((line) => line.map(quote).join(',')).join('\n')
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
     const link = document.createElement('a'); link.href = url; link.download = '设计改款任务.csv'; link.click(); URL.revokeObjectURL(url)
     return true
@@ -1162,7 +1186,7 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   if ((action === 'save-draft' || action === 'confirm-scheme') && node.dataset.samplingId === NEW_TASK_ID) {
     run(() => {
       syncBomLineDraftsFromDom(); syncPricingPlanDraftFromDom(NEW_TASK_ID); syncSampleRequirementsFromDom(NEW_TASK_ID)
-      if (!ui.createDraft.targetStyleId) throw new Error('请选择已建档目标 SPU。')
+      if (!ui.createDraft.targetStyleId) throw new Error('请选择新款式（SPU）。')
       const created = createEngineeringIndependentSampling({ ...ui.createDraft, buyer: BUYER, createdAt: nowText(),
         creationSampleRequirements: readSampleRequirements(NEW_TASK_ID),
         materialLines: ensureBomLineDrafts(NEW_BOM_ID), customCosts: ensurePricingPlanDraft(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!).customCosts })
@@ -1238,6 +1262,7 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   }
   if (target.matches(`[data-${PREFIX}-select-task]`)) { const id = target.getAttribute(`data-${PREFIX}-select-task`) || ''; if (target instanceof HTMLInputElement && target.checked) ui.selectedTaskIds.add(id); else ui.selectedTaskIds.delete(id); const count = document.querySelector<HTMLElement>('[data-design-revision-selected-count]'); if (count) count.textContent = `已选 ${ui.selectedTaskIds.size} 条`; return true }
   if (target.matches(`[data-${PREFIX}-field="pageSize"]`)) { const controller = currentListController(); controller.setPageSize(Number(target.value)); controller.refresh(); return true }
+  if (target.dataset.pcsIndependentSamplingField?.startsWith('extra:')) { ui.extraFilters[target.dataset.pcsIndependentSamplingField.slice(6)] = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="listKeyword"]`)) { ui.listKeyword = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="listStatus"]`)) { ui.listStatus = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="teamFilter"]`)) { ui.teamFilter = target.value; return true }

@@ -149,6 +149,7 @@ function cloneTask(task: EngineeringIndependentProfessionalTask): EngineeringInd
 function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
   return {
     ...record,
+    historicalProcessWorkOrderRefs: (record.historicalProcessWorkOrderRefs || []).map(ref => ({ ...ref })),
     designFiles: (record.designFiles || []).map((file) => ({ ...file })),
     creationDesignFileIds: [...(record.creationDesignFileIds || record.designFiles.slice(0, 1).map((file) => file.fileId))],
     reusedPatternFiles: (record.reusedPatternFiles || []).map((file) => ({ ...file })),
@@ -164,7 +165,7 @@ function cloneRecord(record: EngineeringIndependentSamplingRecord): EngineeringI
   }
 }
 
-function normalizeRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
+export function normalizeEngineeringDesignRevisionRecord(record: EngineeringIndependentSamplingRecord): EngineeringIndependentSamplingRecord {
   const normalized: EngineeringIndependentSamplingRecord = {
     ...record,
     samplingType: 'DESIGN_REVISION',
@@ -212,6 +213,23 @@ function normalizeRecord(record: EngineeringIndependentSamplingRecord): Engineer
       : record.bomDraftVersionId ? [record.bomDraftVersionId] : [],
     operationLogs: Array.isArray(record.operationLogs) ? record.operationLogs.map((log) => ({ ...log })) : [],
   }
+  const retired = normalized.professionalTasks.filter(task => !['BASE_PATTERN', 'DISPLAY_SAMPLE'].includes(task.taskType))
+  const retiredIds = new Set(retired.map(task => task.taskId))
+  normalized.professionalTasks = normalized.professionalTasks.filter(task => !retiredIds.has(task.taskId))
+  const sample = normalized.professionalTasks.find(task => task.taskType === 'DISPLAY_SAMPLE')
+  const refs = [...(record.historicalProcessWorkOrderRefs || []), ...retired.flatMap(task => task.processWorkOrderRefs)]
+  const uniqueRefs = [...new Map(refs.map(ref => [`${ref.processType}:${ref.processOrderId}`, { ...ref }])).values()]
+  if (sample) {
+    sample.processWorkOrderRefs = [...new Map([...uniqueRefs, ...sample.processWorkOrderRefs].map(ref => [`${ref.processType}:${ref.processOrderId}`, ref])).values()]
+    normalized.historicalProcessWorkOrderRefs = []
+  } else normalized.historicalProcessWorkOrderRefs = uniqueRefs
+  normalized.selectedTaskTypes = normalized.selectedTaskTypes.filter(type => type === 'BASE_PATTERN' || type === 'DISPLAY_SAMPLE')
+  normalized.suggestedTaskTypes = normalized.suggestedTaskTypes.filter(type => type === 'BASE_PATTERN' || type === 'DISPLAY_SAMPLE')
+  normalized.relatedProfessionalTaskIds = normalized.professionalTasks.map(task => task.taskId)
+  normalized.professionalTasks.forEach(task => {
+    task.dependsOnTaskIds = task.dependsOnTaskIds.filter(id => !retiredIds.has(id))
+    if (retired.length && task.status === 'WAIT_DEPENDENCY' && !task.dependsOnTaskIds.length && !task.processWorkOrderRefs.length) task.status = 'WAIT_START'
+  })
   normalized.professionalTasks.forEach((task) => {
     task.results.forEach((result) => {
       result.files = result.files.map((file) => {
@@ -369,7 +387,7 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       samplingType: type,
       sourceStyleId: source.styleId,
       targetStyleId: target.styleId,
-      creationReason: '基于参照款和设计稿完成目标款式的设计改款。',
+      creationReason: '基于参照款和设计稿完成新款式（SPU）的设计改款。',
       designFiles: [createSeedUploadedFile(`${code}-DESIGN`, 'DESIGN_IMAGE', target.mainImageUrl, createdAt)],
       buyer,
       targetMode: 'ARCHIVED_STYLE',
@@ -497,7 +515,7 @@ function readRecords(): EngineeringIndependentSamplingRecord[] {
     try {
       const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as EngineeringIndependentSamplingRecord[]
       if (Array.isArray(parsed) && parsed.length) {
-        memoryRecords = parsed.map(normalizeRecord)
+        memoryRecords = parsed.map(normalizeEngineeringDesignRevisionRecord)
         return memoryRecords.map(cloneRecord)
       }
     } catch { /* 使用演示种子 */ }
@@ -508,7 +526,7 @@ function readRecords(): EngineeringIndependentSamplingRecord[] {
 }
 
 function writeRecords(records: EngineeringIndependentSamplingRecord[]): void {
-  const nextRecords = records.map(cloneRecord)
+  const nextRecords = records.map(normalizeEngineeringDesignRevisionRecord)
   if (canUseStorage()) {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(createPersistedRecords(nextRecords)))
@@ -554,7 +572,7 @@ function syncDesignRevisionProjectRelation(record: EngineeringIndependentSamplin
     createdBy: record.createdBy,
     updatedAt: record.updatedAt,
     updatedBy: record.confirmedBy || record.buyerName,
-    note: `参照款式 ${record.sourceStyleCode}，目标款式 ${record.targetStyleCode}。`,
+    note: `原款式（SPU） ${record.sourceStyleCode}，新款式（SPU） ${record.targetStyleCode}。`,
   })
 }
 
@@ -579,13 +597,13 @@ export interface CreateEngineeringIndependentSamplingInput {
 function buildRecord(input: CreateEngineeringIndependentSamplingInput, code: string): EngineeringIndependentSamplingRecord {
   requireBuyer(input.buyer)
   const targetMode = input.targetMode || 'ARCHIVED_STYLE'
-  if (targetMode !== 'ARCHIVED_STYLE') throw new Error('新建设计改款任务必须选择已建档目标 SPU。')
+  if (targetMode !== 'ARCHIVED_STYLE') throw new Error('新建设计改款任务必须选择新款式（SPU）。')
   const target = getStyleArchiveById(input.targetStyleId || '')
   if (!target) throw new Error('目标商品／款式档案不存在。')
   const temporarySpuName = ''
   const source = input.sourceStyleId ? getStyleArchiveById(input.sourceStyleId) : null
   if (input.sourceStyleId && !source) throw new Error('参照商品／款式档案不存在。')
-  if (source && target && (source.styleId === target.styleId || source.styleCode === target.styleCode)) throw new Error('参照 SPU 与目标 SPU 不能相同。')
+  if (source && target && (source.styleId === target.styleId || source.styleCode === target.styleCode)) throw new Error('原款式（SPU） 与新款式（SPU） 不能相同。')
   if (!input.reuseDesignFileReferences && !input.designFiles.length) throw new Error('买手创建任务时必须上传款式设计稿。')
   if (!input.reuseDesignFileReferences && !input.creationReason?.trim()) throw new Error('请填写设计改款目标。')
   if (input.designFiles.length) assertEngineeringUploadedFilesReady(input.designFiles, '设计稿')
@@ -749,7 +767,7 @@ export function copyEngineeringIndependentSamplingDrafts(input: {
     try {
       const source = getEngineeringIndependentSamplingRecord(sourceTaskId)
       if (!source) throw new Error('原设计改款任务不存在。')
-      if (source.targetMode !== 'ARCHIVED_STYLE' || !getStyleArchiveById(source.targetStyleId)) throw new Error('原任务没有可用的已建档目标 SPU。')
+      if (source.targetMode !== 'ARCHIVED_STYLE' || !getStyleArchiveById(source.targetStyleId)) throw new Error('原任务没有可用的新款式（SPU）。')
       const creationDesignFileIds = source.creationDesignFileIds || source.designFiles.slice(0, 1).map((file) => file.fileId)
       const creationDesignFiles = creationDesignFileIds.map((fileId) => source.designFiles.find((file) => file.fileId === fileId))
       if (!creationDesignFiles.length || creationDesignFiles.some((file) => !file)) throw new Error('原任务建单设计稿已缺失，不能复制。')
@@ -867,10 +885,10 @@ function ensureTargetColorSkus(input: {
   }
   const activeTargetSkus = listSkuArchivesByStyleId(input.record.targetStyleId).filter((sku) => sku.archiveStatus === 'ACTIVE')
   const availableSizeNames = [...new Set(activeTargetSkus.map((sku) => sku.sizeName.trim()).filter(Boolean))]
-  if (!availableSizeNames.length) throw new Error('目标款式尚未维护尺码和 SKU，请先完成商品／款式档案。')
+  if (!availableSizeNames.length) throw new Error('新款式（SPU）尚未维护尺码和 SKU，请先完成商品／款式档案。')
   const effectiveSizeNames = requestedSizeNames.length ? requestedSizeNames : availableSizeNames
   const invalidSize = effectiveSizeNames.find((size) => !availableSizeNames.some((item) => item.toLocaleLowerCase() === size.toLocaleLowerCase()))
-  if (invalidSize) throw new Error(`目标尺码“${invalidSize}”不属于当前目标款式。`)
+  if (invalidSize) throw new Error(`目标尺码“${invalidSize}”不属于当前新款式（SPU）。`)
   const canonicalSizes = effectiveSizeNames.map((size) => availableSizeNames.find((item) => item.toLocaleLowerCase() === size.toLocaleLowerCase())!)
   const existing = activeTargetSkus.filter((sku) => normalizeColorKey(sku.colorName) === normalizeColorKey(input.targetColor) && canonicalSizes.includes(sku.sizeName))
   const missingSizes = canonicalSizes.filter((size) => !existing.some((sku) => sku.sizeName === size))
@@ -1053,7 +1071,7 @@ export function completeEngineeringIndependentBuyerPreparation(input: {
   }
   if (record.status !== 'DRAFT' || record.taskPlanConfirmedAt) throw new Error('方案确认后不能再修改。')
   const issues: string[] = []
-  if (record.targetMode !== 'ARCHIVED_STYLE' || !getStyleArchiveById(record.targetStyleId)) issues.push('请选择已建档目标 SPU。')
+  if (record.targetMode !== 'ARCHIVED_STYLE' || !getStyleArchiveById(record.targetStyleId)) issues.push('请选择新款式（SPU）。')
   if (!record.creationReason.trim()) issues.push('请填写设计改款要求。')
   try { assertEngineeringUploadedFilesReady(record.designFiles, '买手款式设计稿') } catch (error) { issues.push(error instanceof Error ? error.message : '请上传买手款式设计稿。') }
   if (!record.designFiles.some((file) => file.purpose === 'DESIGN_IMAGE' && file.mimeType.startsWith('image/'))) issues.push('买手款式设计稿缺少已保存图片。')

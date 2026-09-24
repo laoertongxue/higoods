@@ -40,7 +40,7 @@ test('新建直接填写全部内容，保存和直接提交全流程及五次�
     await expect(page.locator(act('add-bom-line'))).toBeVisible()
     await measure('cancelNew', async () => { await page.locator(act('close-create')).click(); await expect(page.getByText(/^共 \d+ 条$/).first()).toHaveText(initialCount!) })
     await page.locator(act('open-create')).click()
-    await measure('missingTarget', async () => { await page.locator(act('save-draft')).click(); await expect(page.getByText('请选择已建档目标 SPU。')).toBeVisible() })
+    await measure('missingTarget', async () => { await page.locator(act('save-draft')).click(); await expect(page.getByText('请选择新款式（SPU）。')).toBeVisible() })
     await measure('targetStyle', async () => { await page.locator(field('targetStyleId')).selectOption({ index: 2 }); await expect(page.locator('[data-design-revision-creation-fields] img')).toHaveCount(1) }, 'change')
     await measure('reason', async () => { await page.locator(field('creationReason')).fill('同页填写并提交'); await expect(page.locator(field('creationReason'))).toHaveValue('同页填写并提交') }, 'input')
     await measure('designUpload', async () => { await page.locator('[data-pcs-independent-sampling-create-design-upload]').setInputFiles(path.resolve('public/dress-sample-1.jpg')); await expect(page.getByText('dress-sample-1.jpg', { exact: true })).toBeVisible() }, 'change')

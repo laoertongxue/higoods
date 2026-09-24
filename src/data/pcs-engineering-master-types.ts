@@ -411,6 +411,8 @@ export type EngineeringIndependentBomConversionStatus =
   | 'CONFIRMED'
 
 export interface EngineeringIndependentSamplingRecord {
+  /** 旧版仅有线下设计工作时保留的加工单引用，不生成虚假的样衣任务。 */
+  historicalProcessWorkOrderRefs?: EngineeringIndependentProcessWorkOrderRef[]
   samplingTaskId: string
   samplingTaskCode: string
   samplingType: EngineeringIndependentSamplingType
