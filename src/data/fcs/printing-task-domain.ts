@@ -1,4 +1,5 @@
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
+import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
 import { localDateTimeText } from '../../utils.ts'
 import {ensurePrintingReceivingExamples} from './printing-material-receipts.ts'
 import { initializeFactoryReceivingDemoBatch, captureFactoryReceivingData, restoreFactoryReceivingData, listFactoryReceivingSources, listFactoryReceipts, listReceivingAllocations, listFactoryMaterialUses, recordFactoryMaterialUsage, convertReceiptQuantity, getFactoryReceivingSource, getProcessOrderReceivingFacts, registerFactoryReceivingSource } from './factory-receiving.ts'
@@ -753,13 +754,18 @@ function restoreFormalPrintExecution(): void {
       const current = workOrderStore.get(id)
       const nodes = saved.state.nodeRecords.find(([key]) => key === id)?.[1]
       const task = saved.tasks.find(item => item.taskId === order.taskId)
-      const restorableExternalOrder = !current
+      const restorableHistoricalDemo = !current
+        && isKnownPrintingFactoryDemoIdentity(id, order.taskId, order.printFactoryId || '')
+        && order.sourceKey === id.replace('PWO-PRINT-DEMO-', 'PRINT-FACTORY-DEMO-')
+        && Boolean(task && task.taskId === order.taskId && task.assignedFactoryId === order.printFactoryId
+          && JSON.stringify(task.sourceSnapshot) === JSON.stringify(order.sourceSnapshot))
+      const restorableExternalOrder = restorableHistoricalDemo || !current
         && Boolean(order.sourceKey && order.sourceSnapshot?.professionalTaskId
           && order.sourceSnapshot.inputMaterialSkuCode && order.sourceSnapshot.outputMaterialSkuCode
           && (order.sourceSnapshot.sourceType === 'PRODUCTION_DEMAND' && order.sourceSnapshot.productionDemandId
             || order.sourceSnapshot.sourceType === 'DESIGN_REVISION' && order.sourceSnapshot.designRevisionTaskId && order.sourceSnapshot.bomItemId))
       const taskSource = task?.sourceSnapshot
-      const restorableTaskSourceMatches = restorableExternalOrder
+      const restorableTaskSourceMatches = restorableHistoricalDemo || restorableExternalOrder
         && Boolean(taskSource) && taskSource!.sourceType === order.sourceSnapshot?.sourceType
         && taskSource!.professionalTaskId === order.sourceSnapshot?.professionalTaskId
         && taskSource!.inputMaterialSkuCode === order.sourceSnapshot?.inputMaterialSkuCode

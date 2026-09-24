@@ -1,6 +1,6 @@
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
 import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
-import { PRINTING_FACTORIES } from './printing-factories.ts'
+import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
 import {getFactoryReceivingSourceByOriginalRecordId,getSourceActualReceipts} from './factory-receiving.ts'
 import { initialProductionOrderIds, productionOrders } from './production-orders.ts'
 import { recordRuntimeTaskExecution, runRuntimeTaskAction } from './runtime-process-tasks.ts'
@@ -2488,9 +2488,13 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
     headCompletionOverrides: snapshot.headCompletionOverrides.filter(([id]) => headIds.has(id)),
   }))
 }
+let lastRestoredFormalHandoutRaw: string | null = null
 function readFormalHandoutActions(): void {
   const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY)
   if (!raw) return
+  // Many list rows read the same receipt. Rehydrate only when persisted data changed;
+  // explicit state restoration below invalidates this cache (including rollbacks).
+  if (raw === lastRestoredFormalHandoutRaw) return
   const saved = JSON.parse(raw)
   if (saved?.version !== 1 || formalHandoutStateKeys.some(key => !Array.isArray(saved[key]) || saved[key].some((row: unknown) => !Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !row[1] || typeof row[1] !== 'object'))) throw new Error('本机合并任务交出记录损坏，未用空记录覆盖，请联系负责人。')
   for (const [, head] of saved.handoverHeadAdditions as Array<[string, PdaHandoverHead]>) {
@@ -2503,6 +2507,7 @@ function readFormalHandoutActions(): void {
   }
   snapshot.cachedBuiltHeads = null; snapshot.cachedPostFinishingBuiltHeads = null
   restorePdaHandoverState(snapshot)
+  lastRestoredFormalHandoutRaw = raw
 }
 function isFormalKolHandoutHead(head: PdaHandoverHead): boolean {
   const task = processTasks.find(item => item.taskId === head.taskId && item.productionOrderId === head.productionOrderNo)
@@ -2519,7 +2524,7 @@ function isFormalIssuePickupHead(head: PdaHandoverHead | undefined): boolean {
 /** Fixed prototype orders have stable task ownership; formal order validation remains separate. */
 function isPrototypePrintHandoutHead(head:PdaHandoverHead):boolean {
  const demo=/^PWO-PRINT-DEMO-(\d{2})-([1-5])$/.exec(head.sourceDocId||'')
- if(demo){const factory=PRINTING_FACTORIES.filter(item=>item.id!=='F090')[Number(demo[1])-1];return Boolean(factory&&head.sourceBusinessType==='PRINT_WORK_ORDER'&&head.taskId===`TASK-PRINT-DEMO-${demo[1]}-${demo[2]}`&&head.factoryId===factory.id)}
+ if(demo)return head.sourceBusinessType==='PRINT_WORK_ORDER' && isKnownPrintingFactoryDemoIdentity(head.sourceDocId!, head.taskId, head.factoryId)
  const numbers=['000716','000714','000715','000717','000718','000719','000720','000721','000724','000712','000722','000723']
  const index=Number(/^PWO-PRINT-(\d{3})$/.exec(head.sourceDocId||'')?.[1])-1
  return head.sourceBusinessType==='PRINT_WORK_ORDER' && index>=0&&index<numbers.length&&head.taskId===`TASK-PRINT-${numbers[index]}`&&head.factoryId===TEST_FACTORY_ID
@@ -2578,6 +2583,7 @@ export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
 }
 
 export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
+  lastRestoredFormalHandoutRaw = null
   handoverHeadAdditions.clear()
   pickupRecordAdditions.clear()
   handoutRecordAdditions.clear()

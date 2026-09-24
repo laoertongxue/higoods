@@ -1,4 +1,4 @@
-import { PRINTING_FACTORIES } from './printing-factories.ts'
+import { PRINTING_FACTORIES, PRINTING_FACTORY_DEMO_CODES } from './printing-factories.ts'
 import {
   type PrintWorkOrder, getPrintingWorkOrderById, startPrintingProduction,
   recordPrintingProductionStage, completePrintingWorkOrder, updatePrintingRollBarcode,
@@ -12,9 +12,12 @@ const scenarios = ['待接收', '已收待开工', '加工中', '待交出', '�
 
 /** Fixed identities allow saved user actions to be restored before first-time scenario setup. */
 export function buildPrintingFactoryDemoOrders(templates: PrintWorkOrder[]): PrintWorkOrder[] {
-  return PRINTING_FACTORIES.filter(factory => factory.id !== 'F090').flatMap((factory, index) => scenarios.map((scenario, stage) => {
+  return PRINTING_FACTORIES.filter(factory => factory.id !== 'F090').flatMap((factory) => scenarios.map((scenario, stage) => {
+    const factoryCode = PRINTING_FACTORY_DEMO_CODES[factory.id]
+    if (!factoryCode) throw new Error('印花演示工厂缺少固定单号配置')
+    const index = Number(factoryCode) - 1
     const order = structuredClone(templates[index % templates.length])
-    const code = `${String(index + 1).padStart(2, '0')}-${stage + 1}`
+    const code = `${factoryCode}-${stage + 1}`
     const id = `PWO-PRINT-DEMO-${code}`, qty = 100 + index * 10
     Object.assign(order, {
       printOrderId:id, printOrderNo:`PH-DEMO-260914-${code}`, taskId:`TASK-PRINT-DEMO-${code}`, taskNo:`TK-PRINT-DEMO-${code}`,
