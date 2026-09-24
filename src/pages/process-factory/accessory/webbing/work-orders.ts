@@ -57,7 +57,7 @@ const columns: StandardListColumn<Row>[] = [
   },
   {
     key: 'requirement', title: '加工要求', width: 260, freezeable: true,
-    render: order => `<div class="space-y-2 text-xs">${order.demands.map((demand) => `<section class="border-b pb-2 last:border-0">${field('用途／尺码',`${e(demand.specification.usage)} · ${e(demand.garmentSize)}`)}${field('截断／成品',`${demand.specification.cutLengthMm} / ${demand.specification.finishedLengthMm} mm`)}${field('公差',`±${demand.specification.toleranceMm} mm`)}${field('切割方式',e(demand.specification.cuttingMethod))}${field('端头',demand.specification.tippingRequired ? `${e(endMethod(demand.specification.endA.method))} / ${e(endMethod(demand.specification.endB.method))}` : '无需打头')}</section>`).join('')}</div>`,
+    render: order => `<div class="space-y-2 text-xs">${order.demands.map((demand) => `<section class="border-b pb-2 last:border-0">${field('截断／成品',`${demand.specification.cutLengthMm} / ${demand.specification.finishedLengthMm} mm`)}${field('公差',`±${demand.specification.toleranceMm} mm`)}${field('端头',demand.specification.tippingRequired ? `${e(endMethod(demand.specification.endA.method))} / ${e(endMethod(demand.specification.endB.method))}` : '无需打头')}</section>`).join('')}</div>`,
   },
   {
     key: 'progress', title: '处理进度', width: 145, required: true, freezeable: true,
