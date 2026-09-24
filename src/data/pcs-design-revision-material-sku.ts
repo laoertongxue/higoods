@@ -34,14 +34,12 @@ export function resolveDesignRevisionMaterialSku(targetSkuId: string, capturedAt
   if (!archive || archive.status !== 'ACTIVE') throw new Error(`${target.materialSkuCode} 所属物料已停用。`)
   if (!target.designRevisionProcesses) throw new Error(`${target.materialSkuCode} 尚未维护设计改款加工属性，不能作为目标 SKU。`)
   const processes = target.designRevisionProcesses || []
-  const requiresDye = processes.includes('DYEING')
   const requiresPrint = processes.includes('PRINTING')
+  // 设计改款按每条物料互斥：双工艺 SKU 由印花直接实现目标颜色。
+  const requiresDye = !requiresPrint && processes.includes('DYEING')
   const raw = requiresDye || requiresPrint ? activeSku(target.designRevisionRawSkuId || '') : target
   if (!raw || raw.materialId !== target.materialId) throw new Error(`${target.materialSkuCode} 缺少同物料的首道仓库发料 SKU。`)
-  const dyed = requiresDye && requiresPrint ? activeSku(target.designRevisionDyedSkuId || '') : requiresDye ? target : null
-  if (requiresDye && requiresPrint && (!dyed || dyed.materialId !== target.materialId || dyed.materialSkuId === raw.materialSkuId || dyed.materialSkuId === target.materialSkuId)) {
-    throw new Error(`${target.materialSkuCode} 缺少有效的染后中间品 SKU。`)
-  }
+  const dyed = requiresDye ? target : null
   if (requiresDye && (!target.colorName?.trim() || !target.pantoneCode?.trim())) throw new Error(`${target.materialSkuCode} 缺少颜色或潘通色号。`)
   if (requiresPrint && (!target.patternCode?.trim() || !target.patternImageUrl?.trim())) throw new Error(`${target.materialSkuCode} 缺少花型编号或正式花型图片。`)
   if (!target.skuImageUrl?.trim() || !raw.skuImageUrl?.trim()) throw new Error(`${target.materialSkuCode} 缺少物料实图。`)

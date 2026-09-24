@@ -199,7 +199,7 @@ test('辅料染色单创建后已有辅料仓调拨计划，分厂时自动落�
   assert.equal(getDesignRevisionMaterialTransferPlan('DYEING', orderId)?.status, 'WAIT_WAREHOUSE_DISPATCH')
 })
 
-test('设计改款目标 SKU 已确定印染属性，先染后印只从仓库发一次 BOM 数量', () => {
+test('历史双工艺加工单仍可追溯原有染印交接', () => {
   const refs = createProcessOrders()
   const dyeRef = refs.find((ref) => ref.processType === 'DYEING')!
   const printRef = refs.find((ref) => ref.processType === 'PRINTING')!
@@ -322,7 +322,7 @@ test('设计改款目标 SKU 已确定印染属性，先染后印只从仓库发
   assert.equal(getDesignRevisionMaterialTransferPlan('PRINTING', print.printOrderId)?.plannedQty, 20)
 })
 
-test('同一 BOM 行真实染色交出后由印花厂按卷实收，印花开工不再等待前序', () => {
+test('双工艺 SKU 仅生成印花单，仓库直接发印厂并完成样衣归档', () => {
   const seeded = listEngineeringIndependentSamplingRecords()
   const reference = seeded.find((record) => record.targetStyleCode === 'STYLE-PRJ-202603-011' && record.status === 'COMPLETED')!
   const target = seeded.find((record) => record.targetStyleCode === 'STYLE-PRJ-202603-012')!
@@ -332,13 +332,13 @@ test('同一 BOM 行真实染色交出后由印花厂按卷实收，印花开工
   const buyer = { role: '买手' as const, userId: target.buyerId, userName: target.buyerName }
   const draft = createEngineeringIndependentSampling({
     sourceStyleId: reference.targetStyleId, targetStyleId: target.targetStyleId,
-    creationReason: '同一份面料先染后印，最后制作展示样衣', designFiles: target.designFiles,
+    creationReason: '双工艺 SKU 仅印花，最后制作展示样衣', designFiles: target.designFiles,
     patternHandling: 'REUSE', reusedPatternFiles: [pattern], buyer,
     createdAt: '2026-09-23 09:00:00',
   })
   saveEngineeringBomVersion({
     versionId: draft.bomDraftVersionId, ...buyer,
-    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 20, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 1, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '是', printRequirement: '是' }],
+    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 20, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 1, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '是' }],
     updatedAt: '2026-09-23 09:01:00',
   })
   saveEngineeringBomPricingPlan({
@@ -353,106 +353,38 @@ test('同一 BOM 行真实染色交出后由印花厂按卷实收，印花开工
   })
   const sampleTask = active.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')!
   const refs = sampleTask.processWorkOrderRefs
-  assert.equal(refs.length, 2)
-  const dyeRef = refs.find((ref) => ref.processType === 'DYEING')!
+  assert.equal(refs.length, 1)
+  assert.ok(refs.every(ref => ref.processType === 'PRINTING'))
   const printRef = refs.find((ref) => ref.processType === 'PRINTING')!
   const printFactory = listPrintingFactoryOptions().find((candidate) => {
     try { return Boolean(getDefaultFactoryReceiptPosition(candidate.id).locationId) } catch { return false }
   })
-  const dyeFactory = listFactoryMasterRecords().find((candidate) =>
-    candidate.status === 'active' && candidate.eligibility.allowDispatch
-    && candidate.processAbilities.some((ability) => ability.processCode === 'DYE' && ability.canReceiveTask !== false)
-    && listDyeVatOptions(candidate.id).length > 0)
-  assert.ok(printFactory && dyeFactory)
+  assert.ok(printFactory)
   assignPrintingWorkOrder(printRef.processOrderId, { factoryId: printFactory.id, operatorName: 'PPIC' })
   captureBrowserEvidenceStage('print-assigned')
   acceptPrintWorkOrderPdaTask(getPrintWorkOrderById(printRef.processOrderId)!.taskId, '印花工厂')
-  assignDyeWorkOrderFactory(dyeRef.processOrderId, {
-    factoryId: dyeFactory.id, factoryName: dyeFactory.name, assignedAt: '2026-09-15 11:20:00', assignedBy: 'PPIC',
-  })
-  captureBrowserEvidenceStage('dye-assigned')
-  acceptDyeWorkOrderPdaTask(getDyeWorkOrderById(dyeRef.processOrderId)!.taskId, '染色工厂', '2026-09-15 11:21:00')
   const transfer = createDesignRevisionProcessMaterialTransfer({
-    processType: 'DYEING', processOrderId: dyeRef.processOrderId, issuedBy: '系统', issuedAt: '2026-09-15 11:22:00',
+    processType: 'PRINTING', processOrderId: printRef.processOrderId, issuedBy: '系统', issuedAt: '2026-09-15 11:22:00',
   })
+  assert.equal(transfer.origin.name, '面料中央仓')
   confirmDesignRevisionWarehouseDispatch({
-    processType: 'DYEING', processOrderId: dyeRef.processOrderId, sentQty: 20,
+    processType: 'PRINTING', processOrderId: printRef.processOrderId, sentQty: 20,
     rolls: [{ barcode: 'CHAIN-RAW-ROLL-01', yard: 20 }], operatorName: '面料仓管', dispatchedAt: '2026-09-15 11:23:00',
   })
   approveFactoryTransfer(transfer.id, '面料仓主管', '2026-09-15 11:24:00')
   captureBrowserEvidenceStage('warehouse-dispatched')
-  const dyePosition = getDefaultFactoryReceiptPosition(dyeFactory.id)
-  confirmFactoryMaterialReceipt({
-    id: `CHAIN-DYE-INPUT-${dyeRef.processOrderId}`, factoryId: dyeFactory.id,
-    operatorId: 'DYE-WAREHOUSE', operatorName: '染色厂仓管', receivedAt: '2026-09-15 11:25:00',
-    lines: [{ sourceId: transfer.id, sourceLineId: transfer.lines[0].id, ...dyePosition,
-      rolls: [{ barcode: 'CHAIN-RAW-ROLL-01', yard: 20, ...dyePosition }],
-    }],
-  })
-  captureBrowserEvidenceStage('dye-received')
-  const receivedDye = getDyeWorkOrderById(dyeRef.processOrderId)!
-  assert.equal(receivedDye.rawMaterialSku, 'DR-COTTON-001-RAW')
-  assert.equal(getDyeWorkOrderProgressView(receivedDye, 0).receiptStatus, 'RECEIVED')
-  assert.equal(getDyeWorkOrderProgressView(receivedDye, 0).processingStatus, 'NOT_STARTED')
-  assert.ok(receivedDye.materialReceipts?.some((item) => item.qty === 20), JSON.stringify(receivedDye.materialReceipts))
-  const vat = listDyeVatOptions(dyeFactory.id)[0]
-  planDyeVat(dyeRef.processOrderId, { dyeVatNo: vat.dyeVatNo, operatorName: '染色工厂' })
-  startDyeing(dyeRef.processOrderId, { dyeVatNo: vat.dyeVatNo, inputQty: 20, operatorName: '染色工厂', materialSku: 'DR-COTTON-001-RAW' })
-  completeDyeing(dyeRef.processOrderId, { outputQty: 20, operatorName: '染色工厂' })
-  for (const node of ['DEHYDRATE', 'DRY', 'SET', 'ROLL', 'PACK'] as const) {
-    startDyeNode(dyeRef.processOrderId, node, '染色工厂')
-    completeDyeNode(dyeRef.processOrderId, node, { outputQty: 20, operatorName: '染色工厂' })
-  }
-  const rolls = saveDyeOutputRolls(dyeRef.processOrderId, [{
-    qty: 20, weightKg: 6, widthCm: 150, gsm: 180, vatNo: vat.dyeVatNo, remark: '设计改款染后实物',
-  }])
-  const dyedRoll = rolls.at(-1)!
-  assert.ok(dyedRoll)
-  markDyeOutputRolls(dyeRef.processOrderId, [dyedRoll.id], 'print')
-  captureBrowserEvidenceStage('dye-output-ready')
-  const dispatch = createDyeDispatchDocument([{ orderId: dyeRef.processOrderId, rollIds: [dyedRoll.id] }], '染色厂仓管')
-  captureBrowserEvidenceStage('dye-dispatch-draft')
-  scanDyeDispatchRoll(dispatch.id, dyedRoll.barcode, '染色厂仓管')
-  saveDyeDispatchTransport(dispatch.id, { driver: '司机', vehicle: '厢式货车', plate: 'TEST-CHAIN', note: '送印花厂' })
-  finishDyeDispatchDocument(dispatch.id, 'confirm')
-  const dispatchPrint = renderDyeDispatchPrint(
-    listDyeDispatchDocuments().find((document) => document.id === dispatch.id)!,
-    listDyeWorkOrderOnlineRows().filter((row) => row.dyeOrderId === dyeRef.processOrderId),
-  )
-  assert.match(dispatchPrint, /设计改款任务/)
-  assert.match(dispatchPrint, /ID DYE \/ 加工单/)
-  assert.doesNotMatch(dispatchPrint, /ID PRINT \/ 加工单/)
-  assert.match(dispatchPrint, new RegExp(active.samplingTaskNo))
-  assert.match(dispatchPrint, /20\.00 Yard/)
-  assert.match(dispatchPrint, /送印花厂/)
-  assert.doesNotMatch(dispatchPrint, /备料，未关联生产单/)
-  const handout = listFactoryReceivingSources(printFactory.id).find((source) =>
-    source.type === 'HANDOUT' && source.workOrderNo === getDyeWorkOrderById(dyeRef.processOrderId)?.dyeOrderNo
-    && source.lines.some((line) => line.printingOrderId === printRef.processOrderId))
-  assert.ok(handout)
-  assert.equal(handout.lines[0].material.sku, 'DR-COTTON-001-WHITE')
-  assert.equal(handout.lines[0].sentQty, 20)
-  assert.notEqual(readDesignRevisionProcessWorkOrderStatuses([dyeRef])[0].status, 'COMPLETED', '染厂交出不等于印花厂确认接收')
-  assert.equal(getDesignRevisionMaterialTransferPlan('PRINTING', printRef.processOrderId)?.stage, 'DYE_FACTORY_TO_PRINT_FACTORY')
-  captureBrowserEvidenceStage('dye-dispatched')
   const printPosition = getDefaultFactoryReceiptPosition(printFactory.id)
   confirmFactoryMaterialReceipt({
     id: `CHAIN-PRINT-INPUT-${printRef.processOrderId}`, factoryId: printFactory.id,
-    operatorId: 'PRINT-WAREHOUSE', operatorName: '印花厂仓管', receivedAt: '2030-01-01 12:30:00',
-    lines: [{ sourceId: handout.id, sourceLineId: handout.lines[0].id, ...printPosition,
-      rolls: handout.lines[0].rolls.map((roll) => ({ ...roll, ...printPosition })),
+    operatorId: 'PRINT-WAREHOUSE', operatorName: '印花厂仓管', receivedAt: '2026-09-15 11:25:00',
+    lines: [{ sourceId: transfer.id, sourceLineId: transfer.lines[0].id, ...printPosition,
+      rolls: [{ barcode: 'CHAIN-RAW-ROLL-01', yard: 20, ...printPosition }],
     }],
   })
+  const printOrder = getPrintWorkOrderById(printRef.processOrderId)!
+  assert.ok(!printOrder.sourceSnapshot?.upstreamWorkOrderId)
   assert.equal(getPrintingWorkOrderById(printRef.processOrderId)?.actualInput.receivedQty, 20)
   assert.notEqual(readDesignRevisionProcessWorkOrderStatuses([printRef])[0].status, 'WAIT_PREREQUISITE_PROCESS')
-  assert.equal(readDesignRevisionProcessWorkOrderStatuses([dyeRef])[0].status, 'COMPLETED', '染后实物由印花厂确认接收即可满足样衣前置条件')
-  completeDyeWorkOrderDocument(dyeRef.processOrderId, { completedBy: 'PPIC', completedAt: '2030-01-01 12:31:00', remark: '染后已由印花厂实收' })
-  assert.equal(readDesignRevisionProcessWorkOrderStatuses([dyeRef])[0].status, 'COMPLETED')
-
-  const printOrder = getPrintWorkOrderById(printRef.processOrderId)!
-  assert.equal(printOrder.sourceSnapshot?.upstreamWorkOrderId, dyeRef.processOrderId)
-  assert.equal(getDesignRevisionMaterialTransferPlan('PRINTING', printRef.processOrderId)?.sentQty, 20)
-  assert.equal(getDesignRevisionProcessMaterialTransferReadiness('PRINTING', printRef.processOrderId).status, 'WAIT_UPSTREAM')
   assert.equal(getPrintingWorkflowFacts(printRef.processOrderId).artworkConfirmed, true)
   assert.equal(getPrintingWorkflowFacts(printRef.processOrderId).sampleConfirmed, true)
   captureBrowserEvidenceStage('print-received')
@@ -467,7 +399,7 @@ test('同一 BOM 行真实染色交出后由印花厂按卷实收，印花开工
   assert.ok(outputBarcode)
   updatePrintingRollBarcode(printRef.processOrderId, outputBarcode.id, {
     lengthY: 20, gsm: 180, widthCm: 150, vatNo: 'DR-CHAIN-01',
-    warehouseName: '印花厂待交出区', remark: '染后印花实际产出',
+    warehouseName: '印花厂待交出区', remark: '印花实际产出',
   })
   markPrintingRollBarcodesPrinted(printRef.processOrderId, [outputBarcode.id], '印花工厂')
   captureBrowserEvidenceStage('print-output-ready')
@@ -492,21 +424,17 @@ test('同一 BOM 行真实染色交出后由印花厂按卷实收，印花开工
     }],
   })
   assert.equal(getSourceActualReceipts(centralSource.id).reduce((sum, item) => sum + item.qty, 0), 20)
-  assert.deepEqual(readDesignRevisionProcessWorkOrderStatuses(refs).map((item) => item.status), ['COMPLETED', 'COMPLETED'], '印花实物由中央工厂确认接收即可填报样衣')
+  assert.deepEqual(readDesignRevisionProcessWorkOrderStatuses(refs).map((item) => item.status), ['COMPLETED'], '印花实物由中央工厂确认接收即可填报样衣')
   captureBrowserEvidenceStage('print-delivered')
   completePrintWorkOrderDocument(printRef.processOrderId, { operatorName: 'PPIC' })
   captureBrowserEvidenceStage('completed')
-  const dyeProgress = getDyeWorkOrderProgressView(getDyeWorkOrderById(dyeRef.processOrderId)!, 0)
-  assert.equal(dyeProgress.processingStatus, 'COMPLETED')
-  assert.equal(dyeProgress.handoverStatus, 'FULL_HANDOVER')
-  assert.equal(dyeProgress.downstreamReceivedQty, 20)
   assert.equal(getPrintingWorkOrderById(printRef.processOrderId)!.receivingTargetId, GOTO_GLOBAL_FACTORY_ID, '接收组织编号必须是中央工厂，不能用库区编号冒充')
   const completedPrint = getPrintWorkOrderById(printRef.processOrderId)!
   const completedHeads = listHandoverOrdersByTaskId(completedPrint.taskId, { includeWool: false })
   assert.ok(completedHeads.length > 0)
   assert.deepEqual(completedHeads.map(head => ({taskStatus:head.taskStatus,status:head.handoverOrderStatus})), completedHeads.map(() => ({taskStatus:'DONE',status:'WRITTEN_BACK'})), '设计改款完单后交出单必须同步完成，不要求重复确认')
-  assert.deepEqual(readDesignRevisionProcessWorkOrderStatuses(refs).map((item) => item.status), ['COMPLETED', 'COMPLETED'])
-  assert.equal(listFactoryReceivingSources(printFactory.id).some((item) => item.id === `DR-MATERIAL-PRINTING-${printRef.processOrderId}`), false)
+  assert.deepEqual(readDesignRevisionProcessWorkOrderStatuses(refs).map((item) => item.status), ['COMPLETED'])
+  assert.equal(listFactoryReceivingSources(printFactory.id).some((item) => item.id === `DR-MATERIAL-PRINTING-${printRef.processOrderId}`), true, '直接仓库发印厂的调拨保留追溯')
   const sampleResult = submitEngineeringIndependentProfessionalTask({
     taskId: sampleTask.taskId,
     actor: { role: '制作团队', userId: 'GOTO-GLOBAL-SAMPLE', userName: 'goto_global 样衣团队' },
@@ -514,7 +442,7 @@ test('同一 BOM 行真实染色交出后由印花厂按卷实收，印花开工
       title: '整款 / M 销售展示样衣', requirementLineId: sampleTask.sampleRequirements[0].requirementLineId,
       sampleQuantity: 1, sampleColor: '整款', sampleSize: 'M',
       sourcePatternVersion: listEngineeringIndependentAvailablePatternVersions(active)[0].value,
-      description: '按已接收的染后印花面料制作', files: [sampleImage],
+      description: '按已接收的印花面料制作', files: [sampleImage],
     }],
     submittedAt: '2030-01-01 12:41:00',
   })

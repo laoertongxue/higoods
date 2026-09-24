@@ -30,9 +30,9 @@ const scenarios = [
   },
   {
     id: 'FLOW-04',
-    name: '先染后印同批实物交接、中央工厂接收、样衣完成与归档',
+    name: '双属性仅印花实物交接、中央工厂接收、样衣完成与归档',
     file: 'tests/unit/fcs-design-revision-result-readiness.test.ts',
-    pattern: '同一 BOM 行真实染色交出后由印花厂按卷实收',
+    pattern: '双工艺 SKU 仅生成印花单',
   },
   {
     id: 'FLOW-05',

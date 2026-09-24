@@ -1412,7 +1412,7 @@ function buildDesignRevisionProcessEntries(input: {
       const snapshot = line.designRevisionSkuSnapshot || resolveDesignRevisionMaterialSku(line.materialSkuId, input.record.taskPlanConfirmedAt)
       if (snapshot.targetSkuId !== line.materialSkuId) throw new Error('BOM 目标 SKU 与加工快照不一致。')
       const processTypes: Array<'DYEING' | 'PRINTING'> = [
-        ...(snapshot.requiresDye ? ['DYEING' as const] : []),
+        ...(snapshot.requiresDye && !snapshot.requiresPrint ? ['DYEING' as const] : []),
         ...(snapshot.requiresPrint ? ['PRINTING' as const] : []),
       ]
       if (!processTypes.length) return []
@@ -1431,7 +1431,7 @@ function buildDesignRevisionProcessEntries(input: {
         }) * 10_000) / 10_000
       return processTypes.map((processType) => {
         const task = processTaskForLine(input.tasks, processType === 'PRINTING' ? 'PRINT' : 'DYE', line.materialSkuId)
-        const inputSkuId = processType === 'DYEING' || !snapshot.requiresDye ? snapshot.rawSkuId : snapshot.dyedSkuId
+        const inputSkuId = snapshot.rawSkuId
         const inputSku = getMaterialSkuRecordById(inputSkuId)
         if (!inputSku || inputSku.status !== 'ACTIVE') throw new Error(`${snapshot.targetSkuCode} 的加工前序 SKU 不可用。`)
         const processQuantity = resolveDesignRevisionProcessQuantity({

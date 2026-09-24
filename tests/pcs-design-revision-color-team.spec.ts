@@ -15,10 +15,10 @@ const printed = resolveDesignRevisionMaterialSku('dr_cotton_dye_print')
 assert.equal(dyed.requiresDye, true)
 assert.equal(dyed.requiresPrint, false)
 assert.ok(dyed.colorName && dyed.pantoneCode, '目标染色 SKU 应带出颜色与潘通号')
-assert.equal(printed.requiresDye, true)
+assert.equal(printed.requiresDye, false)
 assert.equal(printed.requiresPrint, true)
 assert.ok(printed.colorName && printed.pantoneCode && printed.patternCode && printed.patternImageUrl,
   '目标染印 SKU 应同时带出染色与花型信息')
-assert.equal(printed.dyedSkuCode, dyed.targetSkuCode, '同一份面料先染后印')
+assert.equal(printed.dyedSkuCode, '', '双属性仅印花，无染后中间品')
 
 console.log('pcs-design-revision-color-team.spec PASS')

@@ -16,8 +16,9 @@ test('目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣
     ['dr_cotton_raw', false, false],
     ['dr_cotton_dyed', true, false],
     ['dr_cotton_print', false, true],
-    ['dr_cotton_dye_print', true, true],
+    ['dr_cotton_dye_print', false, true],
   ] as const) {
+    await row.locator('summary').click()
     await sku.selectOption(skuId)
     await expect(dyeRequirement).toHaveValue(needsDye ? '是' : '否')
     await expect(printRequirement).toHaveValue(needsPrint ? '是' : '否')
@@ -26,19 +27,22 @@ test('目标物料 SKU 决定染色与印花，工作预览只含纸样和样衣
     await expect(workPreview).not.toContainText('调色任务')
     if (needsDye) await expect(row).toContainText('潘通')
     if (needsPrint) await expect(row.getByRole('button', { name: '查看花型图' })).toBeVisible()
-    if (needsDye && needsPrint) await expect(row).toContainText('先染后印')
+    if (needsDye && needsPrint) await expect(row).toContainText('无需染色；印花')
   }
 })
 
 test('同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别计算', async ({ page }) => {
   await page.goto('/pcs/production-preparation/design-revision/ES-ID-DR-001?step=buyer')
   const rows = page.locator('[data-independent-bom-line]')
-  await expect(rows).toHaveCount(1)
+  await expect(rows.first()).toBeVisible()
+  while(await rows.count()>1)await rows.last().locator('[data-pcs-independent-sampling-action="remove-bom-line"]').click()
   await page.locator('[data-pcs-independent-sampling-action="add-bom-line"]').click()
   await expect(rows).toHaveCount(2)
 
+  await rows.nth(0).locator('summary').click()
   await rows.nth(0).locator('[data-pcs-independent-sampling-field="bomMaterialSkuId"]').selectOption('material_accessory_001_sku_001')
   await rows.nth(0).locator('[data-pcs-independent-sampling-field="bomUsage"]').fill('3')
+  await rows.nth(1).locator('summary').click()
   await rows.nth(1).locator('[data-pcs-independent-sampling-field="bomMaterialSkuId"]').selectOption('dr_cotton_dye_print')
   await rows.nth(1).locator('[data-pcs-independent-sampling-field="bomUsage"]').fill('2')
   await page.locator('[data-pcs-independent-sampling-field="sampleRequirementQuantity"]').fill('2')
@@ -46,14 +50,18 @@ test('同一设计改款 BOM 的面料 Yard 与辅料 PCS 在买手页面分别�
   await expect(rows.nth(0).locator('[data-design-revision-bom-subtotal]')).toContainText('计划用量 6.0000 PCS')
   await expect(rows.nth(1).locator('[data-design-revision-bom-subtotal]')).toContainText('计划用量 4.0000 Yard')
   await expect(rows.nth(0)).toContainText('无需染色；无需印花')
-  await expect(rows.nth(1)).toContainText('先染后印')
+  await expect(rows.nth(1)).toContainText('无需染色；印花')
   await page.locator('[data-pcs-independent-sampling-action="confirm-scheme"]').click()
   await expect(page.getByText('任务已提交，基码纸样和印染加工单已按需求生成。')).toBeVisible()
 })
 
 test('设计改款生成的染印单展示可加载的款式与物料图片', async ({ page }, testInfo) => {
   await page.goto('/pcs/production-preparation/design-revision/ES-ID-DR-001?step=buyer')
+  await page.locator('[data-independent-bom-line]').first().locator('summary').click()
   await page.locator('[data-independent-bom-line]').first().locator('[data-pcs-independent-sampling-field="bomMaterialSkuId"]').selectOption('dr_cotton_dye_print')
+  await page.locator('[data-pcs-independent-sampling-action="add-bom-line"]').click()
+  await page.locator('[data-independent-bom-line]').last().locator('summary').click()
+  await page.locator('[data-independent-bom-line]').last().locator('[data-pcs-independent-sampling-field="bomMaterialSkuId"]').selectOption('dr_cotton_dyed')
   await page.locator('[data-pcs-independent-sampling-action="confirm-scheme"]').click()
   await expect(page.getByText('任务已提交，基码纸样和印染加工单已按需求生成。')).toBeVisible()
 

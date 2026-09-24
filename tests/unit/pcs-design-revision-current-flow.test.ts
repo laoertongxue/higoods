@@ -31,7 +31,7 @@ test('目标 SKU 的四种加工组合、前序实物和 BOM Q 均按已建档�
     { id: 'dr_cotton_raw', dye: false, print: false, raw: 'dr_cotton_raw', dyed: '' },
     { id: 'dr_cotton_dyed', dye: true, print: false, raw: 'dr_cotton_raw', dyed: 'dr_cotton_dyed' },
     { id: 'dr_cotton_print', dye: false, print: true, raw: 'dr_cotton_raw', dyed: '' },
-    { id: 'dr_cotton_dye_print', dye: true, print: true, raw: 'dr_cotton_raw', dyed: 'dr_cotton_dyed' },
+    { id: 'dr_cotton_dye_print', dye: false, print: true, raw: 'dr_cotton_raw', dyed: '' },
   ]
   cases.forEach(({ id, dye, print, raw, dyed }) => {
     const snapshot = resolveDesignRevisionMaterialSku(id, '2026-09-23 09:00:00')
@@ -67,7 +67,7 @@ test('整单总量口径保存后仍按一次总量计算，不被样衣件数�
   })
   saveEngineeringBomVersion({
     versionId: draft.bomDraftVersionId, ...buyer,
-    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 6, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 3, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '是', printRequirement: '是' }],
+    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 6, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 3, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '是' }],
     updatedAt: '2026-09-23 09:06:00',
   })
   const saved = getEngineeringBomVersionById(draft.bomDraftVersionId)!.materialLines[0]
@@ -85,8 +85,8 @@ test('整单总量口径保存后仍按一次总量计算，不被样衣件数�
     selectedTaskTypes: ['BASE_PATTERN', 'DISPLAY_SAMPLE'], confirmedAt: '2026-09-23 09:08:00',
   })
   const references = submitted.professionalTasks.flatMap((task) => task.processWorkOrderRefs)
-  assert.equal(references.length, 2)
-  assert.equal(getDyeWorkOrderById(references.find((ref) => ref.processType === 'DYEING')!.processOrderId)?.plannedQty, 6)
+  assert.equal(references.length, 1)
+  assert.ok(references.every(ref => ref.processType === 'PRINTING'))
   const printOrder = getPrintWorkOrderById(references.find((ref) => ref.processType === 'PRINTING')!.processOrderId)!
   assert.equal(printOrder.plannedQty, 6)
   assert.equal(printOrder.sourceSnapshot?.materialWidthCm, 150)
@@ -265,7 +265,7 @@ test('批量复制仅继承建单输入，后续设计稿、BOM 和样衣要求�
   })
   saveEngineeringBomVersion({
     versionId: source.bomDraftVersionId, ...buyer,
-    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 2, sampleQuantity: 2, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '是', printRequirement: '是' }],
+    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 2, sampleQuantity: 2, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '是' }],
     updatedAt: '2026-09-23 10:01:00',
   })
   saveEngineeringIndependentSamplingDraftRequirements({
@@ -315,4 +315,28 @@ test('单页创建同时保存物料、费用与样衣要求；失败不留下�
   assert.equal(resolveEngineeringBomMaterialLine(line).totalRequirementQuantity, 6)
   assert.equal(getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', created.samplingTaskId)!.customCosts[0].amountIdr, 12000)
   assert.equal(created.professionalTasks.length, 0)
+})
+
+test('加工互斥按物料行执行：同一任务允许纯染行与双属性印花行并存', () => {
+  const target = listEngineeringIndependentSamplingRecords().find(record => record.targetStyleCode === 'STYLE-PRJ-202603-012')!
+  const buyer = { role: '买手' as const, userId: target.buyerId, userName: target.buyerName }
+  const draft = createEngineeringIndependentSampling({ targetStyleId: target.targetStyleId,
+    creationReason: '分别染色和印花', designFiles: target.designFiles, patternHandling: 'REMAKE', buyer })
+  saveEngineeringBomVersion({ versionId: draft.bomDraftVersionId, ...buyer, materialLines: [
+    { materialSkuId: 'dr_cotton_dyed', usage: 2, usageUnit: 'Yard', sampleQuantity: 1, lossRate: 0, dyeRequirement: '是', printRequirement: '否' },
+    { materialSkuId: 'dr_cotton_dye_print', usage: 3, usageUnit: 'Yard', sampleQuantity: 1, lossRate: 0, dyeRequirement: '否', printRequirement: '是' },
+    { materialSkuId: 'dr_cotton_raw', usage: 1, usageUnit: 'Yard', sampleQuantity: 1, lossRate: 0, dyeRequirement: '否', printRequirement: '否' },
+  ] })
+  saveEngineeringBomPricingPlan({ ownerStage: 'INDEPENDENT_SAMPLING', ownerId: draft.samplingTaskId,
+    ...buyer, customCostDecision: 'NO_CUSTOM_COST', customCosts: [] })
+  const submitted = confirmEngineeringIndependentSamplingScheme({ samplingTaskId: draft.samplingTaskId, actor: buyer,
+    displaySampleAssignment: DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0], selectedTaskTypes: ['BASE_PATTERN','DISPLAY_SAMPLE'],
+    sampleRequirements: [{ targetColor: '整款', targetSize: 'M', requiredQuantity: 1, requirementNote: '' }] })
+  const refs = submitted.professionalTasks.flatMap(task => task.processWorkOrderRefs)
+  assert.equal(refs.length, 2)
+  assert.equal(new Set(refs.map(ref => ref.bomItemId)).size, 2)
+  assert.deepEqual(refs.map(ref => ref.processType).sort(), ['DYEING','PRINTING'])
+  assert.ok(refs.every(ref => !ref.prerequisiteProcessOrderId))
+  assert.equal(getDyeWorkOrderById(refs.find(ref => ref.processType === 'DYEING')!.processOrderId)?.plannedQty, 2)
+  assert.equal(getPrintWorkOrderById(refs.find(ref => ref.processType === 'PRINTING')!.processOrderId)?.plannedQty, 3)
 })
