@@ -331,7 +331,13 @@ function teamOptions(): string[] {
 
 function renderDesignRevisionProcessOrders(row: EngineeringIndependentSamplingRecord, processType: 'DYEING' | 'PRINTING'): string {
   const refs = processRefs(row).filter((ref) => ref.processType === processType)
-  if (!refs.length) return '<span class="text-slate-400">无需加工</span>'
+  if (!refs.length) {
+    const required = materialPlanVersions(row).some(version => version.materialLines.some(line => {
+      if (processType === 'DYEING' ? line.dyeRequirement === '是' : line.printRequirement === '是') return true
+      try { const sku = resolveDesignRevisionMaterialSku(line.materialSkuId); return processType === 'DYEING' ? sku.requiresDye : sku.requiresPrint } catch { return false }
+    }))
+    return `<span class="${required ? 'text-amber-700' : 'text-slate-400'}">${required ? row.status === 'DRAFT' ? '提交后生成' : '未关联加工单' : '无需加工'}</span>`
+  }
   const statusViews = readDesignRevisionProcessWorkOrderStatuses(refs)
   return `<div class="space-y-2">${refs.map((ref) => {
     const order = processType === 'DYEING' ? getDyeWorkOrderById(ref.processOrderId) : getPrintWorkOrderById(ref.processOrderId)
@@ -399,13 +405,13 @@ function renderMaterialCosts(row: EngineeringIndependentSamplingRecord): string 
 
 function renderDesignRevisionBasePattern(row: EngineeringIndependentSamplingRecord): string {
   const task = row.professionalTasks.find((item) => item.taskType === 'BASE_PATTERN')
-  if (!task) return row.patternHandling === 'REUSE' ? `复用已有纸样<p class="text-xs">上传 ${escapeHtml(patternFiles(row).map(file => file.uploadedAt).sort().at(-1) || '—')}</p>` : '待生成'
+  if (!task) return row.patternHandling === 'REUSE' ? `复用已有纸样<p class="text-xs">上传 ${escapeHtml(patternFiles(row).map(file => file.uploadedAt).sort().at(-1) || '—')}</p>` : row.status === 'DRAFT' ? '提交后生成' : '历史未记录纸样任务'
   return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · ${escapeHtml(task.ownerTeamName)}</p>${taskTiming(task)}<p class="text-xs">纸样上传：${patternFiles(row).length ? '是' : '否'}</p><p class="text-xs">上传人 ${escapeHtml(recordFilterFacts(row).patternMaker || '—')}</p><p class="text-xs">上传 ${escapeHtml(recordFilterFacts(row).patternUploadedAt || '—')}</p>`
 }
 
 function renderDesignRevisionSampleTask(row: EngineeringIndependentSamplingRecord): string {
   const task = row.professionalTasks.find((item) => item.taskType === 'DISPLAY_SAMPLE')
-  if (!task) return '<span class="text-slate-400">待生成</span>'
+  if (!task) return `<span class="text-slate-400">${row.status === 'DRAFT' ? '提交后生成' : '历史未记录样衣任务'}</span>`
   const planned = (task.sampleRequirements || []).reduce((sum, line) => sum + line.requiredQuantity, 0)
   const delivered = task.results.reduce((sum, result) => sum + result.sampleQuantity, 0)
   return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${planned} 件要求 · ${delivered} 件已交</p><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · 提交 ${escapeHtml(task.submittedAt || '—')}</p>${taskTiming(task)}`

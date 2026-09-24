@@ -17,6 +17,8 @@
 | LIST-105 | 不再出现线下设计工作 | W1 normalizeEngineeringDesignRevisionRecord | 幂等、引用去重保留单元测试及旧浏览器刷新 | 已验证 |
 | LIST-106 | 老系统可用筛选及时间类型 | W2 recordFilterFacts / extraFilters | 每项五次查询与重置 | 已验证 |
 
+线上既有 29 条记录复核后追加：草稿需要印染但未生成单据显示“提交后生成”；历史需要印染而缺关联显示“未关联加工单”；历史缺少纸样／样衣工作显示“历史未记录…任务”。不将缺记录解释成无需加工，也不自动创建历史成果。
+
 产品规则确认：用户本次消息。技术验收：Codex，当前工作树；最终产品接受待用户查看。
 
 ## 3. 自查结论
@@ -55,12 +57,12 @@
 
 ### 验证命令
 
-- 验证分支：`codex/design-revision-list-consolidation`；基准 HEAD `a2733d559c1780c8328d53d5bed7e0d3e486207d`；工作树 `/Users/laoer/Documents/higoods`。
+- 最终验证分支：`main`；历史标签修正前 HEAD `15935ce6a79dadf7442f8104be9d2ca9e7009eac`；工作树 `/Users/laoer/Documents/higoods`。
 - 实际服务：同工作树生产构建 `http://127.0.0.1:4734`，Chromium 149.0.7827.55，1366×768 与 1280×720；完整 24 条 Mock，各轮隔离浏览器，未清除用户浏览器数据。
 - `npm run build`：通过，438 个单元测试通过；包含历史工作移除、依赖解除、加工单引用保留及冲突时已有引用优先、重复规范化幂等。
 - `node scripts/check-typescript-scope.mjs src/pages/pcs-independent-sampling.ts src/data/pcs-engineering-master-sampling.ts src/data/pcs-engineering-master-types.ts`：通过，范围内 0 错误；全仓其他范围保留 6 个既有错误。
 - `CUTTING_E2E_PORT=4734 CUTTING_E2E_USE_PREVIEW=true CUTTING_E2E_TEST_TIMEOUT=150000 npx playwright test tests/pcs-design-revision-list-performance.spec.ts tests/pcs-design-revision-list-actions.spec.ts tests/pcs-design-revision-legacy-list.spec.ts tests/pcs-design-revision-single-page.spec.ts --workers=1 --reporter=line`：通过，6 项专项。最后实质修改后重新运行，结果 `6 passed (1.6m)`。
-- 列表 83 项 × 5 次，最大 410.80ms；表单 29 项 × 5 次，最大 298.60ms，全部严格小于 500ms。证据含生产 index SHA256、缓存和计时说明。冷进入从导航起计，交互从事件到结果、可见图解码及两帧绘制。
+- 列表 83 项 × 5 次，最大 414.70ms；表单 29 项 × 5 次，最大 298.70ms，全部严格小于 500ms。证据含生产 index SHA256、缓存和计时说明。冷进入从导航起计，交互从事件到结果、可见图解码及两帧绘制。
 - 原始数据：`evidence/2026-09-24-design-revision-consolidation-list.json`、`evidence/2026-09-24-design-revision-consolidation-form.json`。
 - 截图：`evidence/2026-09-24-design-revision-consolidated-list.png`、`evidence/2026-09-24-design-revision-expanded-filters.png`、`evidence/2026-09-24-design-revision-list-1280.png`。
 - 款式、设计稿、物料大图分别测量，关闭按钮和 Esc 回归通过。旧浏览器记录刷新后主任务正文不再展示花型、调色任务。
