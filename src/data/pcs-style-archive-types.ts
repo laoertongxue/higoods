@@ -1,6 +1,12 @@
+import type { FlatDimensionId } from './pcs-config-dimensions.ts'
 export type StyleArchiveStatusCode = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
 
 export interface StyleArchiveShellRecord {
+  buyerId?: string
+  buyerName?: string
+  productConfigRefs?: Partial<Record<FlatDimensionId, string[]>>
+  productCategoryId?: string
+  productInformationVersion?: number
   styleId: string
   styleCode: string
   styleName: string

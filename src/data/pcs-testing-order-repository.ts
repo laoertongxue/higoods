@@ -1,4 +1,4 @@
-import { createStyleArchiveDirect, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
+import { createStyleArchiveDirect, getStyleArchiveById, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { applyArchiveWriteback } from './pcs-archive-writeback-contract.ts'
 import { createTestingOrderChannelProducts, listProjectChannelProducts } from './pcs-channel-product-project-repository.ts'
 import { PCS_CHANNEL_OPTIONS } from './pcs-channel-options.ts'
@@ -232,6 +232,7 @@ export function createTestingOrder(input: {
     createSkuArchive(sku)
   }
   if (!style) return { ok: false, message: '款式建档失败。' }
+  if (input.styleId && !style.buyerName?.trim()) return { ok: false, message: '商品尚未绑定买手，请先完善商品档案的买手关系。' }
   const availableSkus = listSkuArchives().filter((item) => item.styleId === style!.styleId)
   if (input.skuCodes && (!input.skuCodes.length || input.skuCodes.some((code) => !availableSkus.some((sku) => sku.skuCode === code)))) return { ok: false, message: '请选择该商品档案下的有效 SKU。' }
   if (!availableSkus.length) return { ok: false, message: '商品档案尚无 SKU，请先维护规格档案。' }
@@ -241,7 +242,7 @@ export function createTestingOrder(input: {
   const record: TestingOrderRecord = {
     testingOrderId: `to_${Date.now().toString(36)}_${seq}`,
     orderCode,
-    buyerName: input.buyerName?.trim() || '待分配',
+    buyerName: style.buyerName || '商品未绑定买手',
     styleId: style.styleId,
     styleCode: style.styleCode,
     styleName: style.styleName,
@@ -285,9 +286,14 @@ export function createTestingOrder(input: {
   return { ok: true, order: record }
 }
 
+export function getTestingOrderBuyerName(order: Pick<TestingOrderRecord, 'styleId'>): string {
+  return getStyleArchiveById(order.styleId)?.buyerName || '商品未绑定买手'
+}
+
 export function listTestingOrders(): TestingOrderRecord[] {
   ensureTestingOrders()
-  return [...store.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  const buyers = new Map(listStyleArchives().map((style) => [style.styleId, style.buyerName]))
+  return [...store.values()].map((order) => ({ ...order, buyerName: buyers.get(order.styleId) || '商品未绑定买手' })).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
 /** 生产准备只接受已结束且最终大货判断通过的测款事实。 */
@@ -643,11 +649,12 @@ export function bootstrapTestingOrders(): void {
     // 损坏的本地演示数据回退到种子数据。
   }
   const styles = listStyleArchives()
-  const normal = styles[0]
-  const buyerKill = styles[1] || styles[0]
-  const pricingKill = styles[2] || styles[0]
-  const pending = styles[3] || styles[0]
-  const historyEnded = styles[4] || styles[0]
+  // 演示单绑定固定商品，不随档案修改时间或列表排序变化。
+  const normal = styles.find((style) => style.styleId === 'style_demand_SPU_QC_001')
+  const buyerKill = styles.find((style) => style.styleId === 'style_demand_SPU_QC_002')
+  const pricingKill = styles.find((style) => style.styleId === 'style_demand_SPU_QC_003')
+  const pending = styles.find((style) => style.styleId === 'style_demand_PRJ_202603_012')
+  const historyEnded = styles.find((style) => style.styleId === 'style_demand_PRJ_202603_011')
 
   if (normal) {
     const record = seed({

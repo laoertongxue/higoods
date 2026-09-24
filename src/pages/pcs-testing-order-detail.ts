@@ -1,3 +1,4 @@
+import { getTestingOrderBuyerName } from '../data/pcs-testing-order-repository.ts'
 import { renderProductInformation } from './pcs-product-information.ts'
 import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
 // @page-pattern: detail
@@ -205,7 +206,7 @@ export function renderPcsTestingOrderDetailPage(testingOrderId: string): string 
           <div class="grid gap-1 text-xs text-slate-500">
             <div>SPU ${escapeHtml(order.spuCode)}</div>
             <div>SKU ${escapeHtml(order.skuCodes.join('、') || '—')}</div>
-            <div>买手 ${escapeHtml(order.buyerName || '待分配')}</div>
+            <div>买手 ${escapeHtml(getTestingOrderBuyerName(order))}</div>
             <div>寄样 ${escapeHtml(order.shipMethod)}</div>
           </div>
         </div>

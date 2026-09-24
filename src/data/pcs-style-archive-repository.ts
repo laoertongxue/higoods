@@ -1,3 +1,4 @@
+import { PRODUCT_CONFIG_FIELDS, createStyleProductInformationContext, resolveStyleProductInformation } from './pcs-style-product-information.ts'
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture, isLegacyProductFixtureImage, migrateProductFixtureImage } from './pcs-product-archive-fixtures.ts'
 import { normalizeStyleTechPackStatusText } from './pcs-product-lifecycle-governance.ts'
@@ -35,6 +36,7 @@ function canUseStorage(): boolean {
 function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   return {
     ...record,
+    productConfigRefs: record.productConfigRefs ? Object.fromEntries(Object.entries(record.productConfigRefs).map(([key, ids]) => [key, [...ids]])) : undefined,
     categoryTags: [...(record.categoryTags || [])],
     popularElementTags: [...(record.popularElementTags || [])],
     fabricTags: [...(record.fabricTags || [])],
@@ -161,11 +163,32 @@ function hydrateSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStore
 function mergeMissingSeedData(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSnapshot {
   const seed = seedSnapshot()
   const seedById = new Map(seed.records.map((item) => [item.styleId, item]))
+  const legacyById = new Map(createStyleArchiveBootstrapSnapshot(STYLE_ARCHIVE_STORE_VERSION, false).records.map((item) => [item.styleId, item]))
   const existingIds = new Set(snapshot.records.map((item) => item.styleId))
   const existingPendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId))
   const patchedRecords = snapshot.records.map((record) => {
     const seeded = seedById.get(record.styleId)
     if (!seeded) return record
+    if (!record.productInformationVersion) {
+      // 升级已知 Mock 的旧空字段及旧配置占位；保留用户明确维护的属性。
+      const refs = { ...seeded.productConfigRefs }
+      const next = { ...seeded, ...record }
+      for (const [field, dimension] of Object.entries(PRODUCT_CONFIG_FIELDS)) {
+        const value = record[field as keyof StyleArchiveShellRecord]
+        const missing = Array.isArray(value) ? !value.length : !value
+        const legacy = JSON.stringify(value) === JSON.stringify(legacyById.get(record.styleId)?.[field as keyof StyleArchiveShellRecord])
+        if (missing || legacy) Object.assign(next, { [field]: seeded[field as keyof StyleArchiveShellRecord] })
+        else delete refs[dimension]
+      }
+      const customCategory = ['categoryName', 'subCategoryName', 'thirdCategoryName'].some((key) => record[key as keyof StyleArchiveShellRecord] && record[key as keyof StyleArchiveShellRecord] !== legacyById.get(record.styleId)?.[key as keyof StyleArchiveShellRecord])
+      if (record.categoryCode && record.categoryCodeName) delete refs.styleCodes
+      Object.assign(record, next, { productConfigRefs: refs, productInformationVersion: 1,
+        productCategoryId: record.productCategoryId || (customCategory ? undefined : seeded.productCategoryId),
+        materialType: record.materialType || seeded.materialType,
+        buyerId: record.buyerId || (record.buyerName && record.buyerName !== seeded.buyerName ? `legacy-buyer-${record.styleId}` : seeded.buyerId), buyerName: record.buyerName || seeded.buyerName,
+        categoryCode: record.categoryCode || seeded.categoryCode,
+      })
+    }
     const recordWithSeedVersionCount = {
       ...record,
       techPackVersionCount: Math.max(record.techPackVersionCount || 0, seeded.techPackVersionCount || 0),
@@ -321,12 +344,13 @@ export function getStyleArchiveStoreSnapshot(): StyleArchiveStoreSnapshot {
 }
 
 export function listStyleArchives(): StyleArchiveShellRecord[] {
-  return loadSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const context = createStyleProductInformationContext()
+  return loadSnapshot().records.map((record) => resolveStyleProductInformation(cloneRecord(record), context)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export function getStyleArchiveById(styleId: string): StyleArchiveShellRecord | null {
   const record = loadSnapshot().records.find((item) => item.styleId === styleId)
-  return record ? cloneRecord(record) : null
+  return record ? resolveStyleProductInformation(cloneRecord(record)) : null
 }
 
 export function findStyleArchiveByCode(styleCode: string): StyleArchiveShellRecord | null {
@@ -336,12 +360,12 @@ export function findStyleArchiveByCode(styleCode: string): StyleArchiveShellReco
     matchedRecords.find((item) => item.styleId.startsWith('style_demand_') && Boolean(item.currentTechPackVersionId)) ??
     matchedRecords.find((item) => Boolean(item.currentTechPackVersionId)) ??
     matchedRecords.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
-  return record ? cloneRecord(record) : null
+  return record ? resolveStyleProductInformation(cloneRecord(record)) : null
 }
 
 export function findStyleArchiveByProjectId(projectId: string): StyleArchiveShellRecord | null {
   const record = loadSnapshot().records.find((item) => item.sourceProjectId === projectId)
-  return record ? cloneRecord(record) : null
+  return record ? resolveStyleProductInformation(cloneRecord(record)) : null
 }
 
 export function hasStyleArchiveForProject(projectId: string): boolean {
@@ -444,6 +468,15 @@ export function createStyleArchiveDirect(input: {
 }
 
 export function updateStyleArchive(styleId: string, patch: Partial<StyleArchiveShellRecord>): StyleArchiveShellRecord | null {
+  const current = getStyleArchiveById(styleId)
+  if (current && !patch.productConfigRefs) {
+    const refs = { ...current.productConfigRefs }
+    for (const [field, dimension] of Object.entries(PRODUCT_CONFIG_FIELDS)) {
+      if (field in patch && JSON.stringify(patch[field as keyof StyleArchiveShellRecord]) !== JSON.stringify(current[field as keyof StyleArchiveShellRecord])) delete refs[dimension]
+    }
+    patch = { ...patch, productConfigRefs: refs }
+    if (patch.productCategoryId === undefined && ['categoryName', 'subCategoryName', 'thirdCategoryName'].some((field) => field in patch && patch[field as keyof StyleArchiveShellRecord] !== current[field as keyof StyleArchiveShellRecord])) patch.productCategoryId = ''
+  }
   const snapshot = loadSnapshot()
   const index = snapshot.records.findIndex((item) => item.styleId === styleId)
   if (index < 0) return null

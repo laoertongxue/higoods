@@ -1,3 +1,4 @@
+import { createStyleProductInformationContext, seedStyleProductInformation } from './pcs-style-product-information.ts'
 import { buildStyleFixture } from './pcs-product-archive-fixtures.ts'
 import { createBootstrapProjectSnapshot } from './pcs-project-bootstrap.ts'
 import { listProductionDemandTechPackSeeds, type ProductionDemandTechPackSeed } from './pcs-production-demand-tech-pack-seeds.ts'
@@ -287,16 +288,22 @@ function listProjectTestingStyleArchives(): StyleArchiveShellRecord[] {
   })
 }
 
-export function createStyleArchiveBootstrapSnapshot(version: number): StyleArchiveStoreSnapshot {
+export function createStyleArchiveBootstrapSnapshot(version: number, withProductInformation = true): StyleArchiveStoreSnapshot {
   const records = [
     ...listProductionDemandTechPackSeeds().map(buildRecord),
     ...EXTRA_STYLE_ARCHIVE_RECORDS,
     ...listProjectTestingStyleArchives(),
   ]
   const recordById = new Map(records.map((record) => [record.styleId, record]))
+  const projects = createBootstrapProjectSnapshot().projects
+  const productContext = withProductInformation ? createStyleProductInformationContext() : undefined
   return {
     version,
-    records: Array.from(recordById.values()),
+    records: Array.from(recordById.values()).map((record) => {
+      if (!withProductInformation) return record
+      const project = projects.find((item) => item.projectId === record.sourceProjectId)
+      return seedStyleProductInformation(record, project ? { id: project.ownerId, name: project.ownerName } : undefined, productContext)
+    }),
     pendingItems: [],
   }
 }
