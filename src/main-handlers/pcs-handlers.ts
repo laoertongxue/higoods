@@ -217,7 +217,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     dialogExport: 'isPcsIndependentSamplingDialogOpen',
     closeActions: [
       { datasetKey: 'pcsIndependentSamplingAction', value: 'close-image' },
-      { datasetKey: 'pcsIndependentSamplingAction', value: 'close-create' },
     ],
   },
   {

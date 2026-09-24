@@ -9,6 +9,7 @@ import { createProcessOrderListController, type ProcessOrderListControllerState 
 import {
   getEngineeringBomPricingPlan,
   getEngineeringBomVersionById,
+  listEngineeringBomHistory,
   resolveEngineeringBomPricingPlan,
   saveEngineeringBomPricingPlan,
   saveEngineeringBomVersion,
@@ -23,7 +24,7 @@ import {
   getEngineeringIndependentCurrentTeam,
   getEngineeringIndependentCurrentTeams,
   getEngineeringIndependentProfessionalTaskCurrentTeam,
-  getEngineeringIndependentSamplingRecord,
+  getEngineeringIndependentSamplingRecord as getSavedSamplingRecord,
   getEngineeringIndependentSamplingStep,
   listEngineeringIndependentAvailablePatternVersions,
   listEngineeringIndependentSamplingRecords,
@@ -82,7 +83,6 @@ const TASK_OPTIONS: Array<{ value: EngineeringIndependentProfessionalTaskType; l
 ]
 
 const ui = {
-  createOpen: false,
   createDraft: {
     sourceStyleId: '',
     targetMode: 'ARCHIVED_STYLE' as 'ARCHIVED_STYLE' | 'TEMPORARY_SPU',
@@ -131,6 +131,54 @@ function resetCreateDraft(): void {
     designFiles: [],
     reusedPatternFiles: [],
   }
+}
+
+const NEW_TASK_ID = 'new'
+const NEW_BOM_ID = 'design-revision-new-bom'
+
+// The unsubmitted form lives only in this page; opening it never creates a business task.
+function getEngineeringIndependentSamplingRecord(id: string): EngineeringIndependentSamplingRecord | undefined {
+  if (id !== NEW_TASK_ID) return getSavedSamplingRecord(id) || undefined
+  const source = getStyleArchiveById(ui.createDraft.sourceStyleId)
+  const target = getStyleArchiveById(ui.createDraft.targetStyleId)
+  return {
+    samplingTaskId: NEW_TASK_ID, samplingTaskCode: '新建设计改款', samplingType: 'DESIGN_REVISION',
+    sourceStyleId: source?.styleId || '', sourceStyleCode: source?.styleCode || '',
+    targetMode: 'ARCHIVED_STYLE',
+    targetStyleId: target?.styleId || '', targetStyleCode: target?.styleCode || '', targetStyleName: target?.styleName || '',
+    temporarySpuName: '',
+    linkedFormalStyleId: '', linkedFormalStyleCode: '', linkedFormalStyleName: '', linkedAt: '', linkedBy: '',
+    status: 'DRAFT', creationReason: ui.createDraft.creationReason, designFiles: ui.createDraft.designFiles.map((file) => ({ ...file })),
+    creationDesignFileIds: ui.createDraft.designFiles.map((file) => file.fileId),
+    patternHandling: ui.createDraft.patternHandling, reusedPatternFiles: ui.createDraft.reusedPatternFiles.map((file) => ({ ...file })),
+    creationSampleRequirements: [],
+    buyerId: BUYER.userId, buyerName: BUYER.userName,
+    merchandiserId: '', merchandiserName: '',
+    displaySampleTeamId: '', displaySampleTeamName: '',
+    displaySampleReceivingLocationId: '', displaySampleReceivingLocationName: '',
+    relatedProfessionalTaskIds: [], professionalTasks: [],
+    bomDraftVersionId: NEW_BOM_ID,
+    bomVersionIds: [NEW_BOM_ID],
+    resultVersion: '', resultSummary: '', confirmedBy: '', confirmedAt: '',
+    selectedTaskTypes: [], suggestedTaskTypes: [], taskPlanConfirmedBy: '', taskPlanConfirmedAt: '',
+    colorMappings: [], materialConversionLines: [],
+    bomConversionStatus: 'WAIT_COLOR_MAPPING',
+    bomConversionConfirmedBy: '', bomConversionConfirmedAt: '', sourceResultVersionId: '', reuseDecision: 'PENDING',
+    buyerPreparationConfirmedBy: '', buyerPreparationConfirmedAt: '',
+    buyerPreparationReturnedBy: '', buyerPreparationReturnedAt: '', buyerPreparationReturnReason: '',
+    operationLogs: [], createdBy: BUYER.userName, createdAt: '', updatedAt: '',
+  }
+}
+
+function materialPlanVersions(record: EngineeringIndependentSamplingRecord) {
+  return record.samplingTaskId === NEW_TASK_ID
+    ? [{ bomDraftVersionId: NEW_BOM_ID, materialLines: ensureBomLineDrafts(NEW_BOM_ID) }]
+    : record.bomVersionIds.map(getEngineeringBomVersionById).filter((version): version is NonNullable<typeof version> => Boolean(version))
+}
+
+function navigateDesignRevision(id = ''): void {
+  window.history.pushState({}, '', `/pcs/production-preparation/design-revision${id ? `/${id}` : ''}`)
+  window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
 function listControllerState(): ProcessOrderListControllerState {
@@ -243,21 +291,24 @@ function renderReusablePatternPicker(): string {
   if (ui.createDraft.patternHandling !== 'REUSE') return ''
   const candidates = reusablePatternCandidates()
   const selected = ui.createDraft.reusedPatternFiles[0]?.fileId || ''
-  return `<section class="space-y-3 rounded border bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">复用基码纸样 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">引用已完成任务的 .prj 纸样文件，也可上传现有文件。</p></div><label class="block space-y-1 text-sm"><span>已有纸样版本</span><select class="h-10 w-full rounded border bg-white px-3" data-${PREFIX}-field="reusedPatternFileId"><option value="">请选择已存纸样</option>${candidates.map(({ file, taskCode }) => `<option value="${escapeHtml(file.fileId)}" ${file.fileId === selected ? 'selected' : ''}>${escapeHtml(taskCode)} · ${escapeHtml(file.fileName)}</option>`).join('')}</select></label><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">上传现有纸样<input class="sr-only" type="file" accept="${escapeHtml(ENGINEERING_UPLOAD_RULES.PATTERN_SOURCE.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-pattern-upload></label>${ui.createDraft.reusedPatternFiles.length ? `<p class="text-xs text-green-700">已选择 ${escapeHtml(ui.createDraft.reusedPatternFiles[0].fileName)}</p>` : '<p class="text-xs text-amber-700">请先引用或上传真实 .prj 纸样。</p>'}</section>`
+  return `<section class="space-y-3 bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">复用基码纸样 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">引用已完成任务的 .prj 纸样文件，也可上传现有文件。</p></div><label class="block space-y-1 text-sm"><span>已有纸样版本</span><select class="h-10 w-full rounded border bg-white px-3" data-${PREFIX}-field="reusedPatternFileId"><option value="">请选择已存纸样</option>${candidates.map(({ file, taskCode }) => `<option value="${escapeHtml(file.fileId)}" ${file.fileId === selected ? 'selected' : ''}>${escapeHtml(taskCode)} · ${escapeHtml(file.fileName)}</option>`).join('')}</select></label><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">上传现有纸样<input class="sr-only" type="file" accept="${escapeHtml(ENGINEERING_UPLOAD_RULES.PATTERN_SOURCE.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-pattern-upload></label>${ui.createDraft.reusedPatternFiles.length ? `<p class="text-xs text-green-700">已选择 ${escapeHtml(ui.createDraft.reusedPatternFiles[0].fileName)}</p>` : '<p class="text-xs text-amber-700">请先引用或上传真实 .prj 纸样。</p>'}</section>`
 }
 
-function renderCreateDialog(): string {
-  if (!ui.createOpen) return ''
+function renderCreationBasicFields(): string {
   const designRule = ENGINEERING_UPLOAD_RULES.DESIGN_IMAGE
-  const fileRows = (files: EngineeringUploadedFile[], removeAction: string, imagePreview: boolean) => files.map((file) => `<div class="flex items-center justify-between rounded border bg-white px-3 py-2 text-sm"><div><p class="font-medium">${escapeHtml(file.fileName)}</p><p class="text-xs text-slate-500">${formatEngineeringUploadSize(file.sizeBytes)} · ${escapeHtml(file.uploadedByName)} · ${escapeHtml(file.uploadedAt)}</p></div><div class="flex gap-3">${imagePreview ? `<button type="button" class="text-blue-700" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(file.dataUrl)}" data-file-name="${escapeHtml(file.fileName)}">查看</button>` : ''}<button type="button" class="text-red-600" data-${PREFIX}-action="${removeAction}" data-file-id="${escapeHtml(file.fileId)}">删除</button></div></div>`).join('')
-  return `<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4" data-${PREFIX}-action="close-create"><section class="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white p-5 shadow-xl" role="dialog" aria-modal="true"><div class="mb-4 flex items-center justify-between"><h2 class="text-lg font-semibold">新建设计改款任务</h2><button type="button" data-${PREFIX}-action="close-create">关闭</button></div><div class="grid gap-4 md:grid-cols-2"><label class="space-y-1 text-sm"><span>参照款式（SPU）</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="sourceStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.sourceStyleId)}</select></label><label class="space-y-1 text-sm md:col-span-2"><span>已建档目标 SPU <span class="text-red-600">*</span></span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="targetStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.targetStyleId)}</select></label><label class="space-y-1 text-sm"><span>买手</span><input class="h-10 w-full rounded border bg-slate-50 px-3" value="${escapeHtml(BUYER.userName)}" readonly></label><label class="space-y-1 text-sm"><span>基码纸样</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="patternHandling"><option value="REMAKE" ${ui.createDraft.patternHandling === 'REMAKE' ? 'selected' : ''}>需要重新制作</option><option value="REUSE" ${ui.createDraft.patternHandling === 'REUSE' ? 'selected' : ''}>纸样不变，直接复用</option></select></label><label class="space-y-1 text-sm md:col-span-2"><span>本次设计改款要求</span><textarea class="min-h-20 w-full rounded border p-3" data-${PREFIX}-field="creationReason" placeholder="填写本次需要改什么">${escapeHtml(ui.createDraft.creationReason)}</textarea></label><section class="space-y-3 rounded border bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">设计稿 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">${designRule.extensions.map((item) => `.${item}`).join('、')} · 单个不超过 ${Math.round(designRule.maxSizeBytes / 1024 / 1024)} MB</p></div><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">选择本地设计稿<input class="sr-only" type="file" accept="${escapeHtml(designRule.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-design-upload></label><div class="space-y-2">${fileRows(ui.createDraft.designFiles, 'remove-create-design', true) || '<p class="text-xs text-amber-700">创建任务前请上传真实设计稿。</p>'}</div></section>${renderReusablePatternPicker()}</div><div class="mt-5 flex justify-end gap-2"><button class="h-9 rounded border px-4" data-${PREFIX}-action="close-create">取消</button><button class="h-9 rounded bg-blue-600 px-4 text-white" data-${PREFIX}-action="create">创建任务</button></div></section></div>`
+  const fileRows = (files: EngineeringUploadedFile[], removeAction: string, imagePreview: boolean) => files.map((file) => `<div class="flex items-center justify-between rounded border bg-white px-3 py-2 text-sm"><div>${imagePreview ? imageButton(file.dataUrl, file.fileName) : ''}<p class="font-medium">${escapeHtml(file.fileName)}</p><p class="text-xs text-slate-500">${formatEngineeringUploadSize(file.sizeBytes)} · ${escapeHtml(file.uploadedByName)} · ${escapeHtml(file.uploadedAt)}</p></div><div class="flex gap-3">${imagePreview ? `<button type="button" class="text-blue-700" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(file.dataUrl)}" data-file-name="${escapeHtml(file.fileName)}">查看</button>` : ''}<button type="button" class="text-red-600" data-${PREFIX}-action="${removeAction}" data-file-id="${escapeHtml(file.fileId)}">删除</button></div></div>`).join('')
+  return `<section class="rounded-lg bg-white p-5" data-design-revision-creation-fields><h2 class="mb-4 font-semibold">基本信息与设计稿</h2><div class="grid gap-4 md:grid-cols-2"><label class="block space-y-1 text-sm"><span>参照款式（SPU）</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="sourceStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.sourceStyleId)}</select>${ui.createDraft.sourceStyleId ? styleCard(ui.createDraft.sourceStyleId, '参照款式').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>已建档目标 SPU <span class="text-red-600">*</span></span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="targetStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.targetStyleId)}</select>${ui.createDraft.targetStyleId ? styleCard(ui.createDraft.targetStyleId, '目标款式').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>买手</span><input class="h-10 w-full rounded border bg-slate-50 px-3" value="${escapeHtml(BUYER.userName)}" readonly></label><label class="block space-y-1 text-sm"><span>基码纸样</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="patternHandling"><option value="REMAKE" ${ui.createDraft.patternHandling === 'REMAKE' ? 'selected' : ''}>需要重新制作</option><option value="REUSE" ${ui.createDraft.patternHandling === 'REUSE' ? 'selected' : ''}>纸样不变，直接复用</option></select></label><label class="block space-y-1 text-sm md:col-span-2"><span>本次设计改款要求</span><textarea class="min-h-20 w-full rounded border p-3" data-${PREFIX}-field="creationReason" placeholder="填写本次需要改什么">${escapeHtml(ui.createDraft.creationReason)}</textarea></label><section class="space-y-3 bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">设计稿 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">${designRule.extensions.map((item) => `.${item}`).join('、')} · 单个不超过 ${Math.round(designRule.maxSizeBytes / 1024 / 1024)} MB</p></div><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">选择本地设计稿<input class="sr-only" type="file" accept="${escapeHtml(designRule.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-design-upload></label><div class="space-y-2">${fileRows(ui.createDraft.designFiles, 'remove-create-design', true) || '<p class="text-xs text-amber-700">请选择本次设计稿，保存草稿或提交时一并保存。</p>'}</div></section>${renderReusablePatternPicker()}</div></section>`
 }
 
 function renderDialogHost(): string {
-  return `<div data-independent-sampling-dialogs>${ui.createOpen && ui.feedback ? `<div class="fixed left-1/2 top-6 z-50 w-[min(90vw,48rem)] -translate-x-1/2">${feedbackHtml()}</div>` : ''}${ui.createOpen ? renderCreateDialog() : ''}${renderEngineeringUploadPreview(ui.preview, PREFIX)}</div>`
+  return `<div data-independent-sampling-dialogs>${renderEngineeringUploadPreview(ui.preview, PREFIX)}</div>`
 }
 function refreshDialogs(): void {
-  document.querySelectorAll<HTMLElement>('[data-independent-sampling-dialogs]').forEach((host) => { host.innerHTML = `${ui.createOpen && ui.feedback ? `<div class="fixed left-1/2 top-6 z-50 w-[min(90vw,48rem)] -translate-x-1/2">${feedbackHtml()}</div>` : ''}${ui.createOpen ? renderCreateDialog() : ''}${renderEngineeringUploadPreview(ui.preview, PREFIX)}` })
+  document.querySelectorAll<HTMLElement>('[data-independent-sampling-dialogs]').forEach(host => { host.innerHTML = renderEngineeringUploadPreview(ui.preview, PREFIX) })
+  const fields = document.querySelector<HTMLElement>('[data-design-revision-creation-fields]')
+  if (fields) fields.outerHTML = renderCreationBasicFields()
+  const feedback = document.querySelector<HTMLElement>('[data-design-revision-create-feedback]')
+  if (feedback) feedback.innerHTML = feedbackHtml()
 }
 
 function listRows(): EngineeringIndependentSamplingRecord[] {
@@ -584,7 +635,7 @@ function saveInlineBomDrafts(record: EngineeringIndependentSamplingRecord): void
 }
 
 function renderBomSummary(record: EngineeringIndependentSamplingRecord, readonly: boolean): string {
-  const versions = record.bomVersionIds.map(getEngineeringBomVersionById).filter((version): version is NonNullable<typeof version> => Boolean(version))
+  const versions = materialPlanVersions(record)
   if (!versions.length) {
     return '<div class="border-b border-red-200 bg-red-50 p-4 text-sm text-red-700">物料与费用方案不存在，请刷新页面后重试。</div>'
   }
@@ -621,16 +672,16 @@ function renderBomSummary(record: EngineeringIndependentSamplingRecord, readonly
   }).join('')
   const hasMaterialLines = versions.some((version) => (readonly ? version.materialLines : ensureBomLineDrafts(version.bomDraftVersionId)).length > 0)
   const firstVersionId = versions[0]?.bomDraftVersionId || ''
-  return `<div class="overflow-hidden rounded-lg border" data-design-revision-material-table><div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><h4 class="font-medium">物料与加工要求</h4><p class="text-xs text-slate-500">选择目标 SKU 后自动带出颜色、潘通色号、花型图和加工方式；同一物料先染后印。</p>${readonly ? '' : `<button type="button" class="rounded border px-3 py-2 text-sm text-blue-700" data-${PREFIX}-action="add-bom-line" data-version-id="${escapeHtml(firstVersionId)}">新增物料</button>`}</div><div class="overflow-x-auto"><table class="w-full min-w-[1320px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-2">物料</th><th class="p-2">单位用量</th><th class="p-2">损耗率 %（固定 0）</th><th class="p-2">染色</th><th class="p-2">印花</th><th class="p-2">标准单价</th><th class="p-2">物料小计</th><th class="p-2">说明</th>${readonly ? '' : '<th class="p-2">操作</th>'}</tr></thead>${hasMaterialLines ? body : `<tbody data-independent-bom-version="${escapeHtml(firstVersionId)}"><tr><td colspan="9" class="p-6 text-center text-amber-700">请由买手手工新增本次使用的物料。</td></tr></tbody>`}</table></div></div>`
+  return `<div class="overflow-hidden rounded-lg bg-white" data-design-revision-material-table><div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><h4 class="font-medium">物料与加工要求</h4><p class="text-xs text-slate-500">选择目标 SKU 后自动带出颜色、潘通色号、花型图和加工方式；同一物料先染后印。</p>${readonly ? '' : `<button type="button" class="rounded border px-3 py-2 text-sm text-blue-700" data-${PREFIX}-action="add-bom-line" data-version-id="${escapeHtml(firstVersionId)}">新增物料</button>`}</div><div class="overflow-x-auto"><table class="w-full min-w-[1320px] text-sm"><thead><tr class="border-b bg-slate-50 text-left"><th class="p-2">物料</th><th class="p-2">单位用量</th><th class="p-2">损耗率 %（固定 0）</th><th class="p-2">染色</th><th class="p-2">印花</th><th class="p-2">标准单价</th><th class="p-2">物料小计</th><th class="p-2">说明</th>${readonly ? '' : '<th class="p-2">操作</th>'}</tr></thead>${hasMaterialLines ? body : `<tbody data-independent-bom-version="${escapeHtml(firstVersionId)}"><tr><td colspan="9" class="p-6 text-center text-amber-700">请由买手手工新增本次使用的物料。</td></tr></tbody>`}</table></div></div>`
 }
 
 function renderPricingPlanCosts(record: EngineeringIndependentSamplingRecord, readonly: boolean): string {
   const plan = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', record.samplingTaskId)
-  if (!plan) return '<div class="border-t border-red-200 bg-red-50 p-4 text-sm text-red-700">费用方案不存在，请刷新页面后重试。</div>'
+  if (!plan && record.samplingTaskId !== NEW_TASK_ID) return '<div class="border-t border-red-200 bg-red-50 p-4 text-sm text-red-700">费用方案不存在，请刷新页面后重试。</div>'
   const draft = readonly
-    ? { customCostDecision: plan.customCostDecision, customCosts: plan.customCosts.map((cost) => ({ ...cost })) }
+    ? { customCostDecision: plan!.customCostDecision, customCosts: plan!.customCosts.map((cost) => ({ ...cost })) }
     : ensurePricingPlanDraft(record)
-  const versions = record.bomVersionIds.map(getEngineeringBomVersionById).filter((version): version is NonNullable<typeof version> => Boolean(version))
+  const versions = materialPlanVersions(record)
   const sampleQuantity = sampleQuantityForPlan(record)
   const materialLines = versions.flatMap((version) => (readonly ? version.materialLines : ensureBomLineDrafts(version.bomDraftVersionId)).map((line) => ({ ...line, sampleQuantity })))
   const exchangeRate = getLatestPcsExchangeRate().idrPerCny
@@ -640,15 +691,25 @@ function renderPricingPlanCosts(record: EngineeringIndependentSamplingRecord, re
   const customCostIdr = Math.round(draft.customCosts.reduce((total, cost) => total + Math.max(0, Number(cost.amountIdr) || 0), 0))
   const comprehensiveCostCny = Math.round((materialCostCny + customCostIdr / exchangeRate) * 100) / 100
   const comprehensiveCostIdr = Math.round(materialCostCny * exchangeRate + customCostIdr)
-  const editable = !readonly && plan.status === 'DRAFT' && !plan.editingLockedAt
+  const editable = !readonly && (!plan || (plan.status === 'DRAFT' && !plan.editingLockedAt))
   const feeRows = draft.customCosts.length
     ? draft.customCosts.map((cost, index) => `<div class="grid gap-3 border-t p-3 md:grid-cols-[1fr_220px_1fr_80px]" data-independent-pricing-cost-row="${escapeHtml(cost.customCostId || `${record.samplingTaskId}-COST-${index + 1}`)}"><input class="h-9 rounded border px-3" data-${PREFIX}-field="customCostTitle" value="${escapeHtml(cost.title)}" placeholder="费用名称，如车位费" ${editable ? '' : 'disabled'}><label class="flex items-center gap-2"><span>Rp</span><input class="h-9 w-full rounded border px-3" type="number" min="1" step="1" data-${PREFIX}-field="customCostAmount" value="${cost.amountIdr || ''}" placeholder="金额" ${editable ? '' : 'disabled'}></label><input class="h-9 rounded border px-3" data-${PREFIX}-field="customCostNote" value="${escapeHtml(cost.note || '')}" placeholder="备注" ${editable ? '' : 'disabled'}>${editable ? `<button class="text-sm text-red-600" data-${PREFIX}-action="remove-custom-cost" data-sampling-id="${escapeHtml(record.samplingTaskId)}" data-cost-index="${index}">删除</button>` : '<span class="text-sm text-slate-500">已锁定</span>'}</div>`).join('')
     : '<p class="border-t p-5 text-center text-sm text-slate-500">暂无自定义费用明细。</p>'
-  return `<div class="overflow-hidden rounded-lg border" data-design-revision-pricing><div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><h4 class="font-medium">费用与综合成本</h4>${editable ? `<button class="rounded border px-3 py-2 text-sm text-blue-700" data-${PREFIX}-action="add-custom-cost" data-sampling-id="${escapeHtml(record.samplingTaskId)}">新增费用</button>` : '<span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">已锁定</span>'}</div><div>${feeRows}</div><div class="grid gap-3 border-t bg-slate-50 p-4 md:grid-cols-5" data-design-revision-cost-summary><article><p class="text-xs text-slate-500">物料成本</p><p class="mt-1 font-semibold">¥ ${materialCostCny.toFixed(2)}</p></article><article><p class="text-xs text-slate-500">其他费用</p><p class="mt-1 font-semibold">Rp ${customCostIdr.toLocaleString('id-ID')}</p></article><article><p class="text-xs text-slate-500">系统汇率</p><p class="mt-1 font-semibold">1 CNY = ${exchangeRate.toLocaleString('id-ID')} IDR</p></article><article><p class="text-xs text-slate-500">综合成本 CNY</p><p class="mt-1 font-semibold text-blue-700">¥ ${comprehensiveCostCny.toFixed(2)}</p></article><article><p class="text-xs text-slate-500">综合成本 IDR</p><p class="mt-1 font-semibold text-blue-700">Rp ${comprehensiveCostIdr.toLocaleString('id-ID')}</p></article></div></div>`
+  return `<div class="overflow-hidden rounded-lg bg-white" data-design-revision-pricing><div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><h4 class="font-medium">费用与综合成本</h4>${editable ? `<button class="rounded border px-3 py-2 text-sm text-blue-700" data-${PREFIX}-action="add-custom-cost" data-sampling-id="${escapeHtml(record.samplingTaskId)}">新增费用</button>` : '<span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">已锁定</span>'}</div><div>${feeRows}</div><div class="grid gap-3 border-t bg-slate-50 p-4 md:grid-cols-5" data-design-revision-cost-summary><article><p class="text-xs text-slate-500">物料成本</p><p class="mt-1 font-semibold">¥ ${materialCostCny.toFixed(2)}</p></article><article><p class="text-xs text-slate-500">其他费用</p><p class="mt-1 font-semibold">Rp ${customCostIdr.toLocaleString('id-ID')}</p></article><article><p class="text-xs text-slate-500">系统汇率</p><p class="mt-1 font-semibold">1 CNY = ${exchangeRate.toLocaleString('id-ID')} IDR</p></article><article><p class="text-xs text-slate-500">综合成本 CNY</p><p class="mt-1 font-semibold text-blue-700">¥ ${comprehensiveCostCny.toFixed(2)}</p></article><article><p class="text-xs text-slate-500">综合成本 IDR</p><p class="mt-1 font-semibold text-blue-700">Rp ${comprehensiveCostIdr.toLocaleString('id-ID')}</p></article></div></div>`
 }
 
 function renderMaterialAndPricingPlan(record: EngineeringIndependentSamplingRecord, readonly: boolean): string {
-  return `<section class="space-y-4 rounded-lg border bg-white p-4" data-design-revision-material-pricing>${renderBomSummary(record, readonly)}${renderPricingPlanCosts(record, readonly)}</section>`
+  return `<section class="space-y-6" data-design-revision-material-pricing>${renderBomSummary(record, readonly)}${renderPricingPlanCosts(record, readonly)}</section>`
+}
+
+function refreshBuyerFormSections(): void {
+  const id = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '')
+  const record = getEngineeringIndependentSamplingRecord(id)
+  if (!record) return
+  refreshMaterialPricingRegion(record)
+  const sample = document.querySelector<HTMLElement>('[data-design-revision-display-sample-arrangement]')
+  if (sample) sample.outerHTML = renderSampleRequirementTable(record, false)
+  refreshWorkPreview(record)
 }
 
 function refreshMaterialPricingRegion(record: EngineeringIndependentSamplingRecord): void {
@@ -685,7 +746,7 @@ function suggestTaskTypesForWorkPreview(
 
 function renderWorkPreview(record: EngineeringIndependentSamplingRecord, readonly: boolean): string {
   const suggested = suggestTaskTypesForWorkPreview(record, readonly)
-  return `<section class="rounded-lg border bg-white p-4" data-design-revision-work-preview><h3 class="font-semibold">将生成的工作</h3><div class="mt-3 flex flex-wrap gap-2">${suggested.map((type) => `<span class="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700">${escapeHtml(TASK_OPTIONS.find((item) => item.value === type)?.label || type)}</span>`).join('')}</div></section>`
+  return `<section class="rounded-lg bg-white px-4 py-3" data-design-revision-work-preview><h3 class="font-semibold">将生成的工作</h3><div class="mt-3 flex flex-wrap gap-2">${suggested.map((type) => `<span class="rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700">${escapeHtml(TASK_OPTIONS.find((item) => item.value === type)?.label || type)}</span>`).join('')}</div></section>`
 }
 
 function refreshWorkPreview(record: EngineeringIndependentSamplingRecord): void {
@@ -721,7 +782,7 @@ function ensureSampleRequirementDrafts(record: EngineeringIndependentSamplingRec
 
 function renderSampleRequirementTable(record: EngineeringIndependentSamplingRecord, locked: boolean): string {
   const rows = ensureSampleRequirementDrafts(record)
-  return `<section class="overflow-hidden rounded-lg border bg-white" data-design-revision-display-sample-arrangement><div class="flex items-center justify-between gap-3 border-b px-4 py-3"><h3 class="font-semibold">销售展示样衣制作安排</h3>${locked ? '<span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">已下达</span>' : `<button type="button" class="rounded border px-3 py-1.5 text-sm" data-${PREFIX}-action="add-sample-requirement">增加颜色／尺码</button>`}</div>${rows.map((draft, index) => `<div class="grid gap-4 border-t p-4 md:grid-cols-[minmax(110px,1fr)_minmax(110px,1fr)_150px_minmax(180px,2fr)_50px]" data-sample-requirement-row="${escapeHtml(draft.draftId)}"><label class="text-sm text-slate-600">颜色${locked ? `<p class="mt-1">${escapeHtml(draft.targetColor)}</p>` : `<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleRequirementColor" value="${escapeHtml(draft.targetColor)}">`}</label><label class="text-sm text-slate-600">尺码${locked ? `<p class="mt-1">${escapeHtml(draft.targetSize)}</p>` : `<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleRequirementSize" value="${escapeHtml(draft.targetSize)}">`}</label><label class="text-sm text-slate-600">数量（件）${locked ? `<p class="mt-1">${draft.requiredQuantity} 件</p>` : `<input type="number" min="1" step="1" class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleRequirementQuantity" value="${draft.requiredQuantity}">`}</label><label class="text-sm text-slate-600">制作要求${locked ? `<p class="mt-1">${escapeHtml(draft.requirementNote || '-')}</p>` : `<textarea class="mt-1 min-h-10 w-full rounded border px-3 py-2" data-${PREFIX}-field="sampleRequirementNote">${escapeHtml(draft.requirementNote)}</textarea>`}</label>${locked || rows.length === 1 ? '' : `<button type="button" class="self-center text-sm text-red-700" data-${PREFIX}-action="remove-sample-requirement" data-line-index="${index}">删除</button>`}</div>`).join('')}</section>`
+  return `<section class="overflow-hidden rounded-lg bg-white" data-design-revision-display-sample-arrangement><div class="flex items-center justify-between gap-3 border-b px-4 py-3"><h3 class="font-semibold">销售展示样衣制作安排</h3>${locked ? '<span class="rounded-full bg-emerald-50 px-2 py-1 text-xs text-emerald-700">已下达</span>' : `<button type="button" class="rounded border px-3 py-1.5 text-sm" data-${PREFIX}-action="add-sample-requirement">增加颜色／尺码</button>`}</div>${rows.map((draft, index) => `<div class="grid gap-4 p-4 md:grid-cols-[minmax(110px,1fr)_minmax(110px,1fr)_150px_minmax(180px,2fr)_50px]" data-sample-requirement-row="${escapeHtml(draft.draftId)}"><label class="text-sm text-slate-600">颜色${locked ? `<p class="mt-1">${escapeHtml(draft.targetColor)}</p>` : `<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleRequirementColor" value="${escapeHtml(draft.targetColor)}">`}</label><label class="text-sm text-slate-600">尺码${locked ? `<p class="mt-1">${escapeHtml(draft.targetSize)}</p>` : `<input class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleRequirementSize" value="${escapeHtml(draft.targetSize)}">`}</label><label class="text-sm text-slate-600">数量（件）${locked ? `<p class="mt-1">${draft.requiredQuantity} 件</p>` : `<input type="number" min="1" step="1" class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="sampleRequirementQuantity" value="${draft.requiredQuantity}">`}</label><label class="text-sm text-slate-600">制作要求${locked ? `<p class="mt-1">${escapeHtml(draft.requirementNote || '-')}</p>` : `<textarea class="mt-1 min-h-10 w-full rounded border px-3 py-2" data-${PREFIX}-field="sampleRequirementNote">${escapeHtml(draft.requirementNote)}</textarea>`}</label>${locked || rows.length === 1 ? '' : `<button type="button" class="self-center text-sm text-red-700" data-${PREFIX}-action="remove-sample-requirement" data-line-index="${index}">删除</button>`}</div>`).join('')}</section>`
 }
 
 function renderWorkPlan(record: EngineeringIndependentSamplingRecord): string {
@@ -772,8 +833,8 @@ function renderSchemeConfirmationStep(record: EngineeringIndependentSamplingReco
     : ''
   const workPreview = renderWorkPreview(record, readonly)
   const details = bomReady ? `${renderMaterialAndPricingPlan(record, readonly)}${renderSampleRequirementTable(record, readonly)}${workPreview}` : ''
-  const action = !readonly && bomReady ? `<div class="sticky bottom-3 flex justify-end gap-2 rounded-lg border bg-white/95 p-4 shadow"><button class="rounded border px-5 py-2" data-${PREFIX}-action="save-draft" data-sampling-id="${escapeHtml(record.samplingTaskId)}">保存草稿</button><button class="rounded bg-blue-600 px-5 py-2 text-white" data-${PREFIX}-action="confirm-scheme" data-sampling-id="${escapeHtml(record.samplingTaskId)}">提交任务并生成工作</button></div>` : ''
-  return `<section class="space-y-4"><header class="rounded-lg border bg-white p-4"><div class="flex items-center justify-between gap-3"><h2 class="font-semibold">第一步：确认本次方案</h2><span class="rounded-full ${readonly ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'} px-2 py-1 text-xs">${readonly ? '已确认' : '买手处理'}</span></div></header>${returned}${details}${action}</section>`
+  const action = !readonly && bomReady ? `<div class="sticky bottom-0 z-10 flex justify-end gap-2 bg-white/95 px-4 py-3"><button class="rounded border px-5 py-2" data-${PREFIX}-action="save-draft" data-sampling-id="${escapeHtml(record.samplingTaskId)}">保存草稿</button><button class="rounded bg-blue-600 px-5 py-2 text-white" data-${PREFIX}-action="confirm-scheme" data-sampling-id="${escapeHtml(record.samplingTaskId)}">提交任务并生成工作</button></div>` : ''
+  return `<section class="space-y-6">${returned}${details}${action}</section>`
 }
 
 function renderProfessionalWorkStep(record: EngineeringIndependentSamplingRecord): string {
@@ -783,7 +844,7 @@ function renderProfessionalWorkStep(record: EngineeringIndependentSamplingRecord
 
 function renderDesignFileHistory(record: EngineeringIndependentSamplingRecord): string {
   const canReplace = !record.taskPlanConfirmedAt
-  return `<section class="rounded-lg border bg-white p-4" data-design-revision-design-files><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="font-semibold">设计稿</h2>${canReplace ? `<label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 px-3 text-sm text-blue-700">替换设计稿<input class="sr-only" type="file" accept="${escapeHtml(ENGINEERING_UPLOAD_RULES.DESIGN_IMAGE.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-replace-design-upload data-sampling-id="${escapeHtml(record.samplingTaskId)}"></label>` : '<span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">已锁定</span>'}</div><div class="mt-3 grid gap-3">${record.designFiles.map((file, index) => { const imageUrl = localStyleFixtureImageUrl(file.dataUrl); return `<article class="rounded border p-3 ${index === record.designFiles.length - 1 ? 'border-blue-300 bg-blue-50/40' : ''}"><button type="button" class="block w-full text-left" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(imageUrl)}" data-file-name="${escapeHtml(file.fileName)}"><span class="flex h-36 items-center justify-center overflow-hidden rounded bg-slate-100"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(file.fileName)}设计稿" class="h-full w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-sm text-red-600">设计稿加载失败</span></span><strong class="mt-2 block truncate text-sm">${escapeHtml(file.fileName)}</strong></button><p class="mt-1 text-xs text-slate-500">${index === record.designFiles.length - 1 ? '当前版本 · ' : '历史版本 · '}${escapeHtml(file.uploadedByName)} · ${escapeHtml(file.uploadedAt)}</p></article>` }).join('') || '<p class="text-sm text-red-600">缺少设计稿。</p>'}</div></section>`
+  return `<section class="rounded-lg bg-white p-4" data-design-revision-design-files><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="font-semibold">设计稿</h2>${canReplace ? `<label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 px-3 text-sm text-blue-700">替换设计稿<input class="sr-only" type="file" accept="${escapeHtml(ENGINEERING_UPLOAD_RULES.DESIGN_IMAGE.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-replace-design-upload data-sampling-id="${escapeHtml(record.samplingTaskId)}"></label>` : '<span class="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-600">已锁定</span>'}</div><div class="mt-3 grid gap-3">${record.designFiles.map((file, index) => { const imageUrl = localStyleFixtureImageUrl(file.dataUrl); return `<article class="rounded p-3 ${index === record.designFiles.length - 1 ? 'bg-blue-50/40' : ''}"><button type="button" class="block w-full text-left" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(imageUrl)}" data-file-name="${escapeHtml(file.fileName)}"><span class="flex h-36 items-center justify-center overflow-hidden rounded bg-slate-100"><img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(file.fileName)}设计稿" class="h-full w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="text-sm text-red-600">设计稿加载失败</span></span><strong class="mt-2 block truncate text-sm">${escapeHtml(file.fileName)}</strong></button><p class="mt-1 text-xs text-slate-500">${index === record.designFiles.length - 1 ? '当前版本 · ' : '历史版本 · '}${escapeHtml(file.uploadedByName)} · ${escapeHtml(file.uploadedAt)}</p></article>` }).join('') || '<p class="text-sm text-red-600">缺少设计稿。</p>'}</div></section>`
 }
 
 function renderDesignRevisionBasicInfo(
@@ -791,10 +852,14 @@ function renderDesignRevisionBasicInfo(
   currentStep: number,
 ): string {
   const objective = record.creationReason.trim() || '未填写设计改款目标'
-  return `<section class="overflow-hidden rounded-lg border bg-white" data-design-revision-basic-info><header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex flex-wrap items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(record.samplingTaskCode)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(samplingStatusText(record))}</span></div><p class="mt-1 text-sm text-slate-500">设计改款 · 买手：${escapeHtml(record.buyerName)}</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/production-preparation/design-revision">返回列表</a></header><div class="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]" data-design-revision-basic-columns><div class="space-y-4"><section class="rounded-lg border border-blue-100 bg-blue-50/60 px-5 py-4" data-design-revision-objective><p class="text-sm font-medium text-blue-700">设计改款目标</p><p class="mt-2 whitespace-pre-wrap text-base font-medium leading-7 text-slate-900">${escapeHtml(objective)}</p></section><div class="grid gap-4 md:grid-cols-2">${styleCard(record.sourceStyleId, '参照款式')}${targetStyleCard(record, '目标款式')}</div><div class="grid gap-4 md:grid-cols-2"><div class="rounded-lg border bg-slate-50 p-4"><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(getEngineeringIndependentCurrentTeam(record) || '已完成')}</p></div><div class="rounded-lg border bg-slate-50 p-4"><p class="text-xs text-slate-500">当前步骤</p><p class="mt-1 font-medium">${escapeHtml(SAMPLING_STEPS[currentStep].title)}</p></div></div></div>${renderDesignFileHistory(record)}</div></section>`
+  return `<section class="overflow-hidden rounded-lg bg-white" data-design-revision-basic-info><header class="flex flex-wrap items-center justify-between gap-3 border-b px-5 py-4"><div><div class="flex flex-wrap items-center gap-2"><h1 class="text-xl font-semibold">${escapeHtml(record.samplingTaskCode)}</h1><span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(samplingStatusText(record))}</span></div><p class="mt-1 text-sm text-slate-500">设计改款 · 买手：${escapeHtml(record.buyerName)}</p></div><a class="rounded border px-4 py-2 text-sm" href="/pcs/production-preparation/design-revision">返回列表</a></header><div class="grid gap-5 px-5 py-5 lg:grid-cols-[minmax(0,3fr)_minmax(360px,2fr)]" data-design-revision-basic-columns><div class="space-y-4"><section class="rounded-lg bg-blue-50/60 px-5 py-4" data-design-revision-objective><p class="text-sm font-medium text-blue-700">设计改款目标</p><p class="mt-2 whitespace-pre-wrap text-base font-medium leading-7 text-slate-900">${escapeHtml(objective)}</p></section><div class="grid gap-4 md:grid-cols-2">${styleCard(record.sourceStyleId, '参照款式').replace('rounded-lg border bg-white p-4', 'p-2')}${targetStyleCard(record, '目标款式').replace('rounded-lg border bg-white p-4', 'p-2')}</div><div class="grid gap-4 md:grid-cols-2"><div class="rounded-lg bg-slate-50 p-4"><p class="text-xs text-slate-500">当前需处理的团队</p><p class="mt-1 font-medium">${escapeHtml(getEngineeringIndependentCurrentTeam(record) || '已完成')}</p></div><div class="rounded-lg bg-slate-50 p-4"><p class="text-xs text-slate-500">当前步骤</p><p class="mt-1 font-medium">${escapeHtml(SAMPLING_STEPS[currentStep].title)}</p></div></div></div>${renderDesignFileHistory(record)}</div></section>`
 }
 
 export function renderPcsIndependentSamplingDetailPage(id: string): string {
+  if (id === NEW_TASK_ID) {
+    const record = getEngineeringIndependentSamplingRecord(id)!
+    return `<section class="space-y-6 p-4" data-design-revision-create-page><header class="flex items-center justify-between"><h1 class="text-xl font-semibold">新建设计改款</h1><button class="rounded border px-4 py-2 text-sm" data-${PREFIX}-action="close-create">返回列表</button></header>${renderSamplingStepNav(record)}<div data-design-revision-create-feedback>${feedbackHtml()}</div>${renderCreationBasicFields()}${renderSchemeConfirmationStep(record, false)}${renderDialogHost()}</section>`
+  }
   const record = getEngineeringIndependentSamplingRecord(id)
   if (!record) return '<section class="p-6"><h1 class="text-xl font-semibold">任务不存在</h1></section>'
   if (!(record.samplingTaskId in ui.detailStepByTask) && typeof location !== 'undefined') {
@@ -1082,18 +1147,36 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   if (action === 'restore-column-settings') { controller.restorePreferences(); controller.refresh({ overlays: true }); return true }
   if (action === 'open-image') { ui.preview = { url: node.dataset.imageUrl || '', fileName: node.dataset.imageAlt || '款式图片' }; refreshDialogs(); return true }
   if (action === 'close-image') { ui.preview = null; refreshDialogs(); return true }
-  if (action === 'open-create') { ui.createOpen = true; resetCreateDraft(); setFeedback(''); refreshDialogs(); return true }
-  if (action === 'close-create') { if (target !== node && target.closest('section')) return false; ui.createOpen = false; resetCreateDraft(); refreshDialogs(); return true }
+  if (action === 'open-create') { resetCreateDraft(); delete ui.bomLineDraftsByVersion[NEW_BOM_ID]; delete ui.pricingPlanDraftsByTask[NEW_TASK_ID]; delete ui.sampleRequirementDraftsByTask[NEW_TASK_ID]; setFeedback(''); navigateDesignRevision(NEW_TASK_ID); return true }
+  if (action === 'close-create') { setFeedback(''); navigateDesignRevision(); return true }
   if (action === 'remove-create-design') { ui.createDraft.designFiles = ui.createDraft.designFiles.filter((file) => file.fileId !== node.dataset.fileId); refreshDialogs(); return true }
   if (action === 'remove-create-pattern') { ui.createDraft.reusedPatternFiles = ui.createDraft.reusedPatternFiles.filter((file) => file.fileId !== node.dataset.fileId); refreshDialogs(); return true }
-  if (action === 'create') { run(() => { if (!ui.createDraft.targetStyleId) throw new Error('请选择已建档目标 SPU。'); if (!ui.createDraft.designFiles.length) throw new Error('请先上传真实款式设计稿。'); if (!ui.createDraft.creationReason.trim()) throw new Error('请填写本次设计改款要求。'); const created = createEngineeringIndependentSampling({ samplingType: 'DESIGN_REVISION', sourceStyleId: ui.createDraft.sourceStyleId, targetMode: ui.createDraft.targetMode, targetStyleId: ui.createDraft.targetStyleId, temporarySpuName: ui.createDraft.temporarySpuName, creationReason: ui.createDraft.creationReason, designFiles: ui.createDraft.designFiles, patternHandling: ui.createDraft.patternHandling, reusedPatternFiles: ui.createDraft.reusedPatternFiles, buyer: BUYER, createdAt: nowText() }); ui.createOpen = false; resetCreateDraft(); window.history.pushState({}, '', `/pcs/production-preparation/design-revision/${created.samplingTaskId}`); window.dispatchEvent(new PopStateEvent('popstate')) }, '设计改款任务已创建。'); return true }
+
   if (action === 'select-detail-step') { const samplingId = node.dataset.samplingId || ''; const record = getEngineeringIndependentSamplingRecord(samplingId); const nextIndex = Number(node.dataset.stepIndex); if (record && Number.isInteger(nextIndex) && nextIndex <= currentSamplingStepIndex(record)) { ui.detailStepByTask[samplingId] = nextIndex; rerender() } return true }
-  if (action === 'add-custom-cost') { const samplingId = node.dataset.samplingId || ''; const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncPricingPlanDraftFromDom(samplingId); const draft = ensurePricingPlanDraft(record); draft.customCostDecision = 'HAS_CUSTOM_COST'; draft.customCosts.push({ customCostId: `${samplingId}-COST-DRAFT-${Date.now().toString(36)}`, title: '', amountIdr: 0, note: '', displayOrder: draft.customCosts.length + 1 }); rerender(); return true }
-  if (action === 'remove-custom-cost') { const samplingId = node.dataset.samplingId || ''; const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncPricingPlanDraftFromDom(samplingId); const draft = ensurePricingPlanDraft(record); const index = Number(node.dataset.costIndex); if (Number.isInteger(index)) draft.customCosts.splice(index, 1); if (!draft.customCosts.length) draft.customCostDecision = 'NO_CUSTOM_COST'; rerender(); return true }
-  if (action === 'add-bom-line') { syncBomLineDraftsFromDom(); const versionId = node.dataset.versionId || ''; const firstSku = getMaterialSkuRecordById('dr_cotton_raw'); ensureBomLineDrafts(versionId).push({ bomItemId: `${versionId}-DRAFT-${Date.now().toString(36)}`, materialSkuId: firstSku?.materialSkuId || '', usage: 1, sampleQuantity: 1, usageUnit: firstSku?.pricingUnit || 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '否', remark: '' }); rerender(); return true }
-  if (action === 'remove-bom-line') { syncBomLineDraftsFromDom(); const versionId = node.dataset.versionId || ''; const index = Number(node.dataset.lineIndex); if (Number.isInteger(index)) ensureBomLineDrafts(versionId).splice(index, 1); rerender(); return true }
-  if (action === 'add-sample-requirement') { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncSampleRequirementsFromDom(samplingId); ensureSampleRequirementDrafts(record).push({ draftId: `${samplingId}-DISPLAY-REQ-DRAFT-${Date.now().toString(36)}`, targetColor: '', targetSize: '', requiredQuantity: 1, requirementNote: '' }); rerender(); return true }
-  if (action === 'remove-sample-requirement') { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); syncSampleRequirementsFromDom(samplingId); const index = Number(node.dataset.lineIndex); if (Number.isInteger(index) && ui.sampleRequirementDraftsByTask[samplingId]?.length > 1) ui.sampleRequirementDraftsByTask[samplingId].splice(index, 1); rerender(); return true }
+  if (action === 'add-custom-cost') { const samplingId = node.dataset.samplingId || ''; const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncPricingPlanDraftFromDom(samplingId); const draft = ensurePricingPlanDraft(record); draft.customCostDecision = 'HAS_CUSTOM_COST'; draft.customCosts.push({ customCostId: `${samplingId}-COST-DRAFT-${Date.now().toString(36)}`, title: '', amountIdr: 0, note: '', displayOrder: draft.customCosts.length + 1 }); refreshBuyerFormSections(); return true }
+  if (action === 'remove-custom-cost') { const samplingId = node.dataset.samplingId || ''; const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncPricingPlanDraftFromDom(samplingId); const draft = ensurePricingPlanDraft(record); const index = Number(node.dataset.costIndex); if (Number.isInteger(index)) draft.customCosts.splice(index, 1); if (!draft.customCosts.length) draft.customCostDecision = 'NO_CUSTOM_COST'; refreshBuyerFormSections(); return true }
+  if (action === 'add-bom-line') { syncBomLineDraftsFromDom(); const versionId = node.dataset.versionId || ''; const firstSku = getMaterialSkuRecordById('dr_cotton_raw'); ensureBomLineDrafts(versionId).push({ bomItemId: `${versionId}-DRAFT-${Date.now().toString(36)}`, materialSkuId: firstSku?.materialSkuId || '', usage: 1, sampleQuantity: 1, usageUnit: firstSku?.pricingUnit || 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '否', remark: '' }); refreshBuyerFormSections(); return true }
+  if (action === 'remove-bom-line') { syncBomLineDraftsFromDom(); const versionId = node.dataset.versionId || ''; const index = Number(node.dataset.lineIndex); if (Number.isInteger(index)) ensureBomLineDrafts(versionId).splice(index, 1); refreshBuyerFormSections(); return true }
+  if (action === 'add-sample-requirement') { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncSampleRequirementsFromDom(samplingId); ensureSampleRequirementDrafts(record).push({ draftId: `${samplingId}-DISPLAY-REQ-DRAFT-${Date.now().toString(36)}`, targetColor: '', targetSize: '', requiredQuantity: 1, requirementNote: '' }); refreshBuyerFormSections(); return true }
+  if (action === 'remove-sample-requirement') { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); syncSampleRequirementsFromDom(samplingId); const index = Number(node.dataset.lineIndex); if (Number.isInteger(index) && ui.sampleRequirementDraftsByTask[samplingId]?.length > 1) ui.sampleRequirementDraftsByTask[samplingId].splice(index, 1); refreshBuyerFormSections(); return true }
+  if ((action === 'save-draft' || action === 'confirm-scheme') && node.dataset.samplingId === NEW_TASK_ID) {
+    run(() => {
+      syncBomLineDraftsFromDom(); syncPricingPlanDraftFromDom(NEW_TASK_ID); syncSampleRequirementsFromDom(NEW_TASK_ID)
+      if (!ui.createDraft.targetStyleId) throw new Error('请选择已建档目标 SPU。')
+      const created = createEngineeringIndependentSampling({ ...ui.createDraft, buyer: BUYER, createdAt: nowText(),
+        creationSampleRequirements: readSampleRequirements(NEW_TASK_ID),
+        materialLines: ensureBomLineDrafts(NEW_BOM_ID), customCosts: ensurePricingPlanDraft(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!).customCosts })
+      navigateDesignRevision(created.samplingTaskId)
+      if (action === 'confirm-scheme') {
+        try { confirmEngineeringIndependentSamplingScheme({ samplingTaskId: created.samplingTaskId, actor: ADMINISTRATOR,
+          selectedTaskTypes: suggestEngineeringIndependentTaskTypes(created), displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] },
+          sampleRequirements: (created.creationSampleRequirements || []).map((line, index) => ({ ...line, requirementLineId: `${created.samplingTaskId}-DISPLAY-REQ-${index + 1}` })) }) } catch (error) { throw new Error(`草稿已保存，尚未提交：${error instanceof Error ? error.message : '请核对方案后重试。'}`) }
+        selectCurrentSamplingStep(created.samplingTaskId)
+      }
+      resetCreateDraft()
+    }, action === 'save-draft' ? '设计改款草稿已保存。' : '任务已提交，已按需求生成工作。')
+    return true
+  }
   if (action === 'save-draft') { const samplingId = node.dataset.samplingId || ''; run(() => { const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('任务不存在。'); saveDesignRevisionDraft(record) }, '设计改款草稿已保存。'); return true }
   if (action === 'confirm-scheme') { const samplingId = node.dataset.samplingId || ''; run(() => { let record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('设计改款任务不存在。'); saveDesignRevisionDraft(record); record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('设计改款任务不存在。'); confirmEngineeringIndependentSamplingScheme({ samplingTaskId: samplingId, actor: ADMINISTRATOR, selectedTaskTypes: suggestEngineeringIndependentTaskTypes(record), displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] }, sampleRequirements: readSampleRequirements(samplingId).map((draft) => ({ requirementLineId: draft.draftId, targetColor: draft.targetColor, targetSize: draft.targetSize, requiredQuantity: draft.requiredQuantity, requirementNote: draft.requirementNote })) }); delete ui.pricingPlanDraftsByTask[samplingId]; selectCurrentSamplingStep(samplingId) }, '任务已提交，基码纸样和印染加工单已按需求生成。'); return true }
   if (action === 'return-buyer-preparation') { const samplingId = node.dataset.samplingId || ''; run(() => { returnEngineeringIndependentBuyerPreparation({ samplingTaskId: samplingId, actor: ADMINISTRATOR, reason: ui.returnReasonByTask[samplingId] || value('buyerReturnReason') }); delete ui.pricingPlanDraftsByTask[samplingId]; ui.detailStepByTask[samplingId] = 0 }, '方案已重新打开。'); return true }
@@ -1116,7 +1199,7 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
     setFeedback('正在读取并保存设计稿…')
     refreshDialogs()
     void captureEngineeringUploadedFiles({ files, purpose: 'DESIGN_IMAGE', actor: { userId: BUYER.userId, userName: BUYER.userName, teamName: '买手' } })
-      .then((saved) => { ui.createDraft.designFiles.push(...saved); setFeedback('设计稿已真实读取并保存。'); refreshDialogs() })
+      .then((saved) => { ui.createDraft.designFiles.push(...saved); setFeedback('设计稿已读取，将随草稿或任务一起保存。'); refreshDialogs() })
       .catch((error) => { setFeedback(error instanceof Error ? error.message : '设计稿上传失败。', false); refreshDialogs() })
     return true
   }
@@ -1163,12 +1246,12 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   if (target.matches(`[data-${PREFIX}-field="listStartDate"]`)) { ui.listStartDate = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="listEndDate"]`)) { ui.listEndDate = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="displayTeamFilter"]`)) { ui.displayTeamFilter = target.value; displaySampleListState.currentPage = 1; rerender(); return true }
-  if (target.matches(`[data-${PREFIX}-field="sourceStyleId"]`)) { ui.createDraft.sourceStyleId = target.value; if (ui.createDraft.patternHandling === 'REUSE') { ui.createDraft.reusedPatternFiles = []; refreshDialogs() } return true }
-  if (target.matches(`[data-${PREFIX}-field="targetStyleId"]`)) { ui.createDraft.targetStyleId = target.value; if (ui.createDraft.patternHandling === 'REUSE' && !ui.createDraft.sourceStyleId) { ui.createDraft.reusedPatternFiles = []; refreshDialogs() } return true }
+  if (target.matches(`[data-${PREFIX}-field="sourceStyleId"]`)) { ui.createDraft.sourceStyleId = target.value; if (ui.createDraft.patternHandling === 'REUSE') ui.createDraft.reusedPatternFiles = []; const source = getStyleArchiveById(target.value); if (source && !ensureBomLineDrafts(NEW_BOM_ID).length) { const reference = listEngineeringBomHistory(source.styleCode)[0]; if (reference) { ui.bomLineDraftsByVersion[NEW_BOM_ID] = reference.materialLines.map(line => ({ ...line })); refreshMaterialPricingRegion(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!); refreshWorkPreview(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!) } } refreshDialogs(); return true }
+  if (target.matches(`[data-${PREFIX}-field="targetStyleId"]`)) { ui.createDraft.targetStyleId = target.value; if (ui.createDraft.patternHandling === 'REUSE' && !ui.createDraft.sourceStyleId) ui.createDraft.reusedPatternFiles = []; refreshDialogs(); return true }
   if (target.matches(`[data-${PREFIX}-field="reusedPatternFileId"]`)) { const candidate = reusablePatternCandidates().find(({ file }) => file.fileId === target.value); ui.createDraft.reusedPatternFiles = candidate ? [{ ...candidate.file }] : []; refreshDialogs(); return true }
   if (target.matches(`[data-${PREFIX}-field="targetMode"]`)) { ui.createDraft.targetMode = target.value as 'ARCHIVED_STYLE' | 'TEMPORARY_SPU'; ui.createDraft.targetStyleId = ''; ui.createDraft.temporarySpuName = ''; refreshDialogs(); return true }
   if (target.matches(`[data-${PREFIX}-field="temporarySpuName"]`)) { ui.createDraft.temporarySpuName = target.value; return true }
-  if (target.matches(`[data-${PREFIX}-field="patternHandling"]`)) { ui.createDraft.patternHandling = target.value as 'REUSE' | 'REMAKE'; if (ui.createDraft.patternHandling === 'REMAKE') ui.createDraft.reusedPatternFiles = []; refreshDialogs(); return true }
+  if (target.matches(`[data-${PREFIX}-field="patternHandling"]`)) { ui.createDraft.patternHandling = target.value as 'REUSE' | 'REMAKE'; if (ui.createDraft.patternHandling === 'REMAKE') ui.createDraft.reusedPatternFiles = []; refreshDialogs(); refreshWorkPreview(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!); return true }
   if (target.matches(`[data-${PREFIX}-field="creationReason"]`)) { ui.createDraft.creationReason = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="buyerReturnReason"]`)) { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); ui.returnReasonByTask[samplingId] = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="customCostTitle"], [data-${PREFIX}-field="customCostAmount"], [data-${PREFIX}-field="customCostNote"]`)) { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); const record = getEngineeringIndependentSamplingRecord(samplingId); syncPricingPlanDraftFromDom(samplingId); if (record) refreshMaterialPricingSummary(record); return true }
@@ -1187,4 +1270,4 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   return false
 }
 
-export function isPcsIndependentSamplingDialogOpen(): boolean { return Boolean(ui.createOpen || ui.preview) }
+export function isPcsIndependentSamplingDialogOpen(): boolean { return Boolean(ui.preview) }

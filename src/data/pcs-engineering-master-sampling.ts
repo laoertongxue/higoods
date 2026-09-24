@@ -16,7 +16,7 @@ import {
   readDesignRevisionProcessWorkOrderStatuses,
   type DesignRevisionProcessWorkOrderLineInput,
 } from './pcs-design-revision-process-work-order-port.ts'
-import type { EngineeringBomMaterialLineDraft } from './pcs-engineering-bom-types.ts'
+import type { EngineeringBomCustomCostDraft, EngineeringBomMaterialLineDraft } from './pcs-engineering-bom-types.ts'
 import type {
   EngineeringIndependentColorMapping,
   EngineeringIndependentMaterialConversionLine,
@@ -566,6 +566,8 @@ export interface CreateEngineeringIndependentSamplingInput {
   temporarySpuName?: string
   creationReason: string
   designFiles: EngineeringUploadedFile[]
+  materialLines?: EngineeringBomMaterialLineDraft[]
+  customCosts?: EngineeringBomCustomCostDraft[]
   reuseDesignFileReferences?: boolean
   patternHandling?: 'REUSE' | 'REMAKE'
   reusedPatternFiles?: EngineeringUploadedFile[]
@@ -686,7 +688,7 @@ export function createEngineeringIndependentSampling(input: CreateEngineeringInd
     const record = buildRecord(input, code)
     initializeEngineeringIndependentManualMaterialPlan(record, input.buyer, input.createdAt)
     const referenceBom = record.sourceStyleCode ? listEngineeringBomHistory(record.sourceStyleCode)[0] : undefined
-    if (referenceBom?.materialLines.length && record.bomDraftVersionId) {
+    if (input.materialLines === undefined && referenceBom?.materialLines.length && record.bomDraftVersionId) {
       regenerateEngineeringBomVersionFromSource({
         targetVersionId: record.bomDraftVersionId,
         sourceVersionId: referenceBom.bomDraftVersionId,
@@ -696,6 +698,15 @@ export function createEngineeringIndependentSampling(input: CreateEngineeringInd
         regeneratedAt: input.createdAt,
       })
       addLog(record, '带入参照款物料', input.buyer, `已带入 ${referenceBom.materialLines.length} 行参照物料；提交前须逐行核对目标结果 SKU。`, input.createdAt)
+    }
+    if (input.materialLines) {
+      const requirements = record.creationSampleRequirements || []
+      if (!requirements.length || requirements.some(line => !line.targetColor.trim() || !line.targetSize.trim() || !Number.isInteger(line.requiredQuantity) || line.requiredQuantity <= 0)) throw new Error('请完整填写每行颜色、尺码和大于 0 的整数件数。')
+      saveEngineeringBomVersion({ versionId: record.bomDraftVersionId, role: '买手', userId: input.buyer.userId, userName: input.buyer.userName,
+        materialLines: input.materialLines.map((line, index) => ({ ...line, bomItemId: `${record.bomDraftVersionId}-LINE-${index + 1}`, lossRate: 0, sampleQuantity: requirements.reduce((total, row) => total + row.requiredQuantity, 0) })), updatedAt: input.createdAt })
+      saveEngineeringBomPricingPlan({ ownerStage: 'INDEPENDENT_SAMPLING', ownerId: record.samplingTaskId, role: '买手',
+        userId: input.buyer.userId, userName: input.buyer.userName, customCostDecision: input.customCosts?.length ? 'HAS_CUSTOM_COST' : 'NO_CUSTOM_COST',
+        customCosts: (input.customCosts || []).map((cost, index) => ({ ...cost, customCostId: `${record.samplingTaskId}-COST-${index + 1}` })), updatedAt: input.createdAt })
     }
     writeRecords([...records, record])
     syncDesignRevisionProjectRelation(record)

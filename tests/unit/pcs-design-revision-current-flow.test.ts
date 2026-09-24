@@ -14,7 +14,7 @@ import {
   saveEngineeringIndependentSamplingDraftRequirements,
   submitEngineeringIndependentProfessionalTask,
 } from '../../src/data/pcs-engineering-master-sampling.ts'
-import { getEngineeringBomVersionById, saveEngineeringBomPricingPlan, saveEngineeringBomVersion } from '../../src/data/pcs-engineering-bom-repository.ts'
+import { getEngineeringBomPricingPlan, getEngineeringBomVersionById, saveEngineeringBomPricingPlan, saveEngineeringBomVersion } from '../../src/data/pcs-engineering-bom-repository.ts'
 import { resolveDesignRevisionMaterialSku } from '../../src/data/pcs-design-revision-material-sku.ts'
 import { calculateEngineeringBomTotalRequirement, resolveEngineeringBomConversion, resolveEngineeringBomMaterialLine } from '../../src/data/pcs-engineering-bom-material-resolver.ts'
 import { collectProjectArchiveAutoData } from '../../src/data/pcs-project-archive-collector.ts'
@@ -293,4 +293,26 @@ test('批量复制仅继承建单输入，后续设计稿、BOM 和样衣要求�
   assert.equal(copied.professionalTasks.length, 0)
   assert.equal(copied.creationSampleRequirements.length, 0)
   assert.equal(getEngineeringBomVersionById(copied.bomDraftVersionId)?.materialLines.length, 0)
+})
+
+test('单页创建同时保存物料、费用与样衣要求；失败不留下空任务', () => {
+  const source = listEngineeringIndependentSamplingRecords().find(row => row.targetStyleCode === 'STYLE-PRJ-202603-012')!
+  const buyer = { role: '买手', userId: source.buyerId, userName: source.buyerName }
+  const input = { sourceStyleId: '', targetStyleId: source.targetStyleId, creationReason: '单页创建',
+    designFiles: source.designFiles, buyer, createdAt: '2026-09-24 11:00:00',
+    creationSampleRequirements: [{ targetColor: '蓝色', targetSize: 'M', requiredQuantity: 3, requirementNote: '展示用' }],
+    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 2, usageUnit: 'Yard', lossRate: 0 }],
+    customCosts: [{ title: '车位费', amountIdr: 12000, note: '', displayOrder: 1 }],
+  }
+  const before = listEngineeringIndependentSamplingRecords().length
+  assert.throws(() => createEngineeringIndependentSampling({ ...input, creationSampleRequirements: [{ ...input.creationSampleRequirements[0], requiredQuantity: 0 }] }), /整数件数/)
+  assert.equal(listEngineeringIndependentSamplingRecords().length, before)
+  const created = createEngineeringIndependentSampling(input)
+  assert.equal(listEngineeringIndependentSamplingRecords().length, before + 1)
+  assert.equal(created.creationSampleRequirements[0].requiredQuantity, 3)
+  const line = getEngineeringBomVersionById(created.bomDraftVersionId)!.materialLines[0]
+  assert.equal(line.sampleQuantity, 3)
+  assert.equal(resolveEngineeringBomMaterialLine(line).totalRequirementQuantity, 6)
+  assert.equal(getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', created.samplingTaskId)!.customCosts[0].amountIdr, 12000)
+  assert.equal(created.professionalTasks.length, 0)
 })

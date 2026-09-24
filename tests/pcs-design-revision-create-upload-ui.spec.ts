@@ -34,11 +34,11 @@ test('设计改款新建页阻断非图片且保留表单，真实设计稿保�
   const realFileChooser = await realFileChooserPromise
   await realFileChooser.setFiles(REAL_DESIGN_IMAGE)
   await expect(page.getByText('dress-sample-1.jpg', { exact: true })).toBeVisible()
-  await page.locator('[data-pcs-independent-sampling-action="create"]').click()
+  await page.locator('[data-pcs-independent-sampling-action="save-draft"]').click()
 
   await expect(page).toHaveURL(/\/pcs\/production-preparation\/design-revision\/ES-ID-DR-/)
   await expect(page.getByRole('heading', { name: /^ES-DR-/ })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '第一步：确认本次方案' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '第一步：确认本次方案' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /dress-sample-1\.jpg设计稿/ })).toBeVisible()
-  await expect(page.getByText('设计改款任务已创建。')).toBeVisible()
+  await expect(page.getByText('设计改款草稿已保存。')).toBeVisible()
 })
