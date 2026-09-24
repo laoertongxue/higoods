@@ -299,11 +299,12 @@ function refreshDialogs(): void {
 }
 
 function listRows(): EngineeringIndependentSamplingRecord[] {
+  const needsExtraFacts = Boolean(ui.appliedStartDate || ui.appliedEndDate || Object.entries(ui.appliedExtraFilters).some(([key, value]) => key !== 'timeType' && value))
   return listEngineeringIndependentSamplingRecords().filter((record) => {
     if (ui.appliedTeamFilter && !getEngineeringIndependentCurrentTeams(record).includes(ui.appliedTeamFilter)) return false
     if (ui.appliedStatus && record.status !== ui.appliedStatus) return false
     if (ui.appliedPattern && (record.patternHandling === 'REMAKE' ? 'REMAKE' : 'REUSE') !== ui.appliedPattern) return false
-    const facts = recordFilterFacts(record)
+    const facts = needsExtraFacts ? recordFilterFacts(record) : {}
     for (const [key, value] of Object.entries(ui.appliedExtraFilters)) {
       if (!value || key === 'timeType') continue
       if (['brand', 'category', 'patternUploaded', 'hasDyeOrder', 'hasPrintOrder'].includes(key)) { if (facts[key] !== value) return false }
@@ -432,6 +433,10 @@ function renderDesignRevisionSampleTask(row: EngineeringIndependentSamplingRecor
 }
 
 function renderDesignRevisionFilters(): string {
+  const styleFilterOptions = listEngineeringIndependentSamplingRecords().map(record => {
+    const style = getStyleArchiveById(record.targetStyleId)
+    return { brand: style?.brandName || '', category: style?.categoryCodeName || style?.categoryName || '' }
+  })
   const inputClass = 'h-9 w-full rounded-md border px-3 text-sm'
   const field = (label: string, control: string, className = 'min-w-0') => `<label class="${className}"><span class="mb-1 block text-xs text-muted-foreground">${label}</span>${control}</label>`
   const input = (key: string, value: string, type = 'text', placeholder = '') => `<input type="${type}" class="${inputClass}" data-${PREFIX}-field="${key}" value="${escapeHtml(value)}" placeholder="${placeholder}">`
@@ -446,7 +451,7 @@ function renderDesignRevisionFilters(): string {
         ${field('基码纸样', select('listPattern', ui.listPattern, [['', '全部'], ['REMAKE', '需要制作'], ['REUSE', '复用纸样']]))}
         ${field('染印组合', select('listProcessing', ui.listProcessing, [['', '全部'], ['NONE', '无需印染'], ['DYE_ONLY', '仅染色'], ['PRINT_ONLY', '仅印花'], ['BOTH', '含染色和印花物料']]))}
         ${[['originalSpu', '原款式（SPU）'], ['newSpu', '新款式（SPU）'], ['originalBuyer', '原款式买手'], ['newBuyer', '新款式买手'], ['creator', '添加人'], ['patternMaker', '纸样上传人／版师']].map(([key, label]) => field(label, input(`extra:${key}`, ui.extraFilters[key] || ''))).join('')}
-        ${[['brand', '品牌'], ['category', '款式品类']].map(([key, label]) => field(label, select(`extra:${key}`, ui.extraFilters[key] || '', [['', '全部'], ...[...new Set(listEngineeringIndependentSamplingRecords().map(record => recordFilterFacts(record)[key]).filter(Boolean))].sort().map(text => [text, text])]))).join('')}
+        ${[['brand', '品牌'], ['category', '款式品类']].map(([key, label]) => field(label, select(`extra:${key}`, ui.extraFilters[key] || '', [['', '全部'], ...[...new Set(styleFilterOptions.map(facts => facts[key as 'brand' | 'category']).filter(Boolean))].sort().map(text => [text, text])]))).join('')}
         ${[['patternUploaded', '是否上传纸样'], ['hasDyeOrder', '是否创建染色单'], ['hasPrintOrder', '是否创建印花单']].map(([key, label]) => field(label, select(`extra:${key}`, ui.extraFilters[key] || '', [['', '全部'], ['YES', '是'], ['NO', '否']]))).join('')}
         ${field('时间类型', select('extra:timeType', ui.extraFilters.timeType || '', [['', '添加时间'], ['completed', '完成时间'], ['patternUploadedAt', '上传纸样时间']]))}
         ${field('开始日期', input('listStartDate', ui.listStartDate, 'date'))}

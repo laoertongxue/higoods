@@ -5,6 +5,8 @@ const FORMAT = 'higood-bom-dictionary-v1'
 export function serializeEngineeringBomSnapshot(snapshot: object): string {
   const strings: string[] = []
   const indices = new Map<string, number>()
+  const encodedStrings: Array<[number, number]> = []
+  const encodedObjects = new WeakMap<object, unknown[]>()
   const intern = (value: string): number => {
     const existing = indices.get(value)
     if (existing !== undefined) return existing
@@ -14,16 +16,35 @@ export function serializeEngineeringBomSnapshot(snapshot: object): string {
     return index
   }
   const encode = (value: unknown): unknown => {
-    if (typeof value === 'string') return [2, intern(value)]
-    if (Array.isArray(value)) return [1, ...value.map(encode)]
+    if (typeof value === 'string') {
+      const index = intern(value)
+      return encodedStrings[index] ||= [2, index]
+    }
     if (value && typeof value === 'object') {
-      return [0, ...Object.entries(value).flatMap(([key, item]) => [intern(key), encode(item)])]
+      const cached = encodedObjects.get(value)
+      if (cached) return cached
+    }
+    if (Array.isArray(value)) {
+      const result: unknown[] = [1]
+      encodedObjects.set(value, result)
+      for (const item of value) result.push(encode(item))
+      return result
+    }
+    if (value && typeof value === 'object') {
+      const result: unknown[] = [0]
+      encodedObjects.set(value, result)
+      for (const key of Object.keys(value)) {
+        const item = (value as Record<string, unknown>)[key]
+        if (item !== undefined) result.push(intern(key), encode(item))
+      }
+      return result
     }
     return value
   }
-  // Match JSON's handling of optional fields and non-finite values before encoding.
+  // BOM snapshots contain plain data. Omit optional object fields; JSON handles
+  // undefined array entries and non-finite numbers as null in both encodings.
   const plain = JSON.stringify(snapshot)
-  const data = encode(JSON.parse(plain))
+  const data = encode(snapshot)
   const compact = JSON.stringify({ format: FORMAT, strings, data })
   return compact.length < plain.length ? compact : plain
 }

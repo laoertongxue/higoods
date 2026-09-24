@@ -249,11 +249,11 @@ test('复用既有纸样与参照 BOM 的无印染任务可直接提交样衣并
   assert.equal(copied.status, 'DRAFT')
   assert.equal(copied.professionalTasks.length, 0)
   assert.equal(copied.confirmedAt, '')
-  assert.equal(copied.creationSampleRequirements.length, 0)
+  assert.equal(copied.creationSampleRequirements.length, 1)
   assert.equal(getEngineeringBomVersionById(copied.bomDraftVersionId)?.materialLines.length, 1)
 })
 
-test('批量复制仅继承建单输入，后续设计稿、BOM 和样衣要求均需重新维护', () => {
+test('批量复制保留物料、费用和样衣安排为独立可编辑草稿，不生成工作', () => {
   const target = listEngineeringIndependentSamplingRecords().find((record) => record.targetStyleCode === 'STYLE-PRJ-202603-012')!
   const buyer = { role: '买手' as const, userId: target.buyerId, userName: target.buyerName }
   const originalDesign = target.designFiles[0]
@@ -273,6 +273,8 @@ test('批量复制仅继承建单输入，后续设计稿、BOM 和样衣要求�
     sampleRequirements: [{ targetColor: '蓝色', targetSize: 'M', requiredQuantity: 2, requirementNote: '后续维护' }],
     savedAt: '2026-09-23 10:02:00',
   })
+  saveEngineeringBomPricingPlan({ ownerStage: 'INDEPENDENT_SAMPLING', ownerId: source.samplingTaskId, ...buyer,
+    customCostDecision: 'HAS_CUSTOM_COST', customCosts: [{ title: '车位费', amountIdr: 15000, note: '复制备注', displayOrder: 1 }, { title: '包装费', amountIdr: 2000, note: '', displayOrder: 2 }], updatedAt: '2026-09-23 10:02:00' })
   replaceEngineeringIndependentDesignFiles({
     samplingTaskId: source.samplingTaskId, actor: buyer,
     designFiles: [{ ...originalDesign, fileId: `${originalDesign.fileId}-REPLACED`, fileName: 'after-creation.jpg', uploadedById: buyer.userId, uploadedByTeam: '买手' }],
@@ -291,8 +293,33 @@ test('批量复制仅继承建单输入，后续设计稿、BOM 和样衣要求�
   assert.equal(copied.creationReason, source.creationReason)
   assert.deepEqual(copied.designFiles.map((file) => file.fileId), [originalDesign.fileId, secondInitialDesign.fileId])
   assert.equal(copied.professionalTasks.length, 0)
-  assert.equal(copied.creationSampleRequirements.length, 0)
-  assert.equal(getEngineeringBomVersionById(copied.bomDraftVersionId)?.materialLines.length, 0)
+  assert.equal(copied.creationSampleRequirements.length, 1)
+  const copiedBom = getEngineeringBomVersionById(copied.bomDraftVersionId)!
+  const sourceBom = getEngineeringBomVersionById(source.bomDraftVersionId)!
+  assert.equal(copiedBom.materialLines.length, 1)
+  assert.equal(copiedBom.versionStatus, 'DRAFT')
+  assert.equal(copiedBom.materialLines[0].materialSkuId, 'dr_cotton_dye_print')
+  assert.equal(copiedBom.materialLines[0].usage, 2)
+  assert.notEqual(copiedBom.materialLines[0].bomItemId, sourceBom.materialLines[0].bomItemId)
+  assert.equal(copiedBom.materialLines[0].designRevisionSkuSnapshot, undefined)
+  assert.deepEqual(copied.creationSampleRequirements, [{ targetColor: '蓝色', targetSize: 'M', requiredQuantity: 2, requirementNote: '后续维护' }])
+  const costs = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', copied.samplingTaskId)!.customCosts
+  assert.deepEqual(costs.map(({ title, amountIdr, note }) => ({ title, amountIdr, note })), [
+    { title: '车位费', amountIdr: 15000, note: '复制备注' }, { title: '包装费', amountIdr: 2000, note: '' },
+  ])
+  assert.equal(copied.taskPlanConfirmedAt, '')
+  const detached = getEngineeringBomVersionById(copied.bomDraftVersionId)!
+  detached.materialLines[0].usage = 999
+  costs[0].amountIdr = 999
+  assert.equal(getEngineeringBomVersionById(copied.bomDraftVersionId)!.materialLines[0].usage, 2)
+  assert.equal(getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', copied.samplingTaskId)!.customCosts[0].amountIdr, 15000)
+  saveEngineeringBomVersion({ versionId: copied.bomDraftVersionId, ...buyer, materialLines: copiedBom.materialLines.map(line => ({ ...line, usage: 9 })), updatedAt: '2026-09-23 10:05:00' })
+  saveEngineeringIndependentSamplingDraftRequirements({ samplingTaskId: copied.samplingTaskId, actor: buyer, sampleRequirements: [{ targetColor: '白色', targetSize: 'L', requiredQuantity: 3, requirementNote: '修改后' }] })
+  saveEngineeringBomPricingPlan({ ownerStage: 'INDEPENDENT_SAMPLING', ownerId: copied.samplingTaskId, ...buyer, customCostDecision: 'NO_CUSTOM_COST', customCosts: [], updatedAt: '2026-09-23 10:05:00' })
+  assert.equal(getEngineeringBomVersionById(source.bomDraftVersionId)!.materialLines[0].usage, 2)
+  assert.equal(getEngineeringIndependentSamplingRecord(source.samplingTaskId)!.creationSampleRequirements[0].requiredQuantity, 2)
+  assert.equal(getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', source.samplingTaskId)!.customCosts.length, 2)
+  assert.equal(getEngineeringIndependentSamplingRecord(copied.samplingTaskId)!.status, 'DRAFT')
 })
 
 test('单页创建同时保存物料、费用与样衣要求；失败不留下空任务', () => {
@@ -339,4 +366,24 @@ test('加工互斥按物料行执行：同一任务允许纯染行与双属性�
   assert.ok(refs.every(ref => !ref.prerequisiteProcessOrderId))
   assert.equal(getDyeWorkOrderById(refs.find(ref => ref.processType === 'DYEING')!.processOrderId)?.plannedQty, 2)
   assert.equal(getPrintWorkOrderById(refs.find(ref => ref.processType === 'PRINTING')!.processOrderId)?.plannedQty, 3)
+  const [result] = copyEngineeringIndependentSamplingDrafts({ samplingTaskIds: [submitted.samplingTaskId], actor: buyer, createdAt: '2026-09-24 15:00:00' })
+  assert.equal(result.error, '')
+  const copied = getEngineeringIndependentSamplingRecord(result.draftTaskId)!
+  assert.equal(copied.status, 'DRAFT')
+  assert.equal(copied.professionalTasks.length, 0)
+  assert.equal(copied.creationSampleRequirements[0].requiredQuantity, 1, '读取下达的安排，源草稿没有制作安排')
+  const copiedBom = getEngineeringBomVersionById(copied.bomDraftVersionId)!
+  assert.equal(copiedBom.materialLines.length, 3)
+  assert.ok(!copiedBom.editingLockedAt)
+  assert.ok(copiedBom.materialLines.every(line => !line.designRevisionSkuSnapshot))
+  saveEngineeringBomVersion({ versionId: copied.bomDraftVersionId, ...buyer,
+    materialLines: copiedBom.materialLines.map(line => ({ ...line, usage: 4 })) })
+  const resubmitted = confirmEngineeringIndependentSamplingScheme({ samplingTaskId: copied.samplingTaskId, actor: buyer,
+    displaySampleAssignment: DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0], selectedTaskTypes: ['BASE_PATTERN', 'DISPLAY_SAMPLE'],
+    sampleRequirements: copied.creationSampleRequirements })
+  const newRefs = resubmitted.professionalTasks.flatMap(task => task.processWorkOrderRefs)
+  assert.equal(newRefs.length, 2)
+  assert.ok(newRefs.every(ref => !refs.some(old => old.processOrderId === ref.processOrderId)))
+  assert.equal(getPrintWorkOrderById(newRefs.find(ref => ref.processType === 'PRINTING')!.processOrderId)?.plannedQty, 4)
+  assert.equal(getEngineeringBomVersionById(submitted.bomDraftVersionId)!.materialLines[1].usage, 3)
 })

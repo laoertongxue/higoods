@@ -244,11 +244,11 @@ export function rebindEngineeringBomOwnerStyle(input: {
 }
 
 export function listEngineeringBomVersions(): EngineeringBomVersionRecord[] {
-  return readSnapshot().records.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt)).map(cloneRecord)
+  return (memorySnapshot || readSnapshot()).records.map(cloneRecord).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
 export function getEngineeringBomVersionById(versionId: string): EngineeringBomVersionRecord | null {
-  const record = readSnapshot().records.find((item) => item.bomDraftVersionId === versionId)
+  const record = (memorySnapshot || readSnapshot()).records.find((item) => item.bomDraftVersionId === versionId)
   return record ? cloneRecord(record) : null
 }
 
@@ -256,20 +256,22 @@ export function listEngineeringBomVersionsByOwner(
   ownerStage: EngineeringBomOwnerStage,
   ownerId: string,
 ): EngineeringBomVersionRecord[] {
-  return listEngineeringBomVersions().filter((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
+  return (memorySnapshot || readSnapshot()).records
+    .filter((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .map(cloneRecord)
 }
 
 export function listEngineeringBomPricingPlans(): EngineeringBomPricingPlanRecord[] {
-  return readSnapshot().plans
+  return (memorySnapshot || readSnapshot()).plans.map(clonePlan)
     .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .map(clonePlan)
 }
 
 export function getEngineeringBomPricingPlan(
   ownerStage: EngineeringBomOwnerStage,
   ownerId: string,
 ): EngineeringBomPricingPlanRecord | null {
-  const plan = readSnapshot().plans.find((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
+  const plan = (memorySnapshot || readSnapshot()).plans.find((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
   return plan ? clonePlan(plan) : null
 }
 

@@ -588,6 +588,7 @@ export interface CreateEngineeringIndependentSamplingInput {
   materialLines?: EngineeringBomMaterialLineDraft[]
   customCosts?: EngineeringBomCustomCostDraft[]
   reuseDesignFileReferences?: boolean
+  initializeFromReferenceBom?: boolean
   patternHandling?: 'REUSE' | 'REMAKE'
   reusedPatternFiles?: EngineeringUploadedFile[]
   creationSampleRequirements?: Array<Pick<EngineeringSampleRequirementLine, 'targetColor' | 'targetSize' | 'requiredQuantity' | 'requirementNote'>>
@@ -707,7 +708,7 @@ export function createEngineeringIndependentSampling(input: CreateEngineeringInd
     const record = buildRecord(input, code)
     initializeEngineeringIndependentManualMaterialPlan(record, input.buyer, input.createdAt)
     const referenceBom = record.sourceStyleCode ? listEngineeringBomHistory(record.sourceStyleCode)[0] : undefined
-    if (input.materialLines === undefined && referenceBom?.materialLines.length && record.bomDraftVersionId) {
+    if (input.initializeFromReferenceBom !== false && input.materialLines === undefined && referenceBom?.materialLines.length && record.bomDraftVersionId) {
       regenerateEngineeringBomVersionFromSource({
         targetVersionId: record.bomDraftVersionId,
         sourceVersionId: referenceBom.bomDraftVersionId,
@@ -754,7 +755,7 @@ export function saveEngineeringIndependentSamplingDraftRequirements(input: {
   return cloneRecord(record)
 }
 
-/** 逐张复制创建输入；任何一张失败时只回滚该张草稿。 */
+/** 逐张复制完整填写方案为可编辑草稿；不继承执行结果，失败只回滚该张。 */
 export function copyEngineeringIndependentSamplingDrafts(input: {
   samplingTaskIds: string[]
   actor: { role: string; userId: string; userName: string }
@@ -772,16 +773,42 @@ export function copyEngineeringIndependentSamplingDrafts(input: {
       const creationDesignFileIds = source.creationDesignFileIds || source.designFiles.slice(0, 1).map((file) => file.fileId)
       const creationDesignFiles = creationDesignFileIds.map((fileId) => source.designFiles.find((file) => file.fileId === fileId))
       if (!creationDesignFiles.length || creationDesignFiles.some((file) => !file)) throw new Error('原任务建单设计稿已缺失，不能复制。')
+      const sourceBom = getEngineeringBomVersionById(source.bomDraftVersionId)
+      if (!sourceBom) throw new Error('原任务物料方案已缺失，不能复制。')
+      const sourcePricing = getEngineeringBomPricingPlan('INDEPENDENT_SAMPLING', source.samplingTaskId)
+      const requirements = source.professionalTasks.find((task) => task.taskType === 'DISPLAY_SAMPLE')?.sampleRequirements
+        || source.creationSampleRequirements || []
       const draft = createEngineeringIndependentSampling({
         sourceStyleId: source.sourceStyleId,
         targetStyleId: source.targetStyleId,
         creationReason: source.creationReason,
         designFiles: creationDesignFiles as EngineeringUploadedFile[],
         reuseDesignFileReferences: true,
+        initializeFromReferenceBom: false,
         patternHandling: source.patternHandling,
         reusedPatternFiles: source.reusedPatternFiles,
+        creationSampleRequirements: requirements.map(({ targetColor, targetSize, requiredQuantity, requirementNote }) => ({ targetColor, targetSize, requiredQuantity, requirementNote })),
         buyer: input.actor,
         createdAt: input.createdAt,
+      })
+      // 复制源任务当前填写内容，不从参照款重新带入；不携带已提交快照和成果关联。
+      saveEngineeringBomVersion({
+        versionId: draft.bomDraftVersionId, role: '买手', userId: input.actor.userId, userName: input.actor.userName,
+        materialLines: sourceBom.materialLines.map((line, index) => ({
+          bomItemId: `${draft.bomDraftVersionId}-LINE-${index + 1}`,
+          materialSkuId: line.materialSkuId, usage: line.usage, usageUnit: line.usageUnit,
+          quantityBasis: line.quantityBasis, sampleQuantity: line.sampleQuantity, lossRate: 0,
+          dyeRequirement: line.dyeRequirement, printRequirement: line.printRequirement, remark: line.remark,
+        })), updatedAt: input.createdAt,
+      })
+      saveEngineeringBomPricingPlan({
+        ownerStage: 'INDEPENDENT_SAMPLING', ownerId: draft.samplingTaskId,
+        role: '买手', userId: input.actor.userId, userName: input.actor.userName,
+        customCostDecision: sourcePricing?.customCostDecision || 'UNDECIDED',
+        customCosts: (sourcePricing?.customCosts || []).map((cost, index) => ({
+          customCostId: `${draft.samplingTaskId}-COST-${index + 1}`,
+          title: cost.title, amountIdr: cost.amountIdr, note: cost.note, displayOrder: cost.displayOrder,
+        })), updatedAt: input.createdAt,
       })
       return { sourceTaskId, draftTaskId: draft.samplingTaskId, error: '' }
     } catch (error) {
