@@ -1,7 +1,9 @@
 // @page-pattern: list
 import { localDateTimeText } from '../utils.ts'
 import { renderEngineeringFileUpload, renderEngineeringUploadPreview } from '../components/ui/engineering-file-upload.ts'
-import { renderStandardListFilters, renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderPrimaryButton, renderSecondaryButton } from '../components/ui/button.ts'
+import { renderProcessFilterToggle, handleProcessFilterPresentation } from '../components/ui/process-order-list-presentation.ts'
 import { type StandardListColumn } from '../components/ui/list-table.ts'
 import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
 import {
@@ -334,9 +336,38 @@ function renderDesignRevisionSampleTask(row: EngineeringIndependentSamplingRecor
   return `<a class="text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a><p class="text-xs">${planned} 件要求 · ${delivered} 件已交</p><p class="text-xs">${escapeHtml(professionalTaskStatusText(task))} · 提交 ${escapeHtml(task.submittedAt || '—')}</p>`
 }
 
+function renderDesignRevisionFilters(): string {
+  const inputClass = 'h-9 w-full rounded-md border px-3 text-sm'
+  const field = (label: string, control: string, className = 'min-w-0') => `<label class="${className}"><span class="mb-1 block text-xs text-muted-foreground">${label}</span>${control}</label>`
+  const input = (key: string, value: string, type = 'text', placeholder = '') => `<input type="${type}" class="${inputClass}" data-${PREFIX}-field="${key}" value="${escapeHtml(value)}" placeholder="${placeholder}">`
+  const select = (key: string, value: string, options: string[][]) => `<select class="${inputClass} border-input bg-background" data-${PREFIX}-field="${key}">${options.map(([id, label]) => `<option value="${escapeHtml(id)}" ${id === value ? 'selected' : ''}>${escapeHtml(label)}</option>`).join('')}</select>`
+  const advancedCount = [ui.listPattern, ui.listProcessing, ui.listStartDate, ui.listEndDate].filter(Boolean).length
+  return `<div class="rounded-lg border bg-white p-3">
+    <div class="grid gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+      ${field('综合查询', input('listKeyword', ui.listKeyword, 'text', '任务号、SPU、买手或加工单号'), 'min-w-0 sm:col-span-2')}
+      ${field('任务状态', select('listStatus', ui.listStatus, [['', '全部'], ['DRAFT', '草稿'], ['IN_PROGRESS', '进行中'], ['COMPLETED', '已完成']]))}
+      ${field('当前团队', select('teamFilter', ui.teamFilter, [['', '全部团队'], ...teamOptions().map(team => [team, team])]))}
+    </div>
+    <div data-process-advanced ${advancedCount ? '' : 'hidden'}>
+      <div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
+        ${field('基码纸样', select('listPattern', ui.listPattern, [['', '全部'], ['REMAKE', '需要制作'], ['REUSE', '复用纸样']]))}
+        ${field('染印组合', select('listProcessing', ui.listProcessing, [['', '全部'], ['NONE', '无需印染'], ['DYE_ONLY', '仅染色'], ['PRINT_ONLY', '仅印花'], ['BOTH', '先染后印']]))}
+        ${field('创建开始日期', input('listStartDate', ui.listStartDate, 'date'))}
+        ${field('创建结束日期', input('listEndDate', ui.listEndDate, 'date'))}
+      </div>
+    </div>
+    <div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>
+      ${renderPrimaryButton('查询', { prefix: PREFIX, action: 'query' }, 'search')}
+      ${renderSecondaryButton('重置', { prefix: PREFIX, action: 'reset' }, 'rotate-ccw')}
+      ${renderSecondaryButton('导出', { prefix: PREFIX, action: 'export' }, 'download')}
+      ${renderProcessFilterToggle(advancedCount, 'button')}
+    </div>
+  </div>`.replace(/<(input|select)\b/g, '<$1 data-skip-page-rerender="true"')
+}
+
 function listColumns(): StandardListColumn<EngineeringIndependentSamplingRecord>[] {
   return [
-    { key: 'select', title: '勾选', width: 56, required: true, freezeable: true, render: (row) => `<input type="checkbox" aria-label="选择 ${escapeHtml(row.samplingTaskCode)}" data-${PREFIX}-select-task="${escapeHtml(row.samplingTaskId)}" ${ui.selectedTaskIds.has(row.samplingTaskId) ? 'checked' : ''}>` },
+    { key: 'select', title: '勾选', width: 56, leadingControlColumn: true, required: true, freezeable: true, render: (row) => `<input type="checkbox" aria-label="选择 ${escapeHtml(row.samplingTaskCode)}" data-${PREFIX}-select-task="${escapeHtml(row.samplingTaskId)}" ${ui.selectedTaskIds.has(row.samplingTaskId) ? 'checked' : ''}>` },
     { key: 'code', title: '任务号', width: 140, required: true, freezeable: true, sortable: true, sortValue: (row) => row.samplingTaskCode, render: (row) => `<a class="font-medium text-blue-700 hover:underline" href="/pcs/production-preparation/design-revision/${escapeHtml(row.samplingTaskId)}">${escapeHtml(row.samplingTaskCode)}</a>` },
     { key: 'style', title: '参照款式 → 目标款式', width: 390, required: true, render: renderDesignRevisionStyleRelation },
     { key: 'design', title: '设计稿', width: 110, required: true, render: renderDesignRevisionArtwork },
@@ -421,7 +452,7 @@ export function renderPcsDesignRevisionListPage(): string {
     title: '设计改款任务',
     primaryActionsHtml: `<button class="h-9 rounded bg-blue-600 px-4 text-sm text-white" data-${PREFIX}-action="open-create">新建设计改款</button>`,
     feedbackHtml: feedbackHtml(),
-    filtersHtml: renderStandardListFilters({ actionPrefix: PREFIX, fieldsHtml: `<label class="text-sm">任务号／SPU／买手／加工单号<input class="mt-1 h-9 w-64 rounded border px-2" data-${PREFIX}-field="listKeyword" value="${escapeHtml(ui.listKeyword)}"></label><label class="text-sm">任务状态<select class="mt-1 h-9 w-36 rounded border px-2" data-${PREFIX}-field="listStatus"><option value="">全部</option><option value="DRAFT" ${ui.listStatus === 'DRAFT' ? 'selected' : ''}>草稿</option><option value="IN_PROGRESS" ${ui.listStatus === 'IN_PROGRESS' ? 'selected' : ''}>进行中</option><option value="COMPLETED" ${ui.listStatus === 'COMPLETED' ? 'selected' : ''}>已完成</option></select></label><label class="text-sm">当前团队<select class="mt-1 h-9 w-44 rounded border px-2" data-${PREFIX}-field="teamFilter"><option value="">全部团队</option>${teamOptions().map((team) => `<option value="${escapeHtml(team)}" ${ui.teamFilter === team ? 'selected' : ''}>${escapeHtml(team)}</option>`).join('')}</select></label><details class="w-full text-sm"><summary class="cursor-pointer text-blue-700">更多筛选</summary><div class="mt-3 flex flex-wrap items-end gap-3"><label>基码纸样<select class="mt-1 h-9 w-40 rounded border px-2" data-${PREFIX}-field="listPattern"><option value="">全部</option><option value="REMAKE" ${ui.listPattern === 'REMAKE' ? 'selected' : ''}>需要制作</option><option value="REUSE" ${ui.listPattern === 'REUSE' ? 'selected' : ''}>复用纸样</option></select></label><label>染印组合<select class="mt-1 h-9 w-40 rounded border px-2" data-${PREFIX}-field="listProcessing"><option value="">全部</option><option value="NONE" ${ui.listProcessing === 'NONE' ? 'selected' : ''}>无需印染</option><option value="DYE_ONLY" ${ui.listProcessing === 'DYE_ONLY' ? 'selected' : ''}>仅染色</option><option value="PRINT_ONLY" ${ui.listProcessing === 'PRINT_ONLY' ? 'selected' : ''}>仅印花</option><option value="BOTH" ${ui.listProcessing === 'BOTH' ? 'selected' : ''}>先染后印</option></select></label><label>创建开始日期<input type="date" class="mt-1 h-9 rounded border px-2" data-${PREFIX}-field="listStartDate" value="${escapeHtml(ui.listStartDate)}"></label><label>创建结束日期<input type="date" class="mt-1 h-9 rounded border px-2" data-${PREFIX}-field="listEndDate" value="${escapeHtml(ui.listEndDate)}"></label></div></details>`, extraActionsHtml: `<button type="button" class="h-9 rounded border px-4 text-sm" data-${PREFIX}-action="export">导出</button>` }),
+    filtersHtml: renderDesignRevisionFilters(),
     statsHtml: renderStandardListStats([{ label: '查询结果', value: rows.length }, { label: '草稿', value: rows.filter((row) => row.status === 'DRAFT').length }, { label: '进行中', value: rows.filter((row) => row.status === 'IN_PROGRESS').length }, { label: '已完成', value: rows.filter((row) => row.status === 'COMPLETED').length }], { compact: true }),
     listTitle: `共 ${rows.length} 条`, listActionsHtml: `<div class="flex flex-wrap items-center gap-2"><span class="text-sm text-slate-600" data-design-revision-selected-count>已选 ${ui.selectedTaskIds.size} 条</span><button class="h-9 rounded border px-3 text-sm" data-${PREFIX}-action="select-page">本页全选</button><button class="h-9 rounded border px-3 text-sm" data-${PREFIX}-action="clear-selection">清空选择</button><button class="h-9 rounded border border-blue-300 px-3 text-sm text-blue-700" data-${PREFIX}-action="copy-selected">批量复制为草稿</button><button class="h-9 rounded border px-4 text-sm" data-${PREFIX}-action="open-column-settings">列设置</button></div>`, tableHtml: `<div data-independent-sampling-table>${view.tableHtml}</div>`, paginationHtml: `<div data-independent-sampling-pagination>${view.paginationHtml}</div>`, overlaysHtml: `<div data-independent-sampling-overlays>${listController.renderColumnSettings()}</div>${renderDialogHost()}`,
   })}</div>`
@@ -978,6 +1009,8 @@ function readDisplaySampleResults(task: EngineeringIndependentProfessionalTask) 
 }
 
 export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean {
+  const listRoot = target.closest<HTMLElement>('[data-independent-sampling-list="DESIGN_REVISION"]')
+  if (listRoot && handleProcessFilterPresentation(listRoot, target)) return true
   const previewOpen = target.closest<HTMLElement>(`[data-${PREFIX}-upload-preview]`)
   if (previewOpen) {
     const file = { fileName: previewOpen.dataset.fileName || '成果图片', dataUrl: previewOpen.dataset.fileUrl || '' }
