@@ -860,17 +860,16 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
     return cloneSnapshot(memorySnapshot)
   }
 
+  // Reading must not consume quota or replace saved data when storage is full.
   try {
     const raw = localStorage.getItem(TECHNICAL_VERSION_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = seedSnapshot()
-      localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<TechnicalDataVersionStoreSnapshot>
     if (!Array.isArray(parsed.records) || !Array.isArray(parsed.contents) || !Array.isArray(parsed.pendingItems)) {
       memorySnapshot = seedSnapshot()
-      localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
 
@@ -882,22 +881,19 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
         pendingItems: parsed.pendingItems as TechnicalDataVersionPendingItem[],
       }),
     )
-    localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
     memorySnapshot = seedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
     return cloneSnapshot(memorySnapshot)
   }
 }
 
 function persistSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
+  const nextSnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(memorySnapshot))
+    localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(nextSnapshot))
   }
+  memorySnapshot = nextSnapshot
 }
 
 function nextDailySequence(dateKey: string): number {
@@ -1326,8 +1322,4 @@ export function runTechnicalDataVersionRepositoryTransaction<Operation extends (
 export function resetTechnicalDataVersionRepository(): void {
   const snapshot = seedSnapshot()
   persistSnapshot(snapshot)
-  if (canUseStorage()) {
-    localStorage.removeItem(TECHNICAL_VERSION_STORAGE_KEY)
-    localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(snapshot))
-  }
 }
