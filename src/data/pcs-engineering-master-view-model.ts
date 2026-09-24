@@ -1,3 +1,4 @@
+import { hasPassedTestingOrder } from './pcs-testing-order-repository.ts'
 // 生产准备单视图模型：为列表页与泳道工作台派生只读展示数据。
 // 演示种子只在本模块内部维护，页面渲染前调用 ensureEngineeringMasterDemoData()。
 
@@ -114,6 +115,7 @@ export function ensureEngineeringMasterDemoData(targetRecordCount = 12): void {
   const usedStyleIds = new Set(records.map((record) => record.styleId))
   const candidates = styles
     .filter((style) => !usedStyleIds.has(style.styleId))
+    .filter((style) => hasPassedTestingOrder(style.styleId))
     .filter((style) => !hasFormalProductionFact(style.styleCode))
     .filter((style) => Boolean(style.mainImageUrl || style.galleryImageUrls[0]))
     .slice(0, Math.max(0, targetCount - records.length))

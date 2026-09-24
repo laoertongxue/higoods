@@ -1,3 +1,4 @@
+import { createTestingOrder, listTestingOrders, updateTestingOrder } from '../../src/data/pcs-testing-order-repository.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
@@ -71,6 +72,10 @@ function buildCutEntry(materialSkuId: string) {
 function preparePublishedVersion(styleCode: string, specsOverride?: (versionId: string) => void): { versionId: string; masterOrderId: string; materialSkuId: string } {
   const style = findStyleArchiveByCode(styleCode)
   assert.ok(style, '演示款式档案必须存在且带可用设计改款成果')
+  const testing = listTestingOrders().find((order) => order.styleId === style.styleId)
+    || createTestingOrder({ styleId: style.styleId }).order
+  assert.ok(testing, '生产准备前必须存在测款单')
+  updateTestingOrder(testing.testingOrderId, { status: '已结束', bulkDecision: '是' })
   const master = createEngineeringMasterOrder({
     styleId: style.styleId, styleCode,
     merchandiserName: MERCHANDISER.name, merchandiserId: MERCHANDISER.id,

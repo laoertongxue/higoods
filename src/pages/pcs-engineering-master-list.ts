@@ -32,7 +32,7 @@ import {
   createEngineeringMasterOrder,
   listEngineeringMasterOrders,
 } from '../data/pcs-engineering-master-repository.ts'
-import { listReusableEngineeringIndependentSamplingResults } from '../data/pcs-engineering-master-sampling.ts'
+import { hasPassedTestingOrder } from '../data/pcs-testing-order-repository.ts'
 import {
   buildEngineeringMasterListRows,
   ensureEngineeringMasterDemoData,
@@ -416,8 +416,8 @@ function getCreateStyleCandidate(style: StyleArchiveShellRecord): CreateStyleCan
   if (!style.mainImageUrl && style.galleryImageUrls.length === 0) {
     return { style, available: false, reason: '请先维护款式主图' }
   }
-  if (listReusableEngineeringIndependentSamplingResults(style.styleCode).length === 0) {
-    return { style, available: false, reason: '请先完成设计改款' }
+  if (!hasPassedTestingOrder(style.styleId)) {
+    return { style, available: false, reason: '尚未测款通过' }
   }
   return { style, available: true, reason: '可创建' }
 }
@@ -485,7 +485,7 @@ function renderCreateStyleCandidate(candidate: CreateStyleCandidate): string {
 
 function renderCreateMasterDialog(): string {
   if (!masterListUiState.createDialogOpen) return ''
-  const candidates = listStyleArchives().map(getCreateStyleCandidate)
+  const candidates = listStyleArchives().filter((style) => hasPassedTestingOrder(style.styleId)).map(getCreateStyleCandidate)
   const selected = candidates.find((candidate) =>
     candidate.available && candidate.style.styleId === masterListUiState.selectedStyleId)
   const content = `
@@ -501,7 +501,7 @@ function renderCreateMasterDialog(): string {
       }, true)}
       <div class="max-h-72 space-y-2 overflow-y-auto pr-1" data-create-style-candidate-list>
         ${candidates.map(renderCreateStyleCandidate).join('')}
-        <div class="hidden rounded-lg border border-dashed p-6 text-center text-sm text-slate-500" data-create-style-empty>没有匹配的款式档案</div>
+        <div class="hidden rounded-lg border border-dashed p-6 text-center text-sm text-slate-500" data-create-style-empty>没有匹配的测款通过款式</div>
       </div>
       ${renderLabeledInput('跟单负责人', {
         value: masterListUiState.merchandiserName,
@@ -515,7 +515,7 @@ function renderCreateMasterDialog(): string {
   `
   return withMasterListLocalInteractions(renderFormDialog({
     title: '新建生产准备单',
-    description: '选择已有商品／款式档案，创建后进入草稿详情。',
+    description: '仅可选择测款通过的款式（测款已结束且大货判断为是），创建后进入草稿详情。',
     closeAction: { prefix: MASTER_EVENT_PREFIX, action: 'close-create-dialog' },
     submitAction: { prefix: MASTER_EVENT_PREFIX, action: 'create-master', label: '创建草稿' },
     submitDisabled: !selected || !masterListUiState.merchandiserName.trim(),
@@ -554,6 +554,7 @@ function refreshCreateMasterDialog(): void {
   if (!host) return
   host.innerHTML = renderCreateMasterDialog()
   hydrateMasterListRegion(host)
+  filterCreateStyleCandidates(masterListUiState.createStyleSearch)
 }
 
 function filterCreateStyleCandidates(keyword: string): void {
@@ -731,7 +732,9 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
     return true
   }
   if (action === 'select-create-style') {
-    masterListUiState.selectedStyleId = actionNode.dataset.styleId || ''
+    const style = listStyleArchives().find((item) => item.styleId === actionNode.dataset.styleId)
+    if (!style || !getCreateStyleCandidate(style).available) return true
+    masterListUiState.selectedStyleId = style.styleId
     masterListUiState.createError = ''
     refreshCreateMasterDialog()
     return true
@@ -745,6 +748,12 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
     }
     if (!masterListUiState.merchandiserName.trim()) {
       masterListUiState.createError = '请填写跟单负责人。'
+      refreshCreateMasterDialog()
+      return true
+    }
+    const candidate = getCreateStyleCandidate(style)
+    if (!candidate.available) {
+      masterListUiState.createError = candidate.reason
       refreshCreateMasterDialog()
       return true
     }

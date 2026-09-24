@@ -125,6 +125,11 @@ function now(): string {
 
 let seq = 0
 const store = new Map<string, TestingOrderRecord>()
+let initialized = false
+
+function ensureTestingOrders(): void {
+  if (!initialized) bootstrapTestingOrders()
+}
 const STORAGE_KEY = 'higood-pcs-testing-orders-v1'
 
 function persistStore(): void {
@@ -157,6 +162,7 @@ export function createTestingOrder(input: {
   shipMethod?: TestingSampleShipMethod
   channelCodes?: string[]
 }): TestingOrderCreateResult {
+  ensureTestingOrders()
   if (Boolean(input.styleId) === Boolean(input.newArchive)) {
     return { ok: false, message: '请选择已有款式，或填写新款建档信息。' }
   }
@@ -280,10 +286,18 @@ export function createTestingOrder(input: {
 }
 
 export function listTestingOrders(): TestingOrderRecord[] {
+  ensureTestingOrders()
   return [...store.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
+/** 生产准备只接受已结束且最终大货判断通过的测款事实。 */
+export function hasPassedTestingOrder(styleId: string): boolean {
+  return listTestingOrders().some((order) =>
+    order.styleId === styleId && order.status === '已结束' && order.bulkDecision === '是')
+}
+
 export function getTestingOrderById(testingOrderId: string): TestingOrderRecord | null {
+  ensureTestingOrders()
   return store.get(testingOrderId) || null
 }
 
@@ -297,6 +311,7 @@ export function updateTestingOrder(
   actor = '当前用户',
   actionLabel = '更新测款单',
 ): TestingOrderRecord | null {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return null
   Object.assign(record, patch, { updatedAt: now() })
@@ -310,6 +325,7 @@ export function advanceTestingOrder(
   nextStep: TestingOrderStepKey,
   actor = '当前用户',
 ): { ok: boolean; record?: TestingOrderRecord; message?: string } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   if (record.status === '已结束') return { ok: false, message: '测款单已结束，不能继续推进。' }
@@ -349,6 +365,7 @@ export function setBulkDecision(
   note: string,
   actor = '当前用户',
 ): { ok: boolean; record?: TestingOrderRecord; message?: string } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   if (record.status === '已结束') return { ok: false, message: '测款单已结束。' }
@@ -385,6 +402,7 @@ export function completeLabelStep(
   skuCode: string,
   actor = '当前用户',
 ): { ok: boolean; record?: TestingOrderRecord; message?: string } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   if (record.status === '已结束') return { ok: false, message: '测款单已结束，不能继续推进。' }
@@ -413,6 +431,7 @@ export function completeSampleInbound(
   note: string,
   actor = '当前用户',
 ): { ok: boolean; record?: TestingOrderRecord; message?: string } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   if (record.status === '已结束') return { ok: false, message: '测款单已结束，不能继续推进。' }
@@ -439,6 +458,7 @@ export function rejectBuyerConfirm(
   note: string,
   actor = '当前用户',
 ): { ok: boolean; record?: TestingOrderRecord; message?: string } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   record.buyerDecision = '淘汰'
@@ -463,6 +483,7 @@ export function rejectPricing(
   note: string,
   actor = '当前用户',
 ): { ok: boolean; record?: TestingOrderRecord; message?: string } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   record.status = '已结束'
@@ -484,6 +505,7 @@ export function pushChannelProducts(
   testingOrderId: string,
   actor = '当前用户',
 ): { ok: boolean; message?: string; pushed?: string[] } {
+  ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   if (record.status !== '进行中' || record.currentStepKey !== 'channel-listing' || !record.sampleInboundAt) {
@@ -519,6 +541,7 @@ export function pushChannelProducts(
 }
 
 export function resetTestingOrderRepository(): void {
+  initialized = true
   store.clear()
   seq = 0
   try {
@@ -606,6 +629,7 @@ function seed(
 }
 
 export function bootstrapTestingOrders(): void {
+  initialized = true
   if (store.size > 0) return
   let saved: TestingOrderRecord[] = []
   try {
@@ -748,5 +772,3 @@ export function bootstrapTestingOrders(): void {
   }))
   seq = Math.max(seq, ...[...store.values()].map((item) => Number(item.orderCode.match(/^TO-(\d+)$/)?.[1] || 0)))
 }
-
-bootstrapTestingOrders()

@@ -1,3 +1,4 @@
+import { hasPassedTestingOrder } from './pcs-testing-order-repository.ts'
 // 生产准备单 LocalStorage 仓库：主单及任务骨架的唯一事实源。
 // 任务骨架在发布时一次性生成，依赖只从固定策略复制，不提供任何更新依赖的接口。
 
@@ -324,6 +325,10 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
   const style = resolveStyleArchive(input.styleId, input.styleCode)
   if (!style) {
     throw new Error('无商品／款式档案，禁止创建生产准备单。请先创建商品／款式档案。')
+  }
+
+  if (!hasPassedTestingOrder(style.styleId)) {
+    throw new Error('该款式尚未测款通过，不能创建生产准备单。请先完成测款并确认大货判断为是。')
   }
 
   assertFirstProductionQualification(style.styleCode, input.qualificationFact)
