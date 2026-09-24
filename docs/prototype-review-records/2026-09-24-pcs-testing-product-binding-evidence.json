@@ -1863,5 +1863,1857 @@
     "migration": "Existing missing/legacy fields upgraded; user-authored attributes retained; unknown new product receives no guessed configuration or buyer."
   },
   "scope": "BIND-001..005; no PDA/print/database or main publication",
-  "artifacts": "output/playwright/pcs-binding/ includes CLI run-code scripts, raw logs, screenshots"
+  "artifacts": "output/playwright/pcs-binding/ includes CLI run-code scripts, raw logs, screenshots",
+  "mainIntegration": {
+    "verifiedAt": "2026-09-24T08:01:14.057594+00:00",
+    "baseMain": "d396c3ed70e95367d87da4645393afd759d288af",
+    "implementationCommit": "0f73fd4132fc00a9d9c3a1282ff06446cdc076aa",
+    "worktree": "/private/tmp/higoods-cekuan-main-release-20260924",
+    "url": "http://127.0.0.1:4193",
+    "sourceSha256": {
+      "src/data/pcs-style-archive-bootstrap.ts": "70ee5fa992db6778c8d994c1510735d5244b3a9d22dd08b68dd210fe292dbd0d",
+      "src/data/pcs-style-archive-repository.ts": "d4e663e694f7bd94a815c45f1fc89848ce6735aa07d51eb9ab03982c62d7c054",
+      "src/data/pcs-style-archive-types.ts": "463224bf29a06753095909acde041bcfc378820d1ade4e7daf36859499f369b6",
+      "src/data/pcs-testing-order-repository.ts": "97f68b560ffcf2940da4d4ea6933f487c5fe7eca22f91498bc023d06f9a9f563",
+      "src/pages/pcs-product-information.ts": "0a49a55b6d56102d08543cf660ef00a15f2794a353aba10739a51016ed7262b0",
+      "src/pages/pcs-testing-order-create.ts": "a52c424fa05eea2faf08bcf5e8fcf0af3b2fa62add5c3978c4cd51bcb23d13e8",
+      "src/pages/pcs-testing-order-detail.ts": "6c8d46ed927fe18b7b2aa06b7e62f7a049113fc7c83ab7d75d772d916b86d794",
+      "tests/pcs-testing-product-information.spec.ts": "a6a1e946cc571970eabad0079153bb2f28b1d07db3383122e230891dd7c837c0",
+      "src/data/pcs-style-product-information.ts": "078eb89b8511274f2c91cb50987477d2fc289cbeda8299e36a038583a932a47c",
+      "tests/pcs-testing-product-binding.spec.ts": "d64f77b438b61d94be9892d5beb4bb6ae01f4789e315d830978a2acdbe836ee2"
+    },
+    "mergeResolution": "Preserved main ensureTestingOrders initialization and hasPassedTestingOrder eligibility; added buyer projection in listTestingOrders. Preparation eligibility regression passed.",
+    "measurements": {
+      "loads": {
+        "loads": [
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "cache-disabled",
+            "sample": 0,
+            "ms": 232.70000000298023,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "cache-disabled",
+            "sample": 1,
+            "ms": 245.90000000596046,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "cache-disabled",
+            "sample": 2,
+            "ms": 181.30000001192093,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "cache-disabled",
+            "sample": 3,
+            "ms": 181.09999999403954,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "cache-disabled",
+            "sample": 4,
+            "ms": 181.5,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "reload",
+            "sample": 0,
+            "ms": 178.5,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "reload",
+            "sample": 1,
+            "ms": 176.70000000298023,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "reload",
+            "sample": 2,
+            "ms": 181.09999999403954,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "reload",
+            "sample": 3,
+            "ms": 181.40000000596046,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders",
+            "mode": "reload",
+            "sample": 4,
+            "ms": 181.40000000596046,
+            "images": 4,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "cache-disabled",
+            "sample": 0,
+            "ms": 178.8999999910593,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "cache-disabled",
+            "sample": 1,
+            "ms": 181.30000001192093,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "cache-disabled",
+            "sample": 2,
+            "ms": 147.8999999910593,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "cache-disabled",
+            "sample": 3,
+            "ms": 165.09999999403954,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "cache-disabled",
+            "sample": 4,
+            "ms": 181.59999999403954,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "reload",
+            "sample": 0,
+            "ms": 213.70000000298023,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "reload",
+            "sample": 1,
+            "ms": 164.90000000596046,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "reload",
+            "sample": 2,
+            "ms": 165,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "reload",
+            "sample": 3,
+            "ms": 181.5,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/create",
+            "mode": "reload",
+            "sample": 4,
+            "ms": 180.90000000596046,
+            "images": 0,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "cache-disabled",
+            "sample": 0,
+            "ms": 196.70000000298023,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "cache-disabled",
+            "sample": 1,
+            "ms": 181.30000001192093,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "cache-disabled",
+            "sample": 2,
+            "ms": 181.20000000298023,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "cache-disabled",
+            "sample": 3,
+            "ms": 179,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "cache-disabled",
+            "sample": 4,
+            "ms": 178.09999999403954,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "reload",
+            "sample": 0,
+            "ms": 180.29999999701977,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "reload",
+            "sample": 1,
+            "ms": 164.80000001192093,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "reload",
+            "sample": 2,
+            "ms": 181.1000000089407,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "reload",
+            "sample": 3,
+            "ms": 180.8999999910593,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles/style_demand_PRJ_202603_006",
+            "mode": "reload",
+            "sample": 4,
+            "ms": 210.70000000298023,
+            "images": 3,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "cache-disabled",
+            "sample": 0,
+            "ms": 267.59999999403954,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "cache-disabled",
+            "sample": 1,
+            "ms": 264,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "cache-disabled",
+            "sample": 2,
+            "ms": 247.6000000089407,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "cache-disabled",
+            "sample": 3,
+            "ms": 264.09999999403954,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "cache-disabled",
+            "sample": 4,
+            "ms": 311.29999999701977,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "reload",
+            "sample": 0,
+            "ms": 246.8999999910593,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "reload",
+            "sample": 1,
+            "ms": 264.1000000089407,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "reload",
+            "sample": 2,
+            "ms": 263.70000000298023,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "reload",
+            "sample": 3,
+            "ms": 214.70000000298023,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/products/styles",
+            "mode": "reload",
+            "sample": 4,
+            "ms": 209,
+            "images": 2,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "cache-disabled",
+            "sample": 0,
+            "ms": 183.30000001192093,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "cache-disabled",
+            "sample": 1,
+            "ms": 148.30000001192093,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "cache-disabled",
+            "sample": 2,
+            "ms": 148.20000000298023,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "cache-disabled",
+            "sample": 3,
+            "ms": 148.40000000596046,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "cache-disabled",
+            "sample": 4,
+            "ms": 148.30000001192093,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "reload",
+            "sample": 0,
+            "ms": 148,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "reload",
+            "sample": 1,
+            "ms": 148.3999999910593,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "reload",
+            "sample": 2,
+            "ms": 148.29999999701977,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "reload",
+            "sample": 3,
+            "ms": 149.5,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          },
+          {
+            "path": "/pcs/testing/orders/to_seed_normal",
+            "mode": "reload",
+            "sample": 4,
+            "ms": 147.6000000089407,
+            "images": 1,
+            "failed": 0,
+            "overflow": false
+          }
+        ],
+        "max": 311.29999999701977,
+        "browser": "154.0.8037.58"
+      },
+      "actions": {
+        "actions": [
+          {
+            "name": "列表进入新建",
+            "ms": 38.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "未选商品阻断",
+            "ms": 48.20000000298023,
+            "failed": 0
+          },
+          {
+            "name": "切换商品带出买手和属性",
+            "ms": 28.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 30.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "空SKU阻断",
+            "ms": 30.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "SKU选择",
+            "ms": 30.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "商品大图打开",
+            "ms": 30.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "大图Esc关闭",
+            "ms": 37.5,
+            "failed": 0
+          },
+          {
+            "name": "SKU大图打开",
+            "ms": 31.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "大图按钮关闭",
+            "ms": 31.69999998807907,
+            "failed": 0
+          },
+          {
+            "name": "查看关联商品档案",
+            "ms": 30.100000008940697,
+            "failed": 0
+          },
+          {
+            "name": "打开商品属性维护",
+            "ms": 64.79999999701977,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-brands",
+            "ms": 20.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-categories",
+            "ms": 30.30000001192093,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styles",
+            "ms": 30.5,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-trendElements",
+            "ms": 29.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-fabrics",
+            "ms": 29.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowds",
+            "ms": 29.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-ages",
+            "ms": 28.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowdPositioning",
+            "ms": 29.100000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-productPositioning",
+            "ms": 28.80000001192093,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styleCodes",
+            "ms": 26.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案商品买手绑定",
+            "ms": 30.5,
+            "failed": 0
+          },
+          {
+            "name": "档案类目选择",
+            "ms": 28.200000002980232,
+            "failed": 0
+          },
+          {
+            "name": "档案商品类型输入",
+            "ms": 39.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案材质类型选择",
+            "ms": 31.200000002980232,
+            "failed": 0
+          },
+          {
+            "name": "保存商品信息",
+            "ms": 29.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "再次维护",
+            "ms": 31.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "取消维护",
+            "ms": 31.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "切换另一商品",
+            "ms": 29.80000001192093,
+            "failed": 0
+          },
+          {
+            "name": "取消建单返回列表",
+            "ms": 48.20000000298023,
+            "failed": 0
+          },
+          {
+            "name": "列表进入新建",
+            "ms": 48.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "未选商品阻断",
+            "ms": 48.3999999910593,
+            "failed": 0
+          },
+          {
+            "name": "切换商品带出买手和属性",
+            "ms": 30.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.5,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 28.100000008940697,
+            "failed": 0
+          },
+          {
+            "name": "空SKU阻断",
+            "ms": 28.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "SKU选择",
+            "ms": 30.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "商品大图打开",
+            "ms": 28.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "大图Esc关闭",
+            "ms": 30.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "SKU大图打开",
+            "ms": 31.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "大图按钮关闭",
+            "ms": 31.399999991059303,
+            "failed": 0
+          },
+          {
+            "name": "查看关联商品档案",
+            "ms": 45.79999999701977,
+            "failed": 0
+          },
+          {
+            "name": "打开商品属性维护",
+            "ms": 48.20000000298023,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-brands",
+            "ms": 21.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-categories",
+            "ms": 30.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styles",
+            "ms": 30.30000001192093,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-trendElements",
+            "ms": 29.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-fabrics",
+            "ms": 30,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowds",
+            "ms": 29.5,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-ages",
+            "ms": 29.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowdPositioning",
+            "ms": 29.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-productPositioning",
+            "ms": 28.19999998807907,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styleCodes",
+            "ms": 27.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案商品买手绑定",
+            "ms": 31,
+            "failed": 0
+          },
+          {
+            "name": "档案类目选择",
+            "ms": 28.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案商品类型输入",
+            "ms": 25.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案材质类型选择",
+            "ms": 28.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "保存商品信息",
+            "ms": 46.79999999701977,
+            "failed": 0
+          },
+          {
+            "name": "再次维护",
+            "ms": 47.70000000298023,
+            "failed": 0
+          },
+          {
+            "name": "取消维护",
+            "ms": 31.399999991059303,
+            "failed": 0
+          },
+          {
+            "name": "切换另一商品",
+            "ms": 29.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "取消建单返回列表",
+            "ms": 48.70000000298023,
+            "failed": 0
+          },
+          {
+            "name": "列表进入新建",
+            "ms": 48.5,
+            "failed": 0
+          },
+          {
+            "name": "未选商品阻断",
+            "ms": 47.20000000298023,
+            "failed": 0
+          },
+          {
+            "name": "切换商品带出买手和属性",
+            "ms": 31,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.5,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 30,
+            "failed": 0
+          },
+          {
+            "name": "空SKU阻断",
+            "ms": 27.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "SKU选择",
+            "ms": 30.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "商品大图打开",
+            "ms": 27.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "大图Esc关闭",
+            "ms": 31.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "SKU大图打开",
+            "ms": 31.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "大图按钮关闭",
+            "ms": 30.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "查看关联商品档案",
+            "ms": 31.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "打开商品属性维护",
+            "ms": 48,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-brands",
+            "ms": 21.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-categories",
+            "ms": 30.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styles",
+            "ms": 30.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-trendElements",
+            "ms": 27.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-fabrics",
+            "ms": 30,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowds",
+            "ms": 30.100000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-ages",
+            "ms": 30.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowdPositioning",
+            "ms": 30.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-productPositioning",
+            "ms": 31.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styleCodes",
+            "ms": 30.5,
+            "failed": 0
+          },
+          {
+            "name": "档案商品买手绑定",
+            "ms": 31.5,
+            "failed": 0
+          },
+          {
+            "name": "档案类目选择",
+            "ms": 31.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案商品类型输入",
+            "ms": 28.5,
+            "failed": 0
+          },
+          {
+            "name": "档案材质类型选择",
+            "ms": 28.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "保存商品信息",
+            "ms": 46.70000000298023,
+            "failed": 0
+          },
+          {
+            "name": "再次维护",
+            "ms": 47.70000000298023,
+            "failed": 0
+          },
+          {
+            "name": "取消维护",
+            "ms": 31.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "切换另一商品",
+            "ms": 30,
+            "failed": 0
+          },
+          {
+            "name": "取消建单返回列表",
+            "ms": 48.20000000298023,
+            "failed": 0
+          },
+          {
+            "name": "列表进入新建",
+            "ms": 48.5,
+            "failed": 0
+          },
+          {
+            "name": "未选商品阻断",
+            "ms": 48.3999999910593,
+            "failed": 0
+          },
+          {
+            "name": "切换商品带出买手和属性",
+            "ms": 31,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 28.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "空SKU阻断",
+            "ms": 27.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "SKU选择",
+            "ms": 28.19999998807907,
+            "failed": 0
+          },
+          {
+            "name": "商品大图打开",
+            "ms": 28.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "大图Esc关闭",
+            "ms": 31.100000008940697,
+            "failed": 0
+          },
+          {
+            "name": "SKU大图打开",
+            "ms": 31.399999991059303,
+            "failed": 0
+          },
+          {
+            "name": "大图按钮关闭",
+            "ms": 31.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "查看关联商品档案",
+            "ms": 30.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "打开商品属性维护",
+            "ms": 47.79999999701977,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-brands",
+            "ms": 21.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-categories",
+            "ms": 30.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styles",
+            "ms": 30.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-trendElements",
+            "ms": 30.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-fabrics",
+            "ms": 29.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowds",
+            "ms": 30.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-ages",
+            "ms": 30,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowdPositioning",
+            "ms": 30.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-productPositioning",
+            "ms": 30.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styleCodes",
+            "ms": 29.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案商品买手绑定",
+            "ms": 31,
+            "failed": 0
+          },
+          {
+            "name": "档案类目选择",
+            "ms": 31.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案商品类型输入",
+            "ms": 30.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案材质类型选择",
+            "ms": 31.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "保存商品信息",
+            "ms": 30.5,
+            "failed": 0
+          },
+          {
+            "name": "再次维护",
+            "ms": 48.1000000089407,
+            "failed": 0
+          },
+          {
+            "name": "取消维护",
+            "ms": 31.5,
+            "failed": 0
+          },
+          {
+            "name": "切换另一商品",
+            "ms": 30.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "取消建单返回列表",
+            "ms": 65.40000000596046,
+            "failed": 0
+          },
+          {
+            "name": "列表进入新建",
+            "ms": 48.5,
+            "failed": 0
+          },
+          {
+            "name": "未选商品阻断",
+            "ms": 47.29999999701977,
+            "failed": 0
+          },
+          {
+            "name": "切换商品带出买手和属性",
+            "ms": 30.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.700000002980232,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 31.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "SKU取消选择",
+            "ms": 30.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "空SKU阻断",
+            "ms": 27.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "SKU选择",
+            "ms": 29.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "商品大图打开",
+            "ms": 30.5,
+            "failed": 0
+          },
+          {
+            "name": "大图Esc关闭",
+            "ms": 31.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "SKU大图打开",
+            "ms": 30.599999994039536,
+            "failed": 0
+          },
+          {
+            "name": "大图按钮关闭",
+            "ms": 31.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "查看关联商品档案",
+            "ms": 45.5,
+            "failed": 0
+          },
+          {
+            "name": "打开商品属性维护",
+            "ms": 48.30000001192093,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-brands",
+            "ms": 20.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-categories",
+            "ms": 30.5,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styles",
+            "ms": 30.100000008940697,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-trendElements",
+            "ms": 29.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-fabrics",
+            "ms": 30.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowds",
+            "ms": 30.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-ages",
+            "ms": 28.200000002980232,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-crowdPositioning",
+            "ms": 27.5,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-productPositioning",
+            "ms": 26.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "档案配置选择-styleCodes",
+            "ms": 27.5,
+            "failed": 0
+          },
+          {
+            "name": "档案商品买手绑定",
+            "ms": 30.899999991059303,
+            "failed": 0
+          },
+          {
+            "name": "档案类目选择",
+            "ms": 29.5,
+            "failed": 0
+          },
+          {
+            "name": "档案商品类型输入",
+            "ms": 27.799999997019768,
+            "failed": 0
+          },
+          {
+            "name": "档案材质类型选择",
+            "ms": 30.600000008940697,
+            "failed": 0
+          },
+          {
+            "name": "保存商品信息",
+            "ms": 44.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "再次维护",
+            "ms": 48.70000000298023,
+            "failed": 0
+          },
+          {
+            "name": "取消维护",
+            "ms": 30.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "切换另一商品",
+            "ms": 30,
+            "failed": 0
+          },
+          {
+            "name": "取消建单返回列表",
+            "ms": 48.099999994039536,
+            "failed": 0
+          },
+          {
+            "name": "创建成功并打开详情",
+            "ms": 32.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "详情展开商品信息",
+            "ms": 31.400000005960464,
+            "failed": 0
+          },
+          {
+            "name": "创建成功并打开详情",
+            "ms": 32.20000000298023,
+            "failed": 0
+          },
+          {
+            "name": "详情展开商品信息",
+            "ms": 31.80000001192093,
+            "failed": 0
+          },
+          {
+            "name": "创建成功并打开详情",
+            "ms": 31.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "详情展开商品信息",
+            "ms": 31.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "创建成功并打开详情",
+            "ms": 31.299999997019768,
+            "failed": 0
+          },
+          {
+            "name": "详情展开商品信息",
+            "ms": 32,
+            "failed": 0
+          },
+          {
+            "name": "创建成功并打开详情",
+            "ms": 31.900000005960464,
+            "failed": 0
+          },
+          {
+            "name": "详情展开商品信息",
+            "ms": 32,
+            "failed": 0
+          }
+        ],
+        "widths": [
+          {
+            "size": {
+              "width": 1366,
+              "height": 768
+            },
+            "list": {
+              "left": 280,
+              "right": 1326
+            },
+            "create": {
+              "left": 280,
+              "right": 1326
+            },
+            "overflow": false
+          },
+          {
+            "size": {
+              "width": 1280,
+              "height": 720
+            },
+            "list": {
+              "left": 280,
+              "right": 1240
+            },
+            "create": {
+              "left": 280,
+              "right": 1240
+            },
+            "overflow": false
+          }
+        ],
+        "checks": [
+          "商品006买手自动带出",
+          "建单无买手或属性编辑控件",
+          "全部商品信息已展示",
+          "不同商品切换不同买手",
+          "商品006买手自动带出",
+          "建单无买手或属性编辑控件",
+          "全部商品信息已展示",
+          "不同商品切换不同买手",
+          "商品006买手自动带出",
+          "建单无买手或属性编辑控件",
+          "全部商品信息已展示",
+          "不同商品切换不同买手",
+          "商品006买手自动带出",
+          "建单无买手或属性编辑控件",
+          "全部商品信息已展示",
+          "不同商品切换不同买手",
+          "商品006买手自动带出",
+          "建单无买手或属性编辑控件",
+          "全部商品信息已展示",
+          "不同商品切换不同买手",
+          "详情读取商品买手",
+          "刷新后买手一致",
+          "详情读取商品买手",
+          "刷新后买手一致",
+          "详情读取商品买手",
+          "刷新后买手一致",
+          "详情读取商品买手",
+          "刷新后买手一致",
+          "详情读取商品买手",
+          "刷新后买手一致",
+          "列表与新建左右边界一致-1366",
+          "列表与新建左右边界一致-1280"
+        ],
+        "detail": "通过建单结果打开",
+        "detailUrls": [
+          "http://127.0.0.1:4193/pcs/testing/orders/to_muf8sgge_6",
+          "http://127.0.0.1:4193/pcs/testing/orders/to_muf8sgvo_7",
+          "http://127.0.0.1:4193/pcs/testing/orders/to_muf8shaz_8",
+          "http://127.0.0.1:4193/pcs/testing/orders/to_muf8shqq_9",
+          "http://127.0.0.1:4193/pcs/testing/orders/to_muf8si6g_10"
+        ],
+        "max": 65.40000000596046
+      },
+      "boundaries": {
+        "actions": [
+          {
+            "name": "档案清空买手",
+            "ms": 19.399999991059303
+          },
+          {
+            "name": "保存未绑定买手",
+            "ms": 31.700000002980232
+          },
+          {
+            "name": "无绑定买手阻断",
+            "ms": 31.100000008940697
+          },
+          {
+            "name": "补回商品买手",
+            "ms": 21.900000005960464
+          },
+          {
+            "name": "保存商品买手恢复",
+            "ms": 32.1000000089407
+          },
+          {
+            "name": "图片加载失败阻断",
+            "ms": 31.600000008940697
+          },
+          {
+            "name": "返回列表链接",
+            "ms": 48.29999999701977
+          },
+          {
+            "name": "档案清空买手",
+            "ms": 19.600000008940697
+          },
+          {
+            "name": "保存未绑定买手",
+            "ms": 31.799999997019768
+          },
+          {
+            "name": "无绑定买手阻断",
+            "ms": 30.700000002980232
+          },
+          {
+            "name": "补回商品买手",
+            "ms": 21
+          },
+          {
+            "name": "保存商品买手恢复",
+            "ms": 32
+          },
+          {
+            "name": "图片加载失败阻断",
+            "ms": 31.200000002980232
+          },
+          {
+            "name": "返回列表链接",
+            "ms": 48.29999999701977
+          },
+          {
+            "name": "档案清空买手",
+            "ms": 20.799999997019768
+          },
+          {
+            "name": "保存未绑定买手",
+            "ms": 32
+          },
+          {
+            "name": "无绑定买手阻断",
+            "ms": 32.19999998807907
+          },
+          {
+            "name": "补回商品买手",
+            "ms": 23.099999994039536
+          },
+          {
+            "name": "保存商品买手恢复",
+            "ms": 31.899999991059303
+          },
+          {
+            "name": "图片加载失败阻断",
+            "ms": 30.30000001192093
+          },
+          {
+            "name": "返回列表链接",
+            "ms": 48.400000005960464
+          },
+          {
+            "name": "档案清空买手",
+            "ms": 20.5
+          },
+          {
+            "name": "保存未绑定买手",
+            "ms": 31.799999997019768
+          },
+          {
+            "name": "无绑定买手阻断",
+            "ms": 31.099999994039536
+          },
+          {
+            "name": "补回商品买手",
+            "ms": 21.5
+          },
+          {
+            "name": "保存商品买手恢复",
+            "ms": 31.599999994039536
+          },
+          {
+            "name": "图片加载失败阻断",
+            "ms": 31.700000002980232
+          },
+          {
+            "name": "返回列表链接",
+            "ms": 47.900000005960464
+          },
+          {
+            "name": "档案清空买手",
+            "ms": 20.600000008940697
+          },
+          {
+            "name": "保存未绑定买手",
+            "ms": 31.899999991059303
+          },
+          {
+            "name": "无绑定买手阻断",
+            "ms": 31.100000008940697
+          },
+          {
+            "name": "补回商品买手",
+            "ms": 21.900000005960464
+          },
+          {
+            "name": "保存商品买手恢复",
+            "ms": 32
+          },
+          {
+            "name": "图片加载失败阻断",
+            "ms": 31.69999998807907
+          },
+          {
+            "name": "返回列表链接",
+            "ms": 48.20000000298023
+          }
+        ],
+        "checks": [
+          "未绑定买手阻断及恢复各5次",
+          "图片真实资源加载失败及恢复各5次"
+        ],
+        "max": 48.400000005960464
+      },
+      "list": {
+        "actions": [
+          {
+            "name": "买手关键词输入",
+            "ms": 27.200000002980232
+          },
+          {
+            "name": "按商品买手查询",
+            "ms": 32.29999999701977
+          },
+          {
+            "name": "按买手导出",
+            "ms": 228.70000000298023
+          },
+          {
+            "name": "重置查询",
+            "ms": 32.20000000298023
+          },
+          {
+            "name": "买手列排序",
+            "ms": 32.099999994039536
+          },
+          {
+            "name": "打开列设置",
+            "ms": 32.400000005960464
+          },
+          {
+            "name": "隐藏买手列",
+            "ms": 48.400000005960464
+          },
+          {
+            "name": "显示买手列",
+            "ms": 48.8999999910593
+          },
+          {
+            "name": "冻结买手列",
+            "ms": 63.900000005960464
+          },
+          {
+            "name": "取消冻结买手列",
+            "ms": 63.80000001192093
+          },
+          {
+            "name": "关闭列设置",
+            "ms": 29.799999997019768
+          },
+          {
+            "name": "买手关键词输入",
+            "ms": 28.099999994039536
+          },
+          {
+            "name": "按商品买手查询",
+            "ms": 32
+          },
+          {
+            "name": "按买手导出",
+            "ms": 31.299999997019768
+          },
+          {
+            "name": "重置查询",
+            "ms": 31.5
+          },
+          {
+            "name": "买手列排序",
+            "ms": 32.1000000089407
+          },
+          {
+            "name": "打开列设置",
+            "ms": 31.200000002980232
+          },
+          {
+            "name": "隐藏买手列",
+            "ms": 48.5
+          },
+          {
+            "name": "显示买手列",
+            "ms": 65
+          },
+          {
+            "name": "冻结买手列",
+            "ms": 65
+          },
+          {
+            "name": "取消冻结买手列",
+            "ms": 65
+          },
+          {
+            "name": "关闭列设置",
+            "ms": 31.700000002980232
+          },
+          {
+            "name": "买手关键词输入",
+            "ms": 30.099999994039536
+          },
+          {
+            "name": "按商品买手查询",
+            "ms": 32.1000000089407
+          },
+          {
+            "name": "按买手导出",
+            "ms": 31.5
+          },
+          {
+            "name": "重置查询",
+            "ms": 31
+          },
+          {
+            "name": "买手列排序",
+            "ms": 32
+          },
+          {
+            "name": "打开列设置",
+            "ms": 32
+          },
+          {
+            "name": "隐藏买手列",
+            "ms": 64.79999999701977
+          },
+          {
+            "name": "显示买手列",
+            "ms": 48.20000000298023
+          },
+          {
+            "name": "冻结买手列",
+            "ms": 46.79999999701977
+          },
+          {
+            "name": "取消冻结买手列",
+            "ms": 48.099999994039536
+          },
+          {
+            "name": "关闭列设置",
+            "ms": 31.69999998807907
+          },
+          {
+            "name": "买手关键词输入",
+            "ms": 30.100000008940697
+          },
+          {
+            "name": "按商品买手查询",
+            "ms": 32.79999999701977
+          },
+          {
+            "name": "按买手导出",
+            "ms": 31.899999991059303
+          },
+          {
+            "name": "重置查询",
+            "ms": 31.900000005960464
+          },
+          {
+            "name": "买手列排序",
+            "ms": 32.29999999701977
+          },
+          {
+            "name": "打开列设置",
+            "ms": 31.5
+          },
+          {
+            "name": "隐藏买手列",
+            "ms": 65.09999999403954
+          },
+          {
+            "name": "显示买手列",
+            "ms": 64.8999999910593
+          },
+          {
+            "name": "冻结买手列",
+            "ms": 64.79999999701977
+          },
+          {
+            "name": "取消冻结买手列",
+            "ms": 65.70000000298023
+          },
+          {
+            "name": "关闭列设置",
+            "ms": 31.599999994039536
+          },
+          {
+            "name": "买手关键词输入",
+            "ms": 29.899999991059303
+          },
+          {
+            "name": "按商品买手查询",
+            "ms": 32.20000000298023
+          },
+          {
+            "name": "按买手导出",
+            "ms": 31.700000002980232
+          },
+          {
+            "name": "重置查询",
+            "ms": 32.20000000298023
+          },
+          {
+            "name": "买手列排序",
+            "ms": 32.5
+          },
+          {
+            "name": "打开列设置",
+            "ms": 30.599999994039536
+          },
+          {
+            "name": "隐藏买手列",
+            "ms": 64.59999999403954
+          },
+          {
+            "name": "显示买手列",
+            "ms": 64.70000000298023
+          },
+          {
+            "name": "冻结买手列",
+            "ms": 64.90000000596046
+          },
+          {
+            "name": "取消冻结买手列",
+            "ms": 64.90000000596046
+          },
+          {
+            "name": "关闭列设置",
+            "ms": 30.799999997019768
+          }
+        ],
+        "checks": [
+          "商品买手参与查询、排序、导出及列设置，查询3条/重置5条"
+        ],
+        "downloads": [
+          "测款单.csv",
+          "测款单.csv",
+          "测款单.csv",
+          "测款单.csv",
+          "测款单.csv"
+        ],
+        "max": 228.70000000298023
+      }
+    },
+    "measurementScripts": {
+      "loads.js": "async page => {\n  const base='http://127.0.0.1:4193';\n  await page.setViewportSize({width:1366,height:768});\n  const routes=[['/pcs/testing/orders','[data-pcs-testing-order-list]'],['/pcs/testing/orders/create','[data-testing-create-page]'],['/pcs/products/styles/style_demand_PRJ_202603_006','[data-product-information]'],['/pcs/products/styles','main'],['/pcs/testing/orders/to_seed_normal','main h1']];\n  const ready=async(selector)=>{\n    await page.locator(selector).first().waitFor({state:'visible'});\n    return await page.evaluate(async(sel)=>{\n      const node=document.querySelector('main');\n      const imgs=[...node.querySelectorAll('img')].filter(img=>img.getBoundingClientRect().top<innerHeight && img.getBoundingClientRect().bottom>0);\n      await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(resolve=>{img.addEventListener('load',resolve,{once:true});img.addEventListener('error',resolve,{once:true})})));\n      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));\n      return {ms:performance.now(),images:imgs.length,failed:imgs.filter(img=>!img.naturalWidth).length,overflow:document.documentElement.scrollWidth>innerWidth};\n    },selector)\n  };\n  const cdp=await page.context().newCDPSession(page);\n  const loads=[];\n  for(const [path,selector] of routes){\n    await cdp.send('Network.enable');await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});\n    for(let i=0;i<5;i++){await page.goto(base+path);loads.push({path,mode:'cache-disabled',sample:i,...await ready(selector)});}\n    await cdp.send('Network.setCacheDisabled',{cacheDisabled:false});\n    for(let i=0;i<5;i++){await page.reload();loads.push({path,mode:'reload',sample:i,...await ready(selector)});}\n  }\n  return {loads,max:Math.max(...loads.map(x=>x.ms)),browser:await page.context().browser().version()};\n}\n",
+      "actions.js": "async page => {\n const base='http://127.0.0.1:4193', actions=[], widths=[], checks=[], detailUrls=[];\n const snapshot=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));\n const install=()=>{window.__bindingStart=null; for(const name of ['click','input','change','keydown']) document.addEventListener(name,()=>{window.__bindingStart??=performance.now()},true)};\n await page.context().addInitScript(install); await page.evaluate(install);\n const settle=async(selector)=>{await page.locator(selector).first().waitFor({state:'visible'});return await page.evaluate(async(sel)=>{\n  const node=document.querySelector(sel);const imgs=node.matches('img')?[node]:[...node.querySelectorAll('img')];\n  await Promise.all(imgs.map(img=>img.complete?Promise.resolve():new Promise(r=>{img.addEventListener('load',r,{once:true});img.addEventListener('error',r,{once:true})})));\n  await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));\n  return {ms:window.__bindingStart===null?null:performance.now()-window.__bindingStart,failed:imgs.filter(img=>!img.naturalWidth).length};\n },selector)};\n const measure=async(name,fn,selector,check)=>{await page.evaluate(()=>window.__bindingStart=null);await fn();if(check)await check();const result=await settle(selector);if(result.ms===null)throw Error('missing event '+name);actions.push({name,...result});};\n const assert=(value,message)=>{if(!value)throw Error(message);checks.push(message)};\n try {\n await page.goto(base+'/pcs/testing/orders');await settle('[data-pcs-testing-order-list]');\n const detail='通过建单结果打开';\n for(let i=0;i<5;i++){\n   await page.reload();await settle('[data-pcs-testing-order-list]');\n   await measure('列表进入新建',()=>page.getByRole('link',{name:'新建测款单',exact:true}).click(),'[data-testing-create-page]');\n   await measure('未选商品阻断',()=>page.getByRole('button',{name:'创建测款单',exact:true}).click(),'[data-testing-create-feedback]',async()=>{await page.getByText('请选择商品档案。',{exact:true}).waitFor()});\n   await measure('切换商品带出买手和属性',()=>page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_006'),'[data-testing-create-product]');\n   assert((await page.locator('[data-testing-create-buyer]').innerText())==='陈刚','商品006买手自动带出');\n   assert((await page.locator('[data-testing-create-page] input:not([type=checkbox]), [data-testing-create-page] select:not(#testing-create-style)').count())===0,'建单无买手或属性编辑控件');\n   assert(!(await page.locator('[data-product-information]').innerText()).includes('待完善'),'全部商品信息已展示');\n   for(const box of await page.locator('[data-testing-create-field=sku]').all())await measure('SKU取消选择',()=>box.uncheck(),'[data-testing-create-product]');\n   await measure('空SKU阻断',()=>page.getByRole('button',{name:'创建测款单',exact:true}).click(),'[data-testing-create-feedback]',async()=>{await page.getByText('请至少选择一个测款 SKU。',{exact:true}).waitFor()});\n   await measure('SKU选择',()=>page.locator('[data-testing-create-field=sku]').first().check(),'[data-testing-create-product]');\n   await measure('商品大图打开',()=>page.getByRole('button',{name:'查看商品大图',exact:true}).click(),'[data-pda-image-preview-root] img');\n   await measure('大图Esc关闭',()=>page.keyboard.press('Escape'),'[data-testing-create-product]');\n   await measure('SKU大图打开',()=>page.locator('[data-testing-create-product] [data-pda-image-preview-url]').nth(1).click(),'[data-pda-image-preview-root] img');\n   await measure('大图按钮关闭',()=>page.locator('[data-pda-image-preview-root]').getByRole('button',{name:'关闭',exact:true}).click(),'[data-testing-create-product]');\n   await measure('查看关联商品档案',()=>page.getByRole('link',{name:'查看商品档案',exact:true}).click(),'[data-product-information]');\n   await measure('打开商品属性维护',()=>page.getByRole('button',{name:'维护商品信息',exact:true}).click(),'[data-product-info-buyer]');\n   for(const dimension of ['brands','categories','styles','trendElements','fabrics','crowds','ages','crowdPositioning','productPositioning','styleCodes']) {\n     const select=page.locator(`[data-product-info-config=\"${dimension}\"]`);\n     const value=await select.locator('option:not([disabled])').evaluateAll(options=>options.find(o=>o.value)?.value);\n     await measure('档案配置选择-'+dimension,()=>select.selectOption(value),'[data-product-information]');\n   }\n   await measure('档案商品买手绑定',()=>page.locator('[data-product-info-buyer]').selectOption('user-chengang'),'[data-product-information]');\n   await measure('档案类目选择',()=>page.locator('[data-product-info-category]').selectOption('product-category-13'),'[data-product-information]');\n   await measure('档案商品类型输入',()=>page.locator('#product-info-productType').fill('成衣'),'[data-product-information]');\n   await measure('档案材质类型选择',()=>page.locator('[data-product-info-field=materialType][value=\"非毛织\"]').click(),'[data-product-information]');\n   await measure('保存商品信息',()=>page.getByRole('button',{name:'保存商品信息',exact:true}).click(),'[data-product-information]',async()=>{await page.getByRole('button',{name:'维护商品信息',exact:true}).waitFor()});\n   await measure('再次维护',()=>page.getByRole('button',{name:'维护商品信息',exact:true}).click(),'[data-product-info-buyer]');\n   await measure('取消维护',()=>page.locator('[data-product-information]').getByRole('button',{name:'取消',exact:true}).click(),'[data-product-information]');\n   await page.goto(base+'/pcs/testing/orders/create');await settle('[data-testing-create-page]');\n   await measure('切换另一商品',()=>page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_005'),'[data-testing-create-product]');\n   assert((await page.locator('[data-testing-create-buyer]').innerText())!=='陈刚','不同商品切换不同买手');\n   await measure('取消建单返回列表',()=>page.getByRole('link',{name:'取消',exact:true}).click(),'[data-pcs-testing-order-list]');\n }\n // 每次创建选择不同商品，验证保存结果与详情刷新。\n for(const num of ['006','005','004','003','002']){\n   await page.getByRole('link',{name:'新建测款单',exact:true}).click();\n   await page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_'+num);await settle('[data-testing-create-product]');\n   const buyer=await page.locator('[data-testing-create-buyer]').innerText();\n   await measure('创建成功并打开详情',()=>page.getByRole('button',{name:'创建测款单',exact:true}).click(),'main h1',async()=>{await page.waitForURL(/\\/pcs\\/testing\\/orders\\/(?!create)[^/]+$/)});\n   await measure('详情展开商品信息',()=>page.getByText('商品信息（来自商品档案）',{exact:true}).click(),'[data-product-information]');\n   detailUrls.push(page.url());assert((await page.locator('main').innerText()).includes('买手 '+buyer),'详情读取商品买手');\n   await page.reload();await settle('main h1');assert((await page.locator('main').innerText()).includes('买手 '+buyer),'刷新后买手一致');\n   await page.goto(base+'/pcs/testing/orders');await settle('[data-pcs-testing-order-list]');\n }\n for(const size of [{width:1366,height:768},{width:1280,height:720}]){\n   await page.setViewportSize(size);\n   await page.goto(base+'/pcs/testing/orders');await settle('[data-pcs-testing-order-list]');\n   const list=await page.locator('[data-pcs-testing-order-list] h1').evaluate(n=>({left:n.getBoundingClientRect().left,right:n.parentElement.getBoundingClientRect().right}));\n   await page.screenshot({path:`output/playwright/pcs-binding/list-${size.width}.png`});\n   await page.getByRole('link',{name:'新建测款单',exact:true}).click();await settle('[data-testing-create-page]');\n   const create=await page.locator('[data-testing-create-page] header').evaluate(n=>({left:n.getBoundingClientRect().left,right:n.getBoundingClientRect().right}));\n   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);\n   widths.push({size,list,create,overflow});assert(Math.abs(list.left-create.left)<1 && Math.abs(list.right-create.right)<1,'列表与新建左右边界一致-'+size.width);\n   await page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_007');await settle('[data-testing-create-product]');\n   await page.screenshot({path:`output/playwright/pcs-binding/create-${size.width}.png`});\n   await page.locator('[data-product-information]').screenshot({path:`output/playwright/pcs-binding/information-${size.width}.png`});\n }\n return {actions,widths,checks,detail,detailUrls,max:Math.max(...actions.map(a=>a.ms))};\n } catch(error) {return {error:String(error),actions,widths,checks,detailUrls};} finally {await page.evaluate(s=>{localStorage.clear();Object.entries(s).forEach(([k,v])=>localStorage.setItem(k,v))},snapshot);await page.goto(base+'/pcs/testing/orders/create');}\n}\n",
+      "boundaries.js": "async page => {\n const base='http://127.0.0.1:4193',actions=[],checks=[];\n const before=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));\n const install=()=>{window.__bindingStart=null;for(const n of ['click','input','change','keydown'])document.addEventListener(n,()=>{window.__bindingStart??=performance.now()},true)};\n await page.context().addInitScript(install);await page.evaluate(install);\n const measure=async(name,fn,selector,text)=>{await page.evaluate(()=>window.__bindingStart=null);await fn();await page.locator(selector).first().waitFor({state:'visible'});if(text)await page.getByText(text,{exact:true}).waitFor(); const ms=await page.evaluate(async()=>{await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));return performance.now()-window.__bindingStart});actions.push({name,ms});};\n const archive='/pcs/products/styles/style_demand_PRJ_202603_006';\n try{\n for(let i=0;i<5;i++){\n  await page.goto(base+archive);await page.getByRole('button',{name:'维护商品信息',exact:true}).click();\n  await measure('档案清空买手',()=>page.locator('[data-product-info-buyer]').selectOption(''),'[data-product-information]');\n  await measure('保存未绑定买手',()=>page.getByRole('button',{name:'保存商品信息',exact:true}).click(),'[data-product-information]');\n  await page.goto(base+'/pcs/testing/orders/create');await page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_006');\n  await measure('无绑定买手阻断',()=>page.getByRole('button',{name:'创建测款单',exact:true}).click(),'[data-testing-create-feedback]','商品尚未绑定买手，请先完善商品档案的买手关系。');\n  await page.getByRole('link',{name:'查看商品档案',exact:true}).click();await page.getByRole('button',{name:'维护商品信息',exact:true}).click();\n  await measure('补回商品买手',()=>page.locator('[data-product-info-buyer]').selectOption('user-chengang'),'[data-product-information]');\n  await measure('保存商品买手恢复',()=>page.getByRole('button',{name:'保存商品信息',exact:true}).click(),'[data-product-information]');\n  await page.goto(base+'/pcs/testing/orders/create');\n  await page.route('**/materials/pcs-reviewed/batik-black.jpg',route=>route.abort());\n  await page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_006');\n  await page.getByText('图片加载失败',{exact:true}).waitFor();\n  await measure('图片加载失败阻断',()=>page.getByRole('button',{name:'创建测款单',exact:true}).click(),'[data-testing-create-feedback]','商品图片尚未成功加载，请核对商品档案图片后重试。');\n  await page.unroute('**/materials/pcs-reviewed/batik-black.jpg');\n  await page.reload();await page.locator('#testing-create-style').selectOption('style_demand_PRJ_202603_006');\n  await page.waitForFunction(()=>{const img=document.querySelector('[data-create-style-image]');return img?.complete&&img.naturalWidth>0});\n  await measure('返回列表链接',()=>page.getByRole('link',{name:'返回测款单列表',exact:true}).click(),'[data-pcs-testing-order-list]');\n }\n checks.push('未绑定买手阻断及恢复各5次','图片真实资源加载失败及恢复各5次');\n return {actions,checks,max:Math.max(...actions.map(x=>x.ms))};\n }catch(error){return {error:String(error),actions,checks};}finally{await page.unroute('**/materials/pcs-reviewed/batik-black.jpg');await page.evaluate(s=>{localStorage.clear();Object.entries(s).forEach(([k,v])=>localStorage.setItem(k,v))},before);await page.goto(base+'/pcs/testing/orders/create');}\n}\n",
+      "list-buyer.js": "async page => {\n const actions=[],checks=[],downloads=[];page.setDefaultTimeout(5000);const snapshot=await page.evaluate(()=>Object.fromEntries(Object.entries(localStorage)));\n await page.goto('http://127.0.0.1:4193/pcs/testing/orders');await page.locator('[data-pcs-testing-order-list]').waitFor();\n await page.evaluate(()=>{for(const n of ['click','input','change'])document.addEventListener(n,()=>window.__listStart??=performance.now(),true)});\n const measure=async(name,fn,check)=>{await page.evaluate(()=>window.__listStart=null);await fn();if(check)await check();const ms=await page.evaluate(async()=>{await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));return performance.now()-window.__listStart});actions.push({name,ms})};\n try {for(let i=0;i<5;i++){\n  await measure('买手关键词输入',()=>page.locator('[data-pcs-testing-field=search]').fill('陈买手'));\n  await measure('按商品买手查询',()=>page.getByRole('button',{name:'查询',exact:true}).click());\n  const rows=await page.locator('[data-testing-table] tbody tr').allTextContents();if(rows.length!==3||rows.some(r=>!r.includes('陈买手')))throw Error('buyer search mismatch');\n  await measure('按买手导出',async()=>{const pending=page.waitForEvent('download');await page.getByRole('button',{name:'导出',exact:true}).click();const download=await pending;downloads.push(download.suggestedFilename())});\n  await measure('重置查询',()=>page.getByRole('button',{name:'重置',exact:true}).click());\n  if(await page.locator('[data-testing-table] tbody tr').count()!==5)throw Error('reset mismatch');\n  await measure('买手列排序',()=>page.locator('[data-pcs-testing-action=sort-column][data-column-key=buyer]').click());\n  await measure('打开列设置',()=>page.getByRole('button',{name:'列设置',exact:true}).click());\n  await measure('隐藏买手列',()=>page.locator('[data-pcs-testing-action=toggle-column-visibility][data-pcs-testing-column-key=buyer]').uncheck());\n  await measure('显示买手列',()=>page.locator('[data-pcs-testing-action=toggle-column-visibility][data-pcs-testing-column-key=buyer]').check());\n  await measure('冻结买手列',()=>page.locator('[data-pcs-testing-action=toggle-column-freeze][data-pcs-testing-column-key=buyer]').check());\n  await measure('取消冻结买手列',()=>page.locator('[data-pcs-testing-action=toggle-column-freeze][data-pcs-testing-column-key=buyer]').uncheck());\n  await measure('关闭列设置',()=>page.locator('button[data-pcs-testing-action=close-column-settings]').first().click());\n }\n checks.push('商品买手参与查询、排序、导出及列设置，查询3条/重置5条');return {actions,checks,downloads,max:Math.max(...actions.map(a=>a.ms))};\n }catch(error){return {error:String(error),actions,checks};}finally{await page.evaluate(s=>{localStorage.clear();Object.entries(s).forEach(([k,v])=>localStorage.setItem(k,v))},snapshot);await page.goto('http://127.0.0.1:4193/pcs/testing/orders/create');}\n}\n"
+    },
+    "typecheck": {
+      "errors": 6,
+      "newErrors": 0,
+      "diagnostics": "src/data/fcs/dye-work-order-online-view.ts(383,43): error TS2345: Argument of type 'PreparationMaterialReceiptSourceResult | { requiresSource: boolean; requiresUpstream: boolean; sourceMode: \"UNRESOLVED\"; options: never[]; }' is not assignable to parameter of type 'PreparationMaterialReceiptSourceResult | undefined'.\n  Type '{ requiresSource: boolean; requiresUpstream: boolean; sourceMode: \"UNRESOLVED\"; options: never[]; }' is not assignable to type 'PreparationMaterialReceiptSourceResult'.\n    Types of property 'requiresSource' are incompatible.\n      Type 'boolean' is not assignable to type 'true'.\nsrc/data/fcs/dye-work-order-online-view.ts(432,59): error TS2345: Argument of type 'PreparationMaterialReceiptSourceResult | { requiresSource: boolean; requiresUpstream: boolean; sourceMode: \"UNRESOLVED\"; options: never[]; }' is not assignable to parameter of type 'PreparationMaterialReceiptSourceResult'.\n  Type '{ requiresSource: boolean; requiresUpstream: boolean; sourceMode: \"UNRESOLVED\"; options: never[]; }' is not assignable to type 'PreparationMaterialReceiptSourceResult'.\n    Types of property 'requiresSource' are incompatible.\n      Type 'boolean' is not assignable to type 'true'.\nsrc/data/fcs/factory-receiving-source-sync.ts(20,105): error TS2345: Argument of type 'WarehouseExecutionDoc[]' is not assignable to parameter of type 'readonly CentralTransferDocument[]'.\n  Type 'WarehouseExecutionDoc' is not assignable to type 'CentralTransferDocument'.\n    Type 'WarehouseReturnOrder' is not assignable to type 'CentralTransferDocument'.\n      Type 'WarehouseReturnOrder' is not assignable to type 'WarehouseInternalTransferOrder'.\n        Types of property 'docType' are incompatible.\n          Type '\"RETURN\"' is not assignable to type '\"INTERNAL_TRANSFER\"'.\nsrc/data/pms/tmf-material-purchases.ts(1290,51): error TS7006: Parameter 'r' implicitly has an 'any' type.\nsrc/data/pms/tmf-material-purchases.ts(1290,94): error TS7006: Parameter 'n' implicitly has an 'any' type.\nsrc/data/pms/tmf-material-purchases.ts(1290,96): error TS7006: Parameter 'r' implicitly has an 'any' type.\n"
+    }
+  }
 }
