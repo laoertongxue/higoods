@@ -428,9 +428,7 @@ function renderDesignRevisionFilters(): string {
       ${field('综合查询', input('listKeyword', ui.listKeyword, 'text', '任务号、SPU、买手或加工单号'), 'min-w-0 sm:col-span-2')}
       ${field('任务状态', select('listStatus', ui.listStatus, [['', '全部'], ['DRAFT', '草稿'], ['IN_PROGRESS', '进行中'], ['COMPLETED', '已完成']]))}
       ${field('当前团队', select('teamFilter', ui.teamFilter, [['', '全部团队'], ...teamOptions().map(team => [team, team])]))}
-    </div>
-    <div data-process-advanced ${advancedCount ? '' : 'hidden'}>
-      <div class="mt-3 grid grid-cols-3 gap-2 xl:grid-cols-6">
+      <div class="[&:not([hidden])]:contents" data-process-advanced ${advancedCount ? '' : 'hidden'}>
         ${field('基码纸样', select('listPattern', ui.listPattern, [['', '全部'], ['REMAKE', '需要制作'], ['REUSE', '复用纸样']]))}
         ${field('染印组合', select('listProcessing', ui.listProcessing, [['', '全部'], ['NONE', '无需印染'], ['DYE_ONLY', '仅染色'], ['PRINT_ONLY', '仅印花'], ['BOTH', '先染后印']]))}
         ${[['originalSpu', '原款式（SPU）'], ['newSpu', '新款式（SPU）'], ['originalBuyer', '原款式买手'], ['newBuyer', '新款式买手'], ['creator', '添加人'], ['patternMaker', '纸样上传人／版师']].map(([key, label]) => field(label, input(`extra:${key}`, ui.extraFilters[key] || ''))).join('')}

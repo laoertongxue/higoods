@@ -118,6 +118,11 @@ test('染印组合筛选读取已保存草稿的目标结果 SKU', async ({ page
     await page.setViewportSize({ width, height: 768 })
     await page.getByRole('button', { name: '更多筛选', exact: true }).click()
     await expect(page.locator('[data-process-advanced]')).toBeVisible()
+    const positions = await page.locator(`[data-${PREFIX}-field="listKeyword"], [data-${PREFIX}-field="listPattern"], [data-${PREFIX}-field="listProcessing"], [data-${PREFIX}-field="extra:originalSpu"]`).evaluateAll(nodes => nodes.map(node => ({ key: node.getAttribute('data-pcs-independent-sampling-field'), top: node.getBoundingClientRect().top })))
+    const top = (key: string) => positions.find(item => item.key === key)!.top
+    expect(top('listPattern')).toBe(top('listKeyword'))
+    expect(top('listProcessing')).toBe(top('listKeyword'))
+    expect(top('extra:originalSpu')).toBeGreaterThan(top('listKeyword'))
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.screenshot({ path: `test-results/design-revision-filters-${width}.png` })
     await page.getByRole('button', { name: '收起更多', exact: true }).click()
