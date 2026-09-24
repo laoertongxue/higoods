@@ -108,11 +108,8 @@ function requiredBasePatternTaskTypes(preparationType: EngineeringPreparationTyp
 export function ensureEngineeringMasterDemoData(targetRecordCount = 12): void {
   const targetCount = Math.max(1, Math.min(12, Math.floor(targetRecordCount)))
   const records = listEngineeringMasterOrders()
-  if (records.length >= targetCount) {
-    ensureEngineeringDemoTaskMaterials(records)
-    if (targetCount >= 12) ensureEngineeringLifecycleDemoData()
-    return
-  }
+  // Opening an existing workspace must not create demo orders or advance its lifecycle.
+  if (records.length > 0) return
   const styles = listStyleArchives()
   const usedStyleIds = new Set(records.map((record) => record.styleId))
   const candidates = styles

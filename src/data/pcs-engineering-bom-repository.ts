@@ -88,8 +88,9 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
 }
 
 function writeSnapshot(snapshot: EngineeringBomVersionStoreSnapshot): void {
-  memorySnapshot = cloneSnapshot(snapshot)
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+  const nextSnapshot = cloneSnapshot(snapshot)
+  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSnapshot))
+  memorySnapshot = nextSnapshot
 }
 
 function nextIdentity(records: EngineeringBomVersionRecord[]): { id: string; code: string } {
@@ -316,10 +317,11 @@ export function createEngineeringBomVersionsForOwner(
   if (!input.ownerId.trim() || !input.ownerCode.trim()) throw new Error('BOM 与价格缺少所属业务对象。')
   const snapshot = readSnapshot()
   const createdAt = input.createdAt || nowText()
+  const planCount = snapshot.plans.length
   ensurePricingPlan(snapshot, input, style, createdAt)
   const existing = snapshot.records.filter((item) => item.ownerStage === input.ownerStage && item.ownerId === input.ownerId)
   if (existing.length > 0) {
-    writeSnapshot(snapshot)
+    if (snapshot.plans.length !== planCount) writeSnapshot(snapshot)
     return existing.map(cloneRecord)
   }
 

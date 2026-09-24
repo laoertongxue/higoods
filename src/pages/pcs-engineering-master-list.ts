@@ -613,7 +613,13 @@ function refreshMasterListRegions(options: { settings?: boolean; filters?: boole
 }
 
 export function renderPcsEngineeringMasterListPage(): string {
-  ensureEngineeringMasterDemoData()
+  let initializationNotice = ''
+  try {
+    ensureEngineeringMasterDemoData()
+  } catch (error) {
+    if (!(error instanceof Error) || error.name !== 'QuotaExceededError') throw error
+    initializationNotice = '浏览器存储空间不足，演示数据未能全部初始化。当前展示已加载记录，请保留现有数据并联系负责人处理。'
+  }
   ensureMasterListPreferences()
   const transient = {
     currentPage: masterListUiState.currentPage,
@@ -632,7 +638,7 @@ export function renderPcsEngineeringMasterListPage(): string {
       { prefix: MASTER_EVENT_PREFIX, action: 'open-create-dialog' },
       'plus',
     )),
-    feedbackHtml: '',
+    feedbackHtml: initializationNotice ? `<p role="alert" class="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">${escapeHtml(initializationNotice)}</p>` : '',
     filtersHtml: `<div data-pcs-engineering-master-region="filters">${withMasterListLocalInteractions(renderMasterListFilters())}</div>`,
     statsHtml: `<div data-pcs-engineering-master-region="stats">${withMasterListLocalInteractions(renderMasterListStats())}</div>`,
     listTitle: '生产准备单列表',
