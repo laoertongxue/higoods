@@ -37,3 +37,15 @@ test('existing production preparation data does not trigger demo writes on entry
     assert.equal(writes,0)
   } finally {storage.setItem=previous}
 })
+
+test('rollback of an unchanged saved BOM does not perform another failing write',async()=>{
+ const bom=await import('../../src/data/pcs-engineering-bom-repository.ts')
+ const before=bom.captureEngineeringBomRepositoryState()
+ const previous=localStorage.setItem
+ localStorage.setItem=()=>{throw new DOMException('quota','QuotaExceededError')}
+ try {
+  assert.throws(()=>bom.restoreEngineeringBomRepositoryState({...before,plans:[...before.plans,{ownerId:'blocked',customCosts:[]} as any]}),/quota/)
+  assert.doesNotThrow(()=>bom.restoreEngineeringBomRepositoryState(before))
+  assert.deepEqual(bom.captureEngineeringBomRepositoryState(),before)
+ }finally{localStorage.setItem=previous}
+})

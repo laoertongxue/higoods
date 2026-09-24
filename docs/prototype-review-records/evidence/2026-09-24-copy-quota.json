@@ -1,0 +1,57 @@
+[
+  {
+    "before": {
+      "bomChars": 319541,
+      "count": 25
+    },
+    "after": {
+      "elapsed": 130.300048828125,
+      "bomChars": 144080,
+      "draftId": "ES-ID-DR-026"
+    }
+  },
+  {
+    "before": {
+      "bomChars": 319541,
+      "count": 25
+    },
+    "after": {
+      "elapsed": 180,
+      "bomChars": 144057,
+      "draftId": "ES-ID-DR-026"
+    }
+  },
+  {
+    "before": {
+      "bomChars": 319541,
+      "count": 25
+    },
+    "after": {
+      "elapsed": 179.300048828125,
+      "bomChars": 144057,
+      "draftId": "ES-ID-DR-026"
+    }
+  },
+  {
+    "before": {
+      "bomChars": 319541,
+      "count": 25
+    },
+    "after": {
+      "elapsed": 196.10009765625,
+      "bomChars": 144057,
+      "draftId": "ES-ID-DR-026"
+    }
+  },
+  {
+    "before": {
+      "bomChars": 319541,
+      "count": 25
+    },
+    "after": {
+      "elapsed": 180.10009765625,
+      "bomChars": 144080,
+      "draftId": "ES-ID-DR-026"
+    }
+  }
+]

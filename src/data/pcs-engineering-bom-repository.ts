@@ -1,3 +1,4 @@
+import { parseEngineeringBomSnapshot, serializeEngineeringBomSnapshot } from './pcs-engineering-bom-storage.ts'
 import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import {
@@ -70,7 +71,7 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (canUseStorage()) {
     try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '') as EngineeringBomVersionStoreSnapshot
+      const parsed = parseEngineeringBomSnapshot(localStorage.getItem(STORAGE_KEY) || '') as EngineeringBomVersionStoreSnapshot
       if (parsed?.version === STORE_VERSION && Array.isArray(parsed.records) && Array.isArray(parsed.plans)) {
         memorySnapshot = {
           version: STORE_VERSION,
@@ -89,7 +90,7 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
 
 function writeSnapshot(snapshot: EngineeringBomVersionStoreSnapshot): void {
   const nextSnapshot = cloneSnapshot(snapshot)
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSnapshot))
+  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, serializeEngineeringBomSnapshot(nextSnapshot))
   memorySnapshot = nextSnapshot
 }
 
@@ -201,6 +202,7 @@ export function captureEngineeringBomRepositoryState(): EngineeringBomVersionSto
 }
 
 export function restoreEngineeringBomRepositoryState(snapshot: EngineeringBomVersionStoreSnapshot): void {
+  if (canUseStorage() && localStorage.getItem(STORAGE_KEY) && JSON.stringify(readSnapshot()) === JSON.stringify(snapshot)) return
   writeSnapshot(snapshot)
 }
 

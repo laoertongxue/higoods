@@ -788,7 +788,9 @@ export function copyEngineeringIndependentSamplingDrafts(input: {
       restoreEngineeringIndependentSamplingRepositoryState(samplingSnapshot)
       restoreEngineeringBomRepositoryState(bomSnapshot)
       replaceProjectRelationStore(relationSnapshot)
-      return { sourceTaskId, draftTaskId: '', error: error instanceof Error ? error.message : '复制失败。' }
+      return { sourceTaskId, draftTaskId: '', error: error instanceof Error && error.name === 'QuotaExceededError'
+        ? '浏览器存储空间不足，未生成新草稿，原任务已保留。请保留当前浏览器数据并联系管理员处理后重试。'
+        : error instanceof Error ? error.message : '复制失败。' }
     }
   })
 }
