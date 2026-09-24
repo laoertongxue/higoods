@@ -1,3 +1,4 @@
+import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
 import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
 import { localDateTimeText } from '../../utils.ts'
@@ -731,7 +732,7 @@ function saveFormalPrintExecution(): void {
       records: getPdaHandoverRecordsByHead(head.handoverId, head),
     })))
     .filter(item => item.records.length > 0)
-  const raw = JSON.stringify({ version: 1, state, tasks, designRevisionHandovers })
+  const raw = serializePrintExecution({ version: 1, state, tasks, designRevisionHandovers })
   localStorage.setItem(PRINT_EXECUTION_STORAGE_KEY, raw)
   if (localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('印花保存结果未核实')
 }
@@ -740,7 +741,7 @@ function restoreFormalPrintExecution(): void {
   const raw = localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY)
   if (!raw) return
   try {
-    const saved = JSON.parse(raw) as { version: number; state: PrintProcessMutationSnapshot; tasks: PdaGenericTaskMock[]; designRevisionHandovers?: Array<{orderId:string;head:PdaHandoverHead;records:PdaHandoverRecord[]}> }
+    const saved = parsePrintExecution(raw) as { version: number; state: PrintProcessMutationSnapshot; tasks: PdaGenericTaskMock[]; designRevisionHandovers?: Array<{orderId:string;head:PdaHandoverHead;records:PdaHandoverRecord[]}> }
     if (saved.version !== 1 || !Array.isArray(saved.tasks) || !saved.state || !['workOrders', 'nodeRecords', 'reviewRecords'].every(key => Array.isArray(saved.state[key as keyof PrintProcessMutationSnapshot]) && saved.state[key as keyof PrintProcessMutationSnapshot].every(row => Array.isArray(row) && row.length === 2 && typeof row[0] === 'string' && row[1] && typeof row[1] === 'object'))) throw new Error('记录格式不完整')
     // Previous prototype generated empty placeholder rolls before any production. They have no physical quantity or print/handover fact.
     saved.state.workOrders.forEach(([, order]) => {
