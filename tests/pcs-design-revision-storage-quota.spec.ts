@@ -12,7 +12,7 @@ test('uploaded design + dye then print submits within storage budget and survive
     const context = await browser.newContext({ viewport: { width: 1366, height: 768 } })
     const page = await context.newPage()
     await page.goto(baseURL + root + '/new')
-    await page.locator(field('targetStyleId')).selectOption({ index: 2 })
+    await page.locator('[data-design-style-picker="targetStyleId"] summary').click(); await page.locator(field('targetStyleId')).selectOption({ index: 2 })
     await page.locator(field('creationReason')).fill('存储容量回归：上传设计稿，先染后印')
     await page.locator('[data-pcs-independent-sampling-create-design-upload]').setInputFiles(path.resolve('public/dress-sample-1.jpg'))
     await expect(page.getByText('dress-sample-1.jpg', { exact: true })).toBeVisible()

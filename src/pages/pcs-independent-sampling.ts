@@ -246,6 +246,20 @@ function styleOptions(selected = ''): string {
   return listStyleArchives().filter((style) => style.mainImageUrl).map((style) => `<option value="${escapeHtml(style.styleId)}" ${style.styleId === selected ? 'selected' : ''}>${escapeHtml(style.styleCode)} · ${escapeHtml(style.styleName)}</option>`).join('')
 }
 
+function renderSearchableStylePicker(field: 'sourceStyleId' | 'targetStyleId'): string {
+  const selected = ui.createDraft[field]
+  const style = selected ? getStyleArchiveById(selected) : null
+  const label = field === 'sourceStyleId' ? '原款式（SPU）' : '新款式（SPU）'
+  return `<details class="relative" data-skip-page-rerender="true" data-design-style-picker="${field}" onkeydown="if(event.key==='Escape'){this.open=false;this.querySelector('summary').focus();event.stopPropagation()}">
+    <summary class="flex h-10 cursor-pointer list-none items-center justify-between rounded border bg-white px-3" data-${PREFIX}-action="focus-style-search" aria-label="选择${label}"><span class="truncate">${style ? escapeHtml(`${style.styleCode} · ${style.styleName}`) : '请选择'} </span><span aria-hidden="true">▾</span></summary>
+    <div class="absolute left-0 right-0 top-full z-30 mt-1 rounded border bg-white p-2 shadow-lg">
+      <input type="search" class="mb-2 h-9 w-full rounded border px-3" placeholder="输入或粘贴 SPU 编码 / 款式名称" aria-label="搜索${label}" data-design-style-search data-skip-page-rerender="true" autocomplete="off">
+      <select size="6" class="w-full rounded border bg-white p-1 text-sm [&_option]:px-2 [&_option]:py-2" aria-label="${label}搜索结果" data-${PREFIX}-field="${field}"><option value="">请选择</option>${styleOptions(selected)}</select>
+      <p hidden class="p-3 text-sm text-slate-500" data-design-style-empty>未找到匹配款式，请核对 SPU 编码或款式名称。</p>
+    </div>
+  </details>`
+}
+
 function reusablePatternCandidates(): Array<{ file: EngineeringUploadedFile; taskCode: string }> {
   const styleId = ui.createDraft.sourceStyleId || ui.createDraft.targetStyleId
   if (!styleId) return []
@@ -270,7 +284,7 @@ function renderReusablePatternPicker(): string {
 function renderCreationBasicFields(): string {
   const designRule = ENGINEERING_UPLOAD_RULES.DESIGN_IMAGE
   const fileRows = (files: EngineeringUploadedFile[], removeAction: string, imagePreview: boolean) => files.map((file) => `<div class="flex items-center justify-between rounded border bg-white px-3 py-2 text-sm"><div>${imagePreview ? imageButton(file.dataUrl, file.fileName) : ''}<p class="font-medium">${escapeHtml(file.fileName)}</p><p class="text-xs text-slate-500">${formatEngineeringUploadSize(file.sizeBytes)} · ${escapeHtml(file.uploadedByName)} · ${escapeHtml(file.uploadedAt)}</p></div><div class="flex gap-3">${imagePreview ? `<button type="button" class="text-blue-700" data-${PREFIX}-upload-preview data-file-url="${escapeHtml(file.dataUrl)}" data-file-name="${escapeHtml(file.fileName)}">查看</button>` : ''}<button type="button" class="text-red-600" data-${PREFIX}-action="${removeAction}" data-file-id="${escapeHtml(file.fileId)}">删除</button></div></div>`).join('')
-  return `<section class="rounded-lg bg-white p-5 border border-slate-200" data-design-revision-creation-fields><h2 class="mb-4 font-semibold">基本信息与设计稿</h2><div class="grid gap-4 md:grid-cols-2"><label class="block space-y-1 text-sm"><span>原款式（SPU）</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="sourceStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.sourceStyleId)}</select>${ui.createDraft.sourceStyleId ? styleCard(ui.createDraft.sourceStyleId, '原款式（SPU）').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>新款式（SPU） <span class="text-red-600">*</span></span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="targetStyleId"><option value="">请选择</option>${styleOptions(ui.createDraft.targetStyleId)}</select>${ui.createDraft.targetStyleId ? styleCard(ui.createDraft.targetStyleId, '新款式（SPU）').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>买手</span><input class="h-10 w-full rounded border bg-slate-50 px-3" value="${escapeHtml(BUYER.userName)}" readonly></label><label class="block space-y-1 text-sm"><span>基码纸样</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="patternHandling"><option value="REMAKE" ${ui.createDraft.patternHandling === 'REMAKE' ? 'selected' : ''}>需要重新制作</option><option value="REUSE" ${ui.createDraft.patternHandling === 'REUSE' ? 'selected' : ''}>纸样不变，直接复用</option></select></label><label class="block space-y-1 text-sm md:col-span-2"><span>本次设计改款要求</span><textarea class="min-h-20 w-full rounded border p-3" data-${PREFIX}-field="creationReason" placeholder="填写本次需要改什么">${escapeHtml(ui.createDraft.creationReason)}</textarea></label><section class="space-y-3 bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">设计稿 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">${designRule.extensions.map((item) => `.${item}`).join('、')} · 单个不超过 ${Math.round(designRule.maxSizeBytes / 1024 / 1024)} MB</p></div><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">选择本地设计稿<input class="sr-only" type="file" accept="${escapeHtml(designRule.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-design-upload></label><div class="space-y-2">${fileRows(ui.createDraft.designFiles, 'remove-create-design', true) || '<p class="text-xs text-amber-700">请选择本次设计稿，保存草稿或提交时一并保存。</p>'}</div></section>${renderReusablePatternPicker()}</div></section>`
+  return `<section class="rounded-lg bg-white p-5 border border-slate-200" data-design-revision-creation-fields><h2 class="mb-4 font-semibold">基本信息与设计稿</h2><div class="grid gap-4 md:grid-cols-2"><label class="block space-y-1 text-sm"><span>原款式（SPU）</span>${renderSearchableStylePicker('sourceStyleId')}${ui.createDraft.sourceStyleId ? styleCard(ui.createDraft.sourceStyleId, '原款式（SPU）').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>新款式（SPU） <span class="text-red-600">*</span></span>${renderSearchableStylePicker('targetStyleId')}${ui.createDraft.targetStyleId ? styleCard(ui.createDraft.targetStyleId, '新款式（SPU）').replace('rounded-lg border bg-white p-4', 'pt-2') : ''}</label><label class="block space-y-1 text-sm"><span>买手</span><input class="h-10 w-full rounded border bg-slate-50 px-3" value="${escapeHtml(BUYER.userName)}" readonly></label><label class="block space-y-1 text-sm"><span>基码纸样</span><select class="h-10 w-full rounded border px-3" data-${PREFIX}-field="patternHandling"><option value="REMAKE" ${ui.createDraft.patternHandling === 'REMAKE' ? 'selected' : ''}>需要重新制作</option><option value="REUSE" ${ui.createDraft.patternHandling === 'REUSE' ? 'selected' : ''}>纸样不变，直接复用</option></select></label><label class="block space-y-1 text-sm md:col-span-2"><span>本次设计改款要求</span><textarea class="min-h-20 w-full rounded border p-3" data-${PREFIX}-field="creationReason" placeholder="填写本次需要改什么">${escapeHtml(ui.createDraft.creationReason)}</textarea></label><section class="space-y-3 bg-slate-50 p-4 md:col-span-2"><div><p class="font-medium">设计稿 <span class="text-red-600">*</span></p><p class="text-xs text-slate-500">${designRule.extensions.map((item) => `.${item}`).join('、')} · 单个不超过 ${Math.round(designRule.maxSizeBytes / 1024 / 1024)} MB</p></div><label class="inline-flex h-9 cursor-pointer items-center rounded border border-blue-200 bg-white px-3 text-sm text-blue-700">选择本地设计稿<input class="sr-only" type="file" accept="${escapeHtml(designRule.accept)}" multiple data-skip-page-rerender="true" data-${PREFIX}-create-design-upload></label><div class="space-y-2">${fileRows(ui.createDraft.designFiles, 'remove-create-design', true) || '<p class="text-xs text-amber-700">请选择本次设计稿，保存草稿或提交时一并保存。</p>'}</div></section>${renderReusablePatternPicker()}</div></section>`
 }
 
 function renderDialogHost(): string {
@@ -1101,6 +1115,13 @@ function readDisplaySampleResults(task: EngineeringIndependentProfessionalTask) 
 }
 
 export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean {
+  document.querySelectorAll<HTMLDetailsElement>('[data-design-style-picker][open]').forEach(picker => { if (!picker.contains(target)) picker.open = false })
+  const styleTrigger = target.closest('[data-pcs-independent-sampling-action="focus-style-search"]')
+  if (styleTrigger) {
+    const picker = styleTrigger.closest<HTMLDetailsElement>('[data-design-style-picker]')!
+    requestAnimationFrame(() => { if (picker.open) picker.querySelector<HTMLInputElement>('[data-design-style-search]')?.focus() })
+    return false
+  }
   const listRoot = target.closest<HTMLElement>('[data-independent-sampling-list="DESIGN_REVISION"]')
   if (listRoot && handleProcessFilterPresentation(listRoot, target)) return true
   const previewOpen = target.closest<HTMLElement>(`[data-${PREFIX}-upload-preview]`)
@@ -1218,6 +1239,20 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
 }
 
 export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement): boolean {
+  if (target.matches('[data-design-style-search]')) {
+    const picker = target.closest('[data-design-style-picker]')!
+    const query = target.value.trim().toLocaleLowerCase()
+    let matches = 0
+    picker.querySelectorAll<HTMLOptionElement>('option').forEach(option => {
+      const visible = !option.value ? !query : (option.textContent || '').toLocaleLowerCase().includes(query)
+      option.hidden = !visible
+      option.disabled = !visible
+      if (visible && option.value) matches++
+    })
+    picker.querySelector<HTMLElement>('[data-design-style-empty]')!.hidden = matches > 0
+    picker.querySelector<HTMLSelectElement>('select')!.hidden = matches === 0
+    return true
+  }
   // 本页输入由各自的局部处理器保存或刷新；阻止全局输入处理再次整页渲染，
   // 否则创建弹窗和成果表单中尚未提交的值会在一次选择/输入后被清空。
   target.dataset.skipPageRerender = 'true'
