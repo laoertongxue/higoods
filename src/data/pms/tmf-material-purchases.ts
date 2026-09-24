@@ -468,6 +468,31 @@ export interface TmfPurchaseState {
 
 let state: TmfPurchaseState | undefined
 let storageListenerBound = false
+const OPERATION_SIGNATURE_PREFIX = 'v2:'
+
+/**
+ * Operation receipts used to persist the full request JSON. Production-order
+ * requests can contain a complete technical-package snapshot, so the receipt
+ * duplicated large images and BOM/routes in localStorage. Keep an exact-length
+ * 64-bit fingerprint instead; the payload itself remains in the business rows.
+ */
+function compactOperationSignature(signature: string): string {
+  if (signature.startsWith(OPERATION_SIGNATURE_PREFIX)) return signature
+  try {
+    if (!Array.isArray(JSON.parse(signature))) return signature
+  } catch {
+    return signature
+  }
+  let first = 0x811c9dc5
+  let second = 0x9e3779b9
+  for (let i = 0; i < signature.length; i++) {
+    const code = signature.charCodeAt(i)
+    first = Math.imul(first ^ code, 0x01000193)
+    second = Math.imul(second ^ code, 0x85ebca6b)
+  }
+  const digest = [first >>> 0, second >>> 0].map((value) => value.toString(16).padStart(8, '0')).join('')
+  return `${OPERATION_SIGNATURE_PREFIX}${signature.length}:${digest}`
+}
 
 function bindStorageSync(): void {
   if (storageListenerBound || typeof window === 'undefined' || typeof window.addEventListener !== 'function') return
@@ -490,6 +515,12 @@ function current(): TmfPurchaseState {
   try {
     const saved = JSON.parse(raw) as TmfPurchaseState
     if (saved.version !== 1 || !['orders', 'baseOrders', 'handovers', 'lots', 'operations'].every((key) => Array.isArray(saved[key as keyof TmfPurchaseState]))) throw new Error('格式不符')
+    // Migrate legacy full-payload receipts in memory. The next real operation
+    // persists the compact form together with its business change; no startup
+    // rewrite can overwrite user data or fail just because storage is full.
+    saved.operations.forEach((operation) => {
+      operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
+    })
     // 首轮采购演示保存尚未含生产需求；只补空集合，不修改历史采购或库存。
     saved.supplyPurchaseReceipts ??= []
     if(!Array.isArray(saved.supplyPurchaseReceipts))throw new Error('投入料采购实收记录格式不符')
@@ -575,10 +606,10 @@ function commit(
   // 浏览器内每次动作重新读取已保存结果，跨页面/重试不沿用过期数量。
   if (typeof window !== 'undefined') state = undefined
   if (!operationId.trim()) throw new Error('缺少本次操作编号，请重新进入任务。')
-  const signature = JSON.stringify([action, objectId, actor.id, actor.role, payload])
+  const signature = compactOperationSignature(JSON.stringify([action, objectId, actor.id, actor.role, payload]))
   const previous = current().operations.find((operation) => operation.id === operationId)
   if (previous) {
-    if (previous.payloadSignature !== signature) throw new Error('此操作编号已保存其他内容，请查看原记录后重新操作。')
+    if (compactOperationSignature(previous.payloadSignature) !== signature) throw new Error('此操作编号已保存其他内容，请查看原记录后重新操作。')
     return
   }
   const draft = structuredClone(current())
