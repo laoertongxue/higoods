@@ -256,18 +256,19 @@ function createPersistedRecords(records: EngineeringIndependentSamplingRecord[])
   })
 }
 
-function createDefaultBomLines(styleCode: string): EngineeringBomMaterialLineDraft[] {
-  const candidate = listMaterialArchives()
-    .filter((archive) => archive.status === 'ACTIVE' && archive.mainImageUrl)
+function createDefaultBomLines(styleCode: string, count = 1): EngineeringBomMaterialLineDraft[] {
+  const candidates = listMaterialArchives()
+    .filter((archive) => archive.status === 'ACTIVE' && archive.mainImageUrl
+      && (count === 1 || archive.kind === 'fabric' || archive.kind === 'accessory'))
     .flatMap((archive) => listMaterialSkuRecordsByMaterialId(archive.materialId)
       .filter((sku) => sku.status === 'ACTIVE' && Number.isFinite(sku.costPrice) && sku.costPrice > 0)
       .map((sku) => ({ archive, sku })))
-    .at(0)
-  if (!candidate) return []
-  return [{
-    bomItemId: `BOM-LINE-${styleCode}-001`,
+    .filter((item, index, all) => all.findIndex(other => other.archive.materialId === item.archive.materialId) === index)
+    .slice(0, count)
+  return candidates.map((candidate, index) => ({
+    bomItemId: `BOM-LINE-${styleCode}-${index + 1}`,
     materialSkuId: candidate.sku.materialSkuId,
-    sequenceNo: 1,
+    sequenceNo: index + 1,
     styleCode,
     productColor: '默认色',
     materialType: candidate.archive.kind,
@@ -284,7 +285,7 @@ function createDefaultBomLines(styleCode: string): EngineeringBomMaterialLineDra
     printSide: '无',
     linkedPatternResultIds: [],
     remark: '',
-  }]
+  }))
 }
 
 function createSeedUploadedFile(
@@ -397,7 +398,7 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
       createdAt,
     }, code)
     initializeEngineeringIndependentManualMaterialPlan(record, buyer, createdAt)
-    const defaultLines = createDefaultBomLines(target.styleCode).map((line) => ({
+    const defaultLines = createDefaultBomLines(target.styleCode, 3).map((line) => ({
       ...line,
       printRequirement: '否' as const,
       printRequirementText: '以目标物料 SKU 为准',
@@ -419,7 +420,7 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
           applicableSkuIds: [...version.applicableSkuIds],
           sequenceNo: lineIndex + 1,
         })),
-        customCosts: [{ title: '车位费', amountIdr: 15_000, note: '演示费用' }],
+        customCosts: [{ title: '车位费', amountIdr: 15_000, note: '演示费用' }, { title: '整烫费', amountIdr: 5_000, note: '演示费用' }],
         updatedAt: createdAt,
       })
     })
