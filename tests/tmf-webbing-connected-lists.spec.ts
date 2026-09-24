@@ -32,6 +32,45 @@ test('采购需求使用采购模型，内建 Mock 自动出现并关联半成�
   await expect(page.getByRole('dialog', { name: '半成品实物图' })).toHaveCount(0)
 })
 
+test('织带厂演示数据遇到浏览器容量限制时页面仍可访问且同次运行不重复初始化', async ({ page }) => {
+  await page.addInitScript(() => {
+    const original = Storage.prototype.setItem
+    let tmfWriteAttempts = 0
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key === 'higood-tmf-material-purchases-v1') {
+        tmfWriteAttempts += 1
+        ;(window as Window & { __tmfWriteAttempts?: number }).__tmfWriteAttempts = tmfWriteAttempts
+        throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      }
+      return original.call(this, key, value)
+    }
+  })
+  await page.goto(semi)
+  await expect(page.getByRole('heading', { name: '半成品加工单' })).toBeVisible()
+  await expect(page.locator('section[role="status"]')).toContainText('演示数据未能全部保存')
+  const attemptsAfterEntry = await page.evaluate(() => (window as Window & { __tmfWriteAttempts?: number }).__tmfWriteAttempts)
+  expect(attemptsAfterEntry).toBeGreaterThan(0)
+
+  await page.getByRole('button', { name: '织带加工单', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '织带加工单', exact: true })).toBeVisible()
+  await expect(page.locator('section[role="status"]')).toContainText('当前页面仍可查看已保存记录')
+  for (const [label, heading] of [
+    ['采购需求', '织带采购需求'],
+    ['待接收', '织带／绳子待接收'],
+    ['交出记录', '织带／绳子交出记录'],
+  ]) {
+    await page.getByRole('button', { name: label, exact: true }).click()
+    await expect(page.getByRole('heading', { name: heading })).toBeVisible()
+    await expect(page.locator('section[role="status"]')).toContainText('当前页面仍可查看已保存记录')
+  }
+  const attemptsAfterNavigation = await page.evaluate(() => (window as Window & { __tmfWriteAttempts?: number }).__tmfWriteAttempts)
+  expect(attemptsAfterNavigation).toBe(attemptsAfterEntry)
+
+  await page.goto('/fcs/craft/accessory/webbing/pda')
+  await expect(page.getByRole('heading', { name: '织带厂执行' })).toBeVisible()
+  await expect(page.locator('section[role="status"]')).toContainText('当前页面仍可查看已保存记录')
+})
+
 test('半成品加工单与织带加工单统一染色加工单七组数据模型，且无接单开工动作', async ({ page }) => {
   await resetAndOpen(page, semi)
   await expect(page.getByRole('heading', { name: '半成品加工单' })).toBeVisible()

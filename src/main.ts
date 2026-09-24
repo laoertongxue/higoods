@@ -719,6 +719,15 @@ const cutPieceReturnProcessingRoutePath = '/fcs/craft/cutting/cut-piece-return-p
 const productionPreparationTimingRoutePath = '/fcs/production/preparation-timing'
 const productionPreparationTimingStatisticsRoutePath = '/fcs/production/preparation-timing-statistics'
 let previousRenderedPagePathname = ''
+let tmfMockBootstrapAttempted = false
+let tmfMockStorageWarning = false
+
+const tmfStorageCapacityError = '本次未保存，数量未改变。请检查浏览器存储后使用原操作重试。'
+
+function includeTmfStorageWarning(pageContent: string): string {
+  if (!tmfMockStorageWarning) return pageContent
+  return `<section role="status" aria-live="polite" class="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">织带厂演示数据未能全部保存，当前页面仍可查看已保存记录。请检查浏览器存储空间；处理后刷新页面可重新补齐演示数据。</section>${pageContent}`
+}
 
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   const isSupplementManagementEntry =
@@ -742,8 +751,20 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
     || (normalizedPathname === '/fcs/print/preview'
       && new URLSearchParams(appStore.getState().pathname.split('?')[1] || '').get('documentType')?.startsWith('TMF_'))
   if (isTmfPrototypeRoute) {
-    const prototypeData = await import('./data/fcs/tmf-base-demo.ts')
-    prototypeData.ensureTmfConnectedMockData()
+    if (!tmfMockBootstrapAttempted) {
+      // Avoid repeating a full connected-demo bootstrap on every TMF route.
+      // A quota failure is an initialization warning, not a page-module failure.
+      try {
+        const prototypeData = await import('./data/fcs/tmf-base-demo.ts')
+        tmfMockBootstrapAttempted = true
+        prototypeData.ensureTmfConnectedMockData()
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== tmfStorageCapacityError) throw error
+        tmfMockBootstrapAttempted = true
+        tmfMockStorageWarning = true
+        console.warn('织带厂演示数据初始化未能完整保存；继续显示当前页面。', error)
+      }
+    }
   }
   if (isSupplementManagementEntry) {
     const supplementManagementPage = await import('./pages/process-factory/cutting/supplement-management')
@@ -949,7 +970,7 @@ async function render(): Promise<void> {
     return
   }
 
-  root.innerHTML = renderAppShell(state, pageContent)
+  root.innerHTML = renderAppShell(state, includeTmfStorageWarning(pageContent))
   if (isPdaPath(state.pathname)) {
     if (!root.querySelector('[data-pda-wool-root], [data-pda-wool-access-blocked], [data-pda-exec-wool-scan], [data-wool-receiving-page], [data-wool-stock-page], [data-wool-pda-warehouse-flows]')) {
       schedulePdaMainTabPreload()
@@ -1138,7 +1159,7 @@ async function renderPageContentOnly(): Promise<void> {
     return
   }
 
-  pageContentHost.innerHTML = pageContent
+  pageContentHost.innerHTML = includeTmfStorageWarning(pageContent)
   hydrateRealQRCodes(pageContentHost)
   queueMicrotask(() => {
     hydrateIcons(pageContentHost)
