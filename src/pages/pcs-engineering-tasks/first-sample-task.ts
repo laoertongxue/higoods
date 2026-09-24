@@ -1,5 +1,6 @@
+import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
-// 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
+// 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
 // 首单样衣任务：任务骨架、状态、依赖、负责人和时间只读生产准备单任务事实。
 // 跟单在工作安排中下达多行制作要求；制作团队逐行提交真实图片、实际数量和制作事实后完成，不设置二次审核。
 
@@ -18,29 +19,8 @@ import {
 } from '../../data/pcs-engineering-master-repository'
 import { getEngineeringIndependentSamplingRecord } from '../../data/pcs-engineering-master-sampling'
 import { escapeHtml, formatDateTime } from '../../utils'
-import {
-  type EngineeringListRow,
-  createEngineeringListColumns,
-  renderEmptyDetail,
-  renderEngineeringStandardListPage,
-  renderHeaderMeta,
-  renderListFilters,
-  renderMetricButton,
-  renderSectionCard,
-  renderStatusBadge,
-  registerEngineeringListModule,
-  state,
-} from './shared'
-import {
-  ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
-  getEngineeringTaskDetail,
-  getEngineeringTaskSourceOptions,
-  getEngineeringTaskTeamOptions,
-  listEngineeringTasksByType,
-  renderTaskDependencyCard,
-  renderTaskLogsCard,
-  renderTaskWorkbenchHeader,
-} from './master-task-common'
+import { renderEmptyDetail, renderSectionCard } from './shared'
+import { getEngineeringTaskDetail, renderTaskDependencyCard, renderTaskLogsCard, renderTaskWorkbenchHeader } from './master-task-common'
 
 const TASK_TYPES = ['PRE_PRODUCTION_SAMPLE'] as const
 const LIST_PATH = '/pcs/production-preparation/first-sample'
@@ -84,71 +64,6 @@ function getResultDrafts(task: EngineeringTaskRecord): SampleResultDraft[] {
   }))
   resultDrafts.set(task.taskId, created)
   return created
-}
-
-function filteredTasks(): EngineeringTaskRecord[] {
-  const keyword = state.firstSampleList.search.trim().toLowerCase()
-  return listEngineeringTasksByType(TASK_TYPES).filter((task) => {
-    const master = getEngineeringMasterOrderById(task.masterOrderId)
-    const text = [task.taskId, task.taskName, master?.masterOrderCode, master?.styleCode, master?.styleName, task.ownerTeamName]
-      .filter(Boolean).join(' ').toLowerCase()
-    if (keyword && !text.includes(keyword)) return false
-    if (state.firstSampleList.status !== 'all' && task.status !== state.firstSampleList.status) return false
-    if (state.firstSampleList.owner !== 'all' && task.ownerTeamName !== state.firstSampleList.owner) return false
-    if (state.firstSampleList.quickFilter === 'in-progress' && task.status !== '进行中') return false
-    if (state.firstSampleList.quickFilter === 'completed' && task.status !== '已完成') return false
-    return true
-  })
-}
-
-const COLUMNS = createEngineeringListColumns([
-  { key: 'task', title: '首单样衣任务', width: 240, required: true, freezeable: true, sortable: true },
-  { key: 'master', title: '生产准备单', width: 150, required: true, freezeable: true, sortable: true },
-  { key: 'style', title: '款式', width: 180, required: true, sortable: true },
-  { key: 'status', title: '状态', width: 120, required: true, sortable: true },
-  { key: 'team', title: '当前需处理的团队', width: 150, sortable: true },
-  { key: 'result', title: '成果', width: 170, sortable: true },
-  { key: 'submitted', title: '提交时间', width: 170, sortable: true },
-  { key: 'actions', title: '操作', width: 100, required: true, actionColumn: true },
-])
-
-function rows(): EngineeringListRow[] {
-  return filteredTasks().map((task) => {
-    const master = getEngineeringMasterOrderById(task.masterOrderId)
-    const resultText = task.resultImageIds.length > 0
-      ? `${task.resultImageIds.length} 张 / ${task.resultQuantity} 件`
-      : '未提交'
-    return {
-      cells: {
-        task: `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${LIST_PATH}/${escapeHtml(task.taskId)}">${escapeHtml(task.taskName)}</button><p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>`,
-        master: master ? `<button type="button" class="font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(master.masterOrderCode)}</button>` : '-',
-        style: escapeHtml(master ? `${master.styleCode} · ${master.styleName}` : '-'),
-        status: renderStatusBadge(task.status),
-        team: escapeHtml(task.ownerTeamName || '-'),
-        result: escapeHtml(resultText),
-        submitted: escapeHtml(task.submittedAt ? formatDateTime(task.submittedAt) : '-'),
-        actions: `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700" data-nav="${LIST_PATH}/${escapeHtml(task.taskId)}">查看</button>`,
-      },
-      sortValues: {
-        task: task.taskName,
-        master: master?.masterOrderCode || '',
-        style: master?.styleCode || '',
-        status: task.status,
-        team: task.ownerTeamName,
-        result: resultText,
-        submitted: task.submittedAt,
-      },
-    }
-  })
-}
-
-function stats(): string {
-  const tasks = listEngineeringTasksByType(TASK_TYPES)
-  return `<section class="flex flex-wrap gap-3">
-    ${renderMetricButton('全部任务', tasks.length, state.firstSampleList.quickFilter === 'all', 'all', 'set-first-sample-quick-filter')}
-    ${renderMetricButton('进行中', tasks.filter((task) => task.status === '进行中').length, state.firstSampleList.quickFilter === 'in-progress', 'in-progress', 'set-first-sample-quick-filter')}
-    ${renderMetricButton('已完成', tasks.filter((task) => task.status === '已完成').length, state.firstSampleList.quickFilter === 'completed', 'completed', 'set-first-sample-quick-filter')}
-  </section>`
 }
 
 function renderRequirementSummary(task: EngineeringTaskRecord): string {
@@ -202,37 +117,7 @@ function renderResult(task: EngineeringTaskRecord): string {
   return `${renderRequirementSummary(task)}${renderSectionCard('提交本次实际交付', `<div data-first-sample-form="${escapeHtml(task.taskId)}"><div data-first-sample-feedback class="mb-3 hidden rounded-md px-3 py-2 text-sm" role="alert"></div><div class="mb-3 flex justify-end"><button type="button" class="rounded border px-3 py-2 text-sm" data-first-sample-action="add-result-row" data-task-id="${escapeHtml(task.taskId)}">新增实际交付</button></div><div class="space-y-4">${rows}</div><div class="mt-4 flex justify-end"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-first-sample-action="submit-result" data-task-id="${escapeHtml(task.taskId)}">提交成果并完成任务</button></div></div>`)}`
 }
 
-registerEngineeringListModule('firstSample', {
-  getColumns: () => COLUMNS,
-  getRows: () => rows(),
-  getState: () => state.firstSampleList,
-  getEmptyText: () => '暂无首单样衣任务数据',
-  getStatsHtml: () => stats(),
-})
-
-export function renderPcsFirstSampleTaskPage(): string {
-  const tasks = listEngineeringTasksByType(TASK_TYPES)
-  return renderEngineeringStandardListPage({
-    module: 'firstSample',
-    title: '首单样衣任务',
-    createLabel: '查看生产准备单',
-    createAction: 'nav:/pcs/production-preparation/orders',
-    filtersHtml: renderListFilters({
-      searchPlaceholder: '搜索任务编号 / 主单编号 / 款式 / 负责团队',
-      listState: state.firstSampleList,
-      searchField: 'first-sample-search',
-      statusField: 'first-sample-status',
-      ownerField: 'first-sample-owner',
-      sourceField: 'first-sample-source',
-      statusOptions: ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
-      ownerOptions: getEngineeringTaskTeamOptions(tasks),
-      sourceOptions: getEngineeringTaskSourceOptions(tasks),
-    }),
-    statsHtml: stats(), rows: rows(), columns: COLUMNS,
-    listState: state.firstSampleList,
-    emptyText: '暂无首单样衣任务数据',
-  })
-}
+export function renderPcsFirstSampleTaskPage(): string { return renderProfessionalBusinessList('firstSample') }
 
 export function renderPcsFirstSampleTaskDetailPage(taskId: string): string {
   const detail = getEngineeringTaskDetail(taskId)

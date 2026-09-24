@@ -1,9 +1,10 @@
+import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
-// 标准列表契约由 renderEngineeringStandardListPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
+// 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
 // 调色任务模块：列表沿用标准任务页，详情通过生产准备单事实服务完成三阶段操作。
 
-import type { EngineeringTaskRecord } from '../../data/pcs-engineering-master-types.ts'
-import { getEngineeringMasterOrderById } from '../../data/pcs-engineering-master-repository.ts'
+
+
 import { getEngineeringTaskDefinition } from '../../data/pcs-engineering-dependency-policy.ts'
 import {
   confirmEngineeringColorRequirements,
@@ -19,33 +20,9 @@ import {
 } from '../../data/pcs-engineering-task-upload-repository.ts'
 import { getEngineeringTeamCurrentOperator } from '../../data/pcs-engineering-team-directory.ts'
 import { renderEngineeringFileUpload } from '../../components/ui/engineering-file-upload.ts'
-import { escapeHtml, formatDateTime } from '../../utils.ts'
-import {
-  type EngineeringListRow,
-  createEngineeringListColumns,
-  renderEmptyDetail,
-  renderEngineeringStandardListPage,
-  renderHeaderMeta,
-  renderListFilters,
-  renderMetricButton,
-  renderStatusBadge,
-  registerEngineeringListModule,
-  state,
-} from './shared.ts'
-import {
-  ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
-  getEngineeringTaskDetail,
-  getEngineeringTaskListDetailPath,
-  getEngineeringTaskSourceSummary,
-  getEngineeringTaskSourceOptions,
-  getEngineeringTaskTeamOptions,
-  listEngineeringTasksByType,
-  renderTaskDependencyCard,
-  renderTaskLogsCard,
-  renderTaskMaterialIdentity,
-  renderTaskReworkRoundsCard,
-  renderTaskWorkbenchHeader,
-} from './master-task-common.ts'
+import { escapeHtml } from '../../utils.ts'
+import { renderEmptyDetail } from './shared.ts'
+import { getEngineeringTaskDetail, renderTaskDependencyCard, renderTaskLogsCard, renderTaskMaterialIdentity, renderTaskReworkRoundsCard, renderTaskWorkbenchHeader } from './master-task-common.ts'
 import {
   changeTaskUiPage,
   getTaskUiActionNode,
@@ -59,125 +36,6 @@ import {
 
 const COLOR_TASK_TYPES = ['COLOR_YARN', 'COLOR_FABRIC'] as const
 const COLOR_LIST_PATH = '/pcs/production-preparation/color'
-
-function getColorTasksFiltered(): EngineeringTaskRecord[] {
-  const tasks = listEngineeringTasksByType(COLOR_TASK_TYPES)
-  const keyword = state.colorList.search.trim().toLowerCase()
-  return tasks.filter((task) => {
-    const master = getEngineeringMasterOrderById(task.masterOrderId)
-    const definition = getEngineeringTaskDefinition(task.taskType)
-    const source = getEngineeringTaskSourceSummary(task)
-    if (keyword) {
-      const haystack = [
-        task.taskId,
-        task.taskName,
-        definition.taskName,
-        master?.masterOrderCode || '',
-        master?.styleCode || '',
-        master?.styleName || '',
-        task.ownerTeamName,
-      ].join(' ').toLowerCase()
-      if (!haystack.includes(keyword)) return false
-    }
-    if (state.colorList.status !== 'all' && task.status !== state.colorList.status) return false
-    if (state.colorList.owner !== 'all' && (task.status === '已完成' || task.ownerTeamName !== state.colorList.owner)) return false
-    if (state.colorList.source !== 'all' && source.label !== state.colorList.source) return false
-    if (state.colorList.quickFilter === 'in-progress' && task.status !== '进行中') return false
-    if (state.colorList.quickFilter === 'pending-review' && task.status !== '待审核') return false
-    if (state.colorList.quickFilter === 'rework' && task.status !== '返工中') return false
-    if (state.colorList.quickFilter === 'completed' && task.status !== '已完成') return false
-    return true
-  })
-}
-
-const COLOR_LIST_COLUMNS = createEngineeringListColumns([
-  { key: 'task', title: '调色任务', width: 210, required: true, freezeable: true, sortable: true },
-  { key: 'master', title: '任务来源', width: 170, required: true, freezeable: true, sortable: true },
-  { key: 'status', title: '状态', width: 130, required: true, freezeable: true, sortable: true },
-  { key: 'team', title: '当前需处理的团队', width: 150, sortable: true },
-  { key: 'material', title: '物料需求', width: 230, sortable: true },
-  { key: 'rework', title: '返工', width: 100, sortable: true },
-  { key: 'started', title: '开始时间', width: 170, sortable: true },
-  { key: 'actions', title: '操作', width: 120, required: true, actionColumn: true },
-])
-
-function getColorListRows(): EngineeringListRow[] {
-  return getColorTasksFiltered().map((task) => {
-    const master = getEngineeringMasterOrderById(task.masterOrderId)
-    const definition = getEngineeringTaskDefinition(task.taskType)
-    const source = getEngineeringTaskSourceSummary(task)
-    const detailPath = getEngineeringTaskListDetailPath(task, COLOR_LIST_PATH)
-    return {
-      cells: {
-        task: `<div class="space-y-1">
-          <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(definition.taskName)}</button>
-          <p class="text-xs text-slate-500">${escapeHtml(task.taskId)}</p>
-        </div>`,
-        master: master
-          ? `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(master.masterOrderId)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`
-          : `<button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="${escapeHtml(detailPath)}">${escapeHtml(source.code)}</button><p class="text-xs text-slate-500">${escapeHtml(source.label)}</p>`,
-        status: renderStatusBadge(task.status),
-        team: escapeHtml(task.status === '已完成' ? '-' : task.ownerTeamName || '-'),
-        material: task.materialLines.length > 0
-          ? escapeHtml(task.materialLines.map((line) => line.materialName).join('、'))
-          : '<span class="text-slate-400">暂无物料</span>',
-        rework: task.reworkRounds.length > 0
-          ? `<span class="rounded-full bg-orange-100 px-2.5 py-1 text-xs font-medium text-orange-700">${task.reworkRounds.length} 轮</span>`
-          : '<span class="text-slate-400">无</span>',
-        started: escapeHtml(task.startedAt ? formatDateTime(task.startedAt) : '-'),
-        actions: `<div class="flex flex-wrap gap-2">
-          <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(detailPath)}">查看</button>
-        </div>`,
-      },
-      sortValues: {
-        task: definition.taskName,
-        master: source.code,
-        status: task.status,
-        team: task.ownerTeamName || '',
-        material: task.materialLines.map((line) => line.materialName).join('、'),
-        rework: task.reworkRounds.length,
-        started: task.startedAt,
-      },
-    }
-  })
-}
-
-function renderColorListStats(): string {
-  const tasks = listEngineeringTasksByType(COLOR_TASK_TYPES)
-  return `<section class="flex flex-wrap gap-3">
-    ${renderMetricButton('全部任务', tasks.length, state.colorList.quickFilter === 'all', 'all', 'set-color-quick-filter')}
-    ${renderMetricButton('进行中', tasks.filter((item) => item.status === '进行中').length, state.colorList.quickFilter === 'in-progress', 'in-progress', 'set-color-quick-filter')}
-    ${renderMetricButton('待审核', tasks.filter((item) => item.status === '待审核').length, state.colorList.quickFilter === 'pending-review', 'pending-review', 'set-color-quick-filter')}
-    ${renderMetricButton('返工中', tasks.filter((item) => item.status === '返工中').length, state.colorList.quickFilter === 'rework', 'rework', 'set-color-quick-filter')}
-    ${renderMetricButton('已完成', tasks.filter((item) => item.status === '已完成').length, state.colorList.quickFilter === 'completed', 'completed', 'set-color-quick-filter')}
-  </section>`
-}
-
-function renderColorListPage(): string {
-  const tasks = listEngineeringTasksByType(COLOR_TASK_TYPES)
-  return renderEngineeringStandardListPage({
-    module: 'color',
-    title: '调色任务',
-    createLabel: '查看生产准备单',
-    createAction: 'nav:/pcs/production-preparation/orders',
-    filtersHtml: renderListFilters({
-      searchPlaceholder: '搜索任务编号 / 任务名称 / 主单编号 / 款式编码 / 当前团队',
-      listState: state.colorList,
-      searchField: 'color-search',
-      statusField: 'color-status',
-      ownerField: 'color-owner',
-      sourceField: 'color-source',
-      statusOptions: ENGINEERING_TASK_FILTER_STATUS_OPTIONS,
-      ownerOptions: getEngineeringTaskTeamOptions(tasks),
-      sourceOptions: getEngineeringTaskSourceOptions(tasks),
-    }),
-    statsHtml: renderColorListStats(),
-    rows: getColorListRows(),
-    columns: COLOR_LIST_COLUMNS,
-    listState: state.colorList,
-    emptyText: '暂无调色任务数据',
-  })
-}
 
 function renderColorDetailPage(taskId: string): string {
   const detail = getEngineeringTaskDetail(taskId)
@@ -320,17 +178,7 @@ export function handleColorTaskEvent(target: HTMLElement): boolean {
   }
 }
 
-registerEngineeringListModule('color', {
-  getColumns: () => COLOR_LIST_COLUMNS,
-  getRows: () => getColorListRows(),
-  getState: () => state.colorList,
-  getEmptyText: () => '暂无调色任务数据',
-  getStatsHtml: () => renderColorListStats(),
-})
-
-export function renderPcsColorTaskPage(): string {
-  return renderColorListPage()
-}
+export function renderPcsColorTaskPage(): string { return renderProfessionalBusinessList('color') }
 
 export function renderPcsColorTaskDetailPage(taskId: string): string {
   return renderColorDetailPage(taskId)

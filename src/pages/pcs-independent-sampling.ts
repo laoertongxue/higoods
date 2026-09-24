@@ -1,3 +1,4 @@
+import { renderProfessionalBusinessList } from './pcs-engineering-tasks/business-list.ts'
 // @page-pattern: list
 import { getProjectById } from '../data/pcs-project-repository.ts'
 import { localDateTimeText } from '../utils.ts'
@@ -114,7 +115,6 @@ const ui = {
   appliedStartDate: '',
   appliedEndDate: '',
   selectedTaskIds: new Set<string>(),
-  displayTeamFilter: '',
   detailStepByTask: {} as Record<string, number>,
   bomLineDraftsByVersion: {} as Record<string, EngineeringBomMaterialLineDraft[]>,
   pricingPlanDraftsByTask: {} as Record<string, { customCostDecision: EngineeringBomCustomCostDecision; customCosts: EngineeringBomCustomCostDraft[] }>,
@@ -188,7 +188,6 @@ function listControllerState(): ProcessOrderListControllerState {
   return { currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 10 }, preferencesLoaded: false, showColumnSettings: false }
 }
 const listState = listControllerState()
-const displaySampleListState = listControllerState()
 
 function nowText(): string { return localDateTimeText(new Date()) }
 function samplingStatusText(record: EngineeringIndependentSamplingRecord): string {
@@ -202,7 +201,6 @@ function rerender(): void { if (typeof window !== 'undefined') window.dispatchEv
 function run(action: () => void, success: string): void { try { action(); setFeedback(success) } catch (error) { setFeedback(error instanceof Error ? error.message : '操作失败。', false) } rerender() }
 function value(field: string, scope: ParentNode = document): string { return scope.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-${PREFIX}-field="${field}"]`)?.value.trim() || '' }
 function checkedTaskTypes(): EngineeringIndependentProfessionalTaskType[] { return [...document.querySelectorAll<HTMLInputElement>(`[data-${PREFIX}-field="planTaskType"]:checked`)].map((node) => node.value as EngineeringIndependentProfessionalTaskType) }
-function isDisplaySampleListPath(): boolean { return location.pathname === '/pcs/production-preparation/display-sample' }
 
 export function getIndependentProfessionalTaskDetailPath(task: Pick<EngineeringIndependentProfessionalTask, 'taskId' | 'taskType'>): string {
   if (task.taskType === 'BASE_PATTERN') return `/pcs/production-preparation/plate-making/${encodeURIComponent(task.taskId)}`
@@ -489,57 +487,8 @@ const listController = createProcessOrderListController({
     defaultFrozenKeys: ['code'], columnSettingsTitle: '设计改款任务列表列设置', emptyText: '暂无设计改款任务', getRows: listRows,
   })
 
-interface DisplaySampleListRow {
-  record: EngineeringIndependentSamplingRecord
-  task: EngineeringIndependentProfessionalTask
-}
-
-function displaySampleRows(): DisplaySampleListRow[] {
-  return listEngineeringIndependentSamplingRecords()
-    .flatMap((record) => record.professionalTasks.filter((task) => task.taskType === 'DISPLAY_SAMPLE').map((task) => ({ record, task })))
-    .filter(({ task }) => !ui.displayTeamFilter || getEngineeringIndependentProfessionalTaskCurrentTeam(task) === ui.displayTeamFilter)
-}
-
-function independentTaskCurrentAction(task: EngineeringIndependentProfessionalTask): string {
-  if (task.status === 'WAIT_DEPENDENCY') return '等待需要先完成的工作'
-  if (task.taskType === 'DISPLAY_SAMPLE' && task.status === 'WAIT_START') return '填报并提交销售展示样衣'
-  if (task.status === 'WAIT_REVIEW') return '由买手审核本次成果'
-  if (task.status === 'REWORK') return '只重做未通过的成果'
-  if (task.status === 'COMPLETED') return '已完成'
-  if ((task.taskType === 'COLOR_YARN' || task.taskType === 'COLOR_FABRIC') && !task.colorRequirementConfirmedAt) return '由买手填写潘通色号和颜色名称'
-  return task.status === 'IN_PROGRESS' ? '制作并提交真实成果' : '开始本项工作'
-}
-
-const displaySampleColumns: StandardListColumn<DisplaySampleListRow>[] = [
-  { key: 'task', title: '任务号', width: 230, required: true, freezeable: true, sortable: true, sortValue: ({ task }) => task.taskId, render: ({ task }) => `<a class="font-medium text-blue-700" href="${getIndependentProfessionalTaskDetailPath(task)}">${escapeHtml(task.taskId)}</a>` },
-  { key: 'source', title: '由哪张单发起', width: 160, sortable: true, sortValue: ({ record }) => record.samplingTaskCode, render: ({ record }) => `<p class="font-medium">${escapeHtml(record.samplingTaskCode)}</p><p class="text-xs text-slate-500">${TASK_TYPE_TEXT}</p>` },
-  { key: 'style', title: '新款式（SPU）', width: 300, required: true, render: ({ record }) => { const style = getStyleArchiveById(record.targetStyleId); return style ? imageButton(style.mainImageUrl, style.styleName, `<span class="block"><strong>${escapeHtml(style.styleCode)}</strong><small class="block text-slate-500">${escapeHtml(style.styleName)}</small></span>`) : imageButton(record.designFiles.at(-1)?.dataUrl || '', record.temporarySpuName || record.targetStyleName, `<span class="block"><strong>线下临时 SPU</strong><small class="block text-slate-500">${escapeHtml(record.temporarySpuName || record.targetStyleName)}</small></span>`) } },
-  { key: 'team', title: '当前需处理的团队', width: 160, render: ({ task }) => escapeHtml(getEngineeringIndependentProfessionalTaskCurrentTeam(task) || '-') },
-  { key: 'actionText', title: '当前动作', width: 220, render: ({ task }) => escapeHtml(independentTaskCurrentAction(task)) },
-  { key: 'status', title: '状态', width: 120, sortable: true, sortValue: ({ task }) => professionalTaskStatusText(task), render: ({ task }) => `<span class="rounded-full bg-blue-50 px-2 py-1 text-xs text-blue-700">${escapeHtml(professionalTaskStatusText(task))}</span>` },
-  { key: 'plan', title: '计划完成', width: 130, sortable: true, sortValue: ({ task }) => task.plannedCompleteAt, render: ({ task }) => escapeHtml(task.plannedCompleteAt || '-') },
-  { key: 'updated', title: '最后更新', width: 170, sortable: true, sortValue: ({ record }) => record.updatedAt, render: ({ record }) => escapeHtml(record.updatedAt) },
-  { key: 'action', title: '操作', width: 100, actionColumn: true, render: ({ task }) => `<a class="inline-flex h-8 items-center rounded border px-3 text-xs" href="${getIndependentProfessionalTaskDetailPath(task)}">查看详情</a>` },
-]
-
-const displaySampleListController = createProcessOrderListController({
-  state: displaySampleListState,
-  columns: displaySampleColumns,
-  preferenceKey: 'higood-pcs-display-sample-list-preferences-v1',
-  pageSizeOptions: [10, 20, 50],
-  eventPrefix: PREFIX,
-  rootSelector: '[data-independent-sampling-list="DISPLAY_SAMPLE"]',
-  tableSurfaceSelector: '[data-independent-sampling-table]',
-  paginationSurfaceSelector: '[data-independent-sampling-pagination]',
-  overlaysSurfaceSelector: '[data-independent-sampling-overlays]',
-  defaultFrozenKeys: ['task'],
-  columnSettingsTitle: '销售展示样衣任务列表列设置',
-  emptyText: '暂无销售展示样衣任务',
-  getRows: displaySampleRows,
-})
-
 function currentListController() {
-  return isDisplaySampleListPath() ? displaySampleListController : listController
+  return listController
 }
 
 export function renderPcsDesignRevisionListPage(): string {
@@ -555,21 +504,7 @@ export function renderPcsDesignRevisionListPage(): string {
   })}</div>`
 }
 
-export function renderPcsDisplaySampleTaskListPage(): string {
-  const view = displaySampleListController.getView()
-  displaySampleListController.installColumnDragEvents()
-  const teams = [...new Set(listEngineeringIndependentSamplingRecords().flatMap((record) => record.professionalTasks.filter((task) => task.taskType === 'DISPLAY_SAMPLE').map(getEngineeringIndependentProfessionalTaskCurrentTeam)).filter(Boolean))].sort()
-  return `<div data-independent-sampling-list="DISPLAY_SAMPLE">${renderStandardListPage({
-    title: '销售展示样衣任务',
-    listActionsHtml: `<button class="h-9 rounded border px-4 text-sm" data-${PREFIX}-action="open-column-settings">列设置</button>`,
-    feedbackHtml: feedbackHtml(),
-    filtersHtml: `<div class="rounded-lg border bg-white p-4"><label class="block max-w-xs text-sm text-slate-600"><span>当前需处理的团队</span><select class="mt-1 h-10 w-full rounded border px-3" data-${PREFIX}-field="displayTeamFilter"><option value="">全部团队</option>${teams.map((team) => `<option value="${escapeHtml(team)}" ${ui.displayTeamFilter === team ? 'selected' : ''}>${escapeHtml(team)}</option>`).join('')}</select></label></div>`,
-    listTitle: `共 ${displaySampleRows().length} 条`,
-    tableHtml: `<div data-independent-sampling-table>${view.tableHtml}</div>`,
-    paginationHtml: `<div data-independent-sampling-pagination>${view.paginationHtml}</div>`,
-    overlaysHtml: `<div data-independent-sampling-overlays>${displaySampleListController.renderColumnSettings()}</div>${renderDialogHost()}`,
-  })}</div>`
-}
+export function renderPcsDisplaySampleTaskListPage(): string { return renderProfessionalBusinessList('displaySample') }
 
 function styleCard(styleId: string, label: string): string {
   const style = getStyleArchiveById(styleId); if (!style) return ''
@@ -1208,8 +1143,8 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   }
   if (action === 'prev-page' || action === 'next-page') { controller.stepPage(action === 'next-page' ? 1 : -1); controller.refresh(); return true }
   if (action === 'sort-column') { controller.cycleSort(node.dataset.columnKey || ''); controller.refresh(); return true }
-  if (action === 'open-column-settings') { (isDisplaySampleListPath() ? displaySampleListState : listState).showColumnSettings = true; controller.refresh({ table: false, pagination: false, overlays: true }); return true }
-  if (action === 'close-column-settings') { (isDisplaySampleListPath() ? displaySampleListState : listState).showColumnSettings = false; controller.refresh({ table: false, pagination: false, overlays: true }); return true }
+  if (action === 'open-column-settings') { listState.showColumnSettings = true; controller.refresh({ table: false, pagination: false, overlays: true }); return true }
+  if (action === 'close-column-settings') { listState.showColumnSettings = false; controller.refresh({ table: false, pagination: false, overlays: true }); return true }
   if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') { const key = node.dataset.pcsIndependentSamplingColumnKey || node.closest<HTMLElement>('[data-pcs-independent-sampling-column-key]')?.dataset.pcsIndependentSamplingColumnKey || ''; controller.updateColumnPreference(action, key, target instanceof HTMLInputElement ? target.checked : undefined); controller.refresh({ overlays: true }); return true }
   if (action === 'restore-column-settings') { controller.restorePreferences(); controller.refresh({ overlays: true }); return true }
   if (action === 'open-image') { ui.preview = { url: node.dataset.imageUrl || '', fileName: node.dataset.imageAlt || '款式图片' }; refreshDialogs(); return true }
@@ -1327,7 +1262,6 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   if (target.matches(`[data-${PREFIX}-field="listProcessing"]`)) { ui.listProcessing = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="listStartDate"]`)) { ui.listStartDate = target.value; return true }
   if (target.matches(`[data-${PREFIX}-field="listEndDate"]`)) { ui.listEndDate = target.value; return true }
-  if (target.matches(`[data-${PREFIX}-field="displayTeamFilter"]`)) { ui.displayTeamFilter = target.value; displaySampleListState.currentPage = 1; rerender(); return true }
   if (target.matches(`[data-${PREFIX}-field="sourceStyleId"]`)) { ui.createDraft.sourceStyleId = target.value; if (ui.createDraft.patternHandling === 'REUSE') ui.createDraft.reusedPatternFiles = []; const source = getStyleArchiveById(target.value); if (source && !ensureBomLineDrafts(NEW_BOM_ID).length) { const reference = listEngineeringBomHistory(source.styleCode)[0]; if (reference) { ui.bomLineDraftsByVersion[NEW_BOM_ID] = reference.materialLines.map(line => ({ ...line })); refreshMaterialPricingRegion(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!); refreshWorkPreview(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!) } } refreshDialogs(); return true }
   if (target.matches(`[data-${PREFIX}-field="targetStyleId"]`)) { ui.createDraft.targetStyleId = target.value; if (ui.createDraft.patternHandling === 'REUSE' && !ui.createDraft.sourceStyleId) ui.createDraft.reusedPatternFiles = []; refreshDialogs(); return true }
   if (target.matches(`[data-${PREFIX}-field="reusedPatternFileId"]`)) { const candidate = reusablePatternCandidates().find(({ file }) => file.fileId === target.value); ui.createDraft.reusedPatternFiles = candidate ? [{ ...candidate.file }] : []; refreshDialogs(); return true }

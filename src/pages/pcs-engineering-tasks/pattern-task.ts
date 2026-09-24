@@ -1,5 +1,6 @@
+import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
-// 标准列表契约由 createMasterTaskPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
+// 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
 // 花型任务：列表沿用标准任务页；详情只读生产准备单任务事实，并调用统一成果提交 / 审核服务。
 import {
   reviewEngineeringMaterialResults,
@@ -23,30 +24,12 @@ import {
   renderTaskReworkRoundsCard,
   renderTaskWorkbenchHeader,
 } from './master-task-common.ts'
-import { createMasterTaskPage } from './master-task-page.ts'
-import {
-  changeTaskUiPage,
-  getTaskUiActionNode,
-  getTaskUiFeedbackContainer,
-  getTaskUiValue,
-  handleTaskUiInput,
-  paginateTaskLines,
-  refreshTaskUiRegion,
-  setTaskUiFeedback,
-  splitTaskUiReferences,
-} from './material-review-task-ui.ts'
-import { renderEmptyDetail, state } from './shared.ts'
+
+import { changeTaskUiPage, getTaskUiActionNode, getTaskUiFeedbackContainer, getTaskUiValue, handleTaskUiInput, paginateTaskLines, refreshTaskUiRegion, setTaskUiFeedback } from './material-review-task-ui.ts'
+import { renderEmptyDetail } from './shared.ts'
 
 const MODULE = 'pattern'
 const PATH = '/pcs/production-preparation/artwork'
-
-const page = createMasterTaskPage({
-  module: MODULE,
-  title: '花型任务',
-  path: PATH,
-  taskTypes: ['PATTERN_ARTWORK'],
-  listState: state.patternList,
-})
 
 function inputValue(task: EngineeringTaskRecord, line: EngineeringTaskMaterialLine, field: string, fallback = ''): string {
   return escapeHtml(getTaskUiValue(MODULE, task.taskId, line.materialLineId, field, fallback))
@@ -209,4 +192,4 @@ export function handlePatternTaskEvent(target: HTMLElement): boolean {
   return false
 }
 
-export const renderPcsPatternTaskPage = page.renderList
+export function renderPcsPatternTaskPage(): string { return renderProfessionalBusinessList('pattern') }

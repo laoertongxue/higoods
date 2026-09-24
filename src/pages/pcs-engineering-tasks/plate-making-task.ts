@@ -1,5 +1,6 @@
+import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
-// 标准列表契约由 createMasterTaskPage 内部统一调用：renderStandardListPage、renderStandardListTable、renderTablePagination。
+// 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
 // 制版任务：列表使用标准任务页；详情维护基码／齐码纸样的独立成果版本。
 import {
   listEngineeringPatternResultVersions,
@@ -21,18 +22,12 @@ import {
   renderTaskReworkRoundsCard,
   renderTaskWorkbenchHeader,
 } from './master-task-common'
-import { createMasterTaskPage } from './master-task-page'
-import { renderEmptyDetail, state } from './shared'
+
+import { renderEmptyDetail } from './shared'
 
 const PATH = '/pcs/production-preparation/plate-making'
 const TASK_TYPES = ['BASE_PATTERN_WOVEN', 'BASE_PATTERN_KNIT', 'SIZE_PATTERN_WOVEN', 'SIZE_PATTERN_KNIT'] as const
 const drafts = new Map<string, Record<string, string>>()
-
-const page = createMasterTaskPage({
-  module: 'plate', title: '制版任务', path: PATH,
-  taskTypes: TASK_TYPES,
-  listState: state.plateList,
-})
 
 function draftValue(taskId: string, field: string): string {
   return drafts.get(taskId)?.[field] || ''
@@ -72,7 +67,7 @@ function renderResultEditor(taskId: string, status: string, taskType: string): s
   </section>`
 }
 
-export const renderPcsPlateMakingTaskPage = page.renderList
+export function renderPcsPlateMakingTaskPage(): string { return renderProfessionalBusinessList('plate') }
 
 export function renderPcsPlateMakingTaskDetailPage(taskId: string): string {
   const detail = getEngineeringTaskDetail(taskId)

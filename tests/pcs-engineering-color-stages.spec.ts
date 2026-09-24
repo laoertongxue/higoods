@@ -1,3 +1,4 @@
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
 import assert from 'node:assert/strict'
 
 import { listStyleArchives, resetStyleArchiveRepository } from '../src/data/pcs-style-archive-repository.ts'
@@ -43,7 +44,7 @@ function line(
 resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
 
-const style = listStyleArchives()[0]
+const style = resetAndGetProductionPreparationStyle()
 assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,

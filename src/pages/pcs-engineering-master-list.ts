@@ -3,7 +3,7 @@
 import { renderPrimaryButton, renderSecondaryButton } from '../components/ui/button.ts'
 import { renderFormDialog } from '../components/ui/dialog.ts'
 import { renderLabeledInput } from '../components/ui/form.ts'
-import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListPage } from '../components/ui/list-page.ts'
 import {
   clearListColumnPreferences,
   loadListColumnPreferences,
@@ -41,8 +41,12 @@ import {
 import { listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import type { StyleArchiveShellRecord } from '../data/pcs-style-archive-types.ts'
 import { escapeHtml } from '../utils.ts'
+import { renderProcessOrderStats } from '../components/ui/process-order-list-presentation.ts'
+import { ENGINEERING_PREPARATION_LABELS, EMPTY_ENGINEERING_MASTER_FILTERS, filterEngineeringMasterListRows, summarizeEngineeringMasterList, buildEngineeringMasterListCsv, type EngineeringMasterListFilters } from '../data/pcs-engineering-master-list-query.ts'
+import { engineeringTaskHref } from '../data/pcs-engineering-preparation-projection.ts'
+import { downloadPmsFile } from '../utils/pms-export.ts'
 
-const MASTER_LIST_STORAGE_KEY = 'higood-pcs-engineering-master-list-preferences-v1'
+const MASTER_LIST_STORAGE_KEY = '/pcs/production-preparation/orders:list-preferences-v2'
 const MASTER_LIST_PAGE_SIZES = [10, 20, 50]
 const MASTER_LIST_MAX_FROZEN_WIDTH = 320
 const MASTER_EVENT_PREFIX = 'pcs-engineering-master'
@@ -73,8 +77,10 @@ interface MasterListUiState {
   sort: StandardListSortState | null
   columnSettingsOpen: boolean
   draggedColumnKey: string
-  search: string
-  statusFilter: string
+  filters: EngineeringMasterListFilters
+  appliedFilters: EngineeringMasterListFilters
+  moreFiltersOpen: boolean
+  feedback: string
   currentPage: number
   createDialogOpen: boolean
   createStyleSearch: string
@@ -87,8 +93,8 @@ interface MasterListUiState {
 
 const masterListUiState: MasterListUiState = {
   preferences: {
-    order: ['masterOrderCode', 'style', 'merchandiser', 'status', 'currentStage', 'progress', 'updatedAt', 'actions'],
-    visibleKeys: ['masterOrderCode', 'style', 'merchandiser', 'status', 'currentStage', 'progress', 'updatedAt', 'actions'],
+    order: ['identity', 'source', 'progress', 'work', 'times', 'actions'],
+    visibleKeys: ['identity', 'source', 'progress', 'work', 'times', 'actions'],
     frozenKeys: [],
     pageSize: MASTER_LIST_PAGE_SIZES[0],
   },
@@ -96,8 +102,10 @@ const masterListUiState: MasterListUiState = {
   sort: null,
   columnSettingsOpen: false,
   draggedColumnKey: '',
-  search: '',
-  statusFilter: '',
+  filters: { ...EMPTY_ENGINEERING_MASTER_FILTERS },
+  appliedFilters: { ...EMPTY_ENGINEERING_MASTER_FILTERS },
+  moreFiltersOpen: false,
+  feedback: '',
   currentPage: 1,
   createDialogOpen: false,
   createStyleSearch: '',
@@ -109,13 +117,8 @@ const masterListUiState: MasterListUiState = {
 }
 
 const MASTER_LIST_COLUMN_RULES = [
-  { key: 'masterOrderCode', required: true, freezeable: true },
-  { key: 'style', required: true, freezeable: true },
-  { key: 'merchandiser' },
-  { key: 'status', required: true },
-  { key: 'currentStage' },
-  { key: 'progress' },
-  { key: 'updatedAt', freezeable: true },
+  { key: 'identity', required: true, freezeable: true }, { key: 'source', freezeable: true },
+  { key: 'progress', required: true }, { key: 'work' }, { key: 'times' },
   { key: 'actions', actionColumn: true },
 ]
 
@@ -124,101 +127,72 @@ function renderMasterStatusBadge(status: EngineeringMasterStatus): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${tone}">${escapeHtml(status)}</span>`
 }
 
+function masterLink(row: EngineeringMasterListRow, label: string): string {
+  return `<a class="font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(row.masterOrderId)}" href="/pcs/production-preparation/orders/${escapeHtml(row.masterOrderId)}">${escapeHtml(label)}</a>`
+}
+function labeledValue(label: string, value: string): string {
+  return `<p class="break-words"><span class="text-slate-500">${escapeHtml(label)}：</span>${escapeHtml(value || '未设置')}</p>`
+}
+function renderPendingTask(task: EngineeringMasterListRow['pendingTasks'][number]): string {
+  return `<div class="space-y-1 border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+    <a class="font-medium text-blue-700 hover:underline" href="${engineeringTaskHref(task.taskType, task.taskId)}" data-nav="${engineeringTaskHref(task.taskType, task.taskId)}">${escapeHtml(task.taskName)}</a>
+    <span class="ml-1 rounded bg-slate-100 px-1 py-0.5 text-slate-600">${escapeHtml(task.status)}</span>
+    ${labeledValue('责任', `${task.ownerTeamName || '团队待确认'} / ${task.assigneeName || '待分配'}`)}
+    ${labeledValue('计划完成', task.plannedCompleteAt)}
+    ${task.itemProgress ? labeledValue('明细进度', task.itemProgress) : ''}
+    ${task.waitingFor.length ? `<p class="text-amber-700">等待：${escapeHtml(task.waitingFor.join('、'))}</p>` : ''}
+  </div>`
+}
 const MASTER_LIST_COLUMNS: StandardListColumn<EngineeringMasterListRow>[] = [
   {
-    key: 'masterOrderCode',
-    title: '主单号',
-    width: 110,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    render: (row) => `
-      <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/production-preparation/orders/${escapeHtml(row.masterOrderId)}">${escapeHtml(row.masterOrderCode)}</button>
-    `,
+    key: 'identity', title: '准备单／款式', width: 270, required: true, freezeable: true, sortable: true,
     sortValue: (row) => row.masterOrderCode,
+    render: (row) => `<div class="space-y-2 text-xs"><div>${masterLink(row, row.masterOrderCode)}</div>
+      ${labeledValue('准备类型', ENGINEERING_PREPARATION_LABELS[row.preparationType] || '待确认')}
+      ${labeledValue('跟单负责人', row.merchandiserName)}
+      <div class="flex items-start gap-2 border-t pt-2">
+        ${row.styleImageUrl ? `<button type="button" class="relative h-16 w-12 shrink-0 overflow-hidden rounded border bg-white" data-${MASTER_EVENT_PREFIX}-action="open-style-image-preview" data-image-url="${escapeHtml(row.styleImageUrl)}" data-image-title="${escapeHtml(row.styleName)}" aria-label="查看${escapeHtml(row.styleName)}大图"><img src="${escapeHtml(row.styleImageUrl)}" alt="${escapeHtml(row.styleName)}" class="h-full w-full object-contain" data-prep-list-image /><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500" data-prep-image-state>图片加载中</span></button>` : '<span class="text-amber-700">缺少款式图片</span>'}
+        <div class="min-w-0"><p class="font-medium">${escapeHtml(row.styleName)}</p><p class="mt-1 break-all text-slate-500">${escapeHtml(row.styleCode)}</p></div>
+      </div></div>`,
   },
   {
-    key: 'style',
-    title: '款式',
-    width: 240,
-    required: true,
-    freezeable: true,
-    render: (row) => `
-      <div class="flex items-center gap-2">
-        ${row.styleImageUrl ? `
-          <button
-            type="button"
-            class="group block h-12 w-9 shrink-0 overflow-hidden rounded border border-slate-200 bg-white"
-            data-skip-page-rerender="true"
-            data-${MASTER_EVENT_PREFIX}-action="open-style-image-preview"
-            data-image-url="${escapeHtml(row.styleImageUrl)}"
-            data-image-title="${escapeHtml(row.styleName)}"
-            aria-label="查看${escapeHtml(row.styleName)}大图"
-          >
-            <img src="${escapeHtml(row.styleImageUrl)}" alt="${escapeHtml(row.styleName)}" class="h-full w-full object-cover transition-transform group-hover:scale-105" />
-          </button>
-        ` : ''}
-        <div class="min-w-0">
-          <p class="truncate font-medium">${escapeHtml(row.styleName)}</p>
-          <p class="mt-0.5 text-xs text-slate-500">${escapeHtml(row.styleCode)}</p>
-        </div>
-      </div>
-    `,
-    sortValue: (row) => `${row.styleName} ${row.styleCode}`,
+    key: 'source', title: '测款与资料来源', width: 240, freezeable: true,
+    render: (row) => `<div class="space-y-2 text-xs"><p class="text-slate-500">最近测款记录</p>
+      ${row.latestTestingId ? `<a class="text-blue-700 hover:underline" href="/pcs/testing/orders/${encodeURIComponent(row.latestTestingId)}" data-nav="/pcs/testing/orders/${encodeURIComponent(row.latestTestingId)}">${escapeHtml(row.latestTestingCode)}</a>` : '<p>未关联测款记录</p>'}
+      <p>${escapeHtml(row.latestTestingResult)}</p><div class="space-y-1 border-t pt-2"><p class="text-slate-500">本单关联设计改款</p>
+      ${row.sourceDesignRevisionTaskId ? `<a class="text-blue-700 hover:underline" href="/pcs/production-preparation/design-revision/${encodeURIComponent(row.sourceDesignRevisionTaskId)}" data-nav="/pcs/production-preparation/design-revision/${encodeURIComponent(row.sourceDesignRevisionTaskId)}">${escapeHtml(row.sourceDesignRevisionTaskCode || row.sourceDesignRevisionTaskId)}</a>` : '<p>未关联设计改款成果</p>'}
+      ${labeledValue('创建原因', row.creationReason || '未记录')}</div></div>`,
   },
   {
-    key: 'merchandiser',
-    title: '负责人',
-    width: 100,
-    render: (row) => `<span>${escapeHtml(row.merchandiserName)}</span>`,
+    key: 'progress', title: '准备进度与成果', width: 200, required: true, sortable: true,
+    sortValue: (row) => row.taskCount ? row.completedTaskCount / row.taskCount : -1,
+    render: (row) => `<div class="space-y-2 text-xs">${renderMasterStatusBadge(row.status)}${row.currentStage === row.status ? '' : `<p>${escapeHtml(row.currentStage)}</p>`}
+      ${row.status === '草稿' ? '<p class="text-amber-700">尚未发布专业任务</p>' : `<p>已完成 <strong>${row.completedTaskCount}</strong> / ${row.taskCount} 项</p>`}
+      ${labeledValue('关联 BOM', `${row.bomVersionCount} 个版本`)}
+      ${row.attentionKinds.length ? `<p class="text-amber-700">需跟进：${escapeHtml(row.attentionKinds.join('、'))}</p>` : ''}
+    </div>`,
   },
   {
-    key: 'status',
-    title: '状态',
-    width: 110,
-    required: true,
-    render: (row) => renderMasterStatusBadge(row.status),
+    key: 'work', title: '当前事项／责任与计划', width: 310,
+    render: (row) => `<div class="space-y-2 text-xs">${row.pendingTasks.length
+      ? `${row.pendingTasks.slice(0, 2).map(renderPendingTask).join('')}${row.pendingTasks.length > 2 ? `<details data-skip-page-rerender="true"><summary class="cursor-pointer py-1 text-blue-700">展开其余 ${row.pendingTasks.length - 2} 项</summary><div class="space-y-2 pt-2">${row.pendingTasks.slice(2).map(renderPendingTask).join('')}</div></details>` : ''}`
+      : `<p class="text-slate-500">${row.status === '草稿' ? '确认任务方案后发布' : row.status === '待关闭' ? '请跟单核对成果并关闭准备单' : ['已关闭', '已终止'].includes(row.status) ? '本单已结束，无待办任务' : '无待执行专业任务'}</p>`}</div>`,
   },
   {
-    key: 'currentStage',
-    title: '当前阶段',
-    width: 150,
-    render: (row) => `<span class="text-sm">${escapeHtml(row.currentStage)}</span>`,
+    key: 'times', title: '时间', width: 190, sortable: true, sortValue: (row) => row.updatedAt,
+    render: (row) => `<div class="space-y-2 text-xs">${labeledValue('创建', row.createdAt)}${labeledValue('发布', row.publishedAt || '尚未发布')}${labeledValue('更新', row.updatedAt)}${row.closedAt ? labeledValue('关闭', row.closedAt) : ''}</div>`,
   },
   {
-    key: 'progress',
-    title: '进度',
-    width: 90,
-    align: 'center',
-    render: (row) => `<span class="text-sm tabular-nums">${escapeHtml(row.progressText)}</span>`,
-  },
-  {
-    key: 'updatedAt',
-    title: '更新时间',
-    width: 160,
-    freezeable: true,
-    sortable: true,
-    render: (row) => `<span class="text-xs text-slate-500">${escapeHtml(row.updatedAt)}</span>`,
-    sortValue: (row) => row.updatedAt,
-  },
-  {
-    key: 'actions',
-    title: '操作',
-    width: 100,
-    required: true,
-    actionColumn: true,
-    align: 'right',
-    render: (row) => `
-      <div class="flex justify-end">
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/production-preparation/orders/${escapeHtml(row.masterOrderId)}">查看详情</button>
-      </div>
-    `,
+    key: 'actions', title: '操作', width: 110, required: true, actionColumn: true, align: 'right',
+    render: (row) => `<div class="text-xs">${masterLink(row, row.status === '草稿' ? '完善准备方案' : row.status === '待关闭' ? '核对准备成果' : '查看详情')}</div>`,
   },
 ]
 
 function getMasterListStorage(): Storage | null {
-  if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') return null
-  return localStorage
+  try {
+    if (typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') return null
+    return localStorage
+  } catch { return null }
 }
 
 function normalizeMasterListPreferences(
@@ -279,27 +253,21 @@ function withMasterListLocalInteractions(html: string): string {
 }
 
 function hydrateMasterListRegion(region: ParentNode): void {
+  region.querySelectorAll<HTMLImageElement>('[data-prep-list-image]').forEach((image) => {
+    const status = image.parentElement?.querySelector<HTMLElement>('[data-prep-image-state]')
+    if (!status) return
+    const update = () => { status.hidden = image.complete && image.naturalWidth > 0; if (image.complete && !image.naturalWidth) status.textContent = '图片加载失败'; }
+    image.addEventListener('load', update, { once: true })
+    image.addEventListener('error', () => { status.hidden = false; status.textContent = '图片加载失败'; }, { once: true })
+    update()
+  })
   void import('../components/shell.ts')
     .then(({ hydrateIcons }) => hydrateIcons(region))
     .catch(() => undefined)
 }
 
 function getFilteredMasterRows(): EngineeringMasterListRow[] {
-  const keyword = masterListUiState.search.trim().toLowerCase()
-  return buildEngineeringMasterListRows().filter((row) => {
-    if (masterListUiState.statusFilter && row.status !== masterListUiState.statusFilter) return false
-    if (keyword.length === 0) return true
-    return [
-      row.masterOrderCode,
-      row.styleCode,
-      row.styleName,
-      row.merchandiserName,
-      row.currentStage,
-    ]
-      .join(' ')
-      .toLowerCase()
-      .includes(keyword)
-  })
+  return filterEngineeringMasterListRows(buildEngineeringMasterListRows(), masterListUiState.appliedFilters)
 }
 
 function getPagedMasterRows(): StandardListPageSlice<EngineeringMasterListRow> {
@@ -319,50 +287,30 @@ function getPagedMasterRows(): StandardListPageSlice<EngineeringMasterListRow> {
 }
 
 function renderMasterListStats(): string {
-  const rows = buildEngineeringMasterListRows()
-  const executing = rows.filter((row) =>
-    ['已发布', '进行中', '技术包审核中', '待关闭'].includes(row.status),
-  ).length
-  const closed = rows.filter((row) => row.status === '已关闭').length
-  const draft = rows.filter((row) => row.status === '草稿').length
-  return renderStandardListStats([
-    { label: '生产准备单', value: rows.length },
-    { label: '草稿', value: draft },
-    { label: '执行中', value: executing },
-    { label: '已关闭', value: closed },
-  ])
+  return renderProcessOrderStats(summarizeEngineeringMasterList(getFilteredMasterRows()))
 }
 
 function renderMasterListFilters(): string {
-  return `
-    <div class="flex flex-wrap items-center gap-2">
-      <div class="relative">
-        <i data-lucide="search" class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"></i>
-        <input
-          type="search"
-          class="h-9 w-64 rounded-md border bg-background pl-8 pr-3 text-sm outline-none focus:border-blue-500"
-          placeholder="搜索主单号 / 款式 / 负责人"
-          value="${escapeHtml(masterListUiState.search)}"
-          data-${MASTER_EVENT_PREFIX}-field="list-search"
-        />
-      </div>
-      <select
-        class="h-9 rounded-md border bg-background px-2 text-sm"
-        data-${MASTER_EVENT_PREFIX}-field="status-filter"
-        aria-label="按状态筛选"
-      >
-        <option value="">全部状态</option>
-        ${MASTER_STATUS_OPTIONS.map((status) => `
-          <option value="${escapeHtml(status)}" ${masterListUiState.statusFilter === status ? 'selected' : ''}>${escapeHtml(status)}</option>
-        `).join('')}
-      </select>
-      <button
-        type="button"
-        class="inline-flex h-9 items-center rounded-md border px-3 text-sm hover:bg-muted"
-        data-${MASTER_EVENT_PREFIX}-action="reset-filters"
-      >重置</button>
-    </div>
-  `
+  const rows = buildEngineeringMasterListRows()
+  const filters = masterListUiState.filters
+  const field = (key: keyof EngineeringMasterListFilters, label: string, type = 'text', placeholder = '') => `<label class="block min-w-0 ${key === 'keyword' ? 'sm:col-span-2' : ''}"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><input type="${type}" class="h-9 w-full rounded-md border bg-background px-3 text-sm" value="${escapeHtml(filters[key])}" placeholder="${placeholder}" data-${MASTER_EVENT_PREFIX}-field="filter-${key}"></label>`
+  const select = (key: keyof EngineeringMasterListFilters, label: string, options: Array<[string, string]>) => `<label class="block min-w-0"><span class="mb-1 block text-xs text-muted-foreground">${label}</span><select class="h-9 w-full rounded-md border bg-background px-2 text-sm" data-${MASTER_EVENT_PREFIX}-field="filter-${key}"><option value="">全部</option>${options.map(([value, text]) => `<option value="${escapeHtml(value)}" ${filters[key] === value ? 'selected' : ''}>${escapeHtml(text)}</option>`).join('')}</select></label>`
+  const values = (items: string[]): Array<[string, string]> => [...new Set(items.filter(Boolean))].sort().map((value) => [value, value])
+  return `<div class="rounded-lg border bg-white p-3" data-standard-list-filter-bar><div class="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+    ${field('keyword', '综合查询', 'text', '准备单、款式、测款单或任务负责人')}
+    ${select('status', '单据状态', values(MASTER_STATUS_OPTIONS))}
+    ${select('merchandiser', '跟单负责人', values(rows.map((row) => row.merchandiserName)))}
+    ${select('attention', '待办类型', values(['待发布', '待分配', '待审核', '返工', '待前置', '待关闭']))}
+  </div><div data-prep-more-filters ${masterListUiState.moreFiltersOpen ? '' : 'hidden'}><div class="mt-3 grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+    ${select('preparationType', '准备类型', Object.entries(ENGINEERING_PREPARATION_LABELS))}
+    ${select('team', '待办责任团队', values(rows.flatMap((row) => row.pendingTasks.map((task) => task.ownerTeamName))))}
+    ${field('dateFrom', '创建日期从', 'date')}${field('dateTo', '创建日期至', 'date')}
+  </div></div><div class="mt-3 flex w-full flex-wrap items-center gap-2" data-process-filter-actions>
+    ${renderPrimaryButton('查询', { prefix: MASTER_EVENT_PREFIX, action: 'query' }, 'search')}
+    ${renderSecondaryButton('重置', { prefix: MASTER_EVENT_PREFIX, action: 'reset-filters' }, 'rotate-ccw')}
+    ${renderSecondaryButton('导出', { prefix: MASTER_EVENT_PREFIX, action: 'export' }, 'download')}
+    ${renderSecondaryButton(masterListUiState.moreFiltersOpen ? '收起更多' : '更多筛选', { prefix: MASTER_EVENT_PREFIX, action: 'toggle-more-filters' }).replace('<button', `<button aria-expanded="${masterListUiState.moreFiltersOpen}"`)}
+  </div><p class="mt-2 text-xs text-slate-500">统计与导出均以已查询结果为准；修改条件后点击查询。</p></div>`
 }
 
 function renderMasterListTable(paging: StandardListPageSlice<EngineeringMasterListRow>): string {
@@ -600,6 +548,10 @@ function refreshMasterListRegions(options: { settings?: boolean; filters?: boole
     statsHost.innerHTML = renderMasterListStats()
     hydrateMasterListRegion(statsHost)
   }
+  const heading = document.querySelector('[data-standard-list-table-section] > header h2')
+  if (heading) heading.textContent = `共 ${paging.total} 条`
+  const feedback = document.querySelector('[data-pcs-engineering-master-region="feedback"]')
+  if (feedback) feedback.innerHTML = masterListUiState.feedback ? `<p role="status" class="rounded border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">${escapeHtml(masterListUiState.feedback)}</p>` : ''
   if (options.settings) {
     const settingsHost = document.querySelector<HTMLElement>('[data-pcs-engineering-master-region="column-settings"]')
     if (settingsHost) {
@@ -608,7 +560,7 @@ function refreshMasterListRegions(options: { settings?: boolean; filters?: boole
     }
   }
   if (options.filters && filtersHost) {
-    filtersHost.innerHTML = renderMasterListFilters()
+    filtersHost.innerHTML = withMasterListLocalInteractions(renderMasterListFilters())
     hydrateMasterListRegion(filtersHost)
   }
 }
@@ -639,10 +591,10 @@ export function renderPcsEngineeringMasterListPage(): string {
       { prefix: MASTER_EVENT_PREFIX, action: 'open-create-dialog' },
       'plus',
     )),
-    feedbackHtml: initializationNotice ? `<p role="alert" class="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">${escapeHtml(initializationNotice)}</p>` : '',
+    feedbackHtml: `<div data-pcs-engineering-master-region="feedback">${initializationNotice ? `<p role="alert" class="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">${escapeHtml(initializationNotice)}</p>` : ''}</div>`,
     filtersHtml: `<div data-pcs-engineering-master-region="filters">${withMasterListLocalInteractions(renderMasterListFilters())}</div>`,
     statsHtml: `<div data-pcs-engineering-master-region="stats">${withMasterListLocalInteractions(renderMasterListStats())}</div>`,
-    listTitle: '生产准备单列表',
+    listTitle: `共 ${paging.total} 条`,
     listActionsHtml: withMasterListLocalInteractions(
       renderSecondaryButton(
         '列设置',
@@ -658,6 +610,10 @@ export function renderPcsEngineeringMasterListPage(): string {
       <div data-pcs-engineering-master-region="image-preview">${renderStyleImagePreview()}</div>
     `,
     className: 'min-w-0 max-w-full',
+  })
+  if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => {
+    const root = document.querySelector('[data-pcs-engineering-master-list-page]')
+    if (root) hydrateMasterListRegion(root)
   })
   return `<div class="min-w-0 max-w-full" data-pcs-engineering-master-list-page>${page}</div>`
 }
@@ -704,6 +660,33 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
   const action = actionNode.dataset.pcsEngineeringMasterAction
   if (!action) return false
 
+  if (action === 'toggle-more-filters') {
+    masterListUiState.moreFiltersOpen = !masterListUiState.moreFiltersOpen
+    const panel = document.querySelector<HTMLElement>('[data-prep-more-filters]')
+    if (panel) panel.hidden = !masterListUiState.moreFiltersOpen
+    actionNode.textContent = masterListUiState.moreFiltersOpen ? '收起更多' : '更多筛选'
+    actionNode.setAttribute('aria-expanded', String(masterListUiState.moreFiltersOpen))
+    return true
+  }
+  if (action === 'query') {
+    const { dateFrom, dateTo } = masterListUiState.filters
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      masterListUiState.feedback = '创建日期起始不能晚于结束，请调整后查询。'
+    } else {
+      masterListUiState.appliedFilters = { ...masterListUiState.filters }
+      masterListUiState.currentPage = 1
+      masterListUiState.feedback = ''
+    }
+    refreshMasterListRegions()
+    return true
+  }
+  if (action === 'export') {
+    const rows = getFilteredMasterRows()
+    if (rows.length) downloadPmsFile('生产准备单.csv', '\uFEFF' + buildEngineeringMasterListCsv(rows), 'text/csv;charset=utf-8')
+    masterListUiState.feedback = rows.length ? `已导出当前查询结果全部 ${rows.length} 张生产准备单。` : '当前查询条件下没有可导出的生产准备单。'
+    refreshMasterListRegions()
+    return true
+  }
   if (action === 'open-style-image-preview') {
     masterListUiState.imagePreviewUrl = actionNode.dataset.imageUrl || ''
     masterListUiState.imagePreviewTitle = actionNode.dataset.imageTitle || '款式图片'
@@ -859,8 +842,10 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
     return true
   }
   if (action === 'reset-filters') {
-    masterListUiState.search = ''
-    masterListUiState.statusFilter = ''
+    masterListUiState.filters = { ...EMPTY_ENGINEERING_MASTER_FILTERS }
+    masterListUiState.appliedFilters = { ...EMPTY_ENGINEERING_MASTER_FILTERS }
+    masterListUiState.moreFiltersOpen = false
+    masterListUiState.feedback = ''
     masterListUiState.currentPage = 1
     refreshMasterListRegions({ filters: true })
     return true
@@ -884,16 +869,9 @@ export function handlePcsEngineeringMasterListInput(target: Element): boolean {
     refreshMasterListRegions()
     return true
   }
-  if (field === 'list-search' && fieldNode instanceof HTMLInputElement) {
-    masterListUiState.search = fieldNode.value
-    masterListUiState.currentPage = 1
-    refreshMasterListRegions()
-    return true
-  }
-  if (field === 'status-filter' && fieldNode instanceof HTMLSelectElement) {
-    masterListUiState.statusFilter = fieldNode.value
-    masterListUiState.currentPage = 1
-    refreshMasterListRegions()
+  if (field.startsWith('filter-') && (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement)) {
+    const key = field.slice(7) as keyof EngineeringMasterListFilters
+    if (key in EMPTY_ENGINEERING_MASTER_FILTERS) masterListUiState.filters[key] = fieldNode.value
     return true
   }
   if (field === 'create-style-search' && fieldNode instanceof HTMLInputElement) {

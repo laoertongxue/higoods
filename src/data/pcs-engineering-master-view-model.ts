@@ -1,4 +1,6 @@
-import { hasPassedTestingOrder } from './pcs-testing-order-repository.ts'
+import { summarizeEngineeringTaskItems } from './pcs-engineering-task-item-progress.ts'
+import { computeAccessoryPurchaseTaskLinkage } from './pcs-engineering-purchase-linkage.ts'
+import { hasPassedTestingOrder, listTestingOrders } from './pcs-testing-order-repository.ts'
 // 生产准备单视图模型：为列表页与泳道工作台派生只读展示数据。
 // 演示种子只在本模块内部维护，页面渲染前调用 ensureEngineeringMasterDemoData()。
 
@@ -499,6 +501,49 @@ export interface EngineeringMasterListRow {
   currentStage: string
   progressText: string
   updatedAt: string
+  createdAt: string
+  publishedAt: string
+  closedAt: string
+  preparationType: EngineeringPreparationType | ''
+  creationReason: string
+  sourceDesignRevisionTaskId: string
+  sourceDesignRevisionTaskCode: string
+  latestTestingId: string
+  latestTestingCode: string
+  latestTestingResult: string
+  bomVersionCount: number
+  completedTaskCount: number
+  taskCount: number
+  pendingTasks: Array<Pick<EngineeringTaskRecord, 'taskId' | 'taskType' | 'taskName' | 'status' | 'ownerTeamName' | 'assigneeName' | 'plannedCompleteAt'> & { waitingFor: string[]; itemProgress: string }>
+  attentionKinds: string[]
+}
+
+export function summarizeEngineeringMasterTasks(record: Pick<EngineeringMasterOrderRecord, 'status' | 'tasks'>) {
+  const tasks = record.tasks.filter((task) => !['未启用', '因需求变更结束'].includes(task.status))
+  const pendingTasks = ['草稿', '已关闭', '已终止'].includes(record.status) ? [] : tasks
+    .filter((task) => task.status !== '已完成')
+    .map((task) => ({
+      taskId: task.taskId, taskType: task.taskType, taskName: task.taskName, status: task.status,
+      ownerTeamName: task.ownerTeamName, assigneeName: task.assigneeName, plannedCompleteAt: task.plannedCompleteAt,
+      itemProgress: (() => {
+        const covered = task.taskType === 'ACCESSORY_PURCHASE' && task.masterOrderId ? computeAccessoryPurchaseTaskLinkage(task.masterOrderId, task.taskId).gate.coveredMaterialSkuIds : []
+        const items = summarizeEngineeringTaskItems(task, covered)
+        return items.applicable ? items.total ? `${task.taskType === 'ACCESSORY_PURCHASE' ? '已覆盖下单' : '已通过'} ${items.completed}/${items.total} 项；剩余 ${items.remaining.length} 项` : '尚无有效明细' : ''
+      })(),
+      waitingFor: task.status === '待前置' ? task.dependsOnTaskIds
+        .map((id) => record.tasks.find((item) => item.taskId === id))
+        .filter((item) => item && !['已完成', '因需求变更结束'].includes(item.status))
+        .map((item) => item!.taskName) : [],
+    }))
+  const attentionKinds = [
+    ...(record.status === '草稿' ? ['待发布'] : []),
+    ...(record.status === '待关闭' ? ['待关闭'] : []),
+    ...(pendingTasks.some((task) => !task.assigneeName.trim()) ? ['待分配'] : []),
+    ...(pendingTasks.some((task) => task.status === '待审核') || record.status === '技术包审核中' ? ['待审核'] : []),
+    ...(pendingTasks.some((task) => task.status === '返工中') ? ['返工'] : []),
+    ...(pendingTasks.some((task) => task.status === '待前置') ? ['待前置'] : []),
+  ]
+  return { pendingTasks, attentionKinds, taskCount: tasks.length, completedTaskCount: tasks.filter((task) => task.status === '已完成').length }
 }
 
 function deriveCurrentStage(record: EngineeringMasterOrderRecord): string {
@@ -543,7 +588,17 @@ function deriveUpdatedAt(record: EngineeringMasterOrderRecord): string {
 
 export function buildEngineeringMasterListRows(): EngineeringMasterListRow[] {
   const styles = new Map(listStyleArchives().map((style) => [style.styleId, style]))
-  return listEngineeringMasterOrders().map((record) => ({
+  const testing = listTestingOrders()
+  return listEngineeringMasterOrders().map((record) => {
+    const latest = testing.filter((order) => order.styleId === record.styleId).sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.updatedAt.localeCompare(a.updatedAt))[0]
+    return {
+    ...summarizeEngineeringMasterTasks(record),
+    createdAt: record.createdAt, publishedAt: record.publishedAt, closedAt: record.closedAt,
+    preparationType: record.preparationType, creationReason: record.creationReason,
+    sourceDesignRevisionTaskId: record.sourceDesignRevisionTaskId || '', sourceDesignRevisionTaskCode: record.sourceDesignRevisionTaskCode || '',
+    latestTestingId: latest?.testingOrderId || '', latestTestingCode: latest?.orderCode || '',
+    latestTestingResult: !latest ? '未关联测款记录' : latest.status !== '已结束' ? '测款中' : latest.bulkDecision === '是' ? '测款通过' : '测款未通过',
+    bomVersionCount: record.bomVersionIds.length,
     masterOrderId: record.masterOrderId,
     masterOrderCode: record.masterOrderCode,
     styleCode: record.styleCode,
@@ -556,7 +611,8 @@ export function buildEngineeringMasterListRows(): EngineeringMasterListRow[] {
     currentStage: deriveCurrentStage(record),
     progressText: deriveProgressText(record),
     updatedAt: deriveUpdatedAt(record),
-  }))
+    }
+  })
 }
 
 // ============ 详情视图模型（泳道工作台） ============
