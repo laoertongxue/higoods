@@ -126,6 +126,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   pcs: [
     {
       title: '商品中心系统',
+      icon: 'LayoutDashboard',
       items: [
         {
           key: 'pcs-menu-testing',
@@ -206,18 +207,21 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   pms: [
     {
       title: '采购工作台',
+      icon: 'PanelsTopLeft',
       items: [
         { key: 'pms-workbench', title: '采购工作台', icon: 'LayoutDashboard', href: '/pms/workbench/overview' },
       ],
     },
     {
       title: '采购管理',
+      icon: 'ShoppingCart',
       items: [
         { key: 'purchase-order', title: '采购订单', icon: 'FileText', href: '/pms/purchase-order' },
       ],
     },
     {
       title: '基础资料',
+      icon: 'Library',
       items: [
         { key: 'pms-trade-subjects', title: '贸易主体管理', icon: 'Landmark', href: '/pms/trade-subjects' },
         { key: 'pms-suppliers', title: '商品供应商管理', icon: 'Building2', href: '/pms/suppliers' },
@@ -232,12 +236,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '原料管理',
+      icon: 'Layers',
       items: [
         { key: 'pms-material-inventory', title: '面辅料库存监控', icon: 'Radar', href: '/pms/material-inventory' },
       ],
     },
     {
       title: '中转仓',
+      icon: 'Warehouse',
       items: [
         { key: 'pms-transit-dashboard', title: '数据总览', icon: 'LayoutDashboard', href: '/pms/transit/dashboard' },
         { key: 'pms-transit-receipts', title: '中转收货单列表', icon: 'PackageCheck', href: '/pms/transit/receipts' },
@@ -247,6 +253,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '采购建议',
+      icon: 'Sparkles',
       items: [
         { key: 'pms-purchase-suggestions', title: '商品采购建议', icon: 'Lightbulb', href: '/pms/purchase-suggestions' },
         { key: 'pms-kol-demands', title: 'KOL采购需求', icon: 'Megaphone', href: '/pms/kol-demands' },
@@ -254,12 +261,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '商品采购',
+      icon: 'ShoppingBag',
       items: [
         { key: 'pms-product-purchase-orders', title: '商品采购单', icon: 'ClipboardList', href: '/pms/product-purchase-orders' },
       ],
     },
     {
       title: '面辅料采购',
+      icon: 'Package',
       items: [
         { key: 'pms-material-requirements', title: '面辅料需求分析', icon: 'Puzzle', href: '/pms/material-requirements' },
         { key: 'pms-material-purchase-orders', title: '面辅料采购单', icon: 'PackageSearch', href: '/pms/material-purchase-orders' },
@@ -268,12 +277,14 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '面辅料供应商确认',
+      icon: 'ClipboardCheck',
       items: [
         { key: 'pms-material-supplier-confirmations', title: '面辅料供应商确认单', icon: 'BadgeCheck', href: '/pms/material-supplier-confirmations' },
       ],
     },
     {
       title: '头程物流',
+      icon: 'Truck',
       items: [
         { key: 'pms-first-leg-shipments', title: '头程物流', icon: 'Ship', href: '/pms/first-leg-shipments' },
         { key: 'pms-first-leg-carriers', title: '头程物流商管理', icon: 'Building2', href: '/pms/first-leg-carriers' },
@@ -281,6 +292,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '采购对账',
+      icon: 'Calculator',
       items: [
         { key: 'pms-subject-operations', title: '主体经营明细', icon: 'ChartNoAxesCombined', href: '/pms/subject-operations' },
         { key: 'pms-material-reconciliations', title: '面辅料采购对账', icon: 'ReceiptText', href: '/pms/material-reconciliations' },
@@ -291,6 +303,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '系统设置',
+      icon: 'Settings',
       items: [
         { key: 'pms-users', title: '用户管理', icon: 'Users', href: '/pms/users' },
         { key: 'pms-roles', title: '角色权限', icon: 'ShieldCheck', href: '/pms/roles' },
@@ -659,6 +672,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   wls: [
     {
       title: '仓储管理',
+      icon: 'Warehouse',
       items: [
         { key: 'wls-fabric-demand-board', title: '面料需求看板', icon: 'PanelsTopLeft', href: '/wls/fabric-demand-board' },
         { key: 'wls-accessory-receipts', title: '中央辅料仓收货', icon: 'PackageCheck', href: '/wls/accessory-receipts' },
@@ -675,6 +689,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '成衣仓',
+      icon: 'Shirt',
       items: [
         { key: 'wls-finished-dashboard', title: '成衣仓首页', icon: 'LayoutDashboard', href: '/wls/finished/dashboard' },
         { key: 'wls-finished-ship-scan', title: '扫码出库', icon: 'ScanBarcode', href: '/wls/finished/ship-scan' },
@@ -704,6 +719,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '中转仓',
+      icon: 'Truck',
       items: [
         { key: 'wls-transit-dashboard', title: '中转仓首页', icon: 'LayoutDashboard', href: '/wls/transit/dashboard' },
         { key: 'wls-transit-overview', title: '数据总览', icon: 'BarChart3', href: '/wls/transit/overview' },
@@ -721,6 +737,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '原料仓',
+      icon: 'Layers',
       items: [
         { key: 'wls-raw-dashboard', title: '原料仓首页', icon: 'LayoutDashboard', href: '/wls/raw/dashboard' },
         { key: 'wls-raw-arrival-list', title: '原料到货列表', icon: 'Truck', href: '/wls/raw/arrival-list' },
@@ -740,6 +757,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
     {
       title: '基础数据',
+      icon: 'Database',
       items: [
         { key: 'wls-basic-warehouse', title: '仓库管理', icon: 'Warehouse', href: '/wls/basic/warehouse' },
         { key: 'wls-basic-subject', title: '主体管理', icon: 'Users', href: '/wls/basic/subject' },
@@ -755,6 +773,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   los: [
     {
       title: '直播运营',
+      icon: 'Video',
       items: [
         { key: 'live-schedule', title: '直播排期', icon: 'Video', href: '/los/live-schedule' },
         { key: 'live-room', title: '直播间管理', icon: 'Tv', href: '/los/live-room' },
@@ -765,6 +784,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   oms: [
     {
       title: '订单管理',
+      icon: 'ShoppingCart',
       items: [
         { key: 'order-list', title: '订单列表', icon: 'ShoppingCart', href: '/oms/order-list' },
         { key: 'return-order', title: '退换货管理', icon: 'RotateCcw', href: '/oms/return-order' },
@@ -775,6 +795,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
   bfis: [
     {
       title: '财务管理',
+      icon: 'Calculator',
       items: [
         { key: 'financial-report', title: '财务报表', icon: 'BarChart3', href: '/bfis/financial-report' },
         { key: 'cost-analysis', title: '成本分析', icon: 'PieChart', href: '/bfis/cost-analysis' },
@@ -783,7 +804,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     },
   ],
   dds: [
-    { title: '供应链域', items: [{ key: 'material-decision', title: '物料监控与决策', icon: 'Boxes', children: [
+    { title: '供应链域', icon: 'Boxes', items: [{ key: 'material-decision', title: '物料监控与决策', icon: 'Boxes', children: [
       { key: 'material-overview', title: '决策总览', icon: 'BarChart3', href: '/dds/supply-chain/materials/overview' },
       { key: 'material-panorama', title: '物料全景', icon: 'BarChart3', href: '/dds/supply-chain/materials/panorama' },
       { key: 'material-planning', title: '供需计划', icon: 'BarChart3', href: '/dds/supply-chain/materials/planning' },
@@ -802,6 +823,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
     ] }] },
     {
       title: '数据分析',
+      icon: 'LineChart',
       items: [
         { key: 'dashboard', title: '数据看板', icon: 'LayoutDashboard', href: '/dds/dashboard' },
         { key: 'report', title: '报表中心', icon: 'FileBarChart', href: '/dds/report' },
