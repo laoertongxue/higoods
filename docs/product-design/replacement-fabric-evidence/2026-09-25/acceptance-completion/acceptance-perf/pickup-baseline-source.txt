@@ -1,0 +1,12 @@
+[
+  {
+    contract: 'const supplementRecords = overrides.supplementRecords ?? listSupplementOrders()',
+    present: false
+  },
+  {
+    contract: 'export function bootstrapPickupManagementRuntimeMockData()',
+    present: true
+  },
+  { contract: 'listPlatformDyeResultViews()', present: true },
+  { contract: 'listPlatformPrintResultViews()', present: true }
+]

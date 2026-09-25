@@ -1,3 +1,5 @@
+import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
+import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import { getCurrentSewingTaskResponsibility } from './sewing-outsourcing-responsibility.ts'
 import {
@@ -156,7 +158,7 @@ function ensureNormalWorkbenchDemo(): EffectiveTaskAssignment {
   if (existing) return existing
   const source = getEffectiveTaskAssignment('ASG-PPIC-SAMPLE-DEMO-INDEPENDENT')
   if (!source) throw new Error('缺少PPIC工作台正常任务演示来源。')
-  return createEffectiveTaskAssignment({
+  return buildEffectiveAssignmentStaticFixture(()=>buildSewingSampleStaticFixture(()=>createEffectiveTaskAssignment({
     assignmentId,
     runtimeTaskId: 'TASK-PPIC-WORKBENCH-NORMAL-001',
     productionOrderId: source.productionOrderId,
@@ -176,7 +178,7 @@ function ensureNormalWorkbenchDemo(): EffectiveTaskAssignment {
     operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
     allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
     allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-  })
+  })))
 }
 
 function pushUniqueSource(draft: WorkbenchDraft, source: SewingOutsourcingWorkbenchSourceLink): void {

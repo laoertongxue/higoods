@@ -4,7 +4,7 @@ import { appStore } from '../../state/store.ts'
 import { loadReplacementFabricState, saveReplacementFabricPrint } from '../../data/fcs/cutting/replacement-fabric-repository.ts'
 import { listReplacementFabricOrderRows } from '../../data/fcs/cutting/replacement-fabric-source.ts'
 import { assertReplacementTicketCurrent, type ReplacementFabricTicket } from '../../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
-import { buildPrintDocument, renderPrintDocument } from '../../data/fcs/print-template-registry.ts'
+import { buildReplacementFabricPrintDocument as buildPrintDocument, renderReplacementFabricPrintDocument as renderPrintDocument } from './templates/replacement-fabric-label-template.ts'
 let currentTickets: ReplacementFabricTicket[] = []
 let commandId = ''; let printingRequested = false; let saving = false
 export async function renderReplacementFabricPrintPreview(): Promise<string> {

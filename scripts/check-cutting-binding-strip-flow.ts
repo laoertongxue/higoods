@@ -42,9 +42,9 @@ function assertNotIncludes(source: string, needle: string, message: string): voi
   assert(!source.includes(needle), `${message}：不应包含 ${needle}`)
 }
 
-function measureRender(name: string, render: () => string): number {
+async function measureRender(name: string, render: () => string | Promise<string>): Promise<number> {
   const startedAt = performance.now()
-  const html = render()
+  const html = await render()
   assert(html.length > 0, `${name} 渲染结果不能为空`)
   return performance.now() - startedAt
 }
@@ -60,7 +60,7 @@ function assertCloseTo(actual: number, expected: number, message: string): void 
   assert(Math.abs(actual - expected) <= 0.01, `${message}：实际 ${actual.toFixed(2)}，期望 ${expected.toFixed(2)}`)
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const selectedBindingInput = selectBindingInputBomItem({
     bomItems: [
       {
@@ -169,13 +169,13 @@ function main(): void {
     .join(',')
 
   appStore.navigate('/fcs/craft/cutting/special-processes')
-  const specialListRenderMs = measureRender('捆条加工单列表', () => renderCraftCuttingSpecialProcessesPage())
+  const specialListRenderMs = await measureRender('捆条加工单列表', () => renderCraftCuttingSpecialProcessesPage())
   appStore.navigate('/fcs/craft/cutting/binding-fei-tickets')
-  const bindingFeiRenderMs = measureRender('捆条菲票打印页', () => renderCraftCuttingFeiTicketsPage())
+  const bindingFeiRenderMs = await measureRender('捆条菲票打印页', () => renderCraftCuttingFeiTicketsPage())
   appStore.navigate('/fcs/craft/cutting/warehouse-management/wait-handover?inventoryType=binding')
-  const bindingInventoryRenderMs = measureRender('捆条库存查询页', () => renderCraftCuttingWarehouseManagementWaitHandoverPage())
+  const bindingInventoryRenderMs = await measureRender('捆条库存查询页', () => renderCraftCuttingWarehouseManagementWaitHandoverPage())
   appStore.navigate(`/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=${encodeURIComponent(bindingPrintSourceId)}`)
-  const bindingPrintPreviewRenderMs = measureRender('捆条菲票打印预览', () => renderPrintPreviewPage())
+  const bindingPrintPreviewRenderMs = await measureRender('捆条菲票打印预览', () => renderPrintPreviewPage())
   assertUnderBudget('捆条加工单列表', specialListRenderMs)
   assertUnderBudget('捆条菲票打印页', bindingFeiRenderMs)
   assertUnderBudget('捆条库存查询页', bindingInventoryRenderMs)

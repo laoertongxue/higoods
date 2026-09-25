@@ -1,0 +1,839 @@
+[
+  {
+    "path": "/fcs/dispatch/workbench?type=NON_SEWING",
+    "url": "http://127.0.0.1:43236/fcs/dispatch/workbench?type=NON_SEWING",
+    "body": "任务分配工作台\n自动分配配置\n执行自动分配\n合并任务\n全部任务 90\n独立车缝任务 17\n非车缝独立生产任务 70\n合并任务 3\n当前筛选 70 条，每页20条\n综合搜索\n分配进度\n全部\n待分配\n分配中\n竞价中\n已定标\n已直接派单\n分配方式\n全部\n人工直接派单\n竞价\n自动分配\n工序\n全部\n裁剪+车缝+烫包\n裁片\n车缝\n车缝+烫包\n毛织\n烫包\n特殊工艺\n绣花\n压褶\n承接工厂\n全部\n全能力测试工厂\n梭罗辅料专工厂\n周哥毛织厂\n自营裁床\nCV Micro Sewing Bandung Utara\nCV Micro Sewing Jakarta Pusat\nSPF - 特种工艺\n派单日期（起）\n派单日期（止）\n更多筛选\n重置筛选\n全部可执行任务\n90\n待分配 / 竞价中\n75\n已确认工厂\n15\n统一任务列表\n直接派单与竞价共用同一任务口径；价格在直接派单提交或竞价定标时二次确认并冻结\n任务对象\t任务内容\t数量\t跟单责任\t分配信息\t价格\t操作\n\nSPU-QC-001\n\n后道验收衬衫\n\n生产单：PO-QC-202608-001\n\n任务：TASKGEN-PF-ACCEPT-1-001\n\n\t非车缝独立生产任务\n\n工序：裁片\n\n工艺：无独立工艺\n\n\t5 个SKU\n\n500件\n\n\t国内：后道验收跟单（Mock）\n\n印尼：未分配\n\n\t待分配\n\n人工直接派单\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,000 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nSPU-QC-002\n\n后道验收连衣裙\n\n生产单：PO-QC-202608-002\n\n任务：TASKGEN-PF-ACCEPT-2-001\n\n\t非车缝独立生产任务\n\n工序：裁片\n\n工艺：无独立工艺\n\n\t5 个SKU\n\n500件\n\n\t国内：后道验收跟单（Mock）\n\n印尼：Rina\n\n\t待分配\n\n人工直接派单\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,000 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nSPU-QC-003\n\n后道验收外套\n\n生产单：PO-QC-202608-003\n\n任务：TASKGEN-PF-ACCEPT-3-001\n\n\t非车缝独立生产任务\n\n工序：裁片\n\n工艺：无独立工艺\n\n\t5 个SKU\n\n500件\n\n\t国内：后道验收跟单（Mock）\n\n印尼：Sari\n\n\t待分配\n\n人工直接派单\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,000 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nASYSA26060310\n\n女式基础圆领短袖\n\n生产单：PO14671\n\n任务：TASKGEN-po-14671-001\n\n\t非车缝独立生产任务\n\n工序：裁片\n\n工艺：无独立工艺\n\n\t12 个SKU\n\n3,391件\n\n\t国内：林晓\n\n印尼：Sari\n\n\t待分配\n\n人工直接派单\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,000 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nASYSA26060310\n\n女式基础圆领短袖\n\n生产单：PO14671\n\n任务：TASKGEN-po-14671-002\n\n\t非车缝独立生产任务\n\n工序：特殊工艺\n\n工艺：捆条\n\n\t12 个SKU\n\n3,391件\n\n\t国内：林晓\n\n印尼：Sari\n\n\t待分配\n\n竞价\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,500 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nASYSA26060310\n\n女式基础圆领短袖\n\n生产单：PO14671\n\n任务：TASKGEN-po-14671-003\n\n\t非车缝独立生产任务\n\n工序：特殊工艺\n\n工艺：模板工序\n\n\t12 个SKU\n\n3,391件\n\n\t国内：林晓\n\n印尼：Sari\n\n\t待分配\n\n竞价\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,800 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nASYSA26060310\n\n女式基础圆领短袖\n\n生产单：PO14671\n\n任务：TASKGEN-po-14671-004\n\n\t非车缝独立生产任务\n\n工序：特殊工艺\n\n工艺：打褶\n\n\t12 个SKU\n\n3,391件\n\n\t国内：林晓\n\n印尼：Sari\n\n\t待分配\n\n竞价\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：1,800 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nASYSA26060310\n\n女式基础圆领短袖\n\n生产单：PO14671\n\n任务：TASKGEN-po-14671-005\n\n\t非车缝独立生产任务\n\n工序：烫包\n\n工艺：无独立工艺\n\n\t12 个SKU\n\n3,391件\n\n\t国内：林晓\n\n印尼：Sari\n\n\t待分配\n\n人工直接派单\n\n工厂未确定 · 尚未进入接单\n\n\t\n\n标准价：2,000 IDR/件\n\n派单价：—\n\n待确认\t\n详情\n打印任务单\n直接派单\n发起竞价\n日志\n\n\nSPU-2024-005\n\nJaket Hoodie Unisex\n\n生产单：PO-202603-0002\n\n任务：TASKGEN-202603-0002-001\n\n\t非车缝独立生产任务\n\n工序：裁片\n\n工艺：无独立工艺\n\n\t4 个SKU\n\n2,500件\n\n\t国内：林晓\n\n印尼：Ayu\n\n\t已直接派单\n\n人工直接派单\n\n全能力测试工厂 · 已接单\n\n\t\n\n标准价：1,000 IDR/件\n\n派单价：8,600 IDR/件\n\n高于标准 · 已冻结\t\n详情\n打印任务单\n日志\n\n\nSPU-2024-005\n\nJaket Hoodie Unisex\n\n生产单：PO-202603-0002\n\n任务：TASKGEN-202603-0002-003\n\n\t非车缝独立生产任务\n\n工序：特殊工艺\n\n",
+    "buttons": [
+      {
+        "text": "自动分配配置",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-auto-config"
+        }
+      },
+      {
+        "text": "执行自动分配",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-auto-execute"
+        }
+      },
+      {
+        "text": "合并任务",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-merge"
+        }
+      },
+      {
+        "text": "全部任务 90",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "switch-type",
+          "taskType": "ALL"
+        }
+      },
+      {
+        "text": "独立车缝任务 17",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "switch-type",
+          "taskType": "SEWING"
+        }
+      },
+      {
+        "text": "非车缝独立生产任务 70",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "switch-type",
+          "taskType": "NON_SEWING"
+        }
+      },
+      {
+        "text": "合并任务 3",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "switch-type",
+          "taskType": "MERGED"
+        }
+      },
+      {
+        "text": "更多筛选",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "toggle-advanced-filters"
+        }
+      },
+      {
+        "text": "重置筛选",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "reset-filters"
+        }
+      },
+      {
+        "text": "图片加载失败",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "preview-image",
+          "image": "/materials/pcs-reviewed/shirt-black.jpg",
+          "label": "SPU-QC-001"
+        }
+      },
+      {
+        "text": "详情",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-detail",
+          "taskId": "TASKGEN-PF-ACCEPT-1-001__ORDER"
+        }
+      },
+      {
+        "text": "打印任务单",
+        "disabled": true,
+        "data": {
+          "skipPageRerender": "true",
+          "unifiedAction": "print-task-sheet",
+          "taskId": "TASKGEN-PF-ACCEPT-1-001__ORDER"
+        }
+      },
+      {
+        "text": "直接派单",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-direct",
+          "taskId": "TASKGEN-PF-ACCEPT-1-001__ORDER"
+        }
+      },
+      {
+        "text": "发起竞价",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-bidding",
+          "taskId": "TASKGEN-PF-ACCEPT-1-001__ORDER"
+        }
+      },
+      {
+        "text": "日志",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-log",
+          "taskId": "TASKGEN-PF-ACCEPT-1-001__ORDER"
+        }
+      },
+      {
+        "text": "图片加载失败",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "preview-image",
+          "image": "/materials/pcs-reviewed/casual-dress-black.jpg",
+          "label": "SPU-QC-002"
+        }
+      },
+      {
+        "text": "详情",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-detail",
+          "taskId": "TASKGEN-PF-ACCEPT-2-001__ORDER"
+        }
+      },
+      {
+        "text": "打印任务单",
+        "disabled": true,
+        "data": {
+          "skipPageRerender": "true",
+          "unifiedAction": "print-task-sheet",
+          "taskId": "TASKGEN-PF-ACCEPT-2-001__ORDER"
+        }
+      },
+      {
+        "text": "直接派单",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-direct",
+          "taskId": "TASKGEN-PF-ACCEPT-2-001__ORDER"
+        }
+      },
+      {
+        "text": "发起竞价",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-bidding",
+          "taskId": "TASKGEN-PF-ACCEPT-2-001__ORDER"
+        }
+      },
+      {
+        "text": "日志",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-log",
+          "taskId": "TASKGEN-PF-ACCEPT-2-001__ORDER"
+        }
+      },
+      {
+        "text": "图片加载失败",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "preview-image",
+          "image": "/materials/pcs-reviewed/jacket-black.jpg",
+          "label": "SPU-QC-003"
+        }
+      },
+      {
+        "text": "详情",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-detail",
+          "taskId": "TASKGEN-PF-ACCEPT-3-001__ORDER"
+        }
+      },
+      {
+        "text": "打印任务单",
+        "disabled": true,
+        "data": {
+          "skipPageRerender": "true",
+          "unifiedAction": "print-task-sheet",
+          "taskId": "TASKGEN-PF-ACCEPT-3-001__ORDER"
+        }
+      },
+      {
+        "text": "直接派单",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-direct",
+          "taskId": "TASKGEN-PF-ACCEPT-3-001__ORDER"
+        }
+      },
+      {
+        "text": "发起竞价",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-bidding",
+          "taskId": "TASKGEN-PF-ACCEPT-3-001__ORDER"
+        }
+      },
+      {
+        "text": "日志",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-log",
+          "taskId": "TASKGEN-PF-ACCEPT-3-001__ORDER"
+        }
+      },
+      {
+        "text": "图片加载失败",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "preview-image",
+          "image": "/dress-sample-1.jpg",
+          "label": "ASYSA26060310"
+        }
+      },
+      {
+        "text": "详情",
+        "disabled": false,
+        "data": {
+          "unifiedAction": "open-detail",
+          "taskId": "TASKGEN-po-14671-001__ORDER"
+        }
+      },
+      {
+        "text": "打印任务单",
+        "disabled": true,
+        "data": {
+          "skipPageRerender": "true",
+          "unifiedAction": "print-task-sheet",
+          "taskId": "TASKGEN-po-14671-001__ORDER"
+        }
+      }
+    ],
+    "links": []
+  },
+  {
+    "path": "/fcs/dispatch/tenders",
+    "url": "http://127.0.0.1:43236/fcs/dispatch/tenders",
+    "body": "招标单管理\n\n一个竞价任务对应一个招标单；工厂池中的工厂对同一招标单只允许报价一次；共 3 条\n\n从任务分配发起竞价\n报价规则：工厂池中的每个工厂对同一张招标单只允许报价一次，不允许重复报价、修改报价或多轮报价。\n\n1\n\n招标中\n\n1\n\n待定标\n\n0\n\n无人报价\n\n1\n\n已定标\n\n0\n\n已取消\n\n3\n\n招标单总数\n\n全部状态\n招标中\n待定标\n无人报价待处理\n已定标\n已取消\n全部工序\n裁片\n车缝\n全部池内工厂\n玛琅精工车缝\n棉兰卫星工厂\n棉兰卫星工厂\n三宝垄裁片厂\n万隆裁片厂\n万隆车缝厂\nHiGood 裁床厂\n全部报价情况\n已有报价\n仍有未报价\n创建日期\n—\n截止日期\n—\n\n筛选结果 3 条\n\n招标单号\t任务编号\t生产单号 / 需求单号 / 售卖类型\t工序\t数量\t工厂池\t已报价\t未报价\t报价进度\t当前最高报价\t当前最低报价\t最低允许报价\t工序标准价\t竞价截止\t距结束\t招标状态\t中标工厂\t中标价\t操作\nTENDER-0002-001\tTASK-0002-002\t\n生产单号\nPO-2024-0002\n需求单号\n-\n售卖类型\n备货\n\t车缝\t800 件\t4 家\t2 家\t2 家\t\n2 / 4\n\t14,200 IDR/件\t13,800 IDR/件\t12,000 IDR/件\t14,500 IDR/件\t2026-03-20 18:00\t\n已截止\n\t招标中\t—\t—\t\n查看\n非车缝任务分配\n\nTENDER-0003-001\tTASK-0003-002\t\n生产单号\nPO-2024-0003\n需求单号\n-\n售卖类型\nshopee备货\n\t裁片\t600 件\t5 家\t5 家\t0 家\t\n5 / 5\n\t16,200 IDR/件\t11,200 IDR/件\t11,000 IDR/件\t12,000 IDR/件\t2026-03-10 18:00\t\n已截止\n\t待定标\t—\t—\t\n查看\n定标处理\n非车缝任务分配\n\nTENDER-0004-001\tTASK-0004-002\t\n生产单号\nPO-2024-0004\n需求单号\n-\n售卖类型\nKOL样衣\n\t车缝\t500 件\t3 家\t3 家\t0 家\t\n3 / 3\n\t14,100 IDR/件\t13,200 IDR/件\t11,500 IDR/件\t14,500 IDR/件\t2026-03-08 18:00\t\n已截止\n\t已定标\t万隆车缝厂\t13,200 IDR/件\t\n查看\n非车缝任务分配",
+    "buttons": [
+      {
+        "text": "从任务分配发起竞价",
+        "disabled": false,
+        "data": {
+          "nav": "/fcs/dispatch/workbench"
+        }
+      },
+      {
+        "text": "PO-2024-0002",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-2024-0002",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "4 家",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0002-001"
+        }
+      },
+      {
+        "text": "查看",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0002-001"
+        }
+      },
+      {
+        "text": "非车缝任务分配",
+        "disabled": false,
+        "data": {
+          "nav": "/fcs/dispatch/non-sewing"
+        }
+      },
+      {
+        "text": "PO-2024-0003",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-2024-0003",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "5 家",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0003-001"
+        }
+      },
+      {
+        "text": "查看",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0003-001"
+        }
+      },
+      {
+        "text": "定标处理",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0003-001"
+        }
+      },
+      {
+        "text": "非车缝任务分配",
+        "disabled": false,
+        "data": {
+          "nav": "/fcs/dispatch/non-sewing"
+        }
+      },
+      {
+        "text": "PO-2024-0004",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-2024-0004",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "3 家",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0004-001"
+        }
+      },
+      {
+        "text": "查看",
+        "disabled": false,
+        "data": {
+          "tenderAction": "open-view",
+          "tenderId": "TENDER-0004-001"
+        }
+      },
+      {
+        "text": "非车缝任务分配",
+        "disabled": false,
+        "data": {
+          "nav": "/fcs/dispatch/non-sewing"
+        }
+      }
+    ],
+    "links": []
+  },
+  {
+    "path": "/fcs/sewing-outsourcing/sample-approval-suggestions",
+    "url": "http://127.0.0.1:43236/fcs/sewing-outsourcing/sample-approval-suggestions",
+    "body": "批版建议\nPPIC视角\n批版人员视角\n待样衣送回\n1\n待批版\n1\n待反馈工厂\n1\n已完成\n0\n查询\n重置\n待样衣送回的产前版样衣\n款式／产前版样衣\t批版时效\t执行任务\t工厂／PPIC\t任务类型\t当前节点\t最新批版建议／人员\t操作\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-DEMO-001 · 第1轮\n\nPPIC实物照片：0张\n\n\t待批版人员接收实物后计时\tSEW-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-INDEPENDENT\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t独立车缝\t待送回PPIC\t尚未上传\t\n查看样衣与依据\n·\n上传样衣照片\n\n共 1 条，当前 1-1\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+    "buttons": [
+      {
+        "text": "PPIC视角",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "switch-role",
+          "role": "PPIC"
+        }
+      },
+      {
+        "text": "批版人员视角",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "switch-role",
+          "role": "SAMPLE_APPROVER"
+        }
+      },
+      {
+        "text": "待样衣送回\n          1",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "switch-tab:PENDING_RETURN"
+        }
+      },
+      {
+        "text": "待批版\n          1",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "switch-tab:PENDING_APPROVAL"
+        }
+      },
+      {
+        "text": "待反馈工厂\n          1",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "switch-tab:PENDING_FEEDBACK"
+        }
+      },
+      {
+        "text": "已完成\n          0",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "switch-tab:COMPLETED"
+        }
+      },
+      {
+        "text": "查询",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "query",
+          "standardListQuery": ""
+        }
+      },
+      {
+        "text": "重置",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "reset",
+          "standardListReset": ""
+        }
+      },
+      {
+        "text": "图片加载失败",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "preview-image",
+          "imageUrl": "/shirt-sample.jpg",
+          "imageLabel": "SPU-2024-004产前版样衣照片1"
+        }
+      },
+      {
+        "text": "查看样衣与依据",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "show-card",
+          "assignmentId": "ASG-PPIC-SAMPLE-DEMO-INDEPENDENT"
+        }
+      },
+      {
+        "text": "上传样衣照片",
+        "disabled": false,
+        "data": {
+          "sampleApprovalAction": "receive-sample",
+          "assignmentId": "ASG-PPIC-SAMPLE-DEMO-INDEPENDENT"
+        }
+      },
+      {
+        "text": "上一页",
+        "disabled": true,
+        "data": {
+          "sampleApprovalAction": "prev-page"
+        }
+      },
+      {
+        "text": "下一页",
+        "disabled": true,
+        "data": {
+          "sampleApprovalAction": "next-page"
+        }
+      }
+    ],
+    "links": []
+  },
+  {
+    "path": "/fcs/sewing-outsourcing/responsibility-transfers",
+    "url": "http://127.0.0.1:43236/fcs/sewing-outsourcing/responsibility-transfers",
+    "body": "责任移交\n管理人员\n凌云\n婕哥\n当前操作身份：凌云（团队负责人）\n全部未完任务\n0\n已有移交历史\n0\n尚无移交历史\n0\n查询\n重置\n未完成车缝外发执行任务\n未完执行任务\t承接工厂\t当前任务PPIC\t当前剩余事项\t责任版本\t操作\n当前没有可移交的未完执行任务\n\n共 0 条\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+    "buttons": [
+      {
+        "text": "全部未完任务\n          0",
+        "disabled": false,
+        "data": {
+          "ppicTransferAction": "switch-tab:ALL"
+        }
+      },
+      {
+        "text": "已有移交历史\n          0",
+        "disabled": false,
+        "data": {
+          "ppicTransferAction": "switch-tab:HAS_HISTORY"
+        }
+      },
+      {
+        "text": "尚无移交历史\n          0",
+        "disabled": false,
+        "data": {
+          "ppicTransferAction": "switch-tab:NO_HISTORY"
+        }
+      },
+      {
+        "text": "查询",
+        "disabled": false,
+        "data": {
+          "ppicTransferAction": "query",
+          "standardListQuery": ""
+        }
+      },
+      {
+        "text": "重置",
+        "disabled": false,
+        "data": {
+          "ppicTransferAction": "reset",
+          "standardListReset": ""
+        }
+      },
+      {
+        "text": "上一页",
+        "disabled": true,
+        "data": {
+          "ppicTransferAction": "prev-page"
+        }
+      },
+      {
+        "text": "下一页",
+        "disabled": true,
+        "data": {
+          "ppicTransferAction": "next-page"
+        }
+      }
+    ],
+    "links": []
+  },
+  {
+    "path": "/fcs/contracts",
+    "url": "http://127.0.0.1:43236/fcs/contracts",
+    "body": "生产合同管理\n全部状态\n有效\n待上传扫描图\n生成失败\n已失效\n全部合同版本\n0\n有效合同\n0\n待上传扫描图\n0\n生成失败待重试\n0\n生产合同及历史版本\n旧合同失效留痕，不覆盖历史版本；签订扫描图缺失不阻断生产。\n合同\t生产单 / 任务\t承接工厂\t工序链 / SKU\t回货规则\t合同状态\t操作\n暂无符合条件的生产合同\n\n共 0 条\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+    "buttons": [
+      {
+        "text": "上一页",
+        "disabled": true,
+        "data": {
+          "contractCenterAction": "prev-page"
+        }
+      },
+      {
+        "text": "下一页",
+        "disabled": true,
+        "data": {
+          "contractCenterAction": "next-page"
+        }
+      }
+    ],
+    "links": []
+  },
+  {
+    "path": "/fcs/progress/handover",
+    "url": "http://127.0.0.1:43236/fcs/progress/handover",
+    "body": "交接链路追踪\n事件维度\n生产单维度\n刷新\n导出\n\n待接收\n\n9\n\n待交出\n\n14\n\n待接收方确认\n\n7\n\n待处理异议\n\n2\n\n生产单\nPO-202603-0002\nPO-202603-0003\nPO-202603-0004\nPO-202603-0009\nPO-202603-0015\nPO-202603-083\nPO-202603-087\nPO-202603-088\nPO-20260319-013\nPO-20260319-017\nPO-20260319-018\nPO-20260328-131\nPO-20260328-132\nPO-20260328-251\nPO-20260328-252\nPO-MZ-005\nPO-MZ-011\nPO-MZ-012\nPO-MZ-013\nPO-QC-202608-003\n工序工艺\n裁片\n车缝\n后道\n毛织\n水溶\n烫包\n特殊工艺\n事件类型\n接收\n交出\n接收方确认\n数量异议\n已完成\n当前状态\n待接收\n待交出\n待接收方确认\n有异议\n异议处理中\n异议已处理\n已完成\n差异/异议\n有差异/异议\n无差异/异议\n重置\n事件类型\t生产单号 / 需求单号 / 售卖类型\t关联任务/工序\t数量情况\t当前状态\t来源模块\t下一步\t发生时间\t操作\n\n交出完成\n\t\n生产单号\nPO-MZ-005\n需求单号\n-\n售卖类型\n虾皮样品\n\t\nTK-MZ-005\n毛织\n\t\n应交 100 件 / 实际 100 件（差异 0 件）\n工厂 → HiGood 后道工厂\n\t\n已完成\n\t交出单闭环\t交出单已闭合\t2026-09-18 16:00:00\t\n\n\n接收方确认\n\t\n生产单号\nPO-MZ-005\n需求单号\n-\n售卖类型\n虾皮样品\n\t\nTK-MZ-005\n毛织\n\t\n100 件\n工厂 → HiGood 后道工厂\n\t\n已收货\n\t交出记录\t接收方收货确认已完成\t2026-09-18 16:00:00\t\n\n\n交出完成\n\t\n生产单号\nPO-MZ-013\n需求单号\n-\n售卖类型\n备货\n\t\nTK-MZ-013\n毛织\n\t\n应交 100 件 / 实际 100 件（差异 0 件）\n工厂 → HiGood 后道工厂\n\t\n已完成\n\t交出单闭环\t交出单已闭合\t2026-09-18 16:00:00\t\n\n\n接收方确认\n\t\n生产单号\nPO-MZ-013\n需求单号\n-\n售卖类型\n备货\n\t\nTK-MZ-013\n毛织\n\t\n100 件\n工厂 → HiGood 后道工厂\n\t\n已收货\n\t交出记录\t接收方收货确认已完成\t2026-09-18 16:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-MZ-011\n需求单号\n-\n售卖类型\nKOL样品小单\n\t\nTK-MZ-011\n毛织\n\t\n已交出 20 件 / 已收货 0 件（差异 0 件）\n工厂 → HiGood 后道工厂\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-09-18 15:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-MZ-011\n需求单号\n-\n售卖类型\nKOL样品小单\n\t\nTK-MZ-011\n毛织\n\t\n待收货确认\n工厂 → HiGood 后道工厂\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-09-18 15:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-MZ-012\n需求单号\n-\n售卖类型\n预售\n\t\nTK-MZ-012\n毛织\n\t\n已交出 80 件 / 已收货 0 件（差异 0 件）\n工厂 → 裁床待交出仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-09-18 15:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-MZ-012\n需求单号\n-\n售卖类型\n预售\n\t\nTK-MZ-012\n毛织\n\t\n待收货确认\n工厂 → 裁床待交出仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-09-18 15:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-MZ-012\n需求单号\n-\n售卖类型\n预售\n\t\nTK-MZ-012\n毛织\n\t\n已交出 50 件 / 已收货 0 件（差异 0 件）\n工厂 → 裁床待交出仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-09-18 15:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-MZ-012\n需求单号\n-\n售卖类型\n预售\n\t\nTK-MZ-012\n毛织\n\t\n待收货确认\n工厂 → 裁床待交出仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-09-18 15:00:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-088\n需求单号\nDEM-202603-0088\n售卖类型\nKOL样品小单\n\t\nTASK-WATER-PO-202603-088__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only\n水溶\n\t\n应领 1134 米 / 已领 0 米（差异 -1134 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-07-11 08:15:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-088\n需求单号\nDEM-202603-0088\n售卖类型\nKOL样品小单\n\t\nTASK-WATER-PO-202603-088__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only\n水溶\n\t\n待确认/1134 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-07-11 08:15:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-087\n需求单号\nDEM-202603-0087\n售卖类型\n预售备货\n\t\nTASK-WATER-PO-202603-087__tdv_demand_SPU_TSHIRT_081-bom-water-soluble-only\n水溶\n\t\n应领 1512 米 / 已领 0 米（差异 -1512 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料",
+    "buttons": [
+      {
+        "text": "事件维度",
+        "disabled": false,
+        "data": {
+          "handoverAction": "switch-dimension",
+          "dimension": "events"
+        }
+      },
+      {
+        "text": "生产单维度",
+        "disabled": false,
+        "data": {
+          "handoverAction": "switch-dimension",
+          "dimension": "orders"
+        }
+      },
+      {
+        "text": "刷新",
+        "disabled": false,
+        "data": {
+          "handoverAction": "refresh"
+        }
+      },
+      {
+        "text": "导出",
+        "disabled": false,
+        "data": {
+          "handoverAction": "export"
+        }
+      },
+      {
+        "text": "待接收\n        \n        9",
+        "disabled": false,
+        "data": {
+          "handoverAction": "toggle-preview-filter",
+          "filterType": "PICKUP"
+        }
+      },
+      {
+        "text": "待交出\n        \n        14",
+        "disabled": false,
+        "data": {
+          "handoverAction": "toggle-preview-filter",
+          "filterType": "HANDOUT"
+        }
+      },
+      {
+        "text": "待接收方确认\n        \n        7",
+        "disabled": false,
+        "data": {
+          "handoverAction": "toggle-preview-filter",
+          "filterType": "WAREHOUSE"
+        }
+      },
+      {
+        "text": "待处理异议\n        \n        2",
+        "disabled": false,
+        "data": {
+          "handoverAction": "toggle-preview-filter",
+          "filterType": "OBJECTION"
+        }
+      },
+      {
+        "text": "重置",
+        "disabled": false,
+        "data": {
+          "handoverAction": "clear-filters"
+        }
+      },
+      {
+        "text": "PO-MZ-005",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-005",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-005",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-005:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-005",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-005",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-005",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-005:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-013",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-013",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-013",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-013:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-013",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-013",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-013",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-013:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-011",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-011",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-011",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-011:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-011",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-011",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-011",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-011:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-012",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-012",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-012",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-012:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-012",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-012",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-012",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-012:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-012",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-012",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-012",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-012:LINKING"
+        }
+      },
+      {
+        "text": "PO-MZ-012",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-MZ-012",
+          "skipPageRerender": "true"
+        }
+      },
+      {
+        "text": "TK-MZ-012",
+        "disabled": false,
+        "data": {
+          "handoverAction": "goto-task",
+          "taskId": "TASK-WOOL-STAGE-012:LINKING"
+        }
+      },
+      {
+        "text": "PO-202603-088",
+        "disabled": false,
+        "data": {
+          "productionObjectAction": "open",
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-202603-088",
+          "skipPageRerender": "true"
+        }
+      }
+    ],
+    "links": []
+  },
+  {
+    "pageerror": "y: 部位票数据尚未读取，请重新进入页面；未使用空记录代替已有数据。",
+    "url": "http://127.0.0.1:43236/fcs/pda/auth/login"
+  },
+  {
+    "error": "TimeoutError: locator.fill: Timeout 4000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('textbox', { name: '登录账号' })\u001b[22m\n",
+    "url": "http://127.0.0.1:43236/fcs/pda/auth/login",
+    "body": "接单\n执行\n交接\n仓管\n结算"
+  }
+]

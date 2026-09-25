@@ -1,3 +1,5 @@
+import { saveProductionSourceAction } from '../data/fcs/production-context-actions.ts'
+import { cuttingRecordUuid } from '../data/fcs/cutting/cutting-record-identity.ts'
 // @page-pattern: list
 
 import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
@@ -21,6 +23,8 @@ import {
   getRuntimeSewingTaskReassignmentScopePreview,
   listRuntimeProcessTasks,
   reassignRuntimeSewingTask,
+  canReassignRuntimeCuttingTask,
+  reassignRuntimeCuttingTask,
   restoreRuntimeDirectDispatchState,
   upsertRuntimeTaskTender,
   validateRuntimeIndependentSewingFactoryUniqueness,
@@ -201,6 +205,14 @@ const DEFAULT_FILTERS: WorkbenchFilters = {
   priceStatus: 'ALL', domesticTracker: 'ALL', indonesiaTracker: 'ALL', dispatchStart: '', dispatchEnd: '',
 }
 
+let sourceSaveBusy = false
+const sourceCommandIds = new Map<string,string>()
+async function saveWorkbenchAction<T>(intent:string,action:()=>T):Promise<T>{
+  if(sourceSaveBusy) throw new Error('正在保存，请等待当前确认完成。')
+  sourceSaveBusy=true
+  const id=sourceCommandIds.get(intent) || `DISPATCH:${cuttingRecordUuid()}`;sourceCommandIds.set(intent,id)
+  try { const result=await saveProductionSourceAction({id,intent,action});sourceCommandIds.delete(intent);return result } finally {sourceSaveBusy=false}
+}
 const state: WorkbenchState = {
   assignmentSituation: 'BLOCKED',
   taskType: 'ALL',
@@ -672,7 +684,7 @@ const columns: StandardListColumn<RuntimeProcessTask>[] = [
         <button type="button" class="${canPrintTaskSheet ? 'text-blue-600 hover:underline' : 'cursor-not-allowed text-slate-400'}" data-skip-page-rerender="true" data-unified-action="print-task-sheet" data-task-id="${escapeHtml(task.taskId)}" ${canPrintTaskSheet ? '' : 'disabled aria-disabled="true" title="分配任务后可打印"'}>打印任务单</button>
         ${!kolGotoWholeOrder && task.assignmentStatus === 'UNASSIGNED' && getSewingAssignmentReadiness(task).ready ? `<button class="text-blue-600" data-unified-action="open-direct" data-task-id="${escapeHtml(task.taskId)}">直接派单</button><button class="text-blue-600" data-unified-action="open-bidding" data-task-id="${escapeHtml(task.taskId)}">发起竞价</button>` : ''}
         ${!kolGotoWholeOrder && task.assignmentStatus === 'BIDDING' && getRuntimeTaskTenderRecord(task.taskId) ? `<a class="text-blue-600" href="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}" data-nav="/fcs/dispatch/tenders?tenderId=${encodeURIComponent(getRuntimeTaskTenderRecord(task.taskId)!.tenderId)}">查看竞价</a>` : ''}
-        ${!kolGotoWholeOrder && ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && classifyTaskFulfillmentPolicy(task).involvesSewingOutsourcing ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
+        ${!kolGotoWholeOrder && ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus) && (classifyTaskFulfillmentPolicy(task).involvesSewingOutsourcing || canReassignRuntimeCuttingTask(task)) ? `<button class="text-amber-700" data-unified-action="open-reassign" data-task-id="${escapeHtml(task.taskId)}">改派</button>` : ''}
         ${task.mergeSourceTaskIds?.length && task.assignmentStatus === 'UNASSIGNED' ? `<button class="text-red-600" data-unified-action="open-cancel-merge" data-task-id="${escapeHtml(task.taskId)}">撤销合并</button>` : ''}
         ${contract ? `<button class="text-blue-600" data-unified-action="open-contract" data-contract-id="${escapeHtml(contract.contractId)}">合同</button>` : ''}
         <button class="text-slate-600" data-unified-action="open-log" data-task-id="${escapeHtml(task.taskId)}">日志</button>
@@ -971,6 +983,7 @@ function renderTenderFactoryPool(task: RuntimeProcessTask, dialog: DispatchDialo
 }
 
 function renderReassignmentScope(task: RuntimeProcessTask): string {
+  if(canReassignRuntimeCuttingTask(task)) return `<section class="rounded-lg border p-4" data-unified-reassignment-scope><h3 class="font-semibold">整任务改派</h3><p class="mt-2 text-sm">本次变更 ${task.scopeQty.toLocaleString()} 件的当前承接工厂。已裁剪和已交出的数量及原工厂历史保持不变；离开裁床后，本单换片布待办移除，原票保留历史并按当前有效范围限制操作。</p></section>`
   const preview = getRuntimeSewingTaskReassignmentScopePreview(task.taskId)
   if (!preview) return '<section class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">当前任务没有可用的生效车缝分配快照，不能改派。</section>'
   return `<section class="rounded-lg border p-4" data-unified-reassignment-scope><h3 class="text-sm font-semibold">本次改派范围</h3><p class="mt-1 text-xs text-muted-foreground">改派以原有效分配减去截至当前已确认实收数量为准，不在页面内另外勾选 SKU 或修改数量。</p><dl class="mt-3 grid gap-2 text-sm sm:grid-cols-3"><div class="rounded bg-slate-50 p-3"><dt class="text-muted-foreground">原分配数量</dt><dd class="font-semibold">${preview.originalAssignedQty.toLocaleString()}件</dd></div><div class="rounded bg-slate-50 p-3"><dt class="text-muted-foreground">已确认实收</dt><dd class="font-semibold">${preview.confirmedReceivedQty.toLocaleString()}件</dd></div><div class="rounded bg-blue-50 p-3"><dt class="text-blue-700">本次改派数量</dt><dd class="font-bold text-blue-800">${preview.remainingQty.toLocaleString()}件</dd></div></dl></section>`
@@ -1011,13 +1024,13 @@ function renderDispatchDialog(): string {
   const selectedQty = skuLines.filter((line) => dialog.selectedSkuCodes.has(line.skuCode)).reduce((sum, line) => sum + line.qty, 0)
   const reassignmentScope = dialog.mode === 'REASSIGN' ? getRuntimeSewingTaskReassignmentScopePreview(task.taskId) : null
   const effectiveAssignedQty = dialog.mode === 'REASSIGN'
-    ? (reassignmentScope?.remainingQty ?? 0)
+    ? (canReassignRuntimeCuttingTask(task) ? task.scopeQty : reassignmentScope?.remainingQty ?? 0)
     : dialog.mode === 'BIDDING'
       ? task.scopeQty
       : allowsSkuAssignment ? selectedQty : task.scopeQty
   const isSecond = dialog.confirmStage === 2
   const selectedPpic = dialog.factoryId ? getFactoryActivePpicSnapshot(dialog.factoryId) : null
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? '车缝任务改派' : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center p-4"><button class="absolute inset-0 bg-slate-900/40" data-unified-action="close-dispatch"></button><section class="relative z-10 max-h-[92vh] w-full max-w-6xl overflow-auto rounded-lg bg-white shadow-xl"><header class="border-b p-5"><h2 class="text-lg font-semibold">${dialog.mode === 'DIRECT' ? '直接派单' : dialog.mode === 'REASSIGN' ? (canReassignRuntimeCuttingTask(task) ? '裁剪任务改派' : '车缝任务改派') : '发起竞价'} · ${escapeHtml(task.taskNo || task.taskId)}</h2><p class="mt-1 text-xs text-muted-foreground">${escapeHtml(policy.taskTypeLabel)}</p></header><div class="space-y-4 p-5">
     ${dialog.error ? `<div class="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(dialog.error)}</div>` : ''}
     ${isSecond && dialog.mode === 'BIDDING' ? renderTenderLaunchConfirmation(task, dialog) : ''}
     ${isSecond && dialog.mode !== 'BIDDING' ? `<div class="rounded-lg border-2 border-amber-400 bg-amber-50 p-4"><h3 class="font-bold text-amber-900">二次确认${dialog.mode === 'REASSIGN' ? '改派' : '派单'}价格</h3><p class="mt-2 text-base font-semibold text-red-700">谨慎确认价格，一经提交确认不得修改。</p><p class="mt-3 text-sm">工厂：${escapeHtml(factories.find((item) => item.id === dialog.factoryId)?.name || '未选择')} · 数量：${effectiveAssignedQty.toLocaleString()}件 · 派单价：${escapeHtml(dialog.price)} IDR/件</p>${policy.involvesSewingOutsourcing ? `<p class="mt-2 text-sm">本次分配操作人：${escapeHtml(SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName)}（PPIC）</p><p class="mt-2 text-sm">任务PPIC：${escapeHtml(selectedPpic?.ppicName || '工厂归属无效')}（提交后冻结）</p>${policy.startsWithSewing ? `<p class="mt-2 text-sm">分配方式：${dialog.distributionMode === 'BAG_AWARE' ? '按菲票装袋推荐' : '自由分配'} · 可保持整袋 ${impact.intactBagCodes.length} 袋 · 受影响 ${impact.affectedBagCodes.length} 袋</p>` : ''}` : ''}${dialog.mode === 'REASSIGN' ? `<p class="mt-2 text-sm">改派原因：${escapeHtml(dialog.reassignReason)}</p>` : ''}<p class="mt-2 text-xs text-amber-800">提交后价格、分配操作PPIC和任务PPIC均写入本次有效分配；工厂档案后续换人不会静默覆盖当前任务。</p></div>${renderReturnRulePreview(policy, effectiveAssignedQty, dialog.businessAssignedAt, dialog.mode)}` : `
@@ -1157,6 +1170,7 @@ function executeAutomaticDispatch(): { succeeded: number; failed: string[] } {
       failed.push(`${task.taskNo || task.taskId}：${error instanceof Error ? error.message : '执行失败'}`)
     }
   })
+  if (failed.length) throw new Error(`本批自动分配尚未保存，请处理后重试：${failed.join('；')}`)
   return { succeeded, failed }
 }
 
@@ -1294,6 +1308,19 @@ function commitReassignment(dialog: DispatchDialogState): void {
   const price = Number(dialog.price)
   if (!Number.isFinite(price) || price <= 0) throw new Error('请输入大于0的有效改派价格')
   if (!dialog.reassignReason.trim()) throw new Error('请填写改派原因')
+  if(canReassignRuntimeCuttingTask(sourceTask)) {
+    const updated=reassignRuntimeCuttingTask({taskId:sourceTask.taskId,factoryId:factory.id,factoryName:factory.name,
+      businessAssignedAt,operatedAt,remark:dialog.reassignReason.trim(),by:'生产计划员',acceptDeadline:'',taskDeadline:sourceTask.taskDeadline || '',
+      dispatchPrice:price,dispatchPriceCurrency:sourceTask.standardPriceCurrency || 'IDR',dispatchPriceUnit:sourceTask.standardPriceUnit || '件',priceDiffReason:''})
+    const lines=updated.scopeSkuLines.length ? updated.scopeSkuLines : [{skuCode:updated.skuCode || 'SKU-ALL',color:updated.skuColor || '混色',size:updated.skuSize || '混码',qty:updated.scopeQty}]
+    createEffectiveTaskAssignment({runtimeTaskId:updated.taskId,productionOrderId:updated.productionOrderId,productionOrderNo:updated.productionOrderNo,
+      taskNo:updated.taskNo,factoryId:factory.id,factoryName:factory.name,source:'REASSIGNMENT',assignedQty:updated.scopeQty,
+      skuLines:lines.map(line=>({...line})),processCodes:classifyTaskFulfillmentPolicy(updated).normalizedProcessCodes,frozenPrice:price,
+      priceCurrency:updated.dispatchPriceCurrency || 'IDR',priceUnit:updated.dispatchPriceUnit || '件',businessAssignedAt,operatedAt,operatedBy:'生产计划员',replaceReason:dialog.reassignReason.trim()})
+    state.feedback=`裁剪任务已整单改派给${factory.name}，原裁剪与交出历史保留。`
+    state.contractPromptId=null
+    return
+  }
   const result = reassignRuntimeSewingTask({
     sourceTaskId: sourceTask.taskId,
     targetFactoryId: factory.id,
@@ -1503,13 +1530,13 @@ async function readContractFiles(input: HTMLInputElement, contractId: string): P
   }))
   const records = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
   const failed = settled.flatMap((result, index) => result.status === 'rejected' ? [files[index].name] : [])
-  if (records.length) addSignedContractScans(contractId, records)
+  if (records.length) await saveWorkbenchAction(JSON.stringify({action:'contract-files',contractId,records}),()=>addSignedContractScans(contractId,records))
   state.failedUploadNamesByContract[contractId] = failed
   state.feedback = `扫描图上传完成：成功${records.length}张，失败${failed.length}张。成功图片不会因单图失败而丢失。`
   refreshRoot()
 }
 
-export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?: Event): boolean {
+export async function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const fileInput = target.closest<HTMLInputElement>('[data-unified-contract-files]')
   if (fileInput && event?.type === 'change') {
     void readContractFiles(fileInput, fileInput.dataset.unifiedContractFiles || '').catch((error) => { state.feedback = error instanceof Error ? error.message : '上传失败'; refreshRoot() })
@@ -1681,7 +1708,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   if (action === 'open-log') { state.detailTaskId = taskId; state.detailMode = 'LOG'; refreshRoot(); return true }
   if (action === 'close-detail') { state.detailTaskId = null; refreshRoot(); return true }
   if (action === 'open-direct' || action === 'open-bidding' || action === 'open-reassign') { openDispatch(taskId, action === 'open-direct' ? 'DIRECT' : action === 'open-reassign' ? 'REASSIGN' : 'BIDDING'); refreshRoot(); return true }
-  if (action === 'close-dispatch') { state.dispatch = null; refreshRoot(); return true }
+  if (action === 'close-dispatch') { if(sourceSaveBusy) return true;state.dispatch = null; refreshRoot(); return true }
   if (action === 'back-dispatch' && state.dispatch) { state.dispatch.confirmStage = 1; refreshRoot(); return true }
   if (action === 'refresh-bagging' && state.dispatch) {
     const task = getRuntimeTaskById(state.dispatch.taskId)
@@ -1749,7 +1776,9 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     if (!preview.eligible.length) state.autoDispatch.error = '当前没有可执行的自动分配任务。'
     else if (state.autoDispatch.confirmStage === 1) state.autoDispatch.confirmStage = 2
     else {
-      const result = executeAutomaticDispatch()
+      let result: ReturnType<typeof executeAutomaticDispatch>
+      try { result = await saveWorkbenchAction(JSON.stringify({action:'automatic-dispatch',configs:[...autoDispatchConfigs]}),executeAutomaticDispatch) }
+      catch(error) { state.autoDispatch.error=error instanceof Error?error.message:'分配尚未保存';refreshRoot();return true }
       state.feedback = `自动分配已执行：成功${result.succeeded}个，失败${result.failed.length}个。${result.failed.length ? ` 失败明细：${result.failed.slice(0, 3).join('；')}` : ' 成功任务的工厂、价格和截止日期已写入派单记录。'}`
       state.autoDispatch = null
     }
@@ -1794,9 +1823,21 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
         state.dispatch.confirmStage = 2
         if (state.dispatch.mode === 'REASSIGN' && !state.dispatch.reassignReason.trim()) throw new Error('请填写改派原因')
       } else if (state.dispatch.mode !== 'BIDDING') {
-        if (state.dispatch.mode === 'REASSIGN') commitReassignment(state.dispatch)
-        else commitDirectDispatch(state.dispatch)
-        state.dispatch = null
+        if(sourceSaveBusy) return true
+        const dialog = structuredClone(state.dispatch)
+        const feedbackBefore = state.feedback; const promptBefore = state.contractPromptId
+        let feedbackAfter = feedbackBefore; let promptAfter = promptBefore
+        try {
+          const saved = await saveWorkbenchAction(JSON.stringify({...dialog,error:''}, (_key, value) => value instanceof Set ? [...value].sort() : value), () => {
+            if (dialog.mode === 'REASSIGN') commitReassignment(dialog)
+            else commitDirectDispatch(dialog)
+            feedbackAfter = state.feedback; promptAfter = state.contractPromptId
+            state.feedback = feedbackBefore; state.contractPromptId = promptBefore
+            return {feedback:feedbackAfter,prompt:promptAfter}
+          })
+          state.feedback = saved.feedback; state.contractPromptId = saved.prompt
+          state.dispatch = null
+        } catch (error) { state.feedback = feedbackBefore; state.contractPromptId = promptBefore; throw error }
       } else {
         const sourceTask = getRuntimeTaskById(state.dispatch.taskId)
         if (!sourceTask) throw new Error('任务已变化，请刷新')
@@ -1846,6 +1887,8 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
         const runtimeSnapshot = captureRuntimeDirectDispatchState()
         const tenderSnapshot = captureRuntimeTaskTenderRecordStore()
         try {
+          const tenderDialog=structuredClone(state.dispatch)
+          await saveWorkbenchAction(JSON.stringify({...tenderDialog,error:''},(_key,value)=>value instanceof Set?[...value].sort():value),()=>{
           upsertRuntimeTaskTender(tenderTask.taskId, {
             tenderId,
             biddingDeadline,
@@ -1861,7 +1904,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
             assignmentOperatedAt,
             biddingDeadline,
             taskDeadline: '',
-            poolMode: state.dispatch.tenderPoolMode,
+            poolMode: tenderDialog.tenderPoolMode,
             taskSnapshot: {
               taskNo: tenderTask.taskNo || tenderTask.taskId,
               productionOrderId: tenderTask.productionOrderId || tenderTask.productionOrderNo || tenderTask.taskId,
@@ -1888,8 +1931,9 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
             remark: '由任务分配工作台按整个任务范围发起竞价；不拆分SKU',
             createdBy: '生产计划员',
           })
+          })
         } catch (error) {
-          restoreRuntimeDirectDispatchState(runtimeSnapshot)
+          restoreRuntimeDirectDispatchState(runtimeSnapshot,false)
           restoreRuntimeTaskTenderRecordStore(tenderSnapshot)
           throw error
         }
@@ -1926,35 +1970,29 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
     }
     if (state.merge.confirmStage === 1) state.merge.confirmStage = 2
     else if (state.merge.mode === 'MERGE') {
-      const merged = createFixedMergedTask(state.merge.taskIds, '生产计划员')
+      const mergeInput=structuredClone(state.merge)
+      let merged:ReturnType<typeof createFixedMergedTask>
+      try { merged=await saveWorkbenchAction(JSON.stringify({action:'merge',taskIds:mergeInput.taskIds}),()=>{
+      const result=createFixedMergedTask(mergeInput.taskIds,'生产计划员')
+      if(result?.mergedTaskType==='CUTTING_SEWING_IRON_PACK') invalidateUnstartedSpecialCraftTaskOrdersForMergedTask({productionOrderId:result.productionOrderId,mergedTaskId:result.taskId,invalidatedAt:formatOperationLocalWallClock(),invalidatedBy:'生产计划员',reason:'辅助工艺、特种工艺随裁剪+车缝+烫包交由三方工厂执行'})
+      return result
+      }) } catch(error) {state.merge.error=error instanceof Error?error.message:'合并尚未保存';refreshRoot();return true}
       if (!merged) state.merge.error = '合并失败，请核对源任务是否仍符合固定模式'
       else {
-        if (merged.mergedTaskType === 'CUTTING_SEWING_IRON_PACK') {
-          invalidateUnstartedSpecialCraftTaskOrdersForMergedTask({
-            productionOrderId: merged.productionOrderId,
-            mergedTaskId: merged.taskId,
-            invalidatedAt: formatOperationLocalWallClock(),
-            invalidatedBy: '生产计划员',
-            reason: '辅助工艺、特种工艺随裁剪+车缝+烫包交由三方工厂执行',
-          })
-        }
         state.feedback = `生产单${merged.productionOrderNo || merged.productionOrderId}的${merged.mergeSourceTaskIds?.length === 2 ? '车缝任务与烫包任务' : '裁剪任务、车缝任务与烫包任务'}已合并为“${merged.processNameZh}”任务。`
         state.merge = null
       }
     } else {
       const mergedTaskId = state.merge.mergedTaskId || ''
       const mergedTask = getRuntimeTaskById(mergedTaskId)
-      const result = cancelFixedMergedTask(state.merge.mergedTaskId || '', '生产计划员')
+      let result:ReturnType<typeof cancelFixedMergedTask>
+      try { result=await saveWorkbenchAction(JSON.stringify({action:'cancel-merge',mergedTaskId}),()=>{
+      const result=cancelFixedMergedTask(mergedTaskId,'生产计划员')
+      if(result.ok && mergedTask?.mergedTaskType==='CUTTING_SEWING_IRON_PACK') restoreSpecialCraftTaskOrdersAfterMergedTaskCancellation({mergedTaskId,restoredAt:formatOperationLocalWallClock(),restoredBy:'生产计划员',reason:'合并任务撤销，恢复中央辅助/特种工艺加工单'})
+      return result
+      }) } catch(error) {state.merge.error=error instanceof Error?error.message:'撤销尚未保存';refreshRoot();return true}
       if (!result.ok) state.merge.error = result.message
       else {
-        if (mergedTask?.mergedTaskType === 'CUTTING_SEWING_IRON_PACK') {
-          restoreSpecialCraftTaskOrdersAfterMergedTaskCancellation({
-            mergedTaskId,
-            restoredAt: formatOperationLocalWallClock(),
-            restoredBy: '生产计划员',
-            reason: '合并任务撤销，恢复中央辅助/特种工艺加工单',
-          })
-        }
         state.feedback = result.message
         state.merge = null
       }
@@ -1965,7 +2003,7 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   if (action === 'open-contract') { state.contractPromptId = actionNode.dataset.contractId || null; refreshRoot(); return true }
   if (action === 'retry-contract') {
     try {
-      const contract = retryProductionContractGeneration(actionNode.dataset.contractId || '', formatOperationLocalWallClock(), '生产计划员')
+      const contract = await saveWorkbenchAction(`retry-contract:${actionNode.dataset.contractId}`,()=>retryProductionContractGeneration(actionNode.dataset.contractId || '', formatOperationLocalWallClock(), '生产计划员'))
       state.feedback = `合同${contract.contractNo}重试生成成功。`
       state.contractPromptId = contract.contractId
     } catch (error) { state.feedback = error instanceof Error ? error.message : '合同重试失败' }
@@ -1975,11 +2013,11 @@ export function handleUnifiedDispatchWorkbenchEvent(target: HTMLElement, event?:
   if (action === 'close-upload') { state.uploadContractId = null; refreshRoot(); return true }
   if (action === 'remove-scan') {
     if (!confirm('删除扫描图片将改变合同证据，请再次确认。')) return true
-    removeSignedContractScan(actionNode.dataset.contractId || '', actionNode.dataset.scanId || '')
+    try { await saveWorkbenchAction(`remove-scan:${actionNode.dataset.contractId}:${actionNode.dataset.scanId}`,()=>removeSignedContractScan(actionNode.dataset.contractId || '', actionNode.dataset.scanId || '')) } catch(error) {state.feedback=error instanceof Error?error.message:'删除尚未保存'}
     refreshRoot(); return true
   }
   if (action === 'reorder-scan') {
-    reorderSignedContractScan(actionNode.dataset.contractId || '', actionNode.dataset.scanId || '', actionNode.dataset.direction === 'UP' ? 'UP' : 'DOWN')
+    try { await saveWorkbenchAction(`reorder-scan:${actionNode.dataset.contractId}:${actionNode.dataset.scanId}:${actionNode.dataset.direction}`,()=>reorderSignedContractScan(actionNode.dataset.contractId || '', actionNode.dataset.scanId || '', actionNode.dataset.direction === 'UP' ? 'UP' : 'DOWN')) } catch(error) {state.feedback=error instanceof Error?error.message:'排序尚未保存'}
     refreshRoot(); return true
   }
   if (action === 'retry-failed-scan') {

@@ -1,0 +1,152 @@
+(node:54123) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ REPLACEMENT_FABRIC 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (59.130334ms)
+✔ REPLACEMENT_FABRIC 未绑定票不猜任务，可由用户明确同批加入 (13.592708ms)
+✖ REPLACEMENT_FABRIC old-factory 旧绑定不可作为当前任务沿用 (9.951459ms)
+✖ REPLACEMENT_FABRIC other-order 旧绑定不可作为当前任务沿用 (16.667042ms)
+✖ BINDING_STRIP 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (8.683583ms)
+✔ BINDING_STRIP 未绑定票不猜任务，可由用户明确同批加入 (8.228208ms)
+✖ BINDING_STRIP old-factory 旧绑定不可作为当前任务沿用 (11.001667ms)
+✖ BINDING_STRIP other-order 旧绑定不可作为当前任务沿用 (14.993667ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 2
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4932.963375
+
+✖ failing tests:
+
+test at tests/unit/wait-handover-fabric-assignment.test.ts:1:2648
+✖ REPLACEMENT_FABRIC 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (59.130334ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - 'TASK-FABRIC-REPLACEMENT_FABRIC-VALID'
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/wait-handover-fabric-assignment.test.ts:16:116)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'TASK-FABRIC-REPLACEMENT_FABRIC-VALID',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/wait-handover-fabric-assignment.test.ts:1:3374
+✖ REPLACEMENT_FABRIC old-factory 旧绑定不可作为当前任务沿用 (9.951459ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /任务|分配|工厂|生产单/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/wait-handover-fabric-assignment.test.ts:18:218)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /任务|分配|工厂|生产单/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/unit/wait-handover-fabric-assignment.test.ts:1:3374
+✖ REPLACEMENT_FABRIC other-order 旧绑定不可作为当前任务沿用 (16.667042ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'TASK-FABRIC-REPLACEMENT_FABRIC-other-order'
+  - ''
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/wait-handover-fabric-assignment.test.ts:18:169)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'TASK-FABRIC-REPLACEMENT_FABRIC-other-order',
+    expected: '',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/wait-handover-fabric-assignment.test.ts:1:2648
+✖ BINDING_STRIP 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (8.683583ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + ''
+  - 'TASK-FABRIC-BINDING_STRIP-VALID'
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/wait-handover-fabric-assignment.test.ts:16:116)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'TASK-FABRIC-BINDING_STRIP-VALID',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/wait-handover-fabric-assignment.test.ts:1:3374
+✖ BINDING_STRIP old-factory 旧绑定不可作为当前任务沿用 (11.001667ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /任务|分配|工厂|生产单/. Input:
+  
+  ''
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/wait-handover-fabric-assignment.test.ts:18:218)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: /任务|分配|工厂|生产单/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at tests/unit/wait-handover-fabric-assignment.test.ts:1:3374
+✖ BINDING_STRIP other-order 旧绑定不可作为当前任务沿用 (14.993667ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'TASK-FABRIC-BINDING_STRIP-other-order'
+  - ''
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/wait-handover-fabric-assignment.test.ts:18:169)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'TASK-FABRIC-BINDING_STRIP-other-order',
+    expected: '',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

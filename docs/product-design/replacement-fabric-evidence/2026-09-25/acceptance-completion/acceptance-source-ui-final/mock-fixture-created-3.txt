@@ -1,0 +1,9 @@
+### Error
+Error: page.evaluate: Error: 加工任务未保存，原动作已撤回；请检查本机存储后重试。配料校验尚未就绪，请刷新后重试
+    at runRuntimeTaskAction (http://127.0.0.1:43235/src/data/fcs/runtime-process-tasks.ts?t=1790307477785:137:11)
+    at Module.applyRuntimeDirectDispatchMeta (http://127.0.0.1:43235/src/data/fcs/runtime-process-tasks.ts?t=1790307477785:2602:10)
+    at Object.action (http://127.0.0.1:43235/output/playwright/hpb/acceptance-source-ui-final/ui-fixture.ts:15:29)
+    at Object.action (http://127.0.0.1:43235/src/data/fcs/production-context-actions.ts?t=1790307477785:129:27)
+    at saveProductionContextAction (http://127.0.0.1:43235/src/data/fcs/production-context-records.ts?t=1790307477785:474:22)
+    at async eval (eval at evaluate (:367:30), <anonymous>:1:10)
+    at async <anonymous>:393:30

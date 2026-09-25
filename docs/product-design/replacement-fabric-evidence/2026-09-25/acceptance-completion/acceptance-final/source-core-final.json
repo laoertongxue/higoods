@@ -1,0 +1,69 @@
+{
+  "results": [
+    {
+      "scene": "commit",
+      "errors": [
+        "Error: 另一项生产确认尚未完成，请稍后重试。",
+        "Error: 本次确认编号已用于不同内容，请重新核对。"
+      ],
+      "calls": 1,
+      "notifications": 2,
+      "restores": [
+        {
+          "v": 0
+        },
+        {
+          "productionOrderId": "p0",
+          "v": 1
+        }
+      ]
+    },
+    {
+      "scene": "abort",
+      "errors": [
+        "QuotaExceededError: injected-abort"
+      ],
+      "memory": {
+        "productionOrderId": "p0",
+        "v": 1
+      },
+      "calls": 2
+    },
+    {
+      "scene": "cas",
+      "errors": [
+        "Error: 其他页面已更新票据或交出记录。本次未保存，请刷新并重新核对后确认。"
+      ],
+      "queued": true
+    },
+    {
+      "scene": "legacy",
+      "errors": [
+        "Error: 发现旧生产来源，请先完成显式迁移；未使用空记录覆盖。"
+      ]
+    },
+    {
+      "scene": "migration-interrupt",
+      "errors": [
+        "Error: injected-interrupt"
+      ],
+      "records": 205
+    },
+    {
+      "scene": "migration-changed",
+      "errors": [
+        "Error: 旧页面改变了生产来源，迁移暂停，源记录保留。",
+        "Error: 旧页面改变了生产来源，迁移暂停，源记录保留。"
+      ],
+      "records": 101
+    },
+    {
+      "scene": "migration-complete-retry",
+      "errors": [
+        "QuotaExceededError: injected-complete-failure"
+      ],
+      "records": 205
+    }
+  ],
+  "failed": []
+}

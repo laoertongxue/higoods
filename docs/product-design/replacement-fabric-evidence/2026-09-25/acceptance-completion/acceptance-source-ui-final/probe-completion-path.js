@@ -1,0 +1,4 @@
+async(page)=>{
+ const c=await page.context().browser().newContext({viewport:{width:1366,height:768}}),p=await c.newPage(),errors=[];p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});p.on('pageerror',e=>errors.push(String(e)));
+ try{await p.goto('http://127.0.0.1:43236/fcs/progress/handover');const row=p.locator('tr').filter({hasText:'PO14673'}).filter({hasText:'可关闭交出单'});await row.locator('[data-handover-action=toggle-row-menu]').click();await p.locator('[data-handover-action=mark-handout-complete]').waitFor();return{body:(await p.locator('body').innerText()).slice(-2000),row:await row.innerText(),buttons:await row.locator('button').evaluateAll(xs=>xs.map(x=>({action:x.dataset.handoverAction,head:x.dataset.handoverId,record:x.dataset.recordId,text:x.textContent.trim()}))),errors}}finally{await c.close()}
+}

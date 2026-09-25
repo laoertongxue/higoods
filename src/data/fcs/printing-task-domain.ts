@@ -1,3 +1,4 @@
+import { isProductionCreationSourceStage, withProductionCreationSourceStage, recordProductionCreatedProcessSource, listProductionCreatedProcessSources, shouldApplyProductionCreatedProcessSource } from './production-created-process-sources.ts'
 import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
 import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
@@ -653,6 +654,39 @@ export function restorePrintProcessMutationState(snapshot: PrintProcessMutationS
 }
 
 
+export function preparePrintSourcesForProductionCreation(): string | null {
+  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY)
+  if (!raw) return raw
+  const saved = parsePrintExecution(raw) as { version: number; state: PrintProcessMutationSnapshot }
+  if (saved.version !== 1 || !saved.state || !Array.isArray(saved.state.workOrders)
+    || saved.state.workOrders.some(row => !Array.isArray(row) || row.length !== 2 || row[0] !== row[1]?.printOrderId)) throw new Error('提前印花来源格式错误，请保留旧数据并核对。')
+  for (const [id, order] of saved.state.workOrders) workOrderStore.set(id, structuredClone(order))
+  return raw
+}
+export function assertPrintProductionCreationSourceUnchanged(raw: string | null): void {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('其他页面已修改提前加工来源，请重新读取后生成生产单。')
+}
+export function capturePrintProductionCreationState() {
+  return { state: capturePrintProcessMutationState(), createdIds: [...createdPrintOrderIds],
+    tasks: [...workOrderStore.values()].flatMap(order => { const task = getPdaGenericProcessTaskById(order.taskId); return task ? [structuredClone(task)] : [] }) }
+}
+export function restorePrintProductionCreationState(value: ReturnType<typeof capturePrintProductionCreationState>): void {
+  const previousIds = new Set(value.state.workOrders.map(([, order]) => order.taskId))
+  for (const order of workOrderStore.values()) if (!previousIds.has(order.taskId)) unregisterPdaGenericProcessTask(order.taskId)
+  restorePrintProcessMutationState(value.state)
+  createdPrintOrderIds.clear(); value.createdIds.forEach(id => createdPrintOrderIds.add(id))
+  value.tasks.forEach(task => registerPdaGenericProcessTask(structuredClone(task)))
+}
+export function applyProductionCreatedPrintSources(): void {
+  if (isProductionCreationSourceStage()) return
+  for (const fact of listProductionCreatedProcessSources('PRINT')) {
+    const current = workOrderStore.get(fact.workOrderId)
+    if (current && shouldApplyProductionCreatedProcessSource(current.sourceSnapshot, fact)) {
+      withProductionCreationSourceStage(() => prepareProductionDemandPrintMatch(fact.workOrderId, fact.decision).commit())
+    }
+  }
+}
+
 const PRINT_EXECUTION_STORAGE_KEY = 'higoods.formal-print-execution.v1'
 let printMutationDepth = 0
 let printPersistenceReadError: string | null = null
@@ -712,6 +746,7 @@ function hydrateDesignRevisionPrintPreview(order: PrintWorkOrder): void {
 }
 
 function saveFormalPrintExecution(): void {
+  applyProductionCreatedPrintSources()
   if (typeof localStorage === 'undefined') return
   const ids = new Set(workOrderStore.keys()), state = capturePrintProcessMutationState()
   state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
@@ -844,6 +879,7 @@ function restoreFormalPrintExecution(): void {
   } catch (error) { printPersistenceReadError = '已保存的印花记录损坏或与原来源不一致，未覆盖原记录，请联系负责人。' + (error instanceof Error ? error.message : String(error)); throw new Error(printPersistenceReadError) }
 }
 export function runPrintProcessMutation<T>(action: () => T): T {
+  if (isProductionCreationSourceStage()) return action()
   if (printMutationDepth) return action()
   seedDomain()
   if (printPersistenceReadError) throw new Error(printPersistenceReadError)
@@ -1442,6 +1478,7 @@ function getMachineSeed(factoryId: string, index = 0) {
 }
 
 function getPrimaryHandoverOrder(taskId: string): PdaHandoverHead | null {
+  if (isProductionCreationSourceStage()) return null
   const existing = listHandoverOrdersByTaskId(taskId, { includeWool: false })
   return existing[0] ?? null
 }
@@ -2741,6 +2778,7 @@ function initializePendingFactoryDemoProgress(): void {
   const factoryDemos = pendingFactoryDemoOrders
   pendingFactoryDemoOrders = []
   try {
+    ensurePrintingReceivingExamples()
     initializeFactoryDemoProgress(factoryDemos)
   } catch (error) {
     pendingFactoryDemoOrders = factoryDemos
@@ -2748,6 +2786,7 @@ function initializePendingFactoryDemoProgress(): void {
   }
 }
 function seedDomain(initializeProgress = true): void {
+  if (isProductionCreationSourceStage()) return
   if (printPersistenceReadError) throw new Error(printPersistenceReadError)
   if (seeded) { if (initializeProgress) initializePendingFactoryDemoProgress(); return }
   seeded = true
@@ -2773,7 +2812,6 @@ function seedDomain(initializeProgress = true): void {
   }
   restoreFormalPrintExecution()
   bindPrintingDemoReceivingTargets()
-  ensurePrintingReceivingExamples()
   pendingFactoryDemoOrders = factoryDemos
   if (initializeProgress) initializePendingFactoryDemoProgress()
 }
@@ -2878,7 +2916,9 @@ function ensureReviewForHandoverOrder(order: MutablePrintWorkOrder, head: PdaHan
 }
 
 function syncDerivedWorkflow(workOrderId?: string): void {
+  if (isProductionCreationSourceStage()) return
   seedDomain()
+  applyProductionCreatedPrintSources()
 
   // One current handover read per projection, instead of copying the entire wool
   // store once for every print order. No snapshot survives this synchronous call.
@@ -3059,6 +3099,7 @@ export function getPrintReviewStatusLabel(status: PrintReviewStatus): string {
 /** Relation metadata includes every seeded and restored order without advancing factory demo execution. */
 export function listPrintWorkOrderSourceReferences(): PrintWorkOrder[] {
   seedDomain(false)
+  applyProductionCreatedPrintSources()
   return listGeneratedPrintWorkOrders().map(cloneWorkOrder)
 }
 
@@ -3073,6 +3114,7 @@ export function readPrintWorkOrdersWithoutInitialization(): { orders: PrintWorkO
 }
 
 export function listPrintWorkOrders(): PrintWorkOrder[] {
+  if (isProductionCreationSourceStage()) return [...workOrderStore.values()].map(cloneWorkOrder)
   syncDerivedWorkflow()
   return listGeneratedPrintWorkOrders().map((order) => {
     ensurePrintAcceptanceFact(order)
@@ -3158,6 +3200,7 @@ export function prepareProductionDemandPrintMatch(
     commit: () => {
       if (committed) return
       runPrintProcessMutation(() => { workOrderStore.set(printOrderId, cloneWorkOrder(next) as MutablePrintWorkOrder) })
+      recordProductionCreatedProcessSource({ processCode: 'PRINT', workOrderId: printOrderId, decision })
       committed = true
     },
     rollback: () => {
@@ -3226,6 +3269,7 @@ export function linkProductionDemandPrintReplacement(
 }
 
 export function getPrintWorkOrderById(printOrderId: string): PrintWorkOrder | undefined {
+  if (isProductionCreationSourceStage()) { const order = workOrderStore.get(printOrderId); return order ? cloneWorkOrder(order) : undefined }
   syncDerivedWorkflow(printOrderId)
   const canonical = workOrderStore.get(printOrderId)
   if (canonical) ensurePrintAcceptanceFact(canonical)
@@ -3298,10 +3342,22 @@ function derivePrintMobileOrigin(order: PrintWorkOrder, status: PdaGenericTaskMo
   return 'EXEC_NOT_STARTED'
 }
 
-export function listPrintMobileExecutionTasks(taskId?: string): PdaGenericTaskMock[] {
-  seedDomain()
-  const scopedOrders = taskId ? Array.from(workOrderStore.values()).filter(order => order.taskId === taskId) : Array.from(workOrderStore.values())
-  if (taskId && !scopedOrders.length) return []
+/** Full canonical identity set, including orders outside the current factory. */
+export function listPrintMobileExecutionTaskIds(): string[] {
+  seedDomain(false)
+  applyProductionCreatedPrintSources()
+  return [...workOrderStore.values()].map(order => order.taskId)
+}
+
+export function listPrintMobileExecutionTasks(taskId?: string, factoryId?: string): PdaGenericTaskMock[] {
+  seedDomain(!factoryId)
+  applyProductionCreatedPrintSources()
+  const scopedOrders = Array.from(workOrderStore.values()).filter(order =>
+    (!taskId || order.taskId === taskId) && (!factoryId || order.printFactoryId === factoryId),
+  )
+  // Factory ownership comes from restored canonical orders, never from capability guesses.
+  // Do not initialize other factories' execution/receipt demonstrations for an empty scope.
+  if ((taskId || factoryId) && !scopedOrders.length) return []
   syncDerivedWorkflow(taskId ? scopedOrders[0].printOrderId : undefined)
   return scopedOrders.flatMap((order) => {
     ensurePrintAcceptanceFact(order)
@@ -3533,6 +3589,7 @@ export function registerPrintProcessWorkOrderGenerationRegistrar(): void {
     issueIdentity: (orderedAt, reserved) => {
       seedDomain()
       const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderId))
+      productionOrders.flatMap(order => order.processWorkOrderDefinitions || []).filter(item => item.processCode === 'PRINT').forEach(item => occupiedIds.add(item.workOrderId))
       const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.printOrderNo))
       const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
       for (let sequence = 1; sequence <= 999999; sequence += 1) {

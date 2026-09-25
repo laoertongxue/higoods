@@ -1,0 +1,6 @@
+### Result
+{"calls":0,"feedback":"尚未保存打印记录：部分菲票的原打印对象不存在或状态不一致，请返回业务单据核对后重试。"}
+### Ran Playwright code
+```js
+await (async root=>{const p=root.context().browser().contexts().flatMap(c=>c.pages()).filter(p=>p.url().includes('/print/preview')).at(-1);await p.locator('[data-print-preview-action=print]').click();await p.waitForFunction(()=>window.__printCalls>0||document.querySelector('[data-print-ready-feedback]')?.textContent,{},{timeout:10000});return {calls:await p.evaluate(()=>window.__printCalls),feedback:await p.locator('[data-print-ready-feedback]').textContent()}})(page);
+```

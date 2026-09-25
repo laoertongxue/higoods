@@ -40,10 +40,10 @@ import {
 import {
   buildExecutionPrepProjectionContext,
 } from './execution-prep-projection-helpers.ts'
-import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
+import { type CuttingTicketSourceSnapshot, getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
 
-export interface CuttingTraceabilityProjectionContext {
-  snapshot: CuttingDomainSnapshot
+export interface CuttingTraceabilityProjectionContext<S extends CuttingDomainSnapshot | CuttingTicketSourceSnapshot = CuttingDomainSnapshot> {
+  snapshot: S
   cutOrderRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['cutOrderRows']
   materialPrepRows: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['materialPrepRows']
   markerPlanSources: ReturnType<typeof buildExecutionPrepProjectionContext>['sources']['markerPlanSources']
@@ -61,9 +61,9 @@ export interface CuttingTraceabilityProjectionContext {
 
 let defaultTraceabilityProjectionCache: {
   signature: string
-  context: CuttingTraceabilityProjectionContext
+  context: CuttingTraceabilityProjectionContext<CuttingDomainSnapshot | CuttingTicketSourceSnapshot>
 } | null = null
-const snapshotTraceabilityProjectionCache = new WeakMap<CuttingDomainSnapshot, CuttingTraceabilityProjectionContext>()
+const snapshotTraceabilityProjectionCache = new WeakMap<CuttingDomainSnapshot | CuttingTicketSourceSnapshot, CuttingTraceabilityProjectionContext<CuttingDomainSnapshot | CuttingTicketSourceSnapshot>>()
 
 function castTicketRecords(input: Array<Record<string, unknown>>): FeiTicketLabelRecord[] {
   return input as unknown as FeiTicketLabelRecord[]
@@ -506,10 +506,13 @@ function ensureTraceabilityBagFirstSeed(options: {
   return nextStore
 }
 
+export function buildCuttingTraceabilityProjectionContext(snapshot?: CuttingDomainSnapshot, storeOverride?: TransferBagStore): CuttingTraceabilityProjectionContext
+export function buildCuttingTraceabilityProjectionContext(snapshot: CuttingDomainSnapshot | CuttingTicketSourceSnapshot, storeOverride?: TransferBagStore, sourceRows?: Pick<CuttingTraceabilityProjectionContext, 'cutOrderRows' | 'materialPrepRows' | 'markerPlanSources' | 'markerStore'>): CuttingTraceabilityProjectionContext<CuttingDomainSnapshot | CuttingTicketSourceSnapshot>
 export function buildCuttingTraceabilityProjectionContext(
-  snapshot?: CuttingDomainSnapshot,
+  snapshot?: CuttingDomainSnapshot | CuttingTicketSourceSnapshot,
   storeOverride?: TransferBagStore,
-): CuttingTraceabilityProjectionContext {
+  sourceRows?: Pick<CuttingTraceabilityProjectionContext, 'cutOrderRows' | 'materialPrepRows' | 'markerPlanSources' | 'markerStore'>,
+): CuttingTraceabilityProjectionContext<CuttingDomainSnapshot | CuttingTicketSourceSnapshot> {
   const canUseDefaultCache = !snapshot && !storeOverride
   if (canUseDefaultCache) {
     const signature = getCuttingRuntimeStorageSignature()
@@ -525,7 +528,8 @@ export function buildCuttingTraceabilityProjectionContext(
     }
   }
 
-  const context = buildExecutionPrepProjectionContext(snapshot)
+  if (snapshot && !('registry' in snapshot) && !sourceRows) throw new Error('打印来源缺少明确的裁片与面料身份投影。')
+  const context = sourceRows && snapshot ? {snapshot, sources: sourceRows} : buildExecutionPrepProjectionContext(snapshot as CuttingDomainSnapshot | undefined)
   const effectiveSnapshot = context.snapshot
   const cutOrderRows = context.sources.cutOrderRows
   const materialPrepRows = context.sources.materialPrepRows
@@ -585,16 +589,14 @@ export function buildCuttingTraceabilityProjectionContext(
     printJobs,
     prefilter: null,
   })
-  const transferBagViewModel = buildTransferBagViewModel({
-    cutOrderRows,
-    ticketRecords,
-    markerPlanSources,
-    store: transferBagStore,
-    spreadingStore,
+  // 打印只需要袋内绑定锁，不执行袋流转及车缝交出汇总的读取。
+  let transferBagViewModel: TransferBagViewModel | undefined
+  let transferBagReturnViewModel: TransferBagReturnViewModel | undefined
+  const readBagView = () => transferBagViewModel ||= buildTransferBagViewModel({
+    cutOrderRows, ticketRecords, markerPlanSources, store: transferBagStore, spreadingStore,
   })
-  const transferBagReturnViewModel = buildTransferBagReturnViewModel({
-    store: transferBagStore,
-    baseViewModel: transferBagViewModel,
+  const readBagReturnView = () => transferBagReturnViewModel ||= buildTransferBagReturnViewModel({
+    store: transferBagStore, baseViewModel: readBagView(),
   })
 
   const nextContext = {
@@ -610,8 +612,8 @@ export function buildCuttingTraceabilityProjectionContext(
     printJobs,
     transferBagStore,
     printableViewModel,
-    transferBagViewModel,
-    transferBagReturnViewModel,
+    get transferBagViewModel() { return readBagView() },
+    get transferBagReturnViewModel() { return readBagReturnView() },
   }
 
   if (canUseDefaultCache) {

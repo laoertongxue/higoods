@@ -1,6 +1,6 @@
+import { readPartTicketValue, PART_TICKET_KEYS } from './part-ticket-records.ts'
 import {
   getBrowserLocalStorage,
-  getBrowserSessionStorage,
   readBrowserStorageItem,
 } from '../../browser-storage.ts'
 import {
@@ -45,6 +45,7 @@ import {
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   deserializeCuttingRuntimeEventLedgerStorage,
   listRuntimePdaExecutionEventProjections,
+  getCuttingRuntimeEventProjectionRevision,
 } from './cutting-runtime-event-ledger.ts'
 
 const CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS = [
@@ -64,33 +65,32 @@ const CUTTING_RUNTIME_SESSION_STORAGE_SIGNATURE_KEYS = [
 
 export function getCuttingRuntimeStorageSignature(): string {
   const localStorageRef = getBrowserLocalStorage()
-  const sessionStorageRef = getBrowserSessionStorage()
   const localSignature = CUTTING_RUNTIME_LOCAL_STORAGE_SIGNATURE_KEYS
-    .map((key) => `${key}:${readBrowserStorageItem(localStorageRef, key) || ''}`)
+    .map((key) => `${key}:${Object.values(PART_TICKET_KEYS).includes(key as never) ? readPartTicketValue(key) || '' : readBrowserStorageItem(localStorageRef, key) || ''}`)
     .join('\n')
   const sessionSignature = CUTTING_RUNTIME_SESSION_STORAGE_SIGNATURE_KEYS
-    .map((key) => `${key}:${readBrowserStorageItem(sessionStorageRef, key) || ''}`)
+    .map((key) => `${key}:${readPartTicketValue(key) || ''}`)
     .join('\n')
 
-  return `${localSignature}\n${sessionSignature}`
+  return `${localSignature}\n${sessionSignature}\nmanaged-events:${getCuttingRuntimeEventProjectionRevision()}`
 }
 
 export function readCuttingMarkerStore() {
   return deserializeMarkerSpreadingStorage(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY),
+    readPartTicketValue(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY),
   )
 }
 
 export function readCuttingFeiRuntimeState() {
   return {
     drafts: deserializeFeiTicketDraftsStorage(
-      readBrowserStorageItem(getBrowserSessionStorage(), CUTTING_FEI_TICKET_DRAFTS_STORAGE_KEY),
+      readPartTicketValue(CUTTING_FEI_TICKET_DRAFTS_STORAGE_KEY),
     ),
     ticketRecords: deserializeFeiTicketRecordsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY),
+      readPartTicketValue(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY),
     ),
     printJobs: deserializeFeiTicketPrintJobsStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY),
+      readPartTicketValue(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY),
     ),
   }
 }
@@ -98,7 +98,7 @@ export function readCuttingFeiRuntimeState() {
 export function readCuttingTransferBagRuntimeState() {
   return {
     store: deserializeTransferBagStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY),
+      readPartTicketValue(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY),
     ),
   }
 }
@@ -127,7 +127,7 @@ function deserializeStoredMarkerPlanSourceLedger(raw: string | null): Array<Reco
 
 export function readCuttingStoredMarkerPlanSourceLedger() {
   return deserializeStoredMarkerPlanSourceLedger(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY),
+    readPartTicketValue(CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY),
   )
 }
 
@@ -200,4 +200,17 @@ export function readCuttingRuntimeInputs(): CuttingRuntimeInputs {
       events: runtimeEventState.events,
     },
   }
+}
+
+/** 打印来源只读取裁片身份、唛架、铺布和菲票；不查询收料及仓储执行汇总。 */
+export type CuttingTicketSourceSnapshot = Pick<CuttingRuntimeInputs, 'progressRecords' | 'markerPlanSourceState' | 'markerSpreadingState' | 'feiTicketState' | 'transferBagState'>
+export function readCuttingTicketSourceSnapshot(): CuttingTicketSourceSnapshot {
+ const fei = readCuttingFeiRuntimeState()
+ return {
+  progressRecords: listCurrentCuttingOrderProgressRecords(),
+  markerPlanSourceState: {sourceRecords: listMarkerPlanCutOrderSourceRecords(), storedRecords: readCuttingStoredMarkerPlanSourceLedger()},
+  markerSpreadingState: {store: readCuttingMarkerStore() as unknown as Record<string,unknown>},
+  feiTicketState: {drafts: fei.drafts as Record<string,unknown>, ticketRecords: fei.ticketRecords as Array<Record<string,unknown>>, printJobs: fei.printJobs as Array<Record<string,unknown>>},
+  transferBagState: {store: readCuttingTransferBagRuntimeState().store as unknown as Record<string,unknown>},
+ }
 }

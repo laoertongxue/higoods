@@ -167,6 +167,15 @@ export function resolveActionBagCurrent(bagCode: string): TransferBagCurrentUse 
     const currentAssignments = listEffectiveTaskAssignments().filter((assignment) => assignment.status === 'EFFECTIVE' && assignment.processCodes.some((code) => ['SEW', 'SEWING'].includes(code)))
     const sourceTickets = [...listSpreadingResultGeneratedFeiTickets(), ...listWoolPanelCuttingReceiptSources()]
     runtimeCurrent.tickets = runtimeCurrent.tickets.map((ticket) => {
+      if (ticket.ticketKind === 'REPLACEMENT_FABRIC' || ticket.ticketKind === 'BINDING_STRIP') {
+        // 面料票没有部位裁片 SKU；仅核对明确绑定，不替未绑定票猜测接收任务。
+        if (!ticket.sewingTaskId && !ticket.receiverFactoryId) return ticket
+        const assignment = currentAssignments.find((item) => item.runtimeTaskId === ticket.sewingTaskId
+          && item.productionOrderId === ticket.productionOrderId && item.factoryId === ticket.receiverFactoryId)
+        if (assignment) return { ...ticket, sewingTaskNo: assignment.taskNo || assignment.runtimeTaskId, receiverFactoryName: assignment.factoryName }
+        runtimeCurrent.compatibilityBlockedReason = '袋内面料票的任务分配、生产单或接收工厂已变化，请主管核对并重新绑定后交出。'
+        return { ...ticket, sewingTaskId: '', sewingTaskNo: '', receiverFactoryId: '', receiverFactoryName: '' }
+      }
       const source = sourceTickets.find((item) => item.feiTicketId === ticket.feiTicketId && item.feiTicketNo === ticket.feiTicketNo)
       const matches = currentAssignments.filter((assignment) => source && assignment.productionOrderId === ticket.productionOrderId && assignment.skuLines.some((sku) => sku.skuCode === source.skuCode && sku.color === ticket.color && sku.size === ticket.size))
       if (matches.length !== 1) return currentAssignments.some((assignment) => assignment.productionOrderId === ticket.productionOrderId) ? { ...ticket, sewingTaskId: '', sewingTaskNo: '', receiverFactoryId: '', receiverFactoryName: '' } : ticket
@@ -205,11 +214,11 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
   const current = bagCode ? resolveActionBagCurrent(bagCode) : null
   const currentUses = buildRepackSourceCurrents(bagCode)
   const activeTicketIds = new Set(currentUses.flatMap((item) => item.tickets.map((ticket) => ticket.feiTicketId)))
-  const ticketOptions = [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
+  const ticketOptions = action === 'bagging' ? [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
     .filter((ticket) => ticket.printStatus !== 'VOIDED')
     .filter((ticket) => !activeTicketIds.has(ticket.feiTicketId))
     .filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT' || validateFeiTicketNumberingBeforeBagging(ticket).ok)
-    .map((ticket) => ({ value: ticket.feiTicketId, label: generatedTicketLabel(ticket) }))
+    .map((ticket) => ({ value: ticket.feiTicketId, label: generatedTicketLabel(ticket) })) : []
   const repackSources = currentUses
     .filter((item) => ['PACKED', 'INBOUND_STORED', 'READY_HANDOVER'].includes(item.flowStage || ''))
     .filter((item) => item.tickets.length > 0)
@@ -218,7 +227,7 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
       label: `${item.bagCode} / ${item.productionOrderNo} / ${item.tickets.length} 张 / ${item.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片${item.compatibilityBlockedReason ? ' / 待主管核查' : ''}`,
       disabled: Boolean(item.compatibilityBlockedReason),
     }))
-  const specialReturns = actionAdapter?.getSpecialCraftReturnCandidates() || []
+  const specialReturns = action === 'special-craft-return' ? actionAdapter?.getSpecialCraftReturnCandidates() || [] : []
   const taskFacts = new Map<string, { taskId: string; taskNo: string; productionOrderNo: string; factoryId: string; factoryName: string }>()
   currentUses.flatMap((item) => item.tickets).forEach((ticket) => {
     if (!ticket.sewingTaskId || !ticket.sewingTaskNo || !ticket.receiverFactoryId || !ticket.receiverFactoryName) return
@@ -230,8 +239,6 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
       factoryName: ticket.receiverFactoryName,
     })
   })
-  const ppicOptions = Array.from(taskFacts.values()).flatMap((task) =>
-    buildCuttingHandoverPpicOptions({ runtimeTaskId: task.taskId, receiverFactoryId: task.factoryId, receiverFactoryName: task.factoryName }))
   return {
     current: dialogCurrent(current),
     ticketOptions,
@@ -240,10 +247,8 @@ function buildModel(action: WaitHandoverWebAction, bagCode = ''): WaitHandoverAc
       value: task.taskId,
       label: `${task.taskNo} / ${task.productionOrderNo} / ${task.factoryName}`,
     })),
-    handoverPpicOptions: ppicOptions.map((item) => ({
-      value: `${item.ppicId}|${item.ppicName}|${item.receiverFactoryId}`,
-      label: `${item.ppicName} / ${item.receiverFactoryName}`,
-    })),
+    // 选择任务后由 refreshHandoverTaskContext 读取该任务的当前 PPIC。
+    handoverPpicOptions: [],
     specialCraftReturnOptions: specialReturns.map((item) => ({ value: item.value, label: `${item.bagCode} / ${item.sourceHandoverRecordId} / ${item.returnedTicketIds.length} 张菲票` })),
     recoveryNodeOptions: ['裁床待交出仓', '后道工厂空袋回收区'],
     locationOptions: [],

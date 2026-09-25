@@ -1,3 +1,4 @@
+import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { indonesiaFactories } from './indonesia-factories.ts'
 import {
@@ -466,10 +467,18 @@ const RUNTIME_TASK_STORAGE_KEY = 'higood.runtime-process-task-actions.v1'
 let runtimeStorageReady = false
 let runtimeStorageFailure: Error | null = null
 let runtimeActionDepth = 0
+let staticRuntimeDefaults: RuntimeDirectDispatchState | null = null
 function encodeRuntimeTaskActions(): string {
+  const changedEntries = (entries: Array<[string, unknown]>, defaults: Array<[string, unknown]> = []): Array<[string, unknown]> => {
+    const original = new Map(defaults), current = new Map(entries)
+    return [...entries.filter(([id, value]) => JSON.stringify(original.get(id)) !== JSON.stringify(value)),
+      ...defaults.filter(([id]) => !current.has(id)).map(([id]): [string, unknown] => [id, { __removedStaticRuntimeEntry: true }])]
+  }
   return JSON.stringify({ version: 1,
-    taskOverrides: [...runtimeTaskOverrides], splitPlans: [...runtimeTaskSplitPlans],
-    mergedPlans: [...runtimeMergedTaskPlans], reassignedTasks: [...runtimeReassignedTasks], auditSeq: runtimeAuditSeq,
+    taskOverrides: changedEntries([...runtimeTaskOverrides], staticRuntimeDefaults?.taskOverrides),
+    splitPlans: changedEntries([...runtimeTaskSplitPlans], staticRuntimeDefaults?.splitPlans),
+    mergedPlans: changedEntries([...runtimeMergedTaskPlans], staticRuntimeDefaults?.mergedPlans),
+    reassignedTasks: changedEntries([...runtimeReassignedTasks], staticRuntimeDefaults?.reassignedTasks), auditSeq: runtimeAuditSeq,
   })
 }
 function persistRuntimeTaskActions(): void {
@@ -491,7 +500,11 @@ export function runRuntimeTaskAction<T>(action: () => T): T {
   runtimeActionDepth++
   try {
     const result = action()
-    if (encodeRuntimeTaskActions() !== encodedBefore) { persistRuntimeTaskActions(); persistCreatedProductionOrders() }
+    if (encodeRuntimeTaskActions() !== encodedBefore) {
+      persistRuntimeTaskActions()
+      const previousOrders = new Map(before.productionOrders.map(order => [order.productionOrderId, JSON.stringify(order)]))
+      persistCreatedProductionOrders(productionOrders.filter(order => previousOrders.get(order.productionOrderId) !== JSON.stringify(order)).map(order => order.productionOrderId))
+    }
     return result
   } catch (error) {
     restoreRuntimeDirectDispatchState(before)
@@ -501,6 +514,7 @@ export function runRuntimeTaskAction<T>(action: () => T): T {
   } finally { runtimeActionDepth-- }
 }
 function readRuntimeTaskActions(): void {
+  if (typeof window !== 'undefined' && typeof document !== 'undefined' && !isProductionContextReady()) return
   if (runtimeStorageFailure) throw runtimeStorageFailure
   if (runtimeStorageReady) return
   try {
@@ -512,15 +526,31 @@ function readRuntimeTaskActions(): void {
       || keys.some(key => !Array.isArray(saved[key]) || saved[key].some((row: unknown) => !Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !row[1] || typeof row[1] !== 'object'))) {
       throw new Error('本机加工任务动作记录损坏，未使用空记录覆盖，请联系负责人核对。')
     }
-    for (const [id, value] of saved.taskOverrides) runtimeTaskOverrides.set(id, value)
-    for (const [id, value] of saved.splitPlans) runtimeTaskSplitPlans.set(id, value)
-    for (const [id, value] of saved.mergedPlans) runtimeMergedTaskPlans.set(id, value)
-    for (const [id, value] of saved.reassignedTasks) runtimeReassignedTasks.set(id, value)
+    for (const [id, value] of saved.taskOverrides) { if (value.__removedStaticRuntimeEntry) runtimeTaskOverrides.delete(id); else runtimeTaskOverrides.set(id, value) }
+    for (const [id, value] of saved.splitPlans) { if (value.__removedStaticRuntimeEntry) runtimeTaskSplitPlans.delete(id); else runtimeTaskSplitPlans.set(id, value) }
+    for (const [id, value] of saved.mergedPlans) { if (value.__removedStaticRuntimeEntry) runtimeMergedTaskPlans.delete(id); else runtimeMergedTaskPlans.set(id, value) }
+    for (const [id, value] of saved.reassignedTasks) { if (value.__removedStaticRuntimeEntry) runtimeReassignedTasks.delete(id); else runtimeReassignedTasks.set(id, value) }
     runtimeAuditSeq = Math.max(runtimeAuditSeq, saved.auditSeq)
   }
   runtimeStorageReady = true
   } catch (error) { runtimeStorageFailure = error instanceof Error ? error : new Error(String(error)); throw runtimeStorageFailure }
 }
+onProductionContextChanged(RUNTIME_TASK_STORAGE_KEY, () => {
+  runtimeStorageReady = false
+  runtimeStorageFailure = null
+  runtimeTaskOverrides.clear(); runtimeTaskSplitPlans.clear(); runtimeMergedTaskPlans.clear(); runtimeReassignedTasks.clear()
+  runtimeAuditSeq = 0
+  if (staticRuntimeDefaults) {
+    staticRuntimeDefaults.taskOverrides.forEach(([id, value]) => runtimeTaskOverrides.set(id, structuredClone(value)))
+    staticRuntimeDefaults.splitPlans.forEach(([id, value]) => runtimeTaskSplitPlans.set(id, structuredClone(value)))
+    staticRuntimeDefaults.mergedPlans.forEach(([id, value]) => runtimeMergedTaskPlans.set(id, structuredClone(value)))
+    staticRuntimeDefaults.reassignedTasks.forEach(([id, value]) => runtimeReassignedTasks.set(id, structuredClone(value)))
+    runtimeAuditSeq = staticRuntimeDefaults.auditSeq
+  }
+  readRuntimeTaskActions()
+  invalidateRuntimeTasksCache()
+})
+
 function invalidateRuntimeTasksCache(): void {
   runtimeTasksCache = null
 }
@@ -554,7 +584,25 @@ export function captureRuntimeDirectDispatchState(): RuntimeDirectDispatchState 
   }
 }
 
-export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchState): void {
+/** 固定演示源仅构建内存默认值，不经过用户保存入口，不落盘整包种子。 */
+export function buildRuntimeTaskStaticFixture(action: () => void): void {
+  ensureDispatchBoardSeedData()
+  const before = captureRuntimeDirectDispatchState()
+  runtimeActionDepth++
+  try { action() } finally { runtimeActionDepth-- }
+  const after = captureRuntimeDirectDispatchState()
+  const defaults = staticRuntimeDefaults || { ...before, taskOverrides: [], splitPlans: [], mergedPlans: [], reassignedTasks: [] }
+  for (const key of ['taskOverrides', 'splitPlans', 'mergedPlans', 'reassignedTasks'] as const) {
+    const existing = new Map<string, unknown>(before[key])
+    const entries = new Map<string, unknown>(defaults[key])
+    for (const [id, value] of after[key]) if (JSON.stringify(existing.get(id)) !== JSON.stringify(value)) entries.set(id, structuredClone(value))
+    Object.assign(defaults, { [key]: [...entries] })
+  }
+  defaults.auditSeq = Math.max(defaults.auditSeq, after.auditSeq)
+  staticRuntimeDefaults = defaults
+}
+
+export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchState, persist = true): void {
   runtimeTaskOverrides.clear()
   runtimeTaskSplitPlans.clear()
   runtimeMergedTaskPlans.clear()
@@ -567,7 +615,7 @@ export function restoreRuntimeDirectDispatchState(state: RuntimeDirectDispatchSt
   runtimeReassignedTasks.clear()
   state.reassignedTasks.forEach(([id, task]) => runtimeReassignedTasks.set(id, structuredClone(task)))
   invalidateRuntimeTasksCache()
-  if (!runtimeActionDepth && runtimeStorageReady) { persistRuntimeTaskActions(); persistCreatedProductionOrders() }
+  if (persist && !runtimeActionDepth && runtimeStorageReady) { persistRuntimeTaskActions(); persistCreatedProductionOrders() }
 }
 
 function nowTimestamp(date: Date = new Date()): string {
@@ -1827,6 +1875,7 @@ function ensureDispatchBoardSeedData(): void {
     by: '运营A',
     at: '2026-07-01 12:00:00',
   }, { staticDemo: true })
+  if (!staticRuntimeDefaults) staticRuntimeDefaults = captureRuntimeDirectDispatchState()
   readRuntimeTaskActions()
 }
 
@@ -1835,12 +1884,19 @@ function getOrderIdsFromTaskIds(taskIds: string[]): string[] {
   return Array.from(new Set(tasks.map((task) => task.productionOrderId)))
 }
 
+let autoAcceptanceReadAt:string | null = null
 export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
   ensureDispatchBoardSeedData()
   if (!runtimeTasksCache) {
     runtimeTasksCache = buildRuntimeProcessTasks()
   }
-  return projectCuttingReceiptTasks(runtimeTasksCache)
+  const tasks=projectCuttingReceiptTasks(runtimeTasksCache)
+  if(typeof document==='undefined') return tasks
+  const nowMs=parseRuntimeDateLike(autoAcceptanceReadAt ?? nowTimestamp())
+  return tasks.map(task=>task.assignmentMode==='DIRECT' && task.assignmentStatus==='ASSIGNED' && task.acceptanceStatus==='PENDING'
+    && task.acceptDeadline && parseRuntimeDateLike(task.acceptDeadline)<=nowMs
+    ? {...task,acceptanceStatus:'ACCEPTED' as const,acceptedAt:task.acceptDeadline,acceptedBy:DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY}
+    : task)
 }
 
 import { projectCuttingReceiptTasks } from './runtime-task-read-bridge.ts'
@@ -3459,6 +3515,26 @@ export function applyRuntimeDirectDispatchMeta(input: RuntimeDirectDispatchMetaI
   })
 }
 
+/** 独立裁剪只变更当前整任务承接范围；已裁剪和已交出事实仍保留原归属。 */
+export function canReassignRuntimeCuttingTask(task:RuntimeProcessTask):boolean {
+  return normalizeProductionExecutionProcessCode(task.processBusinessCode || task.processCode,task.processNameZh)==='CUTTING'
+    && !classifyTaskFulfillmentPolicy(task).mergedTaskType && isRuntimeTaskExecutionTask(task)
+    && ['ASSIGNED','AWARDED'].includes(task.assignmentStatus) && Boolean(task.assignedFactoryId) && task.status!=='CANCELLED'
+}
+export function reassignRuntimeCuttingTask(input:RuntimeDirectDispatchMetaInput):RuntimeProcessTask {
+  return runRuntimeTaskAction(()=>{
+    const original=getRuntimeTaskById(input.taskId)
+    if(!original || !canReassignRuntimeCuttingTask(original)) throw new Error('当前不是已有有效承接工厂的独立裁剪任务，不能整任务改派。')
+    if(original.assignedFactoryId===input.factoryId) throw new Error('请改派至另一家有裁剪能力的工厂。')
+    if(!input.remark.trim() || !input.by.trim()) throw new Error('请填写改派原因并核对操作人。')
+    if(!Number.isFinite(input.dispatchPrice) || input.dispatchPrice<=0) throw new Error('改派价格必须大于0。')
+    const updated=commitPreparedRuntimeDirectDispatchMeta(prepareRuntimeDirectDispatchMeta(input))
+    if(!updated) throw new Error('裁剪任务改派未保存。')
+    const audited=updateRuntimeTaskWithAudit(input.taskId,{tenderId:undefined,awardedAt:undefined},'CUTTING_REASSIGN',`整任务改派：${original.assignedFactoryName || original.assignedFactoryId} → ${input.factoryName}；${input.remark.trim()}；已裁剪、已交出数量与历史不变。`,input.by)
+    return audited || updated
+  })
+}
+
 export function getRuntimeSewingTaskReassignmentScopePreview(
   sourceTaskId: string,
   operatedAt = formatOperationLocalWallClock(),
@@ -3686,6 +3762,12 @@ export function applyPendingDispatchAutoAcceptance(now: string = nowTimestamp())
   acceptedCount: number
   taskIds: string[]
 } {
+  // 到期接单列表属于时间推导；普通读取不得为所有任务写入覆盖记录。
+  if(typeof window!=='undefined' && typeof document!=='undefined') {
+    autoAcceptanceReadAt=now
+    const taskIds=listRuntimeProcessTasks().filter(task=>task.acceptedBy===DISPATCH_ACCEPTANCE_SLA_AUTO_ACCEPT_BY && task.acceptedAt===task.acceptDeadline).map(task=>task.taskId)
+    return {acceptedCount:taskIds.length,taskIds}
+  }
   return runRuntimeTaskAction(() => {
   const nowMs = parseRuntimeDateLike(now)
   if (!Number.isFinite(nowMs)) return { acceptedCount: 0, taskIds: [] }

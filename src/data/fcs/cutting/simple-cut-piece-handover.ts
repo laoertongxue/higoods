@@ -1,5 +1,5 @@
 import { getOnboardingPpicOptionById } from '../factory-onboarding-ppic.ts'
-import { getCurrentSewingPickupSlip } from '../sewing-pickup-slips.ts'
+import { listRetiredCutPieceHandoverHistory } from './retired-cut-piece-pickup-history.ts'
 import { getBrowserLocalStorage } from '../../browser-storage.ts'
 import { runCuttingEventAction } from './cutting-event-repository.ts'
 import { validateReplacementFabricEventBatch } from './replacement-fabric-event-validation.ts'
@@ -16,7 +16,7 @@ import { resolveTransferBagCurrentUse } from './transfer-bag-operations.ts'
 import { getSpecialCraftFeiTicketSummary } from './special-craft-fei-ticket-flow.ts'
 import {
   CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, appendCuttingRuntimeEventIdempotentValidated,
-  listCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents,
+  listManagedCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents,
   type SimpleCutPieceRequirementSnapshot, type SimpleCutPieceTicketSnapshot, type SimpleCutPieceHandoverPayload,
 } from './cutting-runtime-event-ledger.ts'
 
@@ -111,7 +111,6 @@ export function resolveSimpleCutPieceHandover(raw: string): SimpleCutPieceHandov
   if (!sheet.ppicId || !sheet.ppicName) throw new Error('任务尚未确定有效 PPIC，请计划人员补齐后重新打印。')
   if (getOnboardingPpicOptionById(sheet.ppicId)?.status !== '启用') throw new Error('当前 PPIC 已停用，请计划人员重新安排后打印。')
   const { assignment } = sheet
-  getCurrentSewingPickupSlip(assignment.assignmentId, 'CUT_PIECE') // Hydrate historical handovers before computing remaining quantities.
   let context
   try { context = getSewingCutPieceResponsibilityProjection(assignment.assignmentId).context } catch {
     const parts = getProductionOrderCutPieceParts(assignment.productionOrderId)
@@ -125,9 +124,10 @@ export function resolveSimpleCutPieceHandover(raw: string): SimpleCutPieceHandov
       requirementSnapshotAt: assignment.businessAssignedAt, requirementSnapshotBy: '分配技术资料', requirementLines: requirements })
   }
   const requirements = context.requirementLines
-  const events = listCuttingRuntimeEvents()
+  const events = listManagedCuttingRuntimeEvents()
   const simpleEvents = listSimpleCutPieceHandoverEvents()
-  const allHandover = listSewingCutPieceHandoverEvents(assignment.assignmentId).filter((event) => event.status === 'CONFIRMED')
+  const currentHandover = listSewingCutPieceHandoverEvents(assignment.assignmentId).filter((event) => event.status === 'CONFIRMED')
+  const allHandover = [...currentHandover, ...listRetiredCutPieceHandoverHistory(assignment.assignmentId).filter(event => !currentHandover.some(current => current.handoverRecordId === event.handoverRecordId))]
   const handedOver = new Map<string, number>()
   allHandover.forEach((event) => event.lines.forEach((line) => handedOver.set(key(line), (handedOver.get(key(line)) || 0) + line.pieceQty)))
   const consumedIds = new Set(simpleEvents.flatMap((event) => event.payload.tickets.map((ticket) => ticket.feiTicketId)))
@@ -143,10 +143,10 @@ export function resolveSimpleCutPieceHandover(raw: string): SimpleCutPieceHandov
   const tickets = listSpreadingResultGeneratedFeiTickets().filter((ticket) => ticket.productionOrderId === assignment.productionOrderId)
   const unavailableReasons = new Map<string, string>()
   tickets.forEach((ticket) => {
-    const dispatch = findCuttingSewingDispatchByFeiTicketNo(ticket.feiTicketNo)
+    const dispatch = findCuttingSewingDispatchByFeiTicketNo(ticket.feiTicketNo, { initializeLegacyDemo: false, specialCraftRequired: ticket.hasSpecialCraft })
     if (['已交出', '已回写', '差异', '异议中'].includes(dispatch.feiTicketSewingStatus)) consumedIds.add(ticket.feiTicketId)
     else if (dispatch.transferBag) { occupiedIds.add(ticket.feiTicketId); occupiedBagNumbers.set(ticket.feiTicketId, dispatch.transferBag.transferBagNo) }
-    const craft = getSpecialCraftFeiTicketSummary(ticket.feiTicketNo)
+    const craft = ticket.hasSpecialCraft ? getSpecialCraftFeiTicketSummary(ticket.feiTicketNo) : { needSpecialCraft: false, returnStatus: '无', currentQty: ticket.actualCutPieceQty }
     if ((ticket.hasSpecialCraft || craft.needSpecialCraft) && craft.returnStatus !== '已回仓') unavailableReasons.set(ticket.feiTicketId, '特殊工艺尚未全部回仓')
     else if (craft.needSpecialCraft && craft.currentQty !== ticket.actualCutPieceQty) unavailableReasons.set(ticket.feiTicketId, '特殊工艺回仓数量有差异，请主管先核对菲票实际数量')
   })
@@ -205,7 +205,10 @@ export async function confirmSimpleCutPieceHandover(input: {
     const orderId = `SIMPLE-ORDER-${dispatchTaskSheetFingerprint(sheet.assignment.assignmentId)}`
     const recordId = `SIMPLE-RECORD-${suffix}`
     const payload: SimpleCutPieceHandoverPayload = {
-      replacementFabricTickets: replacementTickets,
+      replacementFabricTickets: replacementTickets.map(ticket => ({ ...ticket,
+        sewingTaskId: sheet.assignment.runtimeTaskId, sewingTaskNo: sheet.taskNo,
+        receiverFactoryId: sheet.assignment.factoryId, receiverFactoryName: sheet.assignment.factoryName,
+      })),
       schemaVersion: 1, assignmentId: sheet.assignment.assignmentId, runtimeTaskId: sheet.assignment.runtimeTaskId,
       taskNo: sheet.taskNo, taskSheetNo: sheet.taskSheetNo, taskSheetVersion: sheet.version, taskTypeLabel: sheet.taskTypeLabel,
       productionOrderId: sheet.assignment.productionOrderId, productionOrderNo: sheet.productionOrderNo,

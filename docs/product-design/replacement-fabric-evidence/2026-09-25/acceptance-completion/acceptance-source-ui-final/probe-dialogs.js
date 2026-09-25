@@ -1,0 +1,6 @@
+async(page)=>{const c=await page.context().browser().newContext({viewport:{width:1366,height:768}}),p=await c.newPage(),out=[];try{for(const item of [
+ ['merged','/fcs/dispatch/workbench?type=MERGED','[data-unified-action=open-direct]'],
+ ['tender','/fcs/dispatch/tenders','[data-tender-action=open-view][data-tender-id=TENDER-0003-001]'],
+ ['sample','/fcs/sewing-outsourcing/sample-approval-suggestions','[data-sample-approval-action=receive-sample]']]){
+ await p.goto('http://127.0.0.1:43236'+item[1]);await p.locator('[data-unified-dispatch-page],[data-dispatch-tenders-page],[data-sample-approval-page]').waitFor({timeout:6000});const action=p.locator(item[2]).first();if(await action.count()){await action.click();await p.waitForTimeout(250)}out.push({name:item[0],body:(await p.locator('body').innerText()).slice(-8000),inputs:await p.locator('input,select,textarea').evaluateAll(es=>es.map(e=>({tag:e.tagName,type:e.type,data:{...e.dataset},value:e.value,options:e.tagName==='SELECT'?[...e.options].map(o=>({value:o.value,text:o.text})):[]}))),buttons:await p.locator('button').evaluateAll(es=>es.slice(-20).map(e=>({text:e.textContent.trim(),disabled:e.disabled,data:{...e.dataset}})))})
+ }}catch(e){out.push({error:String(e)})}finally{await c.close()}return out}

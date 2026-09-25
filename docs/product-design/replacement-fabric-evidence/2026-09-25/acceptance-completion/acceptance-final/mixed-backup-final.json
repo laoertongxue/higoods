@@ -1,0 +1,66 @@
+{
+  "result": {
+    "missing": "Error: 本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+    "failedUnchanged": true,
+    "handovers": 2,
+    "receipt": [
+      {
+        "id": "HPB-RECEIPT:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "ticket": {
+          "id": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+          "productionOrderId": "PO-202603-0002",
+          "productionOrderNo": "PO-202603-0002",
+          "cuttingFactoryId": "F090",
+          "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+          "material": {
+            "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+            "code": "tdv_demand_SPU_2024_005-bom-main",
+            "name": "主面料",
+            "color": "Grey",
+            "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+            "skuCodes": [
+              "SKU-005-S-GRY",
+              "SKU-005-M-GRY",
+              "SKU-005-L-GRY",
+              "SKU-005-XL-GRY"
+            ]
+          },
+          "sequence": 1,
+          "length": 5,
+          "unit": "Yard",
+          "createdAt": "2026-03-19 10:00:00",
+          "createdBy": "裁床分配自动生成",
+          "creationCommandId": "assignment-default:[\"PO-202603-0002\",\"F090\",\"[\\\"TASKGEN-202603-0002-001__ORDER\\\",\\\"F090\\\",\\\"2026-03-19 10:00:00\\\"]\",\"[\\\"tdv_demand_SPU_2024_005-bom-main\\\",\\\"Grey\\\"]\"]"
+        },
+        "taskId": "TASKGEN-202603-0002-002__ORDER",
+        "receiverFactoryId": "ID-F001",
+        "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+        "confirmedAt": "2026-09-24 12:03:00",
+        "confirmedBy": "隔离浏览器验收",
+        "bagUseId": "CYCLE-BAG-HPB-BROWSER-FAB"
+      }
+    ],
+    "status": "IN_PROGRESS"
+  },
+  "views": [
+    {
+      "name": "pda",
+      "kinds": [
+        "CUT_PIECE",
+        "REPLACEMENT_FABRIC",
+        "BINDING_STRIP"
+      ],
+      "overflow": false
+    },
+    {
+      "name": "web",
+      "kinds": [
+        "CUT_PIECE",
+        "REPLACEMENT_FABRIC",
+        "BINDING_STRIP"
+      ],
+      "overflow": false
+    }
+  ]
+}

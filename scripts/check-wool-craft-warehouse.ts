@@ -6,6 +6,9 @@ const storage = { getItem: (key: string) => values.get(key) || null, setItem: (k
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage })
 Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: storage, sessionStorage: storage, addEventListener() {}, dispatchEvent() {}, location: { pathname: '/fcs/craft/wool/pending-receipts', search: '' } } })
 Object.defineProperty(globalThis, 'document', { configurable: true, value: { addEventListener() {} } })
+// Explicit isolated source snapshots normally hydrated by the browser bootstrap.
+await (await import('../src/data/fcs/cutting/part-ticket-records.ts')).hydratePartTicketRecords({ revision: 0, records: [] })
+await (await import('../src/data/fcs/production-context-records.ts')).hydrateProductionContextRecords({ revision: 0, records: [] })
 const core = await import('../src/data/fcs/factory-receiving.ts')
 const { confirmFactoryMaterialReceipt } = await import('../src/data/fcs/factory-receiving-links.ts')
 const wool = await import('../src/data/fcs/wool-domain/store.ts')
@@ -38,7 +41,11 @@ const nonWool = () => ({
   waitHandover: factoryWarehouse.listFactoryWaitHandoverStockItems().filter(row => !pieceKeys.has(row.materialSku ?? '')),
   process: processWarehouse.listProcessWarehouseRecords().filter(row => !pieceKeys.has(row.materialSku)),
 })
+// 工艺仓首读会装配静态特殊工艺仓储投影；先完成该读取，再取跨仓基线，
+// 避免同一基线中前两个列表早于第三个列表所需的惰性初始化。
+processWarehouse.listProcessWarehouseRecords()
 const baseline = nonWool()
+assert.deepEqual(nonWool(), baseline, '业务动作前的非毛织跨仓投影必须已稳定')
 const receive = (sourceId: string, id: string, qty: number) => {
   const source = core.getFactoryReceivingSource(sourceId)!
   return confirmFactoryMaterialReceipt({ id, factoryId: source.targetFactoryId, operatorName: '仓管', operatorId: 'TEST', receivedAt: at, remark: '', lines: [{ sourceId, sourceLineId: source.lines[0].id, ...core.getDefaultFactoryReceiptPosition(source.targetFactoryId), businessQty: qty, businessUnit: '片' }] })

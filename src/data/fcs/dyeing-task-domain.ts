@@ -1,3 +1,4 @@
+import { isProductionCreationSourceStage, withProductionCreationSourceStage, recordProductionCreatedProcessSource, listProductionCreatedProcessSources, shouldApplyProductionCreatedProcessSource } from './production-created-process-sources.ts'
 import {assertTmfDyeCutContinuation,assertTmfDyePrintContinuation} from './tmf-process-continuation.ts'
 import { createDesignRevisionProcessMaterialTransfer } from './design-revision-material-transfer.ts'
 import {TMF_FACTORY_ID,TMF_FACTORY_NAME} from './central-craft-factories.ts'
@@ -449,6 +450,39 @@ export function restoreDyeProcessMutationState(snapshot: DyeProcessMutationSnaps
   restored.formulas.forEach(([id, record]) => formulaStore.set(id, record))
 }
 
+export function prepareDyeSourcesForProductionCreation(): string | null {
+  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(DYE_EXECUTION_STORAGE_KEY)
+  if (!raw) return raw
+  const saved = JSON.parse(raw) as { version: number; state: DyeProcessMutationSnapshot }
+  if (saved.version !== 1 || !saved.state || !Array.isArray(saved.state.workOrders)
+    || saved.state.workOrders.some(row => !Array.isArray(row) || row.length !== 2 || row[0] !== row[1]?.dyeOrderId)) throw new Error('提前染色来源格式错误，请保留旧数据并核对。')
+  for (const [id, order] of saved.state.workOrders) workOrderStore.set(id, structuredClone(order))
+  return raw
+}
+export function assertDyeProductionCreationSourceUnchanged(raw: string | null): void {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem(DYE_EXECUTION_STORAGE_KEY) !== raw) throw new Error('其他页面已修改提前加工来源，请重新读取后生成生产单。')
+}
+export function captureDyeProductionCreationState() {
+  return { state: captureDyeProcessMutationState(), createdIds: [...createdDyeOrderIds],
+    tasks: [...workOrderStore.values()].flatMap(order => { const task = getPdaGenericProcessTaskById(order.taskId); return task ? [structuredClone(task)] : [] }) }
+}
+export function restoreDyeProductionCreationState(value: ReturnType<typeof captureDyeProductionCreationState>): void {
+  const previousIds = new Set(value.state.workOrders.map(([, order]) => order.taskId))
+  for (const order of workOrderStore.values()) if (!previousIds.has(order.taskId)) unregisterPdaGenericProcessTask(order.taskId)
+  restoreDyeProcessMutationState(value.state)
+  createdDyeOrderIds.clear(); value.createdIds.forEach(id => createdDyeOrderIds.add(id))
+  value.tasks.forEach(task => registerPdaGenericProcessTask(structuredClone(task)))
+}
+export function applyProductionCreatedDyeSources(): void {
+  if (isProductionCreationSourceStage()) return
+  for (const fact of listProductionCreatedProcessSources('DYE')) {
+    const current = workOrderStore.get(fact.workOrderId)
+    if (current && shouldApplyProductionCreatedProcessSource(current.sourceSnapshot, fact)) {
+      withProductionCreationSourceStage(() => prepareProductionDemandDyeMatch(fact.workOrderId, fact.decision).commit())
+    }
+  }
+}
+
 const DYE_EXECUTION_STORAGE_KEY = 'higoods.formal-dye-execution.v1'
 let dyeMutationDepth = 0
 let confirmingDyeDispatch = false
@@ -488,6 +522,7 @@ function immutableDesignRevisionDyeSource(source: ProcessWorkOrderSourceSnapshot
 }
 
 function saveFormalDyeExecution(): void {
+  applyProductionCreatedDyeSources()
   if (typeof localStorage === 'undefined') return
   const ids = new Set([...formalDyeIds(), ...initialDyeOrderIds, ...[...workOrderStore.values()].filter(order => ['PRODUCTION_DEMAND', 'DESIGN_REVISION'].includes(order.sourceSnapshot?.sourceType || '')).map(order => order.dyeOrderId)])
   const state = captureDyeProcessMutationState()
@@ -619,6 +654,7 @@ function restoreFormalDyeExecution(): void {
 }
 
 export function runDyeProcessMutation<T>(action: () => T): T {
+  if (isProductionCreationSourceStage()) return action()
   if (dyeMutationDepth > 0) return action()
   seedDomain()
   if (dyePersistenceReadError) throw new Error(dyePersistenceReadError)
@@ -994,6 +1030,7 @@ function syncWaterSolubleTaskState(order: MutableDyeWorkOrder): void {
 }
 
 function getPrimaryHandoverOrder(taskId: string): PdaHandoverHead | null {
+  if (isProductionCreationSourceStage()) return null
   const existing = listHandoverOrdersByTaskId(taskId, { includeWool: false })
   return existing[0] ?? null
 }
@@ -1351,7 +1388,9 @@ function syncPreVatStatus(order: MutableDyeWorkOrder): void {
 }
 
 function syncDerivedWorkflow(dyeOrderId?: string): void {
+  if (isProductionCreationSourceStage()) return
   seedDomain()
+  applyProductionCreatedDyeSources()
 
   const scopedOrders = dyeOrderId ? [workOrderStore.get(dyeOrderId)].filter((order): order is MutableDyeWorkOrder => Boolean(order)) : [...workOrderStore.values()]
   const handoutHeads = listPdaHandoverHeads({ includeWool: false, taskIds: new Set(scopedOrders.map(order => order.taskId)) }).filter(head => head.headType === 'HANDOUT')
@@ -3012,6 +3051,7 @@ function seedDyeDispatchDocuments(): void {
 }
 
 function seedDomain(): void {
+  if (isProductionCreationSourceStage()) return
   if (seeded) return
   seeded = true
   seedWorkOrders()
@@ -3364,6 +3404,13 @@ export function getDyeReviewStatusLabel(status: DyeReviewStatus): string {
   return DYE_REVIEW_STATUS_LABEL[status]
 }
 
+/** 加工关系预览读取静态/已保存来源，不推进接收、执行与交出。 */
+export function listDyeWorkOrderSourceReferences(): DyeWorkOrder[] {
+  seedDomain()
+  applyProductionCreatedDyeSources()
+  return listGeneratedDyeWorkOrders().map(cloneWorkOrder)
+}
+
 /** Read only facts that already exist; never seed receipts, production, or handovers. */
 export function readDyeWorkOrdersWithoutInitialization(): { orders: DyeWorkOrder[]; needsRestoration: boolean } {
   if (dyePersistenceReadError) throw new Error(dyePersistenceReadError)
@@ -3375,6 +3422,7 @@ export function readDyeWorkOrdersWithoutInitialization(): { orders: DyeWorkOrder
 }
 
 export function listDyeWorkOrders(): DyeWorkOrder[] {
+  if (isProductionCreationSourceStage()) return [...workOrderStore.values()].map(cloneWorkOrder)
   syncDerivedWorkflow()
   return listGeneratedDyeWorkOrders().map((order) => {
     const canonical = workOrderStore.get(order.dyeOrderId) ?? order
@@ -3462,6 +3510,7 @@ export function prepareProductionDemandDyeMatch(
     commit: () => {
       if (committed) return
       runDyeProcessMutation(() => { workOrderStore.set(dyeOrderId, cloneWorkOrder(next) as MutableDyeWorkOrder) })
+      recordProductionCreatedProcessSource({ processCode: 'DYE', workOrderId: dyeOrderId, decision })
       committed = true
     },
     rollback: () => {
@@ -3525,6 +3574,7 @@ export function linkProductionDemandDyeReplacement(
 registerCreatedDyeWorkOrderReader(listCreatedDyeWorkOrders)
 
 export function getDyeWorkOrderById(dyeOrderId: string): DyeWorkOrder | undefined {
+  if (isProductionCreationSourceStage()) { const order = workOrderStore.get(dyeOrderId); return order ? cloneWorkOrder(order) : undefined }
   syncDerivedWorkflow(dyeOrderId)
   const canonical = workOrderStore.get(dyeOrderId)
   if (canonical) ensureDyeAcceptanceFact(canonical)
@@ -3606,10 +3656,20 @@ function deriveDyeMobileOrigin(order: DyeWorkOrder, status: PdaGenericTaskMock['
   return 'EXEC_NOT_STARTED'
 }
 
-export function listDyeMobileExecutionTasks(taskId?: string): PdaGenericTaskMock[] {
+/** Full canonical identity set, including orders outside the current factory. */
+export function listDyeMobileExecutionTaskIds(): string[] {
   seedDomain()
-  const scopedOrders = taskId ? Array.from(workOrderStore.values()).filter(order => order.taskId === taskId) : Array.from(workOrderStore.values())
-  if (taskId && !scopedOrders.length) return []
+  applyProductionCreatedDyeSources()
+  return [...workOrderStore.values()].map(order => order.taskId)
+}
+
+export function listDyeMobileExecutionTasks(taskId?: string, factoryId?: string): PdaGenericTaskMock[] {
+  seedDomain()
+  applyProductionCreatedDyeSources()
+  const scopedOrders = Array.from(workOrderStore.values()).filter(order =>
+    (!taskId || order.taskId === taskId) && (!factoryId || order.dyeFactoryId === factoryId),
+  )
+  if ((taskId || factoryId) && !scopedOrders.length) return []
   syncDerivedWorkflow(taskId ? scopedOrders[0].dyeOrderId : undefined)
   return scopedOrders.flatMap((order) => {
     ensureDyeAcceptanceFact(order)
@@ -3909,6 +3969,7 @@ export function registerDyeProcessWorkOrderGenerationRegistrar(): void {
     issueIdentity: (orderedAt, reserved) => {
       seedDomain()
       const occupiedIds = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderId))
+      productionOrders.flatMap(order => order.processWorkOrderDefinitions || []).filter(item => item.processCode === 'DYE').forEach(item => occupiedIds.add(item.workOrderId))
       const occupiedNos = new Set(Array.from(workOrderStore.values()).map((order) => order.dyeOrderNo))
       const datePart = orderedAt.replace(/\D/g, '').slice(0, 8) || '00000000'
       for (let sequence = 1; sequence <= 999999; sequence += 1) {

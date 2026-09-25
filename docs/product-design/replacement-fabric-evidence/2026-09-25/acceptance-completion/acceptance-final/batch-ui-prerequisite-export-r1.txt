@@ -1,0 +1,86 @@
+### Result
+{"results":[{"scenario":"unbound-fabric-omission-and-retry","fixture":{"taskId":"TASKGEN-202603-0002-002__ORDER","taskNo":"TASKGEN-202603-0002-002","productionOrderId":"PO-202603-0002","ppicId":"PPIC-ACTIVE-004","ppicName":"王芳","factoryId":"ID-F001","ticketId":"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49","partId":"SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back","partQty":800,"unit":"Yard","length":5,"boundFabric":false},"path":"output/playwright/hpb/acceptance-final/batch-prerequisite-unbound-fabric-omission-and-retry.higcut","errors":[],"infrastructureErrors":["[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."],"noHandoverPrerequisite":true},{"scenario":"both-bound-auto-aggregation","fixture":{"taskId":"TASKGEN-202603-0002-002__ORDER","taskNo":"TASKGEN-202603-0002-002","productionOrderId":"PO-202603-0002","ppicId":"PPIC-ACTIVE-004","ppicName":"王芳","factoryId":"ID-F001","ticketId":"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49","partId":"SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back","partQty":800,"unit":"Yard","length":5,"boundFabric":true},"path":"output/playwright/hpb/acceptance-final/batch-prerequisite-both-bound-auto-aggregation.higcut","errors":[],"infrastructureErrors":["[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."],"noHandoverPrerequisite":true}],"failed":[],"purpose":"Explicit Mock prerequisite only; actual tested handover result is absent. Production preview must restore via real data-tools UI."}
+### Ran Playwright code
+```js
+await (// Script-only delivery. Run against dev43235; Mock prerequisites are explicit and contain no tested handover result.
+async page => {
+ const base='http://127.0.0.1:43235',results=[],parts='BAG-HPB-PARTS-VERIFY',fabric='BAG-HPB-FABRIC-VERIFY';
+ const modal='[data-wait-handover-modal="handover"]';
+ async function dbSnapshot(p){return p.evaluate(()=>new Promise((resolve,reject)=>{const req=indexedDB.open('higood-cutting-records-v1');req.onsuccess=()=>{const db=req.result,tx=db.transaction(['records','commands','meta'],'readonly'),out={};for(const name of ['records','commands','meta']){const r=tx.objectStore(name).getAll();r.onsuccess=()=>out[name]=r.result.sort((a,b)=>String(a.id).localeCompare(String(b.id)))}tx.oncomplete=()=>{db.close();resolve(out)};tx.onabort=()=>reject(tx.error)};req.onerror=()=>reject(req.error)}))}
+ async function stage(p,name){await p.locator(modal+' [data-wait-handover-repack-step="'+name+'"]').waitFor({state:'visible'});}
+ async function next(p,name){await p.locator(modal+' [data-wait-handover-action=repack-next]:visible').click();await stage(p,name)}
+ async function selected(p){return p.locator(modal+' select[data-wait-handover-field=sourceBagCodes]').evaluate(node=>[...node.selectedOptions].map(o=>o.value))}
+ async function submit(p,word){await p.locator(modal+' [data-wait-handover-action=submit-repack]:visible').click();await p.waitForFunction(({modal,word})=>document.querySelector(modal+' [data-wait-handover-feedback]')?.textContent.includes(word),{modal,word});return p.locator(modal+' [data-wait-handover-feedback]').innerText()}
+ for(const scenario of ['unbound-fabric-omission-and-retry','both-bound-auto-aggregation']){
+  const context=await page.context().browser().newContext({viewport:{width:1366,height:768}}),p=await context.newPage(),errors=[],infrastructureErrors=[],steps=[];await p.routeWebSocket('**',socket=>socket.close());p.setDefaultTimeout(10000);p.on('pageerror',error=>errors.push(String(error)));p.on('console',message=>{if(message.type()==='error'){const text=message.text();if(text.startsWith('[vite] failed to connect to websocket.'))infrastructureErrors.push(text);else errors.push(text)}});
+  try {
+   await p.routeWebSocket('**',socket=>socket.close());
+   await p.goto(base+'/fcs/pda/auth/login');await p.getByRole('textbox',{name:'登录账号'}).fill('OWN-CUTTING-001_admin');await p.getByRole('textbox',{name:'密码',exact:true}).fill('123456');await p.getByRole('button',{name:'登录',exact:true}).click();await p.waitForURL('**/fcs/pda/exec');
+   await p.goto(base+'/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-page]').waitFor();
+   // The only domain writes below prepare assignment, printed ticket, bagging and inbound, never handover.
+   const fixture=await p.evaluate(async boundFabric=>{
+
+    const tasks = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/process-tasks.ts') || '/src/data/fcs/process-tasks.ts');
+    const runtime = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/runtime-process-tasks.ts') || '/src/data/fcs/runtime-process-tasks.ts');
+    const factories = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/factory-master-store.ts') || '/src/data/fcs/factory-master-store.ts');
+    const assignments = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/effective-task-assignments.ts') || '/src/data/fcs/effective-task-assignments.ts');
+    const repo = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-repository.ts') || '/src/data/fcs/cutting/replacement-fabric-repository.ts');
+    const storage = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/cutting-record-repository.ts') || '/src/data/fcs/cutting/cutting-record-repository.ts');
+    const actions = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/cutting-event-repository.ts') || '/src/data/fcs/cutting/cutting-event-repository.ts');
+    const ledger = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/cutting-runtime-event-ledger.ts') || '/src/data/fcs/cutting/cutting-runtime-event-ledger.ts');
+    const bag = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/transfer-bag-operations.ts') || '/src/data/fcs/cutting/transfer-bag-operations.ts');
+    const mixed = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts') || '/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts');
+    const master=factories.getFactoryMasterRecordById('ID-F001');
+    const ppic=factories.getFactoryActivePpicSnapshot('ID-F001');
+    const source=tasks.processTasks.find(x=>x.productionOrderId==='PO-202603-0002'&&x.processCode==='PROC_SEW');
+    const sourceActions=await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/production-context-actions.ts') || '/src/data/fcs/production-context-actions.ts');
+    const task=await sourceActions.saveProductionSourceAction({id:'mixed-source',intent:'mixed-source',action:()=>{
+    Object.assign(source,{assignedFactoryId:master.id,assignedFactoryName:master.name,assignmentStatus:'ASSIGNED',status:'NOT_STARTED'});
+    runtime.clearRuntimeProcessTasksCache();
+    const task=runtime.listRuntimeProcessTasks().find(x=>x.baseTaskId===source.taskId);
+    if(!assignments.listCurrentEffectiveTaskAssignments(task.taskId).length) assignments.createEffectiveTaskAssignment({assignmentId:'ASG-HPB-BROWSER-TEST',runtimeTaskId:task.taskId,productionOrderId:task.productionOrderId,productionOrderNo:task.productionOrderId,taskNo:task.taskNo,factoryId:master.id,factoryName:master.name,source:'DIRECT_DISPATCH',assignedQty:task.qty,skuLines:task.scopeSkuLines,processCodes:['SEW'],frozenPrice:1000,priceCurrency:'IDR',priceUnit:'件',businessAssignedAt:'2026-09-24 10:00:00',operatedAt:'2026-09-24 10:00:00',operatedBy:ppic.ppicName,allocationOperatorPpicId:ppic.ppicId,allocationOperatorPpicName:ppic.ppicName});
+    const dispatch=runtime.captureRuntimeDirectDispatchState();
+    dispatch.taskOverrides=dispatch.taskOverrides.filter(([id])=>id!==task.taskId);
+    dispatch.taskOverrides.push([task.taskId,{assignmentMode:'DIRECT',assignmentStatus:'ASSIGNED',assignedFactoryId:master.id,assignedFactoryName:master.name,dispatchedAt:'2026-09-24 10:00:00',businessAssignedAt:'2026-09-24 10:00:00',dispatchedBy:ppic.ppicName,dispatchPrice:1000,acceptanceStatus:'PENDING',status:'NOT_STARTED',updatedAt:'2026-09-24 10:00:00'}]);
+    runtime.restoreRuntimeDirectDispatchState(dispatch);
+    return task;
+    }});
+    const scopes=(await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-source.ts') || '/src/data/fcs/cutting/replacement-fabric-source.ts')).listReplacementFabricOrderRows().flatMap(row=>row.scopes); const initial=await repo.loadReplacementFabricState(); const first=initial.tickets.find(t=>t.productionOrderId===task.productionOrderId); if(!first)throw Error('Mock来源生产单没有换片布'); await repo.saveReplacementFabricPrint([first.id],scopes,{id:'fixture-print',at:'2026-09-25 11:00:00',operator:'隔离验收夹具'});
+    const state=await repo.loadReplacementFabricState();
+    const hpb=state.tickets.find(t=>t.productionOrderId===task.productionOrderId&&state.prints.some(p=>p.ticketId===t.id)&&!state.receipts.some(r=>r.ticket.id===t.id));
+    if(!hpb) throw new Error('缺少未交出的已打印票');
+    const taskFields={sewingTaskId:task.taskId,sewingTaskNo:task.taskNo,receiverFactoryId:master.id,receiverFactoryName:master.name};
+    const fabric={...mixed.replacementFabricBagTicket(hpb),...(boundFabric?taskFields:{sewingTaskId:'',sewingTaskNo:'',receiverFactoryId:'',receiverFactoryName:''})};
+    const fixtureSource=await import('/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts');
+    const cutting=fixtureSource.appendSimpleCutPieceDemoCuttingBatch(1,task.productionOrderId).event;
+    const beforeCut=await storage.readCuttingRecords();await storage.commitCuttingRecords({revision:beforeCut.revision,change:{puts:[{id:'cutting-event:'+cutting.eventId,collection:'cutting-events',value:cutting}]},command:{id:'batch-ui-cut-prerequisite',intent:'explicit-mock-completed-cutting',result:null,at:'2026-09-25'}});await actions.hydrateCuttingEventRecords();
+    const generated=await import('/src/data/fcs/cutting/generated-fei-tickets.ts');
+    const partSource=generated.listSpreadingResultGeneratedFeiTickets().find(t=>t.productionOrderId===task.productionOrderId&&task.scopeSkuLines.some(s=>s.skuCode===t.skuCode&&s.color===t.skuColor&&s.size===t.skuSize));
+    if(!partSource)throw Error('Mock完成裁剪未产生与分配SKU匹配的正式裁片来源');
+    const builder=await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts');
+    const part={...builder.buildWaitHandoverRuntimeTicketFromGeneratedTicket(partSource),...taskFields};
+    const operator={operatorId:'HPB-TEST',operatorName:'隔离浏览器验收',operatorRole:'裁片仓交出员'};
+    const at='2026-09-24 12:00:00';
+    await actions.runCuttingEventAction({id:'HPB-BROWSER-SETUP-01',intent:'HPB-BROWSER-SETUP-01',action: target=>{
+      for(const [code,ticket] of [['BAG-HPB-PARTS-VERIFY',part],['BAG-HPB-FABRIC-VERIFY',fabric]]){
+        const cycle='CYCLE-'+code;
+        ledger.appendCuttingRuntimeEventIdempotent({eventType:'菲票装袋',eventSource:'PDA',eventStatus:'已同步',idempotencyKey:'HPB-SETUP:'+code,occurredAt:at,operatorName:operator.operatorName,operatorRole:operator.operatorRole,refs:{productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,transferBagCode:code,usageCycleId:cycle,feiTicketIds:[ticket.feiTicketId],feiTicketNos:[ticket.feiTicketNo]},payload:{baggingRecordId:'PACK-'+code,bagCode:code,feiTicketItems:[ticket],totalPieceQty:ticket.pieceQty,mixedFlag:false,baggingBy:operator.operatorName,baggingAt:at}},target);
+        ledger.appendCuttingRuntimeEventIdempotent({eventType:'中转袋入仓',eventSource:'PDA',eventStatus:'已同步',idempotencyKey:'HPB-IN:'+code,occurredAt:'2026-09-24 12:01:00',operatorName:operator.operatorName,operatorRole:operator.operatorRole,refs:{productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,transferBagCode:code,usageCycleId:cycle,feiTicketIds:[ticket.feiTicketId],feiTicketNos:[ticket.feiTicketNo]},inventoryEffect:{inventoryScope:'裁床待交出仓',direction:'IN',qty:ticket.pieceQty,unit:'片',toWarehouseArea:'A区',toLocationCode:'A-R01-L01-P01'},payload:{bagCode:code,warehouseArea:'A区',locationCode:'A-R01-L01-P01',inboundAt:'2026-09-24 12:01:00',inboundBy:operator.operatorName}},target);
+      }
+      return true;
+    }});
+    const snapshot=await storage.readCuttingRecords();
+    if(snapshot.records.some(row=>row.collection==='cutting-events'&&row.value.eventType==='新增交出记录'&&["BAG-HPB-PARTS-VERIFY","BAG-HPB-FABRIC-VERIFY"].includes(row.value.refs?.transferBagCode)))throw Error('前置不得包含被测交出结果');
+    return {taskId:task.taskId,taskNo:task.taskNo,productionOrderId:task.productionOrderId,ppicId:ppic.ppicId,ppicName:ppic.ppicName,factoryId:master.id,ticketId:hpb.id,partId:part.feiTicketId,partQty:part.pieceQty,unit:'Yard',length:5,boundFabric};
+   },scenario==='both-bound-auto-aggregation');
+   await p.locator('[data-hpb-action=data-tools]').click();
+   const download=p.waitForEvent('download');await p.locator('[data-hpb-data-action=export]').click();const file=await download;
+   const path='output/playwright/hpb/acceptance-final/batch-prerequisite-'+scenario+'.higcut';await file.saveAs(path);
+   results.push({scenario,fixture,path,errors,infrastructureErrors,noHandoverPrerequisite:true});
+  }catch(error){results.push({scenario,error:String(error),errors,infrastructureErrors})}finally{await context.close()}
+ }
+ return {results,failed:results.filter(r=>r.error||r.errors.length),purpose:'Explicit Mock prerequisite only; actual tested handover result is absent. Production preview must restore via real data-tools UI.'};
+})(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-09-25T05-24-57-712Z.log#L7-L8

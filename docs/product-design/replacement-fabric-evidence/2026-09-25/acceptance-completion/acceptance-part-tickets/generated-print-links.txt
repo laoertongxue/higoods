@@ -1,0 +1,6 @@
+### Result
+[{"url":"/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=mock-fei-ticket-ordinary-005%2Cmock-fei-ticket-ordinary-006%2Cmock-fei-ticket-ordinary-001%2Cmock-fei-ticket-ordinary-002%2Cmock-fei-ticket-ordinary-003%2Cmock-fei-ticket-ordinary-004&paperColor=WHITE","text":"全部打印"},{"url":"/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=mock-fei-ticket-ordinary-007%2Cmock-fei-ticket-ordinary-008%2Cmock-fei-ticket-ordinary-009%2Cmock-fei-ticket-ordinary-010%2Cmock-fei-ticket-ordinary-011%2Cmock-fei-ticket-ordinary-012&paperColor=WHITE","text":"全部打印"}]
+### Ran Playwright code
+```js
+await (async root=>{const p=root.context().browser().contexts().flatMap(c=>c.pages()).filter(p=>p.url().includes('/print/preview')).at(-1);await p.goto('http://127.0.0.1:43235/fcs/craft/cutting/fei-tickets');await p.locator('[data-cutting-fei-action=open-manual-create]').waitFor({timeout:10000});const links=await p.locator('[data-nav*="documentType=FEI_TICKET_LABEL"]').evaluateAll(xs=>xs.map(x=>({url:x.dataset.nav,text:x.textContent})));return links.filter(l=>!l.url.includes('manual-fei-'));})(page);
+```

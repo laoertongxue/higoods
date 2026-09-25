@@ -1,0 +1,24 @@
+
+> higoods-vanilla-clone@1.0.0 check:prototype-design-governance
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-prototype-design-governance.ts --all
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: src/pages/pda-cutting-transfer-bag-recovery.ts 没有关联的影响声明或原型审查记录；记录必须在“受管文件”中明确列出该文件
+    at validatePrototypeReviewCoverage (file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/workflow-governance/prototype-review.ts:163:5)
+    at main (file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-prototype-design-governance.ts:112:18)
+    at file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-prototype-design-governance.ts:122:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

@@ -673,12 +673,12 @@ function createRow(
   record: CuttingOrderProgressRecord,
   line: CuttingMaterialLine,
   ledger: MarkerPlanSourceRecord[],
-  options: { includeClaimDisputes?: boolean } = {},
+  options: { includeClaimDisputes?: boolean; sourceIdentityOnly?: boolean } = {},
 ): MaterialPrepRow {
   const cutOrderId = line.cutOrderId || line.cutOrderNo || line.cutPieceOrderNo
   const cutOrderNo = line.cutOrderNo || line.cutOrderId || line.cutPieceOrderNo
-  const progressRows = buildProductionProgressRows([record])
-  const urgency = urgencyMeta[progressRows[0]?.urgency.key ?? 'UNKNOWN']
+  const sourceUrgencyKey = options.sourceIdentityOnly ? record.urgencyLevel || 'UNKNOWN' : buildProductionProgressRows([record])[0]?.urgency.key ?? 'UNKNOWN'
+  const urgency = urgencyMeta[sourceUrgencyKey]
   const lineItems = [buildLineItem(record, line)]
   const batchSummary = summarizeMarkerPlanSourceParticipation(cutOrderId, ledger)
   const claimRecords = buildInitialClaimRecords(record, lineItems[0], cutOrderId)
@@ -700,7 +700,7 @@ function createRow(
     color: line.color || '待补',
     materialSkuSummary: buildMaterialSkuSummary(lineItems),
     plannedShipDate: record.plannedShipDate,
-    urgencyKey: progressRows[0]?.urgency.key ?? 'UNKNOWN',
+    urgencyKey: sourceUrgencyKey,
     urgencyLabel: urgency.label,
     urgencyClassName: urgency.className,
     sameCodeValue: buildSameCodeValue(cutOrderNo),
@@ -772,7 +772,7 @@ function createRow(
 export function recalculateMaterialPrepRow(
   row: MaterialPrepRow,
   sourceRecord?: CuttingOrderProgressRecord,
-  options: { includeClaimDisputes?: boolean } = {},
+  options: { includeClaimDisputes?: boolean; sourceIdentityOnly?: boolean } = {},
 ): MaterialPrepRow {
   row.materialLineItems = row.materialLineItems.map((item) => {
     const shortageQty = Math.max(item.requiredQty - item.claimedQty, 0)
@@ -878,10 +878,11 @@ export function buildMaterialPrepViewModel(
   ledger: MarkerPlanSourceRecord[] = [],
   options: {
     pickupEvents?: PdaPickupEventRecord[]
+    sourceIdentityOnly?: boolean
     includeClaimDisputes?: boolean
   } = {},
 ): MaterialPrepViewModel {
-  const pickupEvents = options.pickupEvents ?? listPdaPickupEvents(getBrowserLocalStorage() || undefined)
+  const pickupEvents = options.sourceIdentityOnly ? [] : options.pickupEvents ?? listPdaPickupEvents(getBrowserLocalStorage() || undefined)
   const pickupEventsByCutOrderNo = pickupEvents.reduce<Record<string, PdaPickupEventRecord[]>>((accumulator, item) => {
     accumulator[item.cutOrderNo] = accumulator[item.cutOrderNo] || []
     accumulator[item.cutOrderNo].push(item)
@@ -892,6 +893,7 @@ export function buildMaterialPrepViewModel(
       record.materialLines.map((line) => {
         const row = createRow(record, line, ledger, {
           includeClaimDisputes: options.includeClaimDisputes,
+          sourceIdentityOnly: options.sourceIdentityOnly,
         })
         return applyPdaPickupEventsToRow(row, pickupEventsByCutOrderNo[row.cutOrderNo] || [], record)
       }),

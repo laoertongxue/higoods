@@ -1,0 +1,76 @@
+✔ 生产单按单记录；变更一单不重写其他单和任务 (1.345459ms)
+✔ 运行任务独立保存覆盖、拆分、合并、改派及序号，往返保留身份 (0.208ms)
+✔ 有效分配索引、独立记录、审计及序号完整往返，拒绝重复身份和损坏格式 (0.313833ms)
+✔ 拒绝空字符串，不吞掉损坏记录 (0.058334ms)
+✔ 拒绝数组根，不吞掉损坏记录 (0.038584ms)
+✔ 拒绝生产单数组实体，不吞掉损坏记录 (0.039958ms)
+✔ 拒绝生产单空编号，不吞掉损坏记录 (0.039375ms)
+✔ 拒绝生产单损坏快照，不吞掉损坏记录 (0.039583ms)
+✔ 拒绝任务覆盖数组，不吞掉损坏记录 (0.051792ms)
+✔ 拒绝任务覆盖身份，不吞掉损坏记录 (0.080625ms)
+✔ 拒绝拆分来源身份，不吞掉损坏记录 (0.047292ms)
+✔ 拒绝拆分子项损坏，不吞掉损坏记录 (0.042833ms)
+✔ 拒绝合并明细损坏，不吞掉损坏记录 (0.036167ms)
+✔ 拒绝改派任务身份，不吞掉损坏记录 (0.02725ms)
+✔ 拒绝不安全序号，不吞掉损坏记录 (0.028792ms)
+✔ 拒绝重复Map键，不吞掉损坏记录 (0.032292ms)
+✔ 拒绝current非数组，不吞掉损坏记录 (0.0345ms)
+✔ 拒绝current孤儿，不吞掉损坏记录 (0.043958ms)
+✔ 拒绝current跨任务，不吞掉损坏记录 (0.036667ms)
+✔ 拒绝current重复引用，不吞掉损坏记录 (0.0295ms)
+✔ 拒绝审计孤儿，不吞掉损坏记录 (0.029667ms)
+✔ 已保存实体损坏编号、缺少meta或重复meta不能伪造正常空源 (0.130708ms)
+✔ 未登记key及空白JSON拒绝；null明确代表没有覆盖 (0.044667ms)
+✔ 备份校验拒绝未知来源集合、伪造迁移身份及丢失检查点实体 (0.682541ms)
+✔ 四类静态运行任务的删除标记完整往返，拒绝混入业务字段或假删除 (0.146791ms)
+✔ 分配副产物按实体保存；合同、样衣及PPIC责任保留独立序号 (0.428167ms)
+✔ 拒绝缺失渲染必需快照的合同，防止迁移清源后才暴露损坏 (0.045417ms)
+✔ 关联实体损坏拒绝 unknown:X (0.03875ms)
+✔ 关联实体损坏拒绝 material-context:A (0.026666ms)
+✔ 关联实体损坏拒绝 return-sequence:value (0.029709ms)
+✔ 关联实体损坏拒绝 sla-current:T (0.023792ms)
+✔ 生产创建匹配来源按生产单身份校验并完整恢复 (0.176417ms)
+✔ 工厂结束事实只允许明确任务、操作人和时间 (3.313666ms)
+✔ 既有招标定标记录保留真实来源编号并校验价格与操作人 (0.770292ms)
+✖ 开工交出单头只包含首次零交出事实，拒绝伪造数量和身份 (2.057625ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 34
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 161.142208
+
+✖ failing tests:
+
+test at tests/unit/replacement-fabric-production-context.test.ts:129:1
+✖ 开工交出单头只包含首次零交出事实，拒绝伪造数量和身份 (2.057625ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /记录/. Input:
+  
+  'Error: 开工交出单头不完整或包含交出数量，未覆盖原数据。'
+  
+      at TestContext.<anonymous> (file:///private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/replacement-fabric-production-context.test.ts:133:144)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: Error: 开工交出单头不完整或包含交出数量，未覆盖原数据。
+        at fail (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts:32:53)
+        at file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts:135:532
+        at file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts:39:5
+        at Array.map (<anonymous>)
+        at pairs (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts:37:22)
+        at decodeProductionContextRecords (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts:126:14)
+        at file:///private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/replacement-fabric-production-context.test.ts:133:155
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (file:///private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/replacement-fabric-production-context.test.ts:133:144),
+    expected: /记录/,
+    operator: 'throws',
+    diff: 'simple'
+  }

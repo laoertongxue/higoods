@@ -1,0 +1,22 @@
+{
+  "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：雾霾灰卫衣抓绒面料（tdv_demand_SPU_HOODIE_082-bom-main 雾霾灰）。请补齐对应菲票后与裁片一起确认。",
+  "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-10CIVDB\n交出记录：JYJC-068KBGN\n5 张裁片票 / 700 片\n换片布 1 张 / 5 Yard\n接收工厂：CV Micro Sewing Jakarta Pusat\n领取 PPIC：陈琳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T04:29:13.043Z\n查看交出记录\n继续下一单",
+  "second": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-10CIVDB\n交出记录：JYJC-1HCA2CB\n1 张裁片票 / 200 片\n换片布 0 张 / 0 Yard\n接收工厂：CV Micro Sewing Jakarta Pusat\n领取 PPIC：陈琳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T04:29:13.277Z\n查看交出记录\n继续下一单",
+  "afterSecond": {
+    "handovers": 2,
+    "receipts": 1
+  },
+  "head": "裁片接收记录 · 已接收\n\n仓库确认即 PPIC 和工厂已接收\n\nSPU-HOODIE-082\n连帽拉链卫衣\n记录号：JYJC-068KBGN\n任务单：RW-10CIVDB-0IZLA0Q\n任务：TASK-SIMPLE-0916-PROC_SEW-A01 · 独立车缝\n生产单：PO-DEMO-SIMPLE-0916\n接收工厂：CV Micro Sewing Jakarta Pusat\n领取 PPIC：陈琳\n仓库操作人：HiGood_裁床厂_管理员 / OWN-CUTTING-001_admin\n来源：WEB\n接收时间：2026-09-25T04:29:13.043Z\n本批：5 张菲票 / 700 片；不使用中转袋\n本批菲票明细\nFT-CUT-260916-916-01-054\n\nSKU-SIMPLE-M-GRY / 雾霾灰 / M / 后片\n\n编号范围：1-100 / 100 片\n\nFT-CUT-260916-916-01-056\n\nSKU-SIMPLE-M-GRY / 雾霾灰 / M / 口袋片\n\n编号范围：1-200 / 200 片\n\nFT-CUT-260916-916-01-058\n\nSKU-SIMPLE-M-GRY / 雾霾灰 / M / 袖片\n\n编号范围：1-200 / 200 片\n\nFT-CUT-260916-916-01-060\n\nSKU-SIMPLE-M-GRY / 雾霾灰 / M / 右前片\n\n编号范围：1-100 / 100 片\n\nFT-CUT-260916-916-01-062\n\nSKU-SIMPLE-M-GRY / 雾霾灰 / M / 左前片\n\n编号范围：1-100 / 100 片\n\n本批随交换片布\n\n换片布 1 张 / 5 Yard\n\n换片布 · 第 1 张\n5 Yard\n雾霾灰卫衣抓绒面料\ntdv_demand_SPU_HOODIE_082-bom-main · 雾霾灰\n\nHPB/PO-DEMO-SIMPLE-0916/tdv_demand_SPU_HOODIE_082-bom-main/%E9%9B%BE%E9%9C%BE%E7%81%B0/001\n\n生产单 PO-DEMO-SIMPLE-0916\n\n车缝任务 TASK-SIMPLE-0916-PROC_SEW-A01 · 接收工厂 CV Micro Sewing Jakarta Pusat\n\n此处是本批接收结果，任务剩余数量与生产进度继续按任务记录计算。",
+  "events": [
+    {
+      "id": "cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-068KBGN-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L-HPB-30a097997ff133005082ee49617aed39b639fa94c258ab5326a6d7451aa7acfc:20260925042913",
+      "qty": 700,
+      "replacementCount": 1
+    },
+    {
+      "id": "cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-1HCA2CB-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-2-M-HOOD:20260925042913",
+      "qty": 200,
+      "replacementCount": 0
+    }
+  ]
+}

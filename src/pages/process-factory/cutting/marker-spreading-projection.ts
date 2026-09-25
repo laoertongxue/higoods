@@ -673,7 +673,7 @@ export function buildMarkerSpreadingProjection(options: {
   includeViewModel?: boolean
 } = {}): MarkerSpreadingProjection {
   const context = buildMarkerSpreadingProjectionContext(options.snapshot)
-  const markerPlanProjection = buildMarkerPlanProjection(context.snapshot)
+  const markerPlanProjection = buildMarkerPlanProjection(context.snapshot, { sourceIdentityOnly: true })
   const baseStore =
     options.store ??
     (context.snapshot.markerSpreadingState.store as unknown as MarkerSpreadingStore)

@@ -1,0 +1,17 @@
+# 上游生产来源记录核心验收
+
+范围仅 production-context-records.ts 与对应单元测试；父任务集成生产单、运行任务、有效分配、main及UI。源码版本以 source-manifest.json 为准。本目录浏览器脚本为同源拦截的空白验收HTML，仅导入两层存储模块，不导入业务页面或初始化演示种子。所有测试均使用新隔离浏览器配置，不触用户数据。
+
+核心实现：逐生产单、运行任务四map/序号、有效分配/current索引/audit/序号存储；同步动作暂存与回滚互不污染；锁覆盖hydrate准备到IDB complete及内存发布；先查command避免重放动作、事务内CAS/command防竞态；只写diff；request success前后均不提前宣布保存。complete后统一发布已保存来源，通知失败明确记录已保存且需重新进入，并允许重新hydrate。
+
+迁移：显式关闭旧页确认；每批100实体加检查点同事务；COPYING/VERIFIED/COMPLETE；读回按实体指纹校验才删旧键；源改变暂停、目标冲突保留双边；删除失败及删除后完成标记失败均能恢复；未完成迁移不能当空源供业务读取。首次不存在旧源普通hydrate只读；首次业务保存同事务落来源初始化元记录，随后普通访问和保存不再依赖localStorage。首次LS不可读且无迁移/初始化证明时明确阻断，未猜测为空。
+
+API：productionContextStorage的3个方法均非可选；ProductionContextReadError/isProductionContextRecoveryError用于main恢复卡；listProductionContextMigrationStatus用于显式查看进度；productionContextInitializationRecords仅ready后返回待纳入已有动作同事务的元记录，不读LS/不写DB；assertProductionContextLegacyUnchanged在对应事务内确认旧源未重现；validateProductionContextRecords为备份入口验证集合、身份、索引及迁移检查点结构。
+
+证据：unit-results.txt 24/24通过。results-final.txt 7场景、late-results-final.txt 8场景、reload-results.txt 4场景，合计19场景全部通过。覆盖锁、并发CAS、同command幂等/异意图拒绝、事务请求成功后abort、complete前原内存、已持久winner优先、失败rollback与重试、旧源阻断、100批中断/205条恢复无重复、旧源变更、目标冲突、copy失败、cleanup失败、清理后COMPLETE失败恢复、空源完成、正常保存后关闭重开并禁用LS、IDB打开失败、通知失败后重读恢复。故障注入错误是预期断言，不是隐去的失败。
+
+typecheck-final.txt 是项目类型检查结果，保留既有外部文件6处错误；本子任务2文件无类型报错。未单独运行构建或整项目治理；父任务最终集成统一验收及CodeGraph同步。
+
+范围限制：本目录是存储核心真实IDB验收，不是已上线页面验收；不代表上游未迁移的其他生产资料模块已经迁移，不代替父任务整链页面/性能矩阵。
+
+最终Node兼容修正：只有window与document同时存在才认作浏览器；无document的Node替身优先读window.localStorage，损坏源仍由原消费者抛错。tmf-purchase-base-flow与24条codec合计67/67通过（node-compat-results.txt）。浏览器19场景证据先于此环境判断修正，父任务需重验集成页面；未将旧证据伪记为修正后重跑。

@@ -1,0 +1,16 @@
+{
+  "head": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "branch": "codex/replacement-fabric-acceptance-20260925",
+  "worktree": "/private/tmp/higoods-replacement-fabric-release-20260925",
+  "preview": "http://127.0.0.1:43236",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "data": "默认静态演示+隔离全新浏览器上下文，无降数据；库存15行",
+  "files": {
+    "src/pages/process-factory/cutting/warehouse-hub.ts": "79c4262dbc44d120d2afab7ac9f8c1f14a352e6f9e9baef87cb27ca4ddb94421",
+    "src/data/fcs/cutting/material-ledger.ts": "93b0636b59da874049437267ee6f85919fbe9cdbfc2eccea53ea91b463675ff4",
+    "src/data/fcs/cutting/production-material-prep.ts": "5c05b13b11ba2090d3c9ffae49ab2beafc359cc2e5a4294a3b9c2ae33748921c"
+  }
+}

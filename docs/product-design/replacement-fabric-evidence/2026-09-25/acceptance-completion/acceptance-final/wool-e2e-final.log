@@ -1,0 +1,30 @@
+
+> higoods-vanilla-clone@1.0.0 test:wool-fact-workflow:e2e
+> playwright test tests/wool-management-fact-workflow.spec.ts
+
+[WebServer] (node:54449) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 17 tests using 1 worker
+
+(node:54477) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   1 tests/wool-management-fact-workflow.spec.ts:10:1 › 两阶段保留六状态、八列、分页与路由独立筛选 (4.0s)
+  ✓   2 tests/wool-management-fact-workflow.spec.ts:12:1 › 缺纱线不能填报，统一实收1kg后对应横机可开工 (3.4s)
+  ✓   3 tests/wool-management-fact-workflow.spec.ts:14:1 › 无外加工填报一次保存四事实，缝盘没有重复手工填报或横机设备 (2.2s)
+  ✓   4 tests/wool-management-fact-workflow.spec.ts:16:1 › 横机150%超量保存被阻断且无任何事实增量 (1.6s)
+  ✓   5 tests/wool-management-fact-workflow.spec.ts:18:1 › 混合片Q1回80与Q2回100时最多缝盘80，不能二次放大 (1.7s)
+  ✓   6 tests/wool-management-fact-workflow.spec.ts:20:1 › 横机仅交出选中外发片，固定首工艺厂并生成待接收来源 (1.2s)
+  ✓   7 tests/wool-management-fact-workflow.spec.ts:22:1 › 最终工艺回货按片实收，刷新后仍保留同一记录 (2.2s)
+  ✓   8 tests/wool-management-fact-workflow.spec.ts:24:1 › 实收备料分配到横机，同一receipt保留且余量变化 (1.9s)
+  ✓   9 tests/wool-management-fact-workflow.spec.ts:26:1 › 阶段错配详情和打印地址被拒绝 (1.5s)
+  ✓  10 tests/wool-management-fact-workflow.spec.ts:28:1 › 真实片交出打印必须等款式图及QR就绪；内部自动交出不打印 (2.1s)
+  ✓  11 tests/wool-management-fact-workflow.spec.ts:30:1 › 1280视口列表无主体横溢，操作与数量输入保持根节点 (1.6s)
+  ✓  12 tests/wool-management-fact-workflow.spec.ts:32:1 › 片工艺真实页面加工交出后下一厂才有待接收，实收前不虚增 (7.8s)
+  ✓  13 tests/wool-management-fact-workflow.spec.ts:42:1 › 整件缝盘最终交出按真实批次在后续成衣工艺接收，未选批次仍待接收 (12.0s)
+  ✓  14 tests/wool-management-fact-workflow.spec.ts:64:1 › 管理端款式与纱线大图可按钮遮罩及Esc关闭，图片失败明确反馈 (17.3s)
+  ✓  15 tests/wool-management-fact-workflow.spec.ts:87:1 › 毛织PDA接收与仓储在两种小屏下无横溢且真实图片可读 (9.8s)
+  ✓  16 tests/wool-management-fact-workflow.spec.ts:102:1 › 导出全部匹配行而非当前页，无操作列且空结果有明确反馈 (1.5s)
+  ✓  17 tests/wool-management-fact-workflow.spec.ts:115:1 › 列显隐顺序冻结和页大小按阶段保存，页码和排序刷新不保留 (5.8s)
+
+  17 passed (1.4m)

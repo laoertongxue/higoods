@@ -1,0 +1,23 @@
+async page => {
+ const context=await page.context().browser().newContext(),p=await context.newPage();
+ await p.route('**/file-lifecycle',r=>r.fulfill({contentType:'text/html',body:'<html>file lifecycle</html>'}));
+ await p.goto('http://127.0.0.1:43235/file-lifecycle');
+ const result=await p.evaluate(async()=>{
+ const repo=await import('/src/data/fcs/cutting/cutting-record-repository.ts'),files=await import('/src/data/fcs/cutting/cutting-file-maintenance.ts'),identity=await import('/src/data/fcs/cutting/cutting-record-identity.ts');
+ const checks=[],assert=(v,m)=>{if(!v)throw Error(m);checks.push(m)},hash=async text=>'production-context-file:'+await identity.cuttingRecordBytesFingerprint(new TextEncoder().encode(text));
+ const a=await hash('a'),b=await hash('b'),c=await hash('c'),d=await hash('d');
+ assert(a==='production-context-file:ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb','binary sha256');
+ let revision=0,n=0;const commit=async change=>{const res=await repo.commitCuttingRecords({revision,change,command:{id:'file-test-'+n++,intent:'file-test',result:true,at:new Date().toISOString()}});revision=res.revision;return res};
+ await repo.commitCuttingRecords({revision:0,change:{puts:[{id:'file-owner',collection:'acceptance-files',value:{$productionFile:a}}],files:[{id:a,blob:new Blob(['a'])},{id:b,blob:new Blob(['b'])},{id:c,blob:new Blob(['c'])},{id:'unrelated-file',blob:new Blob(['other'])}]},command:{id:'file-original',intent:'file-original',result:{$productionFile:b},at:new Date().toISOString()}});revision=1;
+ const usage=await files.inspectCuttingFileUsage();assert(usage.total===4&&usage.orphanIds.length===1&&usage.orphanIds[0]===c,'records and command references protected; unknown file retained');
+ assert(await files.removeConfirmedUnreferencedCuttingFiles(usage)===1,'confirmed orphan removed');revision=(await repo.readCuttingRecords()).revision;
+ assert(!!await repo.readCuttingRecordFile(a)&&!!await repo.readCuttingRecordFile(b)&&!await repo.readCuttingRecordFile(c),'reference blobs survive cleanup');
+ await commit({puts:[],files:[{id:d,blob:new Blob(['d'])}]});const stale=await files.inspectCuttingFileUsage();await commit({puts:[{id:'new-owner',collection:'acceptance-files',value:{$productionFile:d}}]});let failure='';try{await files.removeConfirmedUnreferencedCuttingFiles(stale)}catch(e){failure=String(e)}assert(failure.includes('引用已变化')&&!!await repo.readCuttingRecordFile(d),'new reference blocks stale cleanup');
+ const original=await repo.exportCuttingRecordBackup();const missing=structuredClone(original);missing.files=missing.files.filter(f=>f.id!==a);failure='';try{await repo.restoreCuttingRecordBackup(missing)}catch(e){failure=String(e)}assert(failure.includes('缺少业务记录'),'missing referenced backup blob blocked');
+ const corrupt=structuredClone(original);corrupt.files.find(f=>f.id===a).blob=new Blob(['z']);failure='';try{await repo.restoreCuttingRecordBackup(corrupt)}catch(e){failure=String(e)}assert(failure.includes('内容与身份不一致'),'corrupt content hash blocked');
+ assert((await repo.readCuttingRecords()).revision===revision,'invalid backups leave original version intact');
+ const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(value,...args){if(this.name==='files')throw new DOMException('file-abort','QuotaExceededError');return put.call(this,value,...args)};failure='';try{await commit({puts:[{id:'must-not-persist',collection:'acceptance-files',value:{}}],files:[{id:c,blob:new Blob(['c'])}]})}catch(e){failure=String(e)}finally{IDBObjectStore.prototype.put=put}
+ assert(failure.includes('file-abort')&&!(await repo.readCuttingRecords()).records.some(r=>r.id==='must-not-persist'),'blob failure rolls back records and command');
+ return{passed:checks.length,checks};
+ });await context.close();return result;
+}

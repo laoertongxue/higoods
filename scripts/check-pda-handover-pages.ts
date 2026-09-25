@@ -248,7 +248,7 @@ function checkDataSignals(): void {
   })
 }
 
-function checkWoolFactHandoverProjection(): void {
+async function checkWoolFactHandoverProjection(): Promise<void> {
   resetWoolFactWorkflowMock('CHECK_TASK_13_HANDOVER')
   const initialStore = readWoolStore()
   replaceWoolStore({
@@ -355,7 +355,7 @@ function checkWoolFactHandoverProjection(): void {
   )
   const woolCompletionCheck = canCompletePdaHandoutHead(actionGuardHead.handoverId)
   assert(!woolCompletionCheck.ok && woolCompletionCheck.message.includes('毛织交出由加工单事实管理'), '毛织通用完成领域入口必须明确拒绝')
-  assert(!markPdaHandoutHeadCompleted(actionGuardHead.handoverId, '2026-07-31 15:00:00').ok, '毛织通用完成写入口必须拒绝')
+  assert(!(await markPdaHandoutHeadCompleted(actionGuardHead.handoverId, '2026-07-31 15:00:00')).ok, '毛织通用完成写入口必须拒绝')
   let directWoolRecordCreateRejected = false
   try {
     createFactoryHandoverRecord({
@@ -636,16 +636,16 @@ function checkWoolFactHandoverProjection(): void {
   assert(JSON.stringify(readWoolStore()) === beforeToctouWrite, '裁床接收 TOCTOU 拒绝必须零写')
 }
 
-function main(): void {
+async function main(): Promise<void> {
   checkForbiddenCopy()
   checkPageSignals()
   checkDataSignals()
-  checkWoolFactHandoverProjection()
+  await checkWoolFactHandoverProjection()
   console.log('check:pda-handover-pages passed')
 }
 
 try {
-  main()
+  await main()
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error)
   console.error(message)

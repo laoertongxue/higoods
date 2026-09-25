@@ -1204,10 +1204,11 @@ function findDispatchOrderById(storeRef: CuttingSewingDispatchStore, dispatchOrd
   return order
 }
 
-function getOccupiedFeiTicketNos(options?: { excludeBagId?: string }): Set<string> {
-  const storeRef = ensureCuttingSewingDispatchSeeded()
+function getOccupiedFeiTicketNos(options?: { excludeBagId?: string; initializeLegacyDemo?: boolean }): Set<string> {
+  // 新待交出仓读取已发生的占用，不为了查询构建旧分批交出工作台的演示动作。
+  const storeRef = options?.initializeLegacyDemo === false ? store : ensureCuttingSewingDispatchSeeded()
   const occupied = new Set<string>(listSimpleCutPieceHandoverEvents().flatMap((event) => event.payload.tickets.map((ticket) => ticket.feiTicketNo)))
-  storeRef.transferBags.forEach((bag) => {
+  storeRef?.transferBags.forEach((bag) => {
     if (options?.excludeBagId && bag.transferBagId === options.excludeBagId) return
     if (bag.status === '已回写' || bag.status === '差异' || bag.status === '异议中') {
       bag.scannedFeiTicketNos.forEach((feiTicketNo) => occupied.add(feiTicketNo))
@@ -1604,7 +1605,7 @@ function buildAllocationShortageItems(
 export function buildSewingTaskAllocationProjectionFromInventory(
   inventoryRecords: SewingTaskAllocationInventoryRecord[],
 ): SewingTaskAllocationProjection {
-  const occupiedFeiTicketNos = getOccupiedFeiTicketNos()
+  const occupiedFeiTicketNos = getOccupiedFeiTicketNos({ initializeLegacyDemo: false })
   const excludedItems: SewingTaskAllocationExcludedInventoryItem[] = []
   const reservations: InventoryReservation[] = []
   const releasedReservations: InventoryReservation[] = []
@@ -1621,15 +1622,17 @@ export function buildSewingTaskAllocationProjectionFromInventory(
 
   // Resolve each source collection once in this synchronous projection.
   let supplementalTickets: Map<string, GeneratedFeiTicketSourceRecord> | undefined
+  let woolTickets: Map<string, GeneratedFeiTicketSourceRecord> | undefined
 
   inventoryRecords.forEach((record) => {
     let ticket = getFeiTicketByNo(record.feiTicketNo)
-    if (!ticket) {
-      if (!supplementalTickets) {
-        supplementalTickets = new Map(listWoolPanelCuttingReceiptSources().map(ticket => [ticket.feiTicketNo, ticket]))
-        listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach(ticket => supplementalTickets!.set(ticket.feiTicketNo, ticket))
-      }
+    if (!ticket && record.hasSpecialCraft) {
+      supplementalTickets ??= new Map(listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().map(ticket => [ticket.feiTicketNo, ticket]))
       ticket = supplementalTickets.get(record.feiTicketNo) || null
+    }
+    if (!ticket && record.feiTicketNo.startsWith('WOOL-PANEL:')) {
+      woolTickets ??= new Map(listWoolPanelCuttingReceiptSources().map(ticket => [ticket.feiTicketNo, ticket]))
+      ticket = woolTickets.get(record.feiTicketNo) || null
     }
     if (record.voidStatus === '已作废' || ticket?.printStatus === 'VOIDED') {
       excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票已作废' })
@@ -1662,7 +1665,7 @@ export function buildSewingTaskAllocationProjectionFromInventory(
       })
       return
     }
-    const mappedSpecialCraft = ticket
+    const mappedSpecialCraft = ticket && (ticket.hasSpecialCraft || record.hasSpecialCraft)
       ? mapSpecialCraftReturnStatus(record.feiTicketNo)
       : { specialCraftRequired: false, specialCraftReturnStatus: '不需要特殊工艺' as const }
     const specialCraft = {
@@ -3837,19 +3840,19 @@ export function listCuttingSewingDispatchValidationResults(): CuttingSewingDispa
   return clone(ensureCuttingSewingDispatchSeeded().validationResults)
 }
 
-export function findCuttingSewingDispatchByFeiTicketNo(feiTicketNo: string): {
+export function findCuttingSewingDispatchByFeiTicketNo(feiTicketNo: string, options?: { initializeLegacyDemo?: boolean; specialCraftRequired?: boolean }): {
   dispatchOrder?: CuttingSewingDispatchOrder
   dispatchBatch?: CuttingSewingDispatchBatch
   transferBag?: CuttingSewingTransferBag
   feiTicketSewingStatus: '未装袋' | '已装袋' | '已交出' | '已回写' | '差异' | '异议中'
   specialCraftReturnStatus: CuttingSewingSpecialCraftReturnStatus
 } {
-  const storeRef = ensureCuttingSewingDispatchSeeded()
-  const bag = storeRef.transferBags.find((item) => item.scannedFeiTicketNos.includes(feiTicketNo))
+  const storeRef = options?.initializeLegacyDemo === false ? store : ensureCuttingSewingDispatchSeeded()
+  const bag = storeRef?.transferBags.find((item) => item.scannedFeiTicketNos.includes(feiTicketNo))
   if (bag) normalizeTransferBagRuntimeFields(bag)
-  const batch = bag ? storeRef.dispatchBatches.find((item) => item.dispatchBatchId === bag.dispatchBatchId) : undefined
-  const order = batch ? storeRef.dispatchOrders.find((item) => item.dispatchOrderId === batch.dispatchOrderId) : undefined
-  const specialCraft = mapSpecialCraftReturnStatus(feiTicketNo)
+  const batch = bag ? storeRef?.dispatchBatches.find((item) => item.dispatchBatchId === bag.dispatchBatchId) : undefined
+  const order = batch ? storeRef?.dispatchOrders.find((item) => item.dispatchOrderId === batch.dispatchOrderId) : undefined
+  const specialCraft = options?.specialCraftRequired === false ? { specialCraftReturnStatus: '不需要特殊工艺' as const } : mapSpecialCraftReturnStatus(feiTicketNo)
   const status =
     bag?.status === '已回写'
       ? '已回写'

@@ -1,11 +1,18 @@
+import { migrateRetiredCutPiecePickupHistory } from './retired-cut-piece-pickup-history.ts'
+import { CUTTING_EVENT_SCOPE_RECORD, isManagedCuttingEvent } from './cutting-event-scope.ts'
 import { cuttingRecordFingerprint as fingerprint } from './cutting-record-identity.ts'
 import { CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, type CuttingRuntimeEvent } from './cutting-runtime-event-ledger.ts'
 import { readCuttingRecords, commitCuttingRecords } from './cutting-record-repository.ts'
 
-const migratedTypes = new Set(['菲票装袋', '中转袋入仓', '新增交出记录', '简易裁片交出', '中转袋拆袋重装', '中转袋回收', '中转袋报废', '特殊工艺交出', '特殊工艺回仓'])
+async function markScopeComplete(expectedRaw: string | null): Promise<void> {
+  const snapshot = await readCuttingRecords()
+  if (snapshot.records.some(record => record.id === CUTTING_EVENT_SCOPE_RECORD)) return
+  await commitCuttingRecords({ revision: snapshot.revision, assertSourcesCurrent: () => { if (localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) !== expectedRaw) throw new Error('旧裁床记录在核对后发生变化，请关闭其他页面后重试；未标记完成。') }, change: { puts: [{ id: CUTTING_EVENT_SCOPE_RECORD, collection: 'cutting-event-scopes', value: { phase: 'COMPLETE', version: 2 } }] }, command: { id: 'cutting-event-scope-v2:complete', intent: 'cutting-event-scope-v2:complete', result: true, at: new Date().toISOString() } })
+}
 /** 显式迁移共享旧账；不由读取触发，不改其他模块事件。 */
 export async function migrateLegacyCuttingEvents(input: { otherPagesClosed: boolean; progress: (message: string) => void }): Promise<number> {
   if (!input.otherPagesClosed) throw new Error('请先关闭其他 HiGood 页面，并勾选确认；源记录尚未清理。')
+  await migrateRetiredCutPiecePickupHistory(input)
   const raw = localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY)
   const initial = await readCuttingRecords()
   for (const record of initial.records.filter(record => record.collection === 'cutting-migrations')) {
@@ -17,16 +24,17 @@ export async function migrateLegacyCuttingEvents(input: { otherPagesClosed: bool
     await commitCuttingRecords({ revision: snapshot.revision, change: { puts: [{ ...record, value: { ...pending, phase: 'COMPLETE', completedAt: new Date().toISOString() } }] }, command: { id: `${pending.id}:complete`, intent: `complete:${pending.id}`, result: pending.count, at: new Date().toISOString() } })
     input.progress(`已恢复迁移完成记录：${pending.count} 条，未重复写入。`)
   }
-  if (!raw) { input.progress('没有待迁移的旧裁后记录。'); return 0 }
+  if (!raw) { await markScopeComplete(raw); input.progress('没有待迁移的旧裁后记录。'); return 0 }
   let source: { events: CuttingRuntimeEvent[]; [key: string]: unknown }
   try { source = JSON.parse(raw) } catch { throw new Error('旧裁床记录不是有效 JSON，未迁移或清理。') }
   if (!Array.isArray(source.events) || source.events.some(event => !event || !event.eventId || !event.eventType || !event.refs || !event.payload)) throw new Error('旧裁床记录不完整，未迁移或清理。')
   if (new Set(source.events.map(event => event.eventId)).size !== source.events.length) throw new Error('旧记录编号重复，未迁移或清理。')
-  const selected = source.events.filter(event => migratedTypes.has(event.eventType))
+  const selected = source.events.filter(isManagedCuttingEvent)
   const cutIds = new Set(selected.map(event => event.refs.cutOrderId).filter(Boolean))
-  const dependencies = source.events.filter(event => event.eventType === '完成裁剪' && cutIds.has(event.refs.cutOrderId))
+  const selectedIds = new Set(selected.map(event => event.eventId))
+  const dependencies = source.events.filter(event => event.eventType === '完成裁剪' && cutIds.has(event.refs.cutOrderId) && !selectedIds.has(event.eventId))
   const events = [...selected, ...dependencies]
-  if (!events.length) { input.progress('共享旧账没有本次裁后处理范围内的记录。其他模块记录已保留。'); return 0 }
+  if (!events.length) { await markScopeComplete(raw); input.progress('共享旧账没有本次裁后处理范围内的记录。其他模块记录已保留。'); return 0 }
   const batch = await fingerprint(raw)
   const id = `cutting-migration:${batch}`
   for (let offset = 0; offset < events.length; offset += 100) {
@@ -57,6 +65,7 @@ export async function migrateLegacyCuttingEvents(input: { otherPagesClosed: bool
   if (after && JSON.parse(after).events.some((event: CuttingRuntimeEvent) => ids.has(event.eventId))) throw new Error('旧页面重新写入源记录，迁移未完成，请关闭旧页面后重试。')
   const snapshot = await readCuttingRecords()
   await commitCuttingRecords({ revision: snapshot.revision, change: { puts: [{ id, collection: 'cutting-migrations', value: { ...pending, phase: 'COMPLETE', completedAt: new Date().toISOString() } }] }, command: { id: `${id}:complete`, intent: `complete:${id}`, result: events.length, at: new Date().toISOString() } })
+  await markScopeComplete(after)
   input.progress(`迁移完成：${events.length} 条已读回核对，旧源已清理；保留其他模块 ${retained.length} 条。`)
   return events.length
 }

@@ -254,6 +254,13 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   const eventTarget = target as HTMLElement
   const pathname = appStore.getState().pathname
   const pagePath = pathname.split('?')[0]
+  if (pagePath === '/fcs/craft/cutting/replacement-fabric-fei-tickets') {
+    // Native filter input is read by the page's Query action; it must not
+    // initialize unrelated FCS handlers while the user is typing.
+    if (!event) return false
+    const page = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    return page.handleReplacementFabricEvent(eventTarget, event)
+  }
   // DDS owns its local controls. Native details and column drags must not fall
   // through to lazy-load every unrelated business system's event handlers.
   if (pagePath.startsWith('/dds/supply-chain/production-fulfillment/') && target.closest('#pf-app')) return false
@@ -267,7 +274,16 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   }
   if (pagePath === '/fcs/dispatch/workbench') {
     const page = await import('./pages/unified-dispatch-workbench.ts')
-    return page.handleUnifiedDispatchWorkbenchEvent(eventTarget)
+    return page.handleUnifiedDispatchWorkbenchEvent(eventTarget, event)
+  }
+  if (pagePath === '/fcs/craft/cutting/warehouse-management/wait-handover') {
+    // 页面已加载仓储处理器；交出窗口不应再初始化整个 FCS 事件集合。
+    const page = await import('./pages/process-factory/cutting/warehouse-hub.ts')
+    return page.handleCraftCuttingWaitHandoverEvent(eventTarget)
+  }
+  if (pagePath === '/fcs/contracts/print') {
+    const page = await import('./pages/production-contract-print.ts')
+    return page.handleProductionContractPrintEvent(eventTarget)
   }
   if (pagePath === '/fcs/print/preview' || /^\/fcs\/production\/orders\/[^/]+\/confirmation-print$/.test(pagePath)) {
     const documentType = new URLSearchParams(pathname.split('?')[1] || '').get('documentType')
@@ -354,6 +370,10 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
   ) {
     const markerSpreadingPage = await getCraftCuttingMarkerSpreadingPageModule()
     return markerSpreadingPage.handleCraftCuttingMarkerSpreadingEvent(eventTarget, event)
+  }
+  if (/^\/fcs\/craft\/cutting\/(?:fei-tickets(?:\/|$)|binding-fei-tickets$|fei-ticket-(?:detail|printed|print|reprint)$)/.test(pathname)) {
+    const feiTicketsPage = await import('./pages/process-factory/cutting/fei-tickets')
+    return feiTicketsPage.handleCraftCuttingFeiTicketsEvent(eventTarget)
   }
   if (pathname.startsWith('/fcs/craft/cutting/transfer-bags')) {
     const transferBagsPage = await getCraftCuttingTransferBagsPageModule()
@@ -730,14 +750,28 @@ function includeTmfStorageWarning(pageContent: string): string {
   return `<section role="status" aria-live="polite" class="mx-4 mt-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">织带厂演示数据未能全部保存，当前页面仍可查看已保存记录。请检查浏览器存储空间；处理后刷新页面可重新补齐演示数据。</section>${pageContent}`
 }
 
+let productionEntryHydration: Promise<void> | undefined
+let cuttingEntryHydration: Promise<void> | undefined
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  // 一次页面会话只初始化一次读视图；保存动作自行在同一快照上读回。
+  // 局部输入导致的render不得再次抢占保存/迁移锁，也不得并发初始化。
+  productionEntryHydration ??= (async () => {
+    const productionContext = await import('./data/fcs/production-context-records.ts')
+    await productionContext.hydrateProductionContextRecords()
+    const partTickets = await import('./data/fcs/cutting/part-ticket-records.ts')
+    await partTickets.hydratePartTicketRecords()
+    const sourceActions = await import('./data/fcs/production-context-actions.ts')
+    sourceActions.hydrateProductionSourceEffects()
+  })().catch(error => { productionEntryHydration = undefined; throw error })
+  await productionEntryHydration
   if (normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/pda/transfer-bag')
     || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/tasks/')
     || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
     || normalizedPathname === '/fcs/pda/warehouse/wait-handover'
     || normalizedPathname === '/fcs/print/preview') {
-    const records = await import('./data/fcs/cutting/cutting-event-repository.ts')
-    await records.hydrateCuttingEventRecords()
+    cuttingEntryHydration ??= import('./data/fcs/cutting/cutting-event-repository.ts').then(records => records.hydrateCuttingEventRecords())
+      .catch(error => { cuttingEntryHydration = undefined; throw error })
+    await cuttingEntryHydration
   }
   const isSupplementManagementEntry =
     normalizedPathname === supplementManagementRoutePath &&
@@ -954,8 +988,12 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       }
       return printPreviewPage.renderPrintPreviewPage()
     }
-    return resolvePage(pathname)
+    return await resolvePage(pathname)
   } catch (error) {
+    if (error && typeof error === 'object' && 'code' in error && ['PRODUCTION_CONTEXT_RECOVERY', 'PART_TICKET_RECOVERY'].includes(String(error.code))) {
+      const recovery = await import('./pages/production-context-recovery.ts')
+      return recovery.renderProductionContextRecovery(error instanceof Error ? error.message : String(error))
+    }
     if (reloadForDynamicModuleLoadError(error, '路由模块')) {
       return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
     }
@@ -976,9 +1014,9 @@ async function render(): Promise<void> {
   const pageContentPromise = renderCurrentPageContent(state.pathname)
   const isDirectWoolPda = state.pathname.startsWith('/fcs/pda/wool/')
     || /^\/fcs\/pda\/exec\/[^/?]+(?::|%3[Aa])(?:KNITTING|LINKING)(?:\?|$)/.test(state.pathname)
-  const pageContent = isPdaPath(state.pathname) && !isDirectWoolPda
-    ? (await Promise.all([pageContentPromise, getPdaHandlersModule()]))[0]
-    : await pageContentPromise
+  const pageContent = await pageContentPromise
+  // PDA处理器含读取业务记录的模块，必须等同一页面的记录初始化完成。
+  if (isPdaPath(state.pathname) && !isDirectWoolPda) await getPdaHandlersModule()
   if (currentSerial !== renderSerial) {
     return
   }
@@ -1541,10 +1579,16 @@ function resolveSharedFieldRerenderDecision(target: Element, eventKind: Rerender
   )
   if (
     isInputOrTextArea(pdaCutSpreadingFieldNode) ||
-    (eventKind === 'change' && pdaCutSpreadingFieldNode instanceof HTMLSelectElement)
+    pdaCutSpreadingFieldNode instanceof HTMLSelectElement
   ) {
     return true
   }
+
+  // Remarks already update the draft on input. Redrawing on blur replaces the
+  // save button between pointerdown and click, silently swallowing that click.
+  if (eventKind === 'change' && target.closest(
+    '[data-marker-plan-basic-field="remark"], [data-marker-plan-textarea-field="remark"], [data-marker-plan-bed-field="remark"]',
+  )) return true
 
   if (eventKind === 'input') {
     const markerPlanInputNode = target.closest<HTMLElement>(MARKER_PLAN_INPUT_SELECTOR)
@@ -1796,6 +1840,12 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (target.closest('[data-production-context-migrate]')) {
+    event.preventDefault()
+    const recovery = await import('./pages/production-context-recovery.ts')
+    await recovery.handleProductionContextRecovery(target as HTMLElement)
+    return
+  }
   if (target.closest('[data-hpb-print-action]')) {
     event.preventDefault()
     const module = await import('./pages/print/replacement-fabric-preview.ts')
@@ -1962,6 +2012,12 @@ root.addEventListener('click', async (event) => {
 })
 
 root.addEventListener('input', async (event) => {
+  const replacementTarget = resolveEventElementTarget(event.target)
+  if (replacementTarget?.closest('[data-hpb-page]')) {
+    const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    await module.handleReplacementFabricEvent(replacementTarget, event)
+    return
+  }
   const mdTarget = resolveEventElementTarget(event.target)
   if (mdTarget && dispatchMaterialDecisionInput(mdTarget)) return
   if (mdTarget?.closest('[data-pf-field]') && handleProductionFulfillmentField(mdTarget)) return

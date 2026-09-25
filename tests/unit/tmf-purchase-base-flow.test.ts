@@ -1802,7 +1802,7 @@ test('主单离页保存保留其他页取消及新增单，同单并发编辑�
  const descriptor=Object.getOwnPropertyDescriptor(globalThis,'localStorage')
  let raw:string|null=null,fail=false
  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:()=>raw,setItem:(_key:string,value:string)=>{if(fail)throw new Error('测试保存失败');raw=value}}})
- const main={...structuredClone(productionOrders.find(o=>o.techPackSnapshot)!),productionOrderId:'CROSS-SAVE-MAIN',productionOrderNo:'CROSS-SAVE-MAIN',status:'EXECUTING' as const}
+ const main={...structuredClone(productionOrders.find(o=>o.selectedTechPackVersionId && o.techPackSnapshot?.sourceTechPackVersionId === o.selectedTechPackVersionId)!),productionOrderId:'CROSS-SAVE-MAIN',productionOrderNo:'CROSS-SAVE-MAIN',status:'EXECUTING' as const}
  productionOrders.push(main)
  try{
   persistCreatedProductionOrders([main.productionOrderId])

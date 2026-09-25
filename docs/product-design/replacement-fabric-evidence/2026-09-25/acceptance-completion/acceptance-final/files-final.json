@@ -1,0 +1,14 @@
+{
+  "passed": 9,
+  "checks": [
+    "binary sha256",
+    "records and command references protected; unknown file retained",
+    "confirmed orphan removed",
+    "reference blobs survive cleanup",
+    "new reference blocks stale cleanup",
+    "missing referenced backup blob blocked",
+    "corrupt content hash blocked",
+    "invalid backups leave original version intact",
+    "blob failure rolls back records and command"
+  ]
+}

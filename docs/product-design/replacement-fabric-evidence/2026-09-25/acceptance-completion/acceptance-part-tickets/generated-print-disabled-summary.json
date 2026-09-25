@@ -1,0 +1,55 @@
+{
+  "reloaded": true,
+  "sameAfterReload": true,
+  "records": [
+    {
+      "id": "mock-fei-ticket-ordinary-001",
+      "no": "FT-CUT-260412-201-01-001",
+      "qty": 180,
+      "status": "PRINTED"
+    },
+    {
+      "id": "mock-fei-ticket-ordinary-002",
+      "no": "FT-CUT-260412-201-01-002",
+      "qty": 180,
+      "status": "PRINTED"
+    },
+    {
+      "id": "mock-fei-ticket-ordinary-003",
+      "no": "FT-CUT-260412-201-01-003",
+      "qty": 180,
+      "status": "PRINTED"
+    },
+    {
+      "id": "mock-fei-ticket-ordinary-004",
+      "no": "FT-CUT-260412-201-01-004",
+      "qty": 180,
+      "status": "PRINTED"
+    },
+    {
+      "id": "mock-fei-ticket-ordinary-005",
+      "no": "FT-CUT-260412-201-01-005",
+      "qty": 260,
+      "status": "PRINTED"
+    },
+    {
+      "id": "mock-fei-ticket-ordinary-006",
+      "no": "FT-CUT-260412-201-01-006",
+      "qty": 260,
+      "status": "PRINTED"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "print-job-202609251115-mock-fei-ticket-ordinary-001-mock-fei-ticket-ordinary-002-mock-fei-ticket-ordinary-003-mock-fei-ticket-ordinary-004-mock-fei-ticket-ordinary-005-mock-fei-ticket-ordinary-006-actual-first-print",
+      "tickets": [
+        "mock-fei-ticket-ordinary-001",
+        "mock-fei-ticket-ordinary-002",
+        "mock-fei-ticket-ordinary-003",
+        "mock-fei-ticket-ordinary-004",
+        "mock-fei-ticket-ordinary-005",
+        "mock-fei-ticket-ordinary-006"
+      ]
+    }
+  ]
+}

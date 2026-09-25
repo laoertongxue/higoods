@@ -1,0 +1,192 @@
+async page => {
+  // Functional acceptance on dev43235; use only outside strict performance windows.
+  // Each context is disposable. Module calls below prepare explicitly named Mock
+  // prerequisites (technical data, available cuts and preprinted unused tickets).
+  // No replacement receipt or tested handover result is inserted by the fixture.
+  const origin = 'http://127.0.0.1:43235'
+  const result = { origin, kind: 'visible business boundary acceptance; not a performance claim', scenarios: [], domainEvidence: [
+    { requirement: 'MAT-004', file: 'tests/unit/replacement-fabric-source-and-history.test.ts', test: '同名不同编码面料不混并；BOM 身份歧义阻断', reason: 'Pure identity resolution is already covered; below verifies that the actual handover UI does not accept A as missing B.' },
+    { requirement: 'MAT-006', file: 'tests/unit/replacement-fabric-source-and-history.test.ts', test: '完整但全是朴为空集合；缺颜色映射或空名称属于资料错误', reason: 'Below supplements the visible list/detail state; no duplicate standalone domain invocation is necessary.' },
+    { requirement: 'HAND-011', file: 'tests/unit/replacement-fabric-fei-tickets.test.ts', test: '同任务同工厂历史可满足；不同任务或换厂必须另交', reason: 'Its added-C missing-set assertion is the pure rule; below supplements actual prior-receipt/new-material UI and saved result.' },
+  ] }
+  const assert = (yes, message) => { if (!yes) throw Error(message) }
+  const records = p => p.evaluate(async () => {
+    const repo = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/cutting-record-repository.ts') || '/src/data/fcs/cutting/cutting-record-repository.ts')
+    return (await repo.readCuttingRecords()).records
+  })
+  const waitReady = async p => {
+    await p.locator('[data-hpb-action=reload]').waitFor()
+    await p.waitForFunction(() => !document.body.innerText.includes('正在读取本机票据'))
+  }
+  const readOnlyScenarios = [
+    { requirement: 'ORDER-004', fixture: 'Mock: 已分配裁床的现有生产单缺少技术快照', expected: '资料待核对' },
+    { requirement: 'MAT-006', fixture: 'Mock: 完整SKU/颜色/BOM映射，所有面料名称均含朴', expected: '无需换片布' },
+  ]
+  for (const spec of readOnlyScenarios) {
+    const context = await page.context().browser().newContext({ viewport: { width: 1366, height: 768 } })
+    const p = await context.newPage(), out = { ...spec, errors: [] }
+    await p.addInitScript(()=>performance.setResourceTimingBufferSize(10000)); await p.routeWebSocket('**', socket => socket.close()); p.setDefaultTimeout(10000); p.on('pageerror', error => out.errors.push(String(error)))
+    try {
+      await p.goto(origin + '/fcs/craft/cutting/replacement-fabric-fei-tickets'); await waitReady(p)
+      out.prerequisite = await p.evaluate(async requirement => {
+        const po = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/production-orders.ts') || '/src/data/fcs/production-orders.ts')
+        const source = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-source.ts') || '/src/data/fcs/cutting/replacement-fabric-source.ts')
+        const runtime = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/runtime-process-tasks.ts') || '/src/data/fcs/runtime-process-tasks.ts')
+        const before = source.listReplacementFabricOrderRows().find(row => row.order.productionOrderId === 'PO-202603-0002')
+        if (!before?.order.techPackSnapshot || before.issues.length || !before.materials.length) throw Error('Expected complete assigned Mock order PO-202603-0002')
+        const order = po.productionOrders.find(order => order.productionOrderId === before.order.productionOrderId)
+        if (requirement === 'ORDER-004') order.techPackSnapshot = null
+        else order.techPackSnapshot.bomItems.forEach(item => { item.name = '验收针织朴' })
+        runtime.clearRuntimeProcessTasksCache()
+        const after = source.listReplacementFabricOrderRows().find(row => row.order.productionOrderId === order.productionOrderId)
+        if (!after) throw Error('Assigned order disappeared before visible UI check')
+        if (requirement === 'ORDER-004' && !after.issues.some(issue => issue.includes('缺少生产单技术资料'))) throw Error('Missing-data fixture did not exercise the intended source error')
+        if (requirement === 'MAT-006' && (after.issues.length || after.materials.length)) throw Error('Complete empty-set prerequisite is invalid: ' + JSON.stringify(after.issues))
+        return { orderId: order.productionOrderId, orderNo: order.productionOrderNo, assignedScopes: after.scopes.length, sourceIssues: after.issues, materialCount: after.materials.length, storage: 'isolated in-memory Mock; no reload/route replacement after setup' }
+      }, spec.requirement)
+      const beforeRecords = JSON.stringify(await records(p))
+      // Actual product controls, rather than direct render/function assertions.
+      await p.locator('[data-hpb-action=reload]').click()
+      await p.waitForFunction(() => document.querySelector('[role=status]')?.textContent.includes('已读取当前分配与打印状态'))
+      await p.locator('[data-hpb-filter=order]').fill(out.prerequisite.orderNo)
+      await p.locator('[data-hpb-action=query]').click()
+      const row = p.locator('tbody tr').filter({ hasText: out.prerequisite.orderNo })
+      await row.waitFor(); out.row = await row.innerText()
+      assert(out.row.includes(spec.expected), spec.requirement + ' did not display ' + spec.expected)
+      assert(out.row.includes('0 张 / 0 张'), 'Empty or incomplete source unexpectedly generated a default ticket')
+      await row.locator('[data-hpb-action=detail]').click()
+      const dialog = p.getByRole('dialog', { name: '换片布菲票明细' }); await dialog.waitFor()
+      out.detail = await dialog.innerText()
+      out.disabledPrint = await dialog.locator('[data-hpb-action=print-all]').isDisabled()
+      out.ticketCount = await dialog.locator('[data-hpb-ticket]').count()
+      assert(out.disabledPrint && out.ticketCount === 0, 'Source boundary still permits printing')
+      if (spec.requirement === 'ORDER-004') assert(out.detail.includes('缺少生产单技术资料'), 'Missing-data detail lacks actionable source explanation')
+      else assert(!out.row.includes('资料待核对'), 'Complete empty set was incorrectly treated as missing data')
+      out.readsDidNotPersist = beforeRecords === JSON.stringify(await records(p))
+      assert(out.readsDidNotPersist, 'Read/query/detail unexpectedly wrote business records')
+      await p.screenshot({ path: '/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/boundary-' + spec.requirement + '.png', fullPage: true })
+      assert(!out.errors.length, 'Uncaught page error'); out.passed = true
+    } catch (error) { out.passed = false; out.error = String(error); out.body = (await p.locator('body').innerText()).slice(-5000) }
+    finally { await context.close() }
+    result.scenarios.push(out)
+  }
+  {
+    const context = await page.context().browser().newContext({ viewport: { width: 1366, height: 768 } })
+    const p = await context.newPage(), out = { requirements: ['MAT-004', 'HAND-011'], fixture: 'Mock: A/B物料同名不同SKU身份；先M任务只需A，后续新增B需料与第二裁片批；测试交出均使用真实按钮', errors: [] }
+    await p.addInitScript(()=>performance.setResourceTimingBufferSize(10000)); await p.routeWebSocket('**', socket => socket.close()); p.setDefaultTimeout(10000); p.on('pageerror', error => out.errors.push(String(error)))
+    try {
+      await p.goto(origin + '/fcs/pda/auth/login')
+      await p.getByRole('textbox', { name: '登录账号' }).fill('OWN-CUTTING-001_admin')
+      await p.getByRole('textbox', { name: '密码', exact: true }).fill('123456')
+      await p.getByRole('button', { name: '登录', exact: true }).click(); await p.waitForURL('**/fcs/pda/exec')
+      await p.goto(origin + '/fcs/craft/cutting/warehouse-management/wait-handover')
+      await p.locator('[data-simple-cut-open]').waitFor()
+      out.prerequisite = await p.evaluate(async () => {
+        const fixtures = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts') || '/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts'); fixtures.ensureSimpleCutPieceHandoverFixtures()
+        const po = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/production-orders.ts') || '/src/data/fcs/production-orders.ts'), sheets = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/dispatch-task-sheet.ts') || '/src/data/fcs/dispatch-task-sheet.ts')
+        const source = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-source.ts') || '/src/data/fcs/cutting/replacement-fabric-source.ts'), repo = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-repository.ts') || '/src/data/fcs/cutting/replacement-fabric-repository.ts')
+        const order = po.productionOrders.find(o => o.productionOrderId === fixtures.SIMPLE_CUT_PIECE_DEMO_ORDER_ID)
+        const sheet = sheets.listDispatchTaskSheetAssignments().filter(a => a.productionOrderId === order.productionOrderId).map(a => sheets.buildDispatchTaskSheetData(a.assignmentId)).find(s => s.supportsCutPieceHandover && s.assignment.skuLines.some(sku => sku.size === 'M'))
+        if (!sheet) throw Error('Missing complete M-size simple-handover fixture')
+        const initial = source.resolveReplacementFabricTaskContext(sheet)
+        if (initial.issues.length || initial.requiredMaterials.length !== 1) throw Error('This boundary needs exactly one initial eligible material: ' + JSON.stringify(initial))
+        const a = initial.requiredMaterials[0], pack = order.techPackSnapshot
+        const matchedBomIds=new Set(pack.colorMaterialMappings.flatMap(mapping=>mapping.lines).filter(line=>line.materialCode===a.code).map(line=>line.bomItemId));
+        const matchingBom=pack.bomItems.filter(item=>[item.materialSkuId,item.variantId,item.materialCode].includes(a.code)||matchedBomIds.has(item.id));
+        const aBom = matchingBom.length===1 ? matchingBom[0] : undefined
+        if (!aBom) throw Error('Initial material does not resolve to BOM: '+JSON.stringify({a,orderId:order.productionOrderId,orderBom:pack.bomItems.map(x=>({id:x.id,name:x.name,sku:x.materialSkuId,variant:x.variantId,code:x.materialCode})),sheetBom:sheet.techPack.bomItems.map(x=>({id:x.id,name:x.name,sku:x.materialSkuId,variant:x.variantId,code:x.materialCode})),moduleUrls:performance.getEntriesByType('resource').map(x=>x.name).filter(x=>x.includes('production-orders.ts')||x.includes('dispatch-task-sheet.ts'))}))
+        const bId = 'MOCK-HPB-BOUNDARY-BOM-B', bCode = 'MOCK-HPB-SAME-NAME-B'
+        const otherSku = order.demandSnapshot.skuLines.find(sku => !sheet.assignment.skuLines.some(line => line.skuCode === sku.skuCode))
+        if (!otherSku) throw Error('Missing other SKU for initially not-required B material')
+        const b = { ...structuredClone(aBom), id: bId, materialCode: bCode, materialSkuId: bCode, variantId: bCode, name: a.name, applicableSkuCodes: [otherSku.skuCode] }
+        pack.bomItems.push(b)
+        let linked = 0
+        for (const mapping of pack.colorMaterialMappings) {
+          const line = mapping.lines.find(line => line.bomItemId === aBom.id)
+          if (line) { mapping.lines.push({ ...structuredClone(line), bomItemId: bId, materialCode: bCode, materialName: a.name, applicableSkuCodes: [otherSku.skuCode] }); linked++ }
+        }
+        if (!linked) throw Error('No existing material map to extend for explicit B Mock')
+        const sourceActions=await import(performance.getEntriesByType('resource').map(e=>e.name).find(url=>new URL(url).pathname==='/src/data/fcs/production-context-actions.ts')||'/src/data/fcs/production-context-actions.ts');
+        const desired=structuredClone(order);desired.selectedTechPackVersionId='MOCK-BOUNDARY-TECH-V1';desired.techPackSnapshot.sourceTechPackVersionId=desired.selectedTechPackVersionId;
+        await sourceActions.saveProductionSourceAction({id:'MOCK-BOUNDARY-TECH-FIRST',intent:'explicit-mock-initial-A-B-source',action:()=>{Object.assign(po.productionOrders.find(o=>o.productionOrderId===desired.productionOrderId),desired);po.persistCreatedProductionOrders([desired.productionOrderId]);}});
+        const scopes = source.listReplacementFabricOrderRows().find(row => row.order.productionOrderId === order.productionOrderId).scopes
+        const aScope = scopes.find(scope => scope.materials.some(m => m.key === a.key))
+        if (!aScope) throw Error('Missing current A cutting scope')
+        const state = await repo.loadReplacementFabricState()
+        const firstA = state.tickets.find(t => t.productionOrderId === order.productionOrderId && t.material.key === a.key && !t.invalidatedAt)
+        const extraA = (await repo.addReplacementFabricTickets(aScope, a.key, 1, { id: 'MOCK-BOUNDARY-EXTRA-A', at: '2026-09-25T00:00:00Z', operator: '明确Mock前置' }))[0]
+        await repo.saveReplacementFabricPrint([firstA.id, extraA.id], source.listReplacementFabricOrderRows().flatMap(row => row.scopes), { id: 'MOCK-BOUNDARY-PREPRINT-A', at: '2026-09-25T00:00:00Z', operator: '明确Mock预先已打印票' })
+        return { orderId: order.productionOrderId, assignmentId: sheet.assignmentId || sheet.assignment.assignmentId, taskId: initial.taskId, factoryId: initial.receiverFactoryId, sheetNo: sheet.taskSheetNo, materialName: a.name, aCode: a.code, aKey: a.key, bCode, bId, firstA: firstA.id, extraA: extraA.id, provenance: 'Only technical-source Mock, extra unused independent A and preprint prerequisites; no receipt/handover event seeded' }
+      })
+      const root = '[data-simple-cut-root=WEB] '
+      const content = root + '[data-simple-cut-content]'
+      const readTask = async () => {
+        await p.locator(root + '[data-simple-cut-input]').fill(out.prerequisite.sheetNo)
+        await p.locator(root + '[data-simple-cut-action=read]').click()
+        await p.waitForFunction(() => document.querySelector('[data-simple-cut-content]')?.textContent.includes('本次完整清单') && !document.querySelector('[data-simple-cut-input]')?.disabled)
+      }
+      const scan = async id => {
+        await p.locator(root + '[data-simple-replacement-input]').fill('HIG:HPB:1:' + encodeURIComponent(id))
+        await p.locator(root + '[data-simple-cut-action=scan-replacement]').click()
+        await p.locator(root + '[data-simple-cut-action="remove-replacement:' + id + '"]').waitFor()
+      }
+      const confirm = () => p.locator(root + '[data-simple-cut-action=confirm]').click()
+      const waitSuccess = () => p.waitForFunction(() => document.querySelector('[data-simple-cut-content]')?.textContent.includes('已交出 · 工厂已接收'))
+      await p.locator('[data-simple-cut-open]').click(); await readTask()
+      out.beforeFirst = await p.locator(content).innerText()
+      assert(out.beforeFirst.includes(out.prerequisite.aCode) && !out.beforeFirst.includes(out.prerequisite.bCode), 'Initial task must only require A')
+      await scan(out.prerequisite.firstA); await confirm(); await waitSuccess()
+      out.firstResult = await p.locator(content).innerText()
+      const firstSaved = await records(p)
+      out.firstReceiptIds = firstSaved.filter(r => r.collection === 'replacement-receipts').map(r => r.value.ticket.id)
+      assert(out.firstReceiptIds.length === 1 && out.firstReceiptIds[0] === out.prerequisite.firstA, 'First actual handover did not exclusively save A')
+      out.addedRequirement = await p.evaluate(async fixture => {
+        const po = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/production-orders.ts') || '/src/data/fcs/production-orders.ts'), runtime = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/runtime-process-tasks.ts') || '/src/data/fcs/runtime-process-tasks.ts')
+        const fixtures = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts') || '/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts')
+        const source = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-source.ts') || '/src/data/fcs/cutting/replacement-fabric-source.ts'), repo = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-repository.ts') || '/src/data/fcs/cutting/replacement-fabric-repository.ts')
+        const order = po.productionOrders.find(o => o.productionOrderId === fixture.orderId), skuCodes = order.demandSnapshot.skuLines.map(line => line.skuCode)
+        order.techPackSnapshot.bomItems.find(item => item.id === fixture.bId).applicableSkuCodes = [...skuCodes]
+        for (const mapping of order.techPackSnapshot.colorMaterialMappings) for (const line of mapping.lines) if (line.bomItemId === fixture.bId) line.applicableSkuCodes = [...skuCodes]
+        const sourceActions=await import(performance.getEntriesByType('resource').map(e=>e.name).find(url=>new URL(url).pathname==='/src/data/fcs/production-context-actions.ts')||'/src/data/fcs/production-context-actions.ts');
+        const desired=structuredClone(order);desired.selectedTechPackVersionId='MOCK-BOUNDARY-TECH-V2';desired.techPackSnapshot.sourceTechPackVersionId=desired.selectedTechPackVersionId;
+        await sourceActions.saveProductionSourceAction({id:'MOCK-BOUNDARY-TECH-ADDED-B',intent:'explicit-mock-added-B-requirement',action:()=>{Object.assign(po.productionOrders.find(o=>o.productionOrderId===desired.productionOrderId),desired);po.persistCreatedProductionOrders([desired.productionOrderId]);}});
+        runtime.clearRuntimeProcessTasksCache(); fixtures.appendSimpleCutPieceDemoCuttingBatch(2)
+        const current = source.resolveReplacementFabricRuntimeTaskContext(fixture.taskId, fixture.factoryId)
+        if (current.issues.length || current.requiredMaterials.length !== 2 || new Set(current.requiredMaterials.map(m => m.key)).size !== 2) throw Error('A/B required-material Mock is not complete and distinct')
+        const state = await repo.loadReplacementFabricState(), ticket = state.tickets.find(t => t.productionOrderId === fixture.orderId && t.material.code === fixture.bCode && !t.invalidatedAt)
+        if (!ticket) throw Error('New requirement B has no derived default ticket')
+        try {await repo.saveReplacementFabricPrint([ticket.id], source.listReplacementFabricOrderRows().flatMap(row => row.scopes), { id: 'MOCK-BOUNDARY-PREPRINT-B', at: '2026-09-25T00:10:00Z', operator: '明确Mock预先已打印新面料票' })} catch(error) {throw Error(String(error)+' DIAGNOSTIC '+JSON.stringify({ticket,scopes:source.listReplacementFabricOrderRows().filter(row=>row.order.productionOrderId===fixture.orderId).map(row=>row.scopes),savedOrder:po.productionOrders.find(o=>o.productionOrderId===fixture.orderId)?.techPackSnapshot,urls:performance.getEntriesByType('resource').map(e=>e.name).filter(url=>/replacement-fabric-source.ts|production-orders.ts|runtime-process-tasks.ts/.test(url))}));}
+        return { ticketId: ticket.id, materialKeys: current.requiredMaterials.map(m => m.key), materialNames: current.requiredMaterials.map(m => m.name), prerequisite: 'Explicit later source requirement B and second available cutting batch; no handover result seeded' }
+      }, out.prerequisite)
+      await p.locator(root + '[data-simple-cut-action=reset]').click(); await readTask()
+      out.beforeSecond = await p.locator(content).innerText()
+      const lines = await p.locator(content + ' section').filter({ hasText: '随裁片交出的换片布' }).last().locator('p').allTextContents()
+      out.materialLines = lines.filter(line => line.includes(out.prerequisite.aCode) || line.includes(out.prerequisite.bCode))
+      assert(lines.some(line => line.includes(out.prerequisite.aCode) && line.includes('此前已交')), 'Prior A no longer recognized for the same task/factory')
+      assert(lines.some(line => line.includes(out.prerequisite.bCode) && line.includes('还需换片布')), 'New B is not shown as the only missing material')
+      assert(out.addedRequirement.materialNames.every(name => name === out.prerequisite.materialName), 'Same-name material prerequisite is invalid')
+      await scan(out.prerequisite.extraA)
+      const beforeBlocked = JSON.stringify(await records(p))
+      await confirm(); await p.waitForFunction(() => document.querySelector('[data-simple-cut-content] [role=status]')?.textContent.includes('缺少换片布'))
+      out.sameNameBlocked = await p.locator(content + ' [role=status]').innerText()
+      out.sameNameBlockDidNotPersist = beforeBlocked === JSON.stringify(await records(p))
+      assert(out.sameNameBlockDidNotPersist, 'Wrong material identity persisted a partial handover')
+      await p.locator(root + '[data-simple-cut-action="remove-replacement:' + out.prerequisite.extraA + '"]').click()
+      await scan(out.addedRequirement.ticketId); await confirm(); await waitSuccess()
+      out.secondResult = await p.locator(content).innerText()
+      assert(out.secondResult.includes('换片布 1 张 / 5 Yard'), 'Second handover must only contain newly-required B')
+      const after = await records(p)
+      out.receipts = after.filter(r => r.collection === 'replacement-receipts').map(r => ({ id: r.value.ticket.id, material: r.value.ticket.material.key, taskId: r.value.taskId, factoryId: r.value.receiverFactoryId }))
+      out.handovers = after.filter(r => r.collection === 'cutting-events' && r.value.eventType === '简易裁片交出').map(r => ({ id: r.id, replacementIds: r.value.payload.replacementFabricTickets?.map(ticket => ticket.feiTicketId) || [] }))
+      assert(out.receipts.length === 2 && out.receipts.some(r => r.id === out.prerequisite.firstA) && out.receipts.some(r => r.id === out.addedRequirement.ticketId) && !out.receipts.some(r => r.id === out.prerequisite.extraA), 'Only original A and added B must be receipted')
+      assert(new Set(out.receipts.map(r => r.taskId)).size === 1 && new Set(out.receipts.map(r => r.factoryId)).size === 1, 'Test changed task/factory rather than adding a material requirement')
+      assert(out.handovers.length === 2, 'Expected exactly two actual handovers')
+      await p.screenshot({ path: '/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/boundary-MAT004-HAND011.png', fullPage: true })
+      assert(!out.errors.length, 'Uncaught page error'); out.passed = true
+    } catch (error) { out.passed = false; out.error = String(error); out.body = (await p.locator('body').innerText()).slice(-6000) }
+    finally { await context.close() }
+    result.scenarios.push(out)
+  }
+  result.failed = result.scenarios.filter(scenario => !scenario.passed)
+  return result
+}

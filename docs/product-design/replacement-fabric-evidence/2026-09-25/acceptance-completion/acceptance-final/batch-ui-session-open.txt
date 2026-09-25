@@ -1,0 +1,10 @@
+### Browser `hpb-batch-boundaries` opened with pid 52524.
+### Ran Playwright code
+```js
+await page.goto('http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover');
+```
+### Page
+- Page URL: http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover
+- Page Title: HiGood - Vanilla TypeScript Clone
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-09-25T05-24-57-853Z.yml)

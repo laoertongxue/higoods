@@ -1,0 +1,10 @@
+[
+  {
+    "file" : "output\/playwright\/hpb\/acceptance-final\/label-render-1.png",
+    "qr" : "HIG:HPB:1:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+  },
+  {
+    "file" : "output\/playwright\/hpb\/acceptance-final\/label-render-2.png",
+    "qr" : "HIG:HPB:1:HPB-boundary-1001"
+  }
+]

@@ -1,0 +1,6 @@
+### Result
+{"body":"HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n页面未找到\n\n未匹配的路由：/fcs/production/demands","actions":[]}
+### Ran Playwright code
+```js
+await (async page=>{const c=await page.context().browser().newContext(),p=await c.newPage();await p.goto('http://127.0.0.1:43235/fcs/production/demands');await p.waitForTimeout(600);const result=await p.evaluate(()=>({body:document.body.innerText.slice(-4000),actions:[...document.querySelectorAll('[data-prod-action]')].map(e=>({action:e.dataset.prodAction,id:e.dataset.demandId,text:e.textContent?.trim()})).filter(x=>x.action.includes('generate'))}));await c.close();return result})(page);
+```

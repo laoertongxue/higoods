@@ -1,4 +1,6 @@
+import { hydratePartTicketRecords, partTicketInitializationRecords, assertPartTicketLegacyUnchanged } from './part-ticket-records.ts'
 import { cuttingRecordFingerprint } from './cutting-record-identity.ts'
+import { hydrateProductionContextRecords, productionContextInitializationRecords } from '../production-context-records.ts'
 import { readCuttingRecords, readCuttingCommand, commitCuttingRecords, diffCuttingRecords,
   type CuttingStoredRecord, type CuttingRecordSnapshot } from './cutting-record-repository.ts'
 import { reconcileReplacementFabricAssignment, createReplacementFabricTickets, confirmReplacementFabricPrint,
@@ -50,7 +52,10 @@ export function replacementStateToRecords(state: ReplacementFabricState): Cuttin
   })))
 }
 export async function loadReplacementFabricState(): Promise<ReplacementFabricState> {
-  const state = await replacementStateFromRecords(await readCuttingRecords())
+  const snapshot = await readCuttingRecords()
+  await hydrateProductionContextRecords(snapshot)
+  await hydratePartTicketRecords(snapshot)
+  const state = await replacementStateFromRecords(snapshot)
   publishReplacementFabricState(state)
   return state
 }
@@ -64,14 +69,19 @@ export async function runReplacementFabricCommand<T>(input: {
     if (prior.intent !== input.intent) throw new Error('本次操作编号已用于不同内容，请重新核对。')
     return prior.result as T
   }
-  const assertSourcesCurrent = captureReplacementFabricSourceGuard()
   const snapshot = await readCuttingRecords()
+  await hydrateProductionContextRecords(snapshot)
+  await hydratePartTicketRecords(snapshot)
+  const eventSource = await import('./cutting-event-repository.ts')
+  eventSource.prepareManagedScope(snapshot.records)
+  const assertSourcesCurrent = captureReplacementFabricSourceGuard()
   const state = await replacementStateFromRecords(structuredClone(snapshot))
   const { result, additionalRecords = [] } = input.recipe(state, snapshot)
   const before = snapshot.records.filter(row => Object.values(collections).includes(row.collection as typeof collections[keyof typeof collections]))
   const change = diffCuttingRecords(before, replacementStateToRecords(state))
   change.puts.push(...additionalRecords)
-  const saved = await commitCuttingRecords({ revision: snapshot.revision, change, assertSourcesCurrent,
+  change.puts.push(...productionContextInitializationRecords(), ...partTicketInitializationRecords(), ...eventSource.cuttingEventScopeInitializationRecords())
+  const saved = await commitCuttingRecords({ revision: snapshot.revision, change, assertSourcesCurrent: () => { assertSourcesCurrent(); assertPartTicketLegacyUnchanged(); eventSource.assertManagedScopeCurrent() },
     command: { id: input.command.id, intent: input.intent, at: input.command.at, result } })
   await loadReplacementFabricState()
   return saved.result
@@ -94,9 +104,12 @@ export async function saveReplacementFabricPrint(ticketIds: string[], scopes: Re
   }) })
 }
 
-function requireCurrentScope(scope: ReplacementFabricScope): ReplacementFabricScope {
+export function requireCurrentScope(scope: ReplacementFabricScope): ReplacementFabricScope {
+  // 一个分配会按面料拆成多个范围；不能只按分配身份取第一种面料。
+  const materialKeys = JSON.stringify([...new Set(scope.materials.map(material => material.key))].sort())
   const current = listReplacementFabricOrderRows().flatMap(row => row.scopes).find(item => item.productionOrderId === scope.productionOrderId
-    && item.factoryId === scope.factoryId && item.assignmentKey === scope.assignmentKey)
+    && item.factoryId === scope.factoryId && item.assignmentKey === scope.assignmentKey
+    && JSON.stringify([...new Set(item.materials.map(material => material.key))].sort()) === materialKeys)
   if (!current) throw new Error('裁床分配已变化，本次未新增，请刷新后核对。')
   return current
 }

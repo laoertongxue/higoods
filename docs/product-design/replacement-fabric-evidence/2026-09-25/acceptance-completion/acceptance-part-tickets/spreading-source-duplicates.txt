@@ -1,0 +1,8 @@
+### Result
+{"markers":{"length":2,"duplicate":[{"id":"seed-marker-cut-order-marker-plan:MB-030101-02"}]},"sessions":{"length":3,"duplicate":[{"id":"seed-marker-cut-order-marker-plan:MB-030101-02","session":"spreading-session-cut-order-cut-order-po-202603-0101-mat-supplement-secondary-010-black-tdv-demand-spu-2024-010-pattern-main-v1-0-150cm-in-progress-b"}]}}
+### Ran Playwright code
+```js
+await (async root=>{const p=root.context().browser().contexts().flatMap(c=>c.pages()).filter(p=>p.url().includes("spreading-list")).at(-1);await p.evaluate(()=>{window.__stringify=JSON.stringify;JSON.stringify=function(x,...a){if(x?.markers&&x?.sessions)window.__candidate=x;return window.__stringify(x,...a)}});await p.locator("[data-cutting-marker-action=start-cutting]").first().click();await p.waitForFunction(()=>window.__candidate,{},{timeout:5000});return await p.evaluate(()=>{JSON.stringify=window.__stringify;const s=window.__candidate;return Object.fromEntries(["markers","sessions"].map(k=>[k,{length:s[k].length,duplicate:s[k].filter((x,i)=>s[k].findIndex(y=>(y.markerId||y.spreadingSessionId)===(x.markerId||x.spreadingSessionId))!==i).map(x=>({id:x.markerId||x.spreadingSessionId,session:x.spreadingSessionId}))}]))})})(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-09-25T02-35-23-288Z.log#L45-L46

@@ -1,3 +1,7 @@
+import { saveProductionSourceAction } from '../../data/fcs/production-context-actions.ts'
+import { withProductionCreationSourceStage } from '../../data/fcs/production-created-process-sources.ts'
+import { prepareDyeSourcesForProductionCreation, assertDyeProductionCreationSourceUnchanged, captureDyeProductionCreationState, restoreDyeProductionCreationState } from '../../data/fcs/dyeing-task-domain.ts'
+import { preparePrintSourcesForProductionCreation, assertPrintProductionCreationSourceUnchanged, capturePrintProductionCreationState, restorePrintProductionCreationState } from '../../data/fcs/printing-task-domain.ts'
 import {
   escapeHtml,
   type ProductionDemand,
@@ -1363,6 +1367,31 @@ export function applyCreatedProductionOrderGroups(created: CreatedProductionOrde
   }
 }
 
+/** 浏览器入口：主单及 KOL 任务、加工定义和提前匹配来源以同一事务保存。 */
+export async function saveCreatedProductionOrderGroups(created: CreatedProductionOrderGroup[], now: string): Promise<void> {
+  if (!created.length) return
+  let dyeSource: string | null = null
+  let printSource: string | null = null
+  const captureAdditional = () => ({ demands: structuredClone(state.demands), dye: captureDyeProductionCreationState(), print: capturePrintProductionCreationState() })
+  await saveProductionSourceAction({
+    id: `PRODUCTION-CREATE:${created.map(item => item.order.productionOrderId).join(':')}`,
+    intent: JSON.stringify({ demands: created.map(item => item.demands.map(demand => demand.demandId)), orders: created.map(item => item.order.productionOrderId) }),
+    captureAdditional,
+    restoreAdditional: value => {
+      const previous = value as ReturnType<typeof captureAdditional>
+      state.demands = structuredClone(previous.demands)
+      restoreDyeProductionCreationState(previous.dye); restorePrintProductionCreationState(previous.print)
+    },
+    assertAdditionalSourcesCurrent: () => { assertDyeProductionCreationSourceUnchanged(dyeSource); assertPrintProductionCreationSourceUnchanged(printSource) },
+    action: () => withProductionCreationSourceStage(() => {
+      dyeSource = prepareDyeSourcesForProductionCreation()
+      printSource = preparePrintSourcesForProductionCreation()
+      applyCreatedProductionOrderGroups(created, now)
+      return created.map(item => item.order.productionOrderId)
+    }, true),
+  })
+}
+
 function openCreatedProductionOrders(created: CreatedProductionOrderGroup[]): void {
   if (created.length === 1) {
     const createdOrder = created[0].order
@@ -1383,7 +1412,7 @@ function getValidatedGenerateTargetDemands(targetDemands: ProductionDemand[]): P
   return targetDemands.filter((demand) => validation.generatableIds.has(demand.demandId))
 }
 
-function performDemandGenerate(): void {
+async function performDemandGenerate(): Promise<void> {
   const targetDemands = state.demandSingleGenerateId
     ? [getDemandById(state.demandSingleGenerateId)].filter((demand): demand is ProductionDemand => Boolean(demand))
     : getSelectedBatchTargetDemands()
@@ -1411,12 +1440,12 @@ function performDemandGenerate(): void {
     return
   }
 
-  applyCreatedProductionOrderGroups(created, now)
+  await saveCreatedProductionOrderGroups(created, now)
   closeDemandGenerateFlow()
   openCreatedProductionOrders(created)
 }
 
-function performOrdersFromDemandGenerate(): void {
+async function performOrdersFromDemandGenerate(): Promise<void> {
   const demandIds = getOrdersFromDemandSelectedIds()
   const targetDemands = demandIds
     .map((demandId) => state.demands.find((item) => item.demandId === demandId) ?? null)
@@ -1434,7 +1463,7 @@ function performOrdersFromDemandGenerate(): void {
     return
   }
 
-  applyCreatedProductionOrderGroups(created, now)
+  await saveCreatedProductionOrderGroups(created, now)
   closeDemandGenerateFlow()
   openCreatedProductionOrders(created)
 }

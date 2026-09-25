@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildTransferBagGoodsLabelPages, type TransferBagGoodsLabelSource } from '../../src/data/fcs/cutting/transfer-bag-goods-label.ts'
+import { buildTransferBagGoodsLabelPages, resolveTransferBagGoodsLabelSource, type TransferBagGoodsLabelSource } from '../../src/data/fcs/cutting/transfer-bag-goods-label.ts'
 import { replacementFabricBagTicket, bagTicketFieldMissing } from '../../src/data/fcs/cutting/mixed-transfer-bag-ticket.ts'
 import { createReplacementFabricTickets, replacementFabricMaterialKey } from '../../src/data/fcs/cutting/replacement-fabric-fei-tickets.ts'
-import type { FeiTicketBagSnapshotItem } from '../../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { installManagedCuttingEventScope, installCuttingCommittedEventReader, type CuttingRuntimeEvent, type FeiTicketBagSnapshotItem } from '../../src/data/fcs/cutting/cutting-runtime-event-ledger.ts'
 
 const material = { key: replacementFabricMaterialKey('FAB-1', '蓝'), code: 'FAB-1', name: '棉布', color: '蓝', imageUrl: '/material.jpg', skuCodes: ['sku1'] }
 const scope = { productionOrderId: 'po1', productionOrderNo: 'PO-001', factoryId: 'cut1', assignmentKey: 'cut-assignment', materials: [material], issues: [] }
@@ -37,4 +37,27 @@ test('混装标签拒绝换片布错误长度、作废票和混生产单', () =>
   assert.throws(() => buildTransferBagGoodsLabelPages(source([{ ...fabric, quantityUnit: '米' }])), /数量/)
   assert.throws(() => buildTransferBagGoodsLabelPages(source([{ ...fabric, voidStatus: '已作废' }])), /已作废/)
   assert.throws(() => buildTransferBagGoodsLabelPages(source([cut, { ...fabric, productionOrderNo: 'PO-OTHER' }])), /一个生产单/)
+})
+
+
+test('旧业务存储不可读时仍用已提交的原装袋周期打印三类货物', () => {
+  const oldWindow = globalThis.window
+  const blocked = { getItem() { throw new Error('旧业务存储已禁用') } }
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: blocked } })
+  const tickets = [cut, fabric, binding].map(item => ({ ...item, sewingTaskId: 'SEW-1', sewingTaskNo: 'RW-1', receiverFactoryId: 'F-1', receiverFactoryName: '原工厂' }))
+  const event = { eventId: 'old-cycle-bagging', eventType: '菲票装袋', eventStatus: '已生效', occurredAt: '2026-09-25 10:00:00', refs: { usageCycleId: 'old-cycle' }, payload: { bagCode: 'BAG-1', feiTicketItems: tickets } } as unknown as CuttingRuntimeEvent
+  installManagedCuttingEventScope(true)
+  installCuttingCommittedEventReader(() => [event], 901)
+  try {
+    const resolved = resolveTransferBagGoodsLabelSource('old-cycle')
+    assert.ok(resolved)
+    assert.deepEqual(resolved.tickets.map(item => item.feiTicketId), tickets.map(item => item.feiTicketId))
+    assert.ok(resolved.tickets.every(item => item.sewingTaskId === 'SEW-1' && item.receiverFactoryId === 'F-1'))
+    assert.equal(buildTransferBagGoodsLabelPages(resolved).length, 3)
+  } finally {
+    installManagedCuttingEventScope(false)
+    installCuttingCommittedEventReader(events => events, 902)
+    if (oldWindow === undefined) Reflect.deleteProperty(globalThis, 'window')
+    else Object.defineProperty(globalThis, 'window', { configurable: true, value: oldWindow })
+  }
 })

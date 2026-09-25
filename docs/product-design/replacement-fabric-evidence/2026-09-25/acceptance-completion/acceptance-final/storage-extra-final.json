@@ -1,0 +1,12 @@
+{
+  "result": {
+    "sourceConflict": "旧页面写入了生产来源，请先迁移，本次未保存。",
+    "unchanged": true,
+    "versionchangeReleased": true,
+    "upgraded": true,
+    "staleVersion": "用户数据无法读取／保存：The requested version (1) is less than the existing version (2).。请保留现有数据后重试。"
+  },
+  "quotaOpen": true,
+  "quotaSave": true,
+  "quotaMessage": "页面可打开"
+}

@@ -1,3 +1,5 @@
+import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady } from '../data/fcs/production-context-records.ts'
+import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { escapeHtml } from '../utils'
 import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
@@ -425,6 +427,11 @@ function getAllTenders(now = formatOperationLocalWallClock()): TenderRow[] {
 }
 
 function getEffectiveAward(tender: TenderRow): LocalAward | undefined {
+  if(typeof document==='undefined' || isProductionContextReady()) {
+    const raw=productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
+    const saved=raw ? JSON.parse(raw).entries.find(([id]:[string,unknown])=>id===`legacy-tender-award:${tender.tenderId}`)?.[1] : null
+    if(saved && saved.taskId===tender.taskId && saved.productionOrderId===tender.productionOrderId) return saved as LocalAward
+  }
   const localAward = state.localAwards[tender.tenderId]
   if (localAward) return localAward
 
@@ -657,7 +664,7 @@ export function awardRuntimeTenderTasks(input: RuntimeTenderBatchAwardInput): {
     })
     return { ok: true, tasks }
   } catch (error) {
-    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreRuntimeDirectDispatchState(runtimeState,false)
     restoreSewingDeliverySlaSnapshotStore(snapshotState)
     restoreRuntimeTaskTenderRecordStore(tenderRecordState)
     return { ok: false, message: error instanceof Error ? error.message : '竞价定标提交失败' }
@@ -712,7 +719,7 @@ function renderTenderAwardPolicyControls(tender: TenderRow, quote: FactoryQuoteE
   `
 }
 
-function confirmAwardInView(now = formatOperationLocalWallClock()): void {
+async function confirmAwardInView(now = formatOperationLocalWallClock()): Promise<void> {
   const tender = getViewTender(now)
   if (!tender) return
 
@@ -740,13 +747,15 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     return
   }
 
+  try {
+  const generatedContractIds=await saveProductionSourceUiAction(JSON.stringify({action:'tender-award',tenderId:tender.tenderId,factoryId:selectedQuote.factoryId,price:selectedQuote.quotePrice,reason:state.viewAwardReason}),()=>{
   const taskIds = tender.taskIds?.length ? tender.taskIds : [tender.taskId]
   const awardResult = awardRuntimeTenderTasks({
     taskIds,
     factoryId: selectedQuote.factoryId,
     factoryName: selectedQuote.factoryName,
     awardedAt: now,
-    awardedPrice: selectedQuote.quotePrice,
+    awardedPrice: selectedQuote.quotePrice!,
     priceDiffReason: state.viewAwardReason.trim() || undefined,
     by: '平台定标员',
     riskConfirmed: state.viewAwardRiskConfirmedByFactoryId[selectedQuote.factoryId] === true,
@@ -754,8 +763,7 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     allowLegacyLocalOnly: tender.processNameZh !== '车缝',
   })
   if (!awardResult.ok) {
-    showTenderToast(awardResult.message || '定标失败，请刷新后重试')
-    return
+    throw new Error(awardResult.message || '定标失败，请刷新后重试')
   }
 
   const generatedContractIds: string[] = []
@@ -776,7 +784,7 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
       assignedQty: skuLines.reduce((sum, line) => sum + line.qty, 0),
       skuLines,
       processCodes: policy.normalizedProcessCodes,
-      frozenPrice: selectedQuote.quotePrice,
+      frozenPrice: selectedQuote.quotePrice!,
       priceCurrency: tender.currency,
       priceUnit: tender.unit,
       businessAssignedAt,
@@ -804,12 +812,20 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
     if (contract) generatedContractIds.push(contract.contractId)
   }
 
+  if(!(awardResult.tasks?.length)) {
+    const raw=productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
+    const entries=new Map<string,unknown>(raw ? JSON.parse(raw).entries : [])
+    entries.set(`legacy-tender-award:${tender.tenderId}`,{tenderId:tender.tenderId,taskId:tender.taskId,productionOrderId:tender.productionOrderId,awardedFactoryId:selectedQuote.factoryId,awardedFactory:selectedQuote.factoryName,awardedPrice:selectedQuote.quotePrice!,awardReason:state.viewAwardReason.trim(),awardedAt:now,awardedBy:'平台定标员'})
+    productionContextStorage.setItem(PRODUCTION_CONTEXT_KEYS.effects,JSON.stringify({version:1,entries:[...entries]}))
+  }
+  return generatedContractIds
+  })
   state.localAwards = {
     ...state.localAwards,
     [tender.tenderId]: {
       awardedFactoryId: selectedQuote.factoryId,
       awardedFactory: selectedQuote.factoryName,
-      awardedPrice: selectedQuote.quotePrice,
+      awardedPrice: selectedQuote.quotePrice!,
       awardReason: state.viewAwardReason.trim(),
     },
   }
@@ -819,9 +835,10 @@ function confirmAwardInView(now = formatOperationLocalWallClock()): void {
   )
   closeViewDrawer()
   state.awardContractId = generatedContractIds[0] || null
+  } catch(error) {showTenderToast(error instanceof Error?error.message:'定标尚未保存，请重试')}
 }
 
-function confirmCancelTenderInView(now = formatOperationLocalWallClock()): void {
+async function confirmCancelTenderInView(now = formatOperationLocalWallClock()): Promise<void> {
   const tender = getViewTender(now)
   if (!tender) return
   const effectiveStatus = toEffectiveTender(tender).status
@@ -843,6 +860,7 @@ function confirmCancelTenderInView(now = formatOperationLocalWallClock()): void 
   const runtimeState = captureRuntimeDirectDispatchState()
   const tenderRecordState = captureRuntimeTaskTenderRecordStore()
   try {
+    await saveProductionSourceUiAction(JSON.stringify({action:'cancel-tender',tenderId:tender.tenderId,reason:state.viewCancelReason}),()=>{
     cancelRuntimeTaskTenderRecord({
       taskId: tender.taskId,
       tenderId: tender.tenderId,
@@ -857,8 +875,9 @@ function confirmCancelTenderInView(now = formatOperationLocalWallClock()): void 
       cancelledBy: '平台定标员',
       reason: state.viewCancelReason,
     })
+    })
   } catch (error) {
-    restoreRuntimeDirectDispatchState(runtimeState)
+    restoreRuntimeDirectDispatchState(runtimeState,false)
     restoreRuntimeTaskTenderRecordStore(tenderRecordState)
     showTenderToast(error instanceof Error ? error.message : '取消竞价失败，请刷新后重试')
     return
@@ -1466,10 +1485,10 @@ function updateField(field: string, node: HTMLInputElement | HTMLSelectElement |
   }
 }
 
-export function handleDispatchTendersEvent(
+export async function handleDispatchTendersEvent(
   target: HTMLElement,
   now = formatOperationLocalWallClock(),
-): boolean {
+): Promise<boolean> {
   const fieldNode = target.closest<HTMLElement>('[data-tender-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -1525,12 +1544,12 @@ export function handleDispatchTendersEvent(
   }
 
   if (action === 'confirm-award') {
-    confirmAwardInView(now)
+    await confirmAwardInView(now)
     return true
   }
 
   if (action === 'confirm-cancel-tender') {
-    confirmCancelTenderInView(now)
+    await confirmCancelTenderInView(now)
     return true
   }
 

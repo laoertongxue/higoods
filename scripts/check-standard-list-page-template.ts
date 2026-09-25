@@ -1438,10 +1438,20 @@ installSupplementBrowser(createMemoryStorageWithSeed({ [supplementStorageKey]: '
 const brokenSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-broken-storage')
 assertDefaultPageSize(brokenSupplementPage.renderCraftCuttingSupplementManagementPage(), '损坏 localStorage 必须回退默认偏好')
 
-installSupplementBrowser(failingStorage)
+// 列偏好失败可回退；业务事实不可读必须报错，不能以空数据冒充正常结果。
+// 这两个存储边界分别注入，避免“偏好容错”误要求吞掉业务读取错误。
+const preferenceFailureStorage = {
+  getItem: (key: string) => { if (key === supplementStorageKey) return failingStorage.getItem(); return null },
+  setItem: (key: string, _value: string) => { if (key === supplementStorageKey) failingStorage.setItem() },
+  removeItem: (key: string) => { if (key === supplementStorageKey) failingStorage.removeItem() },
+}
+installSupplementBrowser(preferenceFailureStorage)
 const failingSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-failing-storage')
-assert.doesNotThrow(() => failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常不得阻断补料管理渲染')
-assertDefaultPageSize(failingSupplementPage.renderCraftCuttingSupplementManagementPage(), 'Storage 异常必须回退默认偏好')
+assert.doesNotThrow(() => failingSupplementPage.renderCraftCuttingSupplementManagementPage(), '列偏好 Storage 异常不得阻断补料管理渲染')
+assertDefaultPageSize(failingSupplementPage.renderCraftCuttingSupplementManagementPage(), '列偏好 Storage 异常必须回退默认偏好')
+installSupplementBrowser(failingStorage)
+const unreadableSupplementPage = await import('../src/pages/process-factory/cutting/supplement-management.ts?standard-list-unreadable-business-storage')
+assert.throws(() => unreadableSupplementPage.renderCraftCuttingSupplementManagementPage(), /storage unavailable/, '首次读取业务事实失败不得返回空库或演示结果')
 
 async function findFreeLoopbackPort(): Promise<number> {
   return new Promise((resolve, reject) => {

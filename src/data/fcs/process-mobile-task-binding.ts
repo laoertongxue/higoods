@@ -5,6 +5,7 @@ import {
   getDyeWorkOrderById,
   getDyeWorkOrderByTaskId,
   listDyeMobileExecutionTasks,
+  listDyeMobileExecutionTaskIds,
   listDyeWorkOrders,
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
@@ -31,6 +32,7 @@ import {
   getPrintWorkOrderById,
   getPrintWorkOrderByTaskId,
   listPrintMobileExecutionTasks,
+  listPrintMobileExecutionTaskIds,
   listPrintWorkOrders,
   type PrintWorkOrder,
 } from './printing-task-domain.ts'
@@ -387,10 +389,14 @@ function listThirdPartyCuttingMarkerPreconditionTasks(existingTaskIds: Set<strin
     })
 }
 
-export function listPdaMobileExecutionTasks(currentFactoryId?: string): ProcessTask[] {
+export function listPdaMobileExecutionTasks(currentFactoryId?: string, scopePreparationToFactory = false): ProcessTask[] {
   applyPendingDispatchAutoAcceptance()
-  const canonicalPrintTasks = listPrintMobileExecutionTasks()
-  const canonicalDyeTasks = listDyeMobileExecutionTasks()
+  const preparationFactoryId = scopePreparationToFactory ? currentFactoryId : undefined
+  const canonicalPrintTasks = listPrintMobileExecutionTasks(undefined, preparationFactoryId)
+  const canonicalDyeTasks = listDyeMobileExecutionTasks(undefined, preparationFactoryId)
+  const preparationTaskIds = preparationFactoryId
+    ? [...listPrintMobileExecutionTaskIds(), ...listDyeMobileExecutionTaskIds()]
+    : [...canonicalPrintTasks, ...canonicalDyeTasks].map(task => task.taskId)
 
   const waterSolubleTasks = listWaterSolubleMobileTasks()
   const waterSolubleArtifactIds = new Set(listWaterSolubleWorkOrders().map((order) => order.sourceArtifactId))
@@ -403,8 +409,7 @@ export function listPdaMobileExecutionTasks(currentFactoryId?: string): ProcessT
       && waterSolubleArtifactIds.has(coveredProcess.sourceArtifactIds[0])
   }
   const canonicalPreparationTaskIds = new Set([
-    ...canonicalPrintTasks.map((task) => task.taskId),
-    ...canonicalDyeTasks.map((task) => task.taskId),
+    ...preparationTaskIds,
     ...waterSolubleTasks.map((task) => task.taskId),
   ])
   const projectionFactoryId = currentFactoryId && !normalizeKolGotoFactoryId(currentFactoryId)
@@ -426,8 +431,10 @@ export function listPdaMobileExecutionTasks(currentFactoryId?: string): ProcessT
   const existingWithWaterSoluble = new Set([...existingWithGeneric, ...standaloneWaterSolubleTasks.map((task) => task.taskId)])
   const woolTasks = listWoolMobileProcessTasks().filter((task) => !existingWithWaterSoluble.has(task.taskId))
   const existingWithWool = new Set([...existingWithWaterSoluble, ...woolTasks.map((task) => task.taskId)])
+  // Keep the original global ordinal even when unrelated preparation tasks are not projected.
+  const preparationOrdinalCount = preparationFactoryId ? preparationTaskIds.length : genericProcessTasks.length
   const specialCraftTasks = listSpecialCraftTaskOrders()
-    .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + genericProcessTasks.length + woolTasks.length + index + 1))
+    .map((taskOrder, index) => mapSpecialCraftTaskOrderToMobileTask(taskOrder, baseTasks.length + preparationOrdinalCount + woolTasks.length + index + 1))
     .filter((task) => !existingWithWool.has(task.taskId))
   const existingWithSpecial = new Set([...existingWithWool, ...specialCraftTasks.map((task) => task.taskId)])
   const postTasks = listPostFinishingMobileExecutionTasks()
@@ -436,7 +443,7 @@ export function listPdaMobileExecutionTasks(currentFactoryId?: string): ProcessT
   const thirdPartyCuttingTasks = listThirdPartyCuttingMarkerPreconditionTasks(existingWithPost)
   const existingWithAllSpecialized = new Set([...existingWithPost, ...thirdPartyCuttingTasks.map((task) => task.taskId)])
   const runtimeTasks = listRuntimeProcessTasks()
-    .filter((task) => task.executionEnabled !== false && !existingWithAllSpecialized.has(task.taskId))
+    .filter((task) => task.executionEnabled !== false && !existingWithAllSpecialized.has(task.taskId) && (!preparationFactoryId || !canonicalPreparationTaskIds.has(task.taskId)))
     .map((task) => structuredClone(task) as ProcessTask)
   return [...baseTasks, ...genericProcessTasks, ...standaloneWaterSolubleTasks, ...woolTasks, ...specialCraftTasks, ...postTasks, ...thirdPartyCuttingTasks, ...runtimeTasks]
 }

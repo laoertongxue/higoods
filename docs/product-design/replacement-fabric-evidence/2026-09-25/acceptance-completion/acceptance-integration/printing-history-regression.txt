@@ -1,0 +1,12 @@
+✔ PRINT-HISTORY-001: demo identities remain fixed and reject another factory or task (0.422334ms)
+✔ PRINT-HISTORY-002: DYE-GOTO-GLOBAL historical slot 09 survives independent reloads without overwriting (1723.270042ms)
+✔ PRINT-HISTORY-002: ID-FAC-001165 historical slot 09 survives independent reloads without overwriting (1176.732125ms)
+✔ 局域网 HTTP 的摘要与原生 SHA-256 相同，既有票号不变化 (7.384917ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2990.235833

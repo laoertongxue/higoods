@@ -1,3 +1,4 @@
+import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { getProcessOrderReceivingFacts } from '../data/fcs/factory-receiving.ts'
 import { localProductFixtureImageUrl } from '../data/pcs-product-archive-fixtures.ts'
 import { renderWoolCraftDetail, handleWoolCraftActionUi } from './process-factory/wool/craft-actions.ts'
@@ -22,6 +23,7 @@ import { formatFactoryDisplayName } from '../data/fcs/factory-mock-data.ts'
 import { getFactoryMasterRecordById } from '../data/fcs/factory-master-store.ts'
 import {
   ensureHandoverOrderForStartedTask,
+  saveRuntimeTaskStartWithHandover,
   getHandoverOrderById,
   listHandoverOrdersByTaskId,
   type HandoverOrderStatus,
@@ -4261,7 +4263,7 @@ function requireDyeNodeCompletionActor(order: DyeWorkOrder, expectedUserId?: str
   return session!
 }
 
-export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (handleWoolCraftActionUi(target)) return true
   if (handleKolGotoPdaExecEvent(target)) return true
   if (handlePdaWoolExecutionEvent(target)) return true
@@ -4505,7 +4507,7 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
       return true
     }
     const startedAt = nowTimestamp()
-    try { mutateStartTask(taskId, getPdaSession()?.userName || '现场操作员', { startTime: startedAt, proofFiles: [] }) } catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '开始生产未保存，请重试'); return true }
+    try { await saveRuntimeTaskStartWithHandover(taskId, () => mutateStartTask(taskId, getPdaSession()?.userName || '现场操作员', { startTime: startedAt, proofFiles: [] })) } catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '开始生产未保存，请重试'); return true }
     if (getTaskFactById(taskId)?.status !== 'IN_PROGRESS') {
       showPdaExecDetailToast('开始生产未保存，请重新打开任务后重试')
       return true
@@ -6084,11 +6086,10 @@ export function handlePdaExecDetailEvent(target: HTMLElement, event?: Event): bo
     }
 
     const headcount = undefined
-    try { mutateStartTask(taskId, 'PDA', {
-      startTime,
-      headcount,
-      proofFiles: detailState.startProofFiles,
-    }) } catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '开工未保存，请重试'); return true }
+    try { const payload={startTime,headcount,proofFiles:structuredClone(detailState.startProofFiles)}
+      if(task.taskUnitType==='MERGED_PRODUCTION_TASK') await saveRuntimeTaskStartWithHandover(taskId,()=>mutateStartTask(taskId,'PDA',payload))
+      else mutateStartTask(taskId,'PDA',payload)
+    } catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '开工未保存，请重试'); return true }
     let startToast = '开工成功'
     try {
       if (getDyeWorkOrderByTaskId(taskId)) {

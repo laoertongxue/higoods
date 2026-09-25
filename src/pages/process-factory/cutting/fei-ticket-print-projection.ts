@@ -1,5 +1,4 @@
 import {
-  buildFcsCuttingDomainSnapshot,
   type CuttingDomainSnapshot,
 } from '../../../domain/fcs-cutting-runtime/index.ts'
 import {
@@ -272,7 +271,7 @@ export function buildFeiTicketLabelPrintProjection(
 }
 
 export function buildFeiTicketPrintProjection(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot?: CuttingDomainSnapshot,
 ) {
   return buildFeiTicketsProjection(snapshot)
 }

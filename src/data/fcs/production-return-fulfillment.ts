@@ -585,3 +585,13 @@ export function resetProductionReturnSnapshotSequenceForTests(): void {
   receiptFacts.clear()
   returnRuleSnapshots.clear()
 }
+
+export function captureProductionReturnState() {
+  return structuredClone({snapshots:[...returnRuleSnapshots],reminders:[...reminderLogs],receipts:[...receiptFacts],sequence:snapshotSeq})
+}
+export function restoreProductionReturnState(value:ReturnType<typeof captureProductionReturnState>):void {
+  returnRuleSnapshots.clear(); reminderLogs.clear(); receiptFacts.clear()
+  value.snapshots.forEach(([id,item])=>returnRuleSnapshots.set(id,structuredClone(item)))
+  value.reminders.forEach(([id,item])=>reminderLogs.set(id,structuredClone(item)))
+  value.receipts.forEach(([id,item])=>receiptFacts.set(id,structuredClone(item))); snapshotSeq=value.sequence
+}

@@ -1,3 +1,4 @@
+import { readProductionContextValue } from './production-context-records.ts'
 // 生产单运行态唯一事实源。本文件不依赖生产单页面或技术包组装逻辑，
 // 因此首单门禁在冷启动时也能直接读到已存在的正式生产事实。
 export type ProductionOrderRuntimeStatus =
@@ -42,7 +43,7 @@ export function readProductionOrderRuntimeFact(productionOrderId: string): Produ
   const live = productionOrderRuntimeStore.find(order => order.productionOrderId === productionOrderId)
   if (typeof window === 'undefined') return live
   try {
-    const raw = window.localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)
+    const raw = readProductionContextValue(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)
     if (!raw) return live
     const saved = JSON.parse(raw)
     if (saved?.version !== 1 || !Array.isArray(saved.orders)) throw new Error('invalid production orders')

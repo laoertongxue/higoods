@@ -1,3 +1,5 @@
+import {saveProductionSourceAction} from '../data/fcs/production-context-actions.ts'
+import {cuttingRecordUuid} from '../data/fcs/cutting/cutting-record-identity.ts'
 // @page-pattern: detail
 
 import { getProductionContract, recordProductionContractPrint } from '../data/fcs/production-contracts.ts'
@@ -30,7 +32,9 @@ export function handleProductionContractPrintEvent(target: HTMLElement): boolean
   const contractId = button.dataset.productionContractPrint || ''
   const contract = getProductionContract(contractId)
   if (!contract || contract.status !== 'EFFECTIVE') return true
-  recordProductionContractPrint(contractId, new Date().toISOString(), '生产计划员')
-  window.print()
+  if(button.dataset.saving) return true
+  button.dataset.saving='true'
+  const id=button.dataset.commandId || (button.dataset.commandId=`CONTRACT-PRINT:${cuttingRecordUuid()}`)
+  void saveProductionSourceAction({id,intent:`print-contract:${contractId}`,action:()=>recordProductionContractPrint(contractId,new Date().toISOString(),'生产计划员')}).then(()=>{delete button.dataset.commandId;window.print()}).catch(error=>{window.alert(error instanceof Error?error.message:'打印记录尚未保存，请重试。')}).finally(()=>{delete button.dataset.saving})
   return true
 }

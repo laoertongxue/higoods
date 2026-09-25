@@ -1,0 +1,1303 @@
+{
+  "origin": "http://127.0.0.1:43235",
+  "kind": "functional actual UI; explicit Mock source only",
+  "scenarios": [
+    {
+      "kind": "SCOPE-001",
+      "errors": [],
+      "fixture": {
+        "orderId": "PO-DEMO-TRIPLE-0916",
+        "sheetNo": "RW-1H7957Z-1JEWD9O",
+        "supportsCutPieceHandover": false
+      },
+      "content": "任务单号\n读取任务\n\n简易裁片交出仅用于独立车缝、车缝+烫包任务；三合一任务请到面辅料仓接收。\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）",
+      "disabled": true,
+      "hpbInput": 0,
+      "noReadWrites": true,
+      "passed": true
+    },
+    {
+      "kind": "MAT-006",
+      "errors": [],
+      "fixture": {
+        "orderId": "PO-DEMO-SIMPLE-0916",
+        "sheetNo": "RW-0O2I500-0YVL0XT",
+        "supportsCutPieceHandover": false,
+        "before": [
+          {
+            "id": "cutting-event-scope:post-cutting-v2",
+            "collection": "cutting-event-scopes",
+            "value": {
+              "phase": "COMPLETE",
+              "version": 2
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingFeiTicketDrafts",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingFeiTicketDrafts",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingFeiTicketPrintJobs",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingFeiTicketPrintJobs",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingFeiTicketRecords",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingFeiTicketRecords",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingManualFeiTicketSources",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingManualFeiTicketSources",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingMarkerPlanLedger",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingMarkerPlanLedger",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingMarkerPlanSourceLedger",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingMarkerPlanSourceLedger",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingMarkerSpreadingLedger",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingMarkerSpreadingLedger",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "part-ticket-migration:cuttingTransferBagLedger",
+            "collection": "part-ticket-migrations",
+            "value": {
+              "key": "cuttingTransferBagLedger",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "production-context:orders:PO-DEMO-SIMPLE-0916",
+            "collection": "production-context:orders",
+            "value": {
+              "productionOrderId": "PO-DEMO-SIMPLE-0916",
+              "demandId": "DEM-202603-0082",
+              "status": "EXECUTING",
+              "mainFactoryId": "ID-F004",
+              "ownerPartyType": "FACTORY",
+              "ownerPartyId": "ID-F004",
+              "assignmentSummary": {
+                "directCount": 2,
+                "biddingCount": 0,
+                "totalTasks": 2,
+                "unassignedCount": 0
+              },
+              "assignmentProgress": {
+                "status": "DONE",
+                "directAssignedCount": 2,
+                "biddingLaunchedCount": 0,
+                "biddingAwardedCount": 0
+              },
+              "biddingSummary": {
+                "activeTenderCount": 0,
+                "overdueTenderCount": 0
+              },
+              "directDispatchSummary": {
+                "assignedFactoryCount": 1,
+                "rejectedCount": 0,
+                "overdueAckCount": 0
+              },
+              "taskBreakdownSummary": {
+                "isBrokenDown": true,
+                "taskTypesTop3": [
+                  "裁片",
+                  "铺布"
+                ],
+                "lastBreakdownAt": "2026-03-09 09:10:00",
+                "lastBreakdownBy": "系统"
+              },
+              "riskFlags": [],
+              "auditLogs": [
+                {
+                  "id": "LOG-082",
+                  "action": "CREATE",
+                  "detail": "裁片域正式生产单已生成",
+                  "at": "2026-03-09 09:00:00",
+                  "by": "系统"
+                }
+              ],
+              "createdAt": "2026-09-16 09:00:00",
+              "updatedAt": "2026-09-16 09:00:00",
+              "productionOrderNo": "PO-DEMO-SIMPLE-0916",
+              "sourceDemandIds": [
+                "DEM-202603-0082"
+              ],
+              "lockedLegacy": true,
+              "mainFactorySnapshot": {
+                "id": "ID-F004",
+                "code": "ID-FAC-0004",
+                "name": "PT Mulia Cutting Center",
+                "tier": "CENTRAL",
+                "type": "CUTTING",
+                "status": "ACTIVE",
+                "province": "Central Java",
+                "city": "Semarang",
+                "tags": [
+                  "梭织",
+                  "大货"
+                ]
+              },
+              "sewingFactorySnapshots": [],
+              "mainFactoryStatus": "CONFIRMED",
+              "mainFactorySource": "ORDER_CREATE",
+              "legacyOrderNo": "26030982",
+              "demandSnapshot": {
+                "demandId": "DEM-202603-0082",
+                "spuCode": "SPU-HOODIE-082",
+                "spuName": "连帽拉链卫衣",
+                "buyerName": "待指定买手",
+                "merchandiserName": "待指定跟单",
+                "saleType": "虾皮样品",
+                "priority": "HIGH",
+                "requiredDeliveryDate": "2026-03-28",
+                "constraintsNote": "简易裁片交出演示：不同工厂完整 SKU 分配，首批帽片未裁。",
+                "skuLines": [
+                  {
+                    "skuCode": "SKU-SIMPLE-M-GRY",
+                    "color": "雾霾灰",
+                    "size": "M",
+                    "qty": 100
+                  },
+                  {
+                    "skuCode": "SKU-SIMPLE-L-GRY",
+                    "color": "雾霾灰",
+                    "size": "L",
+                    "qty": 80
+                  }
+                ]
+              },
+              "sourceDemandSnapshots": [
+                {
+                  "demandId": "DEM-202603-0082",
+                  "spuCode": "SPU-HOODIE-082",
+                  "spuName": "连帽拉链卫衣",
+                  "buyerName": "待指定买手",
+                  "merchandiserName": "待指定跟单",
+                  "saleType": "虾皮样品",
+                  "priority": "HIGH",
+                  "requiredDeliveryDate": "2026-03-28",
+                  "constraintsNote": "简易裁片交出演示：不同工厂完整 SKU 分配，首批帽片未裁。",
+                  "skuLines": [
+                    {
+                      "skuCode": "SKU-SIMPLE-M-GRY",
+                      "color": "雾霾灰",
+                      "size": "M",
+                      "qty": 100
+                    },
+                    {
+                      "skuCode": "SKU-SIMPLE-L-GRY",
+                      "color": "雾霾灰",
+                      "size": "L",
+                      "qty": 80
+                    }
+                  ]
+                }
+              ],
+              "techPackSnapshot": {
+                "snapshotId": "TPS-PO-DEMO-SIMPLE-0916",
+                "productionOrderId": "PO-DEMO-SIMPLE-0916",
+                "productionOrderNo": "PO-DEMO-SIMPLE-0916",
+                "styleId": "style_demand_SPU_HOODIE_082",
+                "styleCode": "SPU-HOODIE-082",
+                "styleName": "连帽拉链卫衣",
+                "status": "RELEASED",
+                "versionLabel": "v1.0",
+                "sourceTechPackVersionId": "MOCK-ALL-PU-V1",
+                "sourceTechPackVersionCode": "TDV-DEMAND-SPU_HOODIE_082",
+                "sourceTechPackVersionLabel": "v1.0",
+                "garmentDifficultyGrade": "B",
+                "sourcePublishedAt": "2026-03-09 09:00:00",
+                "snapshotAt": "2026-03-22 08:15:00",
+                "snapshotBy": "系统初始化",
+                "patternDesc": "来源生产需求单当前生效技术包。",
+                "bomItems": [
+                  {
+                    "id": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "type": "面料",
+                    "name": "完整映射针织朴",
+                    "spec": "雾霾灰 / 卫衣抓绒",
+                    "colorLabel": "雾霾灰",
+                    "unit": "Yard",
+                    "unitConsumption": 1.2,
+                    "lossRate": 0.03,
+                    "supplier": "生产需求单指定",
+                    "applicableSkuCodes": [
+                      "SKU-SIMPLE-M-GRY",
+                      "SKU-SIMPLE-L-GRY"
+                    ],
+                    "linkedPatternIds": [
+                      "tdv_demand_SPU_HOODIE_082-pattern-main"
+                    ],
+                    "usageProcessCodes": [
+                      "CUT_PANEL",
+                      "SEW"
+                    ],
+                    "materialAlias": "",
+                    "materialImageUrl": "/materials/fei-ticket/fog-grey-sweatshirt-fleece.png"
+                  },
+                  {
+                    "id": "HG-DEMO-ZIPPER-GRY-60",
+                    "materialCode": "HG-DEMO-ZIPPER-GRY-60",
+                    "type": "辅料",
+                    "name": "雾霾灰开尾拉链",
+                    "spec": "60cm / 银色细齿 / 雾霾灰布带",
+                    "colorLabel": "雾霾灰",
+                    "unit": "PCS",
+                    "unitConsumption": 1,
+                    "lossRate": 0,
+                    "supplier": "原型演示物料",
+                    "materialImageUrl": "/production-confirmation-demo/fog-grey-open-end-zipper.png",
+                    "applicableSkuCodes": [
+                      "SKU-SIMPLE-M-GRY",
+                      "SKU-SIMPLE-L-GRY"
+                    ],
+                    "usageProcessCodes": [
+                      "SEW"
+                    ]
+                  },
+                  {
+                    "id": "HG-DEMO-RIB-GRY",
+                    "materialCode": "HG-DEMO-RIB-GRY",
+                    "type": "辅料",
+                    "name": "雾霾灰罗纹袖口与下摆用料",
+                    "spec": "棉氨纶 2×2 罗纹 / 雾霾灰",
+                    "colorLabel": "雾霾灰",
+                    "unit": "米",
+                    "unitConsumption": 0.35,
+                    "lossRate": 0.03,
+                    "supplier": "原型演示物料",
+                    "materialImageUrl": "/production-confirmation-demo/fog-grey-rib-knit.png",
+                    "applicableSkuCodes": [
+                      "SKU-SIMPLE-M-GRY",
+                      "SKU-SIMPLE-L-GRY"
+                    ],
+                    "usageProcessCodes": [
+                      "SEW"
+                    ]
+                  }
+                ],
+                "patternFiles": [
+                  {
+                    "id": "tdv_demand_SPU_HOODIE_082-pattern-package-main",
+                    "recordKind": "PACKAGE",
+                    "patternName": "雾霾灰拉链连帽卫衣演示纸样",
+                    "patternCategory": "主体片",
+                    "patternMaterialType": "WOVEN",
+                    "patternMaterialTypeLabel": "布料纸样",
+                    "patternFileMode": "PAIRED_DXF_RUL",
+                    "fileName": "SPU-HOODIE-082-正式纸样.dxf",
+                    "fileUrl": "/production-confirmation-demo/grey-zip-hoodie.dxf",
+                    "uploadedAt": "2026-03-09 09:00:00",
+                    "uploadedBy": "生产需求单",
+                    "singlePatternFileName": "SPU-HOODIE-082-正式纸样.dxf",
+                    "parseStatus": "PARSED",
+                    "parseStatusLabel": "已解析",
+                    "merchandiserInfoStatus": "已填写",
+                    "patternMakerInfoStatus": "已完成",
+                    "maintainerStepStatus": "已完成",
+                    "selectedSizeCodes": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "linkedBomItemId": "",
+                    "widthCm": 150,
+                    "markerLengthM": 1.35,
+                    "bindingStrips": [],
+                    "totalPieceCount": 9,
+                    "isWoolted": "否",
+                    "pieceRows": [
+                      {
+                        "id": "FRONT-L",
+                        "name": "左前片",
+                        "count": 1,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "FRONT-R",
+                        "name": "右前片",
+                        "count": 1,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "BACK",
+                        "name": "后片",
+                        "count": 1,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "SLEEVE",
+                        "name": "袖片",
+                        "count": 2,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "HOOD",
+                        "name": "帽片",
+                        "count": 2,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "POCKET",
+                        "name": "口袋片",
+                        "count": 2,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      }
+                    ],
+                    "prjFile": {
+                      "fileName": "grey-zip-hoodie.prj",
+                      "fileType": "PRJ",
+                      "fileSize": 0,
+                      "uploadedAt": "2026-09-16 09:00:00",
+                      "uploadedBy": "原型演示资料",
+                      "dataUrl": "/production-confirmation-demo/grey-zip-hoodie.prj"
+                    },
+                    "dxfFile": {
+                      "fileName": "grey-zip-hoodie.dxf",
+                      "fileType": "DXF",
+                      "fileSize": 0,
+                      "uploadedAt": "2026-09-16 09:00:00",
+                      "uploadedBy": "原型演示资料",
+                      "dataUrl": "/production-confirmation-demo/grey-zip-hoodie.dxf"
+                    },
+                    "rulFile": {
+                      "fileName": "grey-zip-hoodie.rul",
+                      "fileType": "RUL",
+                      "fileSize": 0,
+                      "uploadedAt": "2026-09-16 09:00:00",
+                      "uploadedBy": "原型演示资料",
+                      "dataUrl": "/production-confirmation-demo/grey-zip-hoodie.rul"
+                    },
+                    "patternFileId": "tdv_demand_SPU_HOODIE_082-pattern-package-main",
+                    "patternFileName": "SPU-HOODIE-082-正式纸样.dxf",
+                    "patternVersion": "v1.0",
+                    "dxfFileName": "grey-zip-hoodie.dxf",
+                    "rulFileName": "grey-zip-hoodie.rul",
+                    "sizeRange": "S / M / L / XL",
+                    "rulSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "imageUrl": "/production-confirmation-demo/grey-zip-hoodie-pattern.svg",
+                    "remark": "原型演示 CAD；与本款效果图对应，不作为生产裁剪文件。"
+                  },
+                  {
+                    "id": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                    "recordKind": "MATERIAL_ASSOCIATION",
+                    "patternName": "雾霾灰拉链连帽卫衣演示纸样",
+                    "patternCategory": "主体片",
+                    "patternMaterialType": "WOVEN",
+                    "patternMaterialTypeLabel": "布料纸样",
+                    "patternFileMode": "PAIRED_DXF_RUL",
+                    "fileName": "SPU-HOODIE-082-正式纸样.dxf",
+                    "fileUrl": "/production-confirmation-demo/grey-zip-hoodie.dxf",
+                    "uploadedAt": "2026-03-09 09:00:00",
+                    "uploadedBy": "生产需求单",
+                    "singlePatternFileName": "SPU-HOODIE-082-正式纸样.dxf",
+                    "parseStatus": "PARSED",
+                    "parseStatusLabel": "已解析",
+                    "merchandiserInfoStatus": "已填写",
+                    "patternMakerInfoStatus": "已解析",
+                    "maintainerStepStatus": "已完成",
+                    "selectedSizeCodes": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "linkedBomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "sourcePatternPackageId": "tdv_demand_SPU_HOODIE_082-pattern-package-main",
+                    "sourcePatternPackageName": "SPU-HOODIE-082 正式纸样",
+                    "widthCm": 150,
+                    "markerLengthM": 1.35,
+                    "bindingStrips": [],
+                    "totalPieceCount": 9,
+                    "isWoolted": "否",
+                    "pieceRows": [
+                      {
+                        "id": "FRONT-L",
+                        "name": "左前片",
+                        "count": 1,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "FRONT-R",
+                        "name": "右前片",
+                        "count": 1,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "BACK",
+                        "name": "后片",
+                        "count": 1,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "SLEEVE",
+                        "name": "袖片",
+                        "count": 2,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "HOOD",
+                        "name": "帽片",
+                        "count": 2,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      },
+                      {
+                        "id": "POCKET",
+                        "name": "口袋片",
+                        "count": 2,
+                        "specialCrafts": [],
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "colorAllocations": [],
+                        "sourceType": "PARSED_PATTERN",
+                        "candidatePartNames": [],
+                        "rawTextLabels": []
+                      }
+                    ],
+                    "prjFile": {
+                      "fileName": "grey-zip-hoodie.prj",
+                      "fileType": "PRJ",
+                      "fileSize": 0,
+                      "uploadedAt": "2026-09-16 09:00:00",
+                      "uploadedBy": "原型演示资料",
+                      "dataUrl": "/production-confirmation-demo/grey-zip-hoodie.prj"
+                    },
+                    "dxfFile": {
+                      "fileName": "grey-zip-hoodie.dxf",
+                      "fileType": "DXF",
+                      "fileSize": 0,
+                      "uploadedAt": "2026-09-16 09:00:00",
+                      "uploadedBy": "原型演示资料",
+                      "dataUrl": "/production-confirmation-demo/grey-zip-hoodie.dxf"
+                    },
+                    "rulFile": {
+                      "fileName": "grey-zip-hoodie.rul",
+                      "fileType": "RUL",
+                      "fileSize": 0,
+                      "uploadedAt": "2026-09-16 09:00:00",
+                      "uploadedBy": "原型演示资料",
+                      "dataUrl": "/production-confirmation-demo/grey-zip-hoodie.rul"
+                    },
+                    "patternFileId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                    "patternFileName": "SPU-HOODIE-082-正式纸样.dxf",
+                    "patternVersion": "v1.0",
+                    "dxfFileName": "grey-zip-hoodie.dxf",
+                    "rulFileName": "grey-zip-hoodie.rul",
+                    "sizeRange": "S / M / L / XL",
+                    "rulSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "imageUrl": "/production-confirmation-demo/grey-zip-hoodie-pattern.svg",
+                    "remark": "原型演示 CAD；与本款效果图对应，不作为生产裁剪文件。"
+                  }
+                ],
+                "processEntries": [
+                  {
+                    "id": "tdv_demand_SPU_HOODIE_082-process-cut",
+                    "entryType": "PROCESS_BASELINE",
+                    "stageCode": "PROD",
+                    "stageName": "生产阶段",
+                    "processCode": "CUT_PANEL",
+                    "processName": "裁片",
+                    "assignmentGranularity": "ORDER",
+                    "defaultDocType": "TASK",
+                    "taskTypeMode": "PROCESS",
+                    "isSpecialCraft": false,
+                    "detailSplitDimensions": [],
+                    "supportedTargetObjects": [],
+                    "supportedTargetObjectLabels": [],
+                    "linkedBomItemIds": [],
+                    "linkedPatternIds": [],
+                    "consumedBomItemIds": [],
+                    "predecessorEntryIds": [],
+                    "visibleFactoryTypes": [],
+                    "routeStepNo": 1,
+                    "routeLaneNo": 1,
+                    "routeSourceKind": "DICT_REFERENCE"
+                  },
+                  {
+                    "id": "tdv_demand_SPU_HOODIE_082-process-sew",
+                    "entryType": "PROCESS_BASELINE",
+                    "stageCode": "PROD",
+                    "stageName": "生产执行",
+                    "processCode": "SEW",
+                    "processName": "车缝",
+                    "assignmentGranularity": "SKU",
+                    "defaultDocType": "TASK",
+                    "taskTypeMode": "PROCESS",
+                    "isSpecialCraft": false,
+                    "detailSplitDimensions": [],
+                    "supportedTargetObjects": [],
+                    "supportedTargetObjectLabels": [],
+                    "linkedBomItemIds": [],
+                    "linkedPatternIds": [],
+                    "consumedBomItemIds": [],
+                    "predecessorEntryIds": [
+                      "tdv_demand_SPU_HOODIE_082-process-cut"
+                    ],
+                    "visibleFactoryTypes": [],
+                    "routeStepNo": 2,
+                    "routeLaneNo": 1,
+                    "routeSourceKind": "DICT_REFERENCE"
+                  }
+                ],
+                "sizeTable": [
+                  {
+                    "id": "HG-HOODIE-BODY-LENGTH",
+                    "part": "后中长",
+                    "S": 58,
+                    "M": 59,
+                    "L": 60,
+                    "XL": 61,
+                    "tolerance": 1
+                  },
+                  {
+                    "id": "HG-HOODIE-BODY-WIDTH",
+                    "part": "胸围",
+                    "S": 104,
+                    "M": 108,
+                    "L": 112,
+                    "XL": 116,
+                    "tolerance": 1
+                  },
+                  {
+                    "id": "HG-HOODIE-SLEEVE-LENGTH",
+                    "part": "袖长",
+                    "S": 55,
+                    "M": 56,
+                    "L": 57,
+                    "XL": 58,
+                    "tolerance": 1
+                  }
+                ],
+                "sizeMeasurements": [
+                  {
+                    "sizeCode": "S",
+                    "measurementPart": "后中长",
+                    "measurementValue": 58,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "M",
+                    "measurementPart": "后中长",
+                    "measurementValue": 59,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "L",
+                    "measurementPart": "后中长",
+                    "measurementValue": 60,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "XL",
+                    "measurementPart": "后中长",
+                    "measurementValue": 61,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "S",
+                    "measurementPart": "胸围",
+                    "measurementValue": 104,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "M",
+                    "measurementPart": "胸围",
+                    "measurementValue": 108,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "L",
+                    "measurementPart": "胸围",
+                    "measurementValue": 112,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "XL",
+                    "measurementPart": "胸围",
+                    "measurementValue": 116,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "S",
+                    "measurementPart": "袖长",
+                    "measurementValue": 55,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "M",
+                    "measurementPart": "袖长",
+                    "measurementValue": 56,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "L",
+                    "measurementPart": "袖长",
+                    "measurementValue": 57,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  },
+                  {
+                    "sizeCode": "XL",
+                    "measurementPart": "袖长",
+                    "measurementValue": 58,
+                    "measurementUnit": "cm",
+                    "tolerance": 1
+                  }
+                ],
+                "colorMaterialMappings": [
+                  {
+                    "id": "TPS-PO-202603-082-mapping-1",
+                    "spuCode": "SPU-HOODIE-082",
+                    "colorCode": "雾霾灰",
+                    "colorName": "雾霾灰",
+                    "status": "CONFIRMED",
+                    "generatedMode": "AUTO",
+                    "lines": [
+                      {
+                        "id": "TPS-PO-202603-082-mapping-1-FRONT-L",
+                        "bomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialName": "雾霾灰卫衣抓绒面料",
+                        "materialType": "面料",
+                        "patternId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                        "patternName": "SPU-HOODIE-082 正式纸样",
+                        "pieceId": "FRONT-L",
+                        "pieceName": "左前片",
+                        "pieceCountPerUnit": 1,
+                        "unit": "米",
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "sourceMode": "AUTO"
+                      },
+                      {
+                        "id": "TPS-PO-202603-082-mapping-1-FRONT-R",
+                        "bomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialName": "雾霾灰卫衣抓绒面料",
+                        "materialType": "面料",
+                        "patternId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                        "patternName": "SPU-HOODIE-082 正式纸样",
+                        "pieceId": "FRONT-R",
+                        "pieceName": "右前片",
+                        "pieceCountPerUnit": 1,
+                        "unit": "米",
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "sourceMode": "AUTO"
+                      },
+                      {
+                        "id": "TPS-PO-202603-082-mapping-1-BACK",
+                        "bomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialName": "雾霾灰卫衣抓绒面料",
+                        "materialType": "面料",
+                        "patternId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                        "patternName": "SPU-HOODIE-082 正式纸样",
+                        "pieceId": "BACK",
+                        "pieceName": "后片",
+                        "pieceCountPerUnit": 1,
+                        "unit": "米",
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "sourceMode": "AUTO"
+                      },
+                      {
+                        "id": "TPS-PO-202603-082-mapping-1-SLEEVE",
+                        "bomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialName": "雾霾灰卫衣抓绒面料",
+                        "materialType": "面料",
+                        "patternId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                        "patternName": "SPU-HOODIE-082 正式纸样",
+                        "pieceId": "SLEEVE",
+                        "pieceName": "袖片",
+                        "pieceCountPerUnit": 2,
+                        "unit": "米",
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "sourceMode": "AUTO"
+                      },
+                      {
+                        "id": "TPS-PO-202603-082-mapping-1-HOOD",
+                        "bomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialName": "雾霾灰卫衣抓绒面料",
+                        "materialType": "面料",
+                        "patternId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                        "patternName": "SPU-HOODIE-082 正式纸样",
+                        "pieceId": "HOOD",
+                        "pieceName": "帽片",
+                        "pieceCountPerUnit": 2,
+                        "unit": "米",
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "sourceMode": "AUTO"
+                      },
+                      {
+                        "id": "TPS-PO-202603-082-mapping-1-POCKET",
+                        "bomItemId": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+                        "materialName": "雾霾灰卫衣抓绒面料",
+                        "materialType": "面料",
+                        "patternId": "tdv_demand_SPU_HOODIE_082-pattern-main",
+                        "patternName": "SPU-HOODIE-082 正式纸样",
+                        "pieceId": "POCKET",
+                        "pieceName": "口袋片",
+                        "pieceCountPerUnit": 2,
+                        "unit": "米",
+                        "applicableSkuCodes": [
+                          "SKU-SIMPLE-M-GRY",
+                          "SKU-SIMPLE-L-GRY"
+                        ],
+                        "sourceMode": "AUTO"
+                      }
+                    ],
+                    "mappingOrigin": "TECH_PACK"
+                  }
+                ],
+                "cutPieceParts": [
+                  {
+                    "partCode": "FRONT-L",
+                    "partNameCn": "左前片",
+                    "pieceCountPerGarment": 1,
+                    "materialSku": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "materialName": "雾霾灰卫衣抓绒面料",
+                    "fabricColor": "雾霾灰",
+                    "applicableColorList": [
+                      "雾霾灰"
+                    ],
+                    "applicableSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "manualConfirmRequired": false
+                  },
+                  {
+                    "partCode": "FRONT-R",
+                    "partNameCn": "右前片",
+                    "pieceCountPerGarment": 1,
+                    "materialSku": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "materialName": "雾霾灰卫衣抓绒面料",
+                    "fabricColor": "雾霾灰",
+                    "applicableColorList": [
+                      "雾霾灰"
+                    ],
+                    "applicableSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "manualConfirmRequired": false
+                  },
+                  {
+                    "partCode": "BACK",
+                    "partNameCn": "后片",
+                    "pieceCountPerGarment": 1,
+                    "materialSku": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "materialName": "雾霾灰卫衣抓绒面料",
+                    "fabricColor": "雾霾灰",
+                    "applicableColorList": [
+                      "雾霾灰"
+                    ],
+                    "applicableSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "manualConfirmRequired": false
+                  },
+                  {
+                    "partCode": "SLEEVE",
+                    "partNameCn": "袖片",
+                    "pieceCountPerGarment": 2,
+                    "materialSku": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "materialName": "雾霾灰卫衣抓绒面料",
+                    "fabricColor": "雾霾灰",
+                    "applicableColorList": [
+                      "雾霾灰"
+                    ],
+                    "applicableSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "manualConfirmRequired": false
+                  },
+                  {
+                    "partCode": "HOOD",
+                    "partNameCn": "帽片",
+                    "pieceCountPerGarment": 2,
+                    "materialSku": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "materialName": "雾霾灰卫衣抓绒面料",
+                    "fabricColor": "雾霾灰",
+                    "applicableColorList": [
+                      "雾霾灰"
+                    ],
+                    "applicableSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "manualConfirmRequired": false
+                  },
+                  {
+                    "partCode": "POCKET",
+                    "partNameCn": "口袋片",
+                    "pieceCountPerGarment": 2,
+                    "materialSku": "tdv_demand_SPU_HOODIE_082-bom-main",
+                    "materialName": "雾霾灰卫衣抓绒面料",
+                    "fabricColor": "雾霾灰",
+                    "applicableColorList": [
+                      "雾霾灰"
+                    ],
+                    "applicableSizeList": [
+                      "S",
+                      "M",
+                      "L",
+                      "XL"
+                    ],
+                    "manualConfirmRequired": false
+                  }
+                ],
+                "imageSnapshot": {
+                  "productImages": [
+                    "/production-confirmation-demo/grey-zip-hoodie.png"
+                  ],
+                  "styleImages": [
+                    "/production-confirmation-demo/grey-zip-hoodie.png"
+                  ],
+                  "sampleImages": [],
+                  "materialImages": [
+                    "/materials/fei-ticket/fog-grey-sweatshirt-fleece.png"
+                  ],
+                  "accessoryImages": [
+                    "/production-confirmation-demo/fog-grey-open-end-zipper.png",
+                    "/production-confirmation-demo/fog-grey-rib-knit.png"
+                  ],
+                  "patternImages": [
+                    "/production-confirmation-demo/grey-zip-hoodie-pattern.svg"
+                  ],
+                  "markerImages": [],
+                  "artworkImages": []
+                },
+                "patternDesigns": [],
+                "linkedDesignRevisionTaskIds": [],
+                "linkedPatternTaskIds": [],
+                "linkedArtworkTaskIds": [],
+                "completenessScore": 100,
+                "onlineConfirmationFacts": {
+                  "sourceRef": "/production-confirmation-demo/sources.json",
+                  "purchaseOrderNos": [
+                    "26030982"
+                  ],
+                  "retailTagPrice": {
+                    "amount": 319000,
+                    "currency": "IDR",
+                    "sourceRef": "/production-confirmation-demo/sources.json"
+                  },
+                  "orderDate": {
+                    "value": "2026-03-09",
+                    "sourceRef": "/production-confirmation-demo/sources.json"
+                  },
+                  "colorImages": [
+                    {
+                      "color": "雾霾灰",
+                      "skuCodes": [
+                        "SKU-SIMPLE-M-GRY",
+                        "SKU-SIMPLE-L-GRY"
+                      ],
+                      "imageUrl": "/production-confirmation-demo/grey-zip-hoodie.png",
+                      "sourceRef": "/production-confirmation-demo/sources.json"
+                    }
+                  ],
+                  "originalLabelFields": [
+                    {
+                      "label": "Apakah itu undang-undang dasar",
+                      "value": "否",
+                      "sourceRef": "/production-confirmation-demo/sources.json"
+                    },
+                    {
+                      "label": "Yang sama",
+                      "value": "Dyeing / Cutting",
+                      "sourceRef": "/production-confirmation-demo/sources.json"
+                    }
+                  ]
+                }
+              },
+              "ledgerDetails": {
+                "materialIssues": [
+                  {
+                    "materialType": "面料",
+                    "materialName": "连帽拉链卫衣 主面料",
+                    "materialSku": "SPU-HOODIE-082-FAB",
+                    "requiredQty": "3600 yd",
+                    "purchasedQty": "3600 yd",
+                    "arrivedQty": "3600 yd",
+                    "preparedQty": "3600 yd",
+                    "issuedQty": "0 yd",
+                    "factorySignedQty": "0 yd",
+                    "shortageQty": "0 yd",
+                    "expectedArrival": "-",
+                    "status": "已配料待发料"
+                  }
+                ],
+                "taskFactories": [
+                  {
+                    "taskType": "裁片",
+                    "taskNo": "TASK-202603-082",
+                    "factory": "PT Mulia Cutting Center",
+                    "factoryType": "主工厂",
+                    "status": "已完成",
+                    "plannedDoneAt": "2026-03-28",
+                    "actualDoneAt": "2026-03-28",
+                    "completedQty": "3600",
+                    "issue": "-",
+                    "action": "查看"
+                  }
+                ],
+                "keyTimes": [
+                  {
+                    "nodeType": "生产单生成",
+                    "plannedAt": "-",
+                    "actualAt": "2026-03-09",
+                    "status": "已完成",
+                    "sourceDoc": "PO-202603-082",
+                    "note": "生产单创建"
+                  },
+                  {
+                    "nodeType": "预计完成",
+                    "plannedAt": "2026-03-28",
+                    "actualAt": "-",
+                    "status": "未完成",
+                    "sourceDoc": "-",
+                    "note": "当前预计完成"
+                  }
+                ],
+                "quantityQuality": [
+                  {
+                    "quantityType": "生产计划",
+                    "plannedQty": "3600",
+                    "currentQty": "3600",
+                    "unit": "件",
+                    "diff": "0",
+                    "status": "正常",
+                    "note": "生产单计划数量"
+                  },
+                  {
+                    "quantityType": "质检通过入库",
+                    "plannedQty": "3600",
+                    "currentQty": "0",
+                    "unit": "件",
+                    "diff": "-3600",
+                    "status": "未入库",
+                    "note": "未完成入库"
+                  }
+                ]
+              },
+              "selectedTechPackVersionId": "MOCK-ALL-PU-V1"
+            }
+          },
+          {
+            "id": "retired-cut-piece-pickup:scope",
+            "collection": "retired-cut-piece-pickup-scopes",
+            "value": {
+              "version": 1,
+              "phase": "COMPLETE"
+            }
+          },
+          {
+            "id": "source-migration:higood.effective-task-assignments.v2",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood.effective-task-assignments.v2",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "source-migration:higood.formal-created-production-orders.v1",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood.formal-created-production-orders.v1",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "source-migration:higood.production-assignment-effects.v1",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood.production-assignment-effects.v1",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "source-migration:higood.runtime-process-task-actions.v1",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood.runtime-process-task-actions.v1",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "source-migration:higood.sewing-task-responsibility-transfers.v1",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood.sewing-task-responsibility-transfers.v1",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "source-migration:higood:fcs:production-contracts:v2",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood:fcs:production-contracts:v2",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          },
+          {
+            "id": "source-migration:higood:sewing-sample-approval:v3",
+            "collection": "production-context-migrations",
+            "value": {
+              "key": "higood:sewing-sample-approval:v3",
+              "fingerprint": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+              "targetFingerprint": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+              "phase": "COMPLETE",
+              "count": 0,
+              "copied": 0,
+              "ids": []
+            }
+          }
+        ]
+      },
+      "passed": false,
+      "error": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded.",
+      "body": "蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 15 条\n上一页\n第\n页\n跳转\n下一页\n简易裁片交出\n关闭\n任务单号\n读取任务\n\n简易裁片交出仅用于独立车缝、车缝+烫包任务；三合一任务请到面辅料仓接收。\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）"
+    }
+  ]
+}

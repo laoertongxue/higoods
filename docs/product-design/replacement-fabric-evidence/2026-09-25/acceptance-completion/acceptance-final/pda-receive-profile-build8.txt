@@ -1,0 +1,10 @@
+### Error
+Error: locator.waitFor: Error: strict mode violation: locator('[data-pda-tr-action]') resolved to 4 elements:
+    1) <button data-tab="pending-accept" data-pda-tr-action="switch-tab" class="flex-1 border-b-2 py-2.5 text-xs font-medium transition-colors border-primary text-primary">↵              待接单任务↵              ↵            </button> aka getByRole('button', { name: '待接单任务' })
+    2) <button data-tab="pending-quote" data-pda-tr-action="switch-tab" class="flex-1 border-b-2 py-2.5 text-xs font-medium transition-colors border-transparent text-muted-foreground">↵              待报价招标单↵              ↵            </button> aka getByRole('button', { name: '待报价招标单' })
+    3) <button data-tab="quoted" data-pda-tr-action="switch-tab" class="flex-1 border-b-2 py-2.5 text-xs font-medium transition-colors border-transparent text-muted-foreground">↵              已报价招标单↵              ↵            </button> aka getByRole('button', { name: '已报价招标单' })
+    4) <button data-tab="awarded" data-pda-tr-action="switch-tab" class="flex-1 border-b-2 py-2.5 text-xs font-medium transition-colors border-transparent text-muted-foreground">↵              已中标任务↵              ↵            </button> aka getByRole('button', { name: '已中标任务' })
+
+Call log:
+[2m  - waiting for locator('[data-pda-tr-action]') to be visible[22m
+

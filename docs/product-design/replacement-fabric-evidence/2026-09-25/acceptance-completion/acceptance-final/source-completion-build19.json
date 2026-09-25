@@ -1,0 +1,832 @@
+[
+  {
+    "surface": "web",
+    "sample": 1,
+    "measures": [
+      {
+        "action": "complete-web",
+        "ms": 221.09999999403954
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 06:12:20",
+          "completedBy": "生产计划员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 06:12:20",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 06:12:20",
+              "by": "生产计划员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 06:12:20",
+          "updatedAt": "2026-09-25 06:12:20"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": ":00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0004\n需求单号\nDEM-202603-0010\n售卖类型\n预售备货\n\t\nTASKGEN-202603-0004-001\n裁片\n\t\n160/160 件\n仓库 → 工厂\n\t\n已接收确认\n\t接收记录\t本次接收已确认\t2026-03-20 15:40:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n应领 0 / 已领 0 （差异 0 ）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 12:28:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n0/120 件\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 12:20:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n应领 10000 米 / 已领 0 米（差异 -10000 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1600 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1400 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n交出单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n已交出 2500 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 雅加达中心仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n待收货确认\n工厂 → 雅加达中心仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n已交出 4100 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 丹格朗仓库\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n待收货确认\n工厂 → 丹格朗仓库\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-QC-202608-003\n需求单号\nDEM-QC-202608-003\n售卖类型\n预售\n\t\nHD-POQC202608003-05\n后道\n\t\n已交出 0 件 / 已收货 0 件（差异 0 件）\n工厂 → 成衣仓交接点\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nTASK-PRINT-000718\n印花\n\t\n已交出 0 米 / 已收货 0 米（差异 0 米）\n工厂 → PO14672 裁床\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t"
+  },
+  {
+    "surface": "web",
+    "sample": 2,
+    "measures": [
+      {
+        "action": "complete-web",
+        "ms": 219.40000000596046
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 06:12:22",
+          "completedBy": "生产计划员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 06:12:22",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 06:12:22",
+              "by": "生产计划员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 06:12:22",
+          "updatedAt": "2026-09-25 06:12:22"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": ":00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0004\n需求单号\nDEM-202603-0010\n售卖类型\n预售备货\n\t\nTASKGEN-202603-0004-001\n裁片\n\t\n160/160 件\n仓库 → 工厂\n\t\n已接收确认\n\t接收记录\t本次接收已确认\t2026-03-20 15:40:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n应领 0 / 已领 0 （差异 0 ）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 12:28:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n0/120 件\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 12:20:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n应领 10000 米 / 已领 0 米（差异 -10000 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1600 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1400 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n交出单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n已交出 2500 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 雅加达中心仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n待收货确认\n工厂 → 雅加达中心仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n已交出 4100 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 丹格朗仓库\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n待收货确认\n工厂 → 丹格朗仓库\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-QC-202608-003\n需求单号\nDEM-QC-202608-003\n售卖类型\n预售\n\t\nHD-POQC202608003-05\n后道\n\t\n已交出 0 件 / 已收货 0 件（差异 0 件）\n工厂 → 成衣仓交接点\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nTASK-PRINT-000718\n印花\n\t\n已交出 0 米 / 已收货 0 米（差异 0 米）\n工厂 → PO14672 裁床\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t"
+  },
+  {
+    "surface": "web",
+    "sample": 3,
+    "measures": [
+      {
+        "action": "complete-web",
+        "ms": 222
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 06:12:24",
+          "completedBy": "生产计划员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 06:12:24",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 06:12:24",
+              "by": "生产计划员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 06:12:24",
+          "updatedAt": "2026-09-25 06:12:24"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": ":00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0004\n需求单号\nDEM-202603-0010\n售卖类型\n预售备货\n\t\nTASKGEN-202603-0004-001\n裁片\n\t\n160/160 件\n仓库 → 工厂\n\t\n已接收确认\n\t接收记录\t本次接收已确认\t2026-03-20 15:40:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n应领 0 / 已领 0 （差异 0 ）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 12:28:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n0/120 件\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 12:20:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n应领 10000 米 / 已领 0 米（差异 -10000 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1600 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1400 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n交出单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n已交出 2500 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 雅加达中心仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n待收货确认\n工厂 → 雅加达中心仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n已交出 4100 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 丹格朗仓库\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n待收货确认\n工厂 → 丹格朗仓库\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-QC-202608-003\n需求单号\nDEM-QC-202608-003\n售卖类型\n预售\n\t\nHD-POQC202608003-05\n后道\n\t\n已交出 0 件 / 已收货 0 件（差异 0 件）\n工厂 → 成衣仓交接点\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nTASK-PRINT-000718\n印花\n\t\n已交出 0 米 / 已收货 0 米（差异 0 米）\n工厂 → PO14672 裁床\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t"
+  },
+  {
+    "surface": "web",
+    "sample": 4,
+    "measures": [
+      {
+        "action": "complete-web",
+        "ms": 218
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 06:12:26",
+          "completedBy": "生产计划员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 06:12:26",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 06:12:26",
+              "by": "生产计划员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 06:12:26",
+          "updatedAt": "2026-09-25 06:12:26"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": ":00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0004\n需求单号\nDEM-202603-0010\n售卖类型\n预售备货\n\t\nTASKGEN-202603-0004-001\n裁片\n\t\n160/160 件\n仓库 → 工厂\n\t\n已接收确认\n\t接收记录\t本次接收已确认\t2026-03-20 15:40:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n应领 0 / 已领 0 （差异 0 ）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 12:28:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n0/120 件\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 12:20:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n应领 10000 米 / 已领 0 米（差异 -10000 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1600 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1400 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n交出单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n已交出 2500 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 雅加达中心仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n待收货确认\n工厂 → 雅加达中心仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n已交出 4100 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 丹格朗仓库\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n待收货确认\n工厂 → 丹格朗仓库\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-QC-202608-003\n需求单号\nDEM-QC-202608-003\n售卖类型\n预售\n\t\nHD-POQC202608003-05\n后道\n\t\n已交出 0 件 / 已收货 0 件（差异 0 件）\n工厂 → 成衣仓交接点\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nTASK-PRINT-000718\n印花\n\t\n已交出 0 米 / 已收货 0 米（差异 0 米）\n工厂 → PO14672 裁床\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t"
+  },
+  {
+    "surface": "web",
+    "sample": 5,
+    "measures": [
+      {
+        "action": "complete-web",
+        "ms": 215.59999999403954
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 06:12:28",
+          "completedBy": "生产计划员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 06:12:28",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 06:12:28",
+              "by": "生产计划员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 06:12:28",
+          "updatedAt": "2026-09-25 06:12:28"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": ":00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0004\n需求单号\nDEM-202603-0010\n售卖类型\n预售备货\n\t\nTASKGEN-202603-0004-001\n裁片\n\t\n160/160 件\n仓库 → 工厂\n\t\n已接收确认\n\t接收记录\t本次接收已确认\t2026-03-20 15:40:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n应领 0 / 已领 0 （差异 0 ）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 12:28:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0003\n需求单号\nDEM-202603-0009\n售卖类型\n国内做货\n\t\nTASKGEN-202603-0003-001\n裁片\n\t\n0/120 件\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 12:20:00\t\n\n\n接收单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n应领 10000 米 / 已领 0 米（差异 -10000 米）\n仓库 → 工厂\n\t\n已发起接收\n\t接收单\t查看来料记录\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1600 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/800 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1400 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/700 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/1000 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n接收记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-002\n车缝\n\t\n待确认/500 米\n仓库 → 工厂\n\t\n待仓库发出\n\t接收记录\t等待仓库发出后可继续接收\t2026-03-20 09:10:00\t\n\n\n交出单\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n已交出 2500 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 雅加达中心仓\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO-202603-0002\n需求单号\nDEM-202603-0005\n售卖类型\n虾皮样品\n\t\nTASKGEN-202603-0002-001\n裁片\n\t\n待收货确认\n工厂 → 雅加达中心仓\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n已交出 4100 PIECE / 已收货 0 PIECE（差异 0 PIECE）\n工厂 → 丹格朗仓库\n\t\n已发起交出\n\t交出单\t去交出单详情发起记录\t2026-03-01 00:00:00\t\n\n\n交出记录\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nPDA-SEW-AWARDED-DEMO-001\n车缝\n\t\n待收货确认\n工厂 → 丹格朗仓库\n\t\n待收货确认\n\t交出记录\t等待接收方确认实收对象数量\t2026-03-01 00:00:00\t\n\n\n交出单\n\t\n生产单号\nPO-QC-202608-003\n需求单号\nDEM-QC-202608-003\n售卖类型\n预售\n\t\nHD-POQC202608003-05\n后道\n\t\n已交出 0 件 / 已收货 0 件（差异 0 件）\n工厂 → 成衣仓交接点\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t\n\n\n交出单\n\t\n生产单号\nPO14672\n需求单号\nDEM-202603-0083\n售卖类型\n基础款\n\t\nTASK-PRINT-000718\n印花\n\t\n已交出 0 米 / 已收货 0 米（差异 0 米）\n工厂 → PO14672 裁床\n\t\n待交出\n\t交出单\t去交出单详情发起记录\t-\t"
+  },
+  {
+    "surface": "pda",
+    "sample": 1,
+    "measures": [
+      {
+        "action": "complete-pda",
+        "ms": 100.40000000596046
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 14:12:30",
+          "completedBy": "CV_Micro_管理员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 14:12:30",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 14:12:30",
+              "by": "CV_Micro_管理员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 14:12:30",
+          "updatedAt": "2026-09-25 14:12:30"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": "CV Micro Sewing Jakarta Pusat\n交接 · ID-F021\n待办\n4\nC\nCV_M\n返回\n发起交出\n车缝\nPO14673\n已交完，待实收\nCV Micro Sewing Jakarta Pusat\n成衣仓\n需求来源： 生产单自动生成\n生产单号： PO14673\n交出物类型：成衣\n计划交出成衣件数（件）\n1400 件\n接收方实收成衣件数（件）\n1400 件\n待接收方确认成衣件数（件）\n0 件\n\n工厂已完成交出 · 2026-09-25 14:12:30。等待接收方确认实收。\n\n交出记录（1）\n接单\n执行\n交接\n结算"
+  },
+  {
+    "surface": "pda",
+    "sample": 2,
+    "measures": [
+      {
+        "action": "complete-pda",
+        "ms": 99.69999998807907
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 14:12:31",
+          "completedBy": "CV_Micro_管理员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 14:12:31",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 14:12:31",
+              "by": "CV_Micro_管理员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 14:12:31",
+          "updatedAt": "2026-09-25 14:12:31"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": "CV Micro Sewing Jakarta Pusat\n交接 · ID-F021\n待办\n4\nC\nCV_M\n返回\n发起交出\n车缝\nPO14673\n已交完，待实收\nCV Micro Sewing Jakarta Pusat\n成衣仓\n需求来源： 生产单自动生成\n生产单号： PO14673\n交出物类型：成衣\n计划交出成衣件数（件）\n1400 件\n接收方实收成衣件数（件）\n1400 件\n待接收方确认成衣件数（件）\n0 件\n\n工厂已完成交出 · 2026-09-25 14:12:31。等待接收方确认实收。\n\n交出记录（1）\n接单\n执行\n交接\n结算"
+  },
+  {
+    "surface": "pda",
+    "sample": 3,
+    "measures": [
+      {
+        "action": "complete-pda",
+        "ms": 115.69999998807907
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 14:12:33",
+          "completedBy": "CV_Micro_管理员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 14:12:33",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 14:12:33",
+              "by": "CV_Micro_管理员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 14:12:33",
+          "updatedAt": "2026-09-25 14:12:33"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": "CV Micro Sewing Jakarta Pusat\n交接 · ID-F021\n待办\n4\nC\nCV_M\n返回\n发起交出\n车缝\nPO14673\n已交完，待实收\nCV Micro Sewing Jakarta Pusat\n成衣仓\n需求来源： 生产单自动生成\n生产单号： PO14673\n交出物类型：成衣\n计划交出成衣件数（件）\n1400 件\n接收方实收成衣件数（件）\n1400 件\n待接收方确认成衣件数（件）\n0 件\n\n工厂已完成交出 · 2026-09-25 14:12:33。等待接收方确认实收。\n\n交出记录（1）\n接单\n执行\n交接\n结算"
+  },
+  {
+    "surface": "pda",
+    "sample": 4,
+    "measures": [
+      {
+        "action": "complete-pda",
+        "ms": 103.30000001192093
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 14:12:35",
+          "completedBy": "CV_Micro_管理员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 14:12:35",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 14:12:35",
+              "by": "CV_Micro_管理员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 14:12:35",
+          "updatedAt": "2026-09-25 14:12:35"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": "CV Micro Sewing Jakarta Pusat\n交接 · ID-F021\n待办\n4\nC\nCV_M\n返回\n发起交出\n车缝\nPO14673\n已交完，待实收\nCV Micro Sewing Jakarta Pusat\n成衣仓\n需求来源： 生产单自动生成\n生产单号： PO14673\n交出物类型：成衣\n计划交出成衣件数（件）\n1400 件\n接收方实收成衣件数（件）\n1400 件\n待接收方确认成衣件数（件）\n0 件\n\n工厂已完成交出 · 2026-09-25 14:12:35。等待接收方确认实收。\n\n交出记录（1）\n接单\n执行\n交接\n结算"
+  },
+  {
+    "surface": "pda",
+    "sample": 5,
+    "measures": [
+      {
+        "action": "complete-pda",
+        "ms": 98
+      }
+    ],
+    "explicitMockPrerequisite": true,
+    "completion": {
+      "id": "production-context:assignment-effects:factory-completion:HO-UI-COMPLETION",
+      "collection": "production-context:assignment-effects",
+      "value": {
+        "key": "factory-completion:HO-UI-COMPLETION",
+        "value": {
+          "handoverId": "HO-UI-COMPLETION",
+          "taskId": "TASKGEN-202603-0015-002__ORDER",
+          "completedAt": "2026-09-25 14:12:37",
+          "completedBy": "CV_Micro_管理员"
+        }
+      }
+    },
+    "task": {
+      "id": "production-context:taskOverrides:TASKGEN-202603-0015-002__ORDER",
+      "collection": "production-context:taskOverrides",
+      "value": {
+        "key": "TASKGEN-202603-0015-002__ORDER",
+        "value": {
+          "assignmentStatus": "ASSIGNED",
+          "taskDeadline": "2026-07-10 09:00:00",
+          "auditLogs": [
+            {
+              "id": "GAL-TASKGEN-202603-0015-002-001",
+              "action": "GENERATE",
+              "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+              "at": "2026-03-01 00:00:00",
+              "by": "系统"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000023",
+              "action": "DISPATCH",
+              "detail": "已直接派单并按业务分配时间自动接单",
+              "at": "2026-07-01 09:00:00",
+              "by": "跟单A"
+            },
+            {
+              "id": "RAL-TASKGEN2026030015002ORDER-000024",
+              "action": "START",
+              "detail": "工厂已开始车缝生产",
+              "at": "2026-07-01 10:00:00",
+              "by": "CV Micro Sewing Jakarta Pusat"
+            },
+            {
+              "id": "AL-FACTORY-FINISH-HO-UI-COMPLETION-2026-09-25 14:12:37",
+              "action": "FACTORY_FINISH_HANDOUT",
+              "detail": "工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。",
+              "at": "2026-09-25 14:12:37",
+              "by": "CV_Micro_管理员"
+            }
+          ],
+          "assignmentMode": "DIRECT",
+          "assignedFactoryId": "ID-F021",
+          "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+          "businessAssignedAt": "2026-07-01 09:00:00",
+          "assignmentOperatedAt": "2026-07-01 10:00:00",
+          "dispatchedAt": "2026-07-01 09:00:00",
+          "dispatchedBy": "跟单A",
+          "acceptanceStatus": "ACCEPTED",
+          "acceptedAt": "2026-07-01 09:00:00",
+          "acceptedBy": "系统自动接单（含车缝直接派单）",
+          "status": "DONE",
+          "startedAt": "2026-07-01 10:00:00",
+          "dispatchRemark": "含车缝接收确认延迟演示任务",
+          "finishedAt": "2026-09-25 14:12:37",
+          "updatedAt": "2026-09-25 14:12:37"
+        }
+      }
+    },
+    "legacyWrites": [],
+    "errors": [],
+    "body": "CV Micro Sewing Jakarta Pusat\n交接 · ID-F021\n待办\n4\nC\nCV_M\n返回\n发起交出\n车缝\nPO14673\n已交完，待实收\nCV Micro Sewing Jakarta Pusat\n成衣仓\n需求来源： 生产单自动生成\n生产单号： PO14673\n交出物类型：成衣\n计划交出成衣件数（件）\n1400 件\n接收方实收成衣件数（件）\n1400 件\n待接收方确认成衣件数（件）\n0 件\n\n工厂已完成交出 · 2026-09-25 14:12:37。等待接收方确认实收。\n\n交出记录（1）\n接单\n执行\n交接\n结算"
+  }
+]

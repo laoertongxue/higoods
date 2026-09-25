@@ -1,0 +1,36 @@
+(node:53237) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ 同分配的同名 A/B 面料分别新增和打印；第二面料不被第一范围替代 (460.062ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3102.403375
+
+✖ failing tests:
+
+test at tests/unit/replacement-fabric-repository-scope.test.ts:1:813
+✖ 同分配的同名 A/B 面料分别新增和打印；第二面料不被第一范围替代 (460.062ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  
+    [
+  +   '["tdv_demand_SPU_HOODIE_082-bom-main","雾霾灰"]'
+  -   '["TEST-B","雾霾灰"]'
+    ]
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/replacement-fabric-repository-scope.test.ts:32:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: [ '["tdv_demand_SPU_HOODIE_082-bom-main","雾霾灰"]' ],
+    expected: [ '["TEST-B","雾霾灰"]' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

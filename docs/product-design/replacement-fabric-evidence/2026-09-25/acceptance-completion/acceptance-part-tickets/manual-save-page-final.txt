@@ -1,0 +1,7 @@
+### Error
+TimeoutError: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-cutting-fei-action=confirm-manual-create]')[22m
+[2m    - waiting for "http://127.0.0.1:43235/fcs/craft/cutting/fei-tickets" navigation to finish...[22m
+[2m    - navigated to "http://127.0.0.1:43235/fcs/craft/cutting/fei-tickets"[22m
+

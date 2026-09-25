@@ -23,7 +23,7 @@ function resolveHandoverRecordId(handoverRecordIdParam?: string): string {
   return getCurrentPrintSearchParams().get('handoverRecordId') || ''
 }
 
-export function renderTaskDeliveryCardPrintPage(_handoverOrderIdParam?: string, handoverRecordIdParam?: string): string {
+export function renderTaskDeliveryCardPrintPage(_handoverOrderIdParam?: string, handoverRecordIdParam?: string): Promise<string> {
   const handoverRecordId = resolveHandoverRecordId(handoverRecordIdParam)
   const input: Partial<PrintDocumentBuildInput> = {
     documentType: 'TASK_DELIVERY_CARD',

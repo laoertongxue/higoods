@@ -1,0 +1,15 @@
+### Error
+Error: ()=>document.querySelector('[data-simple-cut-content]')?.textContent.includes('本次完整清单')
+
+简易裁片交出
+      关闭
+    任务单号
+      读取任务
+    验收禁止旧存储读取 higood:ppic:sewing-pickup-slips:v1当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin读取后核对工厂、PPIC 和裁片清单，再确认交出。确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。
+      确认交出（0 张菲票 / 0 片）
+    
+任务单号
+      读取任务
+    验收禁止旧存储读取 higood:ppic:sewing-pickup-slips:v1当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin读取后核对工厂、PPIC 和裁片清单，再确认交出。确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。
+      确认交出（0 张菲票 / 0 片）
+    

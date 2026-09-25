@@ -1,0 +1,21 @@
+src/data/fcs/dye-work-order-online-view.ts(383,43): error TS2345: Argument of type 'PreparationMaterialReceiptSourceResult | { requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to parameter of type 'PreparationMaterialReceiptSourceResult | undefined'.
+  Type '{ requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to type 'PreparationMaterialReceiptSourceResult'.
+    Types of property 'requiresSource' are incompatible.
+      Type 'boolean' is not assignable to type 'true'.
+src/data/fcs/dye-work-order-online-view.ts(432,59): error TS2345: Argument of type 'PreparationMaterialReceiptSourceResult | { requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to parameter of type 'PreparationMaterialReceiptSourceResult'.
+  Type '{ requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to type 'PreparationMaterialReceiptSourceResult'.
+    Types of property 'requiresSource' are incompatible.
+      Type 'boolean' is not assignable to type 'true'.
+src/data/fcs/factory-receiving-source-sync.ts(20,105): error TS2345: Argument of type 'WarehouseExecutionDoc[]' is not assignable to parameter of type 'readonly CentralTransferDocument[]'.
+  Type 'WarehouseExecutionDoc' is not assignable to type 'CentralTransferDocument'.
+    Type 'WarehouseReturnOrder' is not assignable to type 'CentralTransferDocument'.
+      Type 'WarehouseReturnOrder' is not assignable to type 'WarehouseInternalTransferOrder'.
+        Types of property 'docType' are incompatible.
+          Type '"RETURN"' is not assignable to type '"INTERNAL_TRANSFER"'.
+src/data/pms/tmf-material-purchases.ts(1290,51): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/data/pms/tmf-material-purchases.ts(1290,94): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/data/pms/tmf-material-purchases.ts(1290,96): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/pages/dispatch-tenders.ts(752,5): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/pages/dispatch-tenders.ts(781,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.

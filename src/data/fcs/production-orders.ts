@@ -1,3 +1,6 @@
+import type { ProductionCreatedProcessSourceFact } from './production-created-process-sources.ts'
+import productionOrderDemoTechPacks from './production-order-demo-tech-packs.json' with { type: 'json' }
+import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { indonesiaFactories, type IndonesiaFactory } from './indonesia-factories.ts'
 import { getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
@@ -7,6 +10,7 @@ import {
 } from './factory-mock-data.ts'
 import {
   isKolGotoSaleType,
+  productionDemands,
   type ProductionDemand,
   type ProductionSaleType,
 } from './production-demands.ts'
@@ -192,6 +196,7 @@ export interface ProductionExecutionSummaryBlock {
 }
 
 export interface ProductionOrder {
+  productionCreatedProcessSources?: ProductionCreatedProcessSourceFact[]
   processWorkOrderDefinitions?: Array<{
     processCode: 'PRINT' | 'DYE'
     workOrderId: string
@@ -1767,9 +1772,16 @@ function buildReleaseTargetSupplementProductionOrder(base: ProductionOrder): Pro
   }
 }
 
-const seededProductionOrders = productionOrderSeeds.map((seed) => buildProductionOrderFromSeed(seed))
+/** 固定 Mock 的技术包随原型发布；不在打开下游时回读可变商品档案。正式转单仍走实时校验并冻结。 */
+function buildStaticProductionOrderFromSeed(seed: ProductionOrderSeed): ProductionOrder {
+  const demand = productionDemands.find(item => item.demandId === seed.demandId)
+  const snapshot = (productionOrderDemoTechPacks as unknown as Record<string, ProductionOrderTechPackSnapshot>)[seed.productionOrderId]
+  if (!demand || !snapshot || snapshot.productionOrderId !== seed.productionOrderId) throw new Error(`固定演示生产单 ${seed.productionOrderId} 缺少同源技术资料`)
+  return buildProductionOrderFromResolvedUpstream(seed, demand, structuredClone(snapshot))
+}
+const seededProductionOrders = productionOrderSeeds.map(buildStaticProductionOrderFromSeed)
 const postFinishingSourceOrders = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((source) => {
-  const order = buildProductionOrderFromSeed({
+  const order = buildStaticProductionOrderFromSeed({
     productionOrderId: source.productionOrderId, demandId: source.demandId,
     status: 'EXECUTING', mainFactoryId: source.factoryId,
     mainFactoryStatus: 'CONFIRMED', mainFactorySource: 'SEWING_TASK_ASSIGNMENT',
@@ -1804,15 +1816,38 @@ export function findProductionOrderForDemand(demandId: string): ProductionOrder 
 }
 
 export { CREATED_PRODUCTION_ORDERS_STORAGE_KEY } from './production-order-runtime-store.ts'
+const initialProductionOrderSnapshots = new Map(productionOrders.map(order => [order.productionOrderId, JSON.stringify(order)]))
 const persistedCreatedProductionOrderIds = new Set<string>()
 const lastSavedCreatedProductionOrders = new Map<string, string>()
 
-// Only the formal demand-conversion command enrolls new orders. Initial demo rows
-// are never saved or replaced by this storage record.
+export function captureProductionOrderPersistenceState() {
+  return { ids: [...persistedCreatedProductionOrderIds], saved: [...lastSavedCreatedProductionOrders] }
+}
+export function restoreProductionOrderPersistenceState(state: ReturnType<typeof captureProductionOrderPersistenceState>): void {
+  persistedCreatedProductionOrderIds.clear(); state.ids.forEach(id => persistedCreatedProductionOrderIds.add(id))
+  lastSavedCreatedProductionOrders.clear(); state.saved.forEach(([id, value]) => lastSavedCreatedProductionOrders.set(id, value))
+}
+
+/** 旧静态单仅允许沿用原冻结资料；新单或资料变更必须有明确技术版本。 */
+export function validatePersistedProductionOrders(orders: ProductionOrder[]): void {
+  for (const order of orders) {
+    const initial = order?.productionOrderId ? initialProductionOrderSnapshots.get(order.productionOrderId) : undefined
+    const unchangedLegacySnapshot = Boolean(initial && !order.selectedTechPackVersionId
+      && JSON.stringify(JSON.parse(initial).techPackSnapshot) === JSON.stringify(order.techPackSnapshot))
+    if (!order || typeof order.productionOrderId !== 'string' || !order.demandSnapshot || !Array.isArray(order.auditLogs)
+      || !order.techPackSnapshot || (!unchangedLegacySnapshot && (!order.selectedTechPackVersionId
+      || order.techPackSnapshot.sourceTechPackVersionId !== order.selectedTechPackVersionId))
+      || !order.assignmentSummary || !order.assignmentProgress || !order.taskBreakdownSummary
+      || !order.mainFactorySnapshot || !Array.isArray(order.riskFlags) || typeof order.status !== 'string' || !order.demandId) {
+      throw new Error('已保存生产单资料不完整，请保留原记录并核对。')
+    }
+  }
+}
+
+// 静态示例只读；显式动作仅保存新增或已改变的生产单，按实体写入记录库。
 export function persistCreatedProductionOrders(createdOrderIds: string[] = []): void {
   const ids = new Set([...persistedCreatedProductionOrderIds, ...createdOrderIds])
-  const orders = productionOrders.filter(order => ids.has(order.productionOrderId)
-    && !initialProductionOrderIds.has(order.productionOrderId))
+  const orders = productionOrders.filter(order => ids.has(order.productionOrderId))
   if (typeof localStorage !== 'undefined') {
     const raw = localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY)
     const saved = raw ? JSON.parse(raw) : { version: 1, orders: [] }
@@ -1827,6 +1862,7 @@ export function persistCreatedProductionOrders(createdOrderIds: string[] = []): 
       }
       merged.set(id, order)
     }
+    validatePersistedProductionOrders([...merged.values()])
     localStorage.setItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, JSON.stringify({ version: 1, orders: [...merged.values()] }))
     // 保存成功后才更新本页；保持主单对象身份，未修改的旧页承接另一页最新事实。
     for (const order of orders) {
@@ -1841,38 +1877,31 @@ export function persistCreatedProductionOrders(createdOrderIds: string[] = []): 
   orders.forEach(order => persistedCreatedProductionOrderIds.add(order.productionOrderId))
 }
 
-if (typeof localStorage !== 'undefined') {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY) || 'null')
-    if (saved?.version === 1 && Array.isArray(saved.orders)) {
-      for (const order of saved.orders as ProductionOrder[]) {
-        if (!order || typeof order.productionOrderId !== 'string'
-          || initialProductionOrderIds.has(order.productionOrderId)
-          || persistedCreatedProductionOrderIds.has(order.productionOrderId)
-          || !order.demandSnapshot || !Array.isArray(order.auditLogs)
-          || !order.techPackSnapshot || !order.selectedTechPackVersionId
-          || order.techPackSnapshot.sourceTechPackVersionId !== order.selectedTechPackVersionId
-          || !order.assignmentSummary || !order.assignmentProgress || !order.taskBreakdownSummary
-          || !order.mainFactorySnapshot || !Array.isArray(order.riskFlags)
-          || typeof order.status !== 'string' || !order.demandId) continue
-        productionOrders.push(order)
-        persistedCreatedProductionOrderIds.add(order.productionOrderId)
-        lastSavedCreatedProductionOrders.set(order.productionOrderId, JSON.stringify(order))
-      }
-    }
-  } catch (error) {
-    console.warn('无法读取本机已生成生产单记录。', error)
+function hydrateSavedProductionOrders(): void {
+  const saved = JSON.parse(localStorage.getItem(CREATED_PRODUCTION_ORDERS_STORAGE_KEY) || 'null')
+  if (saved && (saved.version !== 1 || !Array.isArray(saved.orders))) throw new Error('生产单记录无法读取，未用空数据替换。')
+  const orders = (saved?.orders || []) as ProductionOrder[]
+  validatePersistedProductionOrders(orders)
+  for (const id of persistedCreatedProductionOrderIds) {
+    if (orders.some(order => order.productionOrderId === id)) continue
+    const initial = initialProductionOrderSnapshots.get(id)
+    const index = productionOrders.findIndex(order => order.productionOrderId === id)
+    if (index >= 0) { if (initial) productionOrders[index] = JSON.parse(initial); else productionOrders.splice(index, 1) }
+  }
+  persistedCreatedProductionOrderIds.clear(); lastSavedCreatedProductionOrders.clear()
+  for (const order of orders) {
+    const existing = productionOrders.find(item => item.productionOrderId === order.productionOrderId)
+    if (existing) {
+      for (const key of Object.keys(existing)) delete (existing as unknown as Record<string, unknown>)[key]
+      Object.assign(existing, structuredClone(order))
+    } else productionOrders.push(structuredClone(order))
+    persistedCreatedProductionOrderIds.add(order.productionOrderId)
+    lastSavedCreatedProductionOrders.set(order.productionOrderId, JSON.stringify(order))
   }
 }
-
-// Capture updates made by existing prototype editing flows before a reload.
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => persistCreatedProductionOrders())
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') persistCreatedProductionOrders()
-  })
-}
-
+onProductionContextChanged(CREATED_PRODUCTION_ORDERS_STORAGE_KEY, hydrateSavedProductionOrders)
+// 打包后的共享模块可能先于页面入口执行；实际页面等待 hydrate 后才开放业务。
+if (typeof window === 'undefined' || typeof document === 'undefined' || isProductionContextReady()) hydrateSavedProductionOrders()
 
 /** 原任务实际开工触发；不从 FCK、回货或演示种子反推生产执行。 */
 export function markProductionOrderExecutionStarted(input: { productionOrderId: string; taskId: string; startedAt: string; actorName: string }): void {

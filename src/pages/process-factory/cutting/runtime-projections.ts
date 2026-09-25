@@ -93,8 +93,8 @@ function buildSourceMarkerPlanSourceItems(source: {
   }))
 }
 
-function buildRuntimeMarkerPlanSourceRecords(
-  snapshot: CuttingDomainSnapshot,
+export function buildRuntimeMarkerPlanSourceRecords(
+  snapshot: Pick<CuttingDomainSnapshot, 'markerPlanSourceState'>,
   cutOrderRows: CutOrderRow[],
 ): MarkerPlanSourceRecord[] {
   const cutOrderRowsById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))

@@ -1,3 +1,4 @@
+import { readPartTicketValue, writePartTicketValue, savePartTicketAction } from '../../../data/fcs/cutting/part-ticket-records.ts'
 // @page-pattern: list
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
@@ -15,6 +16,7 @@ import {
   CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY,
   CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
   executePrintableUnitPrint,
+  executeGeneratedActualTicketFirstPrint,
   filterPrintableUnits,
   getPrintableUnitStatusMeta,
   serializeFeiTicketPrintJobsStorage,
@@ -517,11 +519,15 @@ function truncate(value: string, maxLength = 36): string {
 }
 
 function persistTicketRecords(records: FeiTicketLabelRecord[]): void {
-  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeFeiTicketRecordsStorage(records))
+  const baseline = new Map(buildFeiTicketPrintProjection().ticketRecords.map(record => [record.ticketRecordId, JSON.stringify(record)]))
+  const savedIds = new Set((JSON.parse(readPartTicketValue(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY) || '[]') as FeiTicketLabelRecord[]).map(record => record.ticketRecordId))
+  writePartTicketValue(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeFeiTicketRecordsStorage(records.filter(record => savedIds.has(record.ticketRecordId) || baseline.get(record.ticketRecordId) !== JSON.stringify(record))))
 }
 
 function persistPrintJobs(printJobs: FeiTicketPrintJob[]): void {
-  localStorage.setItem(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY, serializeFeiTicketPrintJobsStorage(printJobs))
+  const baseline = new Map(buildFeiTicketPrintProjection().printJobs.map(job => [job.printJobId, JSON.stringify(job)]))
+  const savedIds = new Set((JSON.parse(readPartTicketValue(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY) || '[]') as FeiTicketPrintJob[]).map(job => job.printJobId))
+  writePartTicketValue(CUTTING_FEI_TICKET_PRINT_JOBS_STORAGE_KEY, serializeFeiTicketPrintJobsStorage(printJobs.filter(job => savedIds.has(job.printJobId) || baseline.get(job.printJobId) !== JSON.stringify(job))))
 }
 
 // 统一预览的首打复用原打印命令；只记录本次选中的实际裁剪菲票。
@@ -537,35 +543,13 @@ export function recordActualFeiTicketFirstPrintFromPreview(input: {
   )
   if (!selectedTickets.length) return 0
   const projection = buildFeiTicketPrintProjection()
-  const pendingIds = new Set(selectedTickets.filter(ticket => !projection.ticketRecords.some(record =>
-    record.ticketRecordId === ticket.feiTicketId && record.status === 'PRINTED',
-  )).map(ticket => ticket.sourceOutputLineId))
-  if (!pendingIds.size) return 0
-  const selectedCutOrders = new Set(selectedTickets.map(ticket => ticket.cutOrderId))
-  let ticketRecords = projection.ticketRecords
-  let printJobs = projection.printJobs
-  let printedCount = 0
-  for (const unit of projection.printableViewModel.units) {
-    if (!unit.sourceCutOrderIds.some(id => selectedCutOrders.has(id))) continue
-    const detail = buildPrintableUnitDetailViewModel({ ...projection, unit, ticketRecords, printJobs })
-    const splitDetails = detail.missingSplitDetails.filter(item => pendingIds.has(item.sourceOutputLineId))
-    if (!splitDetails.length) continue
-    const result = executePrintableUnitPrint({
-      ...projection, unit, splitDetails, ticketRecords, printJobs,
-      operationType: 'FIRST_PRINT', operator: input.operator, operatedAt: nowText(),
-      printerName: '浏览器打印', templateName: input.templateName, reason: '', remark: '统一预览首打',
-    })
-    ticketRecords = result.nextRecords
-    printJobs = result.nextJobs
-    const printedIds = new Set(result.printJob.ticketRecordIds ?? [])
-    for (const record of result.nextRecords) {
-      if (printedIds.has(record.ticketRecordId) && record.sourceOutputLineId && pendingIds.delete(record.sourceOutputLineId)) printedCount += 1
-    }
+  const result = executeGeneratedActualTicketFirstPrint({tickets:selectedTickets,ticketRecords:projection.ticketRecords,printJobs:projection.printJobs,
+    operator:input.operator,operatedAt:nowText(),templateName:input.templateName})
+  if (result.printedCount) {
+    persistTicketRecords(result.nextRecords)
+    persistPrintJobs(result.nextJobs)
   }
-  if (pendingIds.size) throw new Error('部分菲票的原打印对象不存在或状态不一致，请返回业务单据核对后重试。')
-  persistTicketRecords(ticketRecords)
-  persistPrintJobs(printJobs)
-  return printedCount
+  return result.printedCount
 }
 
 function mapPrintableStatusFromQuery(value: string | null): 'ALL' | PrintableUnitStatus {
@@ -2367,7 +2351,7 @@ function getListRows(mode = resolveFeiTicketListMode()): Array<FeiTicketSpreadin
 }
 
 function getManualMarkerPlans(): MarkerPlan[] {
-  return buildMarkerPlanProjection().viewModel.plans.filter((plan) =>
+  return buildMarkerPlanProjection(undefined, { sourceIdentityOnly: true }).viewModel.plans.filter((plan) =>
     plan.status !== 'CANCELED'
     && Boolean(plan.markerNo)
     && Boolean(plan.beds?.some((member) => !member.lockedBySpreading)),
@@ -2562,7 +2546,7 @@ function renderListPage(): string {
   const content = renderStandardListPage({
     title: meta.pageTitle,
     primaryActionsHtml: primaryActions,
-    feedbackHtml: renderPageFeedback(),
+    feedbackHtml: `<div data-fei-feedback-surface>${renderPageFeedback()}</div>`,
     filtersHtml: `<div data-cutting-fei-list-filters-surface>${renderFilterArea()}</div>`,
     statsHtml: `<div data-cutting-fei-list-stats-surface>${renderPrintListStats(rows, mode)}</div>`,
     listTitle: mode === 'BINDING' ? '捆条菲票打印对象' : '部位菲票打印对象',
@@ -4196,7 +4180,19 @@ function renderPrintableUnitPage(pageKey: PrintableActionPageKey): string {
   return renderOperationPage(pageKey as OperationPageKey)
 }
 
-function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-print' | 'fei-ticket-reprint'>): void {
+let pendingFeiSave: { id: string; intent: string } | null = null
+async function saveFeiTicketAction<T>(input: { intent: string; action: () => T }): Promise<T> {
+  if (!pendingFeiSave || pendingFeiSave.intent !== input.intent) pendingFeiSave = { id: `PART-FEI:${Date.now()}:${Math.random().toString(36).slice(2)}`, intent: input.intent }
+  const result = await savePartTicketAction({ ...input, id: pendingFeiSave.id })
+  pendingFeiSave = null
+  return result
+}
+function feiSaveIntent(action: string): string {
+  return JSON.stringify({ action, manualCreate: state.manualCreate, detail: state.detail, operationDraft: state.operationDraft })
+}
+
+async function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-print' | 'fei-ticket-reprint'>): Promise<void> {
+  const destination = await saveFeiTicketAction({ intent: feiSaveIntent(pageKey) + getCurrentSearchParams().toString(), action: () => {
   const bundle = getDataBundle()
   const unit = findUnit(bundle)
   if (!unit) return
@@ -4241,9 +4237,12 @@ function performPrintOperation(pageKey: Extract<OperationPageKey, 'fei-ticket-pr
   })
   persistTicketRecords(result.nextRecords)
   persistPrintJobs(result.nextJobs)
+  return buildActionHref('fei-ticket-printed', unit)
+  } })
+  if (!destination) return
   state.operationDraft = createDefaultOperationDraft()
   state.operationSignature = ''
-  appStore.navigate(buildActionHref('fei-ticket-printed', unit))
+  appStore.navigate(destination)
 }
 
 export function renderCraftCuttingFeiTicketsPage(): string {
@@ -4330,7 +4329,7 @@ function handleStandardListControllerEvent(target: Element): boolean {
   return false
 }
 
-export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
+async function handleCraftCuttingFeiTicketsEventInternal(target: Element): Promise<boolean> {
   if (handleStandardListControllerEvent(target)) return true
 
   const detailSelectNode = target.closest<HTMLInputElement>('[data-cutting-fei-detail-select]')
@@ -4503,14 +4502,14 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
       return true
     }
     try {
-      const result = createManualFeiTicketBatch({
+      const result = await saveFeiTicketAction({ intent: feiSaveIntent('createManualFeiTicketBatch'), action: () => createManualFeiTicketBatch({
         markerPlan: plan,
         markerMember: member,
         layerCount: state.manualCreate.layerCount,
         sizePiecePerLayer: state.manualCreate.sizePiecePerLayer,
         createdBy: state.operationDraft.operator || '裁床打票员',
         remark: state.manualCreate.remark,
-      })
+      }) })
       state.manualCreate = { ...state.manualCreate, open: false }
       state.feedback = { tone: 'success', message: `已按唛架 ${plan.markerNo} 生成 ${result.records.length} 张待打印部位菲票；来源明确标记为“手动唛架建票 / 无铺布单”。` }
     } catch (error) {
@@ -4590,13 +4589,13 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
       return true
     }
     try {
-      const created = appendManualFeiTicket({
+      const created = await saveFeiTicketAction({ intent: feiSaveIntent('appendManualFeiTicket'), action: () => appendManualFeiTicket({
         sourceRecord: detail.generated,
         qty: state.detail.dialogQty,
         remark: state.detail.dialogRemark,
         operatedBy: state.operationDraft.operator || '裁床打票员',
         manualBatchId: spreadingRow.spreadingKey,
-      })
+      }) })
       state.detail = { ...state.detail, dialogMode: null, dialogTicketId: '', dialogRemark: '' }
       state.feedback = { tone: 'success', message: `已新增未打印菲票 ${created.feiTicketNo}，保留当前批次、部位和纸张分类。` }
     } catch (error) {
@@ -4607,12 +4606,12 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
 
   if (action === 'confirm-detail-edit') {
     try {
-      const updated = updateUnprintedManualFeiTicketQuantity({
+      const updated = await saveFeiTicketAction({ intent: feiSaveIntent('updateUnprintedManualFeiTicketQuantity'), action: () => updateUnprintedManualFeiTicketQuantity({
         feiTicketId: state.detail.dialogTicketId,
         qty: state.detail.dialogQty,
         reason: state.detail.dialogRemark,
         operatedBy: state.operationDraft.operator || '裁床打票员',
-      })
+      }) })
       state.detail = { ...state.detail, dialogMode: null, dialogTicketId: '', dialogRemark: '' }
       state.feedback = { tone: 'success', message: `已将 ${updated.feiTicketNo} 的数量修改为 ${updated.qty}片，二维码数量和编号范围同步更新。` }
     } catch (error) {
@@ -4623,10 +4622,10 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
 
   if (action === 'confirm-detail-delete') {
     try {
-      deleteUnprintedManualFeiTicket({
+      await saveFeiTicketAction({ intent: feiSaveIntent('deleteUnprintedManualFeiTicket'), action: () => deleteUnprintedManualFeiTicket({
         feiTicketId: state.detail.dialogTicketId,
         operatedBy: state.operationDraft.operator || '裁床打票员',
-      })
+      }) })
       state.detail.selectedTicketIds = state.detail.selectedTicketIds.filter((ticketId) => ticketId !== state.detail.dialogTicketId)
       state.detail = { ...state.detail, dialogMode: null, dialogTicketId: '' }
       state.feedback = { tone: 'success', message: '已删除该未打印手动菲票，并保留操作记录。' }
@@ -4698,12 +4697,12 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
   }
 
   if (action === 'confirm-first-print') {
-    performPrintOperation('fei-ticket-print')
+    await performPrintOperation('fei-ticket-print')
     return true
   }
 
   if (action === 'confirm-reprint') {
-    performPrintOperation('fei-ticket-reprint')
+    await performPrintOperation('fei-ticket-reprint')
     return true
   }
 
@@ -4719,4 +4718,19 @@ export function handleCraftCuttingFeiTicketsEvent(target: Element): boolean {
   }
 
   return false
+}
+
+export async function handleCraftCuttingFeiTicketsEvent(target: Element): Promise<boolean> {
+  let handled = false
+  try { handled = await handleCraftCuttingFeiTicketsEventInternal(target) }
+  catch (error) { state.feedback = { tone: 'error', message: `尚未保存：${error instanceof Error ? error.message : String(error)}` }; handled = true }
+  const action = target.closest<HTMLElement>('[data-cutting-fei-action]')?.dataset.cuttingFeiAction
+  const field = target.closest<HTMLElement>('[data-cutting-fei-manual-field]')?.dataset.cuttingFeiManualField
+  if (handled && getMountedListRoot()) {
+    if (['open-manual-create', 'close-manual-create', 'confirm-manual-create'].includes(action || '') || ['markerPlanId', 'markerMemberId'].includes(field || '')) refreshListRuntimeOverlays()
+    if (action === 'confirm-manual-create' && state.feedback?.tone === 'success') refreshListResults()
+    const feedback = getMountedListRoot()?.querySelector<HTMLElement>('[data-fei-feedback-surface]')
+    if (feedback) feedback.innerHTML = renderPageFeedback()
+  }
+  return handled
 }

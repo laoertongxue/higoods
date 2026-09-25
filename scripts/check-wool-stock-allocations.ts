@@ -14,6 +14,9 @@ Object.defineProperty(globalThis, 'document', { configurable: true, value: { add
   const field = selector.match(/^\[data-wool-stock-field="([^"]+)"\]$/)?.[1]
   return field ? { value: fields.get(field) || '' } : null
 }, querySelectorAll() { return [] } } })
+// Explicit isolated source snapshots normally hydrated by the browser bootstrap.
+await (await import('../src/data/fcs/cutting/part-ticket-records.ts')).hydratePartTicketRecords({ revision: 0, records: [] })
+await (await import('../src/data/fcs/production-context-records.ts')).hydrateProductionContextRecords({ revision: 0, records: [] })
 const core = await import('../src/data/fcs/factory-receiving.ts')
 const links = await import('../src/data/fcs/factory-receiving-links.ts')
 const wool = await import('../src/data/fcs/wool-domain/store.ts')

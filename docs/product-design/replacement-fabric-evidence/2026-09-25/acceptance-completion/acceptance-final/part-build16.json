@@ -1,0 +1,693 @@
+{
+  "version": "build-7 2026-09-25 source-build7.json",
+  "environment": "Chromium local preview43236; fresh isolated contexts, 1366x768 Web / 390x844 PDA; navigation0/event to content+images+2RAF",
+  "results": [
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 312,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 179.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 67.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "open-manual",
+      "ms": 243.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "save-manual",
+      "ms": 159.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "actual-first-print",
+      "ms": 170.19999998807907,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 375.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 177.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 66.7999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "open-manual",
+      "ms": 236.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "save-manual",
+      "ms": 156.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "actual-first-print",
+      "ms": 170.90000000596046,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 285.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 176,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 68.10000002384186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "open-manual",
+      "ms": 234.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "save-manual",
+      "ms": 155.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "actual-first-print",
+      "ms": 172,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 281.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 175.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 67.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "open-manual",
+      "ms": 234.2999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "save-manual",
+      "ms": 157.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "actual-first-print",
+      "ms": 170.2999999821186,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 278.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 185.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 68.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "open-manual",
+      "ms": 236.39999997615814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "save-manual",
+      "ms": 157.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "actual-first-print",
+      "ms": 170.90000000596046,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "print",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 185.89999997615814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 125.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 74.2000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 188.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 126.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 39.60000002384186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 189,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 119.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 55.099999994039536,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 208.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 114.2000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 53.099999994039536,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 188.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 141.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 42.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 387.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 228.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 188.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "start-cutting",
+      "ms": 222.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 389.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 218.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 154.10000002384186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "start-cutting",
+      "ms": 188.30000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 365.7999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 230.2999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 137.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "start-cutting",
+      "ms": 214.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 395.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 274,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 140.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "start-cutting",
+      "ms": 192.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 424.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 230,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 158.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "start-cutting",
+      "ms": 186.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 369,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 246.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 152.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "start-spreading",
+      "ms": 324.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 352.30000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 263.7000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 152.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "start-spreading",
+      "ms": 321.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 363.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 247.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 151.89999997615814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "start-spreading",
+      "ms": 321.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 348.2999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 263,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 153.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "start-spreading",
+      "ms": 343.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 351.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 262.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 153.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "start-spreading",
+      "ms": 321.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    }
+  ],
+  "failed": [],
+  "max": 424.59999999403954
+}

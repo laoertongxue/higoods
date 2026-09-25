@@ -1,0 +1,40 @@
+✔ 逐票与逐打印任务保持原结构，变更一条只保存一条 (1.016ms)
+✔ 草稿按原映射键保存；手工票与操作记录分离，删除票保留审计 (0.219417ms)
+✔ 拒绝损坏JSON且不冒充空数据 (0.111166ms)
+✔ 拒绝空字符串且不冒充空数据 (0.043584ms)
+✔ 拒绝错误根且不冒充空数据 (0.040709ms)
+✔ 拒绝重复票号身份且不冒充空数据 (0.042375ms)
+✔ 拒绝缺少票号且不冒充空数据 (0.045416ms)
+✔ 拒绝错误状态且不冒充空数据 (0.040458ms)
+✔ 拒绝打印关联缺失且不冒充空数据 (0.049125ms)
+✔ 拒绝草稿身份缺失且不冒充空数据 (0.073625ms)
+✔ 拒绝手工日志缺失且不冒充空数据 (0.046375ms)
+✔ 拒绝手工二维码缺失且不冒充空数据 (0.036834ms)
+✔ 已保存实体与备份身份校验，不接受伪造集合或迁移元数据 (0.349417ms)
+✖ 袋账派生绑定锁，无需持久化派生票快照；关闭周转解除旧快照锁 (16.686875ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 13
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 156.254375
+
+✖ failing tests:
+
+test at tests/unit/part-ticket-records.test.ts:39:1
+✖ 袋账派生绑定锁，无需持久化派生票快照；关闭周转解除旧快照锁 (16.686875ms)
+  TypeError [ERR_IMPORT_ATTRIBUTE_MISSING]: Module "file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-order-demo-tech-packs.json" needs an import attribute of "type: json"
+      at validateAttributes (node:internal/modules/esm/assert:110:15)
+      at defaultLoadSync (node:internal/modules/esm/load:161:3)
+      at #loadAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:809:12)
+      at #loadSync (node:internal/modules/esm/loader:841:53)
+      at ModuleLoader.load (node:internal/modules/esm/loader:790:26)
+      at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:501:31)
+      at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:567:36)
+      at afterResolve (node:internal/modules/esm/loader:614:52)
+      at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:12)
+      at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33) {
+    code: 'ERR_IMPORT_ATTRIBUTE_MISSING'
+  }

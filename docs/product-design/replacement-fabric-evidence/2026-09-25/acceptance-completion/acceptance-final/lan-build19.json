@@ -1,0 +1,85 @@
+{
+  "results": [
+    {
+      "sample": 1,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-c2d8102b-663b-46cf-9ba9-bb42bbfd1aa2"
+      ],
+      "addMs": 65.30000001192093,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 2,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-cb10d3e7-ec57-4223-bf4f-38bf157e1be7"
+      ],
+      "addMs": 65.2000000178814,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 3,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-7ac04679-79d9-4a97-b652-81cc634fc459"
+      ],
+      "addMs": 63,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 4,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-02fcea11-4a91-4416-be4d-2f6c015e43dd"
+      ],
+      "addMs": 65.59999999403954,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 5,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-96d696c3-0926-4dc6-87dd-bfd8f4104826"
+      ],
+      "addMs": 64.40000000596046,
+      "errors": [],
+      "printed": 2
+    }
+  ],
+  "failed": []
+}

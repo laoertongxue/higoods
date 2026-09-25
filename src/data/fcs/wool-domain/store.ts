@@ -870,6 +870,14 @@ function readPersistedStore(): WoolDomainStore | undefined {
   return parsed
 }
 
+/** 裁后列表只读取毛织已保存的实收来源，不初始化或落盘毛织演示链。 */
+export function readWoolStoreForCuttingReceipts(): WoolDomainStore {
+  const snapshot = memoryStore ? cloneStore(memoryStore) : readPersistedStore() ?? buildWoolFactWorkflowMockStore()
+  resetLegacyWoolFacts(snapshot)
+  projectFactoryReceiptsIntoWool(snapshot)
+  return snapshot
+}
+
 export function readWoolStore(): WoolDomainStore {
   woolStoreReadCount += 1
   if (!memoryStore) {

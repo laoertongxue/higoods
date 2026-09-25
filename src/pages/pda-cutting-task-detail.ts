@@ -1,3 +1,4 @@
+import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { getRuntimeTaskById, recordRuntimeTaskExecution, runRuntimeTaskAction } from '../data/fcs/runtime-process-tasks.ts'
 import { getPdaSession, findFactoryPdaRoleById } from '../data/fcs/store-domain-pda.ts'
 import { escapeHtml, localDateTimeText } from '../utils'
@@ -281,7 +282,7 @@ export function completePdaCuttingTaskManually(taskId: string): void {
   recordRuntimeTaskExecution(taskId, { status: 'DONE', finishedAt: at, updatedAt: at, auditLogs: [...task.auditLogs, { id: `${taskId}-manual-finish-${at}`, action: 'FINISH', detail: `人工确认整体裁片任务完成；覆盖 ${detail!.cutPieceOrders.length} 张铺布单，不更改原裁剪及交接数量。`, at, by: session.userName }] })
 }
 
-export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
+export async function handlePdaCuttingTaskDetailEvent(target: HTMLElement): Promise<boolean> {
   const button = target.closest<HTMLElement>('[data-pda-cutting-task-action]')
   if (!button) return false
   const taskId = button.dataset.taskId || ''
@@ -291,7 +292,7 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
       const { session } = requireCuttingTaskActor(taskId, 'TASK_FINISH')
       if (!window.confirm(`确认由 ${session.userName} 人工完成整个裁片加工任务？该动作不会替代尚未发生的交接。`)) return true
       if (getPdaSession()?.userId !== session.userId) throw new Error('操作账号已变化，请重新确认。')
-      completePdaCuttingTaskManually(taskId)
+      await saveProductionSourceUiAction(`manual-complete-cutting:${taskId}`,()=>completePdaCuttingTaskManually(taskId))
       button.textContent = '整体任务已人工完成'
       button.setAttribute('disabled', 'true')
       if (feedback) feedback.textContent = `已保存：${session.userName}，${getRuntimeTaskById(taskId)?.finishedAt || ''}`
@@ -323,10 +324,8 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
   const currentLine = getPdaCuttingTaskSnapshot(taskId, executionOrderId)?.cutPieceOrders.find(line => line.executionOrderId === executionOrderId)
   if (!currentLine || currentLine.nextActionLabel !== '开工') { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '该床当前不能重复开工，请刷新原任务。' }; return true }
   const operator = resolvePdaCuttingRuntimeOperator(taskId)
-  let ledgerBefore: string | null
-  try { ledgerBefore = localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) } catch { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '无法读取原开工记录，请检查本机存储后重试。' }; return true }
   try {
-  const event = runRuntimeTaskAction(() => {
+  const event = await saveProductionSourceUiAction(JSON.stringify({action:'start-cutting-order',taskId,executionOrderId}),()=>runRuntimeTaskAction(() => {
   const startedAt = localDateTimeText().slice(0, 16)
   const event = appendCuttingRuntimeEvent({
     eventType: '裁片单开工',
@@ -357,7 +356,7 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
   if (actor.runtimeTask && actor.task.status === 'NOT_STARTED') recordRuntimeTaskExecution(taskId, { status: 'IN_PROGRESS', startedAt, updatedAt: startedAt, auditLogs: [...actor.task.auditLogs, { id: `${taskId}-start-${event.eventId}`, action: 'START', detail: `原铺布单 ${identity.executionOrderNo} 开工；事件 ${event.eventId}`, at: startedAt, by: operator.operatorName }] })
   else if (actor.runtimeTask && actor.task.status !== 'IN_PROGRESS') throw new Error('当前整体任务不允许新开工。')
   return event
-  })
+  }),true)
   if (feedback) {
     feedback.classList.remove('hidden')
     feedback.textContent = `已同步：开工已提交，${event.occurredAt}`
@@ -368,8 +367,6 @@ export function handlePdaCuttingTaskDetailEvent(target: HTMLElement): boolean {
   const state = document.querySelector<HTMLElement>('[data-cutting-task-state]')
   if (state) state.innerHTML = renderPdaCuttingStatusChip('进行中', 'blue')
   } catch (error) {
-    try { if (ledgerBefore === null) localStorage.removeItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY); else localStorage.setItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, ledgerBefore) }
-    catch { if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = '开工未保存，原记录回退未核实，请保留页面并联系主管。' }; return true }
     if (feedback) { feedback.classList.remove('hidden'); feedback.textContent = error instanceof Error ? error.message : '开工未保存，请重试' }
   }
   return true

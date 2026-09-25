@@ -1,12 +1,8 @@
+import { savePartTicketAction, stagePartTicketTransferBagStore, onPartTicketChanged, PART_TICKET_KEYS } from '../../../../data/fcs/cutting/part-ticket-records.ts'
+import { listManagedCuttingRuntimeEvents } from '../../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { cuttingRecordUuid } from '../../../../data/fcs/cutting/cutting-record-identity.ts'
 import { appStore } from '../../../../state/store.ts'
 import { escapeHtml, formatDateTime } from '../../../../utils.ts'
-import {
-  CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY,
-} from '../../../../data/fcs/cutting/storage/fei-tickets-storage.ts'
-import {
-  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
-  deserializeCuttingRuntimeEventLedgerStorage,
-} from '../../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   buildCuttingTraceabilityId,
   encodeCarrierQr,
@@ -35,14 +31,12 @@ import {
   buildTransferBagCarrierManagementProjection,
   buildTransferBagParentChildSummary,
   createTransferBagUsageDraft,
-  CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY,
   CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY,
   deriveTransferBagMasterStatus,
   deriveTransferBagUsageStatus,
   deserializeTransferBagSelectedTicketIds,
   ensureUsageContextLockedByTicket,
   serializeTransferBagSelectedTicketIds,
-  serializeTransferBagStorage,
   validateTicketBindingEligibility,
   type TransferBagBindingItem,
   type TransferBagCarrierCurrentStatus,
@@ -233,6 +227,10 @@ export function hydrateStore(): TransferBagStore {
   return buildTransferBagsProjection().store
 }
 
+export function readSelectedTicketIdsPreference(): string | null {
+  try { return sessionStorage.getItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY) } catch { return null }
+}
+
 export const state: TransferBagsPageState = {
   store: hydrateStore(),
   masterKeyword: '',
@@ -253,7 +251,7 @@ export const state: TransferBagsPageState = {
   landingBanner: null,
   querySignature: '',
   preselectedTicketRecordIds: deserializeTransferBagSelectedTicketIds(
-    sessionStorage.getItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY),
+    readSelectedTicketIdsPreference(),
   ),
   activeDialog: null,
   masterDraft: {
@@ -294,14 +292,14 @@ export function getViewModel() {
 }
 
 export function getCarrierManagementProjection() {
-  const runtimeLedgerSignature = localStorage.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) || ''
+  const runtimeEvents = listManagedCuttingRuntimeEvents()
+  const runtimeLedgerSignature = JSON.stringify(runtimeEvents)
   if (
     carrierManagementProjectionCache?.version === projectionVersion
     && carrierManagementProjectionCache.runtimeLedgerSignature === runtimeLedgerSignature
   ) return carrierManagementProjectionCache.projection
 
   const viewModel = getViewModel()
-  const runtimeEvents = deserializeCuttingRuntimeEventLedgerStorage(runtimeLedgerSignature).events
   const projection = buildTransferBagCarrierManagementProjection(
     state.store,
     viewModel,
@@ -315,14 +313,45 @@ export function getCarrierManagementProjection() {
   return projection
 }
 
-export function persistStore(): void {
-  invalidateTransferBagProjectionCache()
-  localStorage.setItem(CUTTING_TRANSFER_BAG_LEDGER_STORAGE_KEY, serializeTransferBagStorage(state.store))
-  const nextTicketRecords = getProjection().ticketRecords
-  localStorage.setItem(CUTTING_FEI_TICKET_RECORDS_STORAGE_KEY, serializeTransferBagTicketRecordsStorage(nextTicketRecords))
+let actionStoreBaseline: TransferBagStore | null = null
+const pendingStoreCommands = new Map<string, string>()
+
+/** 一个页面动作只提交一次；所有内层 persist 仅合并到同一暂存事务。 */
+export async function saveTransferBagPageAction(intent: string, action: () => boolean): Promise<boolean> {
+  const id = pendingStoreCommands.get(intent) || `TRANSFER-BAG-UI:${cuttingRecordUuid()}`
+  pendingStoreCommands.set(intent, id)
+  try {
+    const result = await savePartTicketAction({
+      id, intent,
+      capture: () => structuredClone(state),
+      restore: value => { Object.assign(state, structuredClone(value as TransferBagsPageState)); invalidateTransferBagProjectionCache() },
+      action: () => {
+        actionStoreBaseline = structuredClone(state.store)
+        try { return action() } finally { actionStoreBaseline = null }
+      },
+    })
+    pendingStoreCommands.delete(intent)
+    return result
+  } catch (error) {
+    setFeedback('warning', `本次操作未保存，请保留当前输入并重试。${error instanceof Error ? error.message : String(error)}`)
+    return true
+  }
 }
 
+export function persistStore(): void {
+  if (!actionStoreBaseline) throw new Error('中转袋保存必须通过完整页面动作确认。')
+  stagePartTicketTransferBagStore(state.store, actionStoreBaseline)
+  // 同步计算中的后续步骤要能读到刚创建的周转；等待事务期间会恢复原状态及缓存。
+  invalidateTransferBagProjectionCache()
+}
+
+onPartTicketChanged(PART_TICKET_KEYS.bags, () => {
+  state.store = hydrateStore()
+  invalidateTransferBagProjectionCache()
+})
+
 export function persistSelectedTicketIds(): void {
+  try {
   if (state.preselectedTicketRecordIds.length) {
     sessionStorage.setItem(
       CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY,
@@ -331,6 +360,7 @@ export function persistSelectedTicketIds(): void {
   } else {
     sessionStorage.removeItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY)
   }
+  } catch { /* 临时勾选可丢弃，不影响已保存的袋内内容。 */ }
 }
 
 export function setFeedback(tone: FeedbackTone, message: string): void {

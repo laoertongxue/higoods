@@ -256,7 +256,11 @@ function listFeiRecordsForSource(sourceId: string, documentType?: PrintDocumentT
   if (ids.length > 0 && bindingMatches.length === ids.length) return bindingMatches
 
   const records = listFeiRecords(documentType, bindingRecords)
-  if (ids.length > 1) return ids.map((id) => findFeiRecordInRecords(records, id)).filter(Boolean) as AnyFeiTicket[]
+  if (ids.length > 1) {
+    const matches = ids.map((id) => findFeiRecordInRecords(records, id))
+    if (matches.some(record => !record)) throw new Error('部分菲票不存在或已失效，请重新选择打印范围。')
+    return matches as AnyFeiTicket[]
+  }
 
   const exact = findFeiRecordInRecords(records, sourceId)
   if (exact) return [exact]
@@ -924,7 +928,7 @@ function renderTransferBagGoodsLabelItem(item: PrintLabelItem, paperType: PrintP
       <div class="transfer-bag-goods-bag"><span>中转袋</span><strong>${escapeHtml(page.bagCode)}</strong></div>
       <div style="font-size:12px;overflow-wrap:anywhere">生产单：<strong>${escapeHtml(page.productionOrderNo)}</strong></div>
       <div style="display:flex;gap:8px;align-items:center;margin:8px 0;font-size:12px;overflow-wrap:anywhere">
-        ${ticket.materialImageUrl ? `<img src="${escapeHtml(ticket.materialImageUrl)}" alt="${escapeHtml(ticket.materialName || '')}" style="width:18mm;height:18mm;object-fit:contain" data-pda-image-preview-url="${escapeHtml(ticket.materialImageUrl)}">` : '<span>面料图缺失</span>'}
+        ${ticket.materialImageUrl ? `<span data-print-image-frame><button type="button" data-print-image-url="${escapeHtml(ticket.materialImageUrl)}" data-print-image-title="${escapeHtml(ticket.materialName || '面料')}" aria-label="查看${escapeHtml(ticket.materialName || '面料')}大图"><img data-print-image src="${escapeHtml(ticket.materialImageUrl)}" alt="${escapeHtml(ticket.materialName || '面料')}" style="width:18mm;height:18mm;object-fit:contain"></button><span data-print-image-loading class="print-hidden">图片加载中…</span><span data-print-image-error hidden class="print-hidden">面料图片加载失败 <button type="button" data-print-image-retry>重试图片</button></span></span>` : '<span data-print-image-missing>面料图缺失，请补齐后打印</span>'}
         <div><strong>${escapeHtml(ticket.materialName || '')}</strong><div>${escapeHtml(ticket.materialCode || '')} · ${escapeHtml(ticket.color)}</div></div>
       </div>
       <strong style="display:block;font-size:20px">${ticket.quantity} ${escapeHtml(ticket.quantityUnit || '')}${ticket.replacementSequence ? ` · 第 ${ticket.replacementSequence} 张` : ''}</strong>

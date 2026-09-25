@@ -2,7 +2,7 @@
 export const CUTTING_RECORD_DB = 'higood-cutting-records-v1'
 export interface CuttingStoredRecord<T = unknown> { id: string; collection: string; value: T }
 export interface CuttingRecordSnapshot { revision: number; records: CuttingStoredRecord[] }
-export interface CuttingRecordChange { puts: CuttingStoredRecord[]; deletes?: string[] }
+export interface CuttingRecordChange { puts: CuttingStoredRecord[]; deletes?: string[]; files?: Array<{ id: string; blob: Blob }>; deleteFileIds?: string[] }
 export interface CuttingStoredCommand { id: string; intent: string; result: unknown; at: string }
 const STORES = ['records', 'commands', 'meta', 'files'] as const
 let connection: Promise<IDBDatabase> | null = null
@@ -55,15 +55,22 @@ export async function readCuttingCommand(id: string): Promise<CuttingStoredComma
   const result = await requestValue(tx.objectStore('commands').get(id)); await done; return result
 }
 
+export async function readCuttingRecordFile(id: string): Promise<Blob | undefined> {
+  const db = await openCuttingRecordDatabase(); const tx = db.transaction('files', 'readonly'); const done = completion(tx)
+  const file = await requestValue(tx.objectStore('files').get(id)); await done; return file?.blob
+}
+
 /** 事务中的 command 与 revision 检查同时防止重放、抢票、旧页面静默覆盖。 */
 export async function commitCuttingRecords<T>(input: {
   revision: number; change: CuttingRecordChange; command: CuttingStoredCommand & { result: T }; assertSourcesCurrent?: () => void
 }): Promise<{ result: T; revision: number; replayed: boolean }> {
   if (!input.command.id || !input.command.intent) throw new Error('保存失败：操作标识缺失。')
   if (new Set(input.change.puts.map(record => record.id)).size !== input.change.puts.length) throw new Error('保存失败：记录编号重复。')
+  if (input.change.files?.some(file => !file.id || !(file.blob instanceof Blob))
+    || new Set(input.change.files?.map(file => file.id)).size !== (input.change.files?.length || 0)) throw new Error('保存失败：附件身份或内容不完整。')
   const db = await openCuttingRecordDatabase()
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(['records', 'commands', 'meta'], 'readwrite')
+    const tx = db.transaction(['records', 'commands', 'meta', 'files'], 'readwrite')
     let failure: Error | null = null; let replayed = false; let revision = input.revision; let result = input.command.result
     const abort = (error: Error) => { failure = error; tx.abort() }
     tx.onabort = () => reject(failure || tx.error || new Error('尚未保存：本次操作已撤回，请重试。'))
@@ -71,7 +78,7 @@ export async function commitCuttingRecords<T>(input: {
     tx.oncomplete = () => {
       // 通知只在 complete 后发布；其他页收到通知需重新读取，不能接受旧内存继续写入。
       if (!replayed && typeof BroadcastChannel !== 'undefined') {
-        const channel = new BroadcastChannel(CUTTING_RECORD_DB); channel.postMessage({ revision }); channel.close()
+        try { const channel = new BroadcastChannel(CUTTING_RECORD_DB); try { channel.postMessage({ revision }) } finally { channel.close() } } catch { /* 已提交；通知不可用不改变保存结果。 */ }
       }
       resolve({ result, revision, replayed })
     }
@@ -94,6 +101,8 @@ export async function commitCuttingRecords<T>(input: {
           input.assertSourcesCurrent?.()
           for (const record of input.change.puts) tx.objectStore('records').put(record)
           for (const id of input.change.deletes || []) tx.objectStore('records').delete(id)
+          for (const file of input.change.files || []) tx.objectStore('files').put(file)
+          for (const id of input.change.deleteFileIds || []) tx.objectStore('files').delete(id)
           tx.objectStore('commands').add(input.command)
           revision = input.revision + 1
           tx.objectStore('meta').put({ id: 'revision', value: revision })
@@ -145,6 +154,8 @@ export function validateCuttingRecordBackup(value: unknown): asserts value is Cu
     } else if (row.collection === 'replacement-prints') {
       if (!tickets.has(String(value.ticketId)) || !value.commandId || !value.printedAt || !value.printedBy) throw new Error('备份打印记录缺少关联原票或确认信息。')
       printedIds.add(String(value.ticketId))
+    } else if (row.collection === 'cutting-event-scopes') {
+      if (row.id !== 'cutting-event-scope:post-cutting-v2' || value.phase !== 'COMPLETE' || value.version !== 2) throw new Error('备份裁后来源核对记录不完整。')
     } else if (row.collection === 'cutting-events') {
       if (row.id !== `cutting-event:${value.eventId}` || !value.eventType || !value.refs || !value.payload) throw new Error('备份裁床动作记录不完整。')
     }
@@ -169,6 +180,18 @@ export function validateCuttingRecordBackup(value: unknown): asserts value is Cu
 /** 恢复仅合并完全相同或不存在的记录；冲突整批中止，不覆盖、清空用户数据。 */
 export async function restoreCuttingRecordBackup(data: unknown): Promise<void> {
   validateCuttingRecordBackup(data)
+  const { validateProductionContextRecords } = await import('../production-context-records.ts')
+  validateProductionContextRecords(data.records)
+  const { validateRetiredCutPiecePickupHistory } = await import('./retired-cut-piece-pickup-history.ts')
+  validateRetiredCutPiecePickupHistory(data.records)
+  const { validatePartTicketRecords } = await import('./part-ticket-records.ts')
+  validatePartTicketRecords(data.records)
+  const { validateCuttingFileReferences } = await import('./cutting-file-maintenance.ts')
+  validateCuttingFileReferences(data.records, data.commands, data.files)
+  const { cuttingRecordBytesFingerprint } = await import('./cutting-record-identity.ts')
+  for (const file of data.files.filter(item => item.id.startsWith('production-context-file:'))) {
+    if (file.id !== `production-context-file:${await cuttingRecordBytesFingerprint(new Uint8Array(await file.blob.arrayBuffer()))}`) throw new Error('备份附件内容与身份不一致，未恢复。')
+  }
   const expectedRevision = (await readCuttingRecords()).revision
   const existing = await exportCuttingRecordBackup()
   const sameFiles = new Set<string>()

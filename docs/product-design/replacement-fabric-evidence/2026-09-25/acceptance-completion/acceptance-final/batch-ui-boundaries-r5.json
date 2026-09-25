@@ -1,0 +1,370 @@
+{
+  "results": [
+    {
+      "scenario": "unbound-fabric-omission-and-retry",
+      "fixture": {
+        "taskId": "TASKGEN-202603-0002-002__ORDER",
+        "taskNo": "TASKGEN-202603-0002-002",
+        "productionOrderId": "PO-202603-0002",
+        "ppicId": "PPIC-ACTIVE-004",
+        "ppicName": "王芳",
+        "factoryId": "ID-F001",
+        "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "partId": "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back",
+        "partQty": 800,
+        "unit": "Yard",
+        "length": 5,
+        "boundFabric": false
+      },
+      "steps": [
+        {
+          "action": "UI选择任务与PPIC后自动归集",
+          "initialSelection": [
+            "BAG-HPB-PARTS-VERIFY"
+          ],
+          "groupText": "BAG-HPB-PARTS-VERIFY\n直接交出\n本任务：部位裁片 1 张 / 800 片"
+        },
+        {
+          "action": "真实确认漏选袋阻断",
+          "feedback": "本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+          "databaseUnchanged": true
+        },
+        {
+          "action": "真实扫描输入补充换片布袋",
+          "selection": [
+            "BAG-HPB-FABRIC-VERIFY",
+            "BAG-HPB-PARTS-VERIFY"
+          ],
+          "groupText": "BAG-HPB-FABRIC-VERIFY\n直接交出\n本任务：换片布 1 张 / 5 Yard\nBAG-HPB-PARTS-VERIFY\n直接交出\n本任务：部位裁片 1 张 / 800 片"
+        }
+      ],
+      "feedback": "本次交出成功：2 只中转袋已交出待回收，0 只来源袋已重新入仓。 如需处理下一笔，请关闭后重新打开。",
+      "selectedBags": [
+        "BAG-HPB-FABRIC-VERIFY",
+        "BAG-HPB-PARTS-VERIFY"
+      ],
+      "groupText": "BAG-HPB-FABRIC-VERIFY\n直接交出\n本任务：换片布 1 张 / 5 Yard\nBAG-HPB-PARTS-VERIFY\n直接交出\n本任务：部位裁片 1 张 / 800 片",
+      "events": [
+        {
+          "eventId": "cutting-event:HANDOVER:TASK-HR:WEB-HANDOVER-1790314212981:BAG-HPB-FABRIC-VERIFY-BAG-HPB-FABRIC-VERIFY-CYCLE-BAG-HPB-FABRIC-VERIFY-CYCLE-BAG-HPB-FABRIC-VERIFY:handover:1-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:202609251330",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+            ],
+            "transferBagCode": "BAG-HPB-FABRIC-VERIFY",
+            "handoverOrderId": "TASK-HO:WEB-HANDOVER-1790314212981",
+            "handoverRecordId": "TASK-HR:WEB-HANDOVER-1790314212981:BAG-HPB-FABRIC-VERIFY",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-FABRIC-VERIFY",
+            "handoverLegId": "CYCLE-BAG-HPB-FABRIC-VERIFY:handover:1",
+            "handoverBatchId": "WEB-HANDOVER-1790314212981",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [
+              "TASKGEN-202603-0002-002__ORDER"
+            ],
+            "sewingTaskNos": [
+              "TASKGEN-202603-0002-002"
+            ]
+          },
+          "items": [
+            {
+              "ticketKind": "REPLACEMENT_FABRIC",
+              "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+              "materialName": "主面料",
+              "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "quantity": 5,
+              "quantityUnit": "Yard",
+              "replacementSequence": 1,
+              "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+              "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+              "pieceQty": 0,
+              "unit": "片"
+            }
+          ]
+        },
+        {
+          "eventId": "cutting-event:HANDOVER:TASK-HR:WEB-HANDOVER-1790314212981:BAG-HPB-PARTS-VERIFY-BAG-HPB-PARTS-VERIFY-CYCLE-BAG-HPB-PARTS-VERIFY-CYCLE-BAG-HPB-PARTS-VERIFY:handover:1-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back:202609251330",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back"
+            ],
+            "feiTicketNos": [
+              "FT-CUT-260303-002-01-001"
+            ],
+            "transferBagCode": "BAG-HPB-PARTS-VERIFY",
+            "handoverOrderId": "TASK-HO:WEB-HANDOVER-1790314212981",
+            "handoverRecordId": "TASK-HR:WEB-HANDOVER-1790314212981:BAG-HPB-PARTS-VERIFY",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-PARTS-VERIFY",
+            "handoverLegId": "CYCLE-BAG-HPB-PARTS-VERIFY:handover:1",
+            "handoverBatchId": "WEB-HANDOVER-1790314212981",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [
+              "TASKGEN-202603-0002-002__ORDER"
+            ],
+            "sewingTaskNos": [
+              "TASKGEN-202603-0002-002"
+            ]
+          },
+          "items": [
+            {
+              "feiTicketId": "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back",
+              "feiTicketNo": "FT-CUT-260303-002-01-001",
+              "pieceQty": 800,
+              "unit": "片"
+            }
+          ]
+        }
+      ],
+      "receipts": [
+        {
+          "id": "HPB-RECEIPT:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ticket": {
+            "id": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+            "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cuttingFactoryId": "F090",
+            "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+            "material": {
+              "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "code": "tdv_demand_SPU_2024_005-bom-main",
+              "name": "主面料",
+              "color": "Grey",
+              "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "skuCodes": [
+                "SKU-005-S-GRY",
+                "SKU-005-M-GRY",
+                "SKU-005-L-GRY",
+                "SKU-005-XL-GRY"
+              ]
+            },
+            "sequence": 1,
+            "length": 5,
+            "unit": "Yard",
+            "createdAt": "2026-03-19 10:00:00",
+            "createdBy": "裁床分配自动生成",
+            "creationCommandId": "assignment-default:[\"PO-202603-0002\",\"F090\",\"[\\\"TASKGEN-202603-0002-001__ORDER\\\",\\\"F090\\\",\\\"2026-03-19 10:00:00\\\"]\",\"[\\\"tdv_demand_SPU_2024_005-bom-main\\\",\\\"Grey\\\"]\"]"
+          },
+          "taskId": "TASKGEN-202603-0002-002__ORDER",
+          "receiverFactoryId": "ID-F001",
+          "handoverRecordId": "TASK-HR:WEB-HANDOVER-1790314212981:BAG-HPB-FABRIC-VERIFY",
+          "confirmedAt": "2026-09-25 13:30",
+          "confirmedBy": "真实UI边界验收仓管",
+          "bagUseId": "CYCLE-BAG-HPB-FABRIC-VERIFY"
+        }
+      ],
+      "errors": [],
+      "infrastructureErrors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "refreshConsistent": true,
+      "prerequisite": "明确Mock任务分配、已打印换片布票及两个入仓袋；未预写交出或领取结果。被测确认均来自真实待交出UI。"
+    },
+    {
+      "scenario": "both-bound-auto-aggregation",
+      "fixture": {
+        "taskId": "TASKGEN-202603-0002-002__ORDER",
+        "taskNo": "TASKGEN-202603-0002-002",
+        "productionOrderId": "PO-202603-0002",
+        "ppicId": "PPIC-ACTIVE-004",
+        "ppicName": "王芳",
+        "factoryId": "ID-F001",
+        "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "partId": "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back",
+        "partQty": 800,
+        "unit": "Yard",
+        "length": 5,
+        "boundFabric": true
+      },
+      "steps": [
+        {
+          "action": "UI选择任务与PPIC后自动归集",
+          "initialSelection": [
+            "BAG-HPB-FABRIC-VERIFY",
+            "BAG-HPB-PARTS-VERIFY"
+          ],
+          "groupText": "BAG-HPB-FABRIC-VERIFY\n直接交出\n本任务：换片布 1 张 / 5 Yard\nBAG-HPB-PARTS-VERIFY\n直接交出\n本任务：部位裁片 1 张 / 800 片"
+        }
+      ],
+      "feedback": "本次交出成功：2 只中转袋已交出待回收，0 只来源袋已重新入仓。 如需处理下一笔，请关闭后重新打开。",
+      "selectedBags": [
+        "BAG-HPB-FABRIC-VERIFY",
+        "BAG-HPB-PARTS-VERIFY"
+      ],
+      "groupText": "BAG-HPB-FABRIC-VERIFY\n直接交出\n本任务：换片布 1 张 / 5 Yard\nBAG-HPB-PARTS-VERIFY\n直接交出\n本任务：部位裁片 1 张 / 800 片",
+      "events": [
+        {
+          "eventId": "cutting-event:HANDOVER:TASK-HR:WEB-HANDOVER-1790314220807:BAG-HPB-FABRIC-VERIFY-BAG-HPB-FABRIC-VERIFY-CYCLE-BAG-HPB-FABRIC-VERIFY-CYCLE-BAG-HPB-FABRIC-VERIFY:handover:1-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:202609251330",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+            ],
+            "transferBagCode": "BAG-HPB-FABRIC-VERIFY",
+            "handoverOrderId": "TASK-HO:WEB-HANDOVER-1790314220807",
+            "handoverRecordId": "TASK-HR:WEB-HANDOVER-1790314220807:BAG-HPB-FABRIC-VERIFY",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-FABRIC-VERIFY",
+            "handoverLegId": "CYCLE-BAG-HPB-FABRIC-VERIFY:handover:1",
+            "handoverBatchId": "WEB-HANDOVER-1790314220807",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [
+              "TASKGEN-202603-0002-002__ORDER"
+            ],
+            "sewingTaskNos": [
+              "TASKGEN-202603-0002-002"
+            ]
+          },
+          "items": [
+            {
+              "ticketKind": "REPLACEMENT_FABRIC",
+              "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+              "materialName": "主面料",
+              "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "quantity": 5,
+              "quantityUnit": "Yard",
+              "replacementSequence": 1,
+              "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+              "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+              "pieceQty": 0,
+              "unit": "片"
+            }
+          ]
+        },
+        {
+          "eventId": "cutting-event:HANDOVER:TASK-HR:WEB-HANDOVER-1790314220807:BAG-HPB-PARTS-VERIFY-BAG-HPB-PARTS-VERIFY-CYCLE-BAG-HPB-PARTS-VERIFY-CYCLE-BAG-HPB-PARTS-VERIFY:handover:1-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back:202609251330",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back"
+            ],
+            "feiTicketNos": [
+              "FT-CUT-260303-002-01-001"
+            ],
+            "transferBagCode": "BAG-HPB-PARTS-VERIFY",
+            "handoverOrderId": "TASK-HO:WEB-HANDOVER-1790314220807",
+            "handoverRecordId": "TASK-HR:WEB-HANDOVER-1790314220807:BAG-HPB-PARTS-VERIFY",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-PARTS-VERIFY",
+            "handoverLegId": "CYCLE-BAG-HPB-PARTS-VERIFY:handover:1",
+            "handoverBatchId": "WEB-HANDOVER-1790314220807",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [
+              "TASKGEN-202603-0002-002__ORDER"
+            ],
+            "sewingTaskNos": [
+              "TASKGEN-202603-0002-002"
+            ]
+          },
+          "items": [
+            {
+              "feiTicketId": "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back",
+              "feiTicketNo": "FT-CUT-260303-002-01-001",
+              "pieceQty": 800,
+              "unit": "片"
+            }
+          ]
+        }
+      ],
+      "receipts": [
+        {
+          "id": "HPB-RECEIPT:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ticket": {
+            "id": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+            "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cuttingFactoryId": "F090",
+            "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+            "material": {
+              "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "code": "tdv_demand_SPU_2024_005-bom-main",
+              "name": "主面料",
+              "color": "Grey",
+              "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "skuCodes": [
+                "SKU-005-S-GRY",
+                "SKU-005-M-GRY",
+                "SKU-005-L-GRY",
+                "SKU-005-XL-GRY"
+              ]
+            },
+            "sequence": 1,
+            "length": 5,
+            "unit": "Yard",
+            "createdAt": "2026-03-19 10:00:00",
+            "createdBy": "裁床分配自动生成",
+            "creationCommandId": "assignment-default:[\"PO-202603-0002\",\"F090\",\"[\\\"TASKGEN-202603-0002-001__ORDER\\\",\\\"F090\\\",\\\"2026-03-19 10:00:00\\\"]\",\"[\\\"tdv_demand_SPU_2024_005-bom-main\\\",\\\"Grey\\\"]\"]"
+          },
+          "taskId": "TASKGEN-202603-0002-002__ORDER",
+          "receiverFactoryId": "ID-F001",
+          "handoverRecordId": "TASK-HR:WEB-HANDOVER-1790314220807:BAG-HPB-FABRIC-VERIFY",
+          "confirmedAt": "2026-09-25 13:30",
+          "confirmedBy": "真实UI边界验收仓管",
+          "bagUseId": "CYCLE-BAG-HPB-FABRIC-VERIFY"
+        }
+      ],
+      "errors": [],
+      "infrastructureErrors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "refreshConsistent": true,
+      "prerequisite": "明确Mock任务分配、已打印换片布票及两个入仓袋；未预写交出或领取结果。被测确认均来自真实待交出UI。"
+    }
+  ],
+  "failed": [],
+  "reverseOrder": {
+    "uiApplicable": false,
+    "reason": "页面固定按任务自动归集已绑定袋；未提供控制批次处理先后顺序的用户操作。未强改hidden select或制造DOM按钮。逆序提交由既有领域单元/集成证据覆盖，由root绑定对应证据。"
+  },
+  "performance": "该脚本是功能与原子性边界验证，不作为5样本strict性能结果。"
+}

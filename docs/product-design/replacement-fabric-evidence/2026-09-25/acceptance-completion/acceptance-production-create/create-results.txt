@@ -1,0 +1,27 @@
+### Result
+[{"scene":"commit","error":"Error: page.evaluate: Error: Error: 生产记录已保存，但页面同步失败，请重新进入页面核对，不要重复新建。Error: 已保存生产单资料不完整，请保留原记录并核对。\n    at assert (eval at evaluate (:367:30), <anonymous>:3:37)\n    at eval (eval at evaluate (:367:30), <anonymous>:14:25)\n    at async <anonymous>:393:30"},{"scene":"abort","error":"QuotaExceededError: injected create abort","records":0,"writes":["higood-factory-material-receiving-v1","higood-fcs-wool-stage-store-v3"]},{"scene":"legacy-race","error":"Error: 其他页面已修改提前加工来源，请重新读取后生成生产单。","records":0,"writes":["higood-factory-material-receiving-v1","higood-fcs-wool-stage-store-v3"]}]
+### Ran Playwright code
+```js
+await (async page => {
+ const results=[];
+ for(const scene of ['commit','abort','legacy-race']) {
+  const c=await page.context().browser().newContext(),p=await c.newPage();await p.route('**/acceptance-production-create',r=>r.fulfill({contentType:'text/html',body:'<html><body>Production creation acceptance</body></html>'}));await p.goto('http://127.0.0.1:43235/acceptance-production-create');
+  try {results.push(await p.evaluate(async scene=>{
+   const h=await import('/output/playwright/hpb/acceptance-production-create/harness.ts');await h.core.hydrateProductionContextRecords();
+   const assert=(v,m)=>{if(!v)throw Error(m)};
+   const base=h.orders.productionOrders.find(o=>{try{return h.snapshots.buildFormalProductionOrderProcessSnapshots(o).some(s=>s.processCodes.includes('DYE')||s.processCodes.includes('PRINT'))}catch{return false}});assert(base,'base');
+   const demand={...structuredClone(h.context.state.demands[0]),demandId:'DEM-CREATION-TEST',hasProductionOrder:false,productionOrderId:undefined};h.context.state.demands.push(demand);
+   const order={...structuredClone(base),productionOrderId:'PO-CREATION-TEST',productionOrderNo:'PO-CREATION-TEST',demandId:demand.demandId,sourceDemandIds:[demand.demandId],processWorkOrderDefinitions:undefined,productionCreatedProcessSources:undefined};
+   const rowsBefore=JSON.stringify(await h.repo.readCuttingRecords());const countBefore=h.orders.productionOrders.length;
+   const put=IDBObjectStore.prototype.put,set=Storage.prototype.setItem;let writes=[],observed=false;
+   Storage.prototype.setItem=function(k,v){writes.push(k);return set.call(this,k,v)};
+   IDBObjectStore.prototype.put=function(v,...args){if(v?.collection==='production-context:orders'){observed=true;assert(!h.orders.productionOrders.some(o=>o.productionOrderId===order.productionOrderId),'published before complete');if(scene==='abort')throw new DOMException('injected create abort','QuotaExceededError')}return put.call(this,v,...args)};
+   if(scene==='legacy-race'){const get=Storage.prototype.getItem;let reads=0;Storage.prototype.getItem=function(k){if(k==='higoods.formal-dye-execution.v1'&&++reads>1)return '{}';return get.call(this,k)}}
+   let error;try{await h.domain.saveCreatedProductionOrderGroups([{order,demands:[demand]}],'2026-09-25 12:00:00')}catch(e){error=String(e)}finally{IDBObjectStore.prototype.put=put;Storage.prototype.setItem=set}
+   const saved=await h.repo.readCuttingRecords();
+   if(scene==='commit'){assert(!error,error);assert(observed,'transaction');const target=saved.records.find(r=>r.collection==='production-context:orders'&&r.value.productionOrderId===order.productionOrderId);assert(target?.value.processWorkOrderDefinitions?.length,'definitions durable');assert(h.orders.productionOrders.some(o=>o.productionOrderId===order.productionOrderId),'published after complete');return{scene,base:base.productionOrderId,definitions:target.value.processWorkOrderDefinitions,records:saved.records.length,writes};}
+   assert(error,'missing failure');assert(saved.records.length===0,'partial persisted');assert(h.orders.productionOrders.length===countBefore,'memory changed');assert(!h.context.state.demands.find(d=>d.demandId===demand.demandId).hasProductionOrder,'demand converted on failure');return{scene,error,records:saved.records.length,writes};
+  },scene))}catch(e){results.push({scene,error:String(e)})}finally{await c.close()}
+ }return results;
+})(page);
+```

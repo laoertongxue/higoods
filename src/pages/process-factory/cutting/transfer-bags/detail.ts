@@ -7,11 +7,12 @@ import {
   PRODUCTION_ORDER_IDENTITY_COLUMN_TITLE,
   renderProductionOrderIdentityCell,
 } from '../../../../data/fcs/production-order-identity.ts'
-import { buildTransferBagLabelPrintLink } from '../../../../data/fcs/fcs-route-links.ts'
+import { buildTransferBagLabelPrintLink, buildTransferBagGoodsLabelPrintLink } from '../../../../data/fcs/fcs-route-links.ts'
 import { encodeCarrierQr } from '../../../../data/fcs/cutting/qr-codes.ts'
-import { resolveTransferBagCurrentUse } from '../../../../data/fcs/cutting/transfer-bag-operations.ts'
+import { resolveTransferBagGoodsLabelSource } from '../../../../data/fcs/cutting/transfer-bag-goods-label.ts'
+import { resolveTransferBagCurrentUse, parseCompleteTransferBagRepackPayload } from '../../../../data/fcs/cutting/transfer-bag-operations.ts'
 import {
-  listCuttingRuntimeEvents,
+  listManagedCuttingRuntimeEvents,
   type CuttingRuntimeEvent,
 } from '../../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
@@ -117,6 +118,12 @@ import {
   buildTransferBagListRoute,
   getCurrentTransferBagPathname,
 } from './route.ts'
+
+/** Print the selected cycle's immutable business snapshot, including recovered cycles. */
+function renderCycleGoodsPrint(usageCycleId: string): string {
+  if (!usageCycleId || !resolveTransferBagGoodsLabelSource(usageCycleId)?.tickets.length) return ''
+  return `<button type="button" class="rounded-md border px-3 py-2 text-sm hover:bg-muted" data-cycle-goods-print="${escapeHtml(usageCycleId)}" data-nav="${escapeHtml(buildTransferBagGoodsLabelPrintLink(usageCycleId))}">打印本周期货物标识</button>`
+}
 
 function renderTag(label: string, className: string): string {
   return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${className}">${escapeHtml(label)}</span>`
@@ -273,7 +280,7 @@ function runtimeRecords(value: unknown): Array<Record<string, unknown>> {
 }
 
 function getDetailRuntimeEvents(bagCode: string): CuttingRuntimeEvent[] {
-  return listCuttingRuntimeEvents()
+  return listManagedCuttingRuntimeEvents()
     .filter((event) => {
       const payload = runtimeRecord(event.payload)
       return event.eventStatus !== '已取消'
@@ -941,7 +948,7 @@ export function renderTransferBagItemsTab(
   const currentUse = resolveTransferBagCurrentUse(activeMaster.bagCode)
   if (currentUse.tickets.some(ticket => ticket.ticketKind === 'REPLACEMENT_FABRIC' || ticket.ticketKind === 'BINDING_STRIP')) {
     const paging = paginateDetailItems(currentUse.tickets)
-    return `<section class="space-y-3 rounded-xl border bg-card p-4"><h2 class="font-semibold">当前袋内菲票快照</h2><p>${escapeHtml(mixedBagSummary(currentUse.tickets))}</p><div class="grid gap-3 md:grid-cols-2">${paging.items.map(renderMixedBagTicket).join('')}</div>${renderDetailPagination({activeMaster,focusedUsage,activeTab:'cycle',total:currentUse.tickets.length,...paging})}</section>`
+    return `<section class="space-y-3 rounded-xl border bg-card p-4"><div class="flex flex-wrap items-center justify-between gap-3"><h2 class="font-semibold">当前袋内菲票快照</h2>${renderCycleGoodsPrint(currentUse.usageCycleId || '')}</div><p>${escapeHtml(mixedBagSummary(currentUse.tickets))}</p><div class="grid gap-3 md:grid-cols-2">${paging.items.map(renderMixedBagTicket).join('')}</div>${renderDetailPagination({activeMaster,focusedUsage,activeTab:'cycle',total:currentUse.tickets.length,...paging})}</section>`
   }
   const rows = currentUse.tickets.map((ticket) => ({
         ticketNo: ticket.feiTicketNo,
@@ -960,7 +967,7 @@ export function renderTransferBagItemsTab(
     <section id="transfer-bag-tabpanel-items" role="tabpanel" aria-labelledby="transfer-bag-tab-items" class="space-y-3 rounded-xl border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h2 class="text-sm font-semibold text-foreground">当前袋内菲票快照</h2>
-        <div class="text-xs text-muted-foreground">${escapeHtml(currentUse.usageCycleId || '暂无使用周期')}</div>
+        <div class="text-xs text-muted-foreground">${escapeHtml(currentUse.usageCycleId || '暂无使用周期')}</div>${renderCycleGoodsPrint(currentUse.usageCycleId || '')}
       </div>
       ${rows.length
         ? renderStickyTableScroller(`
@@ -1301,21 +1308,53 @@ export function getTransferBagUsageFlowStageLabel(item: TransferBagUsageItem): '
   return '菲票已装袋'
 }
 
+function getRecordedBagCycleSources(bagCode: string) {
+  const ids = new Set<string>()
+  for (const event of listManagedCuttingRuntimeEvents()) {
+    if (event.eventStatus === '已取消') continue
+    if (event.refs.transferBagCode === bagCode && event.refs.usageCycleId) ids.add(event.refs.usageCycleId)
+    const repack = parseCompleteTransferBagRepackPayload(event)
+    for (const bag of [...(repack?.sourceBags || []), ...(repack?.resultBags || [])]) {
+      if (bag.bagCode === bagCode) ids.add(bag.usageCycleId)
+    }
+    if (event.eventType === '新增交出记录') {
+      const payload = event.payload as { transferBagUses?: Array<{ bagCode: string; bagUseId: string }> }
+      for (const bag of payload.transferBagUses || []) if (bag.bagCode === bagCode) ids.add(bag.bagUseId)
+    }
+  }
+  return [...ids].map(id => resolveTransferBagGoodsLabelSource(id)).filter(source => source && source.bagCode === bagCode)
+    .sort((a, b) => b!.baggingAt.localeCompare(a!.baggingAt))
+}
+
+function renderRecordedBagCycles(activeMaster: TransferBagMasterItem, focusedUsage: TransferBagUsageItem | null): string {
+  const sources = getRecordedBagCycleSources(activeMaster.bagCode)
+  if (!sources.length) return ''
+  const paging = paginateDetailItems(sources)
+  const selectedId = getWarehouseSearchParams().get('usageId')
+  const selected = sources.find(source => source!.usageCycleId === selectedId) || paging.items[0]
+  return `<section class="space-y-3 rounded-xl border bg-card p-4" data-recorded-bag-cycles><h2 class="font-semibold">已记录使用周期</h2>
+    <div class="space-y-2">${paging.items.map(source => `<div class="flex flex-wrap items-center justify-between gap-3 rounded border p-3"><button type="button" class="text-left text-blue-700 underline" data-recorded-cycle="${escapeHtml(source!.usageCycleId)}" data-nav="${escapeHtml(buildTransferBagDetailRoute({bagId:activeMaster.bagId,bagCode:activeMaster.bagCode,usageId:source!.usageCycleId,detailTab:'history'}))}">${escapeHtml(source!.usageCycleId)}</button><span>${escapeHtml(source!.baggingAt)} · ${escapeHtml(mixedBagSummary(source!.tickets))}</span></div>`).join('')}</div>
+    ${renderDetailPagination({activeMaster,focusedUsage,activeTab:'history',total:sources.length,...paging})}
+    ${selected ? `<div class="space-y-3 rounded border p-3" data-selected-cycle="${escapeHtml(selected.usageCycleId)}"><div class="flex flex-wrap items-center justify-between gap-3"><h3 class="font-semibold">本周期货物快照</h3>${renderCycleGoodsPrint(selected.usageCycleId)}</div><p>${escapeHtml(selected.usageCycleId)} · ${escapeHtml(mixedBagSummary(selected.tickets))}</p><div class="grid gap-3 md:grid-cols-2">${selected.tickets.map(renderMixedBagTicket).join('')}</div></div>` : ''}</section>`
+}
+
 export function renderTransferBagHistoryTab(
   activeMaster: TransferBagMasterItem,
   focusedUsage: TransferBagUsageItem | null,
 ): string {
-  const usages = getDetailBagUsages(activeMaster)
+  const recordedIds = new Set(getRecordedBagCycleSources(activeMaster.bagCode).map(source => source!.usageCycleId))
+  const usages = getDetailBagUsages(activeMaster).filter(usage => !recordedIds.has(usage.usageId))
   const paging = paginateDetailItems(usages)
   const selectedUsage = focusedUsage && focusedUsage.bagId === activeMaster.bagId ? focusedUsage : usages[0] || null
 
   return `
+    ${renderRecordedBagCycles(activeMaster, focusedUsage)}
     <section id="transfer-bag-tabpanel-history" role="tabpanel" aria-labelledby="transfer-bag-tab-history" class="space-y-3 rounded-xl border bg-card p-4">
       <div>
         <h2 class="text-sm font-semibold text-foreground">使用周期</h2>
       </div>
       ${!usages.length
-        ? '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前口袋还没有过往周转记录。</div>'
+        ? (recordedIds.size ? '<p class="text-sm text-muted-foreground">没有其他旧周转记录。</p>' : '<div class="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">当前口袋还没有过往周转记录。</div>')
         : `
           ${renderStickyTableScroller(
             `
@@ -1375,7 +1414,7 @@ export function renderTransferBagHistoryTab(
             selectedUsage
               ? `
                 <div class="rounded-xl border bg-muted/15 p-4">
-                  <div class="text-sm font-semibold text-foreground">当前摘要</div>
+                  <div class="flex flex-wrap items-center justify-between gap-3"><div class="text-sm font-semibold text-foreground">本周期摘要</div>${renderCycleGoodsPrint(selectedUsage.usageId)}</div>
                   <div class="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm">
                     <div><span class="text-muted-foreground">本次周转号：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.usageNo)}</span></div>
                     <div><span class="text-muted-foreground">开始时间：</span><span class="font-medium text-foreground">${escapeHtml(selectedUsage.startedAt || '待补')}</span></div>

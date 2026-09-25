@@ -1,0 +1,15 @@
+{
+  "interrupt": "模拟迁移中断",
+  "sourcePreserved": true,
+  "resumeCount": 101,
+  "uniqueTargets": 101,
+  "oldPage": "旧账在迁移期间发生变化，目标已保存，源数据保留，请关闭其他页面后重试。",
+  "latePreserved": true,
+  "conflict": "旧记录 MFAIL-0 与本机版本冲突，未覆盖或清理。",
+  "afterCleanup": "模拟完成标记写失败",
+  "cleanupResume": [
+    "裁片领料历史已核对 0 条；其他领料单保持原样。",
+    "已恢复迁移完成记录：1 条，未重复写入。",
+    "没有待迁移的旧裁后记录。"
+  ]
+}

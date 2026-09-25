@@ -41,7 +41,7 @@ test('片工艺真实页面加工交出后下一厂才有待接收，实收前�
 
 test('整件缝盘最终交出按真实批次在后续成衣工艺接收，未选批次仍待接收',async({page})=>{
  await open(page)
- const scenario=await page.evaluate(async()=>{const f=await import('/scripts/fixtures/wool-final-downstream-review.ts');const scene=f.prepareWoolFinalDownstreamReviewScenario();const {appStore}=await import('/src/state/store.ts');appStore.navigate(scene.route);return scene})
+ const scenario=await page.evaluate(async()=>{const f=await import('/scripts/fixtures/wool-final-downstream-review.ts');const scene=await f.prepareWoolFinalDownstreamReviewScenario();const {appStore}=await import('/src/state/store.ts');appStore.navigate(scene.route);return scene})
  await page.reload()
  await expect(page.locator('[data-wool-final-craft-content]')).toBeVisible()
  await page.locator('[data-special-craft-web-action][data-action-code="SPECIAL_CRAFT_CONFIRM_RECEIVE"]').click()

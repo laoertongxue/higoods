@@ -1,6 +1,6 @@
 import { generatePreparationOrderArtifactsForOrder } from '../production-artifact-generation.ts'
 import { listProcessWorkOrderRelationSources } from '../process-work-order-domain.ts'
-import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
+import { listGeneratedCutOrderSourceRecords, type GeneratedCutOrderSourceRecord } from './generated-cut-orders.ts'
 import { productionOrders, type ProductionOrder } from '../production-orders.ts'
 import { getProductionOrderChangeCurrentFacts } from '../production-tech-pack-change-domain.ts'
 import {
@@ -1687,9 +1687,53 @@ export interface MaterialPrepInitialStockInput {
 export const materialPrepInitialStockInputs: MaterialPrepInitialStockInput[] = []
 
 /** Frozen BOM scope for newly created orders. Never expand demo materials or manufacture stock/tasks. */
-function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): MaterialPrepSeedOrder[] {
+type RuntimePrepBomItem = NonNullable<ProductionOrder['techPackSnapshot']>['bomItems'][number]
+
+function resolveRuntimePrepMaterial(
+  order: ProductionOrder,
+  bom: RuntimePrepBomItem,
+  facts: NonNullable<ReturnType<typeof getProductionOrderChangeCurrentFacts>>['materialFacts'],
+) {
+  const snapshot = order.techPackSnapshot!
+  const replacement = facts.find(fact =>
+    fact.sourceBomItemId === bom.id && fact.sourceTechPackVersionId === snapshot.sourceTechPackVersionId
+    && fact.executionMaterialReplacement?.changeRecordId)?.executionMaterialReplacement
+  return { replacement, materialSku: replacement?.materialCode.trim() || bom.materialCode?.trim() || '', unit: bom.unit?.trim() || '' }
+}
+
+function findRuntimePrepCutSource(
+  order: ProductionOrder,
+  bom: RuntimePrepBomItem,
+  material: { materialSku: string; unit: string },
+  sources: GeneratedCutOrderSourceRecord[],
+): GeneratedCutOrderSourceRecord | undefined {
+  const matching = sources.filter(cut => cut.productionOrderId === order.productionOrderId
+    && cut.techPackVersionId === order.techPackSnapshot!.sourceTechPackVersionId && cut.sourceBomItemIds?.includes(bom.id)
+    && cut.materialSku === material.materialSku && cut.materialUnit === material.unit)
+  return matching.length === 1 ? matching[0] : undefined
+}
+
+/** 物料账只需识别真实 BOM 裁片单，不展开配料任务、加工单或仓储汇总。 */
+export function listRuntimeMaterialPrepCutOrderIds(): string[] {
   const seededIds = new Set(materialPrepSeedOrders.map(order => order.productionOrderId))
-  const liveOrders = productionOrders.filter(order => !seededIds.has(order.productionOrderId) && order.techPackSnapshot)
+  const sources = listGeneratedCutOrderSourceRecords()
+  return productionOrders.flatMap(order => {
+    if (seededIds.has(order.productionOrderId) || !order.techPackSnapshot) return []
+    const facts = getProductionOrderChangeCurrentFacts(order.productionOrderId)?.materialFacts ?? []
+    return order.techPackSnapshot.bomItems.filter(bom => bom.type !== '成衣').flatMap(bom => {
+      const cut = findRuntimePrepCutSource(order, bom, resolveRuntimePrepMaterial(order, bom, facts), sources)
+      return cut ? [cut.cutOrderId] : []
+    })
+  })
+}
+
+function listCurrentMaterialPrepOrders(
+  prepRecords: MaterialPrepRecord[] = [],
+  productionOrderIds?: ReadonlySet<string>,
+): MaterialPrepSeedOrder[] {
+  const seededIds = new Set(materialPrepSeedOrders.map(order => order.productionOrderId))
+  const liveOrders = productionOrders.filter(order => !seededIds.has(order.productionOrderId) && order.techPackSnapshot
+    && (!productionOrderIds || productionOrderIds.has(order.productionOrderId)))
   const stocks = materialPrepInitialStockInputs.filter(stock => stock.sourceId.trim() && stock.sourceDescription.trim()
     && stock.materialSku.trim() && stock.unit.trim() && stock.warehouseArea.trim() && stock.locationCode.trim()
     && Number.isFinite(stock.quantity) && stock.quantity >= 0)
@@ -1701,19 +1745,23 @@ function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): 
     reserved.set(key, (reserved.get(key) || 0) + item.preparedQty)
   }
   const tasks = listRuntimeProcessTasks()
-  let preparationOrders: ReturnType<typeof listProcessWorkOrderRelationSources> | undefined
+  const preparationOrdersByProcess = new Map<string, ReturnType<typeof listProcessWorkOrderRelationSources>>()
+  const readPreparationOrders = (processCode: string) => {
+    let documents = preparationOrdersByProcess.get(processCode)
+    if (!documents) {
+      documents = listProcessWorkOrderRelationSources(new Set([processCode]))
+      preparationOrdersByProcess.set(processCode, documents)
+    }
+    return documents
+  }
   let cutSources: ReturnType<typeof listGeneratedCutOrderSourceRecords> | undefined
-  return [...materialPrepSeedOrders, ...liveOrders.map(order => {
+  return [...materialPrepSeedOrders.filter(order => !productionOrderIds || productionOrderIds.has(order.productionOrderId)), ...liveOrders.map(order => {
     const snapshot = order.techPackSnapshot!
     const prepOrderId = `prep-order-${order.productionOrderId}`
     const facts = getProductionOrderChangeCurrentFacts(order.productionOrderId)?.materialFacts ?? []
     const prepArtifacts = generatePreparationOrderArtifactsForOrder(order.productionOrderId)
     const lines = snapshot.bomItems.filter(bom => bom.type !== '成衣').map(bom => {
-      const replacement = facts.find(fact => fact.sourceBomItemId === bom.id
-        && fact.sourceTechPackVersionId === snapshot.sourceTechPackVersionId
-        && fact.executionMaterialReplacement?.changeRecordId)?.executionMaterialReplacement
-      const materialSku = replacement?.materialCode.trim() || bom.materialCode?.trim() || ''
-      const unit = bom.unit?.trim() || ''
+      const { replacement, materialSku, unit } = resolveRuntimePrepMaterial(order, bom, facts)
       const skuScope = new Set(bom.applicableSkuCodes ?? [])
       const demandQty = order.demandSnapshot.skuLines.reduce((sum, line) =>
         sum + (skuScope.size === 0 || skuScope.has(line.skuCode) ? line.qty : 0), 0)
@@ -1760,7 +1808,8 @@ function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): 
       const materialArtifacts = prepArtifacts.filter(artifact => artifact.bomItemId === bom.id || artifact.linkedBomItemIds?.includes(bom.id))
       const materialEntryIds = new Set(materialArtifacts.map(artifact => artifact.sourceEntryId))
       const firstPrepArtifacts = materialArtifacts.filter(artifact => !(artifact.predecessorEntryIds ?? []).some(id => materialEntryIds.has(id)))
-      const prepLinks: MaterialPrepTaskLink[] = firstPrepArtifacts.flatMap(artifact => (preparationOrders ??= listProcessWorkOrderRelationSources()).filter(document => {
+      // 未拆解单不展示任务；已拆解单只需首加工节点的对应加工单，不初始化无关工序。
+      const prepLinks: MaterialPrepTaskLink[] = order.taskBreakdownSummary.isBrokenDown ? firstPrepArtifacts.flatMap(artifact => readPreparationOrders(artifact.processCode).filter(document => {
         const source = document.sourceSnapshot
         return document.sourceType === 'PRODUCTION_ORDER' && document.processType === artifact.processCode
           && source.productionOrderId === order.productionOrderId && source.techPackVersionId === snapshot.sourceTechPackVersionId
@@ -1772,17 +1821,14 @@ function listCurrentMaterialPrepOrders(prepRecords: MaterialPrepRecord[] = []): 
         taskType: document.processType === 'PRINT' ? '印花任务' as const : document.processType === 'DYE' ? '染色任务' as const : '水溶任务' as const,
         factoryId: document.factoryId, factoryCode: document.factoryId, factoryName: document.factoryName || '待分配',
         assignedAt: '', allocationStatus: document.factoryId ? '已分配' as const : '未分配' as const,
-      })))
+      }))) : []
       // Preparation documents precede production consumption; never invent a runtime task for them.
       // 生产单只有在正式拆解后才能出现加工任务。冻结技术包可以先形成物料需求，
       // 但不能把派生的加工单投影成“已生成任务”，否则待拆解状态会被页面误读。
       const taskLinks = order.taskBreakdownSummary.isBrokenDown
         ? (materialArtifacts.length ? prepLinks : runtimeLinks)
         : []
-      const matchingCuts = (cutSources ??= listGeneratedCutOrderSourceRecords()).filter(cut => cut.productionOrderId === order.productionOrderId
-        && cut.techPackVersionId === snapshot.sourceTechPackVersionId && cut.sourceBomItemIds?.includes(bom.id)
-        && cut.materialSku === materialSku && cut.materialUnit === unit)
-      const cut = matchingCuts.length === 1 ? matchingCuts[0] : undefined
+      const cut = findRuntimePrepCutSource(order, bom, { materialSku, unit }, cutSources ??= listGeneratedCutOrderSourceRecords())
       return {
         runtimeBomLine: true, sourceDataIssue: issues.join('；'),
         prepLineId: `${prepOrderId}:${snapshot.sourceTechPackVersionId}:${bom.id}`, prepOrderId,
@@ -3938,9 +3984,12 @@ function buildOrderProjection(
 
 export function listMaterialPrepOrderProjections(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
+  options: { productionOrderIds?: ReadonlySet<string> } = {},
 ): MaterialPrepOrderProjection[] {
   const store = hydrateProductionMaterialPrepStore(storage)
-  const currentOrders = listCurrentMaterialPrepOrders(store.prepRecords)
+  // Scope only the orders being projected. All saved reservations remain in the
+  // calculation because another order can reserve the same physical stock.
+  const currentOrders = listCurrentMaterialPrepOrders(store.prepRecords, options.productionOrderIds)
   const sourceFingerprint = JSON.stringify(currentOrders)
   if (materialPrepProjectionCache?.storage === storage && materialPrepProjectionCache.sourceFingerprint === sourceFingerprint) {
     return materialPrepProjectionCache.rows

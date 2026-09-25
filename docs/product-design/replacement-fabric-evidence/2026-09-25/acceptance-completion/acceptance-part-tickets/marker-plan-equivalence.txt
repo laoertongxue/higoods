@@ -1,0 +1,21 @@
+{
+  "counts": [
+    9,
+    9
+  ],
+  "diffs": [
+    ".0.beds.0.highLowMatrixRows.0.rowId: \"marker-plan-1775178480000-liium3-marker-row-1\" -> \"marker-plan-1775178480000-y7n54g-marker-row-1\"",
+    ".0.operationLogs.0.id: \"log-marker-plan-1775178480000-liium3-created\" -> \"log-marker-plan-1775178480000-y7n54g-created\"",
+    ".1.operationLogs.0.id: \"log-marker-plan-1775178420000-m5p2qy-created\" -> \"log-marker-plan-1775178420000-dlcgdq-created\"",
+    ".2.operationLogs.0.id: \"log-marker-plan-1775178360000-5eif3l-created\" -> \"log-marker-plan-1775178360000-fr64ue-created\"",
+    ".3.operationLogs.0.id: \"log-marker-plan-1775178300000-wzahzn-created\" -> \"log-marker-plan-1775178300000-hbfop8-created\"",
+    ".4.operationLogs.0.id: \"log-marker-plan-1775178240000-wcdnb1-created\" -> \"log-marker-plan-1775178240000-2g8d17-created\"",
+    ".5.operationLogs.0.id: \"log-marker-plan-1775178180000-fy19hr-created\" -> \"log-marker-plan-1775178180000-mf8fp4-created\"",
+    ".6.beds.0.highLowMatrixRows.0.rowId: \"marker-plan-1775178120000-1qomdx-marker-row-1\" -> \"marker-plan-1775178120000-qnm9ds-marker-row-1\"",
+    ".6.operationLogs.0.id: \"log-marker-plan-1775178120000-1qomdx-created\" -> \"log-marker-plan-1775178120000-qnm9ds-created\"",
+    ".7.operationLogs.0.id: \"log-marker-plan-1775178060000-njqrax-created\" -> \"log-marker-plan-1775178060000-g512cv-created\"",
+    ".8.operationLogs.0.id: \"log-marker-plan-1775178000000-u9nrqu-created\" -> \"log-marker-plan-1775178000000-aq2z8i-created\""
+  ]
+}
+(node:30439) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

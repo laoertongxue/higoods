@@ -1,0 +1,12 @@
+async root=>{
+ const c=await root.context().browser().newContext(),p=await c.newPage(),errors=[];p.setDefaultTimeout(10000);p.on('pageerror',e=>errors.push(e.message));await p.routeWebSocket('**',s=>s.close());
+ await p.goto('http://127.0.0.1:43236/fcs/craft/cutting/marker-list');await p.locator('[data-marker-plan-action=go-edit]').first().click();await p.locator('[data-testid=cutting-marker-plan-edit-page]').waitFor();
+ await p.locator('[data-marker-plan-action=switch-create-step][data-create-step=layout]').first().click();
+ const fields=await p.locator('input,textarea,select').evaluateAll(ns=>ns.map(n=>({tag:n.tagName,d:n.dataset,value:n.value})));
+ await p.locator('[data-marker-plan-bed-field=remark]').first().fill('唛架记录保存与刷新验收');
+ const rows=()=>p.evaluate(()=>new Promise(resolve=>{const q=indexedDB.open('higood-cutting-records-v1');q.onsuccess=()=>{const d=q.result,r=d.transaction('records').objectStore('records').getAll();r.onsuccess=()=>{d.close();resolve(r.result)}}}));
+ await p.evaluate(()=>{window.__put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,...a){if(v?.collection==='part-ticket:marker-plans')throw Error('验收注入唛架保存失败');return window.__put.call(this,v,...a)}});
+ await p.locator('[data-marker-plan-action=save-plan]').click();await p.getByText(/验收注入唛架保存失败/).waitFor();const failed=await rows();if(failed.some(x=>x.collection==='part-ticket:marker-plans'))throw Error('保存失败仍落盘');if(await p.locator('[data-marker-plan-bed-field=remark]').first().inputValue()!=='唛架记录保存与刷新验收')throw Error('失败丢输入');
+ await p.evaluate(()=>IDBObjectStore.prototype.put=window.__put);await p.locator('[data-marker-plan-action=save-plan]').click();await p.getByText(/已保存修改/).waitFor();const saved=await rows(),plans=saved.filter(x=>x.collection==='part-ticket:marker-plans');if(plans.length!==1)throw Error('非单记录保存 '+plans.length);
+ await p.addInitScript(()=>{for(const method of ['getItem','setItem','removeItem'])Storage.prototype[method]=function(){throw Error('旧存储禁用')}});await p.reload();await p.locator('[data-marker-plan-action=switch-create-step][data-create-step=layout]').first().click();await p.locator('[data-marker-plan-bed-field=remark]').first().waitFor();const refreshed=await p.locator('[data-marker-plan-bed-field=remark]').first().inputValue();if(refreshed!=='唛架记录保存与刷新验收')throw Error('刷新丢记录');await c.close();return {savedPlans:plans.length,failedPreserved:true,refreshed,errors,fields};
+}

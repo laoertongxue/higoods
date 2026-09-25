@@ -2,11 +2,11 @@
 import { productionOrders } from '../production-orders.ts'
 import { processTasks } from '../process-tasks.ts'
 import { applyGreyHoodieConfirmationFixture } from '../production-tech-pack-snapshot-builder.ts'
-import { clearRuntimeProcessTasksCache, listRuntimeProcessTasks, allocateRuntimeSkuTaskScope, captureRuntimeDirectDispatchState, restoreRuntimeDirectDispatchState, createFixedMergedTask } from '../runtime-process-tasks.ts'
+import { buildRuntimeTaskStaticFixture, clearRuntimeProcessTasksCache, listRuntimeProcessTasks, allocateRuntimeSkuTaskScope, captureRuntimeDirectDispatchState, restoreRuntimeDirectDispatchState, createFixedMergedTask } from '../runtime-process-tasks.ts'
 import { listSewingFactoryMasterRecords, getFactoryActivePpicSnapshot } from '../factory-master-store.ts'
 import { DEDICATED_CUTTING_FACTORY_ID, KOL_GOTO_FACTORY_ID, TEST_FACTORY_ID } from '../factory-mock-data.ts'
 import { listGeneratedCutOrderSourceRecords } from './generated-cut-orders.ts'
-import { appendCuttingRuntimeEventIdempotent, listCuttingRuntimeEvents } from './cutting-runtime-event-ledger.ts'
+import { appendStaticCuttingRuntimeEvent } from './cutting-runtime-event-ledger.ts'
 import { resolveDispatchTaskSheet, listDispatchTaskSheetAssignments, buildDispatchTaskSheetData } from '../dispatch-task-sheet.ts'
 import { cancelEffectiveTaskAssignment } from '../effective-task-assignments.ts'
 import { listSpreadingResultGeneratedFeiTickets } from './generated-fei-tickets.ts'
@@ -23,6 +23,7 @@ export function ensureSimpleCutPieceHandoverFixtures(): void {
   if (initializing || initialized) return
   initializing = true
   try {
+    buildRuntimeTaskStaticFixture(() => {
     const base = productionOrders.find(order => order.productionOrderId === 'PO-202603-082')
     if (!base?.techPackSnapshot) throw new Error('简易裁片演示缺少卫衣上游技术资料')
     if (!productionOrders.some(order => order.productionOrderId === SIMPLE_CUT_PIECE_DEMO_ORDER_ID)) {
@@ -70,11 +71,12 @@ export function ensureSimpleCutPieceHandoverFixtures(): void {
       const prior = state.taskOverrides.find(([id]) => id === task.taskId)?.[1] ?? {}
       state.taskOverrides = state.taskOverrides.filter(([id]) => id !== task.taskId)
       state.taskOverrides.push([task.taskId,{...prior,assignmentMode:'DIRECT',assignmentStatus:'ASSIGNED',assignedFactoryId:factory.id,assignedFactoryName:factory.name,dispatchedAt:stamp,businessAssignedAt:stamp,dispatchedBy:'人工分配演示',dispatchPrice:1000,acceptanceStatus:'PENDING',status:'NOT_STARTED',updatedAt:stamp}])
-      restoreRuntimeDirectDispatchState(state)
+      restoreRuntimeDirectDispatchState(state, false)
     })
     ensureAdditionalTaskSheetDemoScenarios()
     if (getBrowserLocalStorage()) { appendSimpleCutPieceDemoCuttingBatch(1); appendSimpleCutPieceDemoCuttingBatch(1,'PO-DEMO-SEW-IRON-0916') }
     initialized = true
+    })
   } finally { initializing = false }
 }
 
@@ -118,7 +120,7 @@ function ensureAdditionalTaskSheetDemoScenarios() {
     const prior=state.taskOverrides.find(([id])=>id===merged!.taskId)?.[1]??{}
     state.taskOverrides=state.taskOverrides.filter(([id])=>id!==merged!.taskId)
     state.taskOverrides.push([merged.taskId,{...prior,assignmentMode:variant.mode==='SEW_IRON'?'BIDDING':'DIRECT',assignmentStatus:variant.mode==='SEW_IRON'?'AWARDED':'ASSIGNED',awardedAt:variant.mode==='SEW_IRON'?stamp:undefined,biddingDeadline:variant.mode==='SEW_IRON'?'2026-09-15 18:00:00':undefined,assignedFactoryId:factory.id,assignedFactoryName:factory.name,dispatchedAt:stamp,businessAssignedAt:stamp,dispatchedBy:variant.mode==='SEW_IRON'?'竞价中标演示':'人工分配演示',dispatchPrice:1000,acceptanceStatus:'PENDING',status:'NOT_STARTED',updatedAt:stamp}])
-    restoreRuntimeDirectDispatchState(state)
+    restoreRuntimeDirectDispatchState(state, false)
   }
 }
 
@@ -129,10 +131,8 @@ export function appendSimpleCutPieceDemoCuttingBatch(batch: 1 | 2 = 2, orderId: 
   const source = listGeneratedCutOrderSourceRecords().find(row => row.productionOrderId === orderId)
   if (!source) throw new Error('演示裁剪任务未生成有效裁片单')
   const idempotencyKey = `simple-demo-cutting-${orderId}-${batch}`
-  const prior = listCuttingRuntimeEvents().find(event => event.idempotencyKey === idempotencyKey)
-  if (prior) return {event:prior,appended:false}
   const parts = order.techPackSnapshot.cutPieceParts.filter(part => batch === 1 ? part.partCode !== 'HOOD' : part.partCode === 'HOOD')
-  return appendCuttingRuntimeEventIdempotent({idempotencyKey,eventType:'完成裁剪',eventSource:'MOCK',operatorId:'DEMO-CUTTER',operatorName:'演示裁床组长',operatorRole:'裁床组长',occurredAt:batch===1?stamp:'2026-09-16 14:00:00',refs:{productionOrderId:order.productionOrderId,productionOrderNo:order.productionOrderNo,cutOrderId:source.cutOrderId,cutOrderNo:source.cutOrderNo,spreadingOrderId:`SPREAD-${orderId}-${batch}`,spreadingOrderNo:`SPREAD-${orderId}-${batch}`},payload:{spreadingOrderId:`SPREAD-${orderId}-${batch}`,spreadingOrderNo:`SPREAD-${orderId}-${batch}`,cuttingCompletedAt:stamp,cuttingCompletedBy:'演示裁床组长',actualMaterialUsage:batch===1?180:36,actualMaterialUsageUnit:'yard',outputLines:order.demandSnapshot.skuLines.flatMap(sku => parts.map(part => ({outputId:`SIMPLE-OUTPUT-${orderId}-${batch}-${sku.size}-${part.partCode}`,color:sku.color,size:sku.size,partCode:part.partCode,partName:part.partNameCn,actualPieceQty:sku.qty*part.pieceCountPerGarment,actualGarmentQty:sku.qty,unit:'片' as const}))),hasDifference:false,differenceTypes:[]}})
+  return appendStaticCuttingRuntimeEvent({idempotencyKey,eventType:'完成裁剪',eventSource:'MOCK',operatorId:'DEMO-CUTTER',operatorName:'演示裁床组长',operatorRole:'裁床组长',occurredAt:batch===1?stamp:'2026-09-16 14:00:00',refs:{productionOrderId:order.productionOrderId,productionOrderNo:order.productionOrderNo,cutOrderId:source.cutOrderId,cutOrderNo:source.cutOrderNo,spreadingOrderId:`SPREAD-${orderId}-${batch}`,spreadingOrderNo:`SPREAD-${orderId}-${batch}`},payload:{spreadingOrderId:`SPREAD-${orderId}-${batch}`,spreadingOrderNo:`SPREAD-${orderId}-${batch}`,cuttingCompletedAt:stamp,cuttingCompletedBy:'演示裁床组长',actualMaterialUsage:batch===1?180:36,actualMaterialUsageUnit:'yard',outputLines:order.demandSnapshot.skuLines.flatMap(sku => parts.map(part => ({outputId:`SIMPLE-OUTPUT-${orderId}-${batch}-${sku.size}-${part.partCode}`,color:sku.color,size:sku.size,partCode:part.partCode,partName:part.partNameCn,actualPieceQty:sku.qty*part.pieceCountPerGarment,actualGarmentQty:sku.qty,unit:'片' as const}))),hasDifference:false,differenceTypes:[]}})
 }
 
 /** Opt-in boundary facts for demonstrations; never alter the normal opening inventory. */
@@ -140,7 +140,7 @@ export function appendSimpleCutPieceDemoBoundaryCutting(scenario: 'OVER_REMAININ
   const source = listGeneratedCutOrderSourceRecords().find(row=>row.productionOrderId===SIMPLE_CUT_PIECE_DEMO_ORDER_ID)
   if(!source) throw new Error('请先初始化简易裁片演示')
   const suffix = scenario === 'OVER_REMAINING' ? 'EXCESS' : 'UNKNOWN'
-  return appendCuttingRuntimeEventIdempotent({idempotencyKey:`simple-demo-boundary-${scenario}`,eventType:'完成裁剪',eventSource:'MOCK',operatorId:'DEMO-CUTTER',operatorName:'演示裁床组长',operatorRole:'裁床组长',occurredAt:'2026-09-16 15:00:00',refs:{productionOrderId:SIMPLE_CUT_PIECE_DEMO_ORDER_ID,productionOrderNo:SIMPLE_CUT_PIECE_DEMO_ORDER_ID,cutOrderId:source.cutOrderId,cutOrderNo:source.cutOrderNo,spreadingOrderId:`SPREAD-SIMPLE-${suffix}`,spreadingOrderNo:`SPREAD-SIMPLE-${suffix}`},payload:{spreadingOrderId:`SPREAD-SIMPLE-${suffix}`,spreadingOrderNo:`SPREAD-SIMPLE-${suffix}`,cuttingCompletedAt:'2026-09-16 15:00:00',cuttingCompletedBy:'演示裁床组长',actualMaterialUsage:1,actualMaterialUsageUnit:'yard',outputLines:[{outputId:`SIMPLE-BOUNDARY-${suffix}`,color:'雾霾灰',size:'M',partCode:scenario==='OVER_REMAINING'?'FRONT-L':'UNMATCHED-DEMO-PART',partName:scenario==='OVER_REMAINING'?'左前片':'未纳入本任务的演示部位',actualPieceQty:scenario==='OVER_REMAINING'?101:1,actualGarmentQty:scenario==='OVER_REMAINING'?101:1,unit:'片'}],hasDifference:true,differenceTypes:['其他异常']}})
+  return appendStaticCuttingRuntimeEvent({idempotencyKey:`simple-demo-boundary-${scenario}`,eventType:'完成裁剪',eventSource:'MOCK',operatorId:'DEMO-CUTTER',operatorName:'演示裁床组长',operatorRole:'裁床组长',occurredAt:'2026-09-16 15:00:00',refs:{productionOrderId:SIMPLE_CUT_PIECE_DEMO_ORDER_ID,productionOrderNo:SIMPLE_CUT_PIECE_DEMO_ORDER_ID,cutOrderId:source.cutOrderId,cutOrderNo:source.cutOrderNo,spreadingOrderId:`SPREAD-SIMPLE-${suffix}`,spreadingOrderNo:`SPREAD-SIMPLE-${suffix}`},payload:{spreadingOrderId:`SPREAD-SIMPLE-${suffix}`,spreadingOrderNo:`SPREAD-SIMPLE-${suffix}`,cuttingCompletedAt:'2026-09-16 15:00:00',cuttingCompletedBy:'演示裁床组长',actualMaterialUsage:1,actualMaterialUsageUnit:'yard',outputLines:[{outputId:`SIMPLE-BOUNDARY-${suffix}`,color:'雾霾灰',size:'M',partCode:scenario==='OVER_REMAINING'?'FRONT-L':'UNMATCHED-DEMO-PART',partName:scenario==='OVER_REMAINING'?'左前片':'未纳入本任务的演示部位',actualPieceQty:scenario==='OVER_REMAINING'?101:1,actualGarmentQty:scenario==='OVER_REMAINING'?101:1,unit:'片'}],hasDifference:true,differenceTypes:['其他异常']}})
 }
 
 /** Explicit old-paper scenario: only a demo assignment can be cancelled here. */

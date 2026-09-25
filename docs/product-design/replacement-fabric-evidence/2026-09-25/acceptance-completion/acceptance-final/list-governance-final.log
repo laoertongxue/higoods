@@ -1,0 +1,40 @@
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance
+> npm run check:list-page-governance:static && npm run check:standard-list-page-template && npm run check:prototype-design-governance -- --all
+
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance:static
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts
+
+list page governance passed: scanned 565 pages, baseline 12
+
+> higoods-vanilla-clone@1.0.0 check:standard-list-page-template
+> npm exec tsc -- --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowImportingTsExtensions --lib ES2022,DOM src/components/ui/list-table.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-standard-list-page-template.ts
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Got unwanted exception: Storage 异常不得阻断补料管理渲染
+Actual message: "storage unavailable"
+    at file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-standard-list-page-template.ts:1443:8
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: Error: storage unavailable
+      at Object.getItem (file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-standard-list-page-template.ts:524:26)
+      at readFormalHandoutActions (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/pda-handover-events.ts:2494:73)
+      at listHeadsSorted (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/pda-handover-events.ts:3769:3)
+      at listPdaHandoverHeads (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/pda-handover-events.ts:4063:10)
+      at syncDerivedWorkflow (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-task-domain.ts:2926:24)
+      at getPrintWorkOrderById (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-task-domain.ts:3273:3)
+      at getProcessWorkOrderById (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-work-order-domain.ts:730:22)
+      at file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/supplement-node-facts.ts:51:23
+      at Array.map (<anonymous>)
+      at processNode (file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/supplement-node-facts.ts:50:26),
+  expected: undefined,
+  operator: 'doesNotThrow',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

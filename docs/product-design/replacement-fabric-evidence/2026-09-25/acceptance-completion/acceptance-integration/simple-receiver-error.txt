@@ -1,0 +1,6 @@
+### Result
+{"out":["[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .","路由模块加载失败，进入降级页 SecurityError: 验收禁止旧存储读取 cuttingRuntimeEventLedger"],"body":"页面内容加载失败，请稍后重试。"}
+### Ran Playwright code
+```js
+await (async page=>{const p=page.context().browser().contexts().flatMap(c=>c.pages()).find(p=>p.url().includes("RECEIPT-SIMPLE"));const out=[];p.on("console",m=>{if(m.type()==="error")out.push(m.text())});p.on("pageerror",e=>out.push(String(e)));await p.reload();await p.waitForTimeout(1200);return {out,body:await p.locator("body").innerText()}})(page);
+```

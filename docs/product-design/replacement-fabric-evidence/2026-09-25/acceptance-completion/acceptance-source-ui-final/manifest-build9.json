@@ -1,0 +1,106 @@
+{
+  "build": 9,
+  "previousBuildEvidenceReuse": "Root explicitly permits build7 unaffected source actions and build8 contract/generation/breakdown evidence. Build9 rechecks all 9 entry routes plus actual cutting-factory dispatch and PDA acceptance after factory-scoped canonical projection.",
+  "worktree": "/private/tmp/higoods-replacement-fabric-release-20260925",
+  "branch": "codex/replacement-fabric-acceptance-20260925",
+  "baseHead": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "preview": "http://127.0.0.1:43236",
+  "distIndexSha256": "ab1e1b964c9ca58c28ede51abdbefe955ebd29c1bc12240d62a5ece78dbd730c",
+  "groups": [
+    {
+      "evidence": "perf-build9.txt",
+      "build": 9,
+      "scenarios": 135,
+      "timingSamples": 135,
+      "maximumMs": 469.2,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "actions-build7.txt",
+      "build": 7,
+      "scenarios": 15,
+      "timingSamples": 25,
+      "maximumMs": 139.3,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "pda-accept-build9.txt",
+      "build": 9,
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 227.8,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "contract-transfer-build8.txt",
+      "build": 8,
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 98.1,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "completion-build7.txt",
+      "build": 7,
+      "scenarios": 10,
+      "timingSamples": 10,
+      "maximumMs": 221.9,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "start-build7.txt",
+      "build": 7,
+      "scenarios": 5,
+      "timingSamples": 5,
+      "maximumMs": 224.4,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "generation-build8.txt",
+      "build": 8,
+      "scenarios": 15,
+      "timingSamples": 20,
+      "maximumMs": 236.7,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "breakdown-build8.txt",
+      "build": 8,
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 148.1,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    }
+  ],
+  "remainingFailures": [],
+  "overallStatus": "SOURCE_SUBTASK_VERIFIED: 135 route timing samples and 90 action samples pass; root owns overall product acceptance and publication.",
+  "functionalStorageNotes": [
+    "Breakdown stage spy: only higood-tabs; no legacy business key writes during preview or confirmation.",
+    "Breakdown IDB abort: records and commands unchanged, preview retained, retry one task group, two task IDs each2400 survive reload.",
+    "KOL creation: one saved TASK-KOL-202603-0103 at2100 survives reload.",
+    "Contract: actual print UI/window.print observed and exactly one PRINTED audit per run; physical printer not claimed."
+  ],
+  "preparedOnly": [
+    "check-simple-handover-five.js: requested by root, static script only, no execution claim"
+  ],
+  "retainedFailures": [
+    "All build7 contract slow samples and initial observer timeout retained.",
+    "Build7 breakdown legacy writes retained.",
+    "Build8 PDA receive613.1ms retained.",
+    "Initial factory-scope equivalence failed on special-craft ordinal; fixed with full canonical identity count, all-factory exact object test passes."
+  ],
+  "additionalEvidence": [
+    "PDA-RECEIVE-SCOPE.md",
+    "pda-preparation-scope-unit-r2.txt",
+    "pda-accept-scoped-dev.txt",
+    "pda-receive-profile-scoped.txt"
+  ]
+}

@@ -890,6 +890,7 @@ function readStore(): CutPieceReturnStore {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<CutPieceReturnStore>
       if (Array.isArray(parsed.cases)) return { cases: parsed.cases }
+      throw new Error('退裁片记录格式不完整')
     }
     const legacyV2Raw = globalThis.localStorage?.getItem(LEGACY_V2_CUT_PIECE_RETURN_STORAGE_KEY)
     const migratedV2 = legacyV2Raw ? migrateLegacyStore(legacyV2Raw) : null
@@ -897,12 +898,16 @@ function readStore(): CutPieceReturnStore {
     const legacyRaw = globalThis.localStorage?.getItem(LEGACY_CUT_PIECE_RETURN_STORAGE_KEY)
     const migrated = legacyRaw ? migrateLegacyStore(legacyRaw) : null
     return migrated ?? seedStore()
-  } catch {
-    return seedStore()
+  } catch (error) {
+    throw new Error(`退裁片记录暂时无法读取，未使用演示记录替代。请恢复存储权限后重试，保留原网站数据。${error instanceof Error ? error.message : String(error)}`)
   }
 }
 
-store = readStore()
+let storeLoaded = false
+function getStore(): CutPieceReturnStore {
+  if (!storeLoaded) { store = readStore(); storeLoaded = true }
+  return store
+}
 
 function persistStore(): void {
   try {
@@ -913,13 +918,13 @@ function persistStore(): void {
 }
 
 function findCaseMutable(caseId: string): CutPieceReturnCase {
-  const record = store.cases.find((item) => item.caseId === caseId || item.returnOrderNo === caseId)
+  const record = getStore().cases.find((item) => item.caseId === caseId || item.returnOrderNo === caseId)
   if (!record) throw new Error('未找到裁片退仓单，请刷新后重试。')
   return record
 }
 
 export function calculateCutPieceReturnResponsibility(record: CutPieceReturnCase): CutPieceReturnResponsibilityProjection {
-  const scopeCases = store.cases.filter((item) => item.responsibilityScopeKey === record.responsibilityScopeKey)
+  const scopeCases = getStore().cases.filter((item) => item.responsibilityScopeKey === record.responsibilityScopeKey)
   const confirmedReturnedGarmentQty = scopeCases.flatMap((item) => item.responsibilityEvents)
     .filter((event) => event.eventType === '确认退件扣减')
     .reduce((sum, event) => sum + event.garmentQty, 0)
@@ -964,7 +969,7 @@ function getConfirmedReturnedPartQty(
   sourceCutOrderId: string,
   partCode: string,
 ): number {
-  return store.cases
+  return getStore().cases
     .filter((record) => record.responsibilityScopeKey === responsibilityScopeKey)
     .flatMap((record) => record.receipts)
     .flatMap((receipt) => receipt.partCounts)
@@ -974,7 +979,7 @@ function getConfirmedReturnedPartQty(
 
 export function listCutPieceReturnInitiationCandidates(): CutPieceReturnInitiationCandidate[] {
   return buildRawInitiationCandidates().map((candidate) => {
-    const scopeCases = store.cases.filter((record) => record.responsibilityScopeKey === candidate.responsibilityScopeKey)
+    const scopeCases = getStore().cases.filter((record) => record.responsibilityScopeKey === candidate.responsibilityScopeKey)
     const confirmedReturnedGarmentQty = scopeCases.flatMap((record) => record.responsibilityEvents)
       .filter((event) => event.eventType === '确认退件扣减')
       .reduce((sum, event) => sum + event.garmentQty, 0)
@@ -1060,7 +1065,7 @@ export function findCutPieceReturnSources(query: CutPieceReturnSourceQuery): Cut
 function nextReturnOrderNo(createdAt: string): string {
   const dateToken = createdAt.slice(2, 10).replace(/-/g, '')
   const prefix = 'TH-' + dateToken + '-'
-  const next = store.cases
+  const next = getStore().cases
     .map((record) => record.returnOrderNo)
     .filter((orderNo) => orderNo.startsWith(prefix))
     .map((orderNo) => Number(orderNo.slice(prefix.length)))
@@ -1070,12 +1075,12 @@ function nextReturnOrderNo(createdAt: string): string {
 }
 
 export function listCutPieceReturnCases(): CutPieceReturnCaseProjection[] {
-  store.cases.forEach(ensureSupplementRegistryLinks)
-  return store.cases.map(projectCase).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  getStore().cases.forEach(ensureSupplementRegistryLinks)
+  return getStore().cases.map(projectCase).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
 export function getCutPieceReturnCase(caseId: string): CutPieceReturnCaseProjection | null {
-  const record = store.cases.find((item) => item.caseId === caseId || item.returnOrderNo === caseId)
+  const record = getStore().cases.find((item) => item.caseId === caseId || item.returnOrderNo === caseId)
   if (record) ensureSupplementRegistryLinks(record)
   return record ? projectCase(record) : null
 }
@@ -1124,7 +1129,7 @@ function applyCutPieceReturnReceipt(
   })
   const confirmedAt = input.confirmedAt || nowText()
   const confirmedBy = input.confirmedBy.trim() || '裁床退仓员'
-  const usedScannedTickets = new Set(store.cases.flatMap((item) => item.receipts)
+  const usedScannedTickets = new Set(getStore().cases.flatMap((item) => item.receipts)
     .flatMap((receipt) => receipt.partCounts)
     .map((item) => item.scannedTicketNo)
     .filter(Boolean))
@@ -1271,7 +1276,7 @@ export function createAndConfirmCutPieceReturn(input: {
     confirmedBy,
     confirmedAt,
   })
-  store.cases.push(record)
+  getStore().cases.push(record)
   persistStore()
   return projectCase(record)
 }
@@ -1639,13 +1644,14 @@ export function markCutPieceReturnLargeTicketPrinted(input: {
 }
 
 export function resetCutPieceReturnDomainForTesting(): void {
-  store.cases.flatMap((record) => record.supplementPlans).flatMap((plan) => plan.supplementLinks).forEach((link) => {
+  getStore().cases.flatMap((record) => record.supplementPlans).flatMap((plan) => plan.supplementLinks).forEach((link) => {
     const confirmationKey = 'CUT_RETURN:' + link.supplementOrderId.split('-supplement-')[0]
     removeSupplementMaterialPrepDemandForRollback(link.supplementOrderId)
     const order = getSupplementOrder(link.supplementOrderId)
     if (order) removeSupplementOrderForRollback(link.supplementOrderId, order.confirmationKey || confirmationKey)
   })
   store = seedStore()
+  storeLoaded = true
   prototypeInitiationCandidates.clear()
   try {
     globalThis.localStorage?.removeItem(CUT_PIECE_RETURN_STORAGE_KEY)

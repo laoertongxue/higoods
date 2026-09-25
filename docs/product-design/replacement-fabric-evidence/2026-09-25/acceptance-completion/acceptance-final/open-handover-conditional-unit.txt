@@ -1,0 +1,32 @@
+✔ 按名称排朴，空名拒绝，同名不同编码/颜色保留独立身份 (9.169708ms)
+✔ 初始每面料一张，重复分配幂等；新增与补打不混淆 (12.647791ms)
+✔ 改派未交票失效，已交历史不抹除，新范围递增序号 (0.871375ms)
+✔ 部分出纸仅确认勾选票；重复确认不增加次数，内容变化拒绝 (0.163167ms)
+✔ 整个批次多袋并集检查，非本次袋不可借用，顺序无关 (2.445125ms)
+✔ 同任务同工厂历史可满足；不同任务或换厂必须另交 (0.91625ms)
+✔ 三方自行裁剪排除，资料缺失与无需面料分开判断 (0.700334ms)
+✔ 混装按类型和单位分项，换片布不能拆成非5 Yard (0.623583ms)
+(node:64831) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 混装打印保留裁片矩阵，捆条和换片布独立附页，不合并单位 (1.970333ms)
+✔ 纯换片布袋可生成货物标识，不制造尺码和部位 (1.099333ms)
+✔ 混装标签拒绝换片布错误长度、作废票和混生产单 (5.625208ms)
+✔ 旧业务存储不可读时仍用已提交的原装袋周期打印三类货物 (3.50125ms)
+(node:64832) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ REPLACEMENT_FABRIC 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (18.028208ms)
+✔ REPLACEMENT_FABRIC 未绑定票不猜任务，可由用户明确同批加入 (7.633083ms)
+✔ REPLACEMENT_FABRIC old-factory 旧绑定不可作为当前任务沿用 (6.579084ms)
+✔ REPLACEMENT_FABRIC other-order 旧绑定不可作为当前任务沿用 (6.5895ms)
+✔ BINDING_STRIP 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (9.2205ms)
+✔ BINDING_STRIP 未绑定票不猜任务，可由用户明确同批加入 (5.298167ms)
+✔ BINDING_STRIP old-factory 旧绑定不可作为当前任务沿用 (5.351583ms)
+✔ BINDING_STRIP other-order 旧绑定不可作为当前任务沿用 (5.44025ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1923.44225

@@ -1,0 +1,23 @@
+[
+  {
+    "account": "OWN-CUTTING-001_operator",
+    "path": "/fcs/craft/cutting/warehouse-management/wait-handover",
+    "disabled": true,
+    "text": "任务单号\n读取任务\n\n仅裁床待交出仓的仓管可以确认交出，请使用裁床仓管账号。 登录裁床账号\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）",
+    "errors": []
+  },
+  {
+    "account": "OWN-CUTTING-001_operator",
+    "path": "/fcs/pda/cutting/simple-cut-piece-handover",
+    "disabled": true,
+    "text": "任务单号\n扫描\n\n仅裁床待交出仓的仓管可以确认交出，请使用裁床仓管账号。 登录裁床账号\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）",
+    "errors": []
+  },
+  {
+    "account": "ID-F001_admin",
+    "path": "/fcs/craft/cutting/warehouse-management/wait-handover",
+    "disabled": true,
+    "text": "任务单号\n读取任务\n\n仅裁床待交出仓的仓管可以确认交出，请使用裁床仓管账号。 登录裁床账号\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）",
+    "errors": []
+  }
+]

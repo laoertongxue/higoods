@@ -1,0 +1,951 @@
+{
+  "results": [
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 281.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 180.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 69.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 351.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 162.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 74.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 264.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 162.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 75.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 271.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 161.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 89.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 266.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 175.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 76.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 189.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 131.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 30,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 186.5,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 131.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 28.599999994039536,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 188.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 131.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 31.299999982118607,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 189,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 130.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 39.5,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 192.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 131.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 22.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 184.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 114.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 25.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 174.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 97.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 24.399999976158142,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 182.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 113.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 42.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 184.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 97.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 24.599999994039536,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 181,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 97.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 26.900000005960464,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 177.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 103.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 56.20000001788139,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 176.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 114.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 61.20000001788139,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 174.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 105.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 56.70000001788139,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 182.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 103.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 55.5,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 178.5,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 115,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 33.5,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 187.5,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 131,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 31.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 188.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 131.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 30.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 175.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 130.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 29.700000017881393,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 187.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 131,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 30.5,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 189.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 131,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 30.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 234.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 151.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 58.5,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 232.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 151.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 58.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 229.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 151,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 57.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 229.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 152.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 71.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 232.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 151,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 56.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 340.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 247.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 162.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 352.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 248.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 163.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 335.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 248,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 163.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 337.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 248.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 163.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 338.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 248,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 164.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 450.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 281.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 198.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 453.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 280.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 193.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 448.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 281,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 197.5,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 452,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 280.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 198,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 451.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 281.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 197.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 284,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 196.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 98.5,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 284.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 198.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 98.5,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 284.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 198,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 109.5,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 287.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 197.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 113.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 285.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 197.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 98.59999999403954,
+      "errors": []
+    }
+  ],
+  "failed": [],
+  "max": 453.69999998807907
+}

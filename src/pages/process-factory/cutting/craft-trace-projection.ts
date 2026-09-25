@@ -1,3 +1,4 @@
+import type { CuttingTicketSourceSnapshot } from '../../../data/fcs/cutting/runtime-inputs.ts'
 import {
   CUTTING_QR_VERSION,
   type CraftTraceValidationResult,
@@ -21,6 +22,7 @@ import {
 import type { FeiTicketLabelRecord } from './fei-tickets-model.ts'
 import {
   buildCuttingTraceabilityProjectionContext,
+  type CuttingTraceabilityProjectionContext,
 } from './traceability-projection-helpers.ts'
 
 export interface CraftTraceProjectionItem {
@@ -47,15 +49,16 @@ export interface CraftTraceProjection {
 }
 
 export function buildCraftTraceProjection(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot: CuttingDomainSnapshot | CuttingTicketSourceSnapshot = buildFcsCuttingDomainSnapshot(),
   options?: {
+    context?: CuttingTraceabilityProjectionContext<CuttingDomainSnapshot | CuttingTicketSourceSnapshot>
     transferBagStore?: TransferBagStore
     ticketRecords?: FeiTicketLabelRecord[]
     currentCraftType?: string
     completedCraftsByTicketId?: Record<string, string[]>
   },
 ): CraftTraceProjection {
-  const context = buildCuttingTraceabilityProjectionContext(snapshot, options?.transferBagStore)
+  const context = options?.context || buildCuttingTraceabilityProjectionContext(snapshot, options?.transferBagStore)
   const ticketRecords = options?.ticketRecords || context.ticketRecords
   const activeBindings = buildActiveTicketPocketBindingMap(context.transferBagStore)
 

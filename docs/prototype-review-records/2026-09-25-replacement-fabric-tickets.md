@@ -5,182 +5,211 @@
 | 项目 | 内容 |
 | --- | --- |
 | 记录日期 | 2026-09-25 |
-| 相关需求 / 任务 | 产品方案 92 条原子需求，见实施追踪 |
-| 记录模式 | 完整产品审查（当前未完成） |
-| 涉及系统 | PFOS / FCS / PDA / 统一打印 |
+| 相关需求 / 任务 | 换片布菲票产品方案92条；继续完成整体逐项验收 |
+| 记录模式 | 完整产品审查 |
+| 涉及系统 | PFOS/FCS/PDA/统一打印/本机数据管理 |
+| 涉及页面路径 | 第7节命名路由及28组场景矩阵 |
 | 端类型 | 管理端、裁床员工执行端、接收工厂端 |
-| 主要角色与任务 | 打票员备换片布；裁床仓管按车缝任务随裁片交出；工厂回看同次接收事实 |
-| 分支 / 基线 | codex/replacement-fabric-tickets / aac68249a0d32dcd71807811684ebf94dbf7cc79 + 本任务差异 |
-| 工作树 / 服务 | /Users/laoer/.codex/worktrees/replacement-fabric-tickets/higoods；dev 43225，构建预览 43226 |
+| 主要角色与任务 | 打票员固定5Yard备布；仓管按任务随裁片同次交出；接收工厂回看原票及历史快照 |
+| 分支 / 基线 | codex/replacement-fabric-acceptance-20260925 / 5ba805510f3cf70339db6e3ddd072b9c5d255a01 |
+| 工作树 / 服务 | /private/tmp/higoods-replacement-fabric-release-20260925；dev43235、build21 preview43236 |
+| 验收设备 | 管理1366×768/1280×720、低分辨率1024×768、PDA360×800/390×844；各命名场景单独绑定 |
+| 源码manifest | build21，1240个src，04165095824efc064c2e26ef942150c79e1b17f814c2e886ddf7346a0f2f0913；主代理逐文件确认一致 |
 
 ## 2. 影响判定
 
 - 用户可见影响：有
-- 判定依据：新增裁后菜单、换片布票列表和标签；三类混装；交出时需料门禁；Web/PDA/工厂接收历史明细；记录级保存、迁移、备份及失败提示。
-- 按 AGENTS.md 第 4、5、7 节执行。存储按第 2.4 节；未达标项仍开放。
-- 上游性能和只读调整仅服务本次读取链路：同款技术版本一次读取、初始化期间复用票据来源、读取演示数据不整包写入旧存储；用户主动动作与既有业务范围不因性能调整改变。
+- 判定依据：新增换片布菜单/票列表/标签；固定5Yard与独立新增/补打；三类型混装分单位；当前任务/工厂需料与同次交出；Web/PDA/接收回执；源记录/附件/票/袋原子保存及失败恢复。
+- 按当前治理基线 [AGENTS.md](../../AGENTS.md) 第2.4、3.1、4、5、7节验收。单浏览器原型，不代表真实工厂业务、云端共享数据库或物理出纸完成。
 
 ## 3. 自查结论
 
 | 检查项 | 结论 | 说明 |
 | --- | --- | --- |
-| 角色、任务与页面模式 | 不通过 | 已有标准列表和 PDA 主动作；全部角色入口和权限边界证据未齐 |
-| 文案、状态、数量与单位 | 通过 | 固定 5 Yard；新增与补打分开；片/米/Yard 分开；缺票说明材料与恢复动作 |
-| 扫码、真实图片与对象识别 | 不通过 | 当前灰面料/卫衣/混装图片与唯一二维码可见；完整失败态与各类历史数据素材待齐 |
-| 防错、危险确认与主管兜底 | 不通过 | 缺票、已用票、冲突阻断及保存撤回已有证据；全部入口仍须重放 |
-| 交接、跨端事实与异常追溯 | 不通过 | 多袋同次提交和直接随交可回读；全回收周期与全部接收路径待验 |
-| 低分辨率、PDA、弱网与上传恢复 | 不通过 | 新列表1366/1280/1024、混装PDA360×800无溢出；无上传入口；全部受影响页尚未覆盖 |
-| 命名路由、交互、图片大图与打印 | 不通过 | 部分命名路由、图片预览、PDF软件解码已验；物理出纸/现场扫码与所有交互未齐 |
-| 存储与迁移 | 不通过 | 新动作IDB、事务/CAS/幂等通过部分故障测试；满额开页/新增、全新浏览器恢复已通过；旧上下游依赖尚未完整迁移 |
-| 页面与交互性能 | 不通过 | 8路由120加载/站内切换样本、列表185交互样本通过；最终版本路由复验最大466.9ms；其余交互仍缺覆盖 |
+| 角色、任务与页面模式 | 通过 | 真实角色阻断、三合一排除、Web/PDA主动作及指定尺寸 |
+| 文案、状态、数量与单位 | 通过 | 5Yard不可改；片/米/Yard分别汇总；700/200/720片与新/旧面料覆盖 |
+| 扫码、真实图片与对象识别 | 软件通过／实物待确认 | 软件唯一票扫码、正确面料图、故障阻断/重试、大图关闭已验；D04实物待用户 |
+| 防错、危险确认与主管兜底 | 通过 | 缺票/占用/跨单/重复/权限/改派旧页阻断；事务失败保留和重试 |
+| 交接、跨端事实与异常追溯 | 通过 | 同次交出、多袋并集/自动归集、同任务后批、不同工厂、历史回执和旧周期标签 |
+| 低分辨率、PDA、弱网与上传恢复 | 通过 | 指定设备实际任务、Blob附件、失败输入保留；没有真实离线队列要求 |
+| 命名路由、交互、图片大图与打印 | 软件通过／实物待确认 | build21软件全部通过；D04物理标签现场接受未收到 |
+| 存储与迁移 | 通过 | 登记7类生产源/8票来源/管理事件/Blob、complete/CAS/迁移/备份；未迁移库存边界明确 |
+| 页面与交互性能 | 通过 | 28组全部通过，1280计时样本max463ms、issues=[]；无豁免、保留所有慢样本 |
 
 ## 4. 问题标签
 
-- 追溯不足：完整当前证据尚未闭环。
-- 协作断裂：旧上游存储禁用时尚不能完成全部链路。
+- 缺扫码识别：仅D04实物纸票与现场扫码证据尚缺；软件识别已验。
+- 追溯不足：仅产品现场接受与最终发布回执尚未取得，不影响已关闭的软件技术场景。
 
 ## 5. 主要问题与处理
 
 | 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
 | --- | --- | --- | --- | --- |
-| 原袋快照只按片展示 | 算不准 | 仓管/工厂 | 类型和长度独立；保存当次快照；混装详情回读 | 全场景待复核 |
-| 缺料校验可能依赖逐袋先后 | 选不对 | 仓管 | 整次提交按任务+工厂求并集再事务保存 | 全入口待验 |
-| localStorage 满额/禁用 | 协作断裂 | 全部 | 移除相关静态种子写入；IDB动作失败保留原记录；旧上游未迁移项登记 | 是 |
-| 页面冷启动超时 | 视觉干扰 | 仓管 | 限定同步计算复用，不减少验收数据；保留失败和修复后原始样本 | 完整性能证据待齐 |
+| 旧业务存储及保存失败 | 协作断裂 | 仓管/打票/工厂 | 记录级同库complete/CAS、显式迁移读回清理、Blob引用/备份与真实失败重试 | 登记范围已过；未迁移库存仍如实读取，不称全站迁移 |
+| 同assignment多料/双袋自动归集 | 选不对 | 仓管 | 按精确面料范围及完整任务袋集合；缺项与成功实际UI重放 | 已由边界r8/r5及build21双袋120复验 |
+| 历史周期/时间与旧票复用 | 状态抽象 | 仓管/接收厂 | 原周期快照/本地时间一致；回收不恢复已交票 | r10与build21标签/生命周期复验通过 |
+| 无关打印registry、Esc全局加载 | 视觉干扰 | 打印人 | 两类袋标签直达原builder；图片overlay捕获Esc并停止传播，避免无关FCS加载 | build21五次Esc及随后故障反馈全部通过；自动重试旧归因已修正 |
+| 坏图片仍打印 | 缺扫码识别 | 打印人 | 原图片frame/失败提示/显式重试/大图及验证打印门禁 | build21增强115样本通过，含实际打印/PDF及失败阻断 |
+| 待交出开窗全量计算 | 视觉干扰 | 仓管 | 精确路由原handler直派，按action计算必要model，保留资格 | build21双袋120/袋弹窗30全部通过 |
+| 物理标签耗材与纸面读取 | 缺扫码识别 | 打票/仓管 | 软件100×100mm、长字段/1001号/PDF与扫码解码已验 | D04外部阻塞，用户未答复 |
 
 ## 6. 最终结论
 
-结论：不通过
+结论：有条件通过
 
-本记录用于明确当前实现、证据与缺口，不作为交付通过回执。总体未完成，不能标记 verified / delivered / accepted。未合并 main、未推送 GitHub、未触发部署；没有生产业务或物理打印完成声明。
+软件技术验收关闭，92条中90条已验证。PRINT001/002因D04现场条件已阻塞，产品实物及accepted未被软件结果替代。主代理已亲核92个条款与完整相关diff；没有尚待补做的软件功能或性能场景。
+
+最后tracked文档/证据冻结后仍须执行最终workflow，预期收据`output/playwright/hpb/acceptance-final/task-receipt-final-frozen.json`。此刻不预记最终workflow或main/GitHub发布为通过；最终收据留output避免自引用diffHash变化。
 
 ## 7. 变更覆盖与验证
 
 ### 受管文件
 
-- `src/components/real-qr.ts`
-- `src/components/ui/mixed-bag-contents.ts`
-- `src/data/app-shell-config.ts`
-- `src/data/browser-storage.ts`
-- `src/data/fcs/cutting/cutting-backup-file.ts`
+以下110个用户可见文件由本任务审查；同事菜单图标提交仅为基线，不认领为本需求变更。
+
+- `src/data/fcs/cut-piece-release.ts`
+- `src/data/fcs/cutting/cut-piece-return-domain.ts`
 - `src/data/fcs/cutting/cutting-event-migration.ts`
 - `src/data/fcs/cutting/cutting-event-repository.ts`
-- `src/data/fcs/cutting/cutting-record-repository.ts`
+- `src/data/fcs/cutting/cutting-event-scope.ts`
+- `src/data/fcs/cutting/cutting-file-maintenance.ts`
 - `src/data/fcs/cutting/cutting-record-identity.ts`
+- `src/data/fcs/cutting/cutting-record-repository.ts`
 - `src/data/fcs/cutting/cutting-runtime-event-ledger.ts`
-- `src/data/fcs/cutting/generated-cut-orders.ts`
 - `src/data/fcs/cutting/generated-fei-tickets.ts`
 - `src/data/fcs/cutting/handover-orders.ts`
-- `src/data/fcs/cutting/mixed-transfer-bag-ticket.ts`
-- `src/data/fcs/cutting/replacement-fabric-bag-selection.ts`
-- `src/data/fcs/cutting/replacement-fabric-event-validation.ts`
-- `src/data/fcs/cutting/replacement-fabric-fei-tickets.ts`
+- `src/data/fcs/cutting/manual-fei-tickets.ts`
+- `src/data/fcs/cutting/marker-plan-source.ts`
+- `src/data/fcs/cutting/material-ledger.ts`
+- `src/data/fcs/cutting/part-ticket-records.ts`
+- `src/data/fcs/cutting/production-material-prep.ts`
 - `src/data/fcs/cutting/replacement-fabric-repository.ts`
 - `src/data/fcs/cutting/replacement-fabric-scan.ts`
 - `src/data/fcs/cutting/replacement-fabric-source.ts`
+- `src/data/fcs/cutting/retired-cut-piece-pickup-history.ts`
+- `src/data/fcs/cutting/runtime-inputs.ts`
 - `src/data/fcs/cutting/sewing-dispatch.ts`
+- `src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts`
 - `src/data/fcs/cutting/simple-cut-piece-handover.ts`
+- `src/data/fcs/cutting/spreading-material-readiness.ts`
 - `src/data/fcs/cutting/transfer-bag-goods-label.ts`
 - `src/data/fcs/cutting/transfer-bag-operations.ts`
+- `src/data/fcs/cutting/transfer-bag-repack-mock.ts`
+- `src/data/fcs/dispatch-task-sheet.ts`
+- `src/data/fcs/dyeing-task-domain.ts`
+- `src/data/fcs/effective-task-assignments.ts`
+- `src/data/fcs/factory-mobile-todos.ts`
+- `src/data/fcs/garment-spu-replacement.ts`
+- `src/data/fcs/pda-cutting-execution-source.ts`
 - `src/data/fcs/pda-handover-events.ts`
-- `src/data/fcs/post-finishing-full-flow.ts`
-- `src/data/fcs/print-service.ts`
-- `src/data/fcs/print-template-registry.ts`
+- `src/data/fcs/printing-task-domain.ts`
+- `src/data/fcs/process-mobile-task-binding.ts`
+- `src/data/fcs/production-context-actions.ts`
+- `src/data/fcs/production-context-records.ts`
+- `src/data/fcs/production-contracts.ts`
+- `src/data/fcs/production-created-process-source-types.ts`
+- `src/data/fcs/production-created-process-sources.ts`
+- `src/data/fcs/production-order-demo-tech-packs.json`
+- `src/data/fcs/production-order-runtime-store.ts`
 - `src/data/fcs/production-orders.ts`
+- `src/data/fcs/production-return-fulfillment.ts`
+- `src/data/fcs/production-task-breakdown.ts`
 - `src/data/fcs/runtime-process-tasks.ts`
-- `src/data/fcs/runtime-task-read-bridge.ts`
-- `src/data/pcs-config-workspace-repository.ts`
-- `src/data/pcs-style-archive-repository.ts`
-- `src/pages/pda-cutting-context.ts`
-- `src/pages/pda-cutting-handover.ts`
-- `src/pages/pda-cutting-inbound.ts`
-- `src/pages/pda-cutting-save.ts`
-- `src/pages/pda-cutting-shared.ts`
+- `src/data/fcs/sewing-cut-piece-responsibility.ts`
+- `src/data/fcs/sewing-cut-piece-return-workflow.ts`
+- `src/data/fcs/sewing-material-handover.ts`
+- `src/data/fcs/sewing-outsourcing-demo.ts`
+- `src/data/fcs/sewing-outsourcing-responsibility.ts`
+- `src/data/fcs/sewing-outsourcing-return-tracking.ts`
+- `src/data/fcs/sewing-outsourcing-workbench.ts`
+- `src/data/fcs/sewing-sample-approval-suggestion.ts`
+- `src/data/fcs/special-craft-task-orders.ts`
+- `src/data/fcs/wool-domain/cutting-receipts.ts`
+- `src/data/fcs/wool-domain/store.ts`
+- `src/data/pcs-sku-archive-repository.ts`
+- `src/pages/dispatch-tenders.ts`
+- `src/pages/pda-cutting-spreading.ts`
+- `src/pages/pda-cutting-task-detail.ts`
 - `src/pages/pda-cutting-transfer-bag-recovery.ts`
 - `src/pages/pda-cutting-transfer-bag-repack.ts`
 - `src/pages/pda-cutting-transfer-bag-scrap.ts`
+- `src/pages/pda-exec-detail.ts`
 - `src/pages/pda-handover-detail.ts`
-- `src/pages/pda-transfer-bag-detail.ts`
+- `src/pages/pda-shell.ts`
+- `src/pages/pda-task-receive.ts`
 - `src/pages/print/print-preview.ts`
 - `src/pages/print/replacement-fabric-preview.ts`
+- `src/pages/print/task-delivery-card.ts`
+- `src/pages/print/task-route-card.ts`
 - `src/pages/print/templates/label-print-template.ts`
-- `src/pages/print/templates/replacement-fabric-label-template.ts`
-- `src/pages/process-factory/cutting/handover-orders.ts`
+- `src/pages/process-factory/cutting/craft-trace-projection.ts`
+- `src/pages/process-factory/cutting/cut-orders-model.ts`
+- `src/pages/process-factory/cutting/fei-ticket-print-projection.ts`
+- `src/pages/process-factory/cutting/fei-tickets-model.ts`
+- `src/pages/process-factory/cutting/fei-tickets-projection.ts`
+- `src/pages/process-factory/cutting/fei-tickets.ts`
 - `src/pages/process-factory/cutting/marker-plan-model.ts`
-- `src/pages/process-factory/cutting/meta.ts`
-- `src/pages/process-factory/cutting/mixed-bag-candidates.ts`
+- `src/pages/process-factory/cutting/marker-plan-occupancy.ts`
+- `src/pages/process-factory/cutting/marker-plan-projection.ts`
+- `src/pages/process-factory/cutting/marker-plan.ts`
+- `src/pages/process-factory/cutting/marker-spreading-projection.ts`
+- `src/pages/process-factory/cutting/marker-spreading-submit-actions.ts`
+- `src/pages/process-factory/cutting/marker-spreading.ts`
+- `src/pages/process-factory/cutting/material-prep-model.ts`
 - `src/pages/process-factory/cutting/replacement-fabric-data-tools.ts`
-- `src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts`
-- `src/pages/process-factory/cutting/transfer-bags-model.ts`
+- `src/pages/process-factory/cutting/runtime-projections.ts`
+- `src/pages/process-factory/cutting/traceability-projection-helpers.ts`
 - `src/pages/process-factory/cutting/transfer-bags-projection.ts`
+- `src/pages/process-factory/cutting/transfer-bags.ts`
 - `src/pages/process-factory/cutting/transfer-bags/detail.ts`
+- `src/pages/process-factory/cutting/transfer-bags/handlers.ts`
+- `src/pages/process-factory/cutting/transfer-bags/state.ts`
 - `src/pages/process-factory/cutting/wait-handover-actions.ts`
-- `src/pages/process-factory/cutting/wait-handover-dialogs.ts`
-- `src/pages/process-factory/cutting/wait-handover-runtime.ts`
 - `src/pages/process-factory/cutting/warehouse-hub.ts`
+- `src/pages/production-context-recovery.ts`
+- `src/pages/production-contract-print.ts`
+- `src/pages/production/confirmation-print.ts`
+- `src/pages/production/context.ts`
+- `src/pages/production/demand-domain.ts`
+- `src/pages/production/events.ts`
+- `src/pages/progress-handover.ts`
+- `src/pages/sewing-outsourcing/responsibility-transfers.ts`
+- `src/pages/sewing-outsourcing/sample-approval-suggestions.ts`
 - `src/pages/simple-cut-piece-handover-ui.ts`
-- `src/router/route-renderers-fcs.ts`
-- `src/router/routes-fcs.ts`
+- `src/pages/unified-dispatch-workbench.ts`
 
-### 页面路由
+### 命名路由
 
-- `/fcs/craft/cutting/replacement-fabric-fei-tickets`
-- `/fcs/craft/cutting/warehouse-management/wait-handover`
-- `/fcs/craft/cutting/transfer-bags`
-- `/fcs/craft/cutting/transfer-bag-detail`
-- `/fcs/craft/cutting/handover-orders`
-- `/fcs/craft/cutting/handover-records/:id`
-- `/fcs/pda/cutting/inbound/:taskId`
-- `/fcs/pda/cutting/transfer-bag/repack`
-- `/fcs/pda/cutting/transfer-bag/recovery`
-- `/fcs/pda/cutting/transfer-bag/scrap`
-- `/fcs/pda/transfer-bag-detail`
-- `/fcs/pda/cutting/simple-cut-piece-handover`
-- `/fcs/pda/handover/:id`
-- `/fcs/print/preview?documentType=REPLACEMENT_FABRIC_LABEL`
+下列路径来自build21实际浏览器脚本，动态ID为隔离Mock场景；登录使用既有PDA Mock账号，不将本原型表述为免登录。
 
-路由存在不代表全部已验；逐项状态见实施追踪矩阵和 `output/playwright/hpb/` 脚本/原始结果。
+- `/fcs/craft/cutting/replacement-fabric-fei-tickets`、`/fcs/craft/cutting/fei-tickets`、`/fcs/craft/cutting/marker-list`、`/fcs/craft/cutting/spreading-list`。
+- `/fcs/craft/cutting/warehouse-management/wait-handover`、`/fcs/craft/cutting/handover-orders`、`/fcs/pda/cutting/simple-cut-piece-handover`。
+- `/fcs/craft/cutting/transfer-bags`、`/fcs/craft/cutting/transfer-bag-detail`、`/fcs/pda/transfer-bag-detail`。
+- `/fcs/pda/cutting/inbound/TASK-CUT-PDA-CUT-DONE-0307`、`/fcs/pda/cutting/transfer-bag/repack`、`/fcs/pda/cutting/transfer-bag/recovery`、`/fcs/pda/cutting/transfer-bag/scrap`。
+- `/fcs/print/preview`：按真实标签单据参数覆盖换片布、部位票、中转袋及历史货物标识，包含打印/PDF、图片门禁与大图。
+- `/fcs/dispatch/workbench?type=NON_SEWING`、`/fcs/dispatch/tenders`、`/fcs/sewing-outsourcing/sample-approval-suggestions`、`/fcs/sewing-outsourcing/responsibility-transfers`。
+- `/fcs/contracts`、`/fcs/progress/handover`、`/fcs/pda/task-receive`、`/fcs/pda/exec`、`/fcs/pda/handover`。
+
+精确动态路径、selector、前置和计时终点见归档[主链路由脚本](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-final/check-routes.js)、[来源路由脚本](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/acceptance-source-ui-final/check-perf-final.js)及[28组矩阵](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/scenario-matrix-build21.md)。
 
 ### 验证命令
 
-- `node --import tsx --test tests/unit/replacement-fabric-*.test.ts`：通过，21条；覆盖最终身份与事件版本规则。
-- 装袋/重装回收/货物标识/接收投影/车缝交出/PDA裁床上下文/唛架公式相关专项：已执行结果见证据目录；最后差异重新核查中。
-- `npm run build`：通过；最终差异已重测。
-- `npx tsc --noEmit`：失败，6处原有基线错误，无本任务新增错误；最终差异已重测。
-- 后道默认演示/完整流程专项：源模块不落盘改动后均通过。
-- `npm run check:list-page-governance`：通过，含静态、模板浏览器和原型治理检查。
-- `npm run check:prototype-design-governance -- --all`：通过，63个受管文件均有记录。
-- `workflow:verify`：未运行（总体尚未达到verified，未以收据替代未通过门禁）。
+- `npm run build`：通过，build-final-21.log，566/566单元、Vite9.99秒。
+- `npx tsc --noEmit`：失败，仅原有6处基线错误：dye-work-order-online-view两处、factory-receiving-source-sync一处、pms/tmf-material-purchases三处；tsc-final-21与原基线一致，无本任务新增。
+- `npm run check:list-page-governance`：通过，list-governance-final-r3.log；偏好失败使用默认值、业务首次不可读必须报错两项均保留。r2缓存前置误断言失败归档。
+- `npm run check:prototype-design-governance -- --all`：通过，governance-doc-update-r2.log，110用户可见文件；最后文档格式由冻结workflow再次核验。
+- `workflow:verify`：未运行最终冻结版；历史workflow-final-16-r2已通过，不能代替最后diffHash收据。
+- `git -c core.whitespace=trailing-space,space-before-tab,-blank-at-eof diff --cached --check -- . ':(exclude)docs/product-design/replacement-fabric-evidence'`：通过。原始归档日志的行尾空白不改写，1110份归档另以SHA256逐文件校验通过；不代替业务验收。
+- 核心/迁移/附件/来源/动作资格专项：通过，实际日志与28组build21真实浏览器结果绑定归档，不用核心契约替代适用UI。
 
 ### 真实图片验证
 
-- 面料来自生产技术资料对应图片，示例 `/materials/fei-ticket/grey-main-fabric.png`；卫衣来自该生产单技术包的款图。没有用色块/图标代替素材。
-- 列表/详情中缩略图与物料编码、名称、颜色同块；混装裁片按生产单对应款图。
-- 新列表大图5次可打开，关闭按钮和 Esc 可关闭；长字段与第1001号标签完整放入100×100mm，PDF两页软件二维码识别成功。现场实物打印/扫码未验收。
-- 当前证据不覆盖所有缺图/失败/遮罩关闭及全部历史票，UX-002/003保持开放。
-
-### 证据和例外
-
-- [实施追踪](../product-design/换片布菲票实施追踪-2026-09-24.md)登记全部92条需求、实际文件、证据和缺口。
-- 无性能豁免授权，不采用1秒例外。未通过项不能以本记录关闭。
+面料图片读取同生产单冻结技术资料，示例/materials/fei-ticket/grey-main-fabric.png；款图使用同单技术包。图片与款/料身份同区域显示，来源和画面联合核对。build21验证正常加载、大图及三种关闭、损坏/缺失阻断打印、显式重试后复打、PDF调用；货物标识本无条码，不虚构条码要求。真实PDF/软件二维码解码不替代现场实物扫码。
 
 ### 例外
 
-- 无
+- 无性能豁免，全部适用计时小于500ms，未删除慢样本。唛架仅禁15个已迁移键、完整库存仍读未迁移收料事实，是明确存储范围边界；HPB/部位票打印/已迁移交出按禁全部localStorage验收。
 
-### 本轮高风险审查
+### 正反向追踪与证据
 
-- 检查了票据身份、整个提交集合、直接交出、历史读取、源变化保护、事务提交时点和局部原型存储范围。修复备份回执借用原票编号但改变面料的缺口；原始失败契约和修复后契约均保留。
-- 源读取失败不再作为稳定哨兵继续提交，明确未保存；完整上游迁移问题仍不通过。
-- 固定派单演示数据跳过落盘仅限两处静态种子，用户主动分配默认写入行为保留，未声称该上游已迁移。
-- 开发服务出现过两个交互慢样本，保留原始结果；优化构建上的对应37项交互共185样本通过，不能混为同一服务的结果。
-
-- TKT-005/STORE：局域网HTTP下缺少Web Crypto安全上下文API，已复现原页面打不开；增加相同SHA-256摘要和getRandomValues随机编号后，票身份算法保持一致。21条契约包括UTF-8/块边界摘要比对和1000次UUID无重复。LAN下开页、新增、打印确认、刷新回读5次通过，票号保持一致。
-
-- HAND-008/FACT：第二批裁剪追加后部位票缓存曾未失效，已复现；缓存签名补充静态与已提交事件版本，避免改用记录级存储后继续只看旧键。版本不变时仍复用缓存。
-
-- 同单跨厂复验：第一家700片+1票、后续200片+0票；第二家先缺票阻断、旧票拒绝，再新增第2票后交720片。两条换片布回执分别属于两个任务/工厂。
-
-## 2026-09-25 main 发布复验
-
-用户明确要求本地合并并推送 GitHub。以 main `416f760adfe93d906aeb1f724ee55d2f769ed0f0` 为发布集成基线，源文件无重叠冲突。补齐 `scripts/check-pda-cutting-transfer-bag-handover.ts` 对事务参数的契约（SCOPE-002、HAND-001、STORE-003），保留原有业务断言；未修改业务实现或基线检查脚本。合并复验结果、原始失败和收据说明见 [发布复验记录](../product-design/replacement-fabric-evidence/2026-09-25/publication/README.md)。本记录总体结论仍为 **未完成**，不因 Git 提交或远端部署而改成产品通过。
+[实施追踪](../product-design/换片布菲票实施追踪-2026-09-24.md)、[28组场景矩阵](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/scenario-matrix-build21.md)、[规范章节追踪](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/requirements-trace.md)、[归档索引](../product-design/replacement-fabric-evidence/2026-09-25/acceptance-completion/README.md)相互绑定。主代理已完成正反向语义审查；没有新增可变长度、独立换片布交出、自裁三方业务或后端。原失败及根因修正保留在迭代历史与原始产物。

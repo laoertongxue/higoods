@@ -1,3 +1,4 @@
+import { productionContextStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import type { EffectiveTaskAssignment } from './effective-task-assignments'
 import type { ProductionReturnRuleSnapshot } from './production-return-fulfillment'
 import type { TaskFulfillmentPolicy } from './task-fulfillment-policy'
@@ -90,40 +91,22 @@ interface PersistedProductionContractState {
   auditSeq: number
 }
 
-function persistContractState(): void {
-  if (typeof window === 'undefined') return
-  try {
-    const value: PersistedProductionContractState = {
-      contracts: [...contracts.values()],
-      auditLogs: contractAuditLogs,
-      contractSeq,
-      scanSeq,
-      auditSeq,
-    }
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value))
-  } catch {
-    // 原型在隐私模式或存储空间不足时仍可继续当前页面操作。
-  }
+export function captureProductionContractState(): PersistedProductionContractState {
+  return structuredClone({contracts:[...contracts.values()],auditLogs:contractAuditLogs,contractSeq,scanSeq,auditSeq})
 }
-
+export function restoreProductionContractState(value: PersistedProductionContractState): void {
+  contracts.clear(); contractAuditLogs.splice(0)
+  value.contracts.forEach(contract => contracts.set(contract.contractId, {...structuredClone(contract),
+    lineageRuntimeTaskId:contract.lineageRuntimeTaskId || contract.runtimeTaskId,
+    templateSnapshot:contract.templateSnapshot || buildLegacyTemplateSnapshot(contract)}))
+  contractAuditLogs.push(...structuredClone(value.auditLogs)); contractSeq=value.contractSeq; scanSeq=value.scanSeq; auditSeq=value.auditSeq
+}
+function persistContractState(): void {
+  productionContextStorage.setItem(STORAGE_KEY,JSON.stringify(captureProductionContractState()))
+}
 function hydrateContractState(): void {
-  if (typeof window === 'undefined') return
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    const value = JSON.parse(raw) as PersistedProductionContractState
-    value.contracts?.forEach((contract) => contracts.set(contract.contractId, {
-      ...contract,
-      lineageRuntimeTaskId: contract.lineageRuntimeTaskId || contract.runtimeTaskId,
-      templateSnapshot: contract.templateSnapshot || buildLegacyTemplateSnapshot(contract),
-    }))
-    contractAuditLogs.push(...(value.auditLogs || []))
-    contractSeq = value.contractSeq || value.contracts?.length || 0
-    scanSeq = value.scanSeq || 0
-    auditSeq = value.auditSeq || value.auditLogs?.length || 0
-  } catch {
-    window.localStorage.removeItem(STORAGE_KEY)
-  }
+  const raw=productionContextStorage.getItem(STORAGE_KEY)
+  restoreProductionContractState(raw ? JSON.parse(raw) : {contracts:[],auditLogs:[],contractSeq:0,scanSeq:0,auditSeq:0})
 }
 
 function resolveProcessTypeId(policy: TaskFulfillmentPolicy): ProductionContractProcessTypeId {
@@ -406,7 +389,8 @@ export function resetProductionContractsForTests(): void {
   scanSeq = 0
   auditSeq = 0
   contractAuditLogs.splice(0)
-  if (typeof window !== 'undefined') window.localStorage.removeItem(STORAGE_KEY)
+  productionContextStorage.removeItem(STORAGE_KEY)
 }
 
-hydrateContractState()
+if (typeof document === 'undefined' || isProductionContextReady()) hydrateContractState()
+onProductionContextChanged(STORAGE_KEY,hydrateContractState)

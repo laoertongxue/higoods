@@ -1,0 +1,8 @@
+### Result
+{"url":"http://127.0.0.1:43235/fcs/print/preview?documentType=FEI_TICKET_LABEL&sourceType=FEI_TICKET_RECORD&sourceId=mock-fei-ticket-ordinary-005%2Cmock-fei-ticket-ordinary-006%2Cmock-fei-ticket-ordinary-001%2Cmock-fei-ticket-ordinary-002%2Cmock-fei-ticket-ordinary-003%2Cmock-fei-ticket-ordinary-004&paperColor=WHITE","feedback":"","text":"02604-0201\n面料\n藏青斜纹布（面料 A）\n颜色\n藏青色\n唛架编号\nMK-260412-201-A\n铺布单号\nPB-260412-201\n部位 袖片\n尺码 S - 1 - 180\n部位数量 4 个\n编号区间 001 - 180\n适用SKU SPU-2024-021-藏青色-S\n菲票号 FT-CUT-260412-201-01-004\n本票裁片 180 片\n菲票二维码\nV1 / 扫码查看菲票"}
+### Ran Playwright code
+```js
+await (async root=>{const p=root.context().browser().contexts().flatMap(c=>c.pages()).filter(p=>p.url().includes('/print/preview')).at(-1);return {url:p.url(),feedback:await p.locator('[data-print-ready-feedback]').textContent(),text:(await p.locator('body').innerText()).slice(-200)}})(page);
+```
+### Events
+- New console entries: .playwright-cli/console-2026-09-25T02-35-23-288Z.log#L176-L177

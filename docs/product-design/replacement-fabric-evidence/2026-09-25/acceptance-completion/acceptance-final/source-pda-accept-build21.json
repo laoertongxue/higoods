@@ -1,0 +1,255 @@
+{
+  "results": [
+    {
+      "scene": "dispatch",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 82.2000000178814
+        },
+        {
+          "action": "accept-task",
+          "ms": 219.5
+        }
+      ],
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\n2\nH\nHiGo\n待开工 (1)\n进行中 (0)\n生产暂停 (0)\n已完工 (0)\n其他执行任务\nTASKGEN-po-14671-001\nTASKGEN-po-14671-001\n执行：待开工\n直接派发\n生产单号\npo-14671\n原始任务\nTASKGEN-po-14671-001\n当前工序\n裁片\n数量\n本单裁片片数：3391 片\n开工时限\n2026-09-26 06:33:09\n覆盖工序：裁片\n开工条件\n待接收确认\n\n待来料或执行明细同步，暂不可开工\n\n查看前置状态\n接单\n执行\n交接\n仓管\n结算",
+      "buttons": [
+        {
+          "action": "switch-tab",
+          "text": "待开工\n              (1)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "进行中\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "生产暂停\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "已完工\n              (0)"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "TASKGEN-po-14671-001\n            TASKGEN-po-14671-001\n          \n          \n            \n    \n      执行：待开工\n    \n  \n            \n      \n        \n        直接派发\n      \n    \n          \n        \n\n        \n          \n                  生产单号\n                  po-14671\n                  原始任务\n                  TASKGEN-po-14671-001\n                  当前工序\n                  裁片\n                \n          数量\n          本单裁片片数：3391 片\n          \n          开工时限\n          2026-09-26 06:33:09\n        \n\n        覆盖工序：裁片\n\n        \n          \n            开工条件\n            待接收确认\n          \n          待来料或执行明细同步，暂不可开工\n        \n\n        \n\n        \n          \n            \n            查看前置状态"
+        },
+        {
+          "action": "go-prerequisite",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "查看前置状态"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "scene": "dispatch",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 82.10000002384186
+        },
+        {
+          "action": "accept-task",
+          "ms": 222.40000000596046
+        }
+      ],
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\n2\nH\nHiGo\n待开工 (1)\n进行中 (0)\n生产暂停 (0)\n已完工 (0)\n其他执行任务\nTASKGEN-po-14671-001\nTASKGEN-po-14671-001\n执行：待开工\n直接派发\n生产单号\npo-14671\n原始任务\nTASKGEN-po-14671-001\n当前工序\n裁片\n数量\n本单裁片片数：3391 片\n开工时限\n2026-09-26 06:33:11\n覆盖工序：裁片\n开工条件\n待接收确认\n\n待来料或执行明细同步，暂不可开工\n\n查看前置状态\n接单\n执行\n交接\n仓管\n结算",
+      "buttons": [
+        {
+          "action": "switch-tab",
+          "text": "待开工\n              (1)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "进行中\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "生产暂停\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "已完工\n              (0)"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "TASKGEN-po-14671-001\n            TASKGEN-po-14671-001\n          \n          \n            \n    \n      执行：待开工\n    \n  \n            \n      \n        \n        直接派发\n      \n    \n          \n        \n\n        \n          \n                  生产单号\n                  po-14671\n                  原始任务\n                  TASKGEN-po-14671-001\n                  当前工序\n                  裁片\n                \n          数量\n          本单裁片片数：3391 片\n          \n          开工时限\n          2026-09-26 06:33:11\n        \n\n        覆盖工序：裁片\n\n        \n          \n            开工条件\n            待接收确认\n          \n          待来料或执行明细同步，暂不可开工\n        \n\n        \n\n        \n          \n            \n            查看前置状态"
+        },
+        {
+          "action": "go-prerequisite",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "查看前置状态"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "scene": "dispatch",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 81.90000000596046
+        },
+        {
+          "action": "accept-task",
+          "ms": 239
+        }
+      ],
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\n2\nH\nHiGo\n待开工 (1)\n进行中 (0)\n生产暂停 (0)\n已完工 (0)\n其他执行任务\nTASKGEN-po-14671-001\nTASKGEN-po-14671-001\n执行：待开工\n直接派发\n生产单号\npo-14671\n原始任务\nTASKGEN-po-14671-001\n当前工序\n裁片\n数量\n本单裁片片数：3391 片\n开工时限\n2026-09-26 06:33:14\n覆盖工序：裁片\n开工条件\n待接收确认\n\n待来料或执行明细同步，暂不可开工\n\n查看前置状态\n接单\n执行\n交接\n仓管\n结算",
+      "buttons": [
+        {
+          "action": "switch-tab",
+          "text": "待开工\n              (1)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "进行中\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "生产暂停\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "已完工\n              (0)"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "TASKGEN-po-14671-001\n            TASKGEN-po-14671-001\n          \n          \n            \n    \n      执行：待开工\n    \n  \n            \n      \n        \n        直接派发\n      \n    \n          \n        \n\n        \n          \n                  生产单号\n                  po-14671\n                  原始任务\n                  TASKGEN-po-14671-001\n                  当前工序\n                  裁片\n                \n          数量\n          本单裁片片数：3391 片\n          \n          开工时限\n          2026-09-26 06:33:14\n        \n\n        覆盖工序：裁片\n\n        \n          \n            开工条件\n            待接收确认\n          \n          待来料或执行明细同步，暂不可开工\n        \n\n        \n\n        \n          \n            \n            查看前置状态"
+        },
+        {
+          "action": "go-prerequisite",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "查看前置状态"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "scene": "dispatch",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 82.90000000596046
+        },
+        {
+          "action": "accept-task",
+          "ms": 219.39999997615814
+        }
+      ],
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\n2\nH\nHiGo\n待开工 (1)\n进行中 (0)\n生产暂停 (0)\n已完工 (0)\n其他执行任务\nTASKGEN-po-14671-001\nTASKGEN-po-14671-001\n执行：待开工\n直接派发\n生产单号\npo-14671\n原始任务\nTASKGEN-po-14671-001\n当前工序\n裁片\n数量\n本单裁片片数：3391 片\n开工时限\n2026-09-26 06:33:17\n覆盖工序：裁片\n开工条件\n待接收确认\n\n待来料或执行明细同步，暂不可开工\n\n查看前置状态\n接单\n执行\n交接\n仓管\n结算",
+      "buttons": [
+        {
+          "action": "switch-tab",
+          "text": "待开工\n              (1)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "进行中\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "生产暂停\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "已完工\n              (0)"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "TASKGEN-po-14671-001\n            TASKGEN-po-14671-001\n          \n          \n            \n    \n      执行：待开工\n    \n  \n            \n      \n        \n        直接派发\n      \n    \n          \n        \n\n        \n          \n                  生产单号\n                  po-14671\n                  原始任务\n                  TASKGEN-po-14671-001\n                  当前工序\n                  裁片\n                \n          数量\n          本单裁片片数：3391 片\n          \n          开工时限\n          2026-09-26 06:33:17\n        \n\n        覆盖工序：裁片\n\n        \n          \n            开工条件\n            待接收确认\n          \n          待来料或执行明细同步，暂不可开工\n        \n\n        \n\n        \n          \n            \n            查看前置状态"
+        },
+        {
+          "action": "go-prerequisite",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "查看前置状态"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": ""
+        }
+      ]
+    },
+    {
+      "scene": "dispatch",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 98.7999999821186
+        },
+        {
+          "action": "accept-task",
+          "ms": 238.90000000596046
+        }
+      ],
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\n2\nH\nHiGo\n待开工 (1)\n进行中 (0)\n生产暂停 (0)\n已完工 (0)\n其他执行任务\nTASKGEN-po-14671-001\nTASKGEN-po-14671-001\n执行：待开工\n直接派发\n生产单号\npo-14671\n原始任务\nTASKGEN-po-14671-001\n当前工序\n裁片\n数量\n本单裁片片数：3391 片\n开工时限\n2026-09-26 06:33:19\n覆盖工序：裁片\n开工条件\n待接收确认\n\n待来料或执行明细同步，暂不可开工\n\n查看前置状态\n接单\n执行\n交接\n仓管\n结算",
+      "buttons": [
+        {
+          "action": "switch-tab",
+          "text": "待开工\n              (1)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "进行中\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "生产暂停\n              (0)"
+        },
+        {
+          "action": "switch-tab",
+          "text": "已完工\n              (0)"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "TASKGEN-po-14671-001\n            TASKGEN-po-14671-001\n          \n          \n            \n    \n      执行：待开工\n    \n  \n            \n      \n        \n        直接派发\n      \n    \n          \n        \n\n        \n          \n                  生产单号\n                  po-14671\n                  原始任务\n                  TASKGEN-po-14671-001\n                  当前工序\n                  裁片\n                \n          数量\n          本单裁片片数：3391 片\n          \n          开工时限\n          2026-09-26 06:33:19\n        \n\n        覆盖工序：裁片\n\n        \n          \n            开工条件\n            待接收确认\n          \n          待来料或执行明细同步，暂不可开工\n        \n\n        \n\n        \n          \n            \n            查看前置状态"
+        },
+        {
+          "action": "go-prerequisite",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": "查看前置状态"
+        },
+        {
+          "action": "open-detail",
+          "id": "TASKGEN-po-14671-001__ORDER",
+          "text": ""
+        }
+      ]
+    }
+  ],
+  "failed": []
+}

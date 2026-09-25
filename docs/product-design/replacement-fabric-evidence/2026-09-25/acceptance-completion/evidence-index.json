@@ -1,0 +1,331 @@
+{
+  "U1": [
+    [
+      "acceptance-final/core-final-7.log",
+      "tests/unit/replacement-fabric-fei-tickets.test.ts"
+    ],
+    "核心84/84中的票身份、5Yard、改派、并集、任务/工厂、空集；不代替UI。tests路径从仓库根起。"
+  ],
+  "U2": [
+    [
+      "acceptance-final/core-final-7.log",
+      "tests/unit/replacement-fabric-source-and-history.test.ts"
+    ],
+    "SKU需料、朴、同名身份、颜色映射、历史数量与回执。"
+  ],
+  "U3": [
+    [
+      "acceptance-final/binding-strip-final.txt",
+      "fei-assembly-final.txt",
+      "tests/unit/replacement-fabric-mixed-label.test.ts"
+    ],
+    "捆条/部位契约和混装标签；非物理打印。"
+  ],
+  "D1": [
+    [
+      "acceptance-source-ui-final/actions-build7.json",
+      "check-actions-final.js",
+      "cutting-scope-in.png",
+      "cutting-scope-out.png"
+    ],
+    "真分配→3初始票→增票→真改派→移出/历史失效，5组。"
+  ],
+  "D2": [
+    [
+      "acceptance-final/roles-build21.json",
+      "check-role-boundary.js"
+    ],
+    "实际Web/PDA角色禁用与说明。"
+  ],
+  "D3": [
+    [
+      "acceptance-final/two-factories-final.json",
+      "check-two-factories.js"
+    ],
+    "UI交出700片+1票、200片+0票、另任务另厂720片+第2票；前置/后续裁剪用显式Mock，dev单轮功能。"
+  ],
+  "D4": [
+    [
+      "acceptance-final/simple-disabled-final.json",
+      "acceptance-final/simple-pda-build10.json",
+      "acceptance-final/simple-handover-build21.json"
+    ],
+    "禁全LS直接交出功能；PDA build10五组有结果"
+  ],
+  "D5": [
+    [
+      "acceptance-final/mixed-backup-final.json",
+      "check-mixed-backup.js"
+    ],
+    "多袋缺项/并集是内部业务函数集成调用；Web/PDA三类型详情是真实页面；不是完整待交出按钮验收。"
+  ],
+  "D6": [
+    [
+      "acceptance-part-tickets/performance-build7.json",
+      "pda-stages-build7.json",
+      "fei-detail-build7.json",
+      "README.md"
+    ],
+    "155/155，FEI/打印/铺布/PDA依赖；6独立事件、2卷、200米/6900量、失败重试；不替代HPB特定业务边界。"
+  ],
+  "D7": [
+    [
+      "acceptance-source-ui-final/generation-build8.json",
+      "breakdown-build8.json",
+      "contract-transfer-build8.json",
+      "actions-build7.json",
+      "start-build7.json",
+      "pda-accept-build9.json"
+    ],
+    "真实来源生成/拆解/分配/定标/合同/样衣/责任/接单/开工；每项前置与失败保留见脚本。"
+  ],
+  "D8": [
+    [
+      "acceptance-final/history-print-build21.json",
+      "check-history-print.js",
+      "history-reprint.png"
+    ],
+    "已交票补打、禁LS、receipt不变、票数不变。未实施改派、回收或再次交出。"
+  ],
+  "L1": [
+    [
+      "acceptance-final/list-actions-build21.json"
+    ],
+    "build11完整列表交互与尺寸的原始结果。"
+  ],
+  "L2": [
+    [
+      "acceptance-final/extra-controls-build21.json"
+    ],
+    "build11列冻结/拖拽/页大小/故障图片等原始结果；build8重置831.6ms旧失败保留，不与新版结果混用。"
+  ],
+  "L3": [
+    [
+      "acceptance-final/data-tools-build21.json"
+    ],
+    "20通过样本：检查/确认清理/迁移前确认/显式迁移空源。"
+  ],
+  "P1": [
+    [
+      "acceptance-final/print-images-build21.json"
+    ],
+    "新增5次、大图5次；6票首打1张、补打保持票数/2打印记录、部分打印。"
+  ],
+  "P2": [
+    [
+      "acceptance-final/print-controls-build21.json"
+    ],
+    "build11取消/未打印阻断/成功票选择/首打补打/整单；旧build8单个528.2ms作为诊断失败保留。"
+  ],
+  "P3": [
+    [
+      "acceptance-final/label-qr-decode.json",
+      "label-render-1.png",
+      "label-render-2.png",
+      "labels.txt"
+    ],
+    "正常与1001边界QR软件识别；不代表纸面扫描。"
+  ],
+  "P4": [
+    [
+      "acceptance-final/lan-build21.json"
+    ],
+    "5次局域网HTTP非secureContext身份、增票、打印。"
+  ],
+  "B1": [
+    [
+      "acceptance-bag-lifecycle/hpb-scan-five-samples-build7.json"
+    ],
+    "20通过样本，实际HPB003打印、扫描、装袋、详情刷新。"
+  ],
+  "B2": [
+    [
+      "acceptance-bag-lifecycle/lifecycle-five-samples-build7.json"
+    ],
+    "80通过样本，三类重装、占用库位失败/重试、回收/报废、逐票守恒。"
+  ],
+  "B3": [
+    [
+      "acceptance-bag-lifecycle/web-detail-five-samples-build7.json",
+      "evidence-manifest.json"
+    ],
+    "65通过样本，Web详情/刷新/11Tab与图片。历史Tab不等同历史打印。"
+  ],
+  "B4": [
+    [
+      "acceptance-legacy-bags/preview-five-samples-build8.json",
+      "README.md"
+    ],
+    "45通过样本；首读0旧写、失败0实体/输入保留、保存仅自身两实体、刷新。"
+  ],
+  "S1": [
+    [
+      "acceptance-final/source-core-final.json",
+      "source-late-final-r2.txt",
+      "source-reload-final.json",
+      "source-actions-final.json"
+    ],
+    "7+8+4核心与5动作：迁移/CAS/command/complete/失败/附件/禁LS。"
+  ],
+  "S2": [
+    [
+      "acceptance-part-tickets/browser-eight-sources-final.txt",
+      "unit-results-final.txt",
+      "acceptance-final/storage-extra-final.json"
+    ],
+    "8键记录迁移/校验/失败/禁LS；24unit，HPB核心容量/CAS。"
+  ],
+  "S3": [
+    [
+      "acceptance-final/migration-final.json",
+      "retired-history-final.json"
+    ],
+    "共用裁后键/历史迁移，101/202条批量、中断/冲突/源变化/清理重试。"
+  ],
+  "S4": [
+    [
+      "acceptance-final/upgrade-blocked-final.txt"
+    ],
+    "真实IDB blocked，注入下一schema=2、产品schema=1；关闭旧连接重试/原记录保留。"
+  ],
+  "S5": [
+    [
+      "acceptance-final/backup-build21.json",
+      "acceptance-final/mixed-backup-final.json",
+      "acceptance-final/files-final.json"
+    ],
+    "build11新context五次恢复与错误备份不修改原库；另结合三类混装与Blob实体/引用校验。"
+  ],
+  "S6": [
+    [
+      "acceptance-final/files-final.json",
+      "acceptance-integration/check-file-lifecycle.js"
+    ],
+    "9项Blob/引用/命令保护/并发/损坏备份/原子失败。"
+  ],
+  "R1": [
+    [
+      "acceptance-final/core-final-7.log",
+      "retired-history-final.json",
+      "binding-strip-final.txt"
+    ],
+    "类型与历史回归专项；不能代替未执行的毛织/特殊工艺页面。"
+  ],
+  "R2": [
+    [
+      "acceptance-final/routes-build21.json",
+      "acceptance-final/routes-build15.json"
+    ],
+    "历史build12/15失败保留；最终冷启动/刷新/导航以routes-build21及source-routes-build21实际严格结果关闭。"
+  ],
+  "R3": [
+    [
+      "acceptance-source-ui-final/perf-build9.json"
+    ],
+    "来源9路由135通过样本；修复build8 PDA接单613.1ms后的结果。"
+  ],
+  "C1": [
+    [
+      "acceptance-final/business-boundaries-agent-r8.json"
+    ],
+    "3/3通过：ORDER004、MAT006、MAT004/HAND011；上游明确Mock，实际打印/交出UI。"
+  ],
+  "C2": [
+    [
+      "acceptance-final/bag-boundaries-agent-r10.json",
+      "acceptance-final/boundary-evidence-notes.md",
+      "acceptance-final/history-route-unit.txt",
+      "acceptance-final/bag-time-and-scope-after.txt"
+    ],
+    "3/3真实UI通过：重复/跨袋/跨单；已装袋拒绝直交；回收旧票拒绝、新票新周期，以及选择旧周期实际打印保持原3页20片/5Yard/8米。"
+  ],
+  "C3": [
+    [
+      "acceptance-final/reassignment-boundaries-r5.json"
+    ],
+    "3/3通过：旧预览改派拒绝、已交历史保持、同taskId新厂需新独立票；最后一项上游来源明确Mock。"
+  ],
+  "C4": [
+    [
+      "acceptance-final/batch-ui-boundaries-r5.json"
+    ],
+    "两场真实UI通过：未绑定换片布袋漏选阻断→扫描补齐同次交出；两袋已绑定同任务自动归集均被保留。"
+  ],
+  "M1": [
+    [
+      "acceptance-final/marker-build11.json",
+      "acceptance-final/profile-marker-build11-dev.txt",
+      "acceptance-final/profile-pda-bag-build12-dev.txt",
+      "acceptance-final/factory-mobile-todo-count-unit.txt"
+    ],
+    "旧唛架613.5/装袋510.4失败与profile保留；最终marker-build21及hpb-scan-build21全部通过。"
+  ],
+  "P5": [
+    [
+      "acceptance-final/label-managed-after.txt"
+    ],
+    "4/4核心：混装/纯换片布/非法量拒绝/禁旧存储原cycle；C2另补实际选择旧周期与页面点击打印。"
+  ],
+  "R4": [
+    [
+      "acceptance-final/cutting-all-final.log",
+      "acceptance-final/fcs-end-to-end-final.log",
+      "acceptance-final/wool-e2e-final.log",
+      "acceptance-final/wool-final-r6.log",
+      "acceptance-final/WOOL-CHECKER-FINAL.md",
+      "acceptance-final/wool-initialization-probe-r5.json"
+    ],
+    "裁床全链/FCS端到端通过，毛织独立服务E2E17/17、完整17个既有专项脚本r6 exit0；前置修正理由与未扩大存储范围见WOOL-CHECKER-FINAL。"
+  ],
+  "C5": [
+    [
+      "acceptance-final/scope-empty-agent-r2.json",
+      "acceptance-final/check-scope-empty-handover.js"
+    ],
+    "2/2真实入口通过：三合一任务不支持且0写入；完整全朴材料集合显示无需换片布并交5票700片、0换片布/0回执。显式Mock仅准备来源。"
+  ],
+  "G1": [
+    [
+      "acceptance-final/source-build16.json",
+      "acceptance-final/list-governance-final-r3.log",
+      "acceptance-final/workflow-final-16-r2.log",
+      "acceptance-final/task-receipt-final-16.json"
+    ],
+    "历史build16治理/收据结果，只对应生成时点；最终冻结workflow预期output/task-receipt-final-frozen.json，待主代理执行，不复制进tracked。"
+  ],
+  "P6": [
+    [
+      "acceptance-final/web-detail-build16.json",
+      "acceptance-final/profile-history-goods-build16.json"
+    ],
+    "build16历史标签631–666失败/profile保留；直达既有模板后最终web-detail-build21严格通过。"
+  ],
+  "P7": [
+    [
+      "acceptance-final/goods-image-failure-before.json",
+      "acceptance-final/goods-image-failure-before.txt"
+    ],
+    "旧坏图仍打印失败保留；verified打印门禁与显式重试、Esc事件传播修复后web-detail-build21增强115样本全部通过。"
+  ],
+  "R5": [
+    [
+      "acceptance-final/source-build20.json",
+      "acceptance-final/batch-ui-build20.json",
+      "acceptance-final/wait-dialogs-build20.json",
+      "acceptance-final/hpb-scan-build20.json",
+      "acceptance-final/profile-open-handover-build19.json",
+      "acceptance-final/open-handover-conditional-unit.txt"
+    ],
+    "build20修复后的定向结果保留；最终同版batch-ui-build21/wait-dialogs-build21/hpb-scan-build21全部通过。"
+  ],
+  "F21": [
+    [
+      "acceptance-final/source-build21.json",
+      "acceptance-final/strict-summary-build21.json",
+      "scenario-matrix-build21.md",
+      "acceptance-final/build-final-21.log",
+      "acceptance-final/tsc-final-21.log"
+    ],
+    "最终源码1240逐项一致；28组/1280计时/max463/issues[]；566单元+Vite9.99。独立tsc仅6个旧基线错误。软件技术关闭，D04两条外部阻塞。"
+  ]
+}

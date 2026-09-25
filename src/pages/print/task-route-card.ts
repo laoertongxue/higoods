@@ -23,7 +23,7 @@ function resolveSourceParams(sourceTypeParam?: string, sourceIdParam?: string): 
   }
 }
 
-export function renderTaskRouteCardPrintPage(sourceTypeParam?: string, sourceIdParam?: string): string {
+export function renderTaskRouteCardPrintPage(sourceTypeParam?: string, sourceIdParam?: string): Promise<string> {
   const { sourceType, sourceId } = resolveSourceParams(sourceTypeParam, sourceIdParam)
   return renderUnifiedPrintPreviewPage({
     documentType: 'TASK_ROUTE_CARD',

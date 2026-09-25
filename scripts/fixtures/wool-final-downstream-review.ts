@@ -10,7 +10,7 @@ import { resetSpecialCraftTaskStore, getSpecialCraftTaskOrderById } from '../../
 import { readWoolStore, replaceWoolStore } from '../../src/data/fcs/wool-domain/store.ts'
 import { addWoolHandover } from '../../src/data/fcs/wool-domain/commands.ts'
 
-export function prepareWoolFinalDownstreamReviewScenario() {
+export async function prepareWoolFinalDownstreamReviewScenario() {
   const source = productionOrders.find(order => {
     const snapshot = getProductionOrderTechPackSnapshot(order.productionOrderId)
     return shouldGenerateInternalCraftOrderForProductionOrder(order) && snapshot?.bomItems.length
@@ -36,8 +36,11 @@ export function prepareWoolFinalDownstreamReviewScenario() {
   const generated = generateSpecialCraftTaskOrdersFromProductionOrder({productionOrder:order,techPackSnapshot:snapshot})
   if (generated.errors.length || generated.taskOrders.length !== 1) throw Error('最终成衣工艺验收场景生成失败')
   if (productionOrders.some(existing => existing.productionOrderId === order.productionOrderId)) throw Error('请在全新隔离浏览器准备此验收场景')
-  productionOrders.push(order)
-  persistCreatedProductionOrders([order.productionOrderId])
+  const saveSource = () => { productionOrders.push(order); persistCreatedProductionOrders([order.productionOrderId]) }
+  if (typeof document !== 'undefined') {
+    const { saveProductionSourceAction } = await import('../../src/data/fcs/production-context-actions.ts')
+    await saveProductionSourceAction({ id: 'mock-wool-final-review-source', intent: 'explicit-wool-final-review-production-source', action: saveSource })
+  } else saveSource()
   // This isolated fixture only creates source data. Normal generation chooses the task identity/factory.
   resetSpecialCraftTaskStore()
   const task = getSpecialCraftTaskOrderById(generated.taskOrders[0].taskOrderId)!

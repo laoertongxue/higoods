@@ -1,0 +1,35 @@
+{
+  "results": [
+    {
+      "sample": 1,
+      "ms": 51.60000002384186,
+      "count": 2,
+      "invalidPreserved": true
+    },
+    {
+      "sample": 2,
+      "ms": 54.5,
+      "count": 2,
+      "invalidPreserved": true
+    },
+    {
+      "sample": 3,
+      "ms": 52.5,
+      "count": 2,
+      "invalidPreserved": true
+    },
+    {
+      "sample": 4,
+      "ms": 52.80000001192093,
+      "count": 2,
+      "invalidPreserved": true
+    },
+    {
+      "sample": 5,
+      "ms": 52.69999998807907,
+      "count": 2,
+      "invalidPreserved": true
+    }
+  ],
+  "failed": []
+}

@@ -1,3 +1,4 @@
+import { resolveTransferBagGoodsLabelSource } from '../../../../data/fcs/cutting/transfer-bag-goods-label.ts'
 import { appStore } from '../../../../state/store.ts'
 import { renderRealQrPlaceholder } from '../../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../../utils.ts'
@@ -92,6 +93,7 @@ import {
   getViewModel,
   getCarrierManagementProjection,
   persistStore,
+  readSelectedTicketIdsPreference,
   persistSelectedTicketIds,
   setFeedback,
   closeActiveDialog,
@@ -646,6 +648,13 @@ export function resolveTransferBagLandingFromPrefilter(
         usageNo: matchedUsage.usageNo,
       }
     }
+    // 新装袋周期来自已提交事件，不在旧周转数组中；仍须核对真实袋档案及周期归属。
+    const recordedCycle = !matchedUsages.length && prefilter.usageId
+      ? resolveTransferBagGoodsLabelSource(prefilter.usageId) : null
+    const recordedMaster = recordedCycle && viewModel.masters.find(item => item.bagCode === recordedCycle.bagCode
+      && matchPrefilter([item.bagId], prefilter.bagId) && matchPrefilter([item.bagCode], prefilter.bagCode))
+    if (recordedMaster && !prefilter.usageNo) return { page: 'detail', reason: 'explicit-usage',
+      bagId: recordedMaster.bagId, bagCode: recordedMaster.bagCode, usageId: recordedCycle!.usageCycleId }
     return {
       page: 'list',
       reason: matchedUsages.length ? 'ambiguous-usage' : 'missing-usage',
@@ -1031,7 +1040,10 @@ export function saveMasterDraft(): boolean {
     createdBy: '中转袋工作台',
     note: state.masterDraft.note.trim(),
   })
-  refreshDerivedState()
+  // 新建空袋只生成它自己的周转摘要，不重算并保存其他演示袋的派生记录。
+  state.store.reuseCycles.push(buildReuseCycleSummary({
+    bag: state.store.masters[state.store.masters.length - 1], usages: [], returnReceipts: [], closureResults: [],
+  }))
   persistStore()
   closeActiveDialog()
   state.masterKeyword = bagCode
@@ -1229,7 +1241,7 @@ export function syncPrefilterFromQuery(): void {
   state.drillContext = readCuttingDrillContextFromLocation(getWarehouseSearchParams())
   state.prefilter = getPrefilterFromQuery()
   state.preselectedTicketRecordIds = deserializeTransferBagSelectedTicketIds(
-    sessionStorage.getItem(CUTTING_TRANSFER_BAG_SELECTED_TICKET_IDS_STORAGE_KEY),
+    readSelectedTicketIdsPreference(),
   )
   const viewModel = getViewModel()
   const detailPage = isTransferBagDetailPage()

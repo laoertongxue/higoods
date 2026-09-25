@@ -1,0 +1,146 @@
+{
+  "origin": "http://127.0.0.1:43235",
+  "kind": "visible business boundary acceptance; not a performance claim",
+  "scenarios": [
+    {
+      "requirement": "ORDER-004",
+      "fixture": "Mock: 已分配裁床的现有生产单缺少技术快照",
+      "expected": "资料待核对",
+      "errors": [],
+      "prerequisite": {
+        "orderId": "PO-202603-0002",
+        "orderNo": "PO-202603-0002",
+        "assignedScopes": 1,
+        "sourceIssues": [
+          "缺少生产单技术资料，请主管补齐后再打印或交出。"
+        ],
+        "materialCount": 0,
+        "storage": "isolated in-memory Mock; no reload/route replacement after setup"
+      },
+      "row": "PO-202603-0002\n\nF090\n\n\t资料待核对\t5 Yard\n\n固定长度\n\n\t0 张 / 0 张\t资料待核对\n\n缺少生产单技术资料，请主管补齐后再打印或交出。\n\n\t打印 / 详情",
+      "detail": "PO-202603-0002 · 换片布菲票\n\n每张固定 5 Yard；新增独立票会增加备布份数，补打沿用原票。\n\n关闭\n\n缺少生产单技术资料，请主管补齐后再打印或交出。\n\n整单打印（0 张）\n打印选中（0 张）\n全选本单\n清空选择\n\n尚未生成菲票，请先核对裁床分配。\n\n上一页\n1 / 1 · 共 0 张\n下一页",
+      "disabledPrint": true,
+      "ticketCount": 0,
+      "readsDidNotPersist": true,
+      "passed": true
+    },
+    {
+      "requirement": "MAT-006",
+      "fixture": "Mock: 完整SKU/颜色/BOM映射，所有面料名称均含朴",
+      "expected": "无需换片布",
+      "errors": [],
+      "prerequisite": {
+        "orderId": "PO-202603-0002",
+        "orderNo": "PO-202603-0002",
+        "assignedScopes": 1,
+        "sourceIssues": [],
+        "materialCount": 0,
+        "storage": "isolated in-memory Mock; no reload/route replacement after setup"
+      },
+      "row": "PO-202603-0002\n\nF090\n\n\t无需换片布\t5 Yard\n\n固定长度\n\n\t0 张 / 0 张\t无需换片布\t打印 / 详情",
+      "detail": "PO-202603-0002 · 换片布菲票\n\n每张固定 5 Yard；新增独立票会增加备布份数，补打沿用原票。\n\n关闭\n整单打印（0 张）\n打印选中（0 张）\n全选本单\n清空选择\n\n尚未生成菲票，请先核对裁床分配。\n\n上一页\n1 / 1 · 共 0 张\n下一页",
+      "disabledPrint": true,
+      "ticketCount": 0,
+      "readsDidNotPersist": true,
+      "passed": true
+    },
+    {
+      "requirements": [
+        "MAT-004",
+        "HAND-011"
+      ],
+      "fixture": "Mock: A/B物料同名不同SKU身份；先M任务只需A，后续新增B需料与第二裁片批；测试交出均使用真实按钮",
+      "errors": [],
+      "prerequisite": {
+        "orderId": "PO-DEMO-SIMPLE-0916",
+        "assignmentId": "ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P",
+        "taskId": "TASK-SIMPLE-0916-PROC_SEW-A01",
+        "factoryId": "ID-F021",
+        "sheetNo": "RW-10CIVDB-0IZLA0Q",
+        "materialName": "雾霾灰卫衣抓绒面料",
+        "aCode": "tdv_demand_SPU_HOODIE_082-bom-main",
+        "aKey": "[\"tdv_demand_SPU_HOODIE_082-bom-main\",\"雾霾灰\"]",
+        "bCode": "MOCK-HPB-SAME-NAME-B",
+        "bId": "MOCK-HPB-BOUNDARY-BOM-B",
+        "firstA": "HPB-30a097997ff133005082ee49617aed39b639fa94c258ab5326a6d7451aa7acfc",
+        "extraA": "HPB-279fc14a-9071-41cc-9a2c-76b923fb5ae0",
+        "provenance": "Only technical-source Mock, extra unused independent A and preprint prerequisites; no receipt/handover event seeded"
+      },
+      "beforeFirst": "任务单号\n读取任务\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\n款图加载中…\nSPU-HOODIE-082 · 连帽拉链卫衣\n\n生产单：PO-DEMO-SIMPLE-0916\n\n任务单：RW-10CIVDB-0IZLA0Q · 独立车缝\n\n接收工厂：CV Micro Sewing Jakarta Pusat\n\n领取 PPIC：陈琳 · 分配 100 件\n\n本厂分配 SKU（1 项）\n应交裁片\n900 片\n此前已交\n0 片\n本次可交\n700 片\n确认后剩余\n200 片\n\n本次完整清单：5 张菲票，共 700 片\n\n菲票号\tSKU / 颜色 / 尺码\t部位\t编号范围\t本次片数\nFT-CUT-260916-916-01-054\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t后片\t1-100\t100 片\nFT-CUT-260916-916-01-062\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t左前片\t1-100\t100 片\nFT-CUT-260916-916-01-060\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t右前片\t1-100\t100 片\nFT-CUT-260916-916-01-056\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t口袋片\t1-200\t200 片\nFT-CUT-260916-916-01-058\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t袖片\t1-200\t200 片\n上一页\n第 1 / 1 页 · 共 5 张\n下一页\n另有 5 张暂不可交\n随裁片交出的换片布\n\n每张固定 5 Yard；本任务已交过的面料无需重复交。\n\n雾霾灰卫衣抓绒面料 · tdv_demand_SPU_HOODIE_082-bom-main · 雾霾灰：还需换片布\n\n加入\n\n本次 0 张 / 0 Yard\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（5 张菲票 / 700 片）",
+      "firstResult": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-10CIVDB\n交出记录：JYJC-068KBGN\n5 张裁片票 / 700 片\n换片布 1 张 / 5 Yard\n接收工厂：CV Micro Sewing Jakarta Pusat\n领取 PPIC：陈琳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:28:11.553Z\n查看交出记录\n继续下一单",
+      "firstReceiptIds": [
+        "HPB-30a097997ff133005082ee49617aed39b639fa94c258ab5326a6d7451aa7acfc"
+      ],
+      "addedRequirement": {
+        "ticketId": "HPB-598141ba409efbb14de41b1ab44b85019a345886b437cec8ef2030a6ed274605",
+        "materialKeys": [
+          "[\"tdv_demand_SPU_HOODIE_082-bom-main\",\"雾霾灰\"]",
+          "[\"MOCK-HPB-SAME-NAME-B\",\"雾霾灰\"]"
+        ],
+        "materialNames": [
+          "雾霾灰卫衣抓绒面料",
+          "雾霾灰卫衣抓绒面料"
+        ],
+        "prerequisite": "Explicit later source requirement B and second available cutting batch; no handover result seeded"
+      },
+      "beforeSecond": "任务单号\n读取任务\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\nSPU-HOODIE-082 · 连帽拉链卫衣\n\n生产单：PO-DEMO-SIMPLE-0916\n\n任务单：RW-10CIVDB-0IZLA0Q · 独立车缝\n\n接收工厂：CV Micro Sewing Jakarta Pusat\n\n领取 PPIC：陈琳 · 分配 100 件\n\n本厂分配 SKU（1 项）\n应交裁片\n900 片\n此前已交\n700 片\n本次可交\n200 片\n确认后剩余\n0 片\n\n本次完整清单：1 张菲票，共 200 片\n\n菲票号\tSKU / 颜色 / 尺码\t部位\t编号范围\t本次片数\nFT-CUT-260916-916-01-064\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t帽片\t1-200\t200 片\n上一页\n第 1 / 1 页 · 共 1 张\n下一页\n另有 11 张暂不可交\n随裁片交出的换片布\n\n每张固定 5 Yard；本任务已交过的面料无需重复交。\n\n雾霾灰卫衣抓绒面料 · tdv_demand_SPU_HOODIE_082-bom-main · 雾霾灰：此前已交\n\n雾霾灰卫衣抓绒面料 · MOCK-HPB-SAME-NAME-B · 雾霾灰：还需换片布\n\n加入\n\n本次 0 张 / 0 Yard\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（1 张菲票 / 200 片）",
+      "materialLines": [
+        "雾霾灰卫衣抓绒面料 · tdv_demand_SPU_HOODIE_082-bom-main · 雾霾灰：此前已交",
+        "雾霾灰卫衣抓绒面料 · MOCK-HPB-SAME-NAME-B · 雾霾灰：还需换片布"
+      ],
+      "sameNameBlocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：雾霾灰卫衣抓绒面料（MOCK-HPB-SAME-NAME-B 雾霾灰）。请补齐对应菲票后与裁片一起确认。",
+      "sameNameBlockDidNotPersist": true,
+      "secondResult": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-10CIVDB\n交出记录：JYJC-1HCA2CB\n1 张裁片票 / 200 片\n换片布 1 张 / 5 Yard\n接收工厂：CV Micro Sewing Jakarta Pusat\n领取 PPIC：陈琳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:28:12.098Z\n查看交出记录\n继续下一单",
+      "receipts": [
+        {
+          "id": "HPB-30a097997ff133005082ee49617aed39b639fa94c258ab5326a6d7451aa7acfc",
+          "material": "[\"tdv_demand_SPU_HOODIE_082-bom-main\",\"雾霾灰\"]",
+          "taskId": "TASK-SIMPLE-0916-PROC_SEW-A01",
+          "factoryId": "ID-F021"
+        },
+        {
+          "id": "HPB-598141ba409efbb14de41b1ab44b85019a345886b437cec8ef2030a6ed274605",
+          "material": "[\"MOCK-HPB-SAME-NAME-B\",\"雾霾灰\"]",
+          "taskId": "TASK-SIMPLE-0916-PROC_SEW-A01",
+          "factoryId": "ID-F021"
+        }
+      ],
+      "handovers": [
+        {
+          "id": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-068KBGN-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L-HPB-30a097997ff133005082ee49617aed39b639fa94c258ab5326a6d7451aa7acfc:20260925052811",
+          "replacementIds": [
+            "HPB-30a097997ff133005082ee49617aed39b639fa94c258ab5326a6d7451aa7acfc"
+          ]
+        },
+        {
+          "id": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-1HCA2CB-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-2-M-HOOD-HPB-598141ba409efbb14de41b1ab44b85019a345886b437cec8ef2030a6ed274605:20260925052812",
+          "replacementIds": [
+            "HPB-598141ba409efbb14de41b1ab44b85019a345886b437cec8ef2030a6ed274605"
+          ]
+        }
+      ],
+      "passed": true
+    }
+  ],
+  "domainEvidence": [
+    {
+      "requirement": "MAT-004",
+      "file": "tests/unit/replacement-fabric-source-and-history.test.ts",
+      "test": "同名不同编码面料不混并；BOM 身份歧义阻断",
+      "reason": "Pure identity resolution is already covered; below verifies that the actual handover UI does not accept A as missing B."
+    },
+    {
+      "requirement": "MAT-006",
+      "file": "tests/unit/replacement-fabric-source-and-history.test.ts",
+      "test": "完整但全是朴为空集合；缺颜色映射或空名称属于资料错误",
+      "reason": "Below supplements the visible list/detail state; no duplicate standalone domain invocation is necessary."
+    },
+    {
+      "requirement": "HAND-011",
+      "file": "tests/unit/replacement-fabric-fei-tickets.test.ts",
+      "test": "同任务同工厂历史可满足；不同任务或换厂必须另交",
+      "reason": "Its added-C missing-set assertion is the pure rule; below supplements actual prior-receipt/new-material UI and saved result."
+    }
+  ],
+  "failed": []
+}

@@ -1,0 +1,160 @@
+{
+  "results": [
+    {
+      "sample": 1,
+      "measures": [
+        {
+          "action": "print-contract",
+          "ms": 97.69999998807907
+        },
+        {
+          "action": "transfer-responsibility",
+          "ms": 82
+        }
+      ],
+      "audits": [
+        {
+          "id": "production-context:contract-audit:CONTRACT-AUD-000002",
+          "collection": "production-context:contract-audit",
+          "value": {
+            "auditId": "CONTRACT-AUD-000002",
+            "contractId": "CONTRACT-000001",
+            "action": "PRINTED",
+            "detail": "打印SC-PO-202603-0002-01 V1",
+            "operatedAt": "2026-09-25T04:33:17.737Z",
+            "operatedBy": "生产计划员"
+          }
+        }
+      ],
+      "explicitMockPrerequisite": true,
+      "contract": "SC-PO-202603-0002-01 · V1\n\n合同固定条款与版式读取印尼 SPK 母版；任务字段按当前合同快照填充。\n\n打印合同\n关闭\nSC-PO-202603-0002-01\nV1\n25 September 2026, 04.33\nPerencana Produksi\n25 September 2026\nBelum diambil\nCV Micro Sewing Jakarta Pusat\nSlamet Riyadi\n林晓\nNON-GABUNGAN\nJAHIT\nKALENDER\n2.500\n林晓\nSlamet Riyadi\nSPU-2024-005\nTidak tersedia\nPO-202603-0002\nTugas TASKGEN-202603-0002-002\n2.500\n4\n29 Sep 2026\n750\n750\n8\n3 Okt 2026\n1.000\n1.750\n9\n4 Okt 2026\n750\n2.500",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n责任移交\n全部关闭\n责任移交\n管理人员\n凌云\n婕哥\n当前操作身份：凌云（团队负责人）\n全部未完任务\n1\n已有移交历史\n1\n尚无移交历史\n0\n查询\n重置\n未完成车缝外发执行任务\n未完执行任务\t承接工厂\t当前任务PPIC\t当前剩余事项\t责任版本\t操作\n\nTASKGEN-202603-0002-002\n\nPO-202603-0002 · SPU-2024-005\n\n独立车缝\n\nTASKGEN-202603-0002-002__ORDER\n\n\tCV Micro Sewing Jakarta Pusat\n\nASG-UI-ACTUAL\n\n\t李敏 PPIC\n\n负责人显式移交\n\n生效：2026-09-25 12:33:18\n\n\t\n跟进批版反馈\n\t2版\n\n原PPIC不删除\n\n\t\n历史\n明确移交\n\n共 1 条，当前 1-1\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\nTASKGEN-202603-0002-002 · 责任历史\n\n工厂档案后续换PPIC不会自动改写这里。\n\n关闭\n李敏 PPIC · 当前责任\n2026-09-25 12:33:18\n\nPPIC管理人员明确移交；原PPIC 陈琳\n\n原因：隔离验收：负责人调整\n\n跟进批版反馈\n陈琳 · 历史责任\n2026-09-25 10:00:00\n\n分配时冻结工厂PPIC",
+      "errors": []
+    },
+    {
+      "sample": 2,
+      "measures": [
+        {
+          "action": "print-contract",
+          "ms": 96.40000000596046
+        },
+        {
+          "action": "transfer-responsibility",
+          "ms": 81.90000000596046
+        }
+      ],
+      "audits": [
+        {
+          "id": "production-context:contract-audit:CONTRACT-AUD-000002",
+          "collection": "production-context:contract-audit",
+          "value": {
+            "auditId": "CONTRACT-AUD-000002",
+            "contractId": "CONTRACT-000001",
+            "action": "PRINTED",
+            "detail": "打印SC-PO-202603-0002-01 V1",
+            "operatedAt": "2026-09-25T04:33:20.158Z",
+            "operatedBy": "生产计划员"
+          }
+        }
+      ],
+      "explicitMockPrerequisite": true,
+      "contract": "SC-PO-202603-0002-01 · V1\n\n合同固定条款与版式读取印尼 SPK 母版；任务字段按当前合同快照填充。\n\n打印合同\n关闭\nSC-PO-202603-0002-01\nV1\n25 September 2026, 04.33\nPerencana Produksi\n25 September 2026\nBelum diambil\nCV Micro Sewing Jakarta Pusat\nSlamet Riyadi\n林晓\nNON-GABUNGAN\nJAHIT\nKALENDER\n2.500\n林晓\nSlamet Riyadi\nSPU-2024-005\nTidak tersedia\nPO-202603-0002\nTugas TASKGEN-202603-0002-002\n2.500\n4\n29 Sep 2026\n750\n750\n8\n3 Okt 2026\n1.000\n1.750\n9\n4 Okt 2026\n750\n2.500",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n责任移交\n全部关闭\n责任移交\n管理人员\n凌云\n婕哥\n当前操作身份：凌云（团队负责人）\n全部未完任务\n1\n已有移交历史\n1\n尚无移交历史\n0\n查询\n重置\n未完成车缝外发执行任务\n未完执行任务\t承接工厂\t当前任务PPIC\t当前剩余事项\t责任版本\t操作\n\nTASKGEN-202603-0002-002\n\nPO-202603-0002 · SPU-2024-005\n\n独立车缝\n\nTASKGEN-202603-0002-002__ORDER\n\n\tCV Micro Sewing Jakarta Pusat\n\nASG-UI-ACTUAL\n\n\t李敏 PPIC\n\n负责人显式移交\n\n生效：2026-09-25 12:33:21\n\n\t\n跟进批版反馈\n\t2版\n\n原PPIC不删除\n\n\t\n历史\n明确移交\n\n共 1 条，当前 1-1\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\nTASKGEN-202603-0002-002 · 责任历史\n\n工厂档案后续换PPIC不会自动改写这里。\n\n关闭\n李敏 PPIC · 当前责任\n2026-09-25 12:33:21\n\nPPIC管理人员明确移交；原PPIC 陈琳\n\n原因：隔离验收：负责人调整\n\n跟进批版反馈\n陈琳 · 历史责任\n2026-09-25 10:00:00\n\n分配时冻结工厂PPIC",
+      "errors": []
+    },
+    {
+      "sample": 3,
+      "measures": [
+        {
+          "action": "print-contract",
+          "ms": 98.09999999403954
+        },
+        {
+          "action": "transfer-responsibility",
+          "ms": 81.60000002384186
+        }
+      ],
+      "audits": [
+        {
+          "id": "production-context:contract-audit:CONTRACT-AUD-000002",
+          "collection": "production-context:contract-audit",
+          "value": {
+            "auditId": "CONTRACT-AUD-000002",
+            "contractId": "CONTRACT-000001",
+            "action": "PRINTED",
+            "detail": "打印SC-PO-202603-0002-01 V1",
+            "operatedAt": "2026-09-25T04:33:22.648Z",
+            "operatedBy": "生产计划员"
+          }
+        }
+      ],
+      "explicitMockPrerequisite": true,
+      "contract": "SC-PO-202603-0002-01 · V1\n\n合同固定条款与版式读取印尼 SPK 母版；任务字段按当前合同快照填充。\n\n打印合同\n关闭\nSC-PO-202603-0002-01\nV1\n25 September 2026, 04.33\nPerencana Produksi\n25 September 2026\nBelum diambil\nCV Micro Sewing Jakarta Pusat\nSlamet Riyadi\n林晓\nNON-GABUNGAN\nJAHIT\nKALENDER\n2.500\n林晓\nSlamet Riyadi\nSPU-2024-005\nTidak tersedia\nPO-202603-0002\nTugas TASKGEN-202603-0002-002\n2.500\n4\n29 Sep 2026\n750\n750\n8\n3 Okt 2026\n1.000\n1.750\n9\n4 Okt 2026\n750\n2.500",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n责任移交\n全部关闭\n责任移交\n管理人员\n凌云\n婕哥\n当前操作身份：凌云（团队负责人）\n全部未完任务\n1\n已有移交历史\n1\n尚无移交历史\n0\n查询\n重置\n未完成车缝外发执行任务\n未完执行任务\t承接工厂\t当前任务PPIC\t当前剩余事项\t责任版本\t操作\n\nTASKGEN-202603-0002-002\n\nPO-202603-0002 · SPU-2024-005\n\n独立车缝\n\nTASKGEN-202603-0002-002__ORDER\n\n\tCV Micro Sewing Jakarta Pusat\n\nASG-UI-ACTUAL\n\n\t李敏 PPIC\n\n负责人显式移交\n\n生效：2026-09-25 12:33:23\n\n\t\n跟进批版反馈\n\t2版\n\n原PPIC不删除\n\n\t\n历史\n明确移交\n\n共 1 条，当前 1-1\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\nTASKGEN-202603-0002-002 · 责任历史\n\n工厂档案后续换PPIC不会自动改写这里。\n\n关闭\n李敏 PPIC · 当前责任\n2026-09-25 12:33:23\n\nPPIC管理人员明确移交；原PPIC 陈琳\n\n原因：隔离验收：负责人调整\n\n跟进批版反馈\n陈琳 · 历史责任\n2026-09-25 10:00:00\n\n分配时冻结工厂PPIC",
+      "errors": []
+    },
+    {
+      "sample": 4,
+      "measures": [
+        {
+          "action": "print-contract",
+          "ms": 92.59999999403954
+        },
+        {
+          "action": "transfer-responsibility",
+          "ms": 81.89999997615814
+        }
+      ],
+      "audits": [
+        {
+          "id": "production-context:contract-audit:CONTRACT-AUD-000002",
+          "collection": "production-context:contract-audit",
+          "value": {
+            "auditId": "CONTRACT-AUD-000002",
+            "contractId": "CONTRACT-000001",
+            "action": "PRINTED",
+            "detail": "打印SC-PO-202603-0002-01 V1",
+            "operatedAt": "2026-09-25T04:33:25.066Z",
+            "operatedBy": "生产计划员"
+          }
+        }
+      ],
+      "explicitMockPrerequisite": true,
+      "contract": "SC-PO-202603-0002-01 · V1\n\n合同固定条款与版式读取印尼 SPK 母版；任务字段按当前合同快照填充。\n\n打印合同\n关闭\nSC-PO-202603-0002-01\nV1\n25 September 2026, 04.33\nPerencana Produksi\n25 September 2026\nBelum diambil\nCV Micro Sewing Jakarta Pusat\nSlamet Riyadi\n林晓\nNON-GABUNGAN\nJAHIT\nKALENDER\n2.500\n林晓\nSlamet Riyadi\nSPU-2024-005\nTidak tersedia\nPO-202603-0002\nTugas TASKGEN-202603-0002-002\n2.500\n4\n29 Sep 2026\n750\n750\n8\n3 Okt 2026\n1.000\n1.750\n9\n4 Okt 2026\n750\n2.500",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n责任移交\n全部关闭\n责任移交\n管理人员\n凌云\n婕哥\n当前操作身份：凌云（团队负责人）\n全部未完任务\n1\n已有移交历史\n1\n尚无移交历史\n0\n查询\n重置\n未完成车缝外发执行任务\n未完执行任务\t承接工厂\t当前任务PPIC\t当前剩余事项\t责任版本\t操作\n\nTASKGEN-202603-0002-002\n\nPO-202603-0002 · SPU-2024-005\n\n独立车缝\n\nTASKGEN-202603-0002-002__ORDER\n\n\tCV Micro Sewing Jakarta Pusat\n\nASG-UI-ACTUAL\n\n\t李敏 PPIC\n\n负责人显式移交\n\n生效：2026-09-25 12:33:25\n\n\t\n跟进批版反馈\n\t2版\n\n原PPIC不删除\n\n\t\n历史\n明确移交\n\n共 1 条，当前 1-1\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\nTASKGEN-202603-0002-002 · 责任历史\n\n工厂档案后续换PPIC不会自动改写这里。\n\n关闭\n李敏 PPIC · 当前责任\n2026-09-25 12:33:25\n\nPPIC管理人员明确移交；原PPIC 陈琳\n\n原因：隔离验收：负责人调整\n\n跟进批版反馈\n陈琳 · 历史责任\n2026-09-25 10:00:00\n\n分配时冻结工厂PPIC",
+      "errors": []
+    },
+    {
+      "sample": 5,
+      "measures": [
+        {
+          "action": "print-contract",
+          "ms": 75.40000000596046
+        },
+        {
+          "action": "transfer-responsibility",
+          "ms": 81.90000000596046
+        }
+      ],
+      "audits": [
+        {
+          "id": "production-context:contract-audit:CONTRACT-AUD-000002",
+          "collection": "production-context:contract-audit",
+          "value": {
+            "auditId": "CONTRACT-AUD-000002",
+            "contractId": "CONTRACT-000001",
+            "action": "PRINTED",
+            "detail": "打印SC-PO-202603-0002-01 V1",
+            "operatedAt": "2026-09-25T04:33:27.448Z",
+            "operatedBy": "生产计划员"
+          }
+        }
+      ],
+      "explicitMockPrerequisite": true,
+      "contract": "SC-PO-202603-0002-01 · V1\n\n合同固定条款与版式读取印尼 SPK 母版；任务字段按当前合同快照填充。\n\n打印合同\n关闭\nSC-PO-202603-0002-01\nV1\n25 September 2026, 04.33\nPerencana Produksi\n25 September 2026\nBelum diambil\nCV Micro Sewing Jakarta Pusat\nSlamet Riyadi\n林晓\nNON-GABUNGAN\nJAHIT\nKALENDER\n2.500\n林晓\nSlamet Riyadi\nSPU-2024-005\nTidak tersedia\nPO-202603-0002\nTugas TASKGEN-202603-0002-002\n2.500\n4\n29 Sep 2026\n750\n750\n8\n3 Okt 2026\n1.000\n1.750\n9\n4 Okt 2026\n750\n2.500",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n责任移交\n全部关闭\n责任移交\n管理人员\n凌云\n婕哥\n当前操作身份：凌云（团队负责人）\n全部未完任务\n1\n已有移交历史\n1\n尚无移交历史\n0\n查询\n重置\n未完成车缝外发执行任务\n未完执行任务\t承接工厂\t当前任务PPIC\t当前剩余事项\t责任版本\t操作\n\nTASKGEN-202603-0002-002\n\nPO-202603-0002 · SPU-2024-005\n\n独立车缝\n\nTASKGEN-202603-0002-002__ORDER\n\n\tCV Micro Sewing Jakarta Pusat\n\nASG-UI-ACTUAL\n\n\t李敏 PPIC\n\n负责人显式移交\n\n生效：2026-09-25 12:33:28\n\n\t\n跟进批版反馈\n\t2版\n\n原PPIC不删除\n\n\t\n历史\n明确移交\n\n共 1 条，当前 1-1\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页\nTASKGEN-202603-0002-002 · 责任历史\n\n工厂档案后续换PPIC不会自动改写这里。\n\n关闭\n李敏 PPIC · 当前责任\n2026-09-25 12:33:28\n\nPPIC管理人员明确移交；原PPIC 陈琳\n\n原因：隔离验收：负责人调整\n\n跟进批版反馈\n陈琳 · 历史责任\n2026-09-25 10:00:00\n\n分配时冻结工厂PPIC",
+      "errors": []
+    }
+  ],
+  "failed": []
+}

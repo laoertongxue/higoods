@@ -1,3 +1,4 @@
+import { MANAGED_CUTTING_EVENT_TYPES, isManagedCuttingEvent } from './cutting-event-scope.ts'
 import {
   getBrowserLocalStorage,
   type BrowserStorageLike,
@@ -746,6 +747,7 @@ export interface CuttingRuntimeEventLedgerStore {
 }
 
 interface AppendCuttingRuntimeEventInputBase {
+  eventId?: string
   idempotencyKey?: string
   eventSource?: CuttingRuntimeEventSource
   eventStatus?: CuttingRuntimeEventStatus
@@ -1066,6 +1068,15 @@ const staticRuntimeEvents = new Map<string, CuttingRuntimeEvent>()
 let committedEventReader: ((legacy: CuttingRuntimeEvent[]) => CuttingRuntimeEvent[]) | null = null
 let committedReaderRevision: number | undefined
 let eventProjectionRevision = 0
+let managedEventScopeReady = false
+export function installManagedCuttingEventScope(ready: boolean): void { managedEventScopeReady = ready }
+/** 已显式核对旧源的裁后事实直接读记录库；不读取其他工序的共享旧账。 */
+export function listManagedCuttingRuntimeEvents(storage: BrowserStorageLike | null = getBrowserLocalStorage()): CuttingRuntimeEvent[] {
+  if (managedEventScopeReady && storage === getBrowserLocalStorage() && !isBrowserBusinessStorageStaged() && committedEventReader) {
+    return sortEvents(committedEventReader([...staticRuntimeEvents.values()].filter(isManagedCuttingEvent)).filter(isManagedCuttingEvent))
+  }
+  return listCuttingRuntimeEvents(storage).filter(isManagedCuttingEvent)
+}
 import { isBrowserBusinessStorageStaged } from '../../browser-storage.ts'
 export function getCuttingRuntimeEventProjectionRevision(): number { return eventProjectionRevision }
 export function installCuttingCommittedEventReader(reader: (legacy: CuttingRuntimeEvent[]) => CuttingRuntimeEvent[], revision?: number): void {
@@ -1082,7 +1093,7 @@ export function persistCuttingRuntimeEventLedgerStore(
     const previous = hydrateCuttingRuntimeEventLedgerStore(storage).events
     const before = new Map(previous.map(event => [event.eventId, JSON.stringify(event)]))
     const changed = store.events.filter(event => before.get(event.eventId) !== JSON.stringify(event))
-    const affected = new Set(['菲票装袋', '中转袋入仓', '新增交出记录', '简易裁片交出', '中转袋拆袋重装', '中转袋回收', '中转袋报废', '特殊工艺交出', '特殊工艺回仓'])
+    const affected = MANAGED_CUTTING_EVENT_TYPES
     if (changed.some(event => event.eventSource !== 'MOCK' && affected.has(event.eventType))) throw new Error('本次裁后动作尚未保存，请从当前装袋、交出或回收页面重新确认。')
     for (const event of changed.filter(event => event.eventSource === 'MOCK')) staticRuntimeEvents.set(event.eventId, event)
     if (changed.some(event => event.eventSource === 'MOCK')) eventProjectionRevision++
@@ -1139,7 +1150,7 @@ function buildCuttingRuntimeEventFromStore<T extends CuttingRuntimeEventType>(
     ),
     0,
   ) + 1
-  const eventId = buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
+  const eventId = input.eventId || buildCuttingRuntimeEventId(input.eventType, refs, occurredAt)
   return {
     eventId,
     eventNo: `${eventTypeCode(input.eventType)}-${compactDate(occurredAt)}`,
@@ -1172,6 +1183,20 @@ function persistCuttingRuntimeEventFromSnapshot<T extends CuttingRuntimeEventTyp
       ...store.events.filter((item) => item.eventId !== event.eventId),
     ])),
   }, storage)
+}
+
+/** 固定演示事实只进入内存；既不读取旧账，也不写业务记录。 */
+export function appendStaticCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(input: AppendCuttingRuntimeEventInput<T> & { idempotencyKey: string }): { event: CuttingRuntimeEvent<T>; appended: boolean } {
+  if (input.eventSource !== 'MOCK') throw new Error('静态演示入口不能保存现场动作。')
+  const events = committedEventReader ? committedEventReader([...staticRuntimeEvents.values()]) : [...staticRuntimeEvents.values()]
+  const prior = events.find(event => event.idempotencyKey === input.idempotencyKey)
+  if (prior) {
+    if (prior.eventType !== input.eventType) throw new Error('演示事件标识与类型冲突。')
+    return { event: prior as CuttingRuntimeEvent<T>, appended: false }
+  }
+  const event = buildCuttingRuntimeEventFromStore<T>(input, { events })
+  staticRuntimeEvents.set(event.eventId, event); eventProjectionRevision++
+  return { event, appended: true }
 }
 
 export function appendCuttingRuntimeEvent<T extends CuttingRuntimeEventType>(
@@ -1273,14 +1298,14 @@ export function listCuttingRuntimeEventsByType(
   eventType: CuttingRuntimeEventType,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent[] {
-  return listCuttingRuntimeEvents(storage).filter((event) => event.eventType === eventType)
+  return (MANAGED_CUTTING_EVENT_TYPES.has(eventType) ? listManagedCuttingRuntimeEvents(storage) : listCuttingRuntimeEvents(storage)).filter((event) => event.eventType === eventType)
 }
 
 export function listCuttingRuntimeEventsByInventoryScope(
   inventoryScope: CuttingRuntimeInventoryScope,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent[] {
-  return listCuttingRuntimeEvents(storage).filter((event) => event.inventoryEffect?.inventoryScope === inventoryScope)
+  return (inventoryScope === '裁床待交出仓' ? listManagedCuttingRuntimeEvents(storage) : listCuttingRuntimeEvents(storage)).filter((event) => event.inventoryEffect?.inventoryScope === inventoryScope)
 }
 
 export type PdaRuntimeEventProjectionSourceChannel = 'PDA'
@@ -1557,7 +1582,7 @@ export function listRuntimePdaExecutionEventProjections(
 export function listSimpleCutPieceHandoverEvents(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEvent<'简易裁片交出'>[] {
-  return listCuttingRuntimeEvents(storage).filter((event): event is CuttingRuntimeEvent<'简易裁片交出'> => {
+  return listManagedCuttingRuntimeEvents(storage).filter((event): event is CuttingRuntimeEvent<'简易裁片交出'> => {
     if (event.eventType !== '简易裁片交出' || event.eventStatus === '已取消') return false
     const payload = event.payload as SimpleCutPieceHandoverPayload
     return payload.schemaVersion === 1 && !!payload.assignmentId && !!payload.handoverRecordId

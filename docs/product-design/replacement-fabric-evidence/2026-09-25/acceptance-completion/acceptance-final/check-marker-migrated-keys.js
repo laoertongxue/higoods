@@ -1,0 +1,17 @@
+async root=>{
+ const c=await root.context().browser().newContext(),p=await c.newPage(),errors=[];p.setDefaultTimeout(10000);p.on('pageerror',e=>errors.push(e.message));await p.routeWebSocket('**',s=>s.close());
+ const steps=[];try {
+ await p.goto('http://127.0.0.1:43235/fcs/craft/cutting/marker-list');await p.locator('[data-marker-plan-action=go-edit]').first().click();await p.locator('[data-testid=cutting-marker-plan-edit-page]').waitFor();
+ await p.locator('[data-marker-plan-action=switch-create-step][data-create-step=layout]').first().click();
+ const fields=await p.locator('input,textarea,select').evaluateAll(ns=>ns.map(n=>({tag:n.tagName,d:n.dataset,value:n.value})));
+ await p.locator('[data-marker-plan-bed-field=remark]').first().fill('唛架记录保存与刷新验收');
+ steps.push('filled');
+ const rows=()=>p.evaluate(()=>new Promise(resolve=>{const q=indexedDB.open('higood-cutting-records-v1');q.onsuccess=()=>{const d=q.result,r=d.transaction('records').objectStore('records').getAll();r.onsuccess=()=>{d.close();resolve(r.result)}}}));
+ await p.evaluate(()=>{window.__put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,...a){if(v?.collection==='part-ticket:marker-plans')throw Error('验收注入唛架保存失败');return window.__put.call(this,v,...a)}});
+ await p.locator('[data-marker-plan-action=save-plan]').click();await p.getByText(/验收注入唛架保存失败/).waitFor();const failed=await rows();if(failed.some(x=>x.collection==='part-ticket:marker-plans'))throw Error('保存失败仍落盘');if(await p.locator('[data-marker-plan-bed-field=remark]').first().inputValue()!=='唛架记录保存与刷新验收')throw Error('失败丢输入');
+ steps.push('failed-retained');
+ await p.evaluate(()=>IDBObjectStore.prototype.put=window.__put);await p.locator('[data-marker-plan-action=save-plan]').click();await p.getByText(/已保存修改/).waitFor();const saved=await rows(),plans=saved.filter(x=>x.collection==='part-ticket:marker-plans');if(plans.length!==1)throw Error('非单记录保存 '+plans.length);
+ steps.push('saved');
+ await p.addInitScript(()=>{const migrated=new Set(['cuttingFeiTicketRecords','cuttingFeiTicketPrintJobs','cuttingFeiTicketDrafts','cuttingManualFeiTicketSources','cuttingMarkerSpreadingLedger','cuttingMarkerPlanSourceLedger','cuttingTransferBagLedger','cuttingMarkerPlanLedger','higood.formal-created-production-orders.v1','higood.runtime-process-task-actions.v1','higood.effective-task-assignments.v2','higood:sewing-sample-approval:v3','higood:fcs:production-contracts:v2','higood.production-assignment-effects.v1','higood.sewing-task-responsibility-transfers.v1']);for(const method of ['getItem','setItem','removeItem']){const original=Storage.prototype[method];Storage.prototype[method]=function(key,...args){if(!migrated.has(key))return original.call(this,key,...args);const e=Error('旧存储禁用 '+key);(window.__blocked||=[]).push({method,key,stack:e.stack});throw e}}});await p.reload();await p.locator('[data-marker-plan-action=switch-create-step][data-create-step=layout]').first().click();await p.locator('[data-marker-plan-bed-field=remark]').first().waitFor();const refreshed=await p.locator('[data-marker-plan-bed-field=remark]').first().inputValue();if(refreshed!=='唛架记录保存与刷新验收')throw Error('刷新丢记录');await c.close();return {savedPlans:plans.length,failedPreserved:true,refreshed,errors,fields};
+ } catch(e){return {steps,blocked:await p.evaluate(()=>window.__blocked),error:String(e),errors,url:p.url(),body:(await p.locator('body').innerText()).slice(-5000)}}
+}

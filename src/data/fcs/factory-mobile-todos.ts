@@ -251,12 +251,17 @@ function buildPostFinishingTaskReceiveTodos(factoryId: string): FactoryMobileTod
     }))
 }
 
-function buildExecTodos(factoryId: string, tasks: PdaTaskFlowMock[]): FactoryMobileTodo[] {
-  const acceptedTasks = tasks.filter(
+function selectExecutionTodoTasks(factoryId: string, tasks: PdaTaskFlowMock[]): PdaTaskFlowMock[] {
+  return tasks.filter(
     (task) =>
       task.assignedFactoryId === factoryId
-      && (isWoolTask(task) || task.acceptanceStatus === 'ACCEPTED'),
+      && (isWoolTask(task) || task.acceptanceStatus === 'ACCEPTED')
+      && ['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED'].includes(task.status),
   )
+}
+
+function buildExecTodos(factoryId: string, tasks: PdaTaskFlowMock[]): FactoryMobileTodo[] {
+  const acceptedTasks = selectExecutionTodoTasks(factoryId, tasks)
 
   const pendingStart = acceptedTasks
     .filter((task) => task.status === 'NOT_STARTED')
@@ -599,6 +604,21 @@ export function getFactoryMobileTodoActionRoute(todo: FactoryMobileTodo): string
   return resolveFactoryMobileTodoActionRoute(todo)
 }
 
+function readFactoryMobileTodoSources(factoryId: string): { tasks: PdaTaskFlowMock[]; beforeExecution: FactoryMobileTodo[]; readAfterExecution: () => FactoryMobileTodo[] } {
+  const tenderTodos = buildTenderQuoteTodos(factoryId)
+  applyPendingDispatchAutoAcceptance()
+  const tasks = listPdaTaskFlowTasks(undefined, factoryId)
+  return { tasks, beforeExecution: [
+    ...tenderTodos,
+    ...buildTaskReceiveTodos(factoryId, tasks),
+    ...buildPickupTodos(factoryId),
+  ], readAfterExecution: () => [
+    ...buildHandoutTodos(factoryId),
+    ...buildDifferenceTodos(factoryId),
+    ...buildSettlementTodos(factoryId),
+  ] }
+}
+
 export function getFactoryMobileTodos(factoryId: string, roleId?: string): FactoryMobileTodo[] {
   if (isKolGotoFactory(factoryId)) {
     return [
@@ -620,23 +640,24 @@ export function getFactoryMobileTodos(factoryId: string, roleId?: string): Facto
       .sort(compareTodo)
   }
 
-  const tenderTodos = buildTenderQuoteTodos(factoryId)
-  applyPendingDispatchAutoAcceptance()
-  const tasks = listPdaTaskFlowTasks(undefined, factoryId)
+  const { tasks, beforeExecution, readAfterExecution } = readFactoryMobileTodoSources(factoryId)
   return [
-    ...tenderTodos,
-    ...buildTaskReceiveTodos(factoryId, tasks),
-    ...buildPickupTodos(factoryId),
+    ...beforeExecution,
     ...buildExecTodos(factoryId, tasks),
-    ...buildHandoutTodos(factoryId),
-    ...buildDifferenceTodos(factoryId),
-    ...buildSettlementTodos(factoryId),
+    ...readAfterExecution(),
   ]
     .sort(compareTodo)
 }
 
 export function getFactoryMobileTodoCount(factoryId: string, roleId?: string): number {
-  return getFactoryMobileTodos(factoryId, roleId).filter((item) => item.status === '待处理' || item.status === '处理中').length
+  if (isKolGotoFactory(factoryId) || factoryId === FULL_CAPABILITY_FACTORY_ID) {
+    return getFactoryMobileTodos(factoryId, roleId).filter((item) => item.status === '待处理' || item.status === '处理中').length
+  }
+  const { tasks, beforeExecution, readAfterExecution } = readFactoryMobileTodoSources(factoryId)
+  // Every eligible execution task contributes exactly one active todo. Counting
+  // does not require the work-order title/image used by the full todo list.
+  return [...beforeExecution, ...readAfterExecution()].filter((item) => item.status === '待处理' || item.status === '处理中').length
+    + selectExecutionTodoTasks(factoryId, tasks).length
 }
 
 export function getFactoryMobileTodoById(todoId: string): FactoryMobileTodo | null {

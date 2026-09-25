@@ -1,0 +1,4 @@
+async(page)=>{
+ const c=await page.context().browser().newContext({viewport:{width:1366,height:768}}),p=await c.newPage(),errors=[];p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});p.on('pageerror',e=>errors.push(String(e)));
+ try{await p.goto('http://127.0.0.1:43236/fcs/dispatch/workbench?type=MERGED');await p.locator('[data-unified-action=open-merge]').click();await p.locator('[data-unified-action=select-merge-order][data-production-order-id=po-14671]').click();await p.waitForTimeout(300);return {body:(await p.locator('body').innerText()).slice(-7000),fields:await p.locator('[data-unified-field]').evaluateAll(xs=>xs.map(x=>({field:x.dataset.unifiedField,value:x.value,type:x.type,options:x.tagName==='SELECT'?[...x.options].map(o=>({value:o.value,text:o.text,disabled:o.disabled})):undefined}))),errors}}finally{await c.close()}
+}

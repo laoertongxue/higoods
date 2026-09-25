@@ -1,0 +1,85 @@
+{
+  "results": [
+    {
+      "sample": 1,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-8b325889-24f3-4ee3-9e30-007f296f16ac"
+      ],
+      "addMs": 65.19999998807907,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 2,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-dba3dacd-30c1-4487-93e6-f44d8cacdb93"
+      ],
+      "addMs": 65.2000000178814,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 3,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-3215dc28-7d9a-4dd5-a129-2a5bd787bca9"
+      ],
+      "addMs": 64.90000000596046,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 4,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-bb05d3dd-fb72-4445-b10e-38df4eea7a85"
+      ],
+      "addMs": 65.69999998807907,
+      "errors": [],
+      "printed": 2
+    },
+    {
+      "sample": 5,
+      "capabilities": {
+        "secure": false,
+        "subtle": false,
+        "randomUUID": false
+      },
+      "initial": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "ids": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "HPB-6dc9088f-cdf4-46ab-b314-62b2ecff3e7e"
+      ],
+      "addMs": 66.19999998807907,
+      "errors": [],
+      "printed": 2
+    }
+  ],
+  "failed": []
+}

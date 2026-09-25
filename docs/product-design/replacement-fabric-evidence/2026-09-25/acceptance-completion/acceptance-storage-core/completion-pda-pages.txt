@@ -1,0 +1,10 @@
+/private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-pda-handover-pages.ts:27
+  resetWoolFactWorkflowMock,
+  ^
+SyntaxError: The requested module '../src/data/fcs/wool-task-domain.ts' does not provide an export named 'resetWoolFactWorkflowMock'
+    at #asyncInstantiate (node:internal/modules/esm/module_job:463:21)
+    at async ModuleJob.run (node:internal/modules/esm/module_job:561:5)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v26.8.2

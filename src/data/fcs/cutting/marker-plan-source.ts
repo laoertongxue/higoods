@@ -1,5 +1,5 @@
 import { listCutOrderSourceRecords, normalizeMarkerPlanSourceId } from './cut-order-source.ts'
-import { getBrowserLocalStorage, readBrowserStorageItem } from '../../browser-storage.ts'
+import { readPartTicketValue } from './part-ticket-records.ts'
 
 export const CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY = 'cuttingMarkerPlanSourceLedger'
 
@@ -31,10 +31,7 @@ function unique(values: string[]): string[] {
 
 function readStoredMarkerPlanCutOrderSourceRecords(): MarkerPlanCutOrderSourceRecord[] {
   try {
-    const raw = readBrowserStorageItem(
-      getBrowserLocalStorage(),
-      CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY,
-    )
+    const raw = readPartTicketValue(CUTTING_MARKER_PLAN_SOURCE_LEDGER_STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
     if (!Array.isArray(parsed)) return []
@@ -55,8 +52,8 @@ function readStoredMarkerPlanCutOrderSourceRecords(): MarkerPlanCutOrderSourceRe
         }
       })
       .filter((item) => item.markerPlanId && item.markerPlanNo)
-  } catch {
-    return []
+  } catch (error) {
+    throw error
   }
 }
 

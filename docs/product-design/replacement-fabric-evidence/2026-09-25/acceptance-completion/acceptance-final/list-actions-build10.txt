@@ -1,0 +1,6 @@
+### Error
+Error: page.waitForFunction: TypeError: Cannot read properties of null (reading 'textContent')
+    at eval (eval at predicate (eval at evaluate (:367:30)), <anonymous>:1:65)
+    at predicate (eval at evaluate (:367:30), <anonymous>:7:27)
+    at next (eval at evaluate (:367:30), <anonymous>:29:33)
+

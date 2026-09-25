@@ -1,0 +1,7 @@
+{
+  "source": "output/playwright/hpb/acceptance-final/mixed.higcut",
+  "sourceSha256": "877c5341dfa2789271d9a72155d9b7b68cb7c19aba6e87f7c96a4522e6ebd625",
+  "target": "output/playwright/hpb/acceptance-bag-lifecycle/repack-prerequisite.higcut",
+  "targetSha256": "e2f0bf98c638d672062ee18313e522e55b10e00e570f84f3a0fd76c073cf1927",
+  "mockChange": "Only add 12-piece other-task part ticket to preexisting mixed source bag. Original file unchanged. No tested repack/recovery/scrap/scan action is fabricated."
+}

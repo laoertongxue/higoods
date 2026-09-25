@@ -1,0 +1,1 @@
+async root=>{const ps=root.context().browser().contexts().flatMap(c=>c.pages()).filter(p=>p.url().includes('/marker-edit'));const out=[];for(const p of ps)out.push({url:p.url(),text:(await p.locator('body').innerText()).slice(-7000)});return out;}

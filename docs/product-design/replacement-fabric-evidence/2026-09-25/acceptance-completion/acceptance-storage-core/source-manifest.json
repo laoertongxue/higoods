@@ -1,0 +1,11 @@
+{
+  "head": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "worktree": "/private/tmp/higoods-replacement-fabric-release-20260925",
+  "service": "http://127.0.0.1:43235",
+  "browser": "Playwright Chromium, isolated fresh browser contexts, real IndexedDB",
+  "files": {
+    "src/data/fcs/production-context-records.ts": "75b36885820838976cf72ebe2f3e5d38912de8c26918dee2057db197fbd61345",
+    "tests/unit/replacement-fabric-production-context.test.ts": "cce8f4f17b912381958837765e9b91648ac383aff43030fe1fcade1f02d7a78d"
+  },
+  "lastAdjustment": "Node compatibility: window mock without document uses injected window.localStorage; real browser remains blocked until hydrated. Browser19-scene evidence predates this environment predicate only; integration browser revalidation belongs to parent."
+}

@@ -1,5 +1,8 @@
+import { buildSewingSampleStaticFixture } from '../sewing-sample-approval-suggestion.ts'
+import { buildEffectiveAssignmentStaticFixture } from '../effective-task-assignments.ts'
 import {
   appendCuttingRuntimeEventIdempotent,
+  appendStaticCuttingRuntimeEvent,
   type RuntimeWarehouseLocationRef,
   type TransferBagTicketFactSnapshot,
 } from './cutting-runtime-event-ledger.ts'
@@ -92,6 +95,7 @@ export function ensureTransferBagRepackMockAssignment(): void {
   const ppic = getFactoryActivePpicSnapshot(MOCK_RECEIVER_FACTORY_ID)
   if (!receiverFactory || !ppic) throw new Error('拆袋重装演示工厂缺少唯一有效 PPIC。')
   const targetTickets = mockTickets(0)
+  buildEffectiveAssignmentStaticFixture(() => buildSewingSampleStaticFixture(() => {
   createEffectiveTaskAssignment({
     assignmentId: 'ASG-SEW-REPACK-DEMO-001',
     runtimeTaskId: TRANSFER_BAG_REPACK_MOCK_TASK_ID,
@@ -118,12 +122,15 @@ export function ensureTransferBagRepackMockAssignment(): void {
     allocationOperatorPpicId: ppic.ppicId,
     allocationOperatorPpicName: ppic.ppicName,
   })
+  }))
 }
 
 export function ensureTransferBagRepackMockEvents(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): void {
   ensureTransferBagRepackMockAssignment()
+  const appendMockEvent: typeof appendCuttingRuntimeEventIdempotent = typeof document !== 'undefined' && storage === getBrowserLocalStorage()
+    ? input => appendStaticCuttingRuntimeEvent(input) : appendCuttingRuntimeEventIdempotent
   TRANSFER_BAG_REPACK_MOCK_SOURCE_BAG_CODES.forEach((bagCode, index) => {
     const tickets = mockTickets(index)
     const locationRef = mockLocation(index)
@@ -132,7 +139,7 @@ export function ensureTransferBagRepackMockEvents(
     const inboundAt = `2026-08-03 08:1${index + 1}`
     const totalPieceQty = tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
 
-    appendCuttingRuntimeEventIdempotent({
+    appendMockEvent({
       idempotencyKey: `mock:${usageCycleId}:BAGGING_CONFIRMED`,
       eventType: '菲票装袋',
       eventSource: 'MOCK',
@@ -161,7 +168,7 @@ export function ensureTransferBagRepackMockEvents(
       },
     }, storage)
 
-    appendCuttingRuntimeEventIdempotent({
+    appendMockEvent({
       idempotencyKey: `mock:${usageCycleId}:INBOUND_CONFIRMED`,
       eventType: '中转袋入仓',
       eventSource: 'MOCK',

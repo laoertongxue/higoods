@@ -2006,7 +2006,7 @@ function updateField(field: string, node: HTMLElement): void {
   }
 }
 
-function handleAction(action: string, actionNode: HTMLElement): boolean {
+async function handleAction(action: string, actionNode: HTMLElement): Promise<boolean> {
   if (action === 'switch-dimension') {
     const dimension = actionNode.dataset.dimension
     if (dimension === 'events' || dimension === 'orders') {
@@ -2159,7 +2159,7 @@ function handleAction(action: string, actionNode: HTMLElement): boolean {
   if (action === 'mark-handout-complete') {
     const handoverId = actionNode.dataset.handoverId
     if (!handoverId) return true
-    const result = markPdaHandoutHeadCompleted(handoverId, nowTimestamp())
+    const result = await markPdaHandoutHeadCompleted(handoverId, nowTimestamp(), '生产计划员')
     if (!result.ok) {
       showProgressHandoverToast(result.message, 'error')
       return true
@@ -2359,7 +2359,7 @@ export function renderProgressHandoverPage(): string {
   return html
 }
 
-export function handleProgressHandoverEvent(target: HTMLElement): boolean {
+export async function handleProgressHandoverEvent(target: HTMLElement): Promise<boolean> {
   const fieldNode = target.closest<HTMLElement>('[data-handover-field]')
   if (fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement || fieldNode instanceof HTMLTextAreaElement) {
     const field = fieldNode.dataset.handoverField

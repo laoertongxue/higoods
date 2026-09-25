@@ -1,0 +1,15 @@
+{
+  "head": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "files": {
+    "src/data/fcs/production-context-records.ts": "247f772d7170e5e558b75aa8f1c6b3ed47e969f2499ff57e6849798431c45b90",
+    "src/data/fcs/production-context-actions.ts": "544083f544b392cb738d77423de63fac3b81f22986b318a5b1d18cf5dd7dedb7",
+    "src/data/fcs/runtime-process-tasks.ts": "e1d58c28a2e40623022a4be4ce272af3b90857ff26b2bf2017a110f150717224",
+    "src/data/fcs/effective-task-assignments.ts": "48baef9e7daf274f66b5752912008cba7347915de9b53e62e816b35d5d787024",
+    "src/pages/unified-dispatch-workbench.ts": "724c9df49fa3a80ebba7590a3cda4dc54c811113e3ec6fd6cee398bf10bd6c5a",
+    "tests/unit/replacement-fabric-production-context.test.ts": "2c546245e44997435424972e86fc02ba5d7eef3d07ef6ea461306c8775e73dc6",
+    "src/data/fcs/pda-handover-events.ts": "79b013c7a57cffd67ca5526c01c5e75643f1af9754c7f4a2811e85c08a89d966",
+    "src/pages/pda-handover-detail.ts": "1d207cf64f01be1a2a23b6246d4ad6bb1c29da863d2446c6344b4232ba4101e7",
+    "src/pages/progress-handover.ts": "e12e5e85ff58da31c62a479badbe7aebff7ecc8806ec2ee3e56d88b427ee3c6b",
+    "scripts/check-pda-handover-pages.ts": "55e992318c947823a46877cee1f41b96bf6e5c9e2df1d9c784d043e1bfa9037a"
+  }
+}

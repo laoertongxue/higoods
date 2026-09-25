@@ -20,7 +20,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 400, height: 806 }
     const scene = await page.evaluate(async () => {
       const { prepareWoolFinalDownstreamReviewScenario } = await import('/scripts/fixtures/wool-final-downstream-review.ts')
       const { setPdaSession, listFactoryPdaUsers, createPdaSessionFromUser } = await import('/src/data/fcs/store-domain-pda.ts')
-      const scene = prepareWoolFinalDownstreamReviewScenario()
+      const scene = await prepareWoolFinalDownstreamReviewScenario()
       const user = listFactoryPdaUsers(scene.factoryId).find((user: any) => user.roleId === 'ROLE_MANAGER') || listFactoryPdaUsers(scene.factoryId)[0]
       if (!user) throw Error('验收接收厂没有实际 PDA 用户')
       const session = createPdaSessionFromUser(user)

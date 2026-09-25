@@ -1,0 +1,92 @@
+{
+  "origin": "http://127.0.0.1:43235",
+  "kind": "visible business boundary acceptance; not a performance claim",
+  "scenarios": [
+    {
+      "requirement": "ORDER-004",
+      "fixture": "Mock: 已分配裁床的现有生产单缺少技术快照",
+      "expected": "资料待核对",
+      "errors": [],
+      "prerequisite": {
+        "orderId": "PO-202603-0002",
+        "orderNo": "PO-202603-0002",
+        "assignedScopes": 1,
+        "sourceIssues": [
+          "缺少生产单技术资料，请主管补齐后再打印或交出。"
+        ],
+        "materialCount": 0,
+        "storage": "isolated in-memory Mock; no reload/route replacement after setup"
+      },
+      "row": "PO-202603-0002\n\nF090\n\n\t资料待核对\t5 Yard\n\n固定长度\n\n\t0 张 / 0 张\t资料待核对\n\n缺少生产单技术资料，请主管补齐后再打印或交出。\n\n\t打印 / 详情",
+      "detail": "PO-202603-0002 · 换片布菲票\n\n每张固定 5 Yard；新增独立票会增加备布份数，补打沿用原票。\n\n关闭\n\n缺少生产单技术资料，请主管补齐后再打印或交出。\n\n整单打印（0 张）\n打印选中（0 张）\n全选本单\n清空选择\n\n尚未生成菲票，请先核对裁床分配。\n\n上一页\n1 / 1 · 共 0 张\n下一页",
+      "disabledPrint": true,
+      "ticketCount": 0,
+      "readsDidNotPersist": true,
+      "passed": true
+    },
+    {
+      "requirement": "MAT-006",
+      "fixture": "Mock: 完整SKU/颜色/BOM映射，所有面料名称均含朴",
+      "expected": "无需换片布",
+      "errors": [],
+      "prerequisite": {
+        "orderId": "PO-202603-0002",
+        "orderNo": "PO-202603-0002",
+        "assignedScopes": 1,
+        "sourceIssues": [],
+        "materialCount": 0,
+        "storage": "isolated in-memory Mock; no reload/route replacement after setup"
+      },
+      "row": "PO-202603-0002\n\nF090\n\n\t无需换片布\t5 Yard\n\n固定长度\n\n\t0 张 / 0 张\t无需换片布\t打印 / 详情",
+      "detail": "PO-202603-0002 · 换片布菲票\n\n每张固定 5 Yard；新增独立票会增加备布份数，补打沿用原票。\n\n关闭\n整单打印（0 张）\n打印选中（0 张）\n全选本单\n清空选择\n\n尚未生成菲票，请先核对裁床分配。\n\n上一页\n1 / 1 · 共 0 张\n下一页",
+      "disabledPrint": true,
+      "ticketCount": 0,
+      "readsDidNotPersist": true,
+      "passed": true
+    },
+    {
+      "requirements": [
+        "MAT-004",
+        "HAND-011"
+      ],
+      "fixture": "Mock: A/B物料同名不同SKU身份；先M任务只需A，后续新增B需料与第二裁片批；测试交出均使用真实按钮",
+      "errors": [],
+      "passed": false,
+      "error": "Error: page.evaluate: Error: Initial material does not resolve to BOM: {\"a\":{\"key\":\"[\\\"tdv_demand_SPU_HOODIE_082-bom-main\\\",\\\"雾霾灰\\\"]\",\"code\":\"tdv_demand_SPU_HOODIE_082-bom-main\",\"name\":\"雾霾灰卫衣抓绒面料\",\"color\":\"雾霾灰\",\"imageUrl\":\"/materials/fei-ticket/fog-grey-sweatshirt-fleece.png\",\"skuCodes\":[\"SKU-SIMPLE-M-GRY\"]},\"orderId\":\"PO-DEMO-SIMPLE-0916\",\"orderBom\":[{\"id\":\"tdv_demand_SPU_HOODIE_082-bom-main\",\"name\":\"雾霾灰卫衣抓绒面料\"},{\"id\":\"HG-DEMO-ZIPPER-GRY-60\",\"name\":\"雾霾灰开尾拉链\",\"code\":\"HG-DEMO-ZIPPER-GRY-60\"},{\"id\":\"HG-DEMO-RIB-GRY\",\"name\":\"雾霾灰罗纹袖口与下摆用料\",\"code\":\"HG-DEMO-RIB-GRY\"}],\"sheetBom\":[{\"id\":\"tdv_demand_SPU_HOODIE_082-bom-main\",\"name\":\"雾霾灰卫衣抓绒面料\"},{\"id\":\"HG-DEMO-ZIPPER-GRY-60\",\"name\":\"雾霾灰开尾拉链\",\"code\":\"HG-DEMO-ZIPPER-GRY-60\"},{\"id\":\"HG-DEMO-RIB-GRY\",\"name\":\"雾霾灰罗纹袖口与下摆用料\",\"code\":\"HG-DEMO-RIB-GRY\"}],\"moduleUrls\":[\"http://127.0.0.1:43235/src/data/fcs/production-orders.ts\",\"http://127.0.0.1:43235/src/data/fcs/dispatch-task-sheet.ts\"]}\n    at eval (eval at evaluate (:367:30), <anonymous>:12:26)\n    at async <anonymous>:393:30",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工艺工厂运营系统\n\nPFOS\n\n裁床厂管理\n裁床总览\n裁前准备\n接收管理\n铺布执行\n裁后处理\n裁床仓库管理\n待加工仓\n待交出仓\n交出单\n样衣仓\n裁床统计\n印花厂管理\n印花管理\n染厂管理\n染厂管理\n毛织厂管理\n毛织管理\n辅料工厂管理\n花边厂管理\n织带厂管理\n后道工厂管理\n后道工厂管理\n辅助工艺工厂管理\n打揽加工单\n打条加工单\n烫画加工单\n直喷加工单\n布包扣加工单\n绣花加工单\n压褶加工单\n贝壳绣加工单\n曲牙绣加工单\n一字贝绣花加工单\n盘扣加工单\n花朵加工单\n打褶加工单\n烫钻加工单\n辅助工艺待加工仓\n辅助工艺待交出仓\n特种工艺工厂管理\n模板工序加工单\n激光开袋加工单\n特种车缝（花样机）加工单\n橡筋定长切割加工单\n特种工艺待加工仓\n特种工艺待交出仓\n待交出仓\n全部关闭\n裁床待交出仓\n简易裁片交出\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n中转袋回收\n中转袋报废\n库存明细\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n库位图\n退裁片库区\n\n三方车缝工厂退回裁片确认后进入本仓内独立库区；报废在此核销，非报废裁片在创建补料单时转入对应补料业务。后续齐套、装袋与正式交出统一走普通补料和交出流程。\n\n在库 0 片\n已转补料 48 片\n已报废 0 片\n当前在库退裁片\n与普通待交出中转袋严格分区，不直接形成待交出库存\n退裁片库区暂无可用裁片。\n菲票 / 生产单 / 袋码 \n库存状态 \n全部\n在库可分配\n已占用\n待拆袋重装\n已装袋待交出\n已交出待回收\n已作废 / 不可用\n库区 \n全部\nA区\n特殊工艺 \n全部\n无特殊工艺\n未做特殊工艺\n特殊工艺加工中\n已做特殊工艺\n接收对象 \n筛选\n重置\n待入仓菲票：\n74\n已打印未确认入仓\n在库裁片：\n300 片\n15 条库存\n已占用裁片：\n300 片\n车缝任务占用\n已装袋待交出：\n3\n当前筛选中转袋\n交出差异：\n0\n同步失败与回仓差异\n无特殊工艺\n300 片\n15 条库存 · 普通裁片，可直接参与车缝分配\n未做特殊工艺\n0 片\n0 条库存 · 需完成特殊工艺回仓后再交出\n已做特殊工艺\n0 片\n0 条库存 · 回仓入库后可参与车缝分配\n待交出仓裁片库存\n共 15 条库存记录\n菲票 / 来源\t款式 / 裁片\t数量账\t袋码 / 库位\t状态\t操作\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 15 条\n上一页\n第\n页\n跳转\n下一页"
+    }
+  ],
+  "domainEvidence": [
+    {
+      "requirement": "MAT-004",
+      "file": "tests/unit/replacement-fabric-source-and-history.test.ts",
+      "test": "同名不同编码面料不混并；BOM 身份歧义阻断",
+      "reason": "Pure identity resolution is already covered; below verifies that the actual handover UI does not accept A as missing B."
+    },
+    {
+      "requirement": "MAT-006",
+      "file": "tests/unit/replacement-fabric-source-and-history.test.ts",
+      "test": "完整但全是朴为空集合；缺颜色映射或空名称属于资料错误",
+      "reason": "Below supplements the visible list/detail state; no duplicate standalone domain invocation is necessary."
+    },
+    {
+      "requirement": "HAND-011",
+      "file": "tests/unit/replacement-fabric-fei-tickets.test.ts",
+      "test": "同任务同工厂历史可满足；不同任务或换厂必须另交",
+      "reason": "Its added-C missing-set assertion is the pure rule; below supplements actual prior-receipt/new-material UI and saved result."
+    }
+  ],
+  "failed": [
+    {
+      "requirements": [
+        "MAT-004",
+        "HAND-011"
+      ],
+      "fixture": "Mock: A/B物料同名不同SKU身份；先M任务只需A，后续新增B需料与第二裁片批；测试交出均使用真实按钮",
+      "errors": [],
+      "passed": false,
+      "error": "Error: page.evaluate: Error: Initial material does not resolve to BOM: {\"a\":{\"key\":\"[\\\"tdv_demand_SPU_HOODIE_082-bom-main\\\",\\\"雾霾灰\\\"]\",\"code\":\"tdv_demand_SPU_HOODIE_082-bom-main\",\"name\":\"雾霾灰卫衣抓绒面料\",\"color\":\"雾霾灰\",\"imageUrl\":\"/materials/fei-ticket/fog-grey-sweatshirt-fleece.png\",\"skuCodes\":[\"SKU-SIMPLE-M-GRY\"]},\"orderId\":\"PO-DEMO-SIMPLE-0916\",\"orderBom\":[{\"id\":\"tdv_demand_SPU_HOODIE_082-bom-main\",\"name\":\"雾霾灰卫衣抓绒面料\"},{\"id\":\"HG-DEMO-ZIPPER-GRY-60\",\"name\":\"雾霾灰开尾拉链\",\"code\":\"HG-DEMO-ZIPPER-GRY-60\"},{\"id\":\"HG-DEMO-RIB-GRY\",\"name\":\"雾霾灰罗纹袖口与下摆用料\",\"code\":\"HG-DEMO-RIB-GRY\"}],\"sheetBom\":[{\"id\":\"tdv_demand_SPU_HOODIE_082-bom-main\",\"name\":\"雾霾灰卫衣抓绒面料\"},{\"id\":\"HG-DEMO-ZIPPER-GRY-60\",\"name\":\"雾霾灰开尾拉链\",\"code\":\"HG-DEMO-ZIPPER-GRY-60\"},{\"id\":\"HG-DEMO-RIB-GRY\",\"name\":\"雾霾灰罗纹袖口与下摆用料\",\"code\":\"HG-DEMO-RIB-GRY\"}],\"moduleUrls\":[\"http://127.0.0.1:43235/src/data/fcs/production-orders.ts\",\"http://127.0.0.1:43235/src/data/fcs/dispatch-task-sheet.ts\"]}\n    at eval (eval at evaluate (:367:30), <anonymous>:12:26)\n    at async <anonymous>:393:30",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工艺工厂运营系统\n\nPFOS\n\n裁床厂管理\n裁床总览\n裁前准备\n接收管理\n铺布执行\n裁后处理\n裁床仓库管理\n待加工仓\n待交出仓\n交出单\n样衣仓\n裁床统计\n印花厂管理\n印花管理\n染厂管理\n染厂管理\n毛织厂管理\n毛织管理\n辅料工厂管理\n花边厂管理\n织带厂管理\n后道工厂管理\n后道工厂管理\n辅助工艺工厂管理\n打揽加工单\n打条加工单\n烫画加工单\n直喷加工单\n布包扣加工单\n绣花加工单\n压褶加工单\n贝壳绣加工单\n曲牙绣加工单\n一字贝绣花加工单\n盘扣加工单\n花朵加工单\n打褶加工单\n烫钻加工单\n辅助工艺待加工仓\n辅助工艺待交出仓\n特种工艺工厂管理\n模板工序加工单\n激光开袋加工单\n特种车缝（花样机）加工单\n橡筋定长切割加工单\n特种工艺待加工仓\n特种工艺待交出仓\n待交出仓\n全部关闭\n裁床待交出仓\n简易裁片交出\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n中转袋回收\n中转袋报废\n库存明细\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n库位图\n退裁片库区\n\n三方车缝工厂退回裁片确认后进入本仓内独立库区；报废在此核销，非报废裁片在创建补料单时转入对应补料业务。后续齐套、装袋与正式交出统一走普通补料和交出流程。\n\n在库 0 片\n已转补料 48 片\n已报废 0 片\n当前在库退裁片\n与普通待交出中转袋严格分区，不直接形成待交出库存\n退裁片库区暂无可用裁片。\n菲票 / 生产单 / 袋码 \n库存状态 \n全部\n在库可分配\n已占用\n待拆袋重装\n已装袋待交出\n已交出待回收\n已作废 / 不可用\n库区 \n全部\nA区\n特殊工艺 \n全部\n无特殊工艺\n未做特殊工艺\n特殊工艺加工中\n已做特殊工艺\n接收对象 \n筛选\n重置\n待入仓菲票：\n74\n已打印未确认入仓\n在库裁片：\n300 片\n15 条库存\n已占用裁片：\n300 片\n车缝任务占用\n已装袋待交出：\n3\n当前筛选中转袋\n交出差异：\n0\n同步失败与回仓差异\n无特殊工艺\n300 片\n15 条库存 · 普通裁片，可直接参与车缝分配\n未做特殊工艺\n0 片\n0 条库存 · 需完成特殊工艺回仓后再交出\n已做特殊工艺\n0 片\n0 条库存 · 回仓入库后可参与车缝分配\n待交出仓裁片库存\n共 15 条库存记录\n菲票 / 来源\t款式 / 裁片\t数量账\t袋码 / 库位\t状态\t操作\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 15 条\n上一页\n第\n页\n跳转\n下一页"
+    }
+  ]
+}

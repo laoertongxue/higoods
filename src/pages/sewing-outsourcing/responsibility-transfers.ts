@@ -1,3 +1,4 @@
+import {saveProductionSourceUiAction} from '../../data/fcs/production-context-actions.ts'
 // @page-pattern: list
 
 import { renderStandardListFilters, renderStandardListPage } from '../../components/ui/list-page.ts'
@@ -172,7 +173,7 @@ export function closeSewingOutsourcingResponsibilityTransferDialog(): boolean {
   return true
 }
 
-export function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTMLElement): boolean {
+export async function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTMLElement): Promise<boolean> {
   const field = target.closest<HTMLInputElement | HTMLSelectElement>('[data-ppic-transfer-field]')
   if (field && !state.dialog) {
     if (field.dataset.ppicTransferField === 'keyword') state.draftKeyword = field.value
@@ -219,7 +220,7 @@ export function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTML
     try {
       if (!row) throw new Error('未找到待移交任务。')
       state.commandSequence += 1
-      const version = transferSewingTaskResponsibility({
+      const input={
         commandId: `CMD-PPIC-LEADER-TRANSFER-${Date.now()}-${state.commandSequence}`,
         runtimeTaskId: row.runtimeTaskId,
         targetPpicId: value('targetPpicId'),
@@ -227,7 +228,8 @@ export function handleSewingOutsourcingResponsibilityTransfersEvent(target: HTML
         remainingItems: value('remainingItems').split(/\n|；|;/).map((item) => item.trim()).filter(Boolean),
         operatedAt: formatOperationLocalWallClock(),
         operatedByPpicId: currentManager().ppicId,
-      })
+      }
+      const version=await saveProductionSourceUiAction(JSON.stringify({...input,commandId:undefined,operatedAt:undefined}),()=>transferSewingTaskResponsibility(input))
       state.feedback = `${row.taskNo}已由${currentManager().ppicName}明确移交给${version.ppicName}；原责任版本已保留。`
       state.dialog = null
     } catch (error) {

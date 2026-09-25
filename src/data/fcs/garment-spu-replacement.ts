@@ -294,21 +294,19 @@ function cloneSnapshot(snapshot: GarmentReplacementStoreSnapshot): GarmentReplac
 function loadSnapshot(): GarmentReplacementStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (canUseStorage()) {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as GarmentReplacementStoreSnapshot
-        if (parsed.version === 1 && Array.isArray(parsed.records)) {
-          memorySnapshot = cloneSnapshot(parsed)
-          return cloneSnapshot(parsed)
-        }
-      }
-    } catch {
-      // 原型环境存储损坏时回到可演示的 Mock 快照。
+    let raw: string | null
+    try { raw = localStorage.getItem(STORAGE_KEY) }
+    catch { throw new Error('已保存成衣换款记录无法读取，请允许本机数据访问后重试；未覆盖原记录。') }
+    if (raw !== null) {
+      let parsed: GarmentReplacementStoreSnapshot
+      try { parsed = JSON.parse(raw) as GarmentReplacementStoreSnapshot }
+      catch { throw new Error('已保存成衣换款记录格式错误，请保留原数据并核对。') }
+      if (!parsed || parsed.version !== 1 || !['records', 'inventoryBatches', 'relabelTasks', 'warehouseMovements'].every(key => Array.isArray(parsed[key as keyof GarmentReplacementStoreSnapshot]))) throw new Error('已保存成衣换款记录不完整，请保留原数据并核对。')
+      memorySnapshot = cloneSnapshot(parsed)
+      return cloneSnapshot(parsed)
     }
   }
   memorySnapshot = buildSeedSnapshot()
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
   return cloneSnapshot(memorySnapshot)
 }
 

@@ -1557,7 +1557,7 @@ function updateProductionField(
   }
 }
 
-export function handleProductionEvent(target: HTMLElement, event?: Event): boolean {
+export function handleProductionEvent(target: HTMLElement, event?: Event): boolean | Promise<boolean> {
   if (isProductionPreparationTimingPath() && handleProductionPreparationTimingEvent(target, event)) return true
 
   const fieldNode = target.closest<HTMLElement>('[data-prod-field]')
@@ -2239,12 +2239,11 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
   }
 
   if (action === 'confirm-demand-generate') {
-    if (state.ordersFromDemandDialogOpen) {
-      performOrdersFromDemandGenerate()
-    } else {
-      performDemandGenerate()
-    }
-    return true
+    const saving = state.ordersFromDemandDialogOpen ? performOrdersFromDemandGenerate() : performDemandGenerate()
+    return saving.then(() => true).catch((error: unknown) => {
+      showPlanMessage(error instanceof Error ? error.message : '生产单未保存，请保留当前输入并重试。', 'error')
+      return true
+    })
   }
 
   if (action === 'toggle-orders-demand-select-all') {
@@ -2611,14 +2610,14 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
   }
 
   if (action === 'confirm-task-generation-preview') {
-    const changed = confirmTaskGenerationPreview()
-    state.ordersSelectedIds = new Set<string>()
-    if (changed > 0) {
-      showPlanMessage(`已确认生成 ${changed} 张生产单的任务单元`)
+    return confirmTaskGenerationPreview().then((changed) => {
+      state.ordersSelectedIds = new Set<string>()
+      showPlanMessage(changed > 0 ? `已确认生成 ${changed} 张生产单的任务单元` : '当前没有可生成的任务单元', changed > 0 ? 'success' : 'error')
       return true
-    }
-    showPlanMessage('当前没有可生成的任务单元', 'error')
-    return true
+    }).catch((error: unknown) => {
+      showPlanMessage(error instanceof Error ? error.message : '任务未保存，请保留当前输入并重试。', 'error')
+      return true
+    })
   }
 
   if (action === 'orders-refresh') {

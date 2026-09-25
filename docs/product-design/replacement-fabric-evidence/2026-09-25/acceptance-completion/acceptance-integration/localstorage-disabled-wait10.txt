@@ -1,0 +1,16 @@
+### Result
+{"beforeCount":16,"opened":1,"body":"-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 15 条\n上一页\n第\n页\n跳转\n下一页","errors":[]}
+### Ran Playwright code
+```js
+await (async page => {
+ const context=await page.context().browser().newContext(),p=await context.newPage();const errors=[];
+ p.on('pageerror',e=>errors.push(e.stack));p.on('console',m=>{if(m.type()==='error')errors.push(m.text())});
+ await p.goto('http://127.0.0.1:43235/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-page]').waitFor();
+ await p.locator('[data-hpb-action=detail]').first().click();await p.locator('[data-hpb-action=add]').first().click();await p.waitForFunction(()=>document.querySelector('[role=dialog]')?.textContent.includes('已新增 1 张'));
+ const before=await p.evaluate(async()=>{const db=await import('/src/data/fcs/cutting/cutting-record-repository.ts');return await db.readCuttingRecords()});
+ await p.addInitScript(()=>{Error.stackTraceLimit=60;Storage.prototype.getItem=function(key){throw new Error('read blocked: '+key+' '+new Error().stack)};Storage.prototype.setItem=function(){throw new DOMException('write blocked','SecurityError')}});
+ await p.goto('http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover');await p.locator('[data-simple-cut-open], [role=alert]').first().waitFor();
+ const result={beforeCount:before.records.length,opened:await p.locator('[data-simple-cut-open]').count(),body:(await p.locator('body').innerText()).slice(-900),errors};
+ await context.close();return result;
+})(page);
+```

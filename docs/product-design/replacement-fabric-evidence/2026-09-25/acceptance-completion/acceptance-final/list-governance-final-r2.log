@@ -1,0 +1,29 @@
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance
+> npm run check:list-page-governance:static && npm run check:standard-list-page-template && npm run check:prototype-design-governance -- --all
+
+
+> higoods-vanilla-clone@1.0.0 check:list-page-governance:static
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-list-page-governance.ts
+
+list page governance passed: scanned 565 pages, baseline 12
+
+> higoods-vanilla-clone@1.0.0 check:standard-list-page-template
+> npm exec tsc -- --noEmit --target ES2022 --module ESNext --moduleResolution Bundler --strict --skipLibCheck --allowImportingTsExtensions --lib ES2022,DOM src/components/ui/list-table.ts && node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-standard-list-page-template.ts
+
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Missing expected exception: 业务事实不可读不得返回空库或演示结果
+    at file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-standard-list-page-template.ts:1453:8
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: /storage unavailable/,
+  operator: 'throws',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

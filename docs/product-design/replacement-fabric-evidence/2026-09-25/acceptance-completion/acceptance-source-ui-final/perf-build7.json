@@ -1,0 +1,951 @@
+{
+  "results": [
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 267.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 275.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 73.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 266.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 219.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 77.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 265.5,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 165.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 61.599999994039536,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 269.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 165.5,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 77.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 263.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 165.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "dispatch",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 76.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 198.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 147.5,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 27.100000023841858,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 190.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 130.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 24.5,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 268.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 130.5,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 23,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 196.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 145.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 28,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 212.80000001192093,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 130.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "tenders",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 33.5,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 196.10000002384186,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 114.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 27.69999998807907,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 176.5,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 115.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 20.5,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 182.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 114.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 39.099999994039536,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 188.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 114.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 23.899999976158142,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 178.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 98.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "sample",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 37,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 190.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 114.5,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 33.599999994039536,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 183.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 114.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 36.099999994039536,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 191.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 114.5,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 62,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 188.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 118.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 35.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 189.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 120.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "responsibility",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 34.70000001788139,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 189.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 130.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 23.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 199.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 130.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 26.600000023841858,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 184.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 130.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 29.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 189.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 131.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 25.600000023841858,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 190.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 130.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "contracts",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 29.200000017881393,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 241.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 157,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 52.5,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 238.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 151.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 54.5,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 235.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 157.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 59.29999998211861,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 243.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 156.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 55.900000005960464,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 238.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 155.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "progress",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 51.599999994039536,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 454.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 280.5,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 194.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 451.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 281.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 194.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 466.5,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 281,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 195.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 478.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 296.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 204.19999998807907,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 469.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 296.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-receive",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 192.2999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 467.09999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 281.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 193.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 459.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 398,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 194.5,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 457.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 281.30000001192093,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 195.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 463.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 281,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 193.60000002384186,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 453.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 281.2000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-exec",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 194.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 1,
+      "ms": 298.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 1,
+      "ms": 247.5,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 122.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 2,
+      "ms": 288.90000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 2,
+      "ms": 197.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 114.5,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 300.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 3,
+      "ms": 197.39999997615814,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 99,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 4,
+      "ms": 299,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 4,
+      "ms": 197.59999999403954,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 112.7000000178814,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "cold",
+      "sample": 5,
+      "ms": 298.40000000596046,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "refresh",
+      "sample": 5,
+      "ms": 197.7999999821186,
+      "errors": []
+    },
+    {
+      "name": "pda-handover",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 121.90000000596046,
+      "errors": []
+    }
+  ],
+  "failed": [],
+  "max": 478.90000000596046
+}

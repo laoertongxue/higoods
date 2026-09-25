@@ -1,0 +1,35 @@
+(node:55739) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ 中转袋交出与实际入仓使用同一浏览器本地业务时间，不把 UTC 当作本地时间 (2.344875ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 596.482792
+
+✖ failing tests:
+
+test at tests/unit/pda-transfer-bag-action-time.test.ts:1:214
+✖ 中转袋交出与实际入仓使用同一浏览器本地业务时间，不把 UTC 当作本地时间 (2.344875ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + '2026-09-25 05:31'
+  - '2026-09-25 13:31'
+                ^
+  
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/pda-transfer-bag-action-time.test.ts:14:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '2026-09-25 05:31',
+    expected: '2026-09-25 13:31',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

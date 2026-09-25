@@ -1,3 +1,4 @@
+import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { appStore } from '../state/store'
 import { escapeCssSelectorValue, escapeHtml, toClassName } from '../utils'
 import { type ProcessTask } from '../data/fcs/process-tasks'
@@ -240,7 +241,7 @@ let receiveRenderTasks: Map<string, ProcessTask> | null = null
 
 function listReceiveTaskFacts(): ProcessTask[] {
   if (receiveRenderTasks) return [...receiveRenderTasks.values()]
-  const tasks = listPdaMobileExecutionTasks(getCurrentFactoryId()).map(projectPdaTaskLegacyAcceptance)
+  const tasks = listPdaMobileExecutionTasks(getCurrentFactoryId(), true).map(projectPdaTaskLegacyAcceptance)
   return tasks
 }
 
@@ -1466,7 +1467,7 @@ function closeRejectDialog(): void {
   state.rejectReason = ''
 }
 
-export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
+export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<boolean> {
   if (!ensurePdaSessionForAction()) return true
 
   const fieldNode = target.closest<HTMLElement>('[data-pda-tr-field]')
@@ -1583,7 +1584,9 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
     const factoryId = getCurrentFactoryId()
     const factoryName = getFactoryName(factoryId)
     try {
-      rejectPdaTaskWithRuntimeFallback(state.rejectingTaskId, factoryId, state.rejectReason.trim(), formatOperationLocalWallClock(), factoryName)
+      const taskId=state.rejectingTaskId,reason=state.rejectReason.trim()
+      const reject=()=>rejectPdaTaskWithRuntimeFallback(taskId,factoryId,reason,formatOperationLocalWallClock(),factoryName)
+      if(getRuntimeTaskById(taskId)) await saveProductionSourceUiAction(JSON.stringify({action:'reject-runtime',taskId,factoryId,reason}),reject);else reject()
       closeRejectDialog()
       showTaskReceiveToast('已拒绝接单')
     } catch (error) {
@@ -1616,7 +1619,8 @@ export function handlePdaTaskReceiveEvent(target: HTMLElement): boolean {
         const runtime = getPdaRuntimeContext()
         const acceptedAt = state.acceptDialogAcceptedAt
         assertDyeWorkOrderPdaAcceptanceAllowed(taskId)
-        acceptPdaTaskWithRuntimeFallback(taskId, factoryId, factoryName, acceptedAt)
+        const accept=()=>acceptPdaTaskWithRuntimeFallback(taskId,factoryId,factoryName,acceptedAt)
+        if(getRuntimeTaskById(taskId)) await saveProductionSourceUiAction(JSON.stringify({action:'accept-runtime',taskId,factoryId,acceptedAt}),accept);else accept()
         recordDyeWorkOrderPdaAcceptance(taskId, runtime?.userName || factoryName, acceptedAt)
         state.acceptDialogTaskId = ''
         state.acceptDialogAcceptedAt = ''

@@ -1,3 +1,4 @@
+import { savePartTicketAction, stagePartTicketSpreadingStore } from '../../../data/fcs/cutting/part-ticket-records.ts'
 // @page-pattern: list
 
 import { appStore } from '../../../state/store.ts'
@@ -60,14 +61,12 @@ import {
   normalizeRollOperatorLayerRows,
   parseRollOperatorLayerRows,
   buildSpreadingSessionIdentityForMarkerBed,
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   deriveSpreadingStatus,
   deriveSpreadingCuttingStatus,
   deriveSpreadingListStatus,
   deriveSpreadingSessionGarmentQtyPerLayer,
   hasSpreadingActualExecution,
   resolveSpreadingOrderStatusFromSession,
-  serializeMarkerSpreadingStorage,
   spreadingOrderStatusMeta,
   upsertMarkerRecord,
   upsertSpreadingSession,
@@ -2474,9 +2473,10 @@ function resolveSpreadingDerivedState(
   }
 }
 
-function persistMarkerSpreadingStore(store: ReturnType<typeof readMarkerSpreadingPrototypeData>['store']): void {
+async function persistMarkerSpreadingStore(store: ReturnType<typeof readMarkerSpreadingPrototypeData>['store'], changedIds: { markers?: string[]; sessions?: string[] }): Promise<void> {
+  const baseline = readMarkerSpreadingPrototypeData().store
+  await savePartTicketAction({ intent: JSON.stringify(store), action: () => stagePartTicketSpreadingStore(store, baseline, changedIds) })
   invalidateSpreadingPageDataCache()
-  localStorage.setItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY, serializeMarkerSpreadingStorage(store))
 }
 
 function getSpreadingOperationLogs(session: SpreadingSession): SpreadingOperationLog[] {
@@ -2566,7 +2566,6 @@ function syncStateFromPath(): void {
   state.spreadingEditTab = parseEditTabFromPath()
 
   const currentPath = getCurrentPathname()
-  const data = readMarkerSpreadingPrototypeData()
 
   if (currentPath === getCanonicalCuttingPath('spreading-edit') || currentPath === getCanonicalCuttingPath('spreading-create')) {
     if (currentPath === getCanonicalCuttingPath('spreading-create')) {
@@ -2595,6 +2594,7 @@ function syncStateFromPath(): void {
       return
     }
 
+    const data = readMarkerSpreadingPrototypeData()
     const sessionId = getSearchParams().get('sessionId')
     const existing = sessionId ? data.store.sessions.find((item) => item.spreadingSessionId === sessionId) || null : null
     state.spreadingDraft = existing ? cloneSpreadingSession(existing) : buildNewSpreadingDraft()
@@ -5166,10 +5166,10 @@ function buildListRoute(): string {
   })
 }
 
-function persistImportedDraftAndOpen(draft: SpreadingSession, successMessage: string): boolean {
+async function persistImportedDraftAndOpen(draft: SpreadingSession, successMessage: string): Promise<boolean> {
   const data = readMarkerSpreadingPrototypeData()
   const nextStore = upsertSpreadingSession(draft, data.store)
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { sessions: [draft.spreadingSessionId] })
   state.feedback = { tone: 'success', message: successMessage }
   state.importDecision = null
   const saved = nextStore.sessions.find((item) => item.spreadingSessionId === draft.spreadingSessionId) || draft
@@ -5177,7 +5177,7 @@ function persistImportedDraftAndOpen(draft: SpreadingSession, successMessage: st
   return true
 }
 
-function startMarkerImport(marker: MarkerRecord): boolean {
+async function startMarkerImport(marker: MarkerRecord): Promise<boolean> {
   const validation = validateMarkerForSpreadingImport(marker)
   if (!validation.allowed) {
     state.feedback = { tone: 'warning', message: validation.messages.join('；') }
@@ -5269,7 +5269,7 @@ function navigateFromSpreadingSession(sessionId: string | undefined, target: 'cu
   return true
 }
 
-function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean {
+async function saveCurrentMarker(goDetail: boolean, successMessage?: string): Promise<boolean> {
   const draft = state.markerDraft
   if (!draft) return false
   const templateType = deriveMarkerTemplateByMode(draft.markerMode)
@@ -5409,7 +5409,7 @@ function saveCurrentMarker(goDetail: boolean, successMessage?: string): boolean 
     },
     data.store,
   )
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { markers: [draft.markerId] })
   const saved = nextStore.markers.find((item) => item.markerId === draft.markerId) || draft
   state.markerDraft = ensureMarkerDraftShape(cloneMarkerRecord(saved))
   state.feedback = { tone: 'success', message: successMessage || `${saved.markerNo || '计划记录'} 已保存。` }
@@ -5830,7 +5830,7 @@ function buildCreateSessionsFromSelection(): SpreadingSession[] | null {
   return [draft]
 }
 
-function confirmSpreadingCreate(): boolean {
+async function confirmSpreadingCreate(): Promise<boolean> {
   const drafts = buildCreateSessionsFromSelection()
   if (!drafts?.length) return true
   const bindingSummary = summarizeBindingStripRequirementsForCutOrders(Array.from(new Set(drafts.flatMap((draft) => draft.cutOrderIds))))
@@ -5840,7 +5840,7 @@ function confirmSpreadingCreate(): boolean {
   }
   const data = readMarkerSpreadingPrototypeData()
   const nextStore = drafts.reduce((store, draft) => upsertSpreadingSession(draft, store), data.store)
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { sessions: drafts.map(draft => draft.spreadingSessionId) })
   state.feedback = {
     tone: 'success',
     message: drafts.length === 1 ? `已创建待铺布单 ${drafts[0].sessionNo || ''}`.trim() : `已按唛架编号生成 ${drafts.length} 张待铺布单。`,
@@ -5854,7 +5854,7 @@ function confirmSpreadingCreate(): boolean {
   return true
 }
 
-function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boolean {
+async function saveCurrentSpreading(goDetail: boolean, successMessage?: string): Promise<boolean> {
   const draft = state.spreadingDraft
   if (!draft) return false
   const { normalizedDraft } = buildPersistableSpreadingDraft(draft)
@@ -5864,7 +5864,7 @@ function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boole
     return true
   }
   const nextStore = upsertSpreadingSession(normalizedDraft, data.store)
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { sessions: [normalizedDraft.spreadingSessionId] })
   const saved = nextStore.sessions.find((item) => item.spreadingSessionId === draft.spreadingSessionId) || normalizedDraft
   state.spreadingDraft = cloneSpreadingSession(saved)
   state.spreadingCompletionSelection =
@@ -5879,7 +5879,7 @@ function saveCurrentSpreading(goDetail: boolean, successMessage?: string): boole
   return true
 }
 
-function completeCurrentSpreading(): boolean {
+async function completeCurrentSpreading(): Promise<boolean> {
   const draft = state.spreadingDraft
   if (!draft) return false
   const { normalizedDraft, derived, primaryRows } = buildPersistableSpreadingDraft(draft)
@@ -5948,7 +5948,7 @@ function completeCurrentSpreading(): boolean {
   }))
   const data = readMarkerSpreadingPrototypeData()
   const nextStore = upsertSpreadingSession(completedDraft, data.store)
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { sessions: [completedDraft.spreadingSessionId] })
   const saved = nextStore.sessions.find((item) => item.spreadingSessionId === completedDraft.spreadingSessionId) || completedDraft
   state.spreadingDraft = cloneSpreadingSession(saved)
   state.spreadingCompletionSelection =
@@ -5963,7 +5963,7 @@ function completeCurrentSpreading(): boolean {
   return true
 }
 
-function persistCurrentSpreadingStatus(nextStatus: SpreadingStatusKey): boolean {
+async function persistCurrentSpreadingStatus(nextStatus: SpreadingStatusKey): Promise<boolean> {
   const draft = state.spreadingDraft
   if (!draft) return false
   if (nextStatus === 'DONE') {
@@ -5987,11 +5987,11 @@ function persistCurrentSpreadingStatus(nextStatus: SpreadingStatusKey): boolean 
   return saveCurrentSpreading(false, `当前铺布 session 已标记为“${deriveSpreadingStatus(nextStatus).label}”。`)
 }
 
-function startSpreadingSession(
+async function startSpreadingSession(
   sessionId: string | null | undefined,
   openEdit = true,
   startConfig: { cuttingTableId?: string; ownerAccountId?: string } = {},
-): boolean {
+): Promise<boolean> {
   const session = getStoredSpreadingSession(sessionId)
   if (!session) return false
   if (session.status === 'DONE') {
@@ -6037,7 +6037,7 @@ function startSpreadingSession(
   }))
   const data = readMarkerSpreadingPrototypeData()
   const nextStore = upsertSpreadingSession(nextSession, data.store)
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { sessions: [nextSession.spreadingSessionId] })
   if (state.spreadingDraft?.spreadingSessionId === nextSession.spreadingSessionId) {
     state.spreadingDraft = cloneSpreadingSession(nextSession)
   }
@@ -6048,14 +6048,14 @@ function startSpreadingSession(
   return true
 }
 
-function startCurrentSpreading(): boolean {
+async function startCurrentSpreading(): Promise<boolean> {
   const controls = document.querySelector<HTMLElement>('[data-spreading-start-controls="true"]')
   const cuttingTableId = controls?.querySelector<HTMLSelectElement>('[data-cutting-spreading-start-field="cuttingTableId"]')?.value || ''
   const ownerAccountId = controls?.querySelector<HTMLSelectElement>('[data-cutting-spreading-start-field="ownerAccountId"]')?.value || ''
   return startSpreadingSession(state.spreadingDraft?.spreadingSessionId, false, { cuttingTableId, ownerAccountId })
 }
 
-function updateSpreadingCuttingStatus(sessionId: string | null | undefined, nextStatus: SpreadingCuttingStatusKey): boolean {
+async function updateSpreadingCuttingStatus(sessionId: string | null | undefined, nextStatus: SpreadingCuttingStatusKey): Promise<boolean> {
   const session = getStoredSpreadingSession(sessionId)
   if (!session) return false
   if (session.status !== 'DONE') {
@@ -6096,7 +6096,7 @@ function updateSpreadingCuttingStatus(sessionId: string | null | undefined, next
   }))
   const data = readMarkerSpreadingPrototypeData()
   const nextStore = upsertSpreadingSession(nextSession, data.store)
-  persistMarkerSpreadingStore(nextStore)
+  await persistMarkerSpreadingStore(nextStore, { sessions: [nextSession.spreadingSessionId] })
   state.feedback = { tone: 'success', message: `裁剪状态已更新为“${deriveSpreadingCuttingStatus(nextStatus).label}”。` }
   return true
 }
@@ -6174,7 +6174,7 @@ export function renderCraftCuttingSpreadingEditPage(): string {
   return renderPage()
 }
 
-export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: Event): boolean {
+async function handleCraftCuttingMarkerSpreadingEventInternal(target: Element, event?: Event): Promise<boolean> {
   const dragEvent = event as (DragEvent & {
     higoodStandardListColumnDrag?: true
     higoodStandardListColumnKey?: string
@@ -7226,7 +7226,7 @@ export function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: 
   }
 
   if (
-    handleMarkerSpreadingSubmitAction({
+    await handleMarkerSpreadingSubmitAction({
       action,
       actionNode,
       saveSpreading: (goDetail, successMessage) => saveCurrentSpreading(goDetail, successMessage),
@@ -7247,4 +7247,9 @@ export function handleCraftCuttingMarkerSpreadingSubmit(_form: HTMLFormElement):
 export function isCraftCuttingMarkerSpreadingDialogOpen(): boolean {
   const pathname = getCurrentPathname()
   return pathname === getCanonicalCuttingPath('spreading-edit') || pathname === getCanonicalCuttingPath('spreading-create')
+}
+
+export async function handleCraftCuttingMarkerSpreadingEvent(target: Element, event?: Event): Promise<boolean> {
+  try { return await handleCraftCuttingMarkerSpreadingEventInternal(target, event) }
+  catch (error) { state.feedback = { tone: 'warning', message: `尚未保存：${error instanceof Error ? error.message : String(error)}` }; return true }
 }

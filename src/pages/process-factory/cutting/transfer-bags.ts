@@ -116,6 +116,7 @@ import {
   getViewModel,
   getCarrierManagementProjection,
   persistStore,
+  saveTransferBagPageAction,
   persistSelectedTicketIds,
   setFeedback,
   closeActiveDialog,
@@ -1977,7 +1978,6 @@ function printManifest(usageId: string | undefined): boolean {
   refreshDerivedState()
   persistStore()
 
-  appStore.navigate(buildTransferBagLabelPrintLink(usage.bagId || usage.bagCode))
   setFeedback('success', `${usage.bagCode} 的中转袋档案二维码已进入统一打印预览。`)
   return true
 }
@@ -2100,7 +2100,7 @@ export function renderCraftCuttingTransferBagDetailPage(): string {
   return renderDetailPage()
 }
 
-export function handleCraftCuttingTransferBagsEvent(
+function handleCraftCuttingTransferBagsEventSync(
   target: Element,
   event?: Event,
 ): boolean {
@@ -2501,4 +2501,18 @@ export function handleCraftCuttingTransferBagsEvent(
   }
 
   return false
+}
+
+/** 保持筛选等无保存交互同步，真实保存等待 complete 后再发布页面与打印导航。 */
+export function handleCraftCuttingTransferBagsEvent(target: Element, event?: Event): boolean | Promise<boolean> {
+  const node = target.closest<HTMLElement>('[data-transfer-bags-action]')
+  const action = node?.dataset.transferBagsAction
+  if (!action || !['save-master', 'print-manifest'].includes(action) || event && event.type !== 'click') return handleCraftCuttingTransferBagsEventSync(target, event)
+  const usage = action === 'print-manifest' ? getViewModel().usagesById[node?.dataset.usageId || state.activeUsageId || ''] : undefined
+  const printRoute = usage ? buildTransferBagLabelPrintLink(usage.bagId || usage.bagCode) : ''
+  const intent = JSON.stringify({action, usageId: usage?.usageId, masterDraft: action === 'save-master' ? state.masterDraft : undefined})
+  return saveTransferBagPageAction(intent, () => handleCraftCuttingTransferBagsEventSync(target, event)).then(handled => {
+    if (handled && printRoute && state.feedback?.tone === 'success') appStore.navigate(printRoute)
+    return handled
+  })
 }

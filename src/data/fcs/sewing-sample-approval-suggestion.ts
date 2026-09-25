@@ -1,4 +1,5 @@
-import { getBrowserLocalStorage } from '../browser-storage.ts'
+import { productionContextStorage, onProductionContextChanged } from './production-context-records.ts'
+const getBrowserLocalStorage = () => productionContextStorage
 import { formatOperationLocalWallClock } from './sewing-delivery-sla.ts'
 import { productionOrders } from './production-orders.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
@@ -123,18 +124,58 @@ const records = new Map<string, SewingSampleApprovalRecord>()
 const commandResults = new Map<string, { assignmentId: string; action: string }>()
 let suggestionSequence = 0
 const SAMPLE_STORAGE_KEY = 'higood:sewing-sample-approval:v3'
-const storedSamples = getBrowserLocalStorage()?.getItem(SAMPLE_STORAGE_KEY)
-if (storedSamples) {
-  const saved = JSON.parse(storedSamples)
-  if (saved.version === 3 && Array.isArray(saved.records) && Array.isArray(saved.commands)) {
-    saved.records.forEach((record: SewingSampleApprovalRecord) => records.set(record.assignmentId, record))
-    saved.commands.forEach(([id, result]: [string, { assignmentId: string; action: string }]) => commandResults.set(id, result))
-    suggestionSequence = saved.sequence || 0
+let samplesLoaded = false
+let sampleFixtureDepth=0
+let sampleDefaults: {records:Array<[string,SewingSampleApprovalRecord]>;commands:Array<[string,{assignmentId:string;action:string}]>;sequence:number}={records:[],commands:[],sequence:0}
+export function buildSewingSampleStaticFixture<T>(action:()=>T):T {
+  ensureSamplesLoaded()
+  if (sampleFixtureDepth) return action()
+  const live = captureSewingSampleState()
+  const previousDefaults = sampleDefaults
+  const defaultRecords = new Map(previousDefaults.records)
+  const defaultCommands = new Map(previousDefaults.commands)
+  const recordOverrides = live.records.filter(([id, value]) => JSON.stringify(defaultRecords.get(id)) !== JSON.stringify(value))
+  const commandOverrides = live.commands.filter(([id, value]) => JSON.stringify(defaultCommands.get(id)) !== JSON.stringify(value))
+  // Build the static baseline separately: replaying fixture commands against a
+  // saved, advanced sample would incorrectly reject the user's current state.
+  restoreSewingSampleState(previousDefaults)
+  sampleFixtureDepth++
+  try {
+    const result = action()
+    sampleDefaults = captureSewingSampleState()
+    restoreSewingSampleState({
+      records: [...new Map([...sampleDefaults.records, ...recordOverrides])],
+      commands: [...new Map([...sampleDefaults.commands, ...commandOverrides])],
+      sequence: Math.max(sampleDefaults.sequence, live.sequence),
+    })
+    return result
+  } catch (error) {
+    sampleDefaults = previousDefaults
+    restoreSewingSampleState(live)
+    throw error
+  } finally {
+    sampleFixtureDepth--
   }
 }
+/** 裁床仅引用任务分配时不读取无关样衣数据；真正进入样衣动作时仍须完整读取，失败不能冒充空记录。 */
+function ensureSamplesLoaded(): void {
+  if (samplesLoaded) return
+  restoreSewingSampleState(sampleDefaults);samplesLoaded=false
+  const storedSamples = getBrowserLocalStorage()?.getItem(SAMPLE_STORAGE_KEY)
+  if (storedSamples) {
+    const saved = JSON.parse(storedSamples)
+    if (saved.version !== 3 || !Array.isArray(saved.records) || !Array.isArray(saved.commands)) throw new Error('已保存的样衣批版记录无法读取，请保留原数据并核对。')
+    saved.records.forEach((record: SewingSampleApprovalRecord) => records.set(record.assignmentId, record))
+    saved.commands.forEach(([id, result]: [string, { assignmentId: string; action: string }]) => commandResults.set(id, result))
+    suggestionSequence = Math.max(sampleDefaults.sequence,saved.sequence || 0)
+  }
+  samplesLoaded = true
+}
 function persistSamples(): void {
+  if(sampleFixtureDepth) return
+  const defaults=new Map(sampleDefaults.records),commands=new Map(sampleDefaults.commands)
   getBrowserLocalStorage()?.setItem?.(SAMPLE_STORAGE_KEY, JSON.stringify({
-    version: 3, records: [...records.values()], commands: [...commandResults], sequence: suggestionSequence,
+    version: 3, records: [...records].filter(([id,value])=>JSON.stringify(defaults.get(id))!==JSON.stringify(value)).map(([,value])=>value), commands: [...commandResults].filter(([id,value])=>JSON.stringify(commands.get(id))!==JSON.stringify(value)), sequence: suggestionSequence,
   }))
 }
 
@@ -253,12 +294,14 @@ function buildReferences(input: SewingSampleAssignmentSnapshot): SampleApprovalR
 }
 
 function requireRecord(assignmentId: string): SewingSampleApprovalRecord {
+  ensureSamplesLoaded()
   const record = records.get(assignmentId)
   if (!record) throw new Error(`执行任务分配${assignmentId}尚未生成产前版样衣与批版建议记录`)
   return record
 }
 
 function requireCommand(commandId: string, assignmentId: string, action: string): boolean {
+  ensureSamplesLoaded()
   const id = text(commandId, '命令号')
   const prior = commandResults.get(id)
   if (!prior) return false
@@ -287,6 +330,7 @@ export function initializeSewingSampleApprovalSuggestionForAssignment(
   const taskKind = classifyTaskKind(input.processCodes)
   if (!taskKind) return null
   if (!input.ppicId || !input.ppicName) throw new Error('含车缝执行任务必须先冻结PPIC才能生成批版建议')
+  ensureSamplesLoaded()
   const existing = records.get(input.assignmentId)
   if (existing) {
     if (existing.sample.runtimeTaskId !== input.runtimeTaskId || existing.sample.factoryId !== input.factoryId) {
@@ -508,6 +552,7 @@ export function transferSewingSampleApprovalSuggestionPpic(input: {
   targetPpicId: string
   targetPpicName: string
 }): void {
+  ensureSamplesLoaded()
   records.forEach((record) => {
     if (record.sample.runtimeTaskId !== input.runtimeTaskId || record.sample.status === 'FEEDBACK_SENT') return
     record.sample.currentPpicId = input.targetPpicId
@@ -517,17 +562,35 @@ export function transferSewingSampleApprovalSuggestionPpic(input: {
 }
 
 export function getSewingSampleApprovalRecord(assignmentId: string): SewingSampleApprovalRecord | null {
+  ensureSamplesLoaded()
   const record = records.get(assignmentId)
   return record ? clone(record) : null
 }
 
 export function listSewingSampleApprovalRecords(): SewingSampleApprovalRecord[] {
+  ensureSamplesLoaded()
   return [...records.values()].map(clone)
 }
 
 export function resetSewingSampleApprovalSuggestionsForTests(): void {
+  sampleDefaults={records:[],commands:[],sequence:0}
   getBrowserLocalStorage()?.removeItem?.(SAMPLE_STORAGE_KEY)
   records.clear()
   commandResults.clear()
   suggestionSequence = 0
+  samplesLoaded = true
 }
+
+export function captureSewingSampleState() {
+  ensureSamplesLoaded()
+  return structuredClone({records:[...records],commands:[...commandResults],sequence:suggestionSequence})
+}
+export function restoreSewingSampleState(state: ReturnType<typeof captureSewingSampleState>): void {
+  records.clear(); commandResults.clear()
+  for(const [key,value] of state.records) records.set(key,structuredClone(value))
+  for(const [key,value] of state.commands) commandResults.set(key,structuredClone(value))
+  suggestionSequence=state.sequence; samplesLoaded=true
+}
+onProductionContextChanged(SAMPLE_STORAGE_KEY,()=>{
+  restoreSewingSampleState(sampleDefaults); samplesLoaded=false
+})

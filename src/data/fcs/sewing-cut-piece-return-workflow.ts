@@ -1,3 +1,5 @@
+import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
+import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import type { Factory } from './factory-types.ts'
 import {
   getFactoryActivePpicSnapshot,
@@ -619,7 +621,7 @@ function ensureAvailableReturnCreationCandidate(): void {
 function ensureReturnDemoEffectiveAssignment(candidate: CutPieceReturnInitiationCandidate): void {
   const assignmentId = 'ASG-PPIC-CUT-PIECE-RETURN-DEMO-001'
   if (getEffectiveTaskAssignment(assignmentId)) return
-  createEffectiveTaskAssignment({
+  buildEffectiveAssignmentStaticFixture(()=>buildSewingSampleStaticFixture(()=>createEffectiveTaskAssignment({
     assignmentId,
     runtimeTaskId: candidate.sewingTaskId,
     productionOrderId: candidate.productionOrderId,
@@ -644,7 +646,7 @@ function ensureReturnDemoEffectiveAssignment(candidate: CutPieceReturnInitiation
     operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
     allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
     allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-  })
+  })))
 }
 
 export function ensureSewingCutPieceReturnWorkflowDemo(): SewingCutPieceReturnRequest {

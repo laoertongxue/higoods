@@ -1,0 +1,7 @@
+
+> higoods-vanilla-clone@1.0.0 check:garment-spu-replacement:core
+> node --import tsx scripts/check-garment-spu-replacement.ts
+
+成衣 SPU/SKU 整色替换核心契约通过：四类业务数量、整色唯一映射、双身份、仓库双流水、瑕疵迁移、打印当前身份、结算不变。
+(node:22929) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

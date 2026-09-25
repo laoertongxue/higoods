@@ -668,16 +668,17 @@ export function buildCutOrderViewModel(
   ledger: MarkerPlanSourceRecord[] = [],
   options: {
     progressRows?: ProductionProgressRow[]
+    sourceIdentityOnly?: boolean
     markerPlanOccupancy?: MarkerPlanOccupancyLookup
   } = {},
 ): CutOrderViewModel {
   const startStateLookup = buildCutOrderStartStateLookup()
   const markerPlanOccupancyLookup = options.markerPlanOccupancy ?? {}
-  const materialLedgerProjectionMap = buildRuntimeAdjustedLedgerMap()
-  const closeRecordLookup = buildCutOrderCloseRecordLookup()
-  const reopenRecordLookup = buildCutOrderReopenRecordLookup()
+  const materialLedgerProjectionMap = options.sourceIdentityOnly ? {} : buildRuntimeAdjustedLedgerMap()
+  const closeRecordLookup = options.sourceIdentityOnly ? {} : buildCutOrderCloseRecordLookup()
+  const reopenRecordLookup = options.sourceIdentityOnly ? {} : buildCutOrderReopenRecordLookup()
   const progressRowMap = new Map(
-    (options.progressRows ?? buildProductionProgressRows(records)).map((row) => [row.productionOrderId, row] as const),
+    (options.sourceIdentityOnly ? [] : options.progressRows ?? buildProductionProgressRows(records)).map((row) => [row.productionOrderId, row] as const),
   )
   const recordMap = new Map(records.map((record) => [record.productionOrderId, record] as const))
   const recordByCutOrderKey = new Map<string, CuttingOrderProgressRecord>()

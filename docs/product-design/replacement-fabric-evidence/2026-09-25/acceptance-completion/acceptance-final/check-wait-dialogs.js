@@ -1,0 +1,7 @@
+async root=>{const results=[];for(const kind of ['bagging','inbound','handover','special-craft-return','recovery','scrap'])for(let sample=1;sample<=5;sample++){
+ const c=await root.context().browser().newContext({viewport:{width:1366,height:768}}),p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e)));try{
+ await p.goto('http://127.0.0.1:43236/fcs/craft/cutting/warehouse-management/wait-handover');await p.locator('[data-wait-handover-action=open-'+kind+']').waitFor();
+ await p.evaluate(kind=>{window.__openMs=0;document.addEventListener('click',e=>{if(!e.target.closest('[data-wait-handover-action=open-'+kind+']'))return;const start=performance.now();const tick=()=>{const modal=document.querySelector('[data-wait-handover-modal='+kind+']');if(!modal||[...modal.querySelectorAll('img')].some(i=>!i.complete))return requestAnimationFrame(tick);requestAnimationFrame(()=>requestAnimationFrame(()=>window.__openMs=performance.now()-start))};requestAnimationFrame(tick)},true)},kind);
+ await p.locator('[data-wait-handover-action=open-'+kind+']').click();await p.waitForFunction(()=>window.__openMs>0);const openMs=await p.evaluate(()=>window.__openMs);const content=await p.locator('[data-wait-handover-modal]').innerText();await p.locator('[data-wait-handover-action=close-dialog]').last().click();await p.waitForFunction(()=>!document.querySelector('[data-wait-handover-modal]'));results.push({kind,sample,ms:openMs,content,errors});
+ }catch(e){results.push({kind,sample,error:String(e),errors})}finally{await c.close()}
+ }return results}

@@ -1,0 +1,515 @@
+{
+  "results": [
+    {
+      "surface": "WEB",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 32.69999998807907
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165.30000001192093
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65.2999999821186
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.599999994039536
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 32
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.39999997615814
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 98
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 80.5
+        },
+        {
+          "action": "reset",
+          "ms": 32.60000002384186
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:54:56.288Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055456",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 31.900000005960464
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165.59999999403954
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.29999998211861
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 32.099999994039536
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.80000001192093
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 98.10000002384186
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 82.5
+        },
+        {
+          "action": "reset",
+          "ms": 31.099999994039536
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:55:00.176Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055500",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 31.400000005960464
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65.5
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 109.19999998807907
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 26.099999994039536
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.099999994039536
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 97.7999999821186
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 81.2000000178814
+        },
+        {
+          "action": "reset",
+          "ms": 32
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:55:04.364Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055504",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 32.5
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165.19999998807907
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.19999998807907
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 32.19999998807907
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.30000001192093
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 97.40000000596046
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 81.90000000596046
+        },
+        {
+          "action": "reset",
+          "ms": 31.299999982118607
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:55:07.828Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055507",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 31.099999994039536
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165.10000002384186
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65.39999997615814
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.899999976158142
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.5
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 98.40000000596046
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 83.59999999403954
+        },
+        {
+          "action": "reset",
+          "ms": 30.600000023841858
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:55:11.423Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055511",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "PDA",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "scan-task-sheet",
+          "ms": 131.2000000178814
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 64.19999998807907
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.799999982118607
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.900000005960464
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 81.5
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 79.90000000596046
+        },
+        {
+          "action": "reset",
+          "ms": 31.200000017881393
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n\n7500片\n\n本次交出 8 张裁片票\n\n换片布 1 张 / 5 Yard\n\n接收工厂\nPT Sinar Garment Indonesia\n领取 PPIC\n王芳\n任务单号\nRW-07E2WW7-124DJL2\n交出时间\n2026/9/25 13:55:15\n继续扫描",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055515",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "PDA",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "scan-task-sheet",
+          "ms": 131.5
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65.2999999821186
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.099999994039536
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.900000005960464
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.20000001788139
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 81.5
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 81.80000001192093
+        },
+        {
+          "action": "reset",
+          "ms": 31.899999976158142
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n\n7500片\n\n本次交出 8 张裁片票\n\n换片布 1 张 / 5 Yard\n\n接收工厂\nPT Sinar Garment Indonesia\n领取 PPIC\n王芳\n任务单号\nRW-07E2WW7-124DJL2\n交出时间\n2026/9/25 13:55:18\n继续扫描",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055518",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "PDA",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "scan-task-sheet",
+          "ms": 131.7999999821186
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65.2999999821186
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.099999994039536
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.900000005960464
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.19999998807907
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 81.59999999403954
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 95.69999998807907
+        },
+        {
+          "action": "reset",
+          "ms": 29.700000017881393
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n\n7500片\n\n本次交出 8 张裁片票\n\n换片布 1 张 / 5 Yard\n\n接收工厂\nPT Sinar Garment Indonesia\n领取 PPIC\n王芳\n任务单号\nRW-07E2WW7-124DJL2\n交出时间\n2026/9/25 13:55:22\n继续扫描",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055522",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "PDA",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "scan-task-sheet",
+          "ms": 132.40000000596046
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65.59999999403954
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.20000001788139
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.799999982118607
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.900000005960464
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 81.39999997615814
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 81.69999998807907
+        },
+        {
+          "action": "reset",
+          "ms": 32
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n\n7500片\n\n本次交出 8 张裁片票\n\n换片布 1 张 / 5 Yard\n\n接收工厂\nPT Sinar Garment Indonesia\n领取 PPIC\n王芳\n任务单号\nRW-07E2WW7-124DJL2\n交出时间\n2026/9/25 13:55:25\n继续扫描",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055525",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "PDA",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "scan-task-sheet",
+          "ms": 131.7000000178814
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 64.40000000596046
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.099999994039536
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.900000005960464
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.400000005960464
+        },
+        {
+          "action": "save-failure-retains-selection",
+          "ms": 81.2999999821186
+        },
+        {
+          "action": "double-confirm-handover",
+          "ms": 82.09999999403954
+        },
+        {
+          "action": "reset",
+          "ms": 31.900000005960464
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n\n7500片\n\n本次交出 8 张裁片票\n\n换片布 1 张 / 5 Yard\n\n接收工厂\nPT Sinar Garment Indonesia\n领取 PPIC\n王芳\n任务单号\nRW-07E2WW7-124DJL2\n交出时间\n2026/9/25 13:55:29\n继续扫描",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925055529",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    }
+  ],
+  "failed": []
+}

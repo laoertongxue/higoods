@@ -1,0 +1,285 @@
+{
+  "origin": "http://127.0.0.1:43235",
+  "kind": "functional actual UI; explicit Mock source only",
+  "scenarios": [
+    {
+      "kind": "SCOPE-001",
+      "errors": [],
+      "fixture": {
+        "orderId": "PO-DEMO-TRIPLE-0916",
+        "sheetNo": "RW-1H7957Z-1JEWD9O",
+        "supportsCutPieceHandover": false
+      },
+      "content": "任务单号\n读取任务\n\n简易裁片交出仅用于独立车缝、车缝+烫包任务；三合一任务请到面辅料仓接收。\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）",
+      "disabled": true,
+      "hpbInput": 0,
+      "noReadWrites": true,
+      "passed": true
+    },
+    {
+      "kind": "MAT-006",
+      "errors": [],
+      "fixture": {
+        "orderId": "PO-DEMO-SIMPLE-0916",
+        "sheetNo": "RW-10CIVDB-0IZLA0Q",
+        "supportsCutPieceHandover": true
+      },
+      "before": "任务单号\n读取任务\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\nSPU-HOODIE-082 · 连帽拉链卫衣\n\n生产单：PO-DEMO-SIMPLE-0916\n\n任务单：RW-10CIVDB-0IZLA0Q · 独立车缝\n\n接收工厂：CV Micro Sewing Jakarta Pusat\n\n领取 PPIC：陈琳 · 分配 100 件\n\n本厂分配 SKU（1 项）\n应交裁片\n900 片\n此前已交\n0 片\n本次可交\n700 片\n确认后剩余\n200 片\n\n本次完整清单：5 张菲票，共 700 片\n\n菲票号\tSKU / 颜色 / 尺码\t部位\t编号范围\t本次片数\nFT-CUT-260916-916-01-054\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t后片\t1-100\t100 片\nFT-CUT-260916-916-01-062\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t左前片\t1-100\t100 片\nFT-CUT-260916-916-01-060\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t右前片\t1-100\t100 片\nFT-CUT-260916-916-01-056\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t口袋片\t1-200\t200 片\nFT-CUT-260916-916-01-058\tSKU-SIMPLE-M-GRY\n雾霾灰 / M\t袖片\t1-200\t200 片\n上一页\n第 1 / 1 页 · 共 5 张\n下一页\n另有 5 张暂不可交\n随裁片交出的换片布\n\n每张固定 5 Yard；本任务已交过的面料无需重复交。\n\n无需换片布\n\n加入\n\n本次 0 张 / 0 Yard\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（5 张菲票 / 700 片）",
+      "after": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-10CIVDB\n交出记录：JYJC-068KBGN\n5 张裁片票 / 700 片\n换片布 0 张 / 0 Yard\n接收工厂：CV Micro Sewing Jakarta Pusat\n领取 PPIC：陈琳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T05:40:12.503Z\n查看交出记录\n继续下一单",
+      "receipts": [],
+      "handovers": [
+        {
+          "id": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-068KBGN-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L:20260925054012",
+          "collection": "cutting-events",
+          "value": {
+            "eventId": "cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-068KBGN-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R-SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L:20260925054012",
+            "eventNo": "SIMPLE-HANDOVER-20260925054012",
+            "ledgerSequence": 9,
+            "idempotencyKey": "SIMPLE:RW-10CIVDB-0IZLA0Q:0G80URQ",
+            "eventType": "简易裁片交出",
+            "eventSource": "WEB",
+            "eventStatus": "已同步",
+            "occurredAt": "2026-09-25T05:40:12.503Z",
+            "createdAt": "2026-09-25T05:40:12.503Z",
+            "operatorId": "OWN-CUTTING-001_admin",
+            "operatorName": "HiGood_裁床厂_管理员",
+            "operatorRole": "FACTORY_ADMIN",
+            "refs": {
+              "productionOrderId": "PO-DEMO-SIMPLE-0916",
+              "productionOrderNo": "PO-DEMO-SIMPLE-0916",
+              "cutOrderId": "",
+              "cutOrderNo": "",
+              "markerPlanId": "",
+              "markerPlanNo": "",
+              "spreadingOrderId": "",
+              "spreadingOrderNo": "",
+              "feiTicketIds": [
+                "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK",
+                "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET",
+                "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE",
+                "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R",
+                "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L"
+              ],
+              "feiTicketNos": [
+                "FT-CUT-260916-916-01-054",
+                "FT-CUT-260916-916-01-056",
+                "FT-CUT-260916-916-01-058",
+                "FT-CUT-260916-916-01-060",
+                "FT-CUT-260916-916-01-062"
+              ],
+              "transferBagCode": "",
+              "handoverOrderId": "SIMPLE-ORDER-10CIVDB",
+              "handoverRecordId": "SIMPLE-RECORD-068KBGN",
+              "specialCraftId": "",
+              "usageCycleId": "",
+              "handoverLegId": "",
+              "handoverBatchId": "",
+              "repackBatchId": "",
+              "transferBagCodes": [],
+              "sewingTaskIds": [
+                "TASK-SIMPLE-0916-PROC_SEW-A01"
+              ],
+              "sewingTaskNos": [
+                "TASK-SIMPLE-0916-PROC_SEW-A01"
+              ]
+            },
+            "inventoryEffect": {
+              "inventoryScope": "裁床待交出仓",
+              "direction": "OUT",
+              "qty": 700,
+              "unit": "片",
+              "fromWarehouseArea": "",
+              "fromLocationCode": "",
+              "toWarehouseArea": "",
+              "toLocationCode": ""
+            },
+            "payload": {
+              "replacementFabricTickets": [],
+              "schemaVersion": 1,
+              "assignmentId": "ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P",
+              "runtimeTaskId": "TASK-SIMPLE-0916-PROC_SEW-A01",
+              "taskNo": "TASK-SIMPLE-0916-PROC_SEW-A01",
+              "taskSheetNo": "RW-10CIVDB-0IZLA0Q",
+              "taskSheetVersion": "0IZLA0Q",
+              "taskTypeLabel": "独立车缝",
+              "productionOrderId": "PO-DEMO-SIMPLE-0916",
+              "productionOrderNo": "PO-DEMO-SIMPLE-0916",
+              "styleCode": "SPU-HOODIE-082",
+              "styleName": "连帽拉链卫衣",
+              "styleImageUrl": "/production-confirmation-demo/grey-zip-hoodie.png",
+              "factoryId": "ID-F021",
+              "factoryName": "CV Micro Sewing Jakarta Pusat",
+              "ppicId": "PPIC-ACTIVE-006",
+              "ppicName": "陈琳",
+              "warehouseFactoryId": "OWN-CUTTING-001",
+              "handoverOrderId": "SIMPLE-ORDER-10CIVDB",
+              "handoverOrderNo": "SIMPLE-ORDER-10CIVDB",
+              "handoverRecordId": "SIMPLE-RECORD-068KBGN",
+              "handoverRecordNo": "JYJC-068KBGN",
+              "requirementSnapshotId": "TPS-PO-DEMO-SIMPLE-0916",
+              "requirementSnapshotAt": "2026-09-16 09:00:00",
+              "skuLines": [
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "size": "M",
+                  "color": "雾霾灰",
+                  "qty": 100
+                }
+              ],
+              "requirements": [
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "FRONT-L",
+                  "partName": "左前片",
+                  "piecesPerGarment": 1,
+                  "allocatedGarmentQty": 100,
+                  "requirementLineId": "REQ-ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P-001",
+                  "requiredPieceQty": 100
+                },
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "FRONT-R",
+                  "partName": "右前片",
+                  "piecesPerGarment": 1,
+                  "allocatedGarmentQty": 100,
+                  "requirementLineId": "REQ-ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P-002",
+                  "requiredPieceQty": 100
+                },
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "BACK",
+                  "partName": "后片",
+                  "piecesPerGarment": 1,
+                  "allocatedGarmentQty": 100,
+                  "requirementLineId": "REQ-ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P-003",
+                  "requiredPieceQty": 100
+                },
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "SLEEVE",
+                  "partName": "袖片",
+                  "piecesPerGarment": 2,
+                  "allocatedGarmentQty": 100,
+                  "requirementLineId": "REQ-ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P-004",
+                  "requiredPieceQty": 200
+                },
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "HOOD",
+                  "partName": "帽片",
+                  "piecesPerGarment": 2,
+                  "allocatedGarmentQty": 100,
+                  "requirementLineId": "REQ-ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P-005",
+                  "requiredPieceQty": 200
+                },
+                {
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "POCKET",
+                  "partName": "口袋片",
+                  "piecesPerGarment": 2,
+                  "allocatedGarmentQty": 100,
+                  "requirementLineId": "REQ-ASG-EXISTING-TASK-SIMPLE-0916-PROC_SEW-A01-17OVO2P-006",
+                  "requiredPieceQty": 200
+                }
+              ],
+              "previousHandedOverLines": [],
+              "tickets": [
+                {
+                  "feiTicketId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK",
+                  "feiTicketNo": "FT-CUT-260916-916-01-054",
+                  "sourceOutputLineId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-BACK",
+                  "cutOrderId": "cut-order:po-demo-simple-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm",
+                  "cutOrderNo": "CUT-260916-916-01",
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "BACK",
+                  "partName": "后片",
+                  "pieceRange": "1-100",
+                  "pieceQty": 100,
+                  "unit": "片"
+                },
+                {
+                  "feiTicketId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET",
+                  "feiTicketNo": "FT-CUT-260916-916-01-056",
+                  "sourceOutputLineId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-POCKET",
+                  "cutOrderId": "cut-order:po-demo-simple-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm",
+                  "cutOrderNo": "CUT-260916-916-01",
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "POCKET",
+                  "partName": "口袋片",
+                  "pieceRange": "1-200",
+                  "pieceQty": 200,
+                  "unit": "片"
+                },
+                {
+                  "feiTicketId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE",
+                  "feiTicketNo": "FT-CUT-260916-916-01-058",
+                  "sourceOutputLineId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-SLEEVE",
+                  "cutOrderId": "cut-order:po-demo-simple-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm",
+                  "cutOrderNo": "CUT-260916-916-01",
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "SLEEVE",
+                  "partName": "袖片",
+                  "pieceRange": "1-200",
+                  "pieceQty": 200,
+                  "unit": "片"
+                },
+                {
+                  "feiTicketId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R",
+                  "feiTicketNo": "FT-CUT-260916-916-01-060",
+                  "sourceOutputLineId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-R",
+                  "cutOrderId": "cut-order:po-demo-simple-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm",
+                  "cutOrderNo": "CUT-260916-916-01",
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "FRONT-R",
+                  "partName": "右前片",
+                  "pieceRange": "1-100",
+                  "pieceQty": 100,
+                  "unit": "片"
+                },
+                {
+                  "feiTicketId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L",
+                  "feiTicketNo": "FT-CUT-260916-916-01-062",
+                  "sourceOutputLineId": "SIMPLE-OUTPUT-PO-DEMO-SIMPLE-0916-1-M-FRONT-L",
+                  "cutOrderId": "cut-order:po-demo-simple-0916:tdv-demand-spu-hoodie-082-bom-main:雾霾灰:tdv-demand-spu-hoodie-082-pattern-main:v1-0:150cm",
+                  "cutOrderNo": "CUT-260916-916-01",
+                  "skuCode": "SKU-SIMPLE-M-GRY",
+                  "color": "雾霾灰",
+                  "size": "M",
+                  "partCode": "FRONT-L",
+                  "partName": "左前片",
+                  "pieceRange": "1-100",
+                  "pieceQty": 100,
+                  "unit": "片"
+                }
+              ],
+              "totalPieceQty": 700,
+              "receiptStatus": "RECEIVED",
+              "confirmationBasis": "WAREHOUSE_CONFIRMATION"
+            }
+          }
+        }
+      ],
+      "passed": true
+    }
+  ]
+}

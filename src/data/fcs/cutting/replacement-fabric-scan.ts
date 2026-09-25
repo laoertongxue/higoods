@@ -1,7 +1,7 @@
 import { listReplacementFabricOrderRows } from './replacement-fabric-source.ts'
 import { readReplacementFabricState } from './replacement-fabric-repository.ts'
 import { assertReplacementTicketCurrent, parseReplacementTicketCode } from './replacement-fabric-fei-tickets.ts'
-import { listCuttingRuntimeEvents } from './cutting-runtime-event-ledger.ts'
+import { listManagedCuttingRuntimeEvents } from './cutting-runtime-event-ledger.ts'
 import { resolveTransferBagCurrentUse } from './transfer-bag-operations.ts'
 import { hydrateCuttingEventRecords } from './cutting-event-repository.ts'
 
@@ -18,7 +18,7 @@ export function resolveReplacementFabricScanFromCurrent(raw: string, productionO
   assertReplacementTicketCurrent(ticket, listReplacementFabricOrderRows().flatMap(row => row.scopes))
   if (!state.prints.some(record => record.ticketId === ticket.id)) throw new Error('这张换片布票尚未确认打印，请先核对出纸结果。')
   if (state.receipts.some(receipt => receipt.ticket.id === ticket.id)) throw new Error('这张换片布票已交出，不能重复使用；需要另一份时请新增独立票。')
-  const bagCodes = new Set(listCuttingRuntimeEvents().flatMap(event => [event.refs.transferBagCode || '', ...(event.refs.transferBagCodes || [])]).filter(Boolean))
+  const bagCodes = new Set(listManagedCuttingRuntimeEvents().flatMap(event => [event.refs.transferBagCode || '', ...(event.refs.transferBagCodes || [])]).filter(Boolean))
   for (const code of bagCodes) {
     const current = resolveTransferBagCurrentUse(code)
     if (current.tickets.some(item => item.feiTicketId === ticket.id)) throw new Error(code === targetBagCode ? '本袋已经扫过这张换片布票，无需重复扫描。' : `这张换片布票已在 ${code} 中，请按该袋交出或先移出。`)

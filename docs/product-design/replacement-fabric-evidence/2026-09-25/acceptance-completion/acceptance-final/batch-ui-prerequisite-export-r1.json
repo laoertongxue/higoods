@@ -1,0 +1,54 @@
+{
+  "results": [
+    {
+      "scenario": "unbound-fabric-omission-and-retry",
+      "fixture": {
+        "taskId": "TASKGEN-202603-0002-002__ORDER",
+        "taskNo": "TASKGEN-202603-0002-002",
+        "productionOrderId": "PO-202603-0002",
+        "ppicId": "PPIC-ACTIVE-004",
+        "ppicName": "王芳",
+        "factoryId": "ID-F001",
+        "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "partId": "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back",
+        "partQty": 800,
+        "unit": "Yard",
+        "length": 5,
+        "boundFabric": false
+      },
+      "path": "output/playwright/hpb/acceptance-final/batch-prerequisite-unbound-fabric-omission-and-retry.higcut",
+      "errors": [],
+      "infrastructureErrors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "noHandoverPrerequisite": true
+    },
+    {
+      "scenario": "both-bound-auto-aggregation",
+      "fixture": {
+        "taskId": "TASKGEN-202603-0002-002__ORDER",
+        "taskNo": "TASKGEN-202603-0002-002",
+        "productionOrderId": "PO-202603-0002",
+        "ppicId": "PPIC-ACTIVE-004",
+        "ppicName": "王芳",
+        "factoryId": "ID-F001",
+        "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+        "partId": "SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-back",
+        "partQty": 800,
+        "unit": "Yard",
+        "length": 5,
+        "boundFabric": true
+      },
+      "path": "output/playwright/hpb/acceptance-final/batch-prerequisite-both-bound-auto-aggregation.higcut",
+      "errors": [],
+      "infrastructureErrors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "noHandoverPrerequisite": true
+    }
+  ],
+  "failed": [],
+  "purpose": "Explicit Mock prerequisite only; actual tested handover result is absent. Production preview must restore via real data-tools UI."
+}

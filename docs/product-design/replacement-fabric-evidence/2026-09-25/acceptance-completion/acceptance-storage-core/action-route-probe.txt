@@ -1,0 +1,6 @@
+### Result
+{"title":"HiGood - Vanilla TypeScript Clone","text":"HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工厂生产协同系统\n\nFCS\n\n平台运营系统\n工作台\n工厂池管理\n生产单管理\n任务编排与执行准备\n任务分配\n任务分配工作台\n接单时效配置\n招标单管理\n生产合同管理\n任务进度与异常\n质量与扣款\n对账与结算\n成本溯源管理\n车缝外发协同\n我的工作台\n生成单全流程耗时\n车缝任务\n交出与欠片\n批版建议\n回货跟进\n补料跟进\n裁片退仓\n责任移交\n配料管理\n配料列表\n染色配料\n印花配料\n裁片配料\n车缝配料\n其他配料\n工厂入驻&登录\n登录\n入驻\n工厂端移动应用\n接单\n执行\n交接\n仓管\n结算\n任务分配工作台\n全部关闭\n先迁移本机业务记录\n\n部位票数据尚未读取，请重新进入页面；未使用空记录代替已有数据。\n\n生产单、任务分配、部位票和裁后记录需要转入本机记录库。迁移会分批保存并读回核对，只有核对一致才清理对应旧记录。中断后可从这里继续。\n\n我已关闭其他 HiGood 标签页和窗口\n迁移并继续\n\n迁移失败时请保留网站数据，按提示处理后重试。不会自动删除未验证的记录。","buttons":[],"errors":[]}
+### Ran Playwright code
+```js
+await (async(page)=>{const c=await page.context().browser().newContext({viewport:{width:1366,height:768}}),p=await c.newPage(),errors=[];p.on("pageerror",e=>errors.push(String(e)));await p.goto("http://127.0.0.1:43235/fcs/dispatch/workbench?type=NON_SEWING");await p.waitForTimeout(1000);const result={title:await p.title(),text:(await p.locator("body").innerText()).slice(0,3500),buttons:await p.locator("[data-unified-action]").evaluateAll(es=>es.map(e=>({a:e.dataset.unifiedAction,t:e.dataset.taskId,text:e.textContent}))),errors};await c.close();return result})(page);
+```

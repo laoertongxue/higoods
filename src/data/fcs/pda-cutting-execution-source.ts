@@ -263,6 +263,9 @@ export interface PdaCuttingSpreadingTarget {
   materialImageUrl?: string
   colorSummary: string
   importedFromMarker: boolean
+  cuttingTableId?: string
+  ownerAccountId?: string
+  ownerName?: string
   materialReadiness: SpreadingMaterialReadiness
   planUnits: PdaCuttingSpreadingPlanUnitOption[]
 }
@@ -1087,7 +1090,8 @@ function listMarkersForExecution(snapshot: CuttingDomainSnapshot, execution: Pda
 }
 
 function listCanonicalMarkerPlansForExecution(snapshot: CuttingDomainSnapshot, execution: PdaCuttingExecutionSourceRecord) {
-  const projection = buildMarkerPlanProjection(snapshot)
+  // 此处仅取唛架定义；铺布开工的真实物料门禁由 resolvePdaTargetMaterialReadiness 单独计算。
+  const projection = buildMarkerPlanProjection(snapshot, { sourceIdentityOnly: true })
   return projection.viewModel.plans
     .filter(
       (plan) =>
@@ -1146,6 +1150,9 @@ function buildSpreadingTargets(snapshot: CuttingDomainSnapshot, execution: PdaCu
       materialImageUrl: execution.materialImageUrl || '',
       colorSummary: session.colorSummary || '',
       importedFromMarker: Boolean(session.importedFromMarker),
+      cuttingTableId: session.cuttingTableId,
+      ownerAccountId: session.ownerAccountId,
+      ownerName: session.ownerName,
       materialReadiness: resolvePdaTargetMaterialReadiness(execution, planUnits),
       planUnits,
     }

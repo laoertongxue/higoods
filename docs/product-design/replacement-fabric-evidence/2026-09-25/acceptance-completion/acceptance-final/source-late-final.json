@@ -1,0 +1,42 @@
+{
+  "results": [
+    {
+      "scene": "unready",
+      "bad": 2
+    },
+    {
+      "scene": "initialization-race"
+    },
+    {
+      "scene": "complete-publication",
+      "beforeComplete": [
+        {
+          "memory": 0,
+          "read": null
+        }
+      ]
+    },
+    {
+      "scene": "same-command-race",
+      "error": "Error: page.evaluate: Error: 本次确认编号已用于不同内容，请重新核对。\n    at commandRequest.onsuccess (http://127.0.0.1:43235/src/data/fcs/cutting/cutting-record-repository.ts?t=1790309106272:118:17)"
+    },
+    {
+      "scene": "migration-target-conflict"
+    },
+    {
+      "scene": "migration-copy-abort"
+    },
+    {
+      "scene": "migration-empty"
+    },
+    {
+      "scene": "migration-cleanup-failure"
+    }
+  ],
+  "failed": [
+    {
+      "scene": "same-command-race",
+      "error": "Error: page.evaluate: Error: 本次确认编号已用于不同内容，请重新核对。\n    at commandRequest.onsuccess (http://127.0.0.1:43235/src/data/fcs/cutting/cutting-record-repository.ts?t=1790309106272:118:17)"
+    }
+  ]
+}

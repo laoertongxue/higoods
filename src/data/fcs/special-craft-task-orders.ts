@@ -3111,3 +3111,7 @@ export function listSpecialCraftOperationSlugs(): string[] {
 
 const disposePostFinishingSpecialCraftSourceResolver = installPostFinishingSpecialCraftSourceResolver(listSpecialCraftTaskOrders)
 import.meta.hot?.dispose(disposePostFinishingSpecialCraftSourceResolver)
+
+/** 合并任务只改变失效责任记录，不修改加工数量或仓库事实。 */
+export function captureMergedTaskSpecialCraftInvalidations(){return structuredClone(invalidatedMergedTaskOrderLogs)}
+export function restoreMergedTaskSpecialCraftInvalidations(rows:ReturnType<typeof captureMergedTaskSpecialCraftInvalidations>):void {invalidatedMergedTaskOrderLogs.splice(0,invalidatedMergedTaskOrderLogs.length,...structuredClone(rows))}

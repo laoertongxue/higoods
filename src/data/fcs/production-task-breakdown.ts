@@ -4,7 +4,8 @@ import {
   type ProductionTaskUnitType,
 } from './process-tasks.ts'
 import { productionOrders } from './production-orders.ts'
-import { listProcessWorkOrders } from './process-work-order-domain.ts'
+import { listPrintWorkOrderSourceReferences, getPrintWorkOrderStatusLabel } from './printing-task-domain.ts'
+import { listDyeWorkOrderSourceReferences, getDyeWorkOrderStatusLabel } from './dyeing-task-domain.ts'
 
 export interface ProductionTaskBreakdownPreviewTask {
   taskId: string
@@ -50,18 +51,19 @@ export function buildProductionTaskBreakdownPreview(orderId: string): Production
   }
 
   const tasks = buildProcessTasksForProductionOrder(order, order.updatedAt, '系统')
-  const processWorkOrders = listProcessWorkOrders()
-    .filter((item) =>
-      (item.processType === 'PRINT' || item.processType === 'DYE')
-      && item.productionOrderIds.includes(order.productionOrderId),
-    )
-    .map((item) => ({
-      workOrderId: item.workOrderId,
-      workOrderNo: item.workOrderNo,
-      processCode: item.processType as 'PRINT' | 'DYE',
-      factoryName: item.factoryName,
-      statusLabel: item.statusLabel,
-    }))
+  // 预览仅展示已存在加工单的归属和状态，不初始化工厂执行、领料或交出。
+  const processWorkOrders: ProductionTaskBreakdownPreviewWorkOrder[] = [
+    ...listPrintWorkOrderSourceReferences()
+      .filter(item => (item.productionOrderIds ?? []).includes(order.productionOrderId))
+      .map(item => ({ workOrderId: item.printOrderId, workOrderNo: item.printOrderNo,
+        processCode: 'PRINT' as const, factoryName: item.printFactoryName,
+        statusLabel: item.printFactoryId ? getPrintWorkOrderStatusLabel(item.status) : '待分配工厂' })),
+    ...listDyeWorkOrderSourceReferences()
+      .filter(item => (item.productionOrderIds ?? []).includes(order.productionOrderId))
+      .map(item => ({ workOrderId: item.dyeOrderId, workOrderNo: item.dyeOrderNo,
+        processCode: 'DYE' as const, factoryName: item.dyeFactoryName,
+        statusLabel: item.dyeFactoryId ? getDyeWorkOrderStatusLabel(item.status) : '待分配工厂' })),
+  ].sort((left, right) => left.workOrderNo.localeCompare(right.workOrderNo))
   const blockedReasons = tasks.length === 0 ? ['技术包没有可生成的生产任务'] : []
 
   return {

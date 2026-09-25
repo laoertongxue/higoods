@@ -1,0 +1,5 @@
+async(page)=>{
+ const c=await page.context().browser().newContext(),p=await c.newPage();
+ try {await p.route('**/acceptance-fixture',r=>r.fulfill({contentType:'text/html',body:'Isolated Mock prerequisite'}));await p.goto('http://127.0.0.1:43235/fcs/dispatch/workbench?type=NON_SEWING');await p.locator('[data-unified-dispatch-page]').waitFor();const fixture=await p.evaluate(async()=>{try{return await(await import('/output/playwright/hpb/acceptance-source-ui-final/ui-fixture.ts?v=9')).setup('start')}catch(e){return{error:e.stack}}});if(fixture.error)return fixture;const download=p.waitForEvent('download');await p.evaluate(async()=>{const blob=await(await import('/src/data/fcs/cutting/cutting-backup-file.ts')).buildCuttingBackupFile();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='start-ui-fixture.higcut';a.click()});await(await download).saveAs('/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-source-ui-final/start-ui-fixture.higcut');return{fixture,explicitMockPrerequisite:true}}
+ finally{await c.close()}
+}

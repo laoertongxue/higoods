@@ -1,0 +1,5 @@
+### Error
+TimeoutError: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('tr').filter({ hasText: 'BAG-A-001' }).getByRole('button', { name: '查看详情' })[22m
+

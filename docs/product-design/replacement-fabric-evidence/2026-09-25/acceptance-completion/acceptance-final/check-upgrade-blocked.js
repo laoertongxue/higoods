@@ -1,0 +1,16 @@
+async root=>{
+ const c=await root.context().browser().newContext(),p=await c.newPage();await p.route('**/upgrade-acceptance',r=>r.fulfill({contentType:'text/html',body:'<body>Upgrade fault injection</body>'}));await p.goto('http://127.0.0.1:43235/upgrade-acceptance');
+ const result=await p.evaluate(async()=>{
+  const name='higood-cutting-records-v1',open=IDBFactory.prototype.open;
+  const holder=await new Promise((resolve,reject)=>{const q=open.call(indexedDB,name,1);q.onupgradeneeded=()=>{for(const s of ['records','commands','meta','files'])q.result.createObjectStore(s,{keyPath:'id'})};q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)});holder.onversionchange=()=>{};
+  await new Promise(resolve=>{const tx=holder.transaction('records','readwrite');tx.objectStore('records').put({id:'keep',collection:'upgrade-test',value:{preserved:true}});tx.oncomplete=resolve});
+  let finishUpgrade;const upgraded=new Promise(resolve=>finishUpgrade=resolve);
+  // Only inject the next schema number. The browser itself produces blocked,
+  // versionchange, upgrade transaction and success; no fake request events.
+  IDBFactory.prototype.open=function(db,version){const q=open.call(this,db,db===name?2:version);if(db===name)q.addEventListener('success',()=>finishUpgrade());return q};
+  const repo=await import('/src/data/fcs/cutting/cutting-record-repository.ts');let message='';try{await repo.openCuttingRecordDatabase()}catch(e){message=e.message}
+  if(!message.includes('关闭其他 HiGood 标签页后重试')||!message.includes('不要清除网站数据'))throw Error('阻塞无恢复提示 '+message);
+  holder.close();await upgraded;const db=await repo.openCuttingRecordDatabase();const snapshot=await repo.readCuttingRecords();if(!snapshot.records.some(r=>r.id==='keep'&&r.value.preserved))throw Error('升级丢旧记录');db.close();IDBFactory.prototype.open=open;
+  return {realIndexedDbBlocked:true,injectedNextSchemaVersion:2,currentProductSchemaVersion:1,message,retrySucceeded:true,oldRecordPreserved:true};
+ });await c.close();return result;
+}

@@ -1,4 +1,4 @@
-import { getBrowserLocalStorage, readBrowserStorageItem, writeBrowserStorageItem } from '../../browser-storage.ts'
+import { readPartTicketValue, writePartTicketValue } from './part-ticket-records.ts'
 import type { MarkerPlan, MarkerSchemeBed } from '../../../pages/process-factory/cutting/marker-plan-domain.ts'
 import {
   FEI_TICKET_MANUAL_SOURCE_BASIS,
@@ -78,16 +78,13 @@ export function serializeManualFeiTicketStore(store: ManualFeiTicketStore): stri
 
 export function readManualFeiTicketStore(): ManualFeiTicketStore {
   return deserializeManualFeiTicketStore(
-    readBrowserStorageItem(getBrowserLocalStorage(), CUTTING_MANUAL_FEI_TICKET_SOURCES_STORAGE_KEY),
+    readPartTicketValue(CUTTING_MANUAL_FEI_TICKET_SOURCES_STORAGE_KEY),
   )
 }
 
 export function persistManualFeiTicketStore(store: ManualFeiTicketStore): boolean {
-  return writeBrowserStorageItem(
-    getBrowserLocalStorage(),
-    CUTTING_MANUAL_FEI_TICKET_SOURCES_STORAGE_KEY,
-    serializeManualFeiTicketStore(store),
-  )
+  writePartTicketValue(CUTTING_MANUAL_FEI_TICKET_SOURCES_STORAGE_KEY, serializeManualFeiTicketStore(store))
+  return true
 }
 
 export function listManualFeiTicketSources(): GeneratedFeiTicketSourceRecord[] {

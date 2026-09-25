@@ -139,7 +139,14 @@ function getPdaFactoryCodeLabel(factoryId: string): string {
 
 function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): string {
   const runtime = getPdaRuntimeContext()
-  const todoCount = runtime ? getFactoryMobileTodoCount(runtime.factoryId, runtime.roleId) : 0
+  let todoTrigger = renderTodoTrigger(0)
+  if (runtime) {
+    try { todoTrigger = renderTodoTrigger(getFactoryMobileTodoCount(runtime.factoryId, runtime.roleId)) }
+    catch {
+      // 待办汇总还包含未迁移模块；来源不可读不能伪装成0，也不阻断已保存的交接详情。
+      todoTrigger = '<span role="status" class="max-w-[112px] text-xs text-amber-800" title="待办来源暂不可读，请恢复浏览器存储访问后刷新。">待办暂不可用</span>'
+    }
+  }
   const factoryTitle = runtime?.factoryName || '工厂端移动应用'
   const factoryCode = runtime ? getPdaFactoryCodeLabel(runtime.factoryId) : ''
   const subtitle = runtime && factoryCode ? `${getTabTitle(activeTab, headerTitle)} · ${factoryCode}` : getTabTitle(activeTab, headerTitle)
@@ -150,7 +157,7 @@ function renderPdaTopBar(activeTab: PdaTabKey | null, headerTitle?: string): str
           <div class="truncate text-sm font-semibold text-foreground" title="${escapeHtml(runtime ? formatFactoryDisplayName(runtime.factoryName, runtime.factoryId) : factoryTitle)}">${escapeHtml(factoryTitle)}</div>
           <div class="truncate text-[11px] text-muted-foreground">${escapeHtml(subtitle)}</div>
         </div>
-        ${renderTodoTrigger(todoCount)}
+        ${todoTrigger}
         ${renderAccountTrigger()}
       </div>
     </header>

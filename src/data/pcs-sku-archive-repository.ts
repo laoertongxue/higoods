@@ -342,42 +342,23 @@ function mergeMissingSeedData(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStor
 
 function loadSnapshot(): SkuArchiveStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
-
   if (!canUseStorage()) {
     memorySnapshot = seedSnapshot()
     return cloneSnapshot(memorySnapshot)
   }
-
-  try {
-    const raw = localStorage.getItem(SKU_ARCHIVE_STORAGE_KEY)
-    if (!raw) {
-      memorySnapshot = seedSnapshot()
-      localStorage.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-      return cloneSnapshot(memorySnapshot)
-    }
-
-    const parsed = JSON.parse(raw) as Partial<SkuArchiveStoreSnapshot>
-    if (!Array.isArray(parsed.records)) {
-      memorySnapshot = seedSnapshot()
-      localStorage.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-      return cloneSnapshot(memorySnapshot)
-    }
-
-    memorySnapshot = mergeMissingSeedData(
-      hydrateSnapshot({
-        version: SKU_ARCHIVE_STORE_VERSION,
-        records: parsed.records as SkuArchiveRecord[],
-      }),
-    )
-    localStorage.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    return cloneSnapshot(memorySnapshot)
-  } catch {
+  let raw: string | null
+  try { raw = localStorage.getItem(SKU_ARCHIVE_STORAGE_KEY) }
+  catch { throw new Error('已保存 SKU 档案无法读取，请允许本机数据访问后重试；未使用空档案替换。') }
+  if (raw === null) {
     memorySnapshot = seedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
     return cloneSnapshot(memorySnapshot)
   }
+  let parsed: Partial<SkuArchiveStoreSnapshot>
+  try { parsed = JSON.parse(raw) as Partial<SkuArchiveStoreSnapshot> }
+  catch { throw new Error('已保存 SKU 档案格式错误，请保留原数据并核对。') }
+  if (!parsed || parsed.version !== SKU_ARCHIVE_STORE_VERSION || !Array.isArray(parsed.records)) throw new Error('已保存 SKU 档案版本或记录格式错误，请保留原数据并核对。')
+  memorySnapshot = mergeMissingSeedData(hydrateSnapshot({version: SKU_ARCHIVE_STORE_VERSION, records: parsed.records}))
+  return cloneSnapshot(memorySnapshot)
 }
 
 function persistSnapshot(snapshot: SkuArchiveStoreSnapshot): void {

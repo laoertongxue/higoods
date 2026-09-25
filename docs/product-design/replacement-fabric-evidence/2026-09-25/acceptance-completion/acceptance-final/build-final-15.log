@@ -1,0 +1,1205 @@
+
+> higoods-vanilla-clone@1.0.0 build
+> npm run typecheck:engineering && npm test && vite build
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:engineering
+> npm run typecheck:entrypoints && npm run typecheck:scopes
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:entrypoints
+> tsc --project tsconfig.engineering.json
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:scopes
+> node scripts/check-typescript-scope.mjs src/domain/ src/components/ui/ src/state/
+
+TypeScript 全量既有错误：6
+本次渐进检查范围：src/domain/、src/components/ui/、src/state/
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。
+
+> higoods-vanilla-clone@1.0.0 test
+> npm run test:unit
+
+
+> higoods-vanilla-clone@1.0.0 test:unit
+> node --import tsx --test tests/unit/*.test.ts
+
+✔ 浏览器存储封装保持读写删除语义 (3.220208ms)
+✔ 浏览器存储不可用或抛错时保持静默降级 (0.21825ms)
+(node:56804) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 独立裁剪整任务改派保留数量和执行历史，旧有效分配失效，新范围唯一 (65.381ms)
+✔ 裁床改派回原工厂且回填同一业务日期，不复用旧票范围；普通审计不改身份 (0.2535ms)
+(node:56805) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 交出列表省略详情路线读取时保留全部输出字段 (683.890125ms)
+(node:56806) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ MIG-001/002/006: management entry and handlers belong to FCS; PFOS keeps execution (1.661083ms)
+✔ MIG-003/007: prep and execution read the same early order identities, quantities and match status (1069.768375ms)
+✔ MIG-004/009: migrated dialogs retain candidate fields, actual material image and task outputs (1.479709ms)
+✔ MIG-011: management and execution use the same seven business display columns (14.669ms)
+✔ MIG-007: early dye/print creation and cancellation survive reload (3554.040917ms)
+✔ BOM failed persistence preserves saved and in-memory state; retry persists (156.618541ms)
+✔ existing production preparation data does not trigger demo writes on entry (661.263208ms)
+✔ rollback of an unchanged saved BOM does not perform another failing write (4.401083ms)
+✔ BOM dictionary preserves old JSON and all snapshot values without mutating input (6.318584ms)
+✔ BOM dictionary rejects missing references instead of replacing data silently (0.239541ms)
+(node:56812) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA顶栏计数与实际完整待办相同，覆盖各任务工厂及管理员/员工角色 (2098.446959ms)
+✔ 解析带标签、小数和空格的长度数量 (0.534ms)
+✔ 解析卷数并对不合法文本返回 0 (0.111917ms)
+✔ 证据文件标识把连续空白收口为单个连字符 (0.154584ms)
+(node:56814) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款可成批生成染色和印花加工单，且完整投影来源与上下游 (1531.54725ms)
+✔ 设计改款加工单生成幂等，重复请求不增加单据 (86.532583ms)
+✔ 同一设计改款任务的不同颜色和 BOM 行分别生成加工单 (97.179541ms)
+✔ 成批提交失败时染色与印花加工单一起回滚 (37.176541ms)
+✔ 设计改款来源缺关键引用或来源未知时必须阻断 (0.848584ms)
+(node:56815) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款染后印花必须先分配印花厂，染色交出不能误送中央工厂 (411.425625ms)
+✔ 仅染与仅印分别创建一张加工单和一条仓库首道调拨计划 (23.503708ms)
+✔ 辅料染色单创建后已有辅料仓调拨计划，分厂时自动落实原单但不冒充实发 (8.6595ms)
+✔ 历史双工艺加工单仍可追溯原有染印交接 (417.037709ms)
+✔ 双工艺 SKU 仅生成印花单，仓库直接发印厂并完成样衣归档 (1719.195875ms)
+✔ 印花实际交出生成中央工厂待接收原单，实收回写原交接并允许完成加工单 (1243.956917ms)
+✔ 专业成果没有真实附件时保持未绑定 (14.516334ms)
+(node:56817) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 可打印不等于可建交出单，必须完成真实标签打印 (0.610834ms)
+✔ 卷规格无效时不可建交出单，且不改变原可打印判定语义 (0.08325ms)
+✔ 人工完成印花加工单不再自动填充操作人 (382.06325ms)
+(node:56818) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 非 KOL PDA 导入不生成 KOL 领交料；首次 KOL 访问生成完整且幂等的演示记录 (285.989709ms)
+✔ PDA 单任务读取保持普通任务、测试工厂与 KOL 任务内容和查找优先级 (1.731792ms)
+(node:56821) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 可编辑的演示唛架保存后优先读取用户记录，刷新不恢复原备注和状态 (418.104458ms)
+✔ 日报窗口含截止日7天，重点日均独立使用前6天 (1.090042ms)
+✔ 未知采购不填0，未BOM不输出完整确定订单需求 (0.236542ms)
+✔ 突变必须绝对量与比例同时达到阈值 (0.126875ms)
+✔ 截止日突变示例与未完结日不判定 (0.112375ms)
+✔ 共享商品按SPU去重而不按关联行累加销量 (0.1875ms)
+✔ 预选不产生确定用料；BOM需求保留物料归属 (0.256417ms)
+✔ 同料BOM优先于预选，不重复关系及需量 (0.137167ms)
+✔ 两个业务页具有独立容器、标准分页与证据边界 (19.752375ms)
+✔ 未进入物料页面时 bridge 不加载业务；加载失败重试后首次渲染即已注册 (3.9015ms)
+✔ click 分组顺序、短路、选择器范围保持原行为，重新注册替换旧处理器 (0.658292ms)
+✔ 备料写入守卫读取实时角色与水位，阻断时不调用业务处理器 (0.364ms)
+✔ input/change/keyboard 原入口、筛选范围和 change 优先级完整保留 (0.32575ms)
+✔ health groups are exhaustive and mutually exclusive in demo (1.012584ms)
+✔ coverage and baseline use same inventory plus transit but distinct demand windows (0.092083ms)
+✔ zero demand is unavailable rather than infinity and huge finite quotient stays finite (0.106291ms)
+✔ date selects different consistent snapshot (0.099291ms)
+✔ threshold changes alter classification without changing facts (0.070958ms)
+✔ health view carries core P1 business sections and mock caveat (19.730042ms)
+✔ AT16 rules do not substitute brand, size or packaging method (0.448458ms)
+✔ AT24 equal priority conflict blocks resolution and identifies rules (0.384125ms)
+✔ higher explicit priority resolves a lower priority overlap (0.056833ms)
+✔ plans distinguish garments and parcels and add loss once (0.153459ms)
+✔ AT18 white pendant stock only allocated once (0.080584ms)
+✔ event duplicate and old revision do not add consumption; reprints are activity only (0.121834ms)
+✔ conflicting same revision fails instead of silently choosing a payload (0.05875ms)
+✔ AT17/19/20 panel states unresolved ASAYA, independent kit80 and unknown ribbon (0.275708ms)
+✔ trigger distinct from target, existing supply produces explainable zero (0.646083ms)
+✔ missing mapping or usage and incompatible raw unit block unsafe generation (0.18625ms)
+✔ generation reserves remaining once and shared raw pool across target rules (0.89975ms)
+✔ production does not increase stock; actual SKU and output bound partial receipts (0.154083ms)
+✔ cancelled suggestion releases commitment and raw allocation (0.070459ms)
+✔ AT05 committed greige is not available for a second allocation (0.894375ms)
+✔ AT06 partial receipt reduces expected supply; checking and qualified never duplicate (0.6445ms)
+✔ AT07 unmapped target preserves quantities but gives no target coverage (0.163625ms)
+✔ §7.2 loss reduces future supply; rejected receipts never become usable (0.111ms)
+✔ §7.3 unit/yield/route and conservation gaps block deterministic supply (0.200042ms)
+✔ §7.3 candidate comparison reports remaining shortage and respects arrival deadline (0.26125ms)
+✔ §7.3 zero gap stays zero and nonfinite inputs cannot produce advice (0.113792ms)
+✔ panel uses owned local handlers and discloses mock and missing images (2.228125ms)
+✔ P2 coefficients and coverage exclude transit (21.432291ms)
+✔ P2 coverage buckets have exclusive shared boundaries (0.588125ms)
+✔ P2 partial receipts and completed batches count remaining only (0.080625ms)
+✔ P2 latest overdue selected only if no future batch; today included (0.068375ms)
+✔ P2 search transit and ETA filters compose (0.154792ms)
+✔ P2 zero demand and missing BOM preserve distinct nulls; micro demand excluded (0.183083ms)
+✔ P2 standard table renders and limits initial rows to first page (7.517541ms)
+✔ AT01/02 internal reservation stays in coverage while external reservation is deducted (12.950583ms)
+✔ AT03 quality segments are not usable (0.173708ms)
+✔ AT04 partial receipt leaves remaining supply only (0.206625ms)
+✔ AT08/38 late supply never erases earlier shortage (0.171792ms)
+✔ AT09 intermediate deficit determines net need rather than positive closing balance (0.145125ms)
+✔ AT10 MOQ and pack rounding, zero stays zero (0.128667ms)
+✔ AT11 horizon begins at cutoff and is not expanded by lead time (0.15925ms)
+✔ AT12 forecast covered by confirmed demand is excluded before coefficient (0.131208ms)
+✔ AT13 no demand has no numeric coverage (0.114583ms)
+✔ AT14 cancelling demand does not change stock (0.159125ms)
+✔ AT15 latest event revision only (0.436875ms)
+✔ AT16/17 directory preserves bag sizes and ASAYA duplicated input is one unresolved SKU (0.095084ms)
+✔ AT18 three brands draw from one shared pool (0.131042ms)
+✔ AT19/20 kit capacity respects minimum and missing conversion (0.071458ms)
+✔ AT21 inactive/unusable stock remains physically visible (0.101834ms)
+✔ AT23 affected order identifiers are unique (0.091ms)
+✔ AT25/26 draft does not mutate active and invalidates trial (0.061ms)
+✔ AT26/28 publish requires role and exact trial; history retained (0.188708ms)
+✔ AT31 risk cannot close with remaining shortage or skip verification (0.194417ms)
+✔ AT37 invalid dates, unknown timezone, bad numeric values rejected (0.091667ms)
+✔ duplicate supply chain does not double count and blocks deterministic advice (0.089375ms)
+✔ warehouse catalogue includes 17 locations and two garment warehouses (0.041167ms)
+✔ candidate comparison retains pre-arrival risk (0.4ms)
+✔ SKU-specific policy wins and duplicate rules block publish (0.174666ms)
+(node:56835) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 逐票与逐打印任务保持原结构，变更一条只保存一条 (1.275459ms)
+✔ 草稿按原映射键保存；手工票与操作记录分离，删除票保留审计 (0.248666ms)
+✔ 拒绝损坏JSON且不冒充空数据 (0.123917ms)
+✔ 拒绝空字符串且不冒充空数据 (0.055458ms)
+✔ 拒绝错误根且不冒充空数据 (0.05075ms)
+✔ 拒绝重复票号身份且不冒充空数据 (0.045625ms)
+✔ 拒绝缺少票号且不冒充空数据 (0.056583ms)
+✔ 拒绝错误状态且不冒充空数据 (0.039458ms)
+✔ 拒绝打印关联缺失且不冒充空数据 (0.049583ms)
+✔ 拒绝草稿身份缺失且不冒充空数据 (0.083708ms)
+✔ 拒绝手工日志缺失且不冒充空数据 (0.051958ms)
+✔ 拒绝手工二维码缺失且不冒充空数据 (0.041ms)
+✔ 已保存实体与备份身份校验，不接受伪造集合或迁移元数据 (0.435ms)
+✔ 袋账派生绑定锁，无需持久化派生票快照；关闭周转解除旧快照锁 (532.392334ms)
+✔ 唛架来源和铺布单逐实体保存，保留卷明细、层序及来源引用 (0.79375ms)
+✔ 指定保存对象不复制重复静态唛架，也不覆盖其他已保存铺布单 (0.607792ms)
+✔ 旧袋账按实体保留绑定与历史，局部动作不复制静态袋档案 (0.662042ms)
+✔ 专用打印来源保留原票身份、数量、状态、袋锁及打印对象，不查询全量PDA与库存摘要 (1944.185541ms)
+✔ 实际输出首打保持原身份与数量；动态与普通来源均可打印，失效来源阻断，重复首打不新增 (222.44125ms)
+✔ 唛架引用读取失败明确阻断，不将迁移或读取错误伪装成空铺布来源 (2.968542ms)
+✔ 用户唛架方案逐ID迁移保留床次和占用，修改一张不重写其它方案 (0.26125ms)
+✔ PDA及手工票专用唛架定义与原完整投影等价，保留床次、数量和可铺布资格 (575.487209ms)
+✔ 裁床配料按真实生产单范围读取与全量结果逐字段相等，保留库存、领取、状态与任务链接 (821.993792ms)
+✔ PDA铺布目标直接携带真实已保存铺布单的裁床与负责人，不另算整套列表 (331.573792ms)
+✔ 铺布投影复用唛架定义仍保留已保存session的卷明细、裁床、负责人和实际裁剪数量 (331.262041ms)
+✔ 路由标准化移除 query 与 hash，但不改动路径 (0.706209ms)
+✔ 只匹配路由根或其子路径，不误匹配相似前缀 (0.24075ms)
+✔ 可在多个合法根路径中匹配一个 (0.149291ms)
+✔ 只把完整生产确认单打印路由识别为命中 (0.19775ms)
+(node:56837) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 目标 SKU 的四种加工组合、前序实物和 BOM Q 均按已建档字段读取 (63.274834ms)
+✔ 整单总量口径保存后仍按一次总量计算，不被样衣件数重复放大 (1254.356125ms)
+✔ 一张设计改款 BOM 同时有 Yard 面料和 PCS 辅料时，各行独立计量且辅料无需加工调拨 (108.828458ms)
+✔ 复用既有纸样与参照 BOM 的无印染任务可直接提交样衣并自动完成；复制只生成草稿 (992.8455ms)
+✔ 批量复制保留物料、费用和样衣安排为独立可编辑草稿，不生成工作 (205.783666ms)
+✔ 单页创建同时保存物料、费用与样衣要求；失败不留下空任务 (5.616542ms)
+✔ 加工互斥按物料行执行：同一任务允许纯染行与双属性印花行并存 (221.622875ms)
+(node:56838) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 旧设计任务移除线下工作和依赖，保留加工单身份、样衣成果及原始输入 (219.014042ms)
+✔ 任务汇总排除未启用，待前置只列出未完成依赖，关闭单不继续催办 (1.746875ms)
+✔ 筛选覆盖关键词、状态、跟单、待办、类型、团队和日期边界，统计范围一致 (0.614291ms)
+✔ CSV包含全部匹配行和任务责任计划，不含操作列，特殊文字正确转义 (1.031625ms)
+(node:56841) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 生产准备必须读取测款最终通过事实，保存时重新校验且失败不生成主单 (287.188417ms)
+✔ PATTERN_ARTWORK 多明细全部有效项通过才完成，同SKU不同要求不合并 (1.093583ms)
+✔ COLOR_FABRIC 多明细全部有效项通过才完成，同SKU不同要求不合并 (0.177167ms)
+✔ COLOR_YARN 多明细全部有效项通过才完成，同SKU不同要求不合并 (0.087958ms)
+✔ 多辅料分单覆盖，第一张下单不足以完成，失效单不能提供覆盖 (0.290708ms)
+✔ 专业列表业务字段查询与责任、来源、计划边界组合，未登记计划不误入日期结果 (0.969167ms)
+✔ PCS 图片按款号和颜色固定，尺码不改变照片，未知对象没有随机图片 (1.647709ms)
+✔ 历史 Mock 只替换登记的旧图，保留用户图片及未知款式 (1.1855ms)
+✔ 后道 QC 来源 SKU 保留原身份和数量，五种颜色分别绑定对应实拍 (0.150292ms)
+✔ 后道历史快照只迁移准确 SKU 的旧示意图，质检数量与用户图不变 (0.5335ms)
+(node:56847) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA 列表轻量摘要与详情的归属、数量、物料和下一步一致 (1528.951292ms)
+(node:56849) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 按工厂投影不改变全能力、印花、染色、中央与裁片演示账号可见任务 (1900.657083ms)
+(node:56850) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 接单工厂范围保留全量投影中本厂每个任务的身份、数量、状态及接单/中标结果 (3569.752542ms)
+(node:56851) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 中转袋交出与实际入仓使用同一浏览器本地业务时间，不把 UTC 当作本地时间 (16.660958ms)
+✔ 物流商新增字段保存回显并写入操作日志 (3.946042ms)
+✔ 物流商数字字段非负校验与运输方式枚举校验 (0.283292ms)
+✔ 渠道新增字段保存回显，条件计费字段按计费方式保留 (0.406459ms)
+✔ 整柜渠道不要求新增计费字段，仍要求四箱型完整配置 (0.121084ms)
+✔ 渠道数字字段非负与时效区间校验 (0.131ms)
+✔ 头程批次聚合展示总箱数、总重量、总体积与转运天数 (0.476291ms)
+✔ 工序链按保存顺序生效，合法工序集合固定，非法或重复工序被拒 (6.81875ms)
+✔ 坯布 SKU 必填，坯布库存为 0 时调拨资格被拒，补足后恢复 (1.518791ms)
+✔ 采购单按勾选 SKU 生成明细，数量与枚举非法被拒 (0.642875ms)
+✔ 调拨单可选择调出仓库与调入目标，同步生成加工单号链 (2.954042ms)
+✔ 批量刷新库存更新全部监控行与刷新时间并写日志 (0.345709ms)
+✔ 手动添加监控 SKU 校验 SKU 必填与重复，添加后进入列表 (0.32625ms)
+✔ 物料申报扩展字段保存回显，26 项特殊属性按数组保存 (2.256417ms)
+✔ 报关扩展：法定第二计量单位与数值，不报关分支跳过必填校验 (0.44525ms)
+✔ BOM 业务选项与价格/成本、工厂、布料字段保存回显 (1.794292ms)
+✔ 主体经营 9 项成本明细加调整重算总成本，数据缺失提醒可消除 (0.923667ms)
+✔ 供应商从草稿到启用遵循状态机，名称唯一 (3.034084ms)
+✔ 供货档案包装换算与快照版本 (0.310208ms)
+✔ 物料全部有真实图片，采购补充信息可更新且不新增删除 (0.415583ms)
+✔ 成衣与样衣 SKU 只读列表数据完整 (0.081083ms)
+✔ 仓库同步更新时间，单位字典唯一且不可删除只可启停 (0.296667ms)
+✔ BOM 用量可修改，说明可保存，发布后可生成面辅料需求 (1.388ms)
+✔ 面辅料需求种子就绪且可按物料行下推采购单 (3.8265ms)
+✔ 快递信息导入校验采购单存在、单号唯一、日期与数量合法 (0.543958ms)
+✔ 国内签收、加入头程、状态推进与到仓自动签收 (0.944833ms)
+✔ 供应商确认单需标签齐备，确认后回写采购单 (0.606125ms)
+✔ 整柜渠道必须完整配置四个箱型，物流商可启停 (0.360625ms)
+✔ 面辅料采购单可带原因关闭，关闭后不能再登记到货 (0.210958ms)
+✔ 库存监控触发线与建议量公式，规则异常阻断建单 (3.130041ms)
+✔ 建单数量不得超过建议量，调拨与采购资格分别阻断 (0.880959ms)
+✔ 中转看板指标、分布与筛选跳转规则 (0.331083ms)
+✔ 生产单校验与配料任务只读数据完整，系统设置结果为 8/6/10 (0.095417ms)
+✔ 种子采购单按 SRM 生成器规律补齐单据级与明细级字段 (0.828625ms)
+✔ 新建做货采购单保存采购专员、加急、首单、区域与明细字段并可回显 (1.788583ms)
+✔ 未传新增字段时沿用默认值并保持既有命令兼容 (0.252ms)
+✔ 采购专员必填、做货必须选区域、重量非负均抛出中文 PmsDomainError (0.638291ms)
+✔ 编辑采购单保存新增字段并回显，非法输入被阻断 (0.5995ms)
+✔ BOM 状态与 bomMatched 一致，未发布 BOM 的做货明细为未匹配 (0.403834ms)
+✔ 行采购金额使用 roundPmsQty 且汇总等于逐行金额之和 (0.256625ms)
+✔ 采购建议按缺口公式与折扣计算，并计入有效 KOL 申请 (1.619833ms)
+✔ KOL 草稿与已驳回不计入建议缺口 (0.169209ms)
+✔ 建议转采购单后写回已转数量与部分生成状态 (1.87075ms)
+✔ 面辅料需求按 BOM 用量与损耗扣减库存和采购中 (0.552917ms)
+✔ 重复生成、草稿采购单与非做货采购单均被阻断 (0.12575ms)
+✔ KOL 单条超量需要二次确认，超过申请量直接阻断 (0.302625ms)
+✔ 驳回 KOL 需求后不再计入建议缺口 (0.132458ms)
+✔ 关闭采购单必须填写原因且已关闭不可重复关闭 (0.155208ms)
+✔ 主体经营明细总成本、毛利与毛利率公式 (3.236959ms)
+✔ 面辅料对账：预计/实际双层公式，费用项与差异双重门禁 (5.582625ms)
+✔ 面辅料费用项部分确认、批量确认与编辑失效 (0.748167ms)
+✔ 请款草稿跨页创建、请款与付款上限、编辑范围 (0.832041ms)
+✔ 物流实际费用 12 列导入校验、不自动确认与确认后锁定 (0.694334ms)
+✔ 请款单作废释放来源对账，已有付款不能作废 (0.272791ms)
+✔ 供应商账单 9 列导入覆盖实际层且不自动确认 (0.355917ms)
+✔ 金额大写按 RMB 规则输出并覆盖跨节零 (0.156458ms)
+✔ 生成卷号按前缀、每卷米数、重量与起始序号生成并写入包装明细 (6.835375ms)
+✔ 生成卷号时尾卷承载剩余数量，卷数按采购数量与每卷米数自动取整 (1.093458ms)
+✔ 非法卷号参数被拒绝并抛出中文域错误 (0.975208ms)
+✔ 生成标签后二维码内容包含卷号与箱规，参与打印 (0.986583ms)
+✔ 箱规新增自动计算体积，重复箱号与非法尺寸被拒，删除后计数正确 (0.362625ms)
+✔ 包装明细可新增与删除，非法输入被拒且删除后计数正确 (0.226708ms)
+✔ 被包装明细引用的箱规不能删除 (0.086041ms)
+✔ 供应商枚举与 SRM 完全一致，旧枚举不再出现 (1.488916ms)
+✔ 种子字段满足 SRM 枚举且协同指标为数字 (0.460208ms)
+✔ 新增字段保存并回显，成功命令写入操作日志 (2.654334ms)
+✔ 编辑保存新增字段并保持状态机与事件名不变 (0.329583ms)
+✔ 非法或缺失输入抛 PmsDomainError 且不写入数据 (0.313042ms)
+✔ 详情与列表展示新增字段、SRM 枚举与协同指标 (26.906542ms)
+(node:56865) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ RETURN-010: only the acceptance week Sunday is skipped, for every starting weekday (1.64325ms)
+✔ RETURN-004—010: both projections share counting dates and ceil targets (0.721042ms)
+(node:56866) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 实际耗时跨周日仍按真实时间差；没有可靠时间不造耗时 (0.904792ms)
+✔ 每任务都达成才结束；同一来源去重，作废明细不影响主表 (0.208042ms)
+✔ 耗时页 Mock 至少覆盖九张生产单和全部节点，且下游事实不会越过未完成的前置节点 (775.53275ms)
+✔ 裁片放行按一张放行单内的多次放行展示并选取节点起止时间 (87.7675ms)
+(node:56867) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ EXC-001—004: a reference mark cannot change debt, strict kits or final task responsibility (3.023708ms)
+(node:56868) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 派单新增主档工厂可登记承接关系，未知工厂仍阻断 (2.043959ms)
+✔ 专属任务保留整单身份、数量和接收方，工艺分支保留全部前置关系 (1.035375ms)
+✔ 原生产单车缝任务仍可被 PPIC 分配与责任移交识别，SKU 总量完整 (6.125375ms)
+✔ PRINT-HISTORY-001: demo identities remain fixed and reject another factory or task (1.029167ms)
+✔ PRINT-HISTORY-002: DYE-GOTO-GLOBAL historical slot 09 survives independent reloads without overwriting (2544.360459ms)
+✔ PRINT-HISTORY-002: ID-FAC-001165 historical slot 09 survives independent reloads without overwriting (2536.895167ms)
+(node:56873) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: dispatch reads keep all documents and independent copies without projecting unrelated business views (406.588166ms)
+✔ frozen printing images are losslessly stored once across orders, tasks and attachments (4.467625ms)
+✔ missing or malformed image references fail rather than silently replacing frozen evidence (0.32075ms)
+(node:56875) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PERF-002/004: scoped receiving reads preserve direct receipts and allocations, without exposing mutable facts (15.888083ms)
+✔ PERF-002/004: a synchronous relation read matches independent reads and releases its scope after errors (749.093625ms)
+✔ PERF-004: batched print list reviews and handovers equal independently read facts (333.536125ms)
+✔ PERF-004: scoped handovers keep canonical sorting and task point reads preserve identity (10.108083ms)
+✔ PERF-004: reusing warehouse documents preserves each dye order source, quantity and receiver (346.553875ms)
+(node:56876) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ craft source selection preserves all previous source choices and isolated snapshots (14.783625ms)
+✔ source eligibility is re-evaluated after a source order changes (0.290708ms)
+(node:56877) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 生产单创建来源只覆盖旧匹配事实，不复活已取消或覆盖更新后的匹配 (0.818875ms)
+✔ 提前来源随PO唯一保存，重复生成不会追加第二份事实；查询投影不反向写PO (0.33875ms)
+✔ 失败和嵌套投影后创建stage标记恢复，不影响后续染印执行保存 (0.233042ms)
+✔ 备份拒绝错误归属、重复、未知状态和缺少正式冻结来源的匹配 (0.16225ms)
+(node:56878) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 验收数据至少包含 5 张染色和 5 张印花提前加工单，并覆盖全部匹配状态 (688.694709ms)
+✔ 印花专业成果把多张图片和多个文件统一保存在同一附件集合 (0.153ms)
+✔ 同一生产需求可手动选择具体专业任务，创建结果保存所选任务与全部成果附件 (37.154625ms)
+✔ 创建提前加工单必须选择所属专业任务并明确加工厂 (4.176292ms)
+✔ 计划加工数量包含损耗率，且染色印花投入与产出 SKU 必须不同 (0.175708ms)
+✔ 专业成果未审核通过时不可创建提前加工单 (0.132208ms)
+✔ 多个生产需求合并为一张生产单时，可匹配多张提前染色加工单 (43.515417ms)
+✔ 等待技术包的提前单在技术包就绪后可由同一匹配服务自动重试 (21.709209ms)
+✔ 合并生产单中只有部分需求有提前单时，只为未覆盖需求补建剩余数量 (68.32475ms)
+✔ 已有提前单但正式 BOM 或 SKU 不一致时进入异常，且不重复补建同一工艺单 (54.320625ms)
+✔ 取消后重建保留旧单，并建立双向替代关系 (6.4415ms)
+✔ 没有提前加工单的需求仍保留正式加工单快照 (9.543875ms)
+✔ BOM uses formally reduced quantity and leaves unsupported conversion unknown (1.523417ms)
+✔ reuse retains one shared source instance and adds no duplicate processing duration (0.462292ms)
+✔ a new rework/recheck round extends the dependency path two days and conserves qualified pieces (0.1825ms)
+✔ date-only source is not coerced to a precise instant or exact deadline (0.207333ms)
+✔ known order shipment can be timed without crediting an unknown production source (0.142ms)
+✔ waiting for actual fulfillment can be overall late while factory completion stays on time (0.128584ms)
+✔ all six named cards render directly checkable evidence without changing production task facts (3.672042ms)
+✔ all ten tasks have independent drill-down networks and one frozen aggregate snapshot (2.579709ms)
+✔ 31-item dependency recursion proves 24 natural days and shows the actual sum/max formula (0.514667ms)
+✔ improving procurement by ten days only improves whole-task timing by one day (0.186625ms)
+✔ network rejects circular/missing dependencies and unknown is never zero time (0.314458ms)
+✔ each complete standard mock network and live forecast agrees with the task summary (3.312708ms)
+✔ quantity forecast finds a one-day risk before any actual deadline is missed (0.818916ms)
+✔ all-natural-day clock includes Sundays, preserves timezones, equality is on time and one second is late (0.20075ms)
+✔ already-overdue outranks forecast missing; historical completion stops the clock (0.171458ms)
+✔ upstream two-day delay and local catch-up pressure are distinct from current-team fault (0.20375ms)
+✔ manual forecast is local, propagates both earlier and later dates, and never relaxes baseline (2.341542ms)
+✔ saving a manual forecast refreshes all affected node labels without pretending capacity was increased (1.42325ms)
+✔ zero capacity and stale progress never forecast zero remaining duration (0.207709ms)
+✔ stock and purchase coverage do not imply factory readiness or a new purchase gap (0.2275ms)
+✔ stock-only task still has transfer; purchased material must move beyond warehouse entry (0.086709ms)
+✔ batch schedule conserves shared capacity and 90 percent occurs at a real batch event (0.1705ms)
+✔ customer cancellation without production allocation does not reduce any task (0.438ms)
+✔ excess shipment of one SKU cannot hide shortage of another (1.1415ms)
+✔ duplicate, out-of-order and corrected quantity events conserve the effective sum (0.295334ms)
+✔ shared work is counted once while merged source tasks preserve independent T0 and deadlines (0.266458ms)
+✔ orders enter analysis only from actual shipment and have their own clock (0.36825ms)
+✔ region and supply mode select rules together, unpublished candidate rules never apply (0.391334ms)
+✔ filters share exact aggregate scope and date windows are left-closed right-open (1.146583ms)
+✔ Chinese UI defaults and all scope options filter the intended task population (0.353334ms)
+✔ Chinese risk shortcut agrees with risk KPI and does not accidentally select completed or overdue tasks (0.468709ms)
+✔ Chinese date-field labels use due date, start date and predicted completion respectively (0.407833ms)
+✔ team and stage filters match applicable work nodes rather than only current task responsibility (0.279958ms)
+✔ V3 team and factory must match the same node and empty all-scope still keeps a task (0.11575ms)
+✔ V3 unknown shipment has no percentage and completed work without deadline is not on time (0.091583ms)
+✔ 恢复预测保留不同工作和日期的顺序，只合并连续相同计算且不改写历史 (6.338125ms)
+✔ 同一调拨动作按国家和供给方式命中不同预算，候选规则不参与匹配 (0.950584ms)
+✔ 同优先级重叠命中必须冲突，明确更高优先级例外才可覆盖 (0.506583ms)
+✔ 数量档边界不得跨档或用默认预算掩盖无规则 (0.105541ms)
+✔ 子项七天而组上限五天阻断，网络不被截短也不在组外重复加预算 (0.151292ms)
+✔ 并行分支取最大值，循环和缺失前置不得算成零天 (0.1575ms)
+✔ 工厂实收映射须有明细与物流批次，入库不冒充到厂，重复事件不累加 (0.179917ms)
+✔ 投入产出、单位或质量门槛不合规，不能放行下游 (0.099292ms)
+✔ 新版本仅记录显式重算范围，不能顺延旧基线或考核截止 (0.487084ms)
+✔ 默认演示配置没有阻断，会议候选必须以提示保留 (0.110417ms)
+✔ 选定在途W19规则从1改3，本地路线24改26而原始/生效截止与实际事实不变 (5.805292ms)
+✔ 在途发布同层冲突、缺规则、缺映射或事件边界变化都不生成覆盖 (0.449291ms)
+✔ 发布覆盖可从初始快照恢复且重复应用幂等，未选任务不受影响 (2.06225ms)
+✔ 未完成调拨预算增加后，预测沿下游传播；已完成上游事实仍原样 (2.046292ms)
+(node:56885) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 首次来源读取只创建当前存在的缺口，历史从本次观察开始 (1.128333ms)
+✔ 事项键由任务、工作与类型生成，中文说明变化不新增事项 (0.369584ms)
+✔ 缺款图形成独立事项，增加地址不等于款色对应核验通过 (0.290167ms)
+✔ 登记责任期限不修改事实或关闭事项，只有后续来源读取确认恢复 (0.7045ms)
+✔ 同一恢复事实重复核对不制造历史，缺口复现重新打开且保留期限 (0.307209ms)
+✔ 任务或工作未返回、数量已知性字段消失均不是恢复证据 (0.369917ms)
+✔ 来源身份变更不能在同一次读取中把旧缺口标为恢复 (0.273542ms)
+✔ 未结构化来源审核项不因文字消失自动关闭 (0.241416ms)
+✔ 本地持久化保留独立事项、责任、期限和恢复历史 (0.760542ms)
+✔ 本地损坏记录不伪造历史、不覆盖旧内容、不允许假保存 (1.499791ms)
+✔ 责任、期限、调整原因必填；存储失败给出未保存结果 (0.582292ms)
+✔ 数据待补按事项分页和筛选，提供独立登记及来源刷新入口 (3.648833ms)
+✔ 事项按自身负责人和修复期限筛选，不借任务跟单替代 (0.463583ms)
+✔ 空在途范围不展示历史演示日期压力图 (3.364ms)
+✔ 未知预算仍保留串并行和汇合箭头，位置不依赖日期 (4.89ms)
+✔ 下游未开工且前置未完的逾期归为等待；根卡点标出具体工作和全部后继 (1.073375ms)
+✔ 取消和已完成不是当前卡点，数据缺口不当执行逾期 (0.654834ms)
+✔ 已开工工作即使前置未完，也保留其来源责任逾期并提示核对 (0.522583ms)
+✔ 卡点范围仍显示上游参照及所有受影响后继，不显示无关支路 (1.143125ms)
+✔ 单据摘要默认展开来源核心字段，不只展示时效 (0.889917ms)
+✔ 需求摘要指向已存在的需求列表，入口不冒称独立详情 (0.492666ms)
+✔ 缺少单据不得生成虚构摘要或默认完成数 (0.428083ms)
+✔ 已实收的有效结束满足前置，取消前置不会被视为供给完成 (0.651041ms)
+✔ 质检不合格仍是放行卡点，不因检验时间存在变为可放行 (0.577375ms)
+✔ 来源已有不合格检验结果但缺建立时间时，不因前置未完而隐藏本项卡点 (0.94225ms)
+✔ 作废且不计时不等于前置已完成；来源已阻断是明确卡点 (0.610541ms)
+✔ 已知工作预算齐备但范围未确认时，公式页不得称作全程标准 (1.044042ms)
+✔ 暂停或受阻工作不因遗留结束时间而放行下游 (1.000041ms)
+✔ 生产准备初始化按编号读取定义与完整目录逐值一致，保留不存在时的契约 (2.088916ms)
+✔ 单定义读取的可编辑数组保持隔离，不污染其他任务读取 (0.438584ms)
+▶ execution source relations retain full facts without unrelated cold initialization
+  ✔ cold read resolves real runtime scope and leaves print/dye execution ledgers untouched (179.057459ms)
+  ✔ scoped cold result equals original complete enumeration after the same actual ID resolution (492.155625ms)
+  ✔ production with print/dye uses all existing preparation facts and keeps unknown IDs unknown (454.670208ms)
+  ✔ live explicit cross-order reference and cancellation facts survive scoped reading (27.431667ms)
+  ✔ real persisted cancellation restores through the original validated path in a new process (1768.727291ms)
+  ✔ QC reads real fact quantities and renders explicit missing artwork without placeholder network dependency (202.488667ms)
+✔ execution source relations retain full facts without unrelated cold initialization (3503.729083ms)
+(node:56889) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ production source time uses explicit Shanghai time and rejects date-only completion (3.895916ms)
+✔ DDS tasks use demand identity and do not invent preparation, budgets, shipment quantities or orders (2.833709ms)
+✔ source bindings require existing same-style preparation and published technical version (0.405416ms)
+✔ reuse preserves its source/version and does not add past preparation duration (1.567625ms)
+✔ explicit unneeded work is excluded but unconfirmed missing work remains a decision, never zero-day completion (0.461416ms)
+✔ explicit dependencies preserve parallel entries and repeated processes instead of serial sorting (0.894459ms)
+✔ missing explicit predecessors do not become confirmed parallel roots (3.156916ms)
+✔ missing predecessor and material SKU discontinuity block route certainty without fabricated edges (0.383167ms)
+✔ cyclic source dependency stays a blocking issue and source objects remain unchanged (0.546833ms)
+✔ read snapshot uses all current demand records without private Mock tasks or automatic same-style preparations (103.6145ms)
+✔ continuous material SKU edges stay confirmed while an unconfirmed route remains pending (0.265958ms)
+✔ unverified reuse does not fabricate a completed zero-day result (0.156125ms)
+✔ binding writes only the DDS association key and is reflected by the next read (31.998625ms)
+✔ execution source uses exact production-order identity, assigned factory and responsibility deadline (0.272667ms)
+✔ only a unique exact technical entry binds execution to route; same-name and split executions stay independent (0.327ms)
+✔ preparation-only source cycles are blocked without depending on a technical pack branch (0.18225ms)
+✔ source time and manual forecast stay separate from frozen rule examples and missing SLA (0.499917ms)
+✔ cancelled execution is not a late blocker and unfinished status cannot borrow a stale completion timestamp (0.164958ms)
+✔ document summaries are factual, compact strings; decisions without a document stay unbound (0.651083ms)
+✔ formal preparation output connects the exact confirmation, route entry and production version (0.870458ms)
+✔ technical object identity and its material photo are retained without using the style photo (0.185916ms)
+✔ material transfer has serial dispatch, transport and receipt with separate responsibility and source identity (0.896125ms)
+✔ approval, sent quantities and delivery-note registration cannot prove physical handout or logistics delivery (1.276625ms)
+✔ actual handout starts transportation but factory receipt never backfills logistics delivery or reception start (0.432375ms)
+✔ receipt quantities require the same source line, target factory and unit; mixed units never close reception (0.698667ms)
+✔ voided transfers keep evidence but no effective supply or transport completion (0.380166ms)
+✔ a document handout timestamp does not complete unshipped or partially shipped source lines (0.438708ms)
+✔ only preparation-bound purchase documents are included, and purchase completion never invents warehouse arrival (0.3925ms)
+✔ quality is scoped to its recorded sample and does not establish shipment orders or whole-order completion (0.569041ms)
+✔ current source snapshot exposes matching handover, quality and transfer documents, not generic placeholders alone (4.97375ms)
+✔ only a real same-version production order becomes a root execution predecessor (0.405709ms)
+✔ task lead blocker matches dependency analysis instead of blaming an unstarted downstream deadline (0.133208ms)
+✔ failed inspection exposes the concrete unqualified quantity as blocker reason (0.141834ms)
+✔ category sample images never stand in for a source style; a dedicated source image is retained (0.182209ms)
+(node:56890) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 当前非 Mock 需求可保存显式工作映射，序列化后可恢复且不改来源事实 (138.123417ms)
+✔ 未保存映射、规则空天数、事件范围变化与同级冲突分别给出真实阻断 (6.656125ms)
+✔ 同一工作不得存两份口径，来源身份变化或未知数量不允许保存 (8.209ms)
+✔ 工作单位不换算、通配值不充当事实、里程碑不重复加预算 (6.381583ms)
+✔ 来源任务发布单项预算后保持整体待定，刷新覆盖和已有截止均保留 (7.924833ms)
+✔ 缺准备或实发范围时即使要求首次建基线也阻断，并且不写覆盖 (9.179375ms)
+✔ 已确认的未来发货工作尚无实发事实也可建 T0+最长路径基线，缺进度只影响预测 (1.260291ms)
+✔ 已发布后来源工作身份变化，不把旧映射预算套到新单据 (6.134375ms)
+✔ 配置页面保存映射到本地，空天数发布被阻断，填写预算后实际发布当前来源任务 (10.787041ms)
+✔ 查生产入口只在合法系统路由显示，并在打印与 PDA 路由隐藏 (0.612292ms)
+✔ 相似前缀和相似打印段不会被当成合法路由 (0.0745ms)
+(node:56893) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 静态生产单更新任务状态时保留原冻结资料，不强造不存在的技术版本 (3.391584ms)
+✔ 沿用静态资料的例外不能用于新单、篡改快照或错误技术版本 (0.794667ms)
+(node:56894) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PERF-001: runtime snapshot and all nine subsets preserve every production order value and caller isolation (16.047792ms)
+✔ PERF-001: a subset read does not traverse or clone unrelated snapshot sections (0.2185ms)
+✔ PERF-001: paper pattern binding strips and nested craft arrays remain isolated after mutation (0.251041ms)
+✔ PERF-001: replacing or updating the bound snapshot is visible immediately without a stale cache (0.162792ms)
+✔ PERF-001: missing production order keeps null and empty-list contracts (0.071667ms)
+(node:56895) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: scoped reads preserve pending/voided sources and defensive copies (4.06475ms)
+✔ VERIFY-003: metadata lookup reflects registry changes and returns independent locations (11.049792ms)
+✔ 备份恢复不能借原票编号伪造另一种面料的交出回执 (1.751083ms)
+✔ 部位票缓存感知已提交事件版本，重复读取同一版本不失效 (0.402125ms)
+✔ 按名称排朴，空名拒绝，同名不同编码/颜色保留独立身份 (1.469167ms)
+✔ 初始每面料一张，重复分配幂等；新增与补打不混淆 (1.314166ms)
+✔ 改派未交票失效，已交历史不抹除，新范围递增序号 (0.754459ms)
+✔ 部分出纸仅确认勾选票；重复确认不增加次数，内容变化拒绝 (0.16525ms)
+✔ 整个批次多袋并集检查，非本次袋不可借用，顺序无关 (0.337792ms)
+✔ 同任务同工厂历史可满足；不同任务或换厂必须另交 (0.185625ms)
+✔ 三方自行裁剪排除，资料缺失与无需面料分开判断 (0.066792ms)
+✔ 混装按类型和单位分项，换片布不能拆成非5 Yard (0.329875ms)
+✔ 局域网 HTTP 的摘要与原生 SHA-256 相同，既有票号不变化 (13.658834ms)
+(node:56901) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 混装打印保留裁片矩阵，捆条和换片布独立附页，不合并单位 (1.466083ms)
+✔ 纯换片布袋可生成货物标识，不制造尺码和部位 (0.133125ms)
+✔ 混装标签拒绝换片布错误长度、作废票和混生产单 (0.265417ms)
+✔ 旧业务存储不可读时仍用已提交的原装袋周期打印三类货物 (0.477458ms)
+✔ 生产单按单记录；变更一单不重写其他单和任务 (1.484041ms)
+✔ 运行任务独立保存覆盖、拆分、合并、改派及序号，往返保留身份 (0.261125ms)
+✔ 有效分配索引、独立记录、审计及序号完整往返，拒绝重复身份和损坏格式 (0.387292ms)
+✔ 拒绝空字符串，不吞掉损坏记录 (0.070083ms)
+✔ 拒绝数组根，不吞掉损坏记录 (0.061166ms)
+✔ 拒绝生产单数组实体，不吞掉损坏记录 (0.049084ms)
+✔ 拒绝生产单空编号，不吞掉损坏记录 (0.05325ms)
+✔ 拒绝生产单损坏快照，不吞掉损坏记录 (0.050542ms)
+✔ 拒绝任务覆盖数组，不吞掉损坏记录 (0.064334ms)
+✔ 拒绝任务覆盖身份，不吞掉损坏记录 (0.089833ms)
+✔ 拒绝拆分来源身份，不吞掉损坏记录 (0.061208ms)
+✔ 拒绝拆分子项损坏，不吞掉损坏记录 (0.921208ms)
+✔ 拒绝合并明细损坏，不吞掉损坏记录 (0.073292ms)
+✔ 拒绝改派任务身份，不吞掉损坏记录 (0.036791ms)
+✔ 拒绝不安全序号，不吞掉损坏记录 (0.036583ms)
+✔ 拒绝重复Map键，不吞掉损坏记录 (0.050875ms)
+✔ 拒绝current非数组，不吞掉损坏记录 (0.038166ms)
+✔ 拒绝current孤儿，不吞掉损坏记录 (0.036375ms)
+✔ 拒绝current跨任务，不吞掉损坏记录 (0.030333ms)
+✔ 拒绝current重复引用，不吞掉损坏记录 (0.027958ms)
+✔ 拒绝审计孤儿，不吞掉损坏记录 (0.030125ms)
+✔ 已保存实体损坏编号、缺少meta或重复meta不能伪造正常空源 (0.1695ms)
+✔ 未登记key及空白JSON拒绝；null明确代表没有覆盖 (0.057584ms)
+✔ 备份校验拒绝未知来源集合、伪造迁移身份及丢失检查点实体 (0.710834ms)
+✔ 四类静态运行任务的删除标记完整往返，拒绝混入业务字段或假删除 (0.148ms)
+✔ 分配副产物按实体保存；合同、样衣及PPIC责任保留独立序号 (0.510417ms)
+✔ 拒绝缺失渲染必需快照的合同，防止迁移清源后才暴露损坏 (0.05025ms)
+✔ 关联实体损坏拒绝 unknown:X (0.04375ms)
+✔ 关联实体损坏拒绝 material-context:A (0.030208ms)
+✔ 关联实体损坏拒绝 return-sequence:value (0.035625ms)
+✔ 关联实体损坏拒绝 sla-current:T (0.028041ms)
+✔ 生产创建匹配来源按生产单身份校验并完整恢复 (0.197083ms)
+✔ 工厂结束事实只允许明确任务、操作人和时间 (2.872125ms)
+✔ 既有招标定标记录保留真实来源编号并校验价格与操作人 (0.50425ms)
+✔ 开工交出单头只包含首次零交出事实，拒绝伪造数量和身份 (0.209708ms)
+(node:56903) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 同分配的同名 A/B 面料分别新增和打印；第二面料不被第一范围替代 (91.478542ms)
+(node:56904) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 分配 SKU 的需料不同；多尺码共料去重，名称含朴排除 (1.242125ms)
+✔ 完整但全是朴为空集合；缺颜色映射或空名称属于资料错误 (0.379708ms)
+✔ 同名不同编码面料不混并；BOM 身份歧义阻断 (0.23875ms)
+✔ 交出回执从快照保留三种明细，Yard 与米不进入裁片数量 (0.810167ms)
+✔ 回执任务读取保持数组身份；只在事实变更后重新投影 (0.258333ms)
+✔ 款式需料读取的配置查询只返回独立副本，不能污染下次来源读取 (0.389333ms)
+✔ 来源读取失败时不能把不可用哨兵值当作稳定分配继续保存 (0.362667ms)
+✔ 历史裁片实交保留原数量与归属，其他集合不混入 (1.0645ms)
+✔ 历史缺原版本、交错明细、负数量或记录身份错误均阻断恢复 (0.385542ms)
+✔ 面辅料单不可写入退役裁片历史，未完成迁移标记不可恢复 (0.139208ms)
+✔ 并发调用复用同一个模块加载 Promise，成功后继续复用结果 (0.739875ms)
+✔ 模块加载失败后清空缓存，下一次调用可以重试 (0.286667ms)
+(node:56907) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 刷新时静态样衣命令重建不重放到已移交的持久用户状态，构造失败恢复输入 (9.901667ms)
+✔ 独立打印外壳只命中完整生产确认单打印路由 (0.650416ms)
+✔ 既有固定打印路由仍使用独立打印外壳 (0.110167ms)
+✔ technical version reads do not write when storage is full (first visit) (337.453125ms)
+✔ technical version reads do not write when storage is full (saved data) (443.947792ms)
+✔ 五类页面共享采购到交出的串联 Mock，重复初始化不重置执行事实 (450.191875ms)
+✔ 补齐串联 Mock 时压缩历史大签名，避免浏览器存储接近上限导致页面路由失败 (406.385959ms)
+✔ 三个中央工厂在组织目录与执行工厂中身份一致且仅出现一次 (1.237375ms)
+✔ 花边角色与采购映射归属TMF但供应方仍保留独立身份 (0.118584ms)
+✔ 橡筋定长切割仍归SPF，不成为TMF织带截断任务 (0.216334ms)
+✔ 旧浏览器组织记录迁移后不与权威TMF并存且保留已有联系人 (11.165042ms)
+(node:56914) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 连续织带实际650米交出→648+2实收→染色可用650，仓库和用料保持米制且无公斤换算 (29.353125ms)
+✔ 连续长度口径不可用于纱线/码制，普通辅料仍要求实际称重 (1.662958ms)
+✔ 原生连续辅料染色650→640：实际工厂实收及用料驱动加工，使用对象对应蓝色织带参考图 (845.346416ms)
+(node:56915) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 织带与绳子参考档案接入实际物料库，保留图片来源和未确认尺寸，不替换橡筋 (87.93325ms)
+✔ 同分钟新建不同幅宽织带和绳径主档不共用SPU身份，SKU保持各自父档归属 (278.33675ms)
+✔ TMF半成品SKU按SPU→潘通色号→颜色→花型生成，长度和端头不进入SKU (0.200041ms)
+(node:56917) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ TMF发布采用链：技术包发布门禁→审核发布→启用→生产单采用→生成织带加工需求 (1061.966875ms)
+✔ TMF发布门禁：含织带截断工序但规格未补齐的采用版本不能发布 (40.707292ms)
+✔ 正式生产路线只关联相邻同BOM同SKU的染色→印花，不生成数量或修改来源 (2.153333ms)
+✔ 跨单/版本/工序/用途/SKU/单位、缺工厂与已有其他接收单都不能接续 (0.555625ms)
+✔ 印花连续辅料仅接同版本同BOM的直接截断节点，不修改SKU和数量 (1.204375ms)
+✔ 染色来源已绑定印花时拒绝直接截断，不读取不存在的顶层字段 (0.359084ms)
+✔ TMF V1 原型范围、工厂身份和现场默认参数已冻结 (1.121917ms)
+✔ TMF 风险动作默认要求主管与二次确认，采购行身份不可丢失 (0.192875ms)
+{"scenario":"N02","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":1300,"productionReceived":1000,"warehouseContinuousM":30,"netCutM":1260,"lossM":10,"headUnit":"个","headReceived":2020,"headRemaining":15}
+{"scenario":"N03","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":60,"productionReceived":100,"warehouseContinuousM":9,"netCutM":50,"lossM":1,"headUnit":"个","headReceived":202,"headRemaining":1}
+{"scenario":"N04","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":100,"productionReceived":50,"warehouseContinuousM":34,"netCutM":65,"lossM":1,"headUnit":"kg","headReceived":0.2,"headRemaining":0.04}
+{"scenario":"B06","scope":"规范数量动作链；塑料头从仓库实收事实开始，补购基础生产未虚构纱线配方；不代表全部页面验收","continuous":9,"productionReceived":1000,"scrapped":100,"scrappedMeters":120,"loss":11,"metalRemaining":15,"plasticRemaining":2}
+{"scenario":"N05","mergedBatch":"FULL-N05-MERGED","purchaseReceivedM":120,"mergedIssuedM":102,"mergedProducedPieces":200,"productionReceivedByOrder":[100,100],"warehouseContinuousM":19,"lossM":1,"returnedM":1}
+{"scenario":"B17","mergedBatch":"FULL-B17-MERGED","purchaseReceivedM":120,"mergedIssuedM":102,"mergedProducedPieces":200,"productionReceivedByOrder":[100,100],"warehouseContinuousM":19,"lossM":1,"returnedM":1}
+{"scenario":"N01","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":1000}
+{"scenario":"N02","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":1300}
+{"scenario":"N03","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":60}
+{"scenario":"N04","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":100}
+{"scenario":"N05","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":120}
+{"scenario":"PRINTBACK-source-fixture","nativePrint":{"inputM":650,"outputM":630,"lossM":20,"outputImage":"MISSING_BLOCKED"},"sourceDispatched":630,"actualReceived":630,"cutMeters":620,"lossMeters":2,"returnedMeters":8,"baseLeftMeters":350,"scope":"原生印花650→630已独立重放；下游630米交出仍为专项夹具，不替代缺图正式交出或N01完整上游"}
+{"scenario":"B09-downstream-recovery","basePhysicalM":350,"otherReservedM":350,"baseAvailableM":0,"processedReturnM":8,"productionPieces":[400,600],"scope":"含实际占用失败、释放、发料及印花回料后全链；原生印染20米损耗未执行，不是完整B09通过"}
+{"scenario":"B05-cut-recovery","received":[400,600],"frozenPieces":10,"frozenLengthMm":500,"continuous":2.5,"cutLoss":2.5,"upstreamScope":"印花630米已交出为外部专项夹具，不冒充原生印染20米损耗或全N01"}
+(node:56924) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N01～N05：通过现有 PMS 入口下达，每条采购链从零执行到仓库实收；交出不提前增加库存 (21.429792ms)
+✔ 半成品加工没有原料实收和足量耗用时禁止产出，补齐同一原料链后才能填报 (6.5165ms)
+✔ MOCK-007：规范场景使用同一采购行、基础单和生产需求身份，不复制孤立页面 Mock (4.07775ms)
+✔ MOCK-009：重置只重载隔离的运行态，不清除用户浏览器数据 (0.381625ms)
+✔ B01/B03：短收保留在途和采购缺口；重复扫描、生成和刷新不双记 (0.94975ms)
+✔ B02/B04：多收、错 SKU、错仓和无权限动作不改变任意下游数量；恢复后正常收齐 (4.2585ms)
+✔ OVR-001～003：超产与超收须主管二次确认，计划不扩、幂等且下游一致 (7.535167ms)
+✔ MASTER-001～003/005：采购与端头采购映射原型内建主档，缺失阻断且身份稳定 (4.305125ms)
+✔ MASTER-004：映射前历史记录保留原快照与未映射标记，不批量改写 (0.314833ms)
+✔ TERM-001～005：取消后终止处置台逐项决定，未处置不得结案且数量对账守恒 (14.078167ms)
+✔ 终止连续余料：实物余量只扣一次报废，拒绝超量且剩余数量可继续处置 (9.035125ms)
+✔ GAP-TERM-004：上游未收与生产在途分别确认去向，不可重复登记 (1.543375ms)
+✔ DYE-001～003：染色直交织带厂按实际交出分配实收，追溯原染色单且不重复扣料 (539.018458ms)
+✔ 采购追加：未开始同步计划，已执行保留原计划和实物并处理变更 (4.969709ms)
+✔ B21：保存失败不报成功、不留部分库存；成功后刷新读取同一采购和收货事实 (1.1455ms)
+✔ 采购→两种规格截断→拆包回仓→分配发料→生产实收：短收保留缺口，库存及采购不双记 (21.726292ms)
+✔ B09：其他需求占用400米时不能再占650；释放50后恢复，错误发料不改变库存 (5.588834ms)
+✔ 需求来源：同尺码不同成衣SKU分别保留，BOM适用范围生效，错误快照和重复工序阻断 (0.430667ms)
+✔ 待打头条料不计合格产出；超公差实物记不良且照实扣下料当量，未实收不可截断 (31.822708ms)
+✔ N04：采购100米→单端硅胶按kg实耗→回仓发料→生产实收50根，连续料剩34米 (23.714708ms)
+✔ B15：截断后取消保留1000根在制和1260米当量，释放未发占用并只退连续余料 (23.502792ms)
+✔ 已回仓部分发料后取消：释放未发分配，冻结实存，已发在途保留且实收不恢复需求 (16.831375ms)
+✔ N02规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (75.325792ms)
+✔ N03规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (57.879416ms)
+✔ N04规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (61.659125ms)
+✔ B06规范恢复：误装100根报废→补购100米并补做→生产实收1000根，三套实物账守恒 (122.188416ms)
+✔ N05合并批：120米采购→102米合并投入→两生产单各实收100，B17独立副本拆100为40+60 (80.885042ms)
+✔ B17合并批：120米采购→102米合并投入→两生产单各实收100，B17独立副本拆100为40+60 (99.888709ms)
+✔ N01～N05基础原料重量账：源仓实收→发出→工厂实收→耗用/余料→原仓实收，与米制产出独立 (228.835625ms)
+✔ 主生产单暂停/取消直接限制织带执行，已发实收保留且取消处置释放未发占用 (65.472709ms)
+✔ 冷启动及旧标签页均读取已保存主单限制，损坏来源不默许执行 (0.323708ms)
+✔ 印花交出按两种长度分配，原单分次实收唯一记账，随后截断/回仓/领料守恒 (354.13425ms)
+✔ 主单离页保存保留其他页取消及新增单，同单并发编辑和存储失败不覆盖 (2.92675ms)
+✔ 技术包换版后旧规格冻结，已交出的仓库及生产在途可实收且不改旧长度 (62.35175ms)
+✔ 未发料换版释放旧占用，新需求从备料至生产实收，旧预览和已执行重算阻断 (94.358708ms)
+✔ 已加工换版：旧200条冻结并释放未发分配，新550/700mm需求实收1000条，旧预览失效且库存守恒 (121.095958ms)
+✔ B05实际410/590错配：短条余量冻结，连续余料8米补10条700mm至两规格生产实收 (206.901083ms)
+✔ 加工计划时间独立保存：明确时区、并发版本阻断、实际节点不倒推开完工且库存不变 (26.44525ms)
+✔ 加工单费用按技术包需求计价：单位、币种和版本可追溯，库存与实收不被费用动作改变 (20.487792ms)
+✔ 织带加工单没有接单或开工门禁，投入实收后可直接加工填报 (52.283375ms)
+✔ B23未执行采购1000减900：版本留痕、旧预览阻断、重新确认接受后900实际生产实收 (52.483917ms)
+✔ B24实收1000退100：仓库交出与TMF分次实收独立，原收保留且净900后减量 (86.887334ms)
+✔ 采购取消门禁：无执行事实可取消，已收货或已生产必须先处置不能直接结案 (48.458458ms)
+✔ PMS采购实际仓库实收与原料库存一次保存；分批、刷新、原料使用和退回均不重复履约 (191.606958ms)
+✔ 历史手工到货及不支持的单位不能直接变成投入料可用库存 (0.470292ms)
+✔ 首次实收前供应商确认与关闭可刷新恢复，保存失败和损坏存储不会覆盖状态 (0.450125ms)
+✔ N01采用路线按染色→印花关联原单，多尺码不重复列工序，不修改印染数量 (2.190208ms)
+✔ 旧版本、错误SKU、码制单位、取消或变更待处理均不作为有效关联 (0.534292ms)
+✔ 同号不同生产单或BOM不得关联，重复来源不静默选择，混合快照阻断 (0.461083ms)
+✔ 编辑器按尺码保留规格，截断打头不新建SKU，重复保存沿用节点身份 (3.383625ms)
+✔ 无印染要求时 TMF 路线只生成截断节点，不凭空生成染色或印花节点 (0.384ms)
+✔ 前序印染产出SKU作为截断投入；保留独立橡筋工艺，移除打头后下游连接截断 (0.760458ms)
+✔ 未明确打头、错误辅料BOM、无半成品和不合法前序不能生成可执行路线 (0.347834ms)
+(node:56931) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N01：400 条 50CM 和 600 条 70CM 分行计算，共 620 米；未增加 SKU (1.546458ms)
+✔ 缺少尺码数量、非整数条数、公差或测量条件时不猜测需求 (0.684083ms)
+✔ B07：未选择打头、缺少端头方式或辅材不能确认；支持两端不同端头 (0.636666ms)
+✔ N04/B08：硅胶按重量且必须有覆盖长度，不作为独立金属头计数 (0.472166ms)
+✔ B18：打头只能承接对应截断条料，不能换 SKU、换长度或重新领连续料 (0.348792ms)
+✔ N05：规格相同可以合并，但尺码、用途和需求身份不靠物理规格键代替 (0.134333ms)
+✔ B14：修改后续版本端头要求不能污染生产单历史快照 (0.784292ms)
+✔ 发布门禁：含织带截断工序的技术包必须规格完整且规格仍关联当前 BOM (0.200583ms)
+(node:56933) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 已提交新周期可由真实袋档案进入历史，错误袋和未知周期仍拒绝 (1.075583ms)
+(node:56934) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ REPLACEMENT_FABRIC 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (18.073667ms)
+✔ REPLACEMENT_FABRIC 未绑定票不猜任务，可由用户明确同批加入 (6.843792ms)
+✔ REPLACEMENT_FABRIC old-factory 旧绑定不可作为当前任务沿用 (6.357792ms)
+✔ REPLACEMENT_FABRIC other-order 旧绑定不可作为当前任务沿用 (9.826625ms)
+✔ BINDING_STRIP 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (6.561959ms)
+✔ BINDING_STRIP 未绑定票不猜任务，可由用户明确同批加入 (6.729333ms)
+✔ BINDING_STRIP old-factory 旧绑定不可作为当前任务沿用 (5.410541ms)
+✔ BINDING_STRIP other-order 旧绑定不可作为当前任务沿用 (5.285542ms)
+ℹ tests 566
+ℹ suites 0
+ℹ pass 566
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14046.000834
+vite v6.4.3 building for production...
+transforming...
+✓ 2718 modules transformed.
+rendering chunks...
+[plugin vite:reporter] 
+(!) /private/tmp/higoods-replacement-fabric-release-20260925/src/data/app-shell-config.ts is dynamically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/router/routes.ts but also statically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/components/shell.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/state/store.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /private/tmp/higoods-replacement-fabric-release-20260925/src/components/production-object-floating-entry.ts is dynamically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/main.ts but also statically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/components/shell.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-record-identity.ts is dynamically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-record-repository.ts but also statically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-event-migration.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-file-maintenance.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/part-ticket-records.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/replacement-fabric-fei-tickets.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/replacement-fabric-repository.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/retired-cut-piece-pickup-history.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-actions.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/pda-cutting-save.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/print/replacement-fabric-preview.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/cutting/transfer-bags/state.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/cutting/wait-handover-actions.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/production-contract-print.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/unified-dispatch-workbench.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-records.ts is dynamically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-record-repository.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/main.ts but also statically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-event-repository.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/part-ticket-records.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/replacement-fabric-repository.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/replacement-fabric-source.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/retired-cut-piece-pickup-history.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/effective-task-assignments.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/pda-handover-events.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-context-actions.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-contracts.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-order-runtime-store.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-orders.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/runtime-process-tasks.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/sewing-outsourcing-responsibility.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/sewing-sample-approval-suggestion.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/dispatch-tenders.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/cutting/replacement-fabric-data-tools.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/production-context-recovery.ts, dynamic import will not move module into another chunk.
+
+[plugin vite:reporter] 
+(!) /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-task-domain.ts is dynamically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/dyeing-task-domain.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/tmf-upstream-process-orders.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/pms/tmf-material-purchases.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/accessory/webbing/work-order-detail.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/accessory/webbing/work-order-detail.ts but also statically imported by /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/material-prep.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/supplement-node-facts.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/design-revision-material-transfer.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/design-revision-process-work-order-adapter.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/factory-receiving-links.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/factory-receiving-source-sync.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/mobile-execution-task-index.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/pda-start-link.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-factory-demos.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-material-receipts.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-statistics.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-warehouse-view.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/printing-work-order-business.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-action-writeback-service.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-execution-writeback.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-mobile-task-binding.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-warehouse-linkage-service.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-web-status-actions.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-work-order-domain.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/process-work-order-generation-service.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-demand-early-process-work-orders.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-object-overview.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-process-work-order-service.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-task-breakdown.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/task-print-cards.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/pcs-independent-sampling.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/pda-exec-detail.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/pda-exec.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/pda-task-receive.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/print/templates/printing-work-order-template.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/cutting/production-order-overview-projection.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/dyeing/pending-receipts.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/dashboards.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/dialogs.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/dispatch.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/events.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/presentation.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/shared.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/statistics.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-factory/printing/work-order-detail.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-print-orders.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/process-work-orders/early-process-management.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/pages/production/demand-domain.ts, /private/tmp/higoods-replacement-fabric-release-20260925/src/runtime/fcs/cutting/pickup-management-runtime.ts, dynamic import will not move module into another chunk.
+
+computing gzip size...
+dist/index.html                                                           1.25 kB │ gzip:   0.64 kB
+dist/assets/pcs-pattern-parse.worker-B3_rAVMB.js                         18.52 kB
+dist/assets/source-views-23Nr_RHD.css                                    34.63 kB │ gzip:   7.04 kB
+dist/assets/index-rEcgURmc.css                                          155.24 kB │ gzip:  25.42 kB
+dist/assets/domain-snapshot-CgprL47m.js                                   0.32 kB │ gzip:   0.24 kB
+dist/assets/store-domain-quality-bootstrap-CGsWZExd.js                    0.38 kB │ gzip:   0.25 kB
+dist/assets/sample-warehouse-projection-B52kRMCE.js                       0.39 kB │ gzip:   0.25 kB
+dist/assets/dialogs-Dz7Rt28z.js                                           0.58 kB │ gzip:   0.31 kB
+dist/assets/pcs-style-demo-image-GDjoPqJf.js                              0.59 kB │ gzip:   0.28 kB
+dist/assets/tech-pack-DCQlOa3x.js                                         0.63 kB │ gzip:   0.34 kB
+dist/assets/badge-D4eVJIys.js                                             0.78 kB │ gzip:   0.42 kB
+dist/assets/images-Q79qfJD0.js                                            0.80 kB │ gzip:   0.35 kB
+dist/assets/pms-export-CPynoX4q.js                                        0.83 kB │ gzip:   0.50 kB
+dist/assets/placeholder-BiHB9ZXP.js                                       0.85 kB │ gzip:   0.47 kB
+dist/assets/pda-cutting-save-BCLwwlum.js                                  0.88 kB │ gzip:   0.60 kB
+dist/assets/trace-Jw3m5TPG.js                                             0.89 kB │ gzip:   0.51 kB
+dist/assets/runtime-DY769RIr.js                                           0.90 kB │ gzip:   0.61 kB
+dist/assets/execution-prep-projection-helpers-CdZ3zMTq.js                 0.94 kB │ gzip:   0.46 kB
+dist/assets/history-DVt6BYVH.js                                           0.98 kB │ gzip:   0.63 kB
+dist/assets/payment-sync-Cu9S4RYX.js                                      1.01 kB │ gzip:   0.64 kB
+dist/assets/print-service-CyrwQfQw.js                                     1.04 kB │ gzip:   0.52 kB
+dist/assets/pda-sewing-self-return-mode-CVT5AEl1.js                       1.07 kB │ gzip:   0.54 kB
+dist/assets/detail.adapter-_3_YhTOe.js                                    1.08 kB │ gzip:   0.68 kB
+dist/assets/process-work-order-generation-service-CEr4zI-V.js             1.08 kB │ gzip:   0.66 kB
+dist/assets/dyeing-material-receipts-AHKsly8I.js                          1.11 kB │ gzip:   0.73 kB
+dist/assets/pda-runtime-Cxc3utZJ.js                                       1.16 kB │ gzip:   0.64 kB
+dist/assets/replacement-fabric-scan-DhTsidQ0.js                           1.28 kB │ gzip:   0.81 kB
+dist/assets/overview-yN5VhDg-.js                                          1.29 kB │ gzip:   0.71 kB
+dist/assets/process-work-order-source-view-sFsnuIwq.js                    1.31 kB │ gzip:   0.58 kB
+dist/assets/transfer-bag-handover-mock-DKqmeOE2.js                        1.31 kB │ gzip:   0.71 kB
+dist/assets/work-order-action-policy-BITV8wZU.js                          1.34 kB │ gzip:   0.68 kB
+dist/assets/dialogs-DgR08SGc.js                                           1.42 kB │ gzip:   0.63 kB
+dist/assets/filter-bar-CQPG7S5l.js                                        1.49 kB │ gzip:   0.81 kB
+dist/assets/material-identity-2Wsnh_Xs.js                                 1.54 kB │ gzip:   0.85 kB
+dist/assets/supplement-material-prep-demand-registry-DI-N3DvB.js          1.56 kB │ gzip:   0.75 kB
+dist/assets/warehouse-shared-B70SNgWa.js                                  1.57 kB │ gzip:   0.51 kB
+dist/assets/pda-cutting-wait-handover-actions-09_rdosk.js                 1.58 kB │ gzip:   0.62 kB
+dist/assets/task-handover-domain-DX2SCuu1.js                              1.58 kB │ gzip:   0.77 kB
+dist/assets/task-chain-pages-adapter-BbeqpSiO.js                          1.72 kB │ gzip:   0.85 kB
+dist/assets/real-qr-CLy_77B8.js                                           1.74 kB │ gzip:   0.93 kB
+dist/assets/work-order-detail-BbX1jRIT.js                                 1.78 kB │ gzip:   0.82 kB
+dist/assets/real-barcode-D5JeM6KP.js                                      1.81 kB │ gzip:   0.96 kB
+dist/assets/wool-pda-scan-CbOEaaP0.js                                     1.81 kB │ gzip:   1.00 kB
+dist/assets/tmf-upstream-receiving-CrRlvJvj.js                            1.84 kB │ gzip:   1.14 kB
+dist/assets/toast-DbXW_Ah0.js                                             1.87 kB │ gzip:   0.90 kB
+dist/assets/mixed-transfer-bag-ticket-DETTPWFm.js                         1.89 kB │ gzip:   0.79 kB
+dist/assets/kol-goto-fixed-total-ledger-DuOCQ6vc.js                       1.93 kB │ gzip:   0.93 kB
+dist/assets/list-export-BSzsk1O-.js                                       1.99 kB │ gzip:   1.18 kB
+dist/assets/printing-sheet-preview-B6JzdrCC.js                            2.03 kB │ gzip:   1.06 kB
+dist/assets/confirmation-print-BxeeLVIf.js                                2.03 kB │ gzip:   0.94 kB
+dist/assets/table-iSdp6WkJ.js                                             2.04 kB │ gzip:   1.03 kB
+dist/assets/binding-process-pda-scan-BOGVkkI0.js                          2.18 kB │ gzip:   1.13 kB
+dist/assets/cutting-file-maintenance-DvqLmWBV.js                          2.19 kB │ gzip:   1.17 kB
+dist/assets/special-craft-pda-scope-Ct5UQBAn.js                           2.24 kB │ gzip:   1.02 kB
+dist/assets/task-route-card-CRzVvUss.js                                   2.30 kB │ gzip:   1.08 kB
+dist/assets/mixed-bag-contents-DMnrjl_e.js                                2.33 kB │ gzip:   1.29 kB
+dist/assets/task-delivery-card-yHTNcbsb.js                                2.36 kB │ gzip:   1.16 kB
+dist/assets/production-context-recovery-I_G3cpBy.js                       2.36 kB │ gzip:   1.24 kB
+dist/assets/production-contract-print-DFyi0K-r.js                         2.42 kB │ gzip:   1.38 kB
+dist/assets/helpers-BFKa6pUf.js                                           2.42 kB │ gzip:   1.21 kB
+dist/assets/pda-cutting-simple-cut-piece-handover-B06qNX1V.js             2.50 kB │ gzip:   1.26 kB
+dist/assets/tmf-work-order-view-BogffxQF.js                               2.56 kB │ gzip:   1.18 kB
+dist/assets/pms-excel-import-DnMCWv6B.js                                  2.66 kB │ gzip:   1.32 kB
+dist/assets/shared--JWkAGV2.js                                            2.70 kB │ gzip:   1.03 kB
+dist/assets/process-order-list-presentation-lIV0zyPg.js                   2.71 kB │ gzip:   1.27 kB
+dist/assets/post-finishing-spu-technical-parameters-CTpnbUKP.js           2.79 kB │ gzip:   1.28 kB
+dist/assets/marker-plan-projection-8gUfbvYS.js                            2.83 kB │ gzip:   1.22 kB
+dist/assets/authorization-code-B4kqQmN7.js                                2.91 kB │ gzip:   1.43 kB
+dist/assets/process-order-task-relations-DB1ZBYw-.js                      2.97 kB │ gzip:   1.29 kB
+dist/assets/production-order-identity-C5EyZg5T.js                         3.00 kB │ gzip:   1.24 kB
+dist/assets/product-skus-CEt6Fukj.js                                      3.03 kB │ gzip:   0.96 kB
+dist/assets/tabs-DkeccZ6g.js                                              3.09 kB │ gzip:   0.93 kB
+dist/assets/pda-cutting-runtime-action-inputs-C0KIxc1Y.js                 3.15 kB │ gzip:   1.09 kB
+dist/assets/trade-subjects-B1U82DIE.js                                    3.16 kB │ gzip:   1.12 kB
+dist/assets/progress-board-wUft5GDC.js                                    3.17 kB │ gzip:   1.50 kB
+dist/assets/tmf-upstream-process-orders-BXVUKT-Y.js                       3.38 kB │ gzip:   1.61 kB
+dist/assets/cutting-mainline-B0XtXc3X.js                                  3.41 kB │ gzip:   1.53 kB
+dist/assets/binding-process-warehouse-linkage-service-5fIFdIqa.js         3.62 kB │ gzip:   1.38 kB
+dist/assets/fcs-route-links-BdCFaX2E.js                                   3.67 kB │ gzip:   1.20 kB
+dist/assets/quality-chain-adapter-J73CKufQ.js                             3.68 kB │ gzip:   1.66 kB
+dist/assets/shared-CCH-phv7.js                                            3.73 kB │ gzip:   1.70 kB
+dist/assets/shared-jy6CJMbe.js                                            3.91 kB │ gzip:   1.64 kB
+dist/assets/sewing-outsourcing-demo-BWgRU0ir.js                           4.01 kB │ gzip:   1.62 kB
+dist/assets/transfer-bag-repack-mock-DADIahK8.js                          4.04 kB │ gzip:   1.87 kB
+dist/assets/tipping-form-BxH8YcOZ.js                                      4.07 kB │ gzip:   2.03 kB
+dist/assets/wls-page-handlers-BiaULVAr.js                                 4.09 kB │ gzip:   1.39 kB
+dist/assets/dashboards-Dgn0aVKW.js                                        4.10 kB │ gzip:   2.02 kB
+dist/assets/transit-simple-lists-hNrTD0Vu.js                              4.14 kB │ gzip:   1.46 kB
+dist/assets/replacement-fabric-label-template-Bk_N8noW.js                 4.40 kB │ gzip:   2.02 kB
+dist/assets/pda-wool-warehouse-flows-CvZs8wuB.js                          4.48 kB │ gzip:   2.38 kB
+dist/assets/supplement-order-registry-CHnc7juB.js                         4.49 kB │ gzip:   1.76 kB
+dist/assets/tmf-process-print-preview-vqZ4YM0s.js                         4.58 kB │ gzip:   2.17 kB
+dist/assets/preparation-material-receipt-sources-CQcyDAvz.js              4.68 kB │ gzip:   1.95 kB
+dist/assets/sewing-outsourcing-responsibility-DaZQEJlo.js                 4.71 kB │ gzip:   2.05 kB
+dist/assets/replacement-fabric-preview-DHvJLo6d.js                        4.72 kB │ gzip:   2.36 kB
+dist/assets/form-BYw8xtBH.js                                              4.74 kB │ gzip:   1.41 kB
+dist/assets/layout.helpers-BktQD0cy.js                                    4.76 kB │ gzip:   1.73 kB
+dist/assets/runtime-task-tenders-YGz6fHpq.js                              4.76 kB │ gzip:   1.94 kB
+dist/assets/relations-CnFF6QzI.js                                         4.77 kB │ gzip:   2.18 kB
+dist/assets/transit-dashboard-D95SKpqx.js                                 4.85 kB │ gzip:   2.05 kB
+dist/assets/result-list-BlysuQlR.js                                       4.94 kB │ gzip:   2.06 kB
+dist/assets/routes-pcs-DUHQmgEl.js                                        4.99 kB │ gzip:   1.44 kB
+dist/assets/store-domain-dispatch-process-CQQ48Dtm.js                     5.01 kB │ gzip:   1.95 kB
+dist/assets/routes-pda-fZ5REEFL.js                                        5.01 kB │ gzip:   1.90 kB
+dist/assets/cutting-event-migration-CJUz0aeO.js                           5.02 kB │ gzip:   2.03 kB
+dist/assets/process-order-list-controller-pVeFw7tD.js                     5.07 kB │ gzip:   1.91 kB
+dist/assets/process-work-order-quality-settlement-BiG0B7ev.js             5.33 kB │ gzip:   2.20 kB
+dist/assets/dispatch-task-sheet-CHpIB4PV.js                               5.54 kB │ gzip:   2.63 kB
+dist/assets/retired-cut-piece-pickup-history-B14RUURL.js                  5.65 kB │ gzip:   2.28 kB
+dist/assets/process-order-three-axis-view-DEzPHNxL.js                     5.76 kB │ gzip:   2.32 kB
+dist/assets/production-contract-center-Bqxr14gU.js                        5.81 kB │ gzip:   2.50 kB
+dist/assets/pda-cutting-nav-context-CjeRQvJT.js                           5.95 kB │ gzip:   1.40 kB
+dist/assets/transfer-bags-projection-CBHAScEO.js                          5.99 kB │ gzip:   2.36 kB
+dist/assets/fcs-pda-pickup-dispute-Db2-HwvL.js                            6.19 kB │ gzip:   2.19 kB
+dist/assets/pda-transfer-bag-detail-DMLZVIle.js                           6.19 kB │ gzip:   2.29 kB
+dist/assets/material-handover-LgZZRurd.js                                 6.25 kB │ gzip:   2.44 kB
+dist/assets/fact-view-CVnmVQQ3.js                                         6.29 kB │ gzip:   2.08 kB
+dist/assets/warehouse-standard-DTx-BvEK.js                                6.30 kB │ gzip:   2.10 kB
+dist/assets/statistics-CxljJhOk.js                                        6.39 kB │ gzip:   1.93 kB
+dist/assets/craft-actions-B3Vq3ZEO.js                                     6.42 kB │ gzip:   2.92 kB
+dist/assets/transfer-bag-goods-label-BkY3yKWD.js                          6.46 kB │ gzip:   2.64 kB
+dist/assets/pcs-project-technical-data-writeback-CUCrtRuo.js              6.49 kB │ gzip:   2.52 kB
+dist/assets/production-context-actions-fjlWAzwy.js                        6.55 kB │ gzip:   2.68 kB
+dist/assets/pcs-technical-data-tech-pack-list-BCOy2E3b.js                 6.55 kB │ gzip:   2.50 kB
+dist/assets/factory-receiving-links-BF3l-oM6.js                           6.57 kB │ gzip:   2.64 kB
+dist/assets/workbench-BN-dRiRn.js                                         6.59 kB │ gzip:   2.67 kB
+dist/assets/pda-notify-lWs-v46P.js                                        6.61 kB │ gzip:   2.44 kB
+dist/assets/sewing-outsourcing-supplement-tracking-nfGrBJYA.js            6.63 kB │ gzip:   2.89 kB
+dist/assets/shared-BjB_aFvF.js                                            6.82 kB │ gzip:   2.52 kB
+dist/assets/production-contract-master-template-DgQVmuFv.js               6.85 kB │ gzip:   2.74 kB
+dist/assets/pcs-testing-order-create-CekEEYYl.js                          6.89 kB │ gzip:   2.67 kB
+dist/assets/dye-work-order-times-w7U4XCtx.js                              7.22 kB │ gzip:   2.55 kB
+dist/assets/shared-vdjBSJ4-.js                                            7.26 kB │ gzip:   2.55 kB
+dist/assets/pda-cutting-execution-unit-dMDg2jfi.js                        7.32 kB │ gzip:   2.77 kB
+dist/assets/overview.helpers-BP2F5Yu8.js                                  7.36 kB │ gzip:   2.88 kB
+dist/assets/settlement-flow-boundaries-DbkSNas3.js                        7.43 kB │ gzip:   2.53 kB
+dist/assets/pda-notify-detail-DGWOg614.js                                 7.50 kB │ gzip:   2.40 kB
+dist/assets/pda-cutting-fei-ticket-numbering-CDPGp6Bf.js                  7.52 kB │ gzip:   2.51 kB
+dist/assets/transit-warehouse-CGN4xIMS.js                                 7.54 kB │ gzip:   2.13 kB
+dist/assets/production-craft-dict-CtWVqcJq.js                             7.55 kB │ gzip:   2.84 kB
+dist/assets/pcs-product-information-DqYRa-nP.js                           7.58 kB │ gzip:   3.32 kB
+dist/assets/pda-warehouse-DhboMd2w.js                                     7.60 kB │ gzip:   3.04 kB
+dist/assets/sewing-outsourcing-return-tracking-D41SHeKr.js                7.61 kB │ gzip:   2.86 kB
+dist/assets/workbench-X75eElHm.js                                         7.69 kB │ gzip:   3.16 kB
+dist/assets/supplement-node-facts-RU2ayCqR.js                             7.77 kB │ gzip:   2.85 kB
+dist/assets/pcs-material-archive-detail-CjqV08Pz.js                       7.80 kB │ gzip:   2.75 kB
+dist/assets/pcs-testing-order-list-6LR0cN1_.js                            7.92 kB │ gzip:   3.06 kB
+dist/assets/tmf-process-sheet-template-CDr1YpWj.js                        7.98 kB │ gzip:   3.81 kB
+dist/assets/pda-cutting-transfer-bag-recovery-DHqUpPS5.js                 7.99 kB │ gzip:   3.31 kB
+dist/assets/production-contracts-B6m61GZh.js                              8.03 kB │ gzip:   2.74 kB
+dist/assets/progress-exception-lifecycle-BJx0gSBY.js                      8.09 kB │ gzip:   2.70 kB
+dist/assets/routes-pms-CBVENdfO.js                                        8.30 kB │ gzip:   2.10 kB
+dist/assets/pda-cutting-transfer-bag-scrap-B9gA_Hkj.js                    8.38 kB │ gzip:   3.44 kB
+dist/assets/milestone-configs-ANE3-b7d.js                                 8.42 kB │ gzip:   2.95 kB
+dist/assets/statistics-95GVizGB.js                                        8.42 kB │ gzip:   3.65 kB
+dist/assets/bom-templates-Br7_yp-y.js                                     8.47 kB │ gzip:   1.81 kB
+dist/assets/pre-settlement-ledger-repository-rIT58S1h.js                  8.64 kB │ gzip:   2.96 kB
+dist/assets/pcs-pattern-library-config-CSr2R-JD.js                        8.77 kB │ gzip:   2.40 kB
+dist/assets/fei-ticket-numbering-DJIK-nyU.js                              8.82 kB │ gzip:   3.09 kB
+dist/assets/bom-templates-BnvK4juX.js                                     8.84 kB │ gzip:   3.68 kB
+dist/assets/navigation-context-BxefIdgT.js                                8.87 kB │ gzip:   2.46 kB
+dist/assets/warehouses-DXIIcLc2.js                                        8.88 kB │ gzip:   2.11 kB
+dist/assets/pda-cutting-shared-5KygbIBc.js                                8.90 kB │ gzip:   2.75 kB
+dist/assets/yarn-shipments-BrtFT2zc.js                                    8.96 kB │ gzip:   4.06 kB
+dist/assets/cutting-event-repository-BilyDvub.js                          9.01 kB │ gzip:   3.98 kB
+dist/assets/list-B7mFchpz.js                                              9.08 kB │ gzip:   3.04 kB
+dist/assets/pda-execution-Dr46cp20.js                                     9.28 kB │ gzip:   3.68 kB
+dist/assets/handover-records-RVPfOb8X.js                                  9.35 kB │ gzip:   3.56 kB
+dist/assets/pda-login-CeR0pTSo.js                                         9.52 kB │ gzip:   3.68 kB
+dist/assets/dye-work-order-online-domain-Cy4_A-8b.js                      9.53 kB │ gzip:   3.55 kB
+dist/assets/sewing-pickup-slips-CrLsi91h.js                               9.56 kB │ gzip:   3.59 kB
+dist/assets/production-receipts-CLseoNK1.js                               9.77 kB │ gzip:   3.94 kB
+dist/assets/pending-receipts-QNmz9RsY.js                                  9.91 kB │ gzip:   4.10 kB
+dist/assets/continuous-stock-DB5jvlQN.js                                 10.10 kB │ gzip:   4.12 kB
+dist/assets/purchase-suggestions-Duv_PHLl.js                             10.15 kB │ gzip:   3.10 kB
+dist/assets/trade-subjects-CvB0s0E2.js                                   10.23 kB │ gzip:   3.72 kB
+dist/assets/production-return-fulfillment-5y_d5Myw.js                    10.44 kB │ gzip:   3.97 kB
+dist/assets/settings-YnBDTXtS.js                                         10.69 kB │ gzip:   3.23 kB
+dist/assets/product-skus-Cy0gu-b_.js                                     10.71 kB │ gzip:   4.13 kB
+dist/assets/pms-handlers-CgoVtsrT.js                                     10.76 kB │ gzip:   2.39 kB
+dist/assets/transit-receipts-BiggqyND.js                                 10.96 kB │ gzip:   4.01 kB
+dist/assets/task-breakdown-CYbkBSK5.js                                   11.05 kB │ gzip:   4.07 kB
+dist/assets/presentation-B7xxBfeK.js                                     11.17 kB │ gzip:   4.60 kB
+dist/assets/material-transfers-DjuBvyFo.js                               11.32 kB │ gzip:   3.93 kB
+dist/assets/pda-exec-link-DDAo9t5v.js                                    11.32 kB │ gzip:   3.69 kB
+dist/assets/tasks-DhjiaF0_.js                                            11.34 kB │ gzip:   4.36 kB
+dist/assets/material-prep-B9bu5_YB.js                                    11.40 kB │ gzip:   2.68 kB
+dist/assets/dyeing-warehouse-view-CPhckoDu.js                            11.46 kB │ gzip:   3.94 kB
+dist/assets/warehouses-BIzEFPGE.js                                       11.71 kB │ gzip:   4.22 kB
+dist/assets/process-statistics-domain-kVHZMdY8.js                        12.19 kB │ gzip:   3.98 kB
+dist/assets/pickup-management-runtime-DCUfAsZX.js                        12.20 kB │ gzip:   4.71 kB
+dist/assets/task-execution-adapter-DO9RAvrx.js                           12.22 kB │ gzip:   3.67 kB
+dist/assets/bom-detail-3nOJTYXQ.js                                       12.33 kB │ gzip:   4.32 kB
+dist/assets/wls-inbound-BSeb3VJk.js                                      12.37 kB │ gzip:   4.76 kB
+dist/assets/returns-Q0d1pWp9.js                                          12.44 kB │ gzip:   4.60 kB
+dist/assets/handover-print-CpGAJl8r.js                                   12.46 kB │ gzip:   4.50 kB
+dist/assets/cut-piece-return-warehouse-CkEQ8tKy.js                       12.52 kB │ gzip:   4.39 kB
+dist/assets/pcs-handlers-jd-zePua.js                                     12.69 kB │ gzip:   2.89 kB
+dist/assets/context-u4a7Sei4.js                                          13.01 kB │ gzip:   4.59 kB
+dist/assets/handover-records-CeeQCiQK.js                                 13.15 kB │ gzip:   4.14 kB
+dist/assets/meta-mD6BbR_q.js                                             13.16 kB │ gzip:   2.95 kB
+dist/assets/tmf-base-demo-JLoFS5BN.js                                    13.17 kB │ gzip:   4.74 kB
+dist/assets/supplements-BIIMD116.js                                      13.18 kB │ gzip:   4.76 kB
+dist/assets/wls-finished-inbound-DVa32V41.js                             13.21 kB │ gzip:   5.01 kB
+dist/assets/design-revision-process-work-order-adapter-B1hmOMji.js       13.27 kB │ gzip:   3.84 kB
+dist/assets/pda-start-link-aKo4ajI7.js                                   13.37 kB │ gzip:   4.73 kB
+dist/assets/responsibility-transfers-kHkP2Ytt.js                         13.41 kB │ gzip:   5.05 kB
+dist/assets/work-orders-C4r1oCk-.js                                      13.88 kB │ gzip:   4.69 kB
+dist/assets/work-orders-Cnbqp2Wf.js                                      13.99 kB │ gzip:   5.19 kB
+dist/assets/workbench-CE3kbAQ0.js                                        14.07 kB │ gzip:   4.07 kB
+dist/assets/work-order-detail-Bk4yEZ9_.js                                14.17 kB │ gzip:   4.49 kB
+dist/assets/mobile-execution-task-index-B5s0efVY.js                      14.21 kB │ gzip:   3.79 kB
+dist/assets/post-finishing-qc-print-template-BNe0gT6W.js                 14.45 kB │ gzip:   4.45 kB
+dist/assets/printing-sheet-template-EUJyacgO.js                          14.51 kB │ gzip:   5.02 kB
+dist/assets/work-orders-Bb-WeBDn.js                                      14.72 kB │ gzip:   4.77 kB
+dist/assets/reports-BJHtNVy9.js                                          14.83 kB │ gzip:   3.58 kB
+dist/assets/full-flow-print-C5F1dP_F.js                                  14.93 kB │ gzip:   4.85 kB
+dist/assets/progress-handover-order-C-SGNr48.js                          15.10 kB │ gzip:   4.31 kB
+dist/assets/outbound-orders-3-TtkmXm.js                                  15.38 kB │ gzip:   4.94 kB
+dist/assets/cut-order-release-integration-DhJmFOfx.js                    15.38 kB │ gzip:   5.47 kB
+dist/assets/machines-CUb7bZyg.js                                         15.39 kB │ gzip:   5.04 kB
+dist/assets/pda-cutting-task-detail-CxN8zOsR.js                          15.62 kB │ gzip:   5.45 kB
+dist/assets/replacement-fabric-repository-CiLVjToi.js                    15.71 kB │ gzip:   5.97 kB
+dist/assets/pcs-engineering-tech-pack-workspace-EdGvpS3x.js              15.82 kB │ gzip:   5.66 kB
+dist/assets/process-web-status-actions-D_7VsO6f.js                       15.97 kB │ gzip:   4.23 kB
+dist/assets/simple-cut-piece-handover-fixtures-BAtFFJaS.js               15.97 kB │ gzip:   5.31 kB
+dist/assets/cut-order-supplement-fixture-E2PsZUnO.js                     15.97 kB │ gzip:   4.83 kB
+dist/assets/pda-sewing-self-return-Dlzh6sS2.js                           16.03 kB │ gzip:   5.29 kB
+dist/assets/progress-cutting-detail-CAorM7Pn.js                          16.11 kB │ gzip:   3.82 kB
+dist/assets/handover-ledger-view-G1qF-rWq.js                             16.17 kB │ gzip:   4.44 kB
+dist/assets/wls-garment-relabel-tasks-BNn3Jj9K.js                        16.24 kB │ gzip:   5.33 kB
+dist/assets/garment-spu-replacement-BAdt3JLz.js                          16.36 kB │ gzip:   5.01 kB
+dist/assets/pda-notify-due-soon-CFEDvqOQ.js                              16.61 kB │ gzip:   5.58 kB
+dist/assets/suppliers-CF8Vrskm.js                                        16.77 kB │ gzip:   4.64 kB
+dist/assets/material-requirements-C2aSGfUj.js                            16.81 kB │ gzip:   5.69 kB
+dist/assets/part-ticket-records-BeV53KGI.js                              17.00 kB │ gzip:   6.35 kB
+dist/assets/events-DQw0Z9Uz.js                                           17.01 kB │ gzip:   6.67 kB
+dist/assets/sewing-cut-piece-return-workflow-ibV6IniW.js                 17.21 kB │ gzip:   6.09 kB
+dist/assets/production-confirmation-Dlr4_mOu.js                          17.25 kB │ gzip:   5.89 kB
+dist/assets/warehouse-Di5HxjRA.js                                        17.46 kB │ gzip:   5.42 kB
+dist/assets/marker-spreading-projection-B5OI8z09.js                      17.50 kB │ gzip:   5.54 kB
+dist/assets/output-stock-BLradwhJ.js                                     17.52 kB │ gzip:   6.60 kB
+dist/assets/sewing-cut-piece-responsibility-C5vLWlgf.js                  17.58 kB │ gzip:   5.28 kB
+dist/assets/bom-detail-CFvLtxsd.js                                       17.76 kB │ gzip:   5.73 kB
+dist/assets/process-mobile-task-binding-DqPWv1xy.js                      17.90 kB │ gzip:   6.26 kB
+dist/assets/pcs-testing-order-detail-C3cRFG-B.js                         18.17 kB │ gzip:   5.13 kB
+dist/assets/adjustments-DS8YuUnx.js                                      18.19 kB │ gzip:   5.51 kB
+dist/assets/pda-warehouse-inbound-records-BTiqA0g2.js                    18.27 kB │ gzip:   5.16 kB
+dist/assets/purchase-demands-DAgws9gB.js                                 18.29 kB │ gzip:   5.86 kB
+dist/assets/platform-process-result-view-z2ckKsdq.js                     18.53 kB │ gzip:   5.32 kB
+dist/assets/store-domain-statement-source-adapter-CI09k-lA.js            18.56 kB │ gzip:   5.31 kB
+dist/assets/sewing-outsourcing-workbench-CAHo9bap.js                     18.67 kB │ gzip:   6.48 kB
+dist/assets/pda-warehouse-shared-BkTt9XOK.js                             18.74 kB │ gzip:   5.59 kB
+dist/assets/task-orders-Ce6Fokiy.js                                      18.77 kB │ gzip:   6.34 kB
+dist/assets/pda-warehouse-outbound-records-CFqdhqbS.js                   18.77 kB │ gzip:   5.38 kB
+dist/assets/process-water-soluble-orders-CUxtgSBq.js                     18.84 kB │ gzip:   5.74 kB
+dist/assets/materials-BA_owAdW.js                                        18.93 kB │ gzip:   4.79 kB
+dist/assets/production-demand-early-process-work-orders-BTZdgx8i.js      18.93 kB │ gzip:   5.65 kB
+dist/assets/pda-handlers-C2m1pdc3.js                                     19.08 kB │ gzip:   5.08 kB
+dist/assets/print-preview-ClAkKrws.js                                    19.09 kB │ gzip:   6.86 kB
+dist/assets/kol-goto-pda-domain-DoEoTIEX.js                              19.20 kB │ gzip:   6.54 kB
+dist/assets/platform.adapter-Dl2xf1aC.js                                 19.25 kB │ gzip:   6.09 kB
+dist/assets/shared-zu71XuLX.js                                           19.47 kB │ gzip:   5.27 kB
+dist/assets/product-purchase-orders-Cg5SKldL.js                          19.50 kB │ gzip:   5.76 kB
+dist/assets/stage-display-CxUgKcO_.js                                    19.66 kB │ gzip:   6.94 kB
+dist/assets/audit-records-yHLp94iS.js                                    19.69 kB │ gzip:   6.37 kB
+dist/assets/units-Sb2dZr6f.js                                            19.70 kB │ gzip:   5.88 kB
+dist/assets/factory-sample-verification-flow-DAu84QZ6.js                 19.86 kB │ gzip:   4.87 kB
+dist/assets/index-CPcw74jJ.js                                            20.17 kB │ gzip:   5.20 kB
+dist/assets/material-purchase-tracking-CYPx7mA9.js                       20.29 kB │ gzip:   6.35 kB
+dist/assets/deduction-analysis-BuNdOL3I.js                               20.64 kB │ gzip:   5.86 kB
+dist/assets/overview.adapter-CYKlgrYb.js                                 20.65 kB │ gzip:   6.53 kB
+dist/assets/fei-ticket-numbering-BSoLfPWt.js                             20.69 kB │ gzip:   5.72 kB
+dist/assets/events-DQ0NVFaQ.js                                           21.11 kB │ gzip:   6.52 kB
+dist/assets/order-list-columns-D9Tdb9OM.js                               21.12 kB │ gzip:   6.60 kB
+dist/assets/work-order-detail-C5fqabEh.js                                21.22 kB │ gzip:   6.69 kB
+dist/assets/suppliers-C41YbUfW.js                                        21.39 kB │ gzip:   6.82 kB
+dist/assets/cut-piece-returns-BPrl1Ybz.js                                21.63 kB │ gzip:   6.51 kB
+dist/assets/cut-piece-handover-CUgmxwkI.js                               21.79 kB │ gzip:   6.95 kB
+dist/assets/tmf-domain-shared-fL8UUXJ2.js                                21.88 kB │ gzip:   8.26 kB
+dist/assets/replacement-fabric-fei-tickets-DGFxtJbj.js                   22.04 kB │ gzip:   8.37 kB
+dist/assets/material-issue-CHBPcuA5.js                                   22.07 kB │ gzip:   5.19 kB
+dist/assets/tasks-BjvNVQt6.js                                            22.07 kB │ gzip:   6.99 kB
+dist/assets/pms-purchase-orders-CEIMQl1q.js                              22.07 kB │ gzip:   6.46 kB
+dist/assets/progress-cutting-overview-Dolipz3_.js                        22.13 kB │ gzip:   5.05 kB
+dist/assets/routes-wls-DYThGyx4.js                                       22.24 kB │ gzip:   7.22 kB
+dist/assets/qc-workbench-BKPpQcK9.js                                     22.36 kB │ gzip:   6.91 kB
+dist/assets/warehouse-location-map-model-D3hkPflS.js                     22.52 kB │ gzip:   7.15 kB
+dist/assets/recheck-orders-69iAPOjx.js                                   22.54 kB │ gzip:   7.08 kB
+dist/assets/subject-operations-DxCHpRKa.js                               22.58 kB │ gzip:   7.00 kB
+dist/assets/production-order-duration-oFRd7486.js                        22.58 kB │ gzip:   8.59 kB
+dist/assets/material-statements-vsosP07W.js                              22.75 kB │ gzip:   6.01 kB
+dist/assets/progress-statistics-linkage-hvZJDmyr.js                      22.82 kB │ gzip:   6.52 kB
+dist/assets/purchase-suggestions-fIfnagQR.js                             23.22 kB │ gzip:   7.25 kB
+dist/assets/pcs-engineering-master-view-model-D_8me3Sz.js                23.32 kB │ gzip:   7.74 kB
+dist/assets/process-order-task-links-BRr8Hv7Z.js                         23.57 kB │ gzip:   6.44 kB
+dist/assets/process-print-orders-EvvlBqym.js                             23.75 kB │ gzip:   7.78 kB
+dist/assets/dye-work-order-online-view-Cfdhk64m.js                       23.86 kB │ gzip:   8.10 kB
+dist/assets/process-dye-orders-CFCAH4qy.js                               23.93 kB │ gzip:   7.86 kB
+dist/assets/material-purchase-orders-D9XFokYY.js                         24.20 kB │ gzip:   7.63 kB
+dist/assets/qc-orders-DJBugR1r.js                                        24.30 kB │ gzip:   7.60 kB
+dist/assets/machine-associations-DAUoB5n8.js                             24.50 kB │ gzip:   7.28 kB
+dist/assets/fcs-production-tech-pack-snapshot-CtK4lkiu.js                24.62 kB │ gzip:   6.18 kB
+dist/assets/retired-process-history-D9U9bKxd.js                          24.79 kB │ gzip:   6.43 kB
+dist/assets/dialogs-BUpMdqg1.js                                          24.87 kB │ gzip:   6.15 kB
+dist/assets/wls-fabric-demand-board-D36MDtHb.js                          25.09 kB │ gzip:   6.87 kB
+dist/assets/material-preparation-BsqT2N4s.js                             25.13 kB │ gzip:   8.76 kB
+dist/assets/kol-demands-BAju9AKD.js                                      25.30 kB │ gzip:   7.35 kB
+dist/assets/supplier-supply-archives-BtOabQ6P.js                         25.59 kB │ gzip:   7.43 kB
+dist/assets/pda-warehouse-wait-handover-D37apXOk.js                      25.73 kB │ gzip:   6.43 kB
+dist/assets/progress-milestone-config-z8N2ltn0.js                        26.47 kB │ gzip:   5.67 kB
+dist/assets/sample-approval-suggestions-DUBPX4Kq.js                      26.65 kB │ gzip:   8.18 kB
+dist/assets/marker-spreading-utils-DrKOJ_-n.js                           26.72 kB │ gzip:   7.83 kB
+dist/assets/pcs-channel-products-DCMxY99k.js                             26.73 kB │ gzip:   7.18 kB
+dist/assets/simple-cut-piece-handover-ui-BpYZ7aVI.js                     26.73 kB │ gzip:   9.99 kB
+dist/assets/sample-warehouse-XpJMAY_p.js                                 26.80 kB │ gzip:   6.69 kB
+dist/assets/warehouse-location-map-fnWIBuc7.js                           27.06 kB │ gzip:   7.08 kB
+dist/assets/third-party-factory-rating-uReDVaAd.js                       27.07 kB │ gzip:   7.60 kB
+dist/assets/pcs-pattern-library-detail-4McikQkQ.js                       27.62 kB │ gzip:   6.59 kB
+dist/assets/pda-wool-fact-execution-C2-lUaZL.js                          27.84 kB │ gzip:   9.27 kB
+dist/assets/warehouse-CpugMgiy.js                                        28.13 kB │ gzip:   9.35 kB
+dist/assets/pcs-engineering-master-list-8Rtl4VgZ.js                      28.21 kB │ gzip:   9.83 kB
+dist/assets/print-styles-BjQBw8jj.js                                     28.31 kB │ gzip:   4.01 kB
+dist/assets/factory-status-DJnTKzel.js                                   28.43 kB │ gzip:   6.03 kB
+dist/assets/pcs-engineering-master-detail-DRNcz9Kl.js                    28.55 kB │ gzip:   8.37 kB
+dist/assets/marker-plan-source-model-CI8EtRNk.js                         28.92 kB │ gzip:   8.48 kB
+dist/assets/logistics-reconciliations-Bb765LeW.js                        28.93 kB │ gzip:   8.90 kB
+dist/assets/progress-cutting-exception-center-DPfMEJnf.js                29.20 kB │ gzip:   6.51 kB
+dist/assets/material-reconciliations-DGAvavDr.js                         29.38 kB │ gzip:   8.90 kB
+dist/assets/production-order-progress-tracking-CwEg3SjK.js               29.71 kB │ gzip:   9.93 kB
+dist/assets/early-process-management-BDfeRZyA.js                         30.06 kB │ gzip:   7.56 kB
+dist/assets/handover-orders-sspzRKaB.js                                  30.73 kB │ gzip:   8.48 kB
+dist/assets/pcs-config-workspace-BhkHUB13.js                             30.79 kB │ gzip:   6.80 kB
+dist/assets/capability-D7pJ78mx.js                                       31.65 kB │ gzip:   6.70 kB
+dist/assets/material-archives-CoxJ4u8k.js                                31.91 kB │ gzip:   7.92 kB
+dist/assets/factory-performance-GchyQ3Jf.js                              32.31 kB │ gzip:   6.75 kB
+dist/assets/garment-spu-replacements-DGAE8bIZ.js                         32.35 kB │ gzip:   9.09 kB
+dist/assets/task-detail-KsBznKt5.js                                      32.46 kB │ gzip:   9.61 kB
+dist/assets/dialogs-q_n4EMX8.js                                          32.55 kB │ gzip:   9.79 kB
+dist/assets/process-warehouse-domain-DGPlt-pg.js                         33.16 kB │ gzip:   7.56 kB
+dist/assets/cut-piece-return-domain-VGuKRen9.js                          33.38 kB │ gzip:   9.91 kB
+dist/assets/pda-shell-CFKwvxEB.js                                        33.56 kB │ gzip:   8.92 kB
+dist/assets/store-domain-settlement-seeds-DlMx0EQ3.js                    33.63 kB │ gzip:   8.98 kB
+dist/assets/pcs-pattern-library-Ba7-OP95.js                              33.68 kB │ gzip:   7.65 kB
+dist/assets/warehouse-runtime-D5NklJO4.js                                33.76 kB │ gzip:   8.65 kB
+dist/assets/payment-requests-CgXTcshz.js                                 34.01 kB │ gzip:   8.92 kB
+dist/assets/stage-orders-DXfTUTza.js                                     34.18 kB │ gzip:  10.46 kB
+dist/assets/stage-order-detail-DY540r7A.js                               34.53 kB │ gzip:  10.00 kB
+dist/assets/first-leg-logistics-CeyudPhD.js                              34.57 kB │ gzip:   9.04 kB
+dist/assets/pda-warehouse-stocktake-BA7fnCSI.js                          34.58 kB │ gzip:   8.69 kB
+dist/assets/pda-cutting-inbound-DGn-_bao.js                              34.67 kB │ gzip:  10.52 kB
+dist/assets/work-order-detail-CPuNcGaz.js                                34.69 kB │ gzip:   9.44 kB
+dist/assets/pda-post-finishing-flow-QXs0o2g-.js                          34.83 kB │ gzip:   9.30 kB
+dist/assets/pda-cutting-handover-DB3ZNoLm.js                             34.90 kB │ gzip:  10.65 kB
+dist/assets/dispatch-acceptance-sla-SRpjvk-3.js                          34.95 kB │ gzip:   7.90 kB
+dist/assets/work-orders-CD-81Msj.js                                      34.96 kB │ gzip:  11.73 kB
+dist/assets/pending-receipts-dKh9n1bm.js                                 35.31 kB │ gzip:  10.62 kB
+dist/assets/pda-task-receive-detail-D2N6etCb.js                          35.81 kB │ gzip:   8.67 kB
+dist/assets/water-soluble-orders-CXZqzqAM.js                             35.89 kB │ gzip:  10.78 kB
+dist/assets/work-order-detail-BdE0NB5k.js                                36.12 kB │ gzip:   9.67 kB
+dist/assets/pcs-technical-data-Bq5CMpxC.js                               36.88 kB │ gzip:   9.85 kB
+dist/assets/pcs-pattern-library-create-DyK3aNBu.js                       36.93 kB │ gzip:   8.64 kB
+dist/assets/special-processes-dA229KNH.js                                37.28 kB │ gzip:   9.54 kB
+dist/assets/first-leg-carriers-CdH0Q5uY.js                               37.45 kB │ gzip:   9.93 kB
+dist/assets/third-party-factory-comprehensive-assessment-D9r305As.js     37.47 kB │ gzip:  11.06 kB
+dist/assets/pda-quality-Co70RtBy.js                                      37.52 kB │ gzip:   9.83 kB
+dist/assets/product-purchase-orders-DNZ6gr3A.js                          37.57 kB │ gzip:   9.20 kB
+dist/assets/wait-handover-runtime-D2WGs_j_.js                            37.84 kB │ gzip:  10.63 kB
+dist/assets/cutting-statistics-ab-material-C0Y4_OlW.js                   38.13 kB │ gzip:   8.64 kB
+dist/assets/payment-requests-CzJdWHuT.js                                 38.21 kB │ gzip:   9.97 kB
+dist/assets/pda-cutting-transfer-bag-repack-C4GoXrh0.js                  38.46 kB │ gzip:  10.87 kB
+dist/assets/warehouse-Du-qRCaN.js                                        38.57 kB │ gzip:  10.93 kB
+dist/assets/material-purchase-orders-YWGmTsXT.js                         39.01 kB │ gzip:  11.72 kB
+dist/assets/semi-finished-orders-BPy-ky1c.js                             39.06 kB │ gzip:  11.85 kB
+dist/assets/fcs-handlers-X8v0CR5B.js                                     39.82 kB │ gzip:  11.99 kB
+dist/assets/first-leg-shipments-qEy6_yO7.js                              39.89 kB │ gzip:   9.89 kB
+dist/assets/pending-receipts-DOVD67XT.js                                 41.04 kB │ gzip:  14.88 kB
+dist/assets/label-print-template-Chm7RkI-.js                             42.93 kB │ gzip:  12.17 kB
+dist/assets/warehouse-Bipxf6PP.js                                        44.15 kB │ gzip:  11.20 kB
+dist/assets/cutting-summary-D673G09X.js                                  44.21 kB │ gzip:  11.57 kB
+dist/assets/demand-domain-BmpJm7KO.js                                    45.63 kB │ gzip:  10.31 kB
+dist/assets/warehouse-ld9x0vGR.js                                        46.26 kB │ gzip:  10.78 kB
+dist/assets/batches-Dus28ZnC.js                                          46.45 kB │ gzip:   9.86 kB
+dist/assets/engineering-file-upload-CKKNn9lA.js                          46.76 kB │ gzip:  14.45 kB
+dist/assets/handover-orders-Ee4EtC8Z.js                                  47.47 kB │ gzip:   9.30 kB
+dist/assets/dyeing-CDh1owMl.js                                           47.49 kB │ gzip:  10.20 kB
+dist/assets/printing-CSmJGsb8.js                                         47.49 kB │ gzip:  10.21 kB
+dist/assets/other-C_S55ngx.js                                            47.50 kB │ gzip:  10.22 kB
+dist/assets/settlement-linked-mock-factory-CwvQSRxF.js                   47.63 kB │ gzip:  14.45 kB
+dist/assets/sewing-CaD2a6zF.js                                           48.51 kB │ gzip:  10.55 kB
+dist/assets/dispatch-tenders-BWFhxP4v.js                                 48.58 kB │ gzip:  12.74 kB
+dist/assets/progress-material-Co0JyHCT.js                                48.76 kB │ gzip:   9.37 kB
+dist/assets/material-inventory-BD6EvLvi.js                               48.96 kB │ gzip:  12.56 kB
+dist/assets/work-order-detail-CPuYo6j4.js                                49.19 kB │ gzip:  15.54 kB
+dist/assets/supplier-confirmations-wZ7dflEC.js                           50.01 kB │ gzip:  12.93 kB
+dist/assets/pda-task-receive-D7DAJSnS.js                                 50.37 kB │ gzip:  12.61 kB
+dist/assets/pda-cutting-execution-source-lREC48Xx.js                     50.55 kB │ gzip:  13.66 kB
+dist/assets/pda-onboarding-Cyl9_zuC.js                                   50.56 kB │ gzip:  10.80 kB
+dist/assets/pda-handover-DLrealZT.js                                     51.62 kB │ gzip:  13.63 kB
+dist/assets/marker-plan-model-B_B_tmtb.js                                51.64 kB │ gzip:  14.76 kB
+dist/assets/store-domain-progress-BFB59WI4.js                            53.10 kB │ gzip:  11.77 kB
+dist/assets/settlement-cutting-input-Bryg_WFr.js                         53.68 kB │ gzip:  11.09 kB
+dist/assets/lace-factory-domain-BBNpHDul.js                              53.68 kB │ gzip:  13.40 kB
+dist/assets/pcs-part-template-library-HITVKpZz.js                        53.81 kB │ gzip:  11.09 kB
+dist/assets/pcs-material-archives-B1ohLM-5.js                            55.31 kB │ gzip:  13.20 kB
+dist/assets/progress-urge-CWdmPNt3.js                                    56.39 kB │ gzip:  11.42 kB
+dist/assets/warehouse-location-map-DhtWjfHd.js                           56.80 kB │ gzip:  16.84 kB
+dist/assets/marker-plan-occupancy-BvaC356S.js                            57.29 kB │ gzip:  16.08 kB
+dist/assets/pda-cutting-spreading-Dl8rWYTg.js                            58.00 kB │ gzip:  13.67 kB
+dist/assets/wls-accessory-receipts-rmXqumXD.js                           58.45 kB │ gzip:  14.85 kB
+dist/assets/runtime-inputs-wL4lY9Is.js                                   59.62 kB │ gzip:  15.93 kB
+dist/assets/cut-piece-release-CHxnK5GH.js                                60.14 kB │ gzip:  15.85 kB
+dist/assets/pda-settlement-D-9nPAiz.js                                   60.20 kB │ gzip:  13.72 kB
+dist/assets/factory-profile-uldqFnIg.js                                  61.16 kB │ gzip:  14.05 kB
+dist/assets/pickup-management-list-B8kiP6Pu.js                           61.55 kB │ gzip:  17.17 kB
+dist/assets/routes-fcs-D0UJ3lW7.js                                       62.37 kB │ gzip:  13.06 kB
+dist/assets/cutting-DOgoq_5g.js                                          62.83 kB │ gzip:  12.97 kB
+dist/assets/special-craft-fei-ticket-flow-BLMrx3nc.js                    63.34 kB │ gzip:  14.38 kB
+dist/assets/progress-handover-BXfShakm.js                                63.86 kB │ gzip:  13.59 kB
+dist/assets/production-object-overview-DDJzYFnm.js                       66.10 kB │ gzip:  13.59 kB
+dist/assets/output-documents-CoiU85F1.js                                 66.89 kB │ gzip:  22.98 kB
+dist/assets/core-Cf5ygABR.js                                             67.62 kB │ gzip:  12.57 kB
+dist/assets/cutting-daily-production-report-BhIn1sxR.js                  68.22 kB │ gzip:  19.12 kB
+dist/assets/pda-exec-DRqpxJTy.js                                         68.31 kB │ gzip:  15.65 kB
+dist/assets/pcs-channel-stores-C0yvHAaB.js                               69.26 kB │ gzip:  14.32 kB
+dist/assets/context-BQb52PiL.js                                          69.90 kB │ gzip:  21.47 kB
+dist/assets/sewing-dispatch-DFwQBJMS.js                                  70.19 kB │ gzip:  18.35 kB
+dist/assets/progress-exceptions-DMc7jFkj.js                              70.42 kB │ gzip:  13.33 kB
+dist/assets/qc-records-C6aTh-qo.js                                       71.12 kB │ gzip:  16.00 kB
+dist/assets/pcs-engineering-tasks-CGDKziMF.js                            71.36 kB │ gzip:  17.07 kB
+dist/assets/production-object-overview-Bm-IwcXc.js                       71.57 kB │ gzip:  16.69 kB
+dist/assets/wait-handover-actions-CCJCh-lb.js                            73.72 kB │ gzip:  18.81 kB
+dist/assets/pcs-sample-management-V4vFgU7q.js                            74.38 kB │ gzip:  17.28 kB
+dist/assets/factory-onboarding-BISx49hb.js                               75.25 kB │ gzip:  12.68 kB
+dist/assets/settlement-B8JOXHCl.js                                       75.58 kB │ gzip:  11.56 kB
+dist/assets/dialogs-c8YZTZFj.js                                          75.66 kB │ gzip:  18.69 kB
+dist/assets/pda-handover-detail-D6YKAGxv.js                              76.01 kB │ gzip:  18.69 kB
+dist/assets/orders-domain-CjdeizD-.js                                    76.23 kB │ gzip:  16.86 kB
+dist/assets/runtime-projections-DlQKuxYq.js                              78.06 kB │ gzip:  18.45 kB
+dist/assets/process-action-writeback-service-CXAcYTfG.js                 78.08 kB │ gzip:  17.83 kB
+dist/assets/transfer-bag-operations-nyzwI_Ly.js                          78.60 kB │ gzip:  19.48 kB
+dist/assets/transfer-bags-Z4A_KpOa.js                                    78.69 kB │ gzip:  20.29 kB
+dist/assets/production-progress-1lfyPkES.js                              80.75 kB │ gzip:  20.39 kB
+dist/assets/pda-warehouse-wait-process-lKuIan3e.js                       87.41 kB │ gzip:  21.18 kB
+dist/assets/events-BxKJ5EGq.js                                           90.25 kB │ gzip:  22.27 kB
+dist/assets/factory-onboarding-flow-Z8UOMO_O.js                          90.59 kB │ gzip:  23.31 kB
+dist/assets/dispatch-2PgYzXwO.js                                         92.27 kB │ gzip:  28.12 kB
+dist/assets/tmf-material-purchases-BH20AAu9.js                           94.11 kB │ gzip:  24.37 kB
+dist/assets/cut-orders-CS0DkSRR.js                                       94.83 kB │ gzip:  24.46 kB
+dist/assets/pcs-independent-sampling-DXQVWx1X.js                         96.98 kB │ gzip:  26.97 kB
+dist/assets/special-craft-task-orders-PMTzf7gN.js                        99.32 kB │ gzip:  26.84 kB
+dist/assets/pcs-product-archives-Dlb7e-O4.js                            107.68 kB │ gzip:  21.99 kB
+dist/assets/index-CYJbxDLf.js                                           109.47 kB │ gzip:  39.86 kB
+dist/assets/app-shared-CPz9CE3D.js                                      111.85 kB │ gzip:  27.95 kB
+dist/assets/supplement-management-DjCZGhHc.js                           113.26 kB │ gzip:  29.93 kB
+dist/assets/transfer-bag-return-model-Dsn81kTm.js                       115.34 kB │ gzip:  27.26 kB
+dist/assets/statements-Cy7YSmeq.js                                      119.56 kB │ gzip:  24.47 kB
+dist/assets/events-CeE9saRR.js                                          121.42 kB │ gzip:  31.34 kB
+dist/assets/unified-dispatch-workbench-DYmctzEi.js                      121.57 kB │ gzip:  34.09 kB
+dist/assets/context-C7avFrbt.js                                         133.03 kB │ gzip:  34.41 kB
+dist/assets/production-wc8jgVRU.js                                      134.17 kB │ gzip:  27.50 kB
+dist/assets/process-domain-Da8X5CF_.js                                  138.98 kB │ gzip:  25.98 kB
+dist/assets/warehouse-hub-CLYnZ72Q.js                                   140.79 kB │ gzip:  35.40 kB
+dist/assets/generated-fei-tickets-8eqHd_WX.js                           142.80 kB │ gzip:  36.11 kB
+dist/assets/preparation-timing-JeUtTphM.js                              145.97 kB │ gzip:  34.40 kB
+dist/assets/marker-plan-aTFqYs6t.js                                     150.90 kB │ gzip:  35.74 kB
+dist/assets/marker-spreading-C5dB7DRh.js                                154.75 kB │ gzip:  37.96 kB
+dist/assets/return-inbound-CHadMBTm.js                                  183.42 kB │ gzip:  33.52 kB
+dist/assets/fei-tickets-uB1PEiC7.js                                     198.95 kB │ gzip:  44.71 kB
+dist/assets/index--GzcKvNw.js                                           210.12 kB │ gzip:  66.49 kB
+dist/assets/print-template-registry-Brw2L96T.js                         213.77 kB │ gzip:  55.43 kB
+dist/assets/index-2SQYTz0c.js                                           234.14 kB │ gzip:  54.63 kB
+dist/assets/pda-exec-detail-Dd2-nwjr.js                                 240.55 kB │ gzip:  56.46 kB
+dist/assets/production-timeliness-B3MOCu1-.js                           459.95 kB │ gzip: 115.04 kB
+dist/assets/pda-6DTE4uSf.js                                             511.97 kB │ gzip:  85.41 kB
+dist/assets/production-source-shared-udHKJ36G.js                      3,347.66 kB │ gzip: 770.45 kB
+
+(!) Some chunks are larger than 550 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 11.79s

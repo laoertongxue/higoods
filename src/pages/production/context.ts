@@ -1,3 +1,4 @@
+import { saveProductionSourceUiAction } from '../../data/fcs/production-context-actions.ts'
 import { appStore } from '../../state/store'
 import { escapeHtml, formatDateTime, localDateTimeText } from '../../utils'
 import { renderFormDialog, renderConfirmDialog } from '../../components/ui/dialog'
@@ -1043,16 +1044,16 @@ function applyOrderTaskBreakdown(orderIds: string[]): number {
     }
   })
   state.orders.splice(0, state.orders.length, ...nextOrders)
-  persistCreatedProductionOrders()
+  persistCreatedProductionOrders(orderIds)
 
   return changedCount
 }
 
-function confirmTaskGenerationPreview(): number {
+async function confirmTaskGenerationPreview(): Promise<number> {
   const orderIds = state.taskGenerationPreview?.previews
     .filter((preview) => preview.status === 'READY')
     .map((preview) => preview.productionOrderId) ?? []
-  const changed = applyOrderTaskBreakdown(orderIds)
+  const changed = await saveProductionSourceUiAction(`拆解生产任务:${JSON.stringify(orderIds)}`, () => applyOrderTaskBreakdown(orderIds))
   if (changed > 0) closeTaskGenerationPreview()
   return changed
 }

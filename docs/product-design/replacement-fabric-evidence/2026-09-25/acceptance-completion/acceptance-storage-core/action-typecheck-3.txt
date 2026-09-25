@@ -1,0 +1,22 @@
+src/data/fcs/cutting/cutting-runtime-event-ledger.ts(1198,12): error TS2322: Type 'CuttingRuntimeEvent<"中转仓配料完成通知" | "染色厂配料完成通知" | "印花厂配料完成通知" | "配料完成通知" | "中转仓接收" | "待加工仓扫码入仓" | "待加工仓加工接收" | "待加工仓回收入仓" | "待加工仓位置调整" | "裁片单开工" | "开始铺布" | "完成铺布" | "开始裁剪" | "完成裁剪" | "菲票装袋" | "中转袋入仓" | ... 7 more ... | "中转袋报废">' is not assignable to type 'CuttingRuntimeEvent<T>'.
+  Type '"中转仓配料完成通知" | "染色厂配料完成通知" | "印花厂配料完成通知" | "配料完成通知" | "中转仓接收" | "待加工仓扫码入仓" | "待加工仓加工接收" | "待加工仓回收入仓" | "待加工仓位置调整" | "裁片单开工" | "开始铺布" | "完成铺布" | "开始裁剪" | "完成裁剪" | "菲票装袋" | "中转袋入仓" | ... 7 more ... | "中转袋报废"' is not assignable to type 'T'.
+    '"中转仓配料完成通知" | "染色厂配料完成通知" | "印花厂配料完成通知" | "配料完成通知" | "中转仓接收" | "待加工仓扫码入仓" | "待加工仓加工接收" | "待加工仓回收入仓" | "待加工仓位置调整" | "裁片单开工" | "开始铺布" | "完成铺布" | "开始裁剪" | "完成裁剪" | "菲票装袋" | "中转袋入仓" | ... 7 more ... | "中转袋报废"' is assignable to the constraint of type 'T', but 'T' could be instantiated with a different subtype of constraint 'CuttingRuntimeEventType'.
+      Type '"中转仓配料完成通知"' is not assignable to type 'T'.
+        '"中转仓配料完成通知"' is assignable to the constraint of type 'T', but 'T' could be instantiated with a different subtype of constraint 'CuttingRuntimeEventType'.
+src/data/fcs/dye-work-order-online-view.ts(383,43): error TS2345: Argument of type 'PreparationMaterialReceiptSourceResult | { requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to parameter of type 'PreparationMaterialReceiptSourceResult | undefined'.
+  Type '{ requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to type 'PreparationMaterialReceiptSourceResult'.
+    Types of property 'requiresSource' are incompatible.
+      Type 'boolean' is not assignable to type 'true'.
+src/data/fcs/dye-work-order-online-view.ts(432,59): error TS2345: Argument of type 'PreparationMaterialReceiptSourceResult | { requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to parameter of type 'PreparationMaterialReceiptSourceResult'.
+  Type '{ requiresSource: boolean; requiresUpstream: boolean; sourceMode: "UNRESOLVED"; options: never[]; }' is not assignable to type 'PreparationMaterialReceiptSourceResult'.
+    Types of property 'requiresSource' are incompatible.
+      Type 'boolean' is not assignable to type 'true'.
+src/data/fcs/factory-receiving-source-sync.ts(20,105): error TS2345: Argument of type 'WarehouseExecutionDoc[]' is not assignable to parameter of type 'readonly CentralTransferDocument[]'.
+  Type 'WarehouseExecutionDoc' is not assignable to type 'CentralTransferDocument'.
+    Type 'WarehouseReturnOrder' is not assignable to type 'CentralTransferDocument'.
+      Type 'WarehouseReturnOrder' is not assignable to type 'WarehouseInternalTransferOrder'.
+        Types of property 'docType' are incompatible.
+          Type '"RETURN"' is not assignable to type '"INTERNAL_TRANSFER"'.
+src/data/pms/tmf-material-purchases.ts(1290,51): error TS7006: Parameter 'r' implicitly has an 'any' type.
+src/data/pms/tmf-material-purchases.ts(1290,94): error TS7006: Parameter 'n' implicitly has an 'any' type.
+src/data/pms/tmf-material-purchases.ts(1290,96): error TS7006: Parameter 'r' implicitly has an 'any' type.

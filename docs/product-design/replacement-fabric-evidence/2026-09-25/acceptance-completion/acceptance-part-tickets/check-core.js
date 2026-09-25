@@ -1,0 +1,39 @@
+async(page)=>{
+ const browser=page.context().browser(),results=[];
+ for(const scene of ['save-replay-disabled','abort','complete-only','cas','migration-interrupt','migration-source-change','migration-conflict','migration-cleanup-retry']) {
+  const context=await browser.newContext(),p=await context.newPage();
+  await p.route('**/part-core',r=>r.fulfill({contentType:'text/html',body:'<html><body>Part ticket storage</body></html>'}));await p.goto('http://127.0.0.1:43235/part-core');
+  try { results.push(await p.evaluate(async scene=>{
+   const m=await import('/src/data/fcs/cutting/part-ticket-records.ts'),r=await import('/src/data/fcs/cutting/cutting-record-repository.ts'),K=m.PART_TICKET_KEYS;
+   const check=(v,msg)=>{if(!v)throw Error(msg)},rejects=async(fn,match)=>{let e;try{await fn()}catch(x){e=x}check(e&&String(e).includes(match),'expected '+match+', got '+e)};
+   const ticket=id=>({ticketRecordId:id,ticketNo:'FP-'+id,status:'PRINTED',quantity:10});
+   if(scene.startsWith('migration')) {
+    const old=JSON.stringify(Array.from({length:205},(_,i)=>ticket('legacy'+i)));localStorage.setItem(K.records,old);
+    sessionStorage.setItem(K.drafts,JSON.stringify({owner:{draftId:'d1',ticketCount:1}}));
+    localStorage.setItem(K.spreading,JSON.stringify({markers:[{markerId:'m1'}],sessions:[{spreadingSessionId:'s1',rolls:[{rollRecordId:'r1',layerCount:8}]}]}));localStorage.setItem(K.markerSources,JSON.stringify([{markerPlanId:'mp1',items:[{cutOrderId:'cut1'}]}]));localStorage.setItem(K.bags,JSON.stringify({masters:[{bagId:'bag1'}],usages:[{usageId:'u1',usageStatus:'PACKING'}],bindings:[{bindingId:'bind1',usageId:'u1',ticketRecordId:'legacy0'}]}));localStorage.setItem(K.markerPlans,JSON.stringify([{id:'user-plan-1',markerNo:'USER-MK-1',cutOrderIds:['cut1'],beds:[{bedId:'bed1',sizePiecePerLayer:{M:2}}]}]));localStorage.setItem('unrelated-module','keep');
+    await rejects(()=>m.hydratePartTicketRecords(),'显式迁移');
+    if(scene==='migration-interrupt') {let interrupted=false;await rejects(()=>m.migratePartTicketRecords({otherPagesClosed:true,progress:()=>{if(!interrupted){interrupted=true;throw Error('interrupt')}}}),'interrupt');check(localStorage.getItem(K.records)===old,'keep source');check((await r.readCuttingRecords()).records.filter(x=>x.collection==='part-ticket:records').length===100,'batch100');}
+    if(scene==='migration-source-change') {await rejects(()=>m.migratePartTicketRecords({otherPagesClosed:true,progress:()=>localStorage.setItem(K.records,JSON.stringify([ticket('changed')]))}),'改变');check(localStorage.getItem(K.records).includes('changed'),'keep changed source');return {scene,passed:true};}
+    if(scene==='migration-conflict') {await r.commitCuttingRecords({revision:0,change:{puts:m.decodePartTicketRecords(K.records,JSON.stringify([{...ticket('legacy0'),quantity:99}]))},command:{id:'conflict',intent:'conflict',result:null,at:'now'}});await rejects(()=>m.migratePartTicketRecords({otherPagesClosed:true,progress:()=>{}}),'冲突');check(localStorage.getItem(K.records)===old,'conflict source untouched');return{scene,passed:true};}
+    if(scene==='migration-cleanup-retry') {const remove=Storage.prototype.removeItem;Storage.prototype.removeItem=function(key){if(key===K.records)throw Error('cleanup-failed');return remove.call(this,key)};await rejects(()=>m.migratePartTicketRecords({otherPagesClosed:true,progress:()=>{}}),'cleanup-failed');Storage.prototype.removeItem=remove;check(localStorage.getItem(K.records)===old,'cleanup failure source kept');}
+    await m.migratePartTicketRecords({otherPagesClosed:true,progress:()=>{}});
+    check(localStorage.getItem(K.records)===null&&sessionStorage.getItem(K.drafts)===null,'oldkeys removed');check(localStorage.getItem('unrelated-module')==='keep','unrelated preserved');check(localStorage.getItem(K.spreading)===null&&localStorage.getItem(K.markerSources)===null,'spreading source keys removed');check(JSON.parse(m.readPartTicketValue(K.spreading)).sessions[0].rolls[0].layerCount===8,'spreading roll preserved');check(JSON.parse(m.readPartTicketValue(K.markerSources))[0].items[0].cutOrderId==='cut1','marker source preserved');check(localStorage.getItem(K.bags)===null,'old bags removed');check(JSON.parse(m.readPartTicketValue(K.bags)).bindings[0].ticketRecordId==='legacy0','binding preserved');check(JSON.parse(m.readPartTicketValue(K.records)).length===205,'205 restored');check(JSON.parse(m.readPartTicketValue(K.drafts)).owner.draftId==='d1','draft restored');
+    check(localStorage.getItem(K.markerPlans)===null,'old marker plans removed');check(JSON.parse(m.readPartTicketValue(K.markerPlans))[0].beds[0].sizePiecePerLayer.M===2,'user marker plan retained');Storage.prototype.getItem=()=>{throw Error('disabled')};await m.hydratePartTicketRecords();check(JSON.parse(m.readPartTicketValue(K.records)).length===205,'disabled read');return{scene,passed:true};
+   }
+   await m.hydratePartTicketRecords();check((await r.readCuttingRecords()).records.length===0,'first read no seed writes');
+   let calls=0,memory={saved:false};const capture=()=>memory,restore=v=>memory=v;
+   const action=()=>{calls++;m.writePartTicketValue(K.records,JSON.stringify([ticket('1')]));m.writePartTicketValue(K.jobs,JSON.stringify([{printJobId:'j1',ticketRecordIds:['1']}]));memory={saved:true};return {id:'1'}};
+   if(scene==='abort') {const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,...a){if(v?.collection==='part-ticket:jobs')throw Error('aborted-after-ticket');return put.call(this,v,...a)};await rejects(()=>m.savePartTicketAction({id:'save',intent:'x',action,capture,restore}),'aborted-after-ticket');IDBObjectStore.prototype.put=put;check(!memory.saved,'memory rollback');check((await r.readCuttingRecords()).records.length===0,'no halfsaved ticket');}
+   if(scene==='cas') {const db=await r.openCuttingRecordDatabase();await rejects(()=>m.savePartTicketAction({id:'save',intent:'x',capture,restore,action:()=>{const v=action();db.transaction('meta','readwrite').objectStore('meta').put({id:'revision',value:99});return v}}),'其他页面');check(!memory.saved,'cas memory rollback');check((await r.readCuttingRecords()).records.length===0,'cas no overwrite');return{scene,passed:true};}
+   let observed=false;
+   if(scene==='complete-only') {const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,...a){const req=put.call(this,v,...a);if(v?.collection==='part-ticket:records'&&!observed)req.addEventListener('success',()=>{check(!memory.saved,'request success cannot publish');observed=true});return req};}
+   await m.savePartTicketAction({id:'save',intent:'x',action,capture,restore});check(memory.saved,'published after complete');
+   if(scene==='complete-only')check(observed,'request observation');
+   const called=calls;await m.savePartTicketAction({id:'save',intent:'x',action,capture,restore});check(calls===called,'replay no action');await rejects(()=>m.savePartTicketAction({id:'save',intent:'different',action,capture,restore}),'不同内容');
+   Storage.prototype.getItem=()=>{throw Error('disabled')};Storage.prototype.setItem=()=>{throw Error('disabled')};
+   await m.hydratePartTicketRecords();await m.savePartTicketAction({id:'save2',intent:'change',action:()=>m.writePartTicketValue(K.records,JSON.stringify([{...ticket('1'),quantity:11}]))});check(JSON.parse(m.readPartTicketValue(K.records))[0].quantity===11,'disabled read/write');
+   check((await r.readCuttingRecords()).records.filter(x=>x.collection==='part-ticket:records').length===1,'one actual saved ticket');return{scene,passed:true};
+  },scene)); }catch(error){results.push({scene,error:String(error)})}finally{await context.close()}
+ }
+ return {results,failed:results.filter(x=>x.error)};
+}

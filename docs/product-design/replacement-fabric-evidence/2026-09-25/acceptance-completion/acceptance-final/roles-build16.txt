@@ -1,0 +1,16 @@
+### Result
+[{"account":"OWN-CUTTING-001_operator","path":"/fcs/craft/cutting/warehouse-management/wait-handover","disabled":true,"text":"任务单号\n读取任务\n\n仅裁床待交出仓的仓管可以确认交出，请使用裁床仓管账号。 登录裁床账号\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）","errors":[]},{"account":"OWN-CUTTING-001_operator","path":"/fcs/pda/cutting/simple-cut-piece-handover","disabled":true,"text":"任务单号\n扫描\n\n仅裁床待交出仓的仓管可以确认交出，请使用裁床仓管账号。 登录裁床账号\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）","errors":[]},{"account":"ID-F001_admin","path":"/fcs/craft/cutting/warehouse-management/wait-handover","disabled":true,"text":"任务单号\n读取任务\n\n仅裁床待交出仓的仓管可以确认交出，请使用裁床仓管账号。 登录裁床账号\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）","errors":[]}]
+### Ran Playwright code
+```js
+await (async page=>{const b=page.context().browser(),existing=new Set(b.contexts());try{return await (async root=>{
+ const results=[];
+ for(const [account,path] of [['OWN-CUTTING-001_operator','/fcs/craft/cutting/warehouse-management/wait-handover'],['OWN-CUTTING-001_operator','/fcs/pda/cutting/simple-cut-piece-handover'],['ID-F001_admin','/fcs/craft/cutting/warehouse-management/wait-handover']]){
+  const c=await root.context().browser().newContext(),p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
+  await p.goto('http://127.0.0.1:43236/fcs/pda/auth/login');await p.getByRole('textbox',{name:'登录账号'}).fill(account);await p.getByRole('textbox',{name:'密码',exact:true}).fill('123456');await p.getByRole('button',{name:'登录',exact:true}).click();await p.waitForURL('**/fcs/pda/exec');await p.goto('http://127.0.0.1:43236'+path);
+  if(!path.includes('/pda/'))await p.locator('[data-simple-cut-open]').click();await p.locator('[data-simple-cut-content]').waitFor();const text=await p.locator('[data-simple-cut-content]').innerText();const disabled=await p.locator('[data-simple-cut-action=confirm]').isDisabled();if(!disabled||!text.includes('仓管'))throw Error('非仓管可确认 '+account+' '+text);results.push({account,path,disabled,text,errors});await c.close();
+ }
+ return results;
+}
+)(page)}finally{for(const c of b.contexts())if(!existing.has(c))await c.close()}})(page);
+```
+

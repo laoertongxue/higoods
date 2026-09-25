@@ -1,0 +1,108 @@
+{
+  "build": 8,
+  "previousBuildEvidenceReuse": "Root explicitly permits build7 unaffected actions; build8 rechecks contract event dispatch and production preview source reads plus all 9 entry routes.",
+  "worktree": "/private/tmp/higoods-replacement-fabric-release-20260925",
+  "branch": "codex/replacement-fabric-acceptance-20260925",
+  "baseHead": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "preview": "http://127.0.0.1:43236",
+  "distIndexSha256": "d16fed55be5b1ff9701f2b043205e090c6c87d1633610c56e6dcd251decb8a9a",
+  "groups": [
+    {
+      "evidence": "perf-build8.txt",
+      "build": 8,
+      "scenarios": 135,
+      "timingSamples": 135,
+      "maximumMs": 613.1,
+      "slowSamples": 1,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "actions-build7.txt",
+      "build": 7,
+      "scenarios": 15,
+      "timingSamples": 25,
+      "maximumMs": 139.3,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "pda-accept-build7.txt",
+      "build": 7,
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 168.9,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "contract-transfer-build8.txt",
+      "build": 8,
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 98.1,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "completion-build7.txt",
+      "build": 7,
+      "scenarios": 10,
+      "timingSamples": 10,
+      "maximumMs": 221.9,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "start-build7.txt",
+      "build": 7,
+      "scenarios": 5,
+      "timingSamples": 5,
+      "maximumMs": 224.4,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "generation-build8.txt",
+      "build": 8,
+      "scenarios": 15,
+      "timingSamples": 20,
+      "maximumMs": 236.7,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    },
+    {
+      "evidence": "breakdown-build8.txt",
+      "build": 8,
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 148.1,
+      "slowSamples": 0,
+      "functionalErrors": 0
+    }
+  ],
+  "remainingFailures": [
+    {
+      "evidence": "perf-build8.txt",
+      "name": "pda-receive",
+      "scene": "cold",
+      "sample": 3,
+      "ms": 613.0999999940395,
+      "errors": []
+    }
+  ],
+  "overallStatus": "NOT_COMPLETE: PDA receive cold sample 3 exceeds 500ms",
+  "functionalStorageNotes": [
+    "Breakdown stage spy: only higood-tabs; no legacy business key writes during preview or confirmation.",
+    "Breakdown IDB abort: records and commands unchanged, preview retained, retry one task group, two task IDs each2400 survive reload.",
+    "KOL creation: one saved TASK-KOL-202603-0103 at2100 survives reload.",
+    "Contract: actual print UI/window.print observed and exactly one PRINTED audit per run; physical printer not claimed."
+  ],
+  "preparedOnly": [
+    "check-simple-handover-five.js: requested by root, static script only, no execution claim"
+  ],
+  "retainedFailures": [
+    "All build7 contract slow samples and initial observer timeout retained.",
+    "Build7 breakdown legacy writes retained.",
+    "Build8 PDA receive613.1ms retained."
+  ]
+}

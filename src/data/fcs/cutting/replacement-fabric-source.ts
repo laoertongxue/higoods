@@ -1,5 +1,6 @@
 import { productionOrders, getProductionOrderTechPackSnapshot, type ProductionOrder } from '../production-orders.ts'
-import { getRuntimeTaskById, listRuntimeProcessTasks } from '../runtime-process-tasks.ts'
+import { readProductionContextValue, isProductionContextReady, PRODUCTION_CONTEXT_KEYS, assertProductionContextLegacyUnchanged } from '../production-context-records.ts'
+import { getRuntimeTaskById, listRuntimeProcessTasks, type RuntimeProcessTask } from '../runtime-process-tasks.ts'
 import { classifyTaskFulfillmentPolicy } from '../task-fulfillment-policy.ts'
 import { isCuttingProcessTask, resolveCuttingTaskAssigneeType } from './cutting-task-routing.ts'
 import { resolveProductionOrderTaskBoundary } from '../task-generation-boundaries.ts'
@@ -50,6 +51,13 @@ export function resolveReplacementFabricMaterials(input: {
   return { materials: [...materials.values()], issues: [...issues] }
 }
 
+/** 改派动作有独立身份，即使回到原厂并回填原业务日期，也不复活旧纸票。 */
+export function replacementFabricAssignmentKey(task: Pick<RuntimeProcessTask, 'taskId' | 'assignedFactoryId' | 'businessAssignedAt' | 'dispatchedAt' | 'awardedAt' | 'createdAt' | 'auditLogs'>): string {
+  const base = [task.taskId, task.assignedFactoryId, task.businessAssignedAt || task.dispatchedAt || task.awardedAt || task.createdAt]
+  const reassignment = [...task.auditLogs].reverse().find(log => log.action === 'CUTTING_REASSIGN')
+  return JSON.stringify(reassignment ? [...base, reassignment.id] : base)
+}
+
 export interface ReplacementFabricOrderRow {
   order: ProductionOrder; scopes: ReplacementFabricScope[]; materials: ReplacementFabricMaterial[]; issues: string[]
 }
@@ -70,8 +78,7 @@ export function listReplacementFabricOrderRows(factoryId?: string): ReplacementF
       const skuLines = task.scopeSkuLines?.length ? task.scopeSkuLines : order.demandSnapshot.skuLines
       const materialScope = resolveReplacementFabricMaterials({ techPack, skuLines, bomItemIds })
       // 分配时间使用真实派单事实；普通任务更新／PPIC 显示变化不重建票。
-      const assignmentKey = JSON.stringify([task.taskId, task.assignedFactoryId,
-        task.businessAssignedAt || task.dispatchedAt || task.awardedAt || task.createdAt])
+      const assignmentKey = replacementFabricAssignmentKey(task)
       return { productionOrderId: order.productionOrderId, productionOrderNo: order.productionOrderNo,
         factoryId: task.assignedFactoryId!, assignmentKey, ...materialScope }
     })
@@ -117,8 +124,16 @@ export function resolveReplacementFabricRuntimeTaskContext(taskId: string, recei
     requiredMaterials: scope.materials, issues: scope.issues, inScope: policy.startsWithSewing }
 }
 
-/** 上游尚使用旧存储的派单事实，在本次 IDB 写事务内再核对；改派不能穿过异步提交窗口。 */
+/** 已迁移来源与票据共用事务版本；内存来源也必须保持本次准备时的内容。 */
 export function captureReplacementFabricSourceGuard(): () => void {
+  if (isProductionContextReady()) {
+    const keys = Object.values(PRODUCTION_CONTEXT_KEYS)
+    const before = keys.map(readProductionContextValue)
+    return () => {
+      assertProductionContextLegacyUnchanged()
+      if (keys.some((key, index) => readProductionContextValue(key) !== before[index])) throw new Error('生产单分配已变化，本次未保存，请重新核对。')
+    }
+  }
   const keys = ['higood.runtime-process-task-actions.v1', 'higood.formal-created-production-orders.v1', 'higood.effective-task-assignments.v2', 'cuttingRuntimeEventLedger']
   const read = () => keys.map(key => {
     try { return typeof localStorage === 'undefined' ? null : localStorage.getItem(key) }

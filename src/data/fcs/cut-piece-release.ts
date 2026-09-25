@@ -358,6 +358,7 @@ const lateEvents = new Map<string, LateCutPieceReleaseEvent>()
 const releaseVersionRepository = new Map<string, CutPieceReleaseAvailableQtyVersion[]>()
 const GENERATED_RELEASE_STORAGE_KEY = 'higood-generated-cut-piece-release-v1'
 let loadedGeneratedReleaseRaw: string | null | undefined
+let buildingStaticReleaseFixtures = false
 
 function readSavedGeneratedRelease(): void {
   const storage = getBrowserLocalStorage()
@@ -401,6 +402,7 @@ function saveGeneratedRelease(): void {
 }
 
 function withSavedRelease<T>(operation: () => T, failure: (message: string) => T, productionOrderId?: string): T {
+  if (buildingStaticReleaseFixtures) return operation()
   try { syncGeneratedCutPieceRelease() } catch (error) { return failure(error instanceof Error ? error.message : String(error)) }
   // 单生产单确认只会修改该单的事实；其余记录保留引用及 Map 顺序即可回滚。
   // 跨对象操作仍保留完整快照，避免扩大本次性能调整的业务范围。
@@ -432,6 +434,7 @@ export function setGeneratedCutReleaseReader(reader: () => ReturnType<typeof bui
 }
 
 function syncGeneratedCutPieceRelease(): void {
+  if (buildingStaticReleaseFixtures) return
   if (syncingGeneratedRelease) return
   syncingGeneratedRelease = true
   try {
@@ -1146,14 +1149,18 @@ function bootstrapRepository(): void {
   })
 }
 
-bootstrapRepository()
+function buildStaticReleaseFixtures(): void {
+  buildingStaticReleaseFixtures = true
+  try { bootstrapRepository() } finally { buildingStaticReleaseFixtures = false }
+}
+buildStaticReleaseFixtures()
 
 export function resetCutPieceReleasePrototypeStoreForTesting(): void {
   releaseRepository.clear()
   targetSnapshots.clear()
   lateEvents.clear()
   releaseVersionRepository.clear()
-  bootstrapRepository()
+  buildStaticReleaseFixtures()
 }
 
 function resolveCutOrderSource(item: ReleaseRepositoryItem, cutOrderId: string, cutOrderNo = ''): { cutOrderId: string; cutOrderNo: string } | null {

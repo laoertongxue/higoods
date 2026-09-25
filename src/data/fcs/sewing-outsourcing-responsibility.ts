@@ -1,4 +1,5 @@
-import { getBrowserLocalStorage } from '../browser-storage.ts'
+import {productionContextStorage} from './production-context-records.ts'
+const getBrowserLocalStorage=()=>productionContextStorage
 import {
   listCurrentEffectiveTaskAssignments,
   listEffectiveTaskAssignments,
@@ -253,4 +254,11 @@ export function resetSewingTaskResponsibilityTransfersForTests(): void {
   transfersByRuntimeTaskId.clear()
   transferByCommandId.clear()
   transferSequence = 0
+}
+
+export function captureSewingResponsibilityState(){refreshStoredTransfers();return structuredClone({records:[...transferByCommandId],sequence:transferSequence,raw:lastStoredTransfers})}
+export function restoreSewingResponsibilityState(value:ReturnType<typeof captureSewingResponsibilityState>):void {
+ transfersByRuntimeTaskId.clear();transferByCommandId.clear()
+ for(const [id,record] of value.records){transferByCommandId.set(id,structuredClone(record));transfersByRuntimeTaskId.set(record.runtimeTaskId,[...(transfersByRuntimeTaskId.get(record.runtimeTaskId) || []),structuredClone(record)])}
+ transferSequence=value.sequence;lastStoredTransfers=value.raw
 }

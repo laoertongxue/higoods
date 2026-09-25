@@ -1,0 +1,699 @@
+{
+  "environment": {
+    "origin": "http://127.0.0.1:43236",
+    "viewport": "PDA390x844/Web1366x768",
+    "measurement": "native event or navigationStart through readable result/images/2RAF; new HPB generated/printed through UI each sample, window.print intercepted as software-only"
+  },
+  "results": [
+    {
+      "sample": 1,
+      "errors": [],
+      "printFeedback": "已保存 1 张票的打印结果。其余票未标记已打印。",
+      "ticket": {
+        "id": "HPB-f0b79e19-9ba2-4cdf-b1c1-3de4d3cda455",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "sequence": 3,
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "cuttingFactoryId": "F090",
+        "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+        "material": {
+          "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+          "code": "tdv_demand_SPU_2024_005-bom-main",
+          "name": "主面料",
+          "color": "Grey",
+          "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+          "skuCodes": [
+            "SKU-005-S-GRY",
+            "SKU-005-M-GRY",
+            "SKU-005-L-GRY",
+            "SKU-005-XL-GRY"
+          ]
+        },
+        "length": 5,
+        "unit": "Yard",
+        "createdAt": "2026-09-25T06:17:45.521Z",
+        "createdBy": "裁床打票员",
+        "creationCommandId": "69c53b66-fdee-4f05-bf57-93831f595e5f"
+      },
+      "scanBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n1 扫中转袋\n2 扫菲票\n已扫菲票 1 张\n换片布 1 张 / 5 Yard\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003 已加入\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "savedBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n装袋成功\n1 扫中转袋\n2 扫菲票\n已扫菲票 0 张\n空袋\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "baggingEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-UI-SCAN-cycle:BAG-HPB-UI-SCAN:202609251417-HPB-f0b79e19-9ba2-4cdf-b1c1-3de4d3cda455:202609251417",
+          "eventNo": "BAGGING-202609251417",
+          "ledgerSequence": 10,
+          "idempotencyKey": "PDA:BAGGING:BAG-HPB-UI-SCAN:INITIAL:HPB-f0b79e19-9ba2-4cdf-b1c1-3de4d3cda455",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 14:17",
+          "createdAt": "2026-09-25 14:17",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓装袋员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-f0b79e19-9ba2-4cdf-b1c1-3de4d3cda455"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003"
+            ],
+            "transferBagCode": "BAG-HPB-UI-SCAN",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "cycle:BAG-HPB-UI-SCAN:202609251417",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "bagging:BAG-HPB-UI-SCAN:202609251417",
+            "bagCode": "BAG-HPB-UI-SCAN",
+            "feiTicketItems": [
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 3,
+                "feiTicketId": "HPB-f0b79e19-9ba2-4cdf-b1c1-3de4d3cda455",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "无",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 0,
+            "mixedFlag": false,
+            "baggingBy": "HiGood_裁床厂_管理员",
+            "baggingAt": "2026-09-25 14:17"
+          }
+        }
+      ],
+      "detail": "HiGood 裁床厂\n中转袋详情 · OWN-CUTTING-001\n待办\nH\nHiGo\n中转袋扫码详情\n\n只读展示系统能够观察到的袋票、交出、回收和报废事实。\n\n使用中\n中转袋编号：BAG-HPB-UI-SCAN\n主状态：使用中\n当前阶段：菲票已装袋\n当前使用周期：cycle:BAG-HPB-UI-SCAN:202609251417\n当前生产单：PO-202603-0002\n当前袋内货物：换片布 1 张 / 5 Yard\n当前袋内菲票\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\n最近交出快照\n暂无交出记录\n回收和报废记录\n暂无回收或报废记录\n完整历史\n1 条\n菲票装袋\n2026-09-25 14:17 · HiGood_裁床厂_管理员\n接单\n执行\n交接\n仓管\n结算",
+      "perf": [
+        {
+          "label": "hpb-scan",
+          "ms": 122.90000000596046
+        },
+        {
+          "label": "hpb-bagging-save",
+          "ms": 82.10000002384186
+        },
+        {
+          "label": "hpb-bag-detail",
+          "ms": 205.09999999403954
+        },
+        {
+          "label": "hpb-bag-refresh",
+          "ms": 197.40000000596046
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "errors": [],
+      "printFeedback": "已保存 1 张票的打印结果。其余票未标记已打印。",
+      "ticket": {
+        "id": "HPB-86d19701-d87f-4a9d-a6f1-cc2a9fb6fb3f",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "sequence": 3,
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "cuttingFactoryId": "F090",
+        "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+        "material": {
+          "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+          "code": "tdv_demand_SPU_2024_005-bom-main",
+          "name": "主面料",
+          "color": "Grey",
+          "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+          "skuCodes": [
+            "SKU-005-S-GRY",
+            "SKU-005-M-GRY",
+            "SKU-005-L-GRY",
+            "SKU-005-XL-GRY"
+          ]
+        },
+        "length": 5,
+        "unit": "Yard",
+        "createdAt": "2026-09-25T06:17:48.829Z",
+        "createdBy": "裁床打票员",
+        "creationCommandId": "34413034-209f-4dd2-9780-42c2cec33034"
+      },
+      "scanBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n1 扫中转袋\n2 扫菲票\n已扫菲票 1 张\n换片布 1 张 / 5 Yard\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003 已加入\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "savedBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n装袋成功\n1 扫中转袋\n2 扫菲票\n已扫菲票 0 张\n空袋\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "baggingEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-UI-SCAN-cycle:BAG-HPB-UI-SCAN:202609251417-HPB-86d19701-d87f-4a9d-a6f1-cc2a9fb6fb3f:202609251417",
+          "eventNo": "BAGGING-202609251417",
+          "ledgerSequence": 10,
+          "idempotencyKey": "PDA:BAGGING:BAG-HPB-UI-SCAN:INITIAL:HPB-86d19701-d87f-4a9d-a6f1-cc2a9fb6fb3f",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 14:17",
+          "createdAt": "2026-09-25 14:17",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓装袋员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-86d19701-d87f-4a9d-a6f1-cc2a9fb6fb3f"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003"
+            ],
+            "transferBagCode": "BAG-HPB-UI-SCAN",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "cycle:BAG-HPB-UI-SCAN:202609251417",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "bagging:BAG-HPB-UI-SCAN:202609251417",
+            "bagCode": "BAG-HPB-UI-SCAN",
+            "feiTicketItems": [
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 3,
+                "feiTicketId": "HPB-86d19701-d87f-4a9d-a6f1-cc2a9fb6fb3f",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "无",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 0,
+            "mixedFlag": false,
+            "baggingBy": "HiGood_裁床厂_管理员",
+            "baggingAt": "2026-09-25 14:17"
+          }
+        }
+      ],
+      "detail": "HiGood 裁床厂\n中转袋详情 · OWN-CUTTING-001\n待办\nH\nHiGo\n中转袋扫码详情\n\n只读展示系统能够观察到的袋票、交出、回收和报废事实。\n\n使用中\n中转袋编号：BAG-HPB-UI-SCAN\n主状态：使用中\n当前阶段：菲票已装袋\n当前使用周期：cycle:BAG-HPB-UI-SCAN:202609251417\n当前生产单：PO-202603-0002\n当前袋内货物：换片布 1 张 / 5 Yard\n当前袋内菲票\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\n最近交出快照\n暂无交出记录\n回收和报废记录\n暂无回收或报废记录\n完整历史\n1 条\n菲票装袋\n2026-09-25 14:17 · HiGood_裁床厂_管理员\n接单\n执行\n交接\n仓管\n结算",
+      "perf": [
+        {
+          "label": "hpb-scan",
+          "ms": 123.69999998807907
+        },
+        {
+          "label": "hpb-bagging-save",
+          "ms": 82.09999999403954
+        },
+        {
+          "label": "hpb-bag-detail",
+          "ms": 207.5
+        },
+        {
+          "label": "hpb-bag-refresh",
+          "ms": 197.40000000596046
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "errors": [],
+      "printFeedback": "已保存 1 张票的打印结果。其余票未标记已打印。",
+      "ticket": {
+        "id": "HPB-4d1bc778-b2a8-43c5-a8cd-a32b59922e8f",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "sequence": 3,
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "cuttingFactoryId": "F090",
+        "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+        "material": {
+          "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+          "code": "tdv_demand_SPU_2024_005-bom-main",
+          "name": "主面料",
+          "color": "Grey",
+          "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+          "skuCodes": [
+            "SKU-005-S-GRY",
+            "SKU-005-M-GRY",
+            "SKU-005-L-GRY",
+            "SKU-005-XL-GRY"
+          ]
+        },
+        "length": 5,
+        "unit": "Yard",
+        "createdAt": "2026-09-25T06:17:52.189Z",
+        "createdBy": "裁床打票员",
+        "creationCommandId": "302fae21-d66b-4ca2-b2a4-a47e219cd016"
+      },
+      "scanBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n1 扫中转袋\n2 扫菲票\n已扫菲票 1 张\n换片布 1 张 / 5 Yard\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003 已加入\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "savedBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n装袋成功\n1 扫中转袋\n2 扫菲票\n已扫菲票 0 张\n空袋\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "baggingEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-UI-SCAN-cycle:BAG-HPB-UI-SCAN:202609251417-HPB-4d1bc778-b2a8-43c5-a8cd-a32b59922e8f:202609251417",
+          "eventNo": "BAGGING-202609251417",
+          "ledgerSequence": 10,
+          "idempotencyKey": "PDA:BAGGING:BAG-HPB-UI-SCAN:INITIAL:HPB-4d1bc778-b2a8-43c5-a8cd-a32b59922e8f",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 14:17",
+          "createdAt": "2026-09-25 14:17",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓装袋员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-4d1bc778-b2a8-43c5-a8cd-a32b59922e8f"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003"
+            ],
+            "transferBagCode": "BAG-HPB-UI-SCAN",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "cycle:BAG-HPB-UI-SCAN:202609251417",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "bagging:BAG-HPB-UI-SCAN:202609251417",
+            "bagCode": "BAG-HPB-UI-SCAN",
+            "feiTicketItems": [
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 3,
+                "feiTicketId": "HPB-4d1bc778-b2a8-43c5-a8cd-a32b59922e8f",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "无",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 0,
+            "mixedFlag": false,
+            "baggingBy": "HiGood_裁床厂_管理员",
+            "baggingAt": "2026-09-25 14:17"
+          }
+        }
+      ],
+      "detail": "HiGood 裁床厂\n中转袋详情 · OWN-CUTTING-001\n待办\nH\nHiGo\n中转袋扫码详情\n\n只读展示系统能够观察到的袋票、交出、回收和报废事实。\n\n使用中\n中转袋编号：BAG-HPB-UI-SCAN\n主状态：使用中\n当前阶段：菲票已装袋\n当前使用周期：cycle:BAG-HPB-UI-SCAN:202609251417\n当前生产单：PO-202603-0002\n当前袋内货物：换片布 1 张 / 5 Yard\n当前袋内菲票\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\n最近交出快照\n暂无交出记录\n回收和报废记录\n暂无回收或报废记录\n完整历史\n1 条\n菲票装袋\n2026-09-25 14:17 · HiGood_裁床厂_管理员\n接单\n执行\n交接\n仓管\n结算",
+      "perf": [
+        {
+          "label": "hpb-scan",
+          "ms": 90.69999998807907
+        },
+        {
+          "label": "hpb-bagging-save",
+          "ms": 81.19999998807907
+        },
+        {
+          "label": "hpb-bag-detail",
+          "ms": 209.19999998807907
+        },
+        {
+          "label": "hpb-bag-refresh",
+          "ms": 213.2000000178814
+        }
+      ]
+    },
+    {
+      "sample": 4,
+      "errors": [],
+      "printFeedback": "已保存 1 张票的打印结果。其余票未标记已打印。",
+      "ticket": {
+        "id": "HPB-9b2f316e-199c-43d7-8109-8c5477a2dcb5",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "sequence": 3,
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "cuttingFactoryId": "F090",
+        "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+        "material": {
+          "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+          "code": "tdv_demand_SPU_2024_005-bom-main",
+          "name": "主面料",
+          "color": "Grey",
+          "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+          "skuCodes": [
+            "SKU-005-S-GRY",
+            "SKU-005-M-GRY",
+            "SKU-005-L-GRY",
+            "SKU-005-XL-GRY"
+          ]
+        },
+        "length": 5,
+        "unit": "Yard",
+        "createdAt": "2026-09-25T06:17:56.007Z",
+        "createdBy": "裁床打票员",
+        "creationCommandId": "6d5ce623-0d5e-4d89-94fc-95b6940b4178"
+      },
+      "scanBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n1 扫中转袋\n2 扫菲票\n已扫菲票 1 张\n换片布 1 张 / 5 Yard\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003 已加入\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "savedBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n装袋成功\n1 扫中转袋\n2 扫菲票\n已扫菲票 0 张\n空袋\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "baggingEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-UI-SCAN-cycle:BAG-HPB-UI-SCAN:202609251417-HPB-9b2f316e-199c-43d7-8109-8c5477a2dcb5:202609251417",
+          "eventNo": "BAGGING-202609251417",
+          "ledgerSequence": 10,
+          "idempotencyKey": "PDA:BAGGING:BAG-HPB-UI-SCAN:INITIAL:HPB-9b2f316e-199c-43d7-8109-8c5477a2dcb5",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 14:17",
+          "createdAt": "2026-09-25 14:17",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓装袋员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-9b2f316e-199c-43d7-8109-8c5477a2dcb5"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003"
+            ],
+            "transferBagCode": "BAG-HPB-UI-SCAN",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "cycle:BAG-HPB-UI-SCAN:202609251417",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "bagging:BAG-HPB-UI-SCAN:202609251417",
+            "bagCode": "BAG-HPB-UI-SCAN",
+            "feiTicketItems": [
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 3,
+                "feiTicketId": "HPB-9b2f316e-199c-43d7-8109-8c5477a2dcb5",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "无",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 0,
+            "mixedFlag": false,
+            "baggingBy": "HiGood_裁床厂_管理员",
+            "baggingAt": "2026-09-25 14:17"
+          }
+        }
+      ],
+      "detail": "HiGood 裁床厂\n中转袋详情 · OWN-CUTTING-001\n待办\nH\nHiGo\n中转袋扫码详情\n\n只读展示系统能够观察到的袋票、交出、回收和报废事实。\n\n使用中\n中转袋编号：BAG-HPB-UI-SCAN\n主状态：使用中\n当前阶段：菲票已装袋\n当前使用周期：cycle:BAG-HPB-UI-SCAN:202609251417\n当前生产单：PO-202603-0002\n当前袋内货物：换片布 1 张 / 5 Yard\n当前袋内菲票\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\n最近交出快照\n暂无交出记录\n回收和报废记录\n暂无回收或报废记录\n完整历史\n1 条\n菲票装袋\n2026-09-25 14:17 · HiGood_裁床厂_管理员\n接单\n执行\n交接\n仓管\n结算",
+      "perf": [
+        {
+          "label": "hpb-scan",
+          "ms": 109.09999999403954
+        },
+        {
+          "label": "hpb-bagging-save",
+          "ms": 82.09999999403954
+        },
+        {
+          "label": "hpb-bag-detail",
+          "ms": 207.59999999403954
+        },
+        {
+          "label": "hpb-bag-refresh",
+          "ms": 212.69999998807907
+        }
+      ]
+    },
+    {
+      "sample": 5,
+      "errors": [],
+      "printFeedback": "已保存 1 张票的打印结果。其余票未标记已打印。",
+      "ticket": {
+        "id": "HPB-24db1dc1-2747-4d57-b9b3-083e8cace412",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "sequence": 3,
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "cuttingFactoryId": "F090",
+        "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+        "material": {
+          "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+          "code": "tdv_demand_SPU_2024_005-bom-main",
+          "name": "主面料",
+          "color": "Grey",
+          "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+          "skuCodes": [
+            "SKU-005-S-GRY",
+            "SKU-005-M-GRY",
+            "SKU-005-L-GRY",
+            "SKU-005-XL-GRY"
+          ]
+        },
+        "length": 5,
+        "unit": "Yard",
+        "createdAt": "2026-09-25T06:17:59.263Z",
+        "createdBy": "裁床打票员",
+        "creationCommandId": "08cdf6c9-a9d9-4773-b1f9-139489e435b9"
+      },
+      "scanBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n1 扫中转袋\n2 扫菲票\n已扫菲票 1 张\n换片布 1 张 / 5 Yard\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003 已加入\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "savedBody": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n菲票装袋\n装袋成功\n1 扫中转袋\n2 扫菲票\n已扫菲票 0 张\n空袋\n3 确认装袋\n确认装袋\n接单\n执行\n交接\n仓管\n结算",
+      "baggingEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-UI-SCAN-cycle:BAG-HPB-UI-SCAN:202609251418-HPB-24db1dc1-2747-4d57-b9b3-083e8cace412:202609251418",
+          "eventNo": "BAGGING-202609251418",
+          "ledgerSequence": 10,
+          "idempotencyKey": "PDA:BAGGING:BAG-HPB-UI-SCAN:INITIAL:HPB-24db1dc1-2747-4d57-b9b3-083e8cace412",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 14:18",
+          "createdAt": "2026-09-25 14:18",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓装袋员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "HPB-24db1dc1-2747-4d57-b9b3-083e8cace412"
+            ],
+            "feiTicketNos": [
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003"
+            ],
+            "transferBagCode": "BAG-HPB-UI-SCAN",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "cycle:BAG-HPB-UI-SCAN:202609251418",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "bagging:BAG-HPB-UI-SCAN:202609251418",
+            "bagCode": "BAG-HPB-UI-SCAN",
+            "feiTicketItems": [
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 3,
+                "feiTicketId": "HPB-24db1dc1-2747-4d57-b9b3-083e8cace412",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "无",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 0,
+            "mixedFlag": false,
+            "baggingBy": "HiGood_裁床厂_管理员",
+            "baggingAt": "2026-09-25 14:18"
+          }
+        }
+      ],
+      "detail": "HiGood 裁床厂\n中转袋详情 · OWN-CUTTING-001\n待办\nH\nHiGo\n中转袋扫码详情\n\n只读展示系统能够观察到的袋票、交出、回收和报废事实。\n\n使用中\n中转袋编号：BAG-HPB-UI-SCAN\n主状态：使用中\n当前阶段：菲票已装袋\n当前使用周期：cycle:BAG-HPB-UI-SCAN:202609251418\n当前生产单：PO-202603-0002\n当前袋内货物：换片布 1 张 / 5 Yard\n当前袋内菲票\n换片布 · 第 3 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003\n\n生产单 PO-202603-0002\n\n车缝任务 未分配 · 接收工厂 未分配\n\n最近交出快照\n暂无交出记录\n回收和报废记录\n暂无回收或报废记录\n完整历史\n1 条\n菲票装袋\n2026-09-25 14:18 · HiGood_裁床厂_管理员\n接单\n执行\n交接\n仓管\n结算",
+      "perf": [
+        {
+          "label": "hpb-scan",
+          "ms": 123.7999999821186
+        },
+        {
+          "label": "hpb-bagging-save",
+          "ms": 82.19999998807907
+        },
+        {
+          "label": "hpb-bag-detail",
+          "ms": 206.19999998807907
+        },
+        {
+          "label": "hpb-bag-refresh",
+          "ms": 197.69999998807907
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+async root=>{
+ const results=[];
+ for(let sample=1;sample<=5;sample++){
+  const c=await root.context().browser().newContext(),p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(e.message));
+  await p.goto('http://127.0.0.1:43236/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-page]').waitFor();
+  const fileId=await p.evaluate(async()=>{const blob=new Blob(['unreferenced acceptance attachment'],{type:'text/plain'}),hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer()))].map(x=>x.toString(16).padStart(2,'0')).join('');const id='production-context-file:'+hash;await new Promise((resolve,reject)=>{const q=indexedDB.open('higood-cutting-records-v1');q.onsuccess=()=>{const d=q.result,tx=d.transaction('files','readwrite');tx.objectStore('files').put({id,blob});tx.oncomplete=()=>{d.close();resolve()};tx.onabort=()=>reject(tx.error)}});return id});
+  await p.locator('[data-hpb-action=data-tools]').click();await p.locator('[data-hpb-data-action=inspect-files]').waitFor();await p.evaluate(()=>document.addEventListener('click',()=>window.__start=performance.now(),true));
+  const act=async(name,selector,condition)=>{await p.locator(selector).click();await p.waitForFunction(condition);results.push({sample,name,ms:await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(()=>r(performance.now()-window.__start)))))})};
+  await act('检查孤立附件','[data-hpb-data-action=inspect-files]',()=>!!document.querySelector('[data-hpb-data-action=cleanup-confirm]'));
+  await act('确认清理孤立附件','[data-hpb-data-action=cleanup-confirm]',()=>document.querySelector('[data-hpb-data-message]')?.textContent.includes('已清理 1'));
+  const exists=await p.evaluate(id=>new Promise(resolve=>{const q=indexedDB.open('higood-cutting-records-v1');q.onsuccess=()=>{const d=q.result,r=d.transaction('files').objectStore('files').get(id);r.onsuccess=()=>{d.close();resolve(!!r.result)}}}),fileId);if(exists)throw Error('孤立附件未删除');
+  await act('确认迁移前关闭其他页面','[data-hpb-migration-closed]',()=>document.querySelector('[data-hpb-migration-closed]')?.checked);
+  await act('显式迁移空来源','[data-hpb-data-action=migrate]',()=>document.querySelector('[data-hpb-data-message]')?.textContent.includes('没有待迁移'));
+  if(errors.length)throw Error(errors.join('\n'));await c.close();
+ }
+ return{results,failed:results.filter(x=>x.ms>=500)};
+}

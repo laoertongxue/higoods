@@ -1,0 +1,942 @@
+[
+  {
+    "sample": 1,
+    "timings": [
+      {
+        "name": "唛架冷启动",
+        "ms": 392.59999999403954
+      },
+      {
+        "name": "进入编辑",
+        "ms": 46.80000001192093
+      },
+      {
+        "name": "床次步骤",
+        "ms": 32.19999998807907
+      },
+      {
+        "name": "备注输入",
+        "ms": 26.599999994039536
+      },
+      {
+        "name": "失败反馈",
+        "ms": 130.30000001192093
+      },
+      {
+        "name": "重试保存",
+        "ms": 132.40000000596046
+      },
+      {
+        "name": "已保存唛架刷新",
+        "ms": 230.5
+      }
+    ],
+    "failed": [],
+    "savedPlans": 1,
+    "failedPreserved": true,
+    "refreshed": "唛架记录保存与刷新验收",
+    "errors": [],
+    "fields": [
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "singleSpreadFixedLoss"
+        },
+        "value": "0.06"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "manualUnitUsage"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "originalEffectiveWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "168"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "foldAllowance",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "2"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanFoldField": "foldDirection",
+          "markerPlanControlType": "select"
+        },
+        "value": "对边折入"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "maxLayoutWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "91"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "bedNo",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "B-1"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanBedField": "bedMode",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "fold_high_low"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "remark",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanMatrixRowColor": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-d9vxn8-marker-row-1"
+        },
+        "value": "White"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-d9vxn8-marker-row-1",
+          "colorName": "White",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-d9vxn8-marker-row-1",
+          "colorName": "White",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-d9vxn8-marker-row-1",
+          "colorName": "White",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixRowLength": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-d9vxn8-marker-row-1"
+        },
+        "value": ""
+      }
+    ]
+  },
+  {
+    "sample": 2,
+    "timings": [
+      {
+        "name": "唛架冷启动",
+        "ms": 353.59999999403954
+      },
+      {
+        "name": "进入编辑",
+        "ms": 47.900000005960464
+      },
+      {
+        "name": "床次步骤",
+        "ms": 32.099999994039536
+      },
+      {
+        "name": "备注输入",
+        "ms": 28.299999982118607
+      },
+      {
+        "name": "失败反馈",
+        "ms": 129.5
+      },
+      {
+        "name": "重试保存",
+        "ms": 116.2000000178814
+      },
+      {
+        "name": "已保存唛架刷新",
+        "ms": 225.7999999821186
+      }
+    ],
+    "failed": [],
+    "savedPlans": 1,
+    "failedPreserved": true,
+    "refreshed": "唛架记录保存与刷新验收",
+    "errors": [],
+    "fields": [
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "singleSpreadFixedLoss"
+        },
+        "value": "0.06"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "manualUnitUsage"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "originalEffectiveWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "168"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "foldAllowance",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "2"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanFoldField": "foldDirection",
+          "markerPlanControlType": "select"
+        },
+        "value": "对边折入"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "maxLayoutWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "91"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "bedNo",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "B-1"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanBedField": "bedMode",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "fold_high_low"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "remark",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanMatrixRowColor": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ooojet-marker-row-1"
+        },
+        "value": "White"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ooojet-marker-row-1",
+          "colorName": "White",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ooojet-marker-row-1",
+          "colorName": "White",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ooojet-marker-row-1",
+          "colorName": "White",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixRowLength": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ooojet-marker-row-1"
+        },
+        "value": ""
+      }
+    ]
+  },
+  {
+    "sample": 3,
+    "timings": [
+      {
+        "name": "唛架冷启动",
+        "ms": 353.09999999403954
+      },
+      {
+        "name": "进入编辑",
+        "ms": 47.69999998807907
+      },
+      {
+        "name": "床次步骤",
+        "ms": 31.900000005960464
+      },
+      {
+        "name": "备注输入",
+        "ms": 28.099999994039536
+      },
+      {
+        "name": "失败反馈",
+        "ms": 129.5
+      },
+      {
+        "name": "重试保存",
+        "ms": 115.30000001192093
+      },
+      {
+        "name": "已保存唛架刷新",
+        "ms": 223.59999999403954
+      }
+    ],
+    "failed": [],
+    "savedPlans": 1,
+    "failedPreserved": true,
+    "refreshed": "唛架记录保存与刷新验收",
+    "errors": [],
+    "fields": [
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "singleSpreadFixedLoss"
+        },
+        "value": "0.06"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "manualUnitUsage"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "originalEffectiveWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "168"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "foldAllowance",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "2"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanFoldField": "foldDirection",
+          "markerPlanControlType": "select"
+        },
+        "value": "对边折入"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "maxLayoutWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "91"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "bedNo",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "B-1"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanBedField": "bedMode",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "fold_high_low"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "remark",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanMatrixRowColor": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-0xid9b-marker-row-1"
+        },
+        "value": "White"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-0xid9b-marker-row-1",
+          "colorName": "White",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-0xid9b-marker-row-1",
+          "colorName": "White",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-0xid9b-marker-row-1",
+          "colorName": "White",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixRowLength": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-0xid9b-marker-row-1"
+        },
+        "value": ""
+      }
+    ]
+  },
+  {
+    "sample": 4,
+    "timings": [
+      {
+        "name": "唛架冷启动",
+        "ms": 364.69999998807907
+      },
+      {
+        "name": "进入编辑",
+        "ms": 47.5
+      },
+      {
+        "name": "床次步骤",
+        "ms": 31.400000005960464
+      },
+      {
+        "name": "备注输入",
+        "ms": 29.200000017881393
+      },
+      {
+        "name": "失败反馈",
+        "ms": 130.69999998807907
+      },
+      {
+        "name": "重试保存",
+        "ms": 115
+      },
+      {
+        "name": "已保存唛架刷新",
+        "ms": 223.19999998807907
+      }
+    ],
+    "failed": [],
+    "savedPlans": 1,
+    "failedPreserved": true,
+    "refreshed": "唛架记录保存与刷新验收",
+    "errors": [],
+    "fields": [
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "singleSpreadFixedLoss"
+        },
+        "value": "0.06"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "manualUnitUsage"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "originalEffectiveWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "168"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "foldAllowance",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "2"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanFoldField": "foldDirection",
+          "markerPlanControlType": "select"
+        },
+        "value": "对边折入"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "maxLayoutWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "91"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "bedNo",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "B-1"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanBedField": "bedMode",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "fold_high_low"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "remark",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanMatrixRowColor": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-7tbv1l-marker-row-1"
+        },
+        "value": "White"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-7tbv1l-marker-row-1",
+          "colorName": "White",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-7tbv1l-marker-row-1",
+          "colorName": "White",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-7tbv1l-marker-row-1",
+          "colorName": "White",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixRowLength": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-7tbv1l-marker-row-1"
+        },
+        "value": ""
+      }
+    ]
+  },
+  {
+    "sample": 5,
+    "timings": [
+      {
+        "name": "唛架冷启动",
+        "ms": 416.09999999403954
+      },
+      {
+        "name": "进入编辑",
+        "ms": 48.80000001192093
+      },
+      {
+        "name": "床次步骤",
+        "ms": 147.09999999403954
+      },
+      {
+        "name": "备注输入",
+        "ms": 24.599999994039536
+      },
+      {
+        "name": "失败反馈",
+        "ms": 128.2000000178814
+      },
+      {
+        "name": "重试保存",
+        "ms": 115.69999998807907
+      },
+      {
+        "name": "已保存唛架刷新",
+        "ms": 405.7000000178814
+      }
+    ],
+    "failed": [],
+    "savedPlans": 1,
+    "failedPreserved": true,
+    "refreshed": "唛架记录保存与刷新验收",
+    "errors": [],
+    "fields": [
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "singleSpreadFixedLoss"
+        },
+        "value": "0.06"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBasicField": "manualUnitUsage"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "originalEffectiveWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "168"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "foldAllowance",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "2"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanFoldField": "foldDirection",
+          "markerPlanControlType": "select"
+        },
+        "value": "对边折入"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanFoldField": "maxLayoutWidth",
+          "markerPlanControlType": "number-input"
+        },
+        "value": "91"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "bedNo",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "B-1"
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanBedField": "bedMode",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": "fold_high_low"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanBedField": "remark",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanSizePiecePerLayer": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "SELECT",
+        "d": {
+          "markerPlanMatrixRowColor": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ijs045-marker-row-1"
+        },
+        "value": "White"
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ijs045-marker-row-1",
+          "colorName": "White",
+          "sizeName": "M"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ijs045-marker-row-1",
+          "colorName": "White",
+          "sizeName": "L"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixCell": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ijs045-marker-row-1",
+          "colorName": "White",
+          "sizeName": "XL"
+        },
+        "value": ""
+      },
+      {
+        "tag": "INPUT",
+        "d": {
+          "markerPlanMatrixRowLength": "true",
+          "bedId": "seed-marker-plan-cut-order-cut-order-po14671-release-d-white-tdv-po-14671-v1-pattern-main-v2-1-150cm-fold_high_low-layout-9-bed-1",
+          "rowId": "marker-plan-1775178480000-ijs045-marker-row-1"
+        },
+        "value": ""
+      }
+    ]
+  }
+]

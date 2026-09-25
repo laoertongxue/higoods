@@ -1,0 +1,97 @@
+{
+  "build": "build7",
+  "preview": "http://127.0.0.1:43236",
+  "worktree": "/private/tmp/higoods-replacement-fabric-release-20260925",
+  "baseHead": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "branch": "codex/replacement-fabric-acceptance-20260925",
+  "indexSha256": "94adaf89d90baf8be83ea34d524f9985b7ca6d083f59a10788f7ab982e718713",
+  "method": "event/navigation start to readable content + visible image completion + two animation frames; no Loading terminal; 5 repetitions each; real UI actions; Mock prerequisites explicitly flagged",
+  "files": [
+    {
+      "evidence": "perf-build7.txt",
+      "scenarios": 135,
+      "timingSamples": 135,
+      "maximumMs": 478.9,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "actions-build7.txt",
+      "scenarios": 15,
+      "timingSamples": 25,
+      "maximumMs": 139.3,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "pda-accept-build7.txt",
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 168.9,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "contract-transfer-build7-r2.txt",
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 758.7,
+      "functionalFailures": 0,
+      "slowSamples": 5,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "completion-build7.txt",
+      "scenarios": 10,
+      "timingSamples": 10,
+      "maximumMs": 221.9,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "start-build7.txt",
+      "scenarios": 5,
+      "timingSamples": 5,
+      "maximumMs": 224.4,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "generation-build7-r2.txt",
+      "scenarios": 15,
+      "timingSamples": 20,
+      "maximumMs": 204.6,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "scope_assertions_passed"
+    },
+    {
+      "evidence": "breakdown-build7.txt",
+      "scenarios": 5,
+      "timingSamples": 10,
+      "maximumMs": 168.1,
+      "functionalFailures": 0,
+      "slowSamples": 0,
+      "storageStatus": "FAIL_LEGACY_WRITES"
+    }
+  ],
+  "unresolved": [
+    "Contract first print performance 709.6–758.7 ms; real print callback and one persisted PRINTED audit observed; 200 new resources include fcs-handlers.",
+    "Task breakdown preview/confirmation triggers three legacy business keys; exact trigger requires stack localization."
+  ],
+  "retainedFailures": [
+    "contract-transfer-build7.txt: observer could not see print callback that causes no DOM mutation; instrumentation corrected without code change",
+    "contract-transfer-build7-r2.txt: all 5 genuine slow print samples retained",
+    "all earlier build2/dev/probe failures retained"
+  ],
+  "scopeNotes": [
+    "window.print was observed via a test stub; this is browser print command + persisted audit verification, not physical printer output",
+    "PDA accept/start/completion action viewport 390x844; Web 1366x768",
+    "Parent owns final app acceptance and publication; this manifest does not claim full product acceptance"
+  ]
+}

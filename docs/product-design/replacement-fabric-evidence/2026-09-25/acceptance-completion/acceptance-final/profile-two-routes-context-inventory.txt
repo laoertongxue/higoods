@@ -1,0 +1,6 @@
+### Result
+{"contexts":[{"index":0,"pages":[{"url":"about:blank","closed":false}]}],"contextCount":1}
+### Ran Playwright code
+```js
+await (async page=>({contexts:page.context().browser().contexts().map((context,index)=>({index,pages:context.pages().map(p=>({url:p.url(),closed:p.isClosed()}))})),contextCount:page.context().browser().contexts().length}))(page);
+```

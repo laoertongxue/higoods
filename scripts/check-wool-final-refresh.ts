@@ -17,10 +17,11 @@ if (!phase) {
   const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) }
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage })
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: storage, sessionStorage: storage, addEventListener() {}, dispatchEvent() {}, location: { pathname: '/fcs/craft/wool/linking-orders', search: '' } } })
-  Object.defineProperty(globalThis, 'document', { configurable: true, value: { addEventListener() {} } })
+  // Node restart contract uses the explicit Node source adapter; real IDB refresh is covered by the browser E2E.
+  // Do not masquerade as a DOM browser without providing IndexedDB.
   if (phase === 'save') {
     const { prepareWoolFinalDownstreamReviewScenario } = await import('./fixtures/wool-final-downstream-review.ts')
-    const scene = prepareWoolFinalDownstreamReviewScenario()
+    const scene = await prepareWoolFinalDownstreamReviewScenario()
     const { executeProcessWebAction } = await import('../src/data/fcs/process-web-status-actions.ts')
     executeProcessWebAction({ sourceType: 'SPECIAL_CRAFT', sourceId: scene.taskId, actionCode: 'SPECIAL_CRAFT_CONFIRM_RECEIVE', operatorName: '刷新验收仓管', operatedAt: '2026-09-18 10:00:00', qtyUnit: '件', objectQty: 12, woolFinalReceipts: [{ handoverId: scene.handovers[0].handoverId, actualReceivedQty: 12 }], confirmationKey: 'refresh-final-1' })
     writeFileSync(join(directory, 'scene.json'), JSON.stringify(scene))

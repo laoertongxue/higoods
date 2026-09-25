@@ -1,6 +1,6 @@
 import { savePdaCuttingAction } from './pda-cutting-save.ts'
 // @page-pattern: pda
-import { escapeHtml } from '../utils'
+import { escapeHtml, localDateTimeText } from '../utils'
 import {
   recoverThenScrapTransferBag,
   resolveTransferBagCurrentUse,
@@ -33,12 +33,6 @@ const initialState = (): PdaTransferBagScrapState => ({
 })
 let scrapState = initialState()
 
-function nowIndonesia(): string {
-  return new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).format(new Date())
-}
 
 export function scanPdaTransferBagForScrap(bagCode: string): PdaTransferBagScrapState {
   const normalized = bagCode.trim().toUpperCase()
@@ -113,7 +107,7 @@ export function handlePdaCuttingTransferBagScrapEvent(target: HTMLElement, event
     const common = {
       reason: scrapState.reason,
       authorizedBy: scrapState.authorizedBy,
-      occurredAt: nowIndonesia(),
+      occurredAt: localDateTimeText().slice(0, 16),
     }
     if (scrapState.mode === 'RECOVER_THEN_SCRAP') {
       const result = recoverThenScrapTransferBag({

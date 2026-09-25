@@ -1,0 +1,8 @@
+### Error
+Error: locator.click: Error: strict mode violation: locator('tr').filter({ hasText: 'PO14673' }).filter({ hasText: '可关闭交出单' }).locator('[data-handover-action=toggle-row-menu]') resolved to 2 elements:
+    1) <button data-handover-action="toggle-row-menu" data-row-id="HOH-HOH-SLA-DELAY-DEMO-001" class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted">…</button> aka locator('tr:nth-child(15) > .px-3.py-2.text-right > .relative > .inline-flex')
+    2) <button data-handover-action="toggle-row-menu" data-row-id="HOH-HOH-RETURN-TASKGEN-202603-0015-002__ORDER" class="inline-flex h-8 w-8 items-center justify-center rounded-md border hover:bg-muted">…</button> aka locator('tr:nth-child(82) > .px-3.py-2.text-right > .relative > .inline-flex')
+
+Call log:
+[2m  - waiting for locator('tr').filter({ hasText: 'PO14673' }).filter({ hasText: '可关闭交出单' }).locator('[data-handover-action=toggle-row-menu]')[22m
+

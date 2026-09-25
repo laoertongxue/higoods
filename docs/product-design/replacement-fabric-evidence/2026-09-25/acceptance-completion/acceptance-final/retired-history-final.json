@@ -1,0 +1,31 @@
+{
+  "passed": 4,
+  "results": [
+    {
+      "scene": "migration",
+      "failure": "Error: interrupt",
+      "migrated": 202,
+      "retained": 1,
+      "quantities": 1010
+    },
+    {
+      "scene": "conflict",
+      "failure": "Error: 裁片领料历史与已保存版本冲突，源记录未清理。",
+      "unchanged": true
+    },
+    {
+      "scene": "cleanup-retry",
+      "failure": "Error: cleanup blocked",
+      "migrated": 202,
+      "retained": 1,
+      "quantities": 1010
+    },
+    {
+      "scene": "late-writer",
+      "failure": "Error: 旧领料历史发生变化，迁移暂停，源记录保留。",
+      "migrated": 202,
+      "retained": 1,
+      "quantities": 1010
+    }
+  ]
+}

@@ -3,6 +3,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
+import { buildFeiTicketFiveDimTitle } from '../src/pages/process-factory/cutting/fei-tickets-model.ts'
+import { renderCraftCuttingFeiTicketsPage } from '../src/pages/process-factory/cutting/fei-tickets.ts'
 
 const repoRoot = process.cwd()
 const SAMPLE_FIVE_DIM_TITLE = '卷A - 红色 - M - 袖子 - 配套1-15 - 15'
@@ -151,11 +153,12 @@ function main(): void {
   assert(!feiPage.includes('任务交货卡'), '菲票打印不得被任务交货卡替换')
   assert(!feiPage.includes('任务流转卡'), '菲票打印不得被任务流转卡替换')
   assertIncludes(read('scripts/check-cutting-fei-ticket-assembly.ts'), SAMPLE_FIVE_DIM_TITLE, '缺少现场五维标题示例')
-  assertIncludes(
-    read('src/pages/process-factory/cutting/fei-tickets-model.ts'),
-    "return `${record.fabricRollNo} - ${record.fabricColor} - ${record.size} - ${record.partName} - ${pieceSetText || '待补扎号'} - ${formatQty(record.quantity)}`",
+  const fiveDimSample = { fabricRollNo: '卷A', fabricColor: '红色', size: 'M', partName: '袖子', pieceSetNoRange: '1-15', bundleNo: '', quantity: 15 }
+  assert(
+    buildFeiTicketFiveDimTitle(fiveDimSample) === SAMPLE_FIVE_DIM_TITLE,
     `五维打印标题未按“${SAMPLE_FIVE_DIM_TITLE}”格式拼装`,
   )
+  assert(buildFeiTicketFiveDimTitle({ ...fiveDimSample, quantity: undefined }) === '暂无数据', '缺失数量不得生成看似完整的五维打印标题')
 
   ;[
     '面料卷号',
@@ -168,7 +171,8 @@ function main(): void {
   })
 
   assert(!feiPage.includes('QR payload'), '菲票页面不应展示 QR payload')
-  assert(!feiPage.includes('JSON'), '菲票页面不应展示 JSON')
+  const visibleFeiPage = renderCraftCuttingFeiTicketsPage().replace(/<[^>]*>/g, ' ')
+  assert(!visibleFeiPage.includes('JSON'), '菲票页面不应展示 JSON')
   assert(!transferBagsPage.includes('完整 WMS'), '中转袋页面不应实现完整 WMS')
   ;[
     'sourceOutputLineId',

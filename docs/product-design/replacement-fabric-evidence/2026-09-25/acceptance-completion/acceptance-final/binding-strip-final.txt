@@ -1,0 +1,8 @@
+捆条加工单流转检查通过
+捆条需求明细：19 条
+捆条加工单：16 单
+唯一捆条菲票：19 张
+示例汇总长度：113.57 m
+按钮目标响应：列表 0.50ms / 捆条菲票 2.61ms / 库存 0.48ms / 预览 8.26ms
+(node:40185) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

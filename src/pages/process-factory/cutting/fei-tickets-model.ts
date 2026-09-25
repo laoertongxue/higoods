@@ -2870,3 +2870,43 @@ export function executePrintableUnitPrint(options: {
     nextJobs: [printJob, ...options.printJobs].sort((left, right) => comparePrintedAtDesc(left.printedAt, right.printedAt)),
   }
 }
+
+/** 已确认的实际裁剪输出是首打的直接来源；不再要求它同时存在于旧整单汇总的打印对象中。 */
+export function executeGeneratedActualTicketFirstPrint(options: {
+ tickets: GeneratedFeiTicketSourceRecord[]; ticketRecords: FeiTicketLabelRecord[]; printJobs: FeiTicketPrintJob[]
+ operator: string; operatedAt: string; templateName: string
+}): {nextRecords: FeiTicketLabelRecord[]; nextJobs: FeiTicketPrintJob[]; printedCount: number} {
+ const records = new Map(options.ticketRecords.map(record => [record.ticketRecordId,record]))
+ const ids = new Set<string>(), numbers = new Set<string>()
+ for (const ticket of options.tickets) {
+  if (ids.has(ticket.feiTicketId) || numbers.has(ticket.feiTicketNo)) throw new Error('本次打印来源票号重复，请重新核对。')
+  ids.add(ticket.feiTicketId); numbers.add(ticket.feiTicketNo)
+  if (ticket.sourceBasisType !== FEI_TICKET_SOURCE_BASIS_TYPE || ticket.sourceTraceCompleteness !== 'COMPLETE'
+   || !ticket.sourceOutputLineId || !ticket.sourceSpreadingSessionId || !ticket.cutOrderId || !ticket.cutOrderNo
+   || !ticket.productionOrderId || !ticket.productionOrderNo || !ticket.materialSku || !ticket.feiTicketId || !ticket.feiTicketNo
+   || !Number.isFinite(ticket.actualCutPieceQty) || ticket.actualCutPieceQty <= 0 || !ticket.qrValue) throw new Error('实际裁剪打印来源不完整，请返回业务单据核对后重试。')
+  if (ticket.printStatus === 'VOIDED' || records.get(ticket.feiTicketId)?.status === 'VOIDED') throw new Error('菲票已作废，不能首打。')
+  if (ticket.hasSpecialCraft && ticket.specialCrafts.some(craft => !craft.receiverFactoryId)) throw new Error('特殊工艺承接工厂未补齐，不能打印。')
+ }
+ const pending = options.tickets.filter(ticket => !records.has(ticket.feiTicketId))
+ if (!pending.length) return {nextRecords: options.ticketRecords, nextJobs: options.printJobs, printedCount:0}
+ const jobId = buildFeiPrintJobId(options.operatedAt, pending.map(ticket => ticket.feiTicketId).sort().join('|'), 'actual-first-print')
+ const job: FeiTicketPrintJob = {
+  printJobId:jobId, printJobNo:nextPrintJobNo(options.printJobs,options.operatedAt), ownerType:'cut-order',
+  cutOrderIds:unique(pending.map(ticket=>ticket.cutOrderId)),cutOrderNos:unique(pending.map(ticket=>ticket.cutOrderNo)),
+  sourceContextType:'cut-order',sourceMarkerPlanId:'',sourceMarkerPlanNo:'',totalTicketCount:pending.length,status:'PRINTED',
+  printedBy:options.operator,printedAt:options.operatedAt,note:'实际裁剪来源首打',operationType:'FIRST_PRINT',
+  printerName:'浏览器打印',templateName:options.templateName,ticketRecordIds:pending.map(ticket=>ticket.feiTicketId),
+ }
+ pending.forEach((ticket,index)=>records.set(ticket.feiTicketId,{
+  ...ticket,ticketRecordId:ticket.feiTicketId,ticketNo:ticket.feiTicketNo,
+  styleCode:ticket.sourceTechPackSpuCode,spuCode:ticket.qrPayload.spuCode,materialSku:ticket.materialSku,
+  color:ticket.fabricColor||ticket.skuColor,size:ticket.skuSize,sequenceNo:index+1,status:'PRINTED',printStatus:'PRINTED',
+  createdAt:options.operatedAt,printedAt:options.operatedAt,printedBy:options.operator,reprintCount:0,version:1,
+  sourcePrintJobId:jobId,sourceContextType:'cut-order',quantity:ticket.actualCutPieceQty,qty:ticket.qty,
+  printableUnitId:`cut-order:${ticket.cutOrderId}`,printableUnitNo:ticket.cutOrderNo,printableUnitType:'CUT_ORDER',
+  sourceProductionOrderId:ticket.productionOrderId,processTags:[...ticket.secondaryCrafts],
+  qrSerializedValue:ticket.qrValue,qrSnapshotText:JSON.stringify(ticket.qrPayload),
+ }))
+ return {nextRecords:[...records.values()],nextJobs:[job,...options.printJobs],printedCount:pending.length}
+}

@@ -236,3 +236,13 @@ export function resetSewingMaterialHandoversForTests(): void {
   commandEventIds.clear()
   eventSequence = 0
 }
+
+export function captureSewingMaterialState() {
+  return structuredClone({contexts:[...contexts],events:[...events],commands:[...commandEventIds],sequence:eventSequence})
+}
+export function restoreSewingMaterialState(value: ReturnType<typeof captureSewingMaterialState>): void {
+  contexts.clear(); events.clear(); commandEventIds.clear()
+  value.contexts.forEach(([id,item])=>contexts.set(id,structuredClone(item)))
+  value.events.forEach(([id,item])=>events.set(id,structuredClone(item)))
+  value.commands.forEach(([id,item])=>commandEventIds.set(id,item)); eventSequence=value.sequence
+}

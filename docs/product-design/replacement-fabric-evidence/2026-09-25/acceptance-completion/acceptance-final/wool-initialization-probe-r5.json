@@ -1,0 +1,1059 @@
+{
+  "businessActionsPerformed": 0,
+  "changes": {
+    "waitProcess": {
+      "before": 26,
+      "after": 108,
+      "added": [
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030002-TING-09-08a61215",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030002-TING-08-08a61214",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030002-TING-03-08a6120f",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030002-TING-02-08a6120e",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-po14671-WING-09-ab7dd572",
+          "source": "TASK-SC-po14671-TTERNMACHINESEWING-6bf1ec2c",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO202603086-WING-08-7f674258",
+          "source": "TASK-SC-PO202603086-TTERNMACHINESEWING-ede2fd84",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030014-WING-05-6d0d010c",
+          "source": "TASK-SC-PO2026030014-TTERNMACHINESEWING-4bc3799f",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030004-WING-03-6d0c8cab",
+          "source": "TASK-SC-PO2026030004-TTERNMACHINESEWING-9e302b40",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030003-WING-02-6d0c88e9",
+          "source": "TASK-SC-PO2026030003-TTERNMACHINESEWING-e6a6ed98",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-po14671-CKET-09-e196fafa",
+          "source": "TASK-SC-po14671-SPCOPLASERPOCKET-6bf1ec2c",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO202603086-CKET-08-3c5051d0",
+          "source": "TASK-SC-PO202603086-SPCOPLASERPOCKET-ede2fd84",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030014-CKET-05-4d45e094",
+          "source": "TASK-SC-PO2026030014-SPCOPLASERPOCKET-4bc3799f",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030004-CKET-03-4d456c33",
+          "source": "TASK-SC-PO2026030004-SPCOPLASERPOCKET-9e302b40",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030003-CKET-02-4d456871",
+          "source": "TASK-SC-PO2026030003-SPCOPLASERPOCKET-e6a6ed98",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-po14671-CESS-09-c03751f6",
+          "source": "TASK-SC-po14671-COPTEMPLATEPROCESS-6bf1ec2c",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO202603086-CESS-08-f07af854",
+          "source": "TASK-SC-PO202603086-COPTEMPLATEPROCESS-ede2fd84",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030014-CESS-05-1e700a90",
+          "source": "TASK-SC-PO2026030014-COPTEMPLATEPROCESS-4bc3799f",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030004-CESS-03-1e6f962f",
+          "source": "TASK-SC-PO2026030004-COPTEMPLATEPROCESS-9e302b40",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WPS-SPC-TASK-PO2026030003-CESS-02-1e6f926d",
+          "source": "TASK-SC-PO2026030003-COPTEMPLATEPROCESS-e6a6ed98",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-TONE-09-03ac2651",
+          "source": "TASK-SC-PO202603086-OPHOTFIXRHINESTONE-eaf2bafe",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603083-TONE-08-03ac1b0d",
+          "source": "TASK-SC-PO202603083-OPHOTFIXRHINESTONE-e69bd900",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-TONE-03-716423f2",
+          "source": "TASK-SC-PO2026030003-OPHOTFIXRHINESTONE-569f8700",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-TONE-02-71642030",
+          "source": "TASK-SC-PO2026030002-OPHOTFIXRHINESTONE-5f03a818",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-RING-09-988af238",
+          "source": "TASK-SC-PO202603086-AUXOPGATHERING-eaf2bafe",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603083-RING-08-988ae6f4",
+          "source": "TASK-SC-PO202603083-AUXOPGATHERING-e69bd900",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-RING-03-785ed4eb",
+          "source": "TASK-SC-PO2026030003-AUXOPGATHERING-569f8700",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-RING-02-785ed129",
+          "source": "TASK-SC-PO2026030002-AUXOPGATHERING-5f03a818",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-KING-09-1b266eae",
+          "source": "TASK-SC-PO202603086-AUXOPFLOWERMAKING-eaf2bafe",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603083-KING-08-1b26636a",
+          "source": "TASK-SC-PO202603083-AUXOPFLOWERMAKING-e69bd900",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-KING-03-4932e735",
+          "source": "TASK-SC-PO2026030003-AUXOPFLOWERMAKING-569f8700",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-KING-02-4932e373",
+          "source": "TASK-SC-PO2026030002-AUXOPFLOWERMAKING-5f03a818",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-LOOP-09-98f3bf70",
+          "source": "TASK-SC-PO202603086-AUXOPBUTTONLOOP-7cdf3178",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603083-LOOP-08-98f3b42c",
+          "source": "TASK-SC-PO202603083-AUXOPBUTTONLOOP-9fde0abd",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-LOOP-02-850faaf1",
+          "source": "TASK-SC-PO2026030002-AUXOPBUTTONLOOP-16035c20",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-DERY-09-3a150190",
+          "source": "TASK-SC-po14671-GHTSHELLEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-DERY-08-bf9cf8fa",
+          "source": "TASK-SC-PO202603086-GHTSHELLEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-DERY-05-338e1eaa",
+          "source": "TASK-SC-PO2026030014-GHTSHELLEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-DERY-03-338daa49",
+          "source": "TASK-SC-PO2026030004-GHTSHELLEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-DERY-02-338da687",
+          "source": "TASK-SC-PO2026030003-GHTSHELLEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-DERY-09-78c68f83",
+          "source": "TASK-SC-po14671-VEDTEETHEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-DERY-08-41852ae7",
+          "source": "TASK-SC-PO202603086-VEDTEETHEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-DERY-05-eeac2a5d",
+          "source": "TASK-SC-PO2026030014-VEDTEETHEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-DERY-03-eeabb5fc",
+          "source": "TASK-SC-PO2026030004-VEDTEETHEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-DERY-02-eeabb23a",
+          "source": "TASK-SC-PO2026030003-VEDTEETHEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-DERY-09-93b6b1fd",
+          "source": "TASK-SC-po14671-XOPSHELLEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-DERY-08-518984ad",
+          "source": "TASK-SC-PO202603086-XOPSHELLEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-DERY-05-df330957",
+          "source": "TASK-SC-PO2026030014-XOPSHELLEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-DERY-03-df3294f6",
+          "source": "TASK-SC-PO2026030004-XOPSHELLEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-DERY-02-df329134",
+          "source": "TASK-SC-PO2026030003-XOPSHELLEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-TING-09-8fd3f14e",
+          "source": "TASK-SC-po14671-AUXOPPLEATING-6bf1ec2c",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-TING-08-6b142ffc",
+          "source": "TASK-SC-PO202603086-AUXOPPLEATING-ede2fd84",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-TING-05-f6fdc7e8",
+          "source": "TASK-SC-PO2026030014-AUXOPPLEATING-4bc3799f",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-TING-03-f6fd5387",
+          "source": "TASK-SC-PO2026030004-AUXOPPLEATING-9e302b40",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-TING-02-f6fd4fc5",
+          "source": "TASK-SC-PO2026030003-AUXOPPLEATING-e6a6ed98",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-DERY-09-c312b3ba",
+          "source": "TASK-SC-po14671-AUXOPEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-DERY-08-530a1110",
+          "source": "TASK-SC-PO202603086-AUXOPEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-DERY-05-0dc40954",
+          "source": "TASK-SC-PO2026030014-AUXOPEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-DERY-03-0dc394f3",
+          "source": "TASK-SC-PO2026030004-AUXOPEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-DERY-02-0dc39131",
+          "source": "TASK-SC-PO2026030003-AUXOPEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-KING-09-f28f198b",
+          "source": "TASK-SC-po14671-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603082-KING-08-2f2996db",
+          "source": "TASK-SC-PO202603082-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-KING-05-b5969284",
+          "source": "TASK-SC-PO2026030002-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603082-KING-03-2f2996d6",
+          "source": "TASK-SC-PO202603082-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-RINT-09-593876c8",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-RINT-08-593876c7",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-RINT-05-593876c4",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-RINT-03-593876c2",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-RINT-02-593876c1",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-SFER-09-d9d6928f",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-SFER-08-d9d6928e",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-SFER-05-d9d6928b",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030002-SFER-02-d9d69288",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-TRIP-09-094ae402",
+          "source": "TASK-SC-po14671-AUXOPSTRIP-6bf1ec2c",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-TRIP-08-934ccdc8",
+          "source": "TASK-SC-PO202603086-AUXOPSTRIP-ede2fd84",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-TRIP-05-d5d8e39c",
+          "source": "TASK-SC-PO2026030014-AUXOPSTRIP-4bc3799f",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-TRIP-03-d5d86f3b",
+          "source": "TASK-SC-PO2026030004-AUXOPSTRIP-9e302b40",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-TRIP-02-d5d86b79",
+          "source": "TASK-SC-PO2026030003-AUXOPSTRIP-e6a6ed98",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-po14671-ALAN-09-57c7c89e",
+          "source": "TASK-SC-po14671-AUXOPDALAN-6bf1ec2c",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO202603086-ALAN-08-0d726aac",
+          "source": "TASK-SC-PO202603086-AUXOPDALAN-ede2fd84",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030014-ALAN-05-a066e338",
+          "source": "TASK-SC-PO2026030014-AUXOPDALAN-4bc3799f",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030004-ALAN-03-a0666ed7",
+          "source": "TASK-SC-PO2026030004-AUXOPDALAN-9e302b40",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WPS-AUX-TASK-PO2026030003-ALAN-02-a0666b15",
+          "source": "TASK-SC-PO2026030003-AUXOPDALAN-e6a6ed98",
+          "craft": "CRAFT_000008"
+        }
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "waitHandover": {
+      "before": 14,
+      "after": 138,
+      "added": [
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-09-08a61215",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-08-08a61214",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-07-08a61213",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-06-08a61212",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-04-08a61210",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-03-08a6120f",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030002-TING-02-08a6120e",
+          "source": "TASKGEN-202603-0002-005",
+          "craft": "CRAFT_3000009"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-po14671-WING-09-ab7dd572",
+          "source": "TASK-SC-po14671-TTERNMACHINESEWING-6bf1ec2c",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603086-WING-08-7f674258",
+          "source": "TASK-SC-PO202603086-TTERNMACHINESEWING-ede2fd84",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603083-WING-07-7f673714",
+          "source": "TASK-SC-PO202603083-TTERNMACHINESEWING-7731af97",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603082-WING-06-7f673352",
+          "source": "TASK-SC-PO202603082-TTERNMACHINESEWING-068cdfb4",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030014-WING-05-6d0d010c",
+          "source": "TASK-SC-PO2026030014-TTERNMACHINESEWING-4bc3799f",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030004-WING-03-6d0c8cab",
+          "source": "TASK-SC-PO2026030004-TTERNMACHINESEWING-9e302b40",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030003-WING-02-6d0c88e9",
+          "source": "TASK-SC-PO2026030003-TTERNMACHINESEWING-e6a6ed98",
+          "craft": "CRAFT_3000008"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-po14671-CKET-09-e196fafa",
+          "source": "TASK-SC-po14671-SPCOPLASERPOCKET-6bf1ec2c",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603086-CKET-08-3c5051d0",
+          "source": "TASK-SC-PO202603086-SPCOPLASERPOCKET-ede2fd84",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603083-CKET-07-3c50468c",
+          "source": "TASK-SC-PO202603083-SPCOPLASERPOCKET-7731af97",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603082-CKET-06-3c5042ca",
+          "source": "TASK-SC-PO202603082-SPCOPLASERPOCKET-068cdfb4",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030014-CKET-05-4d45e094",
+          "source": "TASK-SC-PO2026030014-SPCOPLASERPOCKET-4bc3799f",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030004-CKET-03-4d456c33",
+          "source": "TASK-SC-PO2026030004-SPCOPLASERPOCKET-9e302b40",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030003-CKET-02-4d456871",
+          "source": "TASK-SC-PO2026030003-SPCOPLASERPOCKET-e6a6ed98",
+          "craft": "CRAFT_3000007"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-po14671-CESS-09-c03751f6",
+          "source": "TASK-SC-po14671-COPTEMPLATEPROCESS-6bf1ec2c",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603086-CESS-08-f07af854",
+          "source": "TASK-SC-PO202603086-COPTEMPLATEPROCESS-ede2fd84",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603083-CESS-07-f07aed10",
+          "source": "TASK-SC-PO202603083-COPTEMPLATEPROCESS-7731af97",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO202603082-CESS-06-f07ae94e",
+          "source": "TASK-SC-PO202603082-COPTEMPLATEPROCESS-068cdfb4",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030014-CESS-05-1e700a90",
+          "source": "TASK-SC-PO2026030014-COPTEMPLATEPROCESS-4bc3799f",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030004-CESS-03-1e6f962f",
+          "source": "TASK-SC-PO2026030004-COPTEMPLATEPROCESS-9e302b40",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-SPC-TASK-PO2026030003-CESS-02-1e6f926d",
+          "source": "TASK-SC-PO2026030003-COPTEMPLATEPROCESS-e6a6ed98",
+          "craft": "CRAFT_3000006"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-TONE-09-03ac2651",
+          "source": "TASK-SC-PO202603086-OPHOTFIXRHINESTONE-eaf2bafe",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-TONE-08-03ac1b0d",
+          "source": "TASK-SC-PO202603083-OPHOTFIXRHINESTONE-e69bd900",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-TONE-07-03ac174b",
+          "source": "TASK-SC-PO202603082-OPHOTFIXRHINESTONE-18f05511",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-TONE-06-71649c15",
+          "source": "TASK-SC-PO2026030014-OPHOTFIXRHINESTONE-b4916d79",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-TONE-04-716427b4",
+          "source": "TASK-SC-PO2026030004-OPHOTFIXRHINESTONE-c4b4d558",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-TONE-03-716423f2",
+          "source": "TASK-SC-PO2026030003-OPHOTFIXRHINESTONE-569f8700",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-TONE-02-71642030",
+          "source": "TASK-SC-PO2026030002-OPHOTFIXRHINESTONE-5f03a818",
+          "craft": "CRAFT_3100004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-RING-09-988af238",
+          "source": "TASK-SC-PO202603086-AUXOPGATHERING-eaf2bafe",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-RING-08-988ae6f4",
+          "source": "TASK-SC-PO202603083-AUXOPGATHERING-e69bd900",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-RING-07-988ae332",
+          "source": "TASK-SC-PO202603082-AUXOPGATHERING-18f05511",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-RING-06-785f4d0e",
+          "source": "TASK-SC-PO2026030014-AUXOPGATHERING-b4916d79",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-RING-04-785ed8ad",
+          "source": "TASK-SC-PO2026030004-AUXOPGATHERING-c4b4d558",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-RING-03-785ed4eb",
+          "source": "TASK-SC-PO2026030003-AUXOPGATHERING-569f8700",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RING-02-785ed129",
+          "source": "TASK-SC-PO2026030002-AUXOPGATHERING-5f03a818",
+          "craft": "CRAFT_3100003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-KING-09-1b266eae",
+          "source": "TASK-SC-PO202603086-AUXOPFLOWERMAKING-eaf2bafe",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-KING-08-1b26636a",
+          "source": "TASK-SC-PO202603083-AUXOPFLOWERMAKING-e69bd900",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-KING-07-1b265fa8",
+          "source": "TASK-SC-PO202603082-AUXOPFLOWERMAKING-18f05511",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-KING-06-49335f58",
+          "source": "TASK-SC-PO2026030014-AUXOPFLOWERMAKING-b4916d79",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-KING-04-4932eaf7",
+          "source": "TASK-SC-PO2026030004-AUXOPFLOWERMAKING-c4b4d558",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-KING-03-4932e735",
+          "source": "TASK-SC-PO2026030003-AUXOPFLOWERMAKING-569f8700",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-KING-02-4932e373",
+          "source": "TASK-SC-PO2026030002-AUXOPFLOWERMAKING-5f03a818",
+          "craft": "CRAFT_3100002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-LOOP-09-98f3bf70",
+          "source": "TASK-SC-PO202603086-AUXOPBUTTONLOOP-7cdf3178",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-LOOP-08-98f3b42c",
+          "source": "TASK-SC-PO202603083-AUXOPBUTTONLOOP-9fde0abd",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-LOOP-07-98f3b06a",
+          "source": "TASK-SC-PO202603082-AUXOPBUTTONLOOP-7ae9c3c6",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-LOOP-06-851026d6",
+          "source": "TASK-SC-PO2026030014-AUXOPBUTTONLOOP-7be8fa41",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-LOOP-04-850fb275",
+          "source": "TASK-SC-PO2026030004-AUXOPBUTTONLOOP-4743e83a",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-LOOP-02-850faaf1",
+          "source": "TASK-SC-PO2026030002-AUXOPBUTTONLOOP-16035c20",
+          "craft": "CRAFT_3100001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-DERY-09-3a150190",
+          "source": "TASK-SC-po14671-GHTSHELLEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-DERY-08-bf9cf8fa",
+          "source": "TASK-SC-PO202603086-GHTSHELLEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-DERY-07-bf9cedb6",
+          "source": "TASK-SC-PO202603083-GHTSHELLEMBROIDERY-7731af97",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-DERY-06-bf9ce9f4",
+          "source": "TASK-SC-PO202603082-GHTSHELLEMBROIDERY-068cdfb4",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-DERY-05-338e1eaa",
+          "source": "TASK-SC-PO2026030014-GHTSHELLEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-DERY-03-338daa49",
+          "source": "TASK-SC-PO2026030004-GHTSHELLEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-DERY-02-338da687",
+          "source": "TASK-SC-PO2026030003-GHTSHELLEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000005"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-DERY-09-78c68f83",
+          "source": "TASK-SC-po14671-VEDTEETHEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-DERY-08-41852ae7",
+          "source": "TASK-SC-PO202603086-VEDTEETHEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-DERY-07-41851fa3",
+          "source": "TASK-SC-PO202603083-VEDTEETHEMBROIDERY-7731af97",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-DERY-06-41851be1",
+          "source": "TASK-SC-PO202603082-VEDTEETHEMBROIDERY-068cdfb4",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-DERY-05-eeac2a5d",
+          "source": "TASK-SC-PO2026030014-VEDTEETHEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-DERY-03-eeabb5fc",
+          "source": "TASK-SC-PO2026030004-VEDTEETHEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-DERY-02-eeabb23a",
+          "source": "TASK-SC-PO2026030003-VEDTEETHEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000004"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-DERY-09-93b6b1fd",
+          "source": "TASK-SC-po14671-XOPSHELLEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-DERY-08-518984ad",
+          "source": "TASK-SC-PO202603086-XOPSHELLEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-DERY-07-51897969",
+          "source": "TASK-SC-PO202603083-XOPSHELLEMBROIDERY-7731af97",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-DERY-06-518975a7",
+          "source": "TASK-SC-PO202603082-XOPSHELLEMBROIDERY-068cdfb4",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-DERY-05-df330957",
+          "source": "TASK-SC-PO2026030014-XOPSHELLEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-DERY-03-df3294f6",
+          "source": "TASK-SC-PO2026030004-XOPSHELLEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-DERY-02-df329134",
+          "source": "TASK-SC-PO2026030003-XOPSHELLEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000003"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-TING-09-8fd3f14e",
+          "source": "TASK-SC-po14671-AUXOPPLEATING-6bf1ec2c",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-TING-08-6b142ffc",
+          "source": "TASK-SC-PO202603086-AUXOPPLEATING-ede2fd84",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-TING-07-6b1424b8",
+          "source": "TASK-SC-PO202603083-AUXOPPLEATING-7731af97",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-TING-06-6b1420f6",
+          "source": "TASK-SC-PO202603082-AUXOPPLEATING-068cdfb4",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-TING-05-f6fdc7e8",
+          "source": "TASK-SC-PO2026030014-AUXOPPLEATING-4bc3799f",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-TING-03-f6fd5387",
+          "source": "TASK-SC-PO2026030004-AUXOPPLEATING-9e302b40",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-TING-02-f6fd4fc5",
+          "source": "TASK-SC-PO2026030003-AUXOPPLEATING-e6a6ed98",
+          "craft": "CRAFT_3000002"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-DERY-09-c312b3ba",
+          "source": "TASK-SC-po14671-AUXOPEMBROIDERY-6bf1ec2c",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-DERY-08-530a1110",
+          "source": "TASK-SC-PO202603086-AUXOPEMBROIDERY-ede2fd84",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-DERY-07-530a05cc",
+          "source": "TASK-SC-PO202603083-AUXOPEMBROIDERY-7731af97",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-DERY-06-530a020a",
+          "source": "TASK-SC-PO202603082-AUXOPEMBROIDERY-068cdfb4",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-DERY-05-0dc40954",
+          "source": "TASK-SC-PO2026030014-AUXOPEMBROIDERY-4bc3799f",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-DERY-03-0dc394f3",
+          "source": "TASK-SC-PO2026030004-AUXOPEMBROIDERY-9e302b40",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-DERY-02-0dc39131",
+          "source": "TASK-SC-PO2026030003-AUXOPEMBROIDERY-e6a6ed98",
+          "craft": "CRAFT_3000001"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-KING-09-f28f198b",
+          "source": "TASK-SC-po14671-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-KING-08-2f2996db",
+          "source": "TASK-SC-PO202603082-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-KING-06-b5969a07",
+          "source": "TASK-SC-PO2026030004-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-KING-05-b5969284",
+          "source": "TASK-SC-PO2026030002-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-KING-04-f28f1986",
+          "source": "TASK-SC-po14671-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-KING-03-2f2996d6",
+          "source": "TASK-SC-PO202603082-OVEREDBUTTONMAKING-8de976b4",
+          "craft": "CRAFT_032768"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-09-593876c8",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-08-593876c7",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-07-593876c6",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-06-593876c5",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-05-593876c4",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-03-593876c2",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-RINT-02-593876c1",
+          "source": "TASKGEN-202603-0002-004",
+          "craft": "CRAFT_016384"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-09-d9d6928f",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-08-d9d6928e",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-07-d9d6928d",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-06-d9d6928c",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-05-d9d6928b",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-04-d9d6928a",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030002-SFER-02-d9d69288",
+          "source": "TASKGEN-202603-0002-003",
+          "craft": "CRAFT_008192"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-TRIP-09-094ae402",
+          "source": "TASK-SC-po14671-AUXOPSTRIP-6bf1ec2c",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-TRIP-08-934ccdc8",
+          "source": "TASK-SC-PO202603086-AUXOPSTRIP-ede2fd84",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-TRIP-07-934cc284",
+          "source": "TASK-SC-PO202603083-AUXOPSTRIP-7731af97",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-TRIP-06-934cbec2",
+          "source": "TASK-SC-PO202603082-AUXOPSTRIP-068cdfb4",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-TRIP-05-d5d8e39c",
+          "source": "TASK-SC-PO2026030014-AUXOPSTRIP-4bc3799f",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-TRIP-03-d5d86f3b",
+          "source": "TASK-SC-PO2026030004-AUXOPSTRIP-9e302b40",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-TRIP-02-d5d86b79",
+          "source": "TASK-SC-PO2026030003-AUXOPSTRIP-e6a6ed98",
+          "craft": "CRAFT_000032"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-po14671-ALAN-09-57c7c89e",
+          "source": "TASK-SC-po14671-AUXOPDALAN-6bf1ec2c",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603086-ALAN-08-0d726aac",
+          "source": "TASK-SC-PO202603086-AUXOPDALAN-ede2fd84",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603083-ALAN-07-0d725f68",
+          "source": "TASK-SC-PO202603083-AUXOPDALAN-7731af97",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO202603082-ALAN-06-0d725ba6",
+          "source": "TASK-SC-PO202603082-AUXOPDALAN-068cdfb4",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030014-ALAN-05-a066e338",
+          "source": "TASK-SC-PO2026030014-AUXOPDALAN-4bc3799f",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030004-ALAN-03-a0666ed7",
+          "source": "TASK-SC-PO2026030004-AUXOPDALAN-9e302b40",
+          "craft": "CRAFT_000008"
+        },
+        {
+          "id": "SC-WHS-AUX-TASK-PO2026030003-ALAN-02-a0666b15",
+          "source": "TASK-SC-PO2026030003-AUXOPDALAN-e6a6ed98",
+          "craft": "CRAFT_000008"
+        }
+      ],
+      "changed": [],
+      "removed": []
+    },
+    "process": {
+      "before": 237,
+      "after": 237,
+      "added": [],
+      "changed": [],
+      "removed": []
+    }
+  },
+  "secondAndThirdReadEqual": true
+}

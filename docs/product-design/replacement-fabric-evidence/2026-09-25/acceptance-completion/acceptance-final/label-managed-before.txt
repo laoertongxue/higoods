@@ -1,0 +1,30 @@
+(node:53208) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 混装打印保留裁片矩阵，捆条和换片布独立附页，不合并单位 (13.012417ms)
+✔ 纯换片布袋可生成货物标识，不制造尺码和部位 (1.26ms)
+✔ 混装标签拒绝换片布错误长度、作废票和混生产单 (1.158541ms)
+✖ 旧业务存储不可读时仍用已提交的原装袋周期打印三类货物 (0.972625ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3827.659292
+
+✖ failing tests:
+
+test at tests/unit/replacement-fabric-mixed-label.test.ts:1:3523
+✖ 旧业务存储不可读时仍用已提交的原装袋周期打印三类货物 (0.972625ms)
+  Error: 旧业务存储已禁用
+      at Object.getItem (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/replacement-fabric-mixed-label.test.ts:45:39)
+      at hydrateCuttingRuntimeEventLedgerStore (/private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-runtime-event-ledger.ts:1059:70)
+      at listCuttingRuntimeEvents (/private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/cutting-runtime-event-ledger.ts:1294:10)
+      at resolveTransferBagGoodsLabelSource (/private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/cutting/transfer-bag-goods-label.ts:153:18)
+      at TestContext.<anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/tests/unit/replacement-fabric-mixed-label.test.ts:52:22)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)

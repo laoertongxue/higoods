@@ -5,7 +5,7 @@ import {
   appendCuttingRuntimeEventIdempotent,
   appendCuttingRuntimeEventIdempotentValidated,
   buildCuttingRuntimeEventId,
-  listCuttingRuntimeEvents,
+  listManagedCuttingRuntimeEvents,
   listSimpleCutPieceHandoverEvents,
   type AppendCuttingRuntimeEventInput,
   type CuttingRuntimeEvent,
@@ -692,7 +692,7 @@ export function parseCompleteTransferBagRepackPayload(
 }
 
 function sortedRuntimeEvents(storage: BrowserStorageLike | null): CuttingRuntimeEvent[] {
-  return sortRuntimeEventSnapshot(listCuttingRuntimeEvents(storage))
+  return sortRuntimeEventSnapshot(listManagedCuttingRuntimeEvents(storage))
 }
 
 function sortRuntimeEventSnapshot(events: readonly CuttingRuntimeEvent[]): CuttingRuntimeEvent[] {
@@ -1982,7 +1982,7 @@ export function submitTransferBagRepack(
     ? normalizeHandoverTaskContext(input.handoverContext)
     : undefined
   const idempotencyKey = `transfer-bag-repack:${repackBatchId}`
-  const existing = listCuttingRuntimeEvents(storage).find((event) =>
+  const existing = listManagedCuttingRuntimeEvents(storage).find((event) =>
     event.eventStatus !== '已取消'
     && event.eventType === '中转袋拆袋重装'
     && (
@@ -2133,7 +2133,7 @@ export function submitTransferBagRepack(
   })
   const resultBagByCode = new Map(resultBags.map((result) => [result.bagCode, result]))
   const retainedSourceByCode = new Map(retainedSources.map((source) => [source.bagCode, source]))
-  const chronologicalEvents = listCuttingRuntimeEvents(storage)
+  const chronologicalEvents = listManagedCuttingRuntimeEvents(storage)
   const sourceBags: TransferBagRepackPayload['sourceBags'] = sourceUses.map((source) => {
     const resultBag = resultBagByCode.get(source.bagCode)
     const retainedSource = retainedSourceByCode.get(source.bagCode)

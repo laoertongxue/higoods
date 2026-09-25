@@ -1,3 +1,5 @@
+import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
+import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import { listSimpleCutPieceHandoverEvents } from './cutting/cutting-runtime-event-ledger.ts'
 import {
   createEffectiveTaskAssignment,
@@ -656,7 +658,7 @@ export function ensureSewingCutPieceResponsibilityDemo(): SewingCutPieceResponsi
     const factoryId = 'ID-F021'
     const ppic = getFactoryActivePpicSnapshot(factoryId)
     if (!ppic) throw new Error('PPIC裁片责任演示工厂缺少有效PPIC')
-    createEffectiveTaskAssignment({
+    buildEffectiveAssignmentStaticFixture(()=>buildSewingSampleStaticFixture(()=>createEffectiveTaskAssignment({
       assignmentId,
       runtimeTaskId: 'TASK-PPIC-CUT-HANDOVER-DEMO-001',
       productionOrderId: 'PO-202603-0001',
@@ -676,7 +678,7 @@ export function ensureSewingCutPieceResponsibilityDemo(): SewingCutPieceResponsi
       operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
       allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
       allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-    })
+    })))
   }
   initializeSewingCutPieceResponsibility({
     assignmentId,
@@ -726,7 +728,7 @@ function ensureOverviewDemoAssignment(input: {
   const factoryId = 'ID-F021'
   const ppic = getFactoryActivePpicSnapshot(factoryId)
   if (!ppic) throw new Error('PPIC交出与欠片概览演示工厂缺少有效PPIC')
-  return createEffectiveTaskAssignment({
+  return buildEffectiveAssignmentStaticFixture(()=>buildSewingSampleStaticFixture(()=>createEffectiveTaskAssignment({
     assignmentId: input.assignmentId,
     runtimeTaskId: input.runtimeTaskId,
     productionOrderId: input.productionOrderNo,
@@ -746,7 +748,7 @@ function ensureOverviewDemoAssignment(input: {
     operatedBy: ppic.ppicName,
     allocationOperatorPpicId: ppic.ppicId,
     allocationOperatorPpicName: ppic.ppicName,
-  })
+  })))
 }
 
 function ensureOverviewProjection(input: {

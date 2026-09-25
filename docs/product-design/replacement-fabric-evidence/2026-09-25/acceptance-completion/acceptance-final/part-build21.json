@@ -1,0 +1,693 @@
+{
+  "version": "build-7 2026-09-25 source-build7.json",
+  "environment": "Chromium local preview43236; fresh isolated contexts, 1366x768 Web / 390x844 PDA; navigation0/event to content+images+2RAF",
+  "results": [
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 280.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 178.7000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 69.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "open-manual",
+      "ms": 240,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "save-manual",
+      "ms": 157.60000002384186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 1,
+      "scene": "actual-first-print",
+      "ms": 155.90000000596046,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 275.60000002384186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 175.7999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 71.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "open-manual",
+      "ms": 236.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "save-manual",
+      "ms": 157.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 2,
+      "scene": "actual-first-print",
+      "ms": 171.2000000178814,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 273.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 177.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 71.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "open-manual",
+      "ms": 232.7999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "save-manual",
+      "ms": 155.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 3,
+      "scene": "actual-first-print",
+      "ms": 155.40000000596046,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 275.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 174.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 71.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "open-manual",
+      "ms": 232.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "save-manual",
+      "ms": 161.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 4,
+      "scene": "actual-first-print",
+      "ms": 170.19999998807907,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 274.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 173.89999997615814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 68.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "open-manual",
+      "ms": 232.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "save-manual",
+      "ms": 157.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "fei",
+      "sample": 5,
+      "scene": "actual-first-print",
+      "ms": 170.40000000596046,
+      "errors": [],
+      "brokenImages": [],
+      "persistedTickets": 6
+    },
+    {
+      "name": "print",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 185.30000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 127.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 55.20000001788139,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 201.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 141.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 68.7999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 198.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 126.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 45,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 190,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 126.2000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 65.30000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 185.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 121,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "print",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 49.599999994039536,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 333.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 199.2999999821186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 144.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 1,
+      "scene": "start-cutting",
+      "ms": 188.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 463,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 204.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 155.19999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 2,
+      "scene": "start-cutting",
+      "ms": 183.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 320.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 212.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 155.7000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 3,
+      "scene": "start-cutting",
+      "ms": 184.7000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 349.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 200.39999997615814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 144.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 4,
+      "scene": "start-cutting",
+      "ms": 186.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 352.10000002384186,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 199.59999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 146.7000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "spreading",
+      "sample": 5,
+      "scene": "start-cutting",
+      "ms": 189.2000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "cold",
+      "ms": 351.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "refresh",
+      "ms": 247.2000000178814,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "navigation",
+      "ms": 154.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 1,
+      "scene": "start-spreading",
+      "ms": 314.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "cold",
+      "ms": 350,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "refresh",
+      "ms": 246.69999998807907,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "navigation",
+      "ms": 153.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 2,
+      "scene": "start-spreading",
+      "ms": 316.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "cold",
+      "ms": 353.5,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "refresh",
+      "ms": 247,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "navigation",
+      "ms": 153.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 3,
+      "scene": "start-spreading",
+      "ms": 317.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "cold",
+      "ms": 366.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "refresh",
+      "ms": 246.80000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "navigation",
+      "ms": 155.90000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 4,
+      "scene": "start-spreading",
+      "ms": 317.30000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "cold",
+      "ms": 454.09999999403954,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "refresh",
+      "ms": 247.40000000596046,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "navigation",
+      "ms": 153.30000001192093,
+      "errors": [],
+      "brokenImages": []
+    },
+    {
+      "name": "pda",
+      "sample": 5,
+      "scene": "start-spreading",
+      "ms": 315.7999999821186,
+      "errors": [],
+      "brokenImages": []
+    }
+  ],
+  "failed": [],
+  "max": 463
+}

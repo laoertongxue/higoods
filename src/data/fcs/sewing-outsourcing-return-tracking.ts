@@ -1,3 +1,5 @@
+import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
+import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
 import { getSewingDeliverySlaSnapshot } from './sewing-delivery-sla.ts'
 import { SEWING_RETURN_RULE_VERSION, calculateSewingReturnDeadlineDate } from './sewing-return-calendar.ts'
@@ -89,7 +91,7 @@ function ensureAssignment(order: PostFinishingAcceptanceProductionOrder): Effect
   const existing = getEffectiveTaskAssignment(order.assignmentId)
   if (existing) return existing
   const seed = TASK_SEEDS[order.sewingTaskType]
-  return createEffectiveTaskAssignment({
+  return buildEffectiveAssignmentStaticFixture(()=>buildSewingSampleStaticFixture(()=>createEffectiveTaskAssignment({
     assignmentId: order.assignmentId,
     runtimeTaskId: order.executionTaskId,
     productionOrderId: order.productionOrderId,
@@ -114,7 +116,7 @@ function ensureAssignment(order: PostFinishingAcceptanceProductionOrder): Effect
     operatedBy: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
     allocationOperatorPpicId: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicId,
     allocationOperatorPpicName: SEWING_OUTSOURCING_DEMO_CURRENT_PPIC.ppicName,
-  })
+  })))
 }
 
 function ensureCutPieceResponsibility(order: PostFinishingAcceptanceProductionOrder, assignment: EffectiveTaskAssignment): void {

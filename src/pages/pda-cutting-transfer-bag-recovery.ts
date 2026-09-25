@@ -1,6 +1,6 @@
 import { savePdaCuttingAction } from './pda-cutting-save.ts'
 // @page-pattern: pda
-import { escapeHtml } from '../utils'
+import { escapeHtml, localDateTimeText } from '../utils'
 import { listCuttingRuntimeEvents } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   recoverTransferBag,
@@ -46,12 +46,6 @@ const initialState = (): PdaTransferBagRecoveryState => ({
 
 let recoveryState = initialState()
 
-function nowIndonesia(): string {
-  return new Intl.DateTimeFormat('sv-SE', {
-    timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
-  }).format(new Date())
-}
 
 function latestHandoverSummary(bagCode: string): string {
   const event = listCuttingRuntimeEvents().filter((item) =>
@@ -162,7 +156,7 @@ export function handlePdaCuttingTransferBagRecoveryEvent(target: HTMLElement, ev
       recoveryNode: recoveryState.recoveryNode,
       recoveryLocation: recoveryState.recoveryLocation,
       reason: recoveryState.reason,
-      occurredAt: nowIndonesia(),
+      occurredAt: localDateTimeText().slice(0, 16),
       source: 'PDA',
       operator: { operatorId: operator.operatorAccountId, operatorName: operator.operatorName, operatorRole: operator.operatorRole },
     })

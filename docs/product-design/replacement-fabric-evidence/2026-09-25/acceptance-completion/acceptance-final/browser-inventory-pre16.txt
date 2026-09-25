@@ -1,0 +1,6 @@
+### Result
+{"contexts":[{"pages":["http://127.0.0.1:43236/fcs/pda/auth/login"]},{"pages":["http://127.0.0.1:43235/fcs/dispatch/workbench?type=NON_SEWING"]},{"pages":["http://127.0.0.1:43236/fcs/dispatch/workbench?type=NON_SEWING"]},{"pages":["http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover"]},{"pages":["http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover"]},{"pages":["http://127.0.0.1:43235/fcs/craft/cutting/replacement-fabric-fei-tickets"]},{"pages":["http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover"]},{"pages":["http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover"]},{"pages":["http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover"]}]}
+### Ran Playwright code
+```js
+await (async page => ({contexts:page.context().browser().contexts().map(c=>({pages:c.pages().map(p=>p.url())}))}))(page);
+```

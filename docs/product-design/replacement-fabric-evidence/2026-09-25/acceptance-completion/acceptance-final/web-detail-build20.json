@@ -1,0 +1,1224 @@
+{
+  "environment": {
+    "origin": "http://127.0.0.1:43236",
+    "viewport": "1366x768",
+    "measurement": "native click or navigationStart through visible result/images/2RAF; directload after UI fixture import and archive creation"
+  },
+  "results": [
+    {
+      "sample": 1,
+      "errors": [],
+      "tabs": [
+        {
+          "id": "transfer-bag-tab-identity",
+          "label": "稳定身份与二维码",
+          "text": "袋码\nBAG-HPB-MIXED-VERIFY\n中转袋名称\nBAG-HPB-MIXED-VERIFY\n规格\n中号 / 80 张菲票\n材质\n循环软袋\n归属工厂（货权）\nHiGood 裁床厂（OWN-CUTTING-001）\n载具类型\n袋\n当前状态\n使用中\n当前所在位置\n—\n是否启用\n启用\n使用次数\n0 次\n报废记录\n0 条",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-current",
+          "label": "当前状态与位置",
+          "text": "当前流转阶段\n菲票已装袋\n当前使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n绑定对象类型\n生产单\n绑定对象单号\nPO-202603-0002\n当前持有节点类型\n—\n当前持有节点\n—\n当前库区\n—\n当前库位\n—\n当前装载摘要\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-cycle",
+          "label": "当前周期与菲票",
+          "text": "当前袋内菲票快照\n打印本周期货物标识\n\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n共 3 条，当前 1-3；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        },
+        {
+          "id": "transfer-bag-tab-bagging",
+          "label": "装袋记录",
+          "text": "菲票装袋记录\n记录类型\t使用周期\t交出流转段\t库区 / 库位或接收方\t装袋记录状态\t操作人\t时间\n菲票装袋\tCYCLE-BAG-HPB-MIXED-VERIFY\t—\t按记录追溯\t已同步\t隔离浏览器验收\t2026-09-24 12:00\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-inbound",
+          "label": "入仓记录",
+          "text": "中转袋入仓记录\n当前中转袋暂无入仓记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-repack",
+          "label": "拆袋重装",
+          "text": "拆袋重装记录\n当前中转袋暂无拆袋重装记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-handover",
+          "label": "袋级交出",
+          "text": "袋级交出记录\n\n菲票与片数读取交出提交事件中的不可变快照，不回读中转袋当前内容。\n\n当前中转袋暂无整袋交出记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-special-craft",
+          "label": "特殊工艺回仓",
+          "text": "特殊工艺带袋回仓记录\n当前中转袋暂无带袋特殊工艺回仓记录；无袋回仓不会归入物理袋生命周期。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-recovery",
+          "label": "物理回收",
+          "text": "物理回收\n当前中转袋暂无物理回收运行事实。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-scrap",
+          "label": "报废记录",
+          "text": "报废记录\n\n当前查看 BAG-HPB-MIXED-VERIFY 的报废记录。\n\n当前中转袋暂无报废记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-history",
+          "label": "历史周期",
+          "text": "已记录使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n2026-09-24 12:00:00 · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页\n本周期货物快照\n打印本周期货物标识\n\nCYCLE-BAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n使用周期\n\n没有其他旧周转记录。",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        }
+      ],
+      "historicalPrintText": "BAG-HPB-MIXED-VERIFY 货物标识打印预览\n\n打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。\n\n请再次确认打印机已装入白色热敏纸；本批次 3 张。\n\n纸张规格：100mm × 100mm 黑白热敏标签；续页必须全部打印并按袋号成套插袋。\n\n返回业务单据\n下载 PDF\n打印\n\n货物标识\n第 1/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n款号 / SPU\n未记录\n生产单\nPO-202603-0002\n部位数量\n1 个\n颜色＼尺码\tM\t本页\nGrey\t20\t20\n本页合计\t20\t20\n整袋：3 张菲票 / 20 片\n共 1 色 × 1 码；本页 20 片\n换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n打印：2026/9/25 14:22:18\n按袋号插入对应中转袋\n货物标识 · 换片布\n第 2/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n5 Yard · 第 2 张\n票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:18\n按袋号插入对应中转袋\n货物标识 · 捆条\n第 3/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n8 米\n票号：BND-MIX-2\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:18\n按袋号插入对应中转袋",
+      "goodsImageFailureBlocked": true,
+      "goodsPrintCalls": 3,
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/transfer-bag-detail?sourcePageKey=transfer-bags&bagId=carrier-bag-hpb-mixed-verify&bagCode=BAG-HPB-MIXED-VERIFY&autoOpenDetail=1&detailTab=cycle",
+      "perf": [
+        {
+          "label": "web-detail-direct",
+          "ms": 154.5
+        },
+        {
+          "label": "web-detail-refresh",
+          "ms": 141.30000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-identity",
+          "ms": 31.599999994039536
+        },
+        {
+          "label": "tab-transfer-bag-tab-current",
+          "ms": 49.20000001788139
+        },
+        {
+          "label": "tab-transfer-bag-tab-cycle",
+          "ms": 65.59999999403954
+        },
+        {
+          "label": "tab-transfer-bag-tab-bagging",
+          "ms": 49
+        },
+        {
+          "label": "tab-transfer-bag-tab-inbound",
+          "ms": 48.89999997615814
+        },
+        {
+          "label": "tab-transfer-bag-tab-repack",
+          "ms": 48.19999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-handover",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-special-craft",
+          "ms": 48.79999998211861
+        },
+        {
+          "label": "tab-transfer-bag-tab-recovery",
+          "ms": 49.19999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-scrap",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-history",
+          "ms": 65.40000000596046
+        },
+        {
+          "label": "history-select-cycle",
+          "ms": 30.799999982118607
+        },
+        {
+          "label": "history-goods-print",
+          "ms": 66
+        },
+        {
+          "label": "goods-print",
+          "ms": 65.60000002384186
+        },
+        {
+          "label": "goods-download-pdf",
+          "ms": 65.09999999403954
+        },
+        {
+          "label": "goods-image-open",
+          "ms": 44.5
+        },
+        {
+          "label": "goods-image-close",
+          "ms": 45.5
+        },
+        {
+          "label": "goods-image-failure-blocks-print",
+          "ms": 482
+        },
+        {
+          "label": "goods-image-retry",
+          "ms": 65.2999999821186
+        },
+        {
+          "label": "goods-print-after-retry",
+          "ms": 82.19999998807907
+        }
+      ],
+      "records": [
+        {
+          "id": "part-ticket:bag-masters:carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-masters",
+          "value": {
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "carrierType": "bag",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "bagName": "BAG-HPB-MIXED-VERIFY",
+            "bagSpec": "中号 / 80 张菲票",
+            "bagMaterial": "循环软袋",
+            "ownershipFactoryId": "OWN-CUTTING-001",
+            "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）",
+            "bagType": "中转袋",
+            "capacity": 80,
+            "reusable": true,
+            "currentStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "currentCycleId": "",
+            "currentOwnerTaskId": "",
+            "qrValue": "FCSQR:%7B%22codeType%22%3A%22CARRIER%22%2C%22version%22%3A%222.0.0%22%2C%22issuedAt%22%3A%222026-09-25%2014%3A22%22%2C%22carrierId%22%3A%22carrier-bag-hpb-mixed-verify%22%2C%22carrierCode%22%3A%22BAG-HPB-MIXED-VERIFY%22%2C%22carrierType%22%3A%22bag%22%2C%22ownershipFactoryId%22%3A%22OWN-CUTTING-001%22%2C%22ownershipFactoryName%22%3A%22HiGood%20%E8%A3%81%E5%BA%8A%E5%8E%82%EF%BC%88OWN-CUTTING-001%EF%BC%89%22%7D",
+            "qrMeta": {
+              "codeType": "CARRIER",
+              "version": "2.0.0",
+              "issuedAt": "2026-09-25 14:22",
+              "carrierId": "carrier-bag-hpb-mixed-verify",
+              "carrierCode": "BAG-HPB-MIXED-VERIFY",
+              "carrierType": "bag",
+              "ownershipFactoryId": "OWN-CUTTING-001",
+              "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）"
+            },
+            "enabled": true,
+            "createdAt": "2026-09-25 14:22",
+            "createdBy": "中转袋工作台",
+            "note": ""
+          }
+        },
+        {
+          "id": "part-ticket:bag-reuse-cycles:cycle-carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-reuse-cycles",
+          "value": {
+            "cycleSummaryId": "cycle-carrier-bag-hpb-mixed-verify",
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "totalUsageCount": 0,
+            "totalDispatchCount": 0,
+            "totalReturnCount": 0,
+            "lastDispatchedAt": "",
+            "lastReturnedAt": "",
+            "currentReusableStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "currentOpenCycleId": "",
+            "currentOpenUsageId": "",
+            "note": "当前 bag 尚未形成完整回货闭环。"
+          }
+        }
+      ]
+    },
+    {
+      "sample": 2,
+      "errors": [],
+      "tabs": [
+        {
+          "id": "transfer-bag-tab-identity",
+          "label": "稳定身份与二维码",
+          "text": "袋码\nBAG-HPB-MIXED-VERIFY\n中转袋名称\nBAG-HPB-MIXED-VERIFY\n规格\n中号 / 80 张菲票\n材质\n循环软袋\n归属工厂（货权）\nHiGood 裁床厂（OWN-CUTTING-001）\n载具类型\n袋\n当前状态\n使用中\n当前所在位置\n—\n是否启用\n启用\n使用次数\n0 次\n报废记录\n0 条",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-current",
+          "label": "当前状态与位置",
+          "text": "当前流转阶段\n菲票已装袋\n当前使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n绑定对象类型\n生产单\n绑定对象单号\nPO-202603-0002\n当前持有节点类型\n—\n当前持有节点\n—\n当前库区\n—\n当前库位\n—\n当前装载摘要\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-cycle",
+          "label": "当前周期与菲票",
+          "text": "当前袋内菲票快照\n打印本周期货物标识\n\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n共 3 条，当前 1-3；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        },
+        {
+          "id": "transfer-bag-tab-bagging",
+          "label": "装袋记录",
+          "text": "菲票装袋记录\n记录类型\t使用周期\t交出流转段\t库区 / 库位或接收方\t装袋记录状态\t操作人\t时间\n菲票装袋\tCYCLE-BAG-HPB-MIXED-VERIFY\t—\t按记录追溯\t已同步\t隔离浏览器验收\t2026-09-24 12:00\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-inbound",
+          "label": "入仓记录",
+          "text": "中转袋入仓记录\n当前中转袋暂无入仓记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-repack",
+          "label": "拆袋重装",
+          "text": "拆袋重装记录\n当前中转袋暂无拆袋重装记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-handover",
+          "label": "袋级交出",
+          "text": "袋级交出记录\n\n菲票与片数读取交出提交事件中的不可变快照，不回读中转袋当前内容。\n\n当前中转袋暂无整袋交出记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-special-craft",
+          "label": "特殊工艺回仓",
+          "text": "特殊工艺带袋回仓记录\n当前中转袋暂无带袋特殊工艺回仓记录；无袋回仓不会归入物理袋生命周期。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-recovery",
+          "label": "物理回收",
+          "text": "物理回收\n当前中转袋暂无物理回收运行事实。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-scrap",
+          "label": "报废记录",
+          "text": "报废记录\n\n当前查看 BAG-HPB-MIXED-VERIFY 的报废记录。\n\n当前中转袋暂无报废记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-history",
+          "label": "历史周期",
+          "text": "已记录使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n2026-09-24 12:00:00 · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页\n本周期货物快照\n打印本周期货物标识\n\nCYCLE-BAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n使用周期\n\n没有其他旧周转记录。",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        }
+      ],
+      "historicalPrintText": "BAG-HPB-MIXED-VERIFY 货物标识打印预览\n\n打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。\n\n请再次确认打印机已装入白色热敏纸；本批次 3 张。\n\n纸张规格：100mm × 100mm 黑白热敏标签；续页必须全部打印并按袋号成套插袋。\n\n返回业务单据\n下载 PDF\n打印\n\n货物标识\n第 1/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n款号 / SPU\n未记录\n生产单\nPO-202603-0002\n部位数量\n1 个\n颜色＼尺码\tM\t本页\nGrey\t20\t20\n本页合计\t20\t20\n整袋：3 张菲票 / 20 片\n共 1 色 × 1 码；本页 20 片\n换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n打印：2026/9/25 14:22:22\n按袋号插入对应中转袋\n货物标识 · 换片布\n第 2/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n5 Yard · 第 2 张\n票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:22\n按袋号插入对应中转袋\n货物标识 · 捆条\n第 3/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n8 米\n票号：BND-MIX-2\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:22\n按袋号插入对应中转袋",
+      "goodsImageFailureBlocked": true,
+      "goodsPrintCalls": 3,
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/transfer-bag-detail?sourcePageKey=transfer-bags&bagId=carrier-bag-hpb-mixed-verify&bagCode=BAG-HPB-MIXED-VERIFY&autoOpenDetail=1&detailTab=cycle",
+      "perf": [
+        {
+          "label": "web-detail-direct",
+          "ms": 154.7000000178814
+        },
+        {
+          "label": "web-detail-refresh",
+          "ms": 142.90000000596046
+        },
+        {
+          "label": "tab-transfer-bag-tab-identity",
+          "ms": 31.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-current",
+          "ms": 48.400000005960464
+        },
+        {
+          "label": "tab-transfer-bag-tab-cycle",
+          "ms": 82.09999999403954
+        },
+        {
+          "label": "tab-transfer-bag-tab-bagging",
+          "ms": 48.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-inbound",
+          "ms": 48.599999994039536
+        },
+        {
+          "label": "tab-transfer-bag-tab-repack",
+          "ms": 49
+        },
+        {
+          "label": "tab-transfer-bag-tab-handover",
+          "ms": 48.79999998211861
+        },
+        {
+          "label": "tab-transfer-bag-tab-special-craft",
+          "ms": 48.20000001788139
+        },
+        {
+          "label": "tab-transfer-bag-tab-recovery",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-scrap",
+          "ms": 47.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-history",
+          "ms": 65.2999999821186
+        },
+        {
+          "label": "history-select-cycle",
+          "ms": 31.69999998807907
+        },
+        {
+          "label": "history-goods-print",
+          "ms": 65.2999999821186
+        },
+        {
+          "label": "goods-print",
+          "ms": 65.80000001192093
+        },
+        {
+          "label": "goods-download-pdf",
+          "ms": 64.80000001192093
+        },
+        {
+          "label": "goods-image-open",
+          "ms": 44.900000005960464
+        },
+        {
+          "label": "goods-image-close",
+          "ms": 44.400000005960464
+        },
+        {
+          "label": "goods-image-failure-blocks-print",
+          "ms": 499.80000001192093
+        },
+        {
+          "label": "goods-image-retry",
+          "ms": 65.19999998807907
+        },
+        {
+          "label": "goods-print-after-retry",
+          "ms": 65.80000001192093
+        }
+      ],
+      "records": [
+        {
+          "id": "part-ticket:bag-masters:carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-masters",
+          "value": {
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "carrierType": "bag",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "bagName": "BAG-HPB-MIXED-VERIFY",
+            "bagSpec": "中号 / 80 张菲票",
+            "bagMaterial": "循环软袋",
+            "ownershipFactoryId": "OWN-CUTTING-001",
+            "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）",
+            "bagType": "中转袋",
+            "capacity": 80,
+            "reusable": true,
+            "currentStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "currentCycleId": "",
+            "currentOwnerTaskId": "",
+            "qrValue": "FCSQR:%7B%22codeType%22%3A%22CARRIER%22%2C%22version%22%3A%222.0.0%22%2C%22issuedAt%22%3A%222026-09-25%2014%3A22%22%2C%22carrierId%22%3A%22carrier-bag-hpb-mixed-verify%22%2C%22carrierCode%22%3A%22BAG-HPB-MIXED-VERIFY%22%2C%22carrierType%22%3A%22bag%22%2C%22ownershipFactoryId%22%3A%22OWN-CUTTING-001%22%2C%22ownershipFactoryName%22%3A%22HiGood%20%E8%A3%81%E5%BA%8A%E5%8E%82%EF%BC%88OWN-CUTTING-001%EF%BC%89%22%7D",
+            "qrMeta": {
+              "codeType": "CARRIER",
+              "version": "2.0.0",
+              "issuedAt": "2026-09-25 14:22",
+              "carrierId": "carrier-bag-hpb-mixed-verify",
+              "carrierCode": "BAG-HPB-MIXED-VERIFY",
+              "carrierType": "bag",
+              "ownershipFactoryId": "OWN-CUTTING-001",
+              "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）"
+            },
+            "enabled": true,
+            "createdAt": "2026-09-25 14:22",
+            "createdBy": "中转袋工作台",
+            "note": ""
+          }
+        },
+        {
+          "id": "part-ticket:bag-reuse-cycles:cycle-carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-reuse-cycles",
+          "value": {
+            "cycleSummaryId": "cycle-carrier-bag-hpb-mixed-verify",
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "totalUsageCount": 0,
+            "totalDispatchCount": 0,
+            "totalReturnCount": 0,
+            "lastDispatchedAt": "",
+            "lastReturnedAt": "",
+            "currentReusableStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "currentOpenCycleId": "",
+            "currentOpenUsageId": "",
+            "note": "当前 bag 尚未形成完整回货闭环。"
+          }
+        }
+      ]
+    },
+    {
+      "sample": 3,
+      "errors": [],
+      "tabs": [
+        {
+          "id": "transfer-bag-tab-identity",
+          "label": "稳定身份与二维码",
+          "text": "袋码\nBAG-HPB-MIXED-VERIFY\n中转袋名称\nBAG-HPB-MIXED-VERIFY\n规格\n中号 / 80 张菲票\n材质\n循环软袋\n归属工厂（货权）\nHiGood 裁床厂（OWN-CUTTING-001）\n载具类型\n袋\n当前状态\n使用中\n当前所在位置\n—\n是否启用\n启用\n使用次数\n0 次\n报废记录\n0 条",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-current",
+          "label": "当前状态与位置",
+          "text": "当前流转阶段\n菲票已装袋\n当前使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n绑定对象类型\n生产单\n绑定对象单号\nPO-202603-0002\n当前持有节点类型\n—\n当前持有节点\n—\n当前库区\n—\n当前库位\n—\n当前装载摘要\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-cycle",
+          "label": "当前周期与菲票",
+          "text": "当前袋内菲票快照\n打印本周期货物标识\n\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n共 3 条，当前 1-3；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        },
+        {
+          "id": "transfer-bag-tab-bagging",
+          "label": "装袋记录",
+          "text": "菲票装袋记录\n记录类型\t使用周期\t交出流转段\t库区 / 库位或接收方\t装袋记录状态\t操作人\t时间\n菲票装袋\tCYCLE-BAG-HPB-MIXED-VERIFY\t—\t按记录追溯\t已同步\t隔离浏览器验收\t2026-09-24 12:00\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-inbound",
+          "label": "入仓记录",
+          "text": "中转袋入仓记录\n当前中转袋暂无入仓记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-repack",
+          "label": "拆袋重装",
+          "text": "拆袋重装记录\n当前中转袋暂无拆袋重装记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-handover",
+          "label": "袋级交出",
+          "text": "袋级交出记录\n\n菲票与片数读取交出提交事件中的不可变快照，不回读中转袋当前内容。\n\n当前中转袋暂无整袋交出记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-special-craft",
+          "label": "特殊工艺回仓",
+          "text": "特殊工艺带袋回仓记录\n当前中转袋暂无带袋特殊工艺回仓记录；无袋回仓不会归入物理袋生命周期。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-recovery",
+          "label": "物理回收",
+          "text": "物理回收\n当前中转袋暂无物理回收运行事实。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-scrap",
+          "label": "报废记录",
+          "text": "报废记录\n\n当前查看 BAG-HPB-MIXED-VERIFY 的报废记录。\n\n当前中转袋暂无报废记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-history",
+          "label": "历史周期",
+          "text": "已记录使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n2026-09-24 12:00:00 · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页\n本周期货物快照\n打印本周期货物标识\n\nCYCLE-BAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n使用周期\n\n没有其他旧周转记录。",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        }
+      ],
+      "historicalPrintText": "BAG-HPB-MIXED-VERIFY 货物标识打印预览\n\n打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。\n\n请再次确认打印机已装入白色热敏纸；本批次 3 张。\n\n纸张规格：100mm × 100mm 黑白热敏标签；续页必须全部打印并按袋号成套插袋。\n\n返回业务单据\n下载 PDF\n打印\n\n货物标识\n第 1/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n款号 / SPU\n未记录\n生产单\nPO-202603-0002\n部位数量\n1 个\n颜色＼尺码\tM\t本页\nGrey\t20\t20\n本页合计\t20\t20\n整袋：3 张菲票 / 20 片\n共 1 色 × 1 码；本页 20 片\n换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n打印：2026/9/25 14:22:26\n按袋号插入对应中转袋\n货物标识 · 换片布\n第 2/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n5 Yard · 第 2 张\n票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:26\n按袋号插入对应中转袋\n货物标识 · 捆条\n第 3/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n8 米\n票号：BND-MIX-2\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:26\n按袋号插入对应中转袋",
+      "goodsImageFailureBlocked": true,
+      "goodsPrintCalls": 3,
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/transfer-bag-detail?sourcePageKey=transfer-bags&bagId=carrier-bag-hpb-mixed-verify&bagCode=BAG-HPB-MIXED-VERIFY&autoOpenDetail=1&detailTab=cycle",
+      "perf": [
+        {
+          "label": "web-detail-direct",
+          "ms": 154.80000001192093
+        },
+        {
+          "label": "web-detail-refresh",
+          "ms": 141.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-identity",
+          "ms": 31.399999976158142
+        },
+        {
+          "label": "tab-transfer-bag-tab-current",
+          "ms": 49
+        },
+        {
+          "label": "tab-transfer-bag-tab-cycle",
+          "ms": 66.09999999403954
+        },
+        {
+          "label": "tab-transfer-bag-tab-bagging",
+          "ms": 49.79999998211861
+        },
+        {
+          "label": "tab-transfer-bag-tab-inbound",
+          "ms": 48
+        },
+        {
+          "label": "tab-transfer-bag-tab-repack",
+          "ms": 48.70000001788139
+        },
+        {
+          "label": "tab-transfer-bag-tab-handover",
+          "ms": 49.70000001788139
+        },
+        {
+          "label": "tab-transfer-bag-tab-special-craft",
+          "ms": 50
+        },
+        {
+          "label": "tab-transfer-bag-tab-recovery",
+          "ms": 49.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-scrap",
+          "ms": 49.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-history",
+          "ms": 66.19999998807907
+        },
+        {
+          "label": "history-select-cycle",
+          "ms": 32.5
+        },
+        {
+          "label": "history-goods-print",
+          "ms": 65.09999999403954
+        },
+        {
+          "label": "goods-print",
+          "ms": 65.40000000596046
+        },
+        {
+          "label": "goods-download-pdf",
+          "ms": 64.80000001192093
+        },
+        {
+          "label": "goods-image-open",
+          "ms": 49.20000001788139
+        },
+        {
+          "label": "goods-image-close",
+          "ms": 49.70000001788139
+        },
+        {
+          "label": "goods-image-failure-blocks-print",
+          "ms": 481.60000002384186
+        },
+        {
+          "label": "goods-image-retry",
+          "ms": 66.40000000596046
+        },
+        {
+          "label": "goods-print-after-retry",
+          "ms": 83.19999998807907
+        }
+      ],
+      "records": [
+        {
+          "id": "part-ticket:bag-masters:carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-masters",
+          "value": {
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "carrierType": "bag",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "bagName": "BAG-HPB-MIXED-VERIFY",
+            "bagSpec": "中号 / 80 张菲票",
+            "bagMaterial": "循环软袋",
+            "ownershipFactoryId": "OWN-CUTTING-001",
+            "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）",
+            "bagType": "中转袋",
+            "capacity": 80,
+            "reusable": true,
+            "currentStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "currentCycleId": "",
+            "currentOwnerTaskId": "",
+            "qrValue": "FCSQR:%7B%22codeType%22%3A%22CARRIER%22%2C%22version%22%3A%222.0.0%22%2C%22issuedAt%22%3A%222026-09-25%2014%3A22%22%2C%22carrierId%22%3A%22carrier-bag-hpb-mixed-verify%22%2C%22carrierCode%22%3A%22BAG-HPB-MIXED-VERIFY%22%2C%22carrierType%22%3A%22bag%22%2C%22ownershipFactoryId%22%3A%22OWN-CUTTING-001%22%2C%22ownershipFactoryName%22%3A%22HiGood%20%E8%A3%81%E5%BA%8A%E5%8E%82%EF%BC%88OWN-CUTTING-001%EF%BC%89%22%7D",
+            "qrMeta": {
+              "codeType": "CARRIER",
+              "version": "2.0.0",
+              "issuedAt": "2026-09-25 14:22",
+              "carrierId": "carrier-bag-hpb-mixed-verify",
+              "carrierCode": "BAG-HPB-MIXED-VERIFY",
+              "carrierType": "bag",
+              "ownershipFactoryId": "OWN-CUTTING-001",
+              "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）"
+            },
+            "enabled": true,
+            "createdAt": "2026-09-25 14:22",
+            "createdBy": "中转袋工作台",
+            "note": ""
+          }
+        },
+        {
+          "id": "part-ticket:bag-reuse-cycles:cycle-carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-reuse-cycles",
+          "value": {
+            "cycleSummaryId": "cycle-carrier-bag-hpb-mixed-verify",
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "totalUsageCount": 0,
+            "totalDispatchCount": 0,
+            "totalReturnCount": 0,
+            "lastDispatchedAt": "",
+            "lastReturnedAt": "",
+            "currentReusableStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "currentOpenCycleId": "",
+            "currentOpenUsageId": "",
+            "note": "当前 bag 尚未形成完整回货闭环。"
+          }
+        }
+      ]
+    },
+    {
+      "sample": 4,
+      "errors": [],
+      "tabs": [
+        {
+          "id": "transfer-bag-tab-identity",
+          "label": "稳定身份与二维码",
+          "text": "袋码\nBAG-HPB-MIXED-VERIFY\n中转袋名称\nBAG-HPB-MIXED-VERIFY\n规格\n中号 / 80 张菲票\n材质\n循环软袋\n归属工厂（货权）\nHiGood 裁床厂（OWN-CUTTING-001）\n载具类型\n袋\n当前状态\n使用中\n当前所在位置\n—\n是否启用\n启用\n使用次数\n0 次\n报废记录\n0 条",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-current",
+          "label": "当前状态与位置",
+          "text": "当前流转阶段\n菲票已装袋\n当前使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n绑定对象类型\n生产单\n绑定对象单号\nPO-202603-0002\n当前持有节点类型\n—\n当前持有节点\n—\n当前库区\n—\n当前库位\n—\n当前装载摘要\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-cycle",
+          "label": "当前周期与菲票",
+          "text": "当前袋内菲票快照\n打印本周期货物标识\n\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n共 3 条，当前 1-3；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        },
+        {
+          "id": "transfer-bag-tab-bagging",
+          "label": "装袋记录",
+          "text": "菲票装袋记录\n记录类型\t使用周期\t交出流转段\t库区 / 库位或接收方\t装袋记录状态\t操作人\t时间\n菲票装袋\tCYCLE-BAG-HPB-MIXED-VERIFY\t—\t按记录追溯\t已同步\t隔离浏览器验收\t2026-09-24 12:00\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-inbound",
+          "label": "入仓记录",
+          "text": "中转袋入仓记录\n当前中转袋暂无入仓记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-repack",
+          "label": "拆袋重装",
+          "text": "拆袋重装记录\n当前中转袋暂无拆袋重装记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-handover",
+          "label": "袋级交出",
+          "text": "袋级交出记录\n\n菲票与片数读取交出提交事件中的不可变快照，不回读中转袋当前内容。\n\n当前中转袋暂无整袋交出记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-special-craft",
+          "label": "特殊工艺回仓",
+          "text": "特殊工艺带袋回仓记录\n当前中转袋暂无带袋特殊工艺回仓记录；无袋回仓不会归入物理袋生命周期。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-recovery",
+          "label": "物理回收",
+          "text": "物理回收\n当前中转袋暂无物理回收运行事实。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-scrap",
+          "label": "报废记录",
+          "text": "报废记录\n\n当前查看 BAG-HPB-MIXED-VERIFY 的报废记录。\n\n当前中转袋暂无报废记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-history",
+          "label": "历史周期",
+          "text": "已记录使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n2026-09-24 12:00:00 · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页\n本周期货物快照\n打印本周期货物标识\n\nCYCLE-BAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n使用周期\n\n没有其他旧周转记录。",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        }
+      ],
+      "historicalPrintText": "BAG-HPB-MIXED-VERIFY 货物标识打印预览\n\n打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。\n\n请再次确认打印机已装入白色热敏纸；本批次 3 张。\n\n纸张规格：100mm × 100mm 黑白热敏标签；续页必须全部打印并按袋号成套插袋。\n\n返回业务单据\n下载 PDF\n打印\n\n货物标识\n第 1/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n款号 / SPU\n未记录\n生产单\nPO-202603-0002\n部位数量\n1 个\n颜色＼尺码\tM\t本页\nGrey\t20\t20\n本页合计\t20\t20\n整袋：3 张菲票 / 20 片\n共 1 色 × 1 码；本页 20 片\n换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n打印：2026/9/25 14:22:29\n按袋号插入对应中转袋\n货物标识 · 换片布\n第 2/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n5 Yard · 第 2 张\n票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:29\n按袋号插入对应中转袋\n货物标识 · 捆条\n第 3/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n8 米\n票号：BND-MIX-2\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:29\n按袋号插入对应中转袋",
+      "goodsImageFailureBlocked": true,
+      "goodsPrintCalls": 3,
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/transfer-bag-detail?sourcePageKey=transfer-bags&bagId=carrier-bag-hpb-mixed-verify&bagCode=BAG-HPB-MIXED-VERIFY&autoOpenDetail=1&detailTab=cycle",
+      "perf": [
+        {
+          "label": "web-detail-direct",
+          "ms": 154.69999998807907
+        },
+        {
+          "label": "web-detail-refresh",
+          "ms": 140.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-identity",
+          "ms": 32.5
+        },
+        {
+          "label": "tab-transfer-bag-tab-current",
+          "ms": 49.29999998211861
+        },
+        {
+          "label": "tab-transfer-bag-tab-cycle",
+          "ms": 65.5
+        },
+        {
+          "label": "tab-transfer-bag-tab-bagging",
+          "ms": 49
+        },
+        {
+          "label": "tab-transfer-bag-tab-inbound",
+          "ms": 48.900000005960464
+        },
+        {
+          "label": "tab-transfer-bag-tab-repack",
+          "ms": 49.70000001788139
+        },
+        {
+          "label": "tab-transfer-bag-tab-handover",
+          "ms": 48.5
+        },
+        {
+          "label": "tab-transfer-bag-tab-special-craft",
+          "ms": 48.70000001788139
+        },
+        {
+          "label": "tab-transfer-bag-tab-recovery",
+          "ms": 48.30000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-scrap",
+          "ms": 48.19999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-history",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "history-select-cycle",
+          "ms": 31.299999982118607
+        },
+        {
+          "label": "history-goods-print",
+          "ms": 65.19999998807907
+        },
+        {
+          "label": "goods-print",
+          "ms": 65.2000000178814
+        },
+        {
+          "label": "goods-download-pdf",
+          "ms": 65.09999999403954
+        },
+        {
+          "label": "goods-image-open",
+          "ms": 45.5
+        },
+        {
+          "label": "goods-image-close",
+          "ms": 46.80000001192093
+        },
+        {
+          "label": "goods-image-failure-blocks-print",
+          "ms": 481.5
+        },
+        {
+          "label": "goods-image-retry",
+          "ms": 65.40000000596046
+        },
+        {
+          "label": "goods-print-after-retry",
+          "ms": 81.69999998807907
+        }
+      ],
+      "records": [
+        {
+          "id": "part-ticket:bag-masters:carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-masters",
+          "value": {
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "carrierType": "bag",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "bagName": "BAG-HPB-MIXED-VERIFY",
+            "bagSpec": "中号 / 80 张菲票",
+            "bagMaterial": "循环软袋",
+            "ownershipFactoryId": "OWN-CUTTING-001",
+            "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）",
+            "bagType": "中转袋",
+            "capacity": 80,
+            "reusable": true,
+            "currentStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "currentCycleId": "",
+            "currentOwnerTaskId": "",
+            "qrValue": "FCSQR:%7B%22codeType%22%3A%22CARRIER%22%2C%22version%22%3A%222.0.0%22%2C%22issuedAt%22%3A%222026-09-25%2014%3A22%22%2C%22carrierId%22%3A%22carrier-bag-hpb-mixed-verify%22%2C%22carrierCode%22%3A%22BAG-HPB-MIXED-VERIFY%22%2C%22carrierType%22%3A%22bag%22%2C%22ownershipFactoryId%22%3A%22OWN-CUTTING-001%22%2C%22ownershipFactoryName%22%3A%22HiGood%20%E8%A3%81%E5%BA%8A%E5%8E%82%EF%BC%88OWN-CUTTING-001%EF%BC%89%22%7D",
+            "qrMeta": {
+              "codeType": "CARRIER",
+              "version": "2.0.0",
+              "issuedAt": "2026-09-25 14:22",
+              "carrierId": "carrier-bag-hpb-mixed-verify",
+              "carrierCode": "BAG-HPB-MIXED-VERIFY",
+              "carrierType": "bag",
+              "ownershipFactoryId": "OWN-CUTTING-001",
+              "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）"
+            },
+            "enabled": true,
+            "createdAt": "2026-09-25 14:22",
+            "createdBy": "中转袋工作台",
+            "note": ""
+          }
+        },
+        {
+          "id": "part-ticket:bag-reuse-cycles:cycle-carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-reuse-cycles",
+          "value": {
+            "cycleSummaryId": "cycle-carrier-bag-hpb-mixed-verify",
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "totalUsageCount": 0,
+            "totalDispatchCount": 0,
+            "totalReturnCount": 0,
+            "lastDispatchedAt": "",
+            "lastReturnedAt": "",
+            "currentReusableStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "currentOpenCycleId": "",
+            "currentOpenUsageId": "",
+            "note": "当前 bag 尚未形成完整回货闭环。"
+          }
+        }
+      ]
+    },
+    {
+      "sample": 5,
+      "errors": [],
+      "tabs": [
+        {
+          "id": "transfer-bag-tab-identity",
+          "label": "稳定身份与二维码",
+          "text": "袋码\nBAG-HPB-MIXED-VERIFY\n中转袋名称\nBAG-HPB-MIXED-VERIFY\n规格\n中号 / 80 张菲票\n材质\n循环软袋\n归属工厂（货权）\nHiGood 裁床厂（OWN-CUTTING-001）\n载具类型\n袋\n当前状态\n使用中\n当前所在位置\n—\n是否启用\n启用\n使用次数\n0 次\n报废记录\n0 条",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-current",
+          "label": "当前状态与位置",
+          "text": "当前流转阶段\n菲票已装袋\n当前使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n绑定对象类型\n生产单\n绑定对象单号\nPO-202603-0002\n当前持有节点类型\n—\n当前持有节点\n—\n当前库区\n—\n当前库位\n—\n当前装载摘要\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-cycle",
+          "label": "当前周期与菲票",
+          "text": "当前袋内菲票快照\n打印本周期货物标识\n\n部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n共 3 条，当前 1-3；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        },
+        {
+          "id": "transfer-bag-tab-bagging",
+          "label": "装袋记录",
+          "text": "菲票装袋记录\n记录类型\t使用周期\t交出流转段\t库区 / 库位或接收方\t装袋记录状态\t操作人\t时间\n菲票装袋\tCYCLE-BAG-HPB-MIXED-VERIFY\t—\t按记录追溯\t已同步\t隔离浏览器验收\t2026-09-24 12:00\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-inbound",
+          "label": "入仓记录",
+          "text": "中转袋入仓记录\n当前中转袋暂无入仓记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-repack",
+          "label": "拆袋重装",
+          "text": "拆袋重装记录\n当前中转袋暂无拆袋重装记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-handover",
+          "label": "袋级交出",
+          "text": "袋级交出记录\n\n菲票与片数读取交出提交事件中的不可变快照，不回读中转袋当前内容。\n\n当前中转袋暂无整袋交出记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-special-craft",
+          "label": "特殊工艺回仓",
+          "text": "特殊工艺带袋回仓记录\n当前中转袋暂无带袋特殊工艺回仓记录；无袋回仓不会归入物理袋生命周期。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-recovery",
+          "label": "物理回收",
+          "text": "物理回收\n当前中转袋暂无物理回收运行事实。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-scrap",
+          "label": "报废记录",
+          "text": "报废记录\n\n当前查看 BAG-HPB-MIXED-VERIFY 的报废记录。\n\n当前中转袋暂无报废记录。\n\n共 0 条；每页 10 条\n\n上一页\n1 / 1\n下一页",
+          "kinds": []
+        },
+        {
+          "id": "transfer-bag-tab-history",
+          "label": "历史周期",
+          "text": "已记录使用周期\nCYCLE-BAG-HPB-MIXED-VERIFY\n2026-09-24 12:00:00 · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n共 1 条，当前 1-1；每页 10 条\n\n上一页\n1 / 1\n下一页\n本周期货物快照\n打印本周期货物标识\n\nCYCLE-BAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n\n部位裁片\n20 片\nSPU-2024-005 前片\nGrey / M\n\nCUT-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n换片布 · 第 2 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n捆条\n8 米\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nBND-MIX-2\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n使用周期\n\n没有其他旧周转记录。",
+          "kinds": [
+            "CUT_PIECE",
+            "REPLACEMENT_FABRIC",
+            "BINDING_STRIP"
+          ]
+        }
+      ],
+      "historicalPrintText": "BAG-HPB-MIXED-VERIFY 货物标识打印预览\n\n打印前请在浏览器打印设置中关闭页眉和页脚。该提示不会被打印。\n\n请再次确认打印机已装入白色热敏纸；本批次 3 张。\n\n纸张规格：100mm × 100mm 黑白热敏标签；续页必须全部打印并按袋号成套插袋。\n\n返回业务单据\n下载 PDF\n打印\n\n货物标识\n第 1/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n款号 / SPU\n未记录\n生产单\nPO-202603-0002\n部位数量\n1 个\n颜色＼尺码\tM\t本页\nGrey\t20\t20\n本页合计\t20\t20\n整袋：3 张菲票 / 20 片\n共 1 色 × 1 码；本页 20 片\n换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n打印：2026/9/25 14:22:33\n按袋号插入对应中转袋\n货物标识 · 换片布\n第 2/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n5 Yard · 第 2 张\n票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:33\n按袋号插入对应中转袋\n货物标识 · 捆条\n第 3/3 页\n中转袋\nBAG-HPB-MIXED-VERIFY\n生产单：PO-202603-0002\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n8 米\n票号：BND-MIX-2\n整袋：3 张菲票；裁片 20 片\n换片布（Yard） 5；捆条（米） 8\n打印：2026/9/25 14:22:33\n按袋号插入对应中转袋",
+      "goodsImageFailureBlocked": true,
+      "goodsPrintCalls": 3,
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/transfer-bag-detail?sourcePageKey=transfer-bags&bagId=carrier-bag-hpb-mixed-verify&bagCode=BAG-HPB-MIXED-VERIFY&autoOpenDetail=1&detailTab=cycle",
+      "perf": [
+        {
+          "label": "web-detail-direct",
+          "ms": 154.5
+        },
+        {
+          "label": "web-detail-refresh",
+          "ms": 141.09999999403954
+        },
+        {
+          "label": "tab-transfer-bag-tab-identity",
+          "ms": 31.700000017881393
+        },
+        {
+          "label": "tab-transfer-bag-tab-current",
+          "ms": 48.900000005960464
+        },
+        {
+          "label": "tab-transfer-bag-tab-cycle",
+          "ms": 65.5
+        },
+        {
+          "label": "tab-transfer-bag-tab-bagging",
+          "ms": 48.79999998211861
+        },
+        {
+          "label": "tab-transfer-bag-tab-inbound",
+          "ms": 48.900000005960464
+        },
+        {
+          "label": "tab-transfer-bag-tab-repack",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-handover",
+          "ms": 48.900000005960464
+        },
+        {
+          "label": "tab-transfer-bag-tab-special-craft",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-recovery",
+          "ms": 48.80000001192093
+        },
+        {
+          "label": "tab-transfer-bag-tab-scrap",
+          "ms": 48.69999998807907
+        },
+        {
+          "label": "tab-transfer-bag-tab-history",
+          "ms": 65.19999998807907
+        },
+        {
+          "label": "history-select-cycle",
+          "ms": 31.19999998807907
+        },
+        {
+          "label": "history-goods-print",
+          "ms": 65.2999999821186
+        },
+        {
+          "label": "goods-print",
+          "ms": 65.2999999821186
+        },
+        {
+          "label": "goods-download-pdf",
+          "ms": 65.10000002384186
+        },
+        {
+          "label": "goods-image-open",
+          "ms": 45
+        },
+        {
+          "label": "goods-image-close",
+          "ms": 44.099999994039536
+        },
+        {
+          "label": "goods-image-failure-blocks-print",
+          "ms": 515.9000000059605
+        },
+        {
+          "label": "goods-image-retry",
+          "ms": 65.59999999403954
+        },
+        {
+          "label": "goods-print-after-retry",
+          "ms": 82.30000001192093
+        }
+      ],
+      "records": [
+        {
+          "id": "part-ticket:bag-masters:carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-masters",
+          "value": {
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "carrierType": "bag",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "bagName": "BAG-HPB-MIXED-VERIFY",
+            "bagSpec": "中号 / 80 张菲票",
+            "bagMaterial": "循环软袋",
+            "ownershipFactoryId": "OWN-CUTTING-001",
+            "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）",
+            "bagType": "中转袋",
+            "capacity": 80,
+            "reusable": true,
+            "currentStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "currentCycleId": "",
+            "currentOwnerTaskId": "",
+            "qrValue": "FCSQR:%7B%22codeType%22%3A%22CARRIER%22%2C%22version%22%3A%222.0.0%22%2C%22issuedAt%22%3A%222026-09-25%2014%3A22%22%2C%22carrierId%22%3A%22carrier-bag-hpb-mixed-verify%22%2C%22carrierCode%22%3A%22BAG-HPB-MIXED-VERIFY%22%2C%22carrierType%22%3A%22bag%22%2C%22ownershipFactoryId%22%3A%22OWN-CUTTING-001%22%2C%22ownershipFactoryName%22%3A%22HiGood%20%E8%A3%81%E5%BA%8A%E5%8E%82%EF%BC%88OWN-CUTTING-001%EF%BC%89%22%7D",
+            "qrMeta": {
+              "codeType": "CARRIER",
+              "version": "2.0.0",
+              "issuedAt": "2026-09-25 14:22",
+              "carrierId": "carrier-bag-hpb-mixed-verify",
+              "carrierCode": "BAG-HPB-MIXED-VERIFY",
+              "carrierType": "bag",
+              "ownershipFactoryId": "OWN-CUTTING-001",
+              "ownershipFactoryName": "HiGood 裁床厂（OWN-CUTTING-001）"
+            },
+            "enabled": true,
+            "createdAt": "2026-09-25 14:22",
+            "createdBy": "中转袋工作台",
+            "note": ""
+          }
+        },
+        {
+          "id": "part-ticket:bag-reuse-cycles:cycle-carrier-bag-hpb-mixed-verify",
+          "collection": "part-ticket:bag-reuse-cycles",
+          "value": {
+            "cycleSummaryId": "cycle-carrier-bag-hpb-mixed-verify",
+            "carrierId": "carrier-bag-hpb-mixed-verify",
+            "carrierCode": "BAG-HPB-MIXED-VERIFY",
+            "latestCycleId": "",
+            "latestCycleNo": "",
+            "bagId": "carrier-bag-hpb-mixed-verify",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "latestUsageId": "",
+            "latestUsageNo": "",
+            "totalUsageCount": 0,
+            "totalDispatchCount": 0,
+            "totalReturnCount": 0,
+            "lastDispatchedAt": "",
+            "lastReturnedAt": "",
+            "currentReusableStatus": "IDLE",
+            "currentLocation": "裁片仓空袋区",
+            "currentOpenCycleId": "",
+            "currentOpenUsageId": "",
+            "note": "当前 bag 尚未形成完整回货闭环。"
+          }
+        }
+      ]
+    }
+  ]
+}

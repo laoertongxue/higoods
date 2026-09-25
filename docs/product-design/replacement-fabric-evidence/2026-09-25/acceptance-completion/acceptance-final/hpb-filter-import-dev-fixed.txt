@@ -1,0 +1,6 @@
+### Result
+{"loaded":[]}
+### Ran Playwright code
+```js
+await (async root=>{const c=await root.context().browser().newContext(),p=await c.newPage();try{await p.goto('http://127.0.0.1:43235/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-page]').waitFor();const before=await p.evaluate(()=>performance.getEntriesByType('resource').map(x=>x.name));await p.locator('[data-hpb-filter=material]').fill('不存在面料');await p.locator('[data-hpb-action=query]').click();await p.waitForFunction(()=>document.querySelector('[data-hpb-page]')?.textContent.includes('当前没有分配'));await p.locator('[data-hpb-action=reset]').click();await p.locator('[data-hpb-action=detail]').first().waitFor();const after=await p.evaluate(()=>performance.getEntriesByType('resource').map(x=>x.name));return{loaded:after.filter(x=>!before.includes(x))}}finally{await c.close()}})(page);
+```

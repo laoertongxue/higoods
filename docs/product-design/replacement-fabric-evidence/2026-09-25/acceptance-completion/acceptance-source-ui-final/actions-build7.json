@@ -1,0 +1,265 @@
+{
+  "results": [
+    {
+      "scene": "dispatch",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 97.5
+        },
+        {
+          "action": "confirm-cutting-reassign",
+          "ms": 81.7999999821186
+        }
+      ],
+      "errors": [],
+      "body": "换片布菲票打印\n刷新分配与打印状态\n历史票查询\n本机数据\n来源生产单号\n面料编码 / 名称\n打印状态\n全部\n待打印\n部分已打印\n全部已打印\n无需换片布\n资料待核对\n查询\n重置\n导出\n生产单\n1\n当前菲票\n3 张\n待打印\n3 张\n换片布总长\n15 Yard\n换片布打印对象 · 1 条\n列设置\n来源生产单\n\t面料（不含朴）\t每张长度\t\n菲票 / 已打印\n\t\n打印状态\n\t操作\nPO14671\n\nOWN-CUTTING-001\n\n\t\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n面料 B · 白色条\nRELEASE-B · Black / White / Navy / Red\n面料 C · 兰色条\nRELEASE-C · Black / White / Navy / Red\n\t5 Yard\n\n固定长度\n\n\t3 张 / 0 张\t待打印\t打印 / 详情\n\n共 1 条，当前 1-1\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+      "initialTickets": 3,
+      "oldTicketNos": [
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002",
+        "HPB/PO14671/RELEASE-B/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-C/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001"
+      ],
+      "history": "历史换片布票\n关闭\n查询历史\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001\n\nPO14671 · 第 1 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002\n\nPO14671 · 第 2 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n上一页\n1 / 1 · 共 2 张\n下一页"
+    },
+    {
+      "scene": "dispatch",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 97.7999999821186
+        },
+        {
+          "action": "confirm-cutting-reassign",
+          "ms": 81.30000001192093
+        }
+      ],
+      "errors": [],
+      "body": "换片布菲票打印\n刷新分配与打印状态\n历史票查询\n本机数据\n来源生产单号\n面料编码 / 名称\n打印状态\n全部\n待打印\n部分已打印\n全部已打印\n无需换片布\n资料待核对\n查询\n重置\n导出\n生产单\n2\n当前菲票\n4 张\n待打印\n4 张\n换片布总长\n20 Yard\n换片布打印对象 · 2 条\n列设置\n来源生产单\n\t面料（不含朴）\t每张长度\t\n菲票 / 已打印\n\t\n打印状态\n\t操作\nPO-202603-0002\n\nF090\n\n\t\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\t5 Yard\n\n固定长度\n\n\t1 张 / 0 张\t待打印\t打印 / 详情\nPO14671\n\nOWN-CUTTING-001\n\n\t\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n面料 B · 白色条\nRELEASE-B · Black / White / Navy / Red\n面料 C · 兰色条\nRELEASE-C · Black / White / Navy / Red\n\t5 Yard\n\n固定长度\n\n\t3 张 / 0 张\t待打印\t打印 / 详情\n\n共 2 条，当前 1-2\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+      "initialTickets": 3,
+      "oldTicketNos": [
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002",
+        "HPB/PO14671/RELEASE-B/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-C/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001"
+      ],
+      "history": "历史换片布票\n关闭\n查询历史\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002\n\nPO14671 · 第 2 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001\n\nPO14671 · 第 1 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n上一页\n1 / 1 · 共 2 张\n下一页"
+    },
+    {
+      "scene": "dispatch",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 81.69999998807907
+        },
+        {
+          "action": "confirm-cutting-reassign",
+          "ms": 82
+        }
+      ],
+      "errors": [],
+      "body": "换片布菲票打印\n刷新分配与打印状态\n历史票查询\n本机数据\n来源生产单号\n面料编码 / 名称\n打印状态\n全部\n待打印\n部分已打印\n全部已打印\n无需换片布\n资料待核对\n查询\n重置\n导出\n生产单\n2\n当前菲票\n4 张\n待打印\n4 张\n换片布总长\n20 Yard\n换片布打印对象 · 2 条\n列设置\n来源生产单\n\t面料（不含朴）\t每张长度\t\n菲票 / 已打印\n\t\n打印状态\n\t操作\nPO-202603-0002\n\nF090\n\n\t\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\t5 Yard\n\n固定长度\n\n\t1 张 / 0 张\t待打印\t打印 / 详情\nPO14671\n\nOWN-CUTTING-001\n\n\t\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n面料 B · 白色条\nRELEASE-B · Black / White / Navy / Red\n面料 C · 兰色条\nRELEASE-C · Black / White / Navy / Red\n\t5 Yard\n\n固定长度\n\n\t3 张 / 0 张\t待打印\t打印 / 详情\n\n共 2 条，当前 1-2\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+      "initialTickets": 3,
+      "oldTicketNos": [
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002",
+        "HPB/PO14671/RELEASE-B/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-C/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001"
+      ],
+      "history": "历史换片布票\n关闭\n查询历史\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001\n\nPO14671 · 第 1 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002\n\nPO14671 · 第 2 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n上一页\n1 / 1 · 共 2 张\n下一页"
+    },
+    {
+      "scene": "dispatch",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 139.30000001192093
+        },
+        {
+          "action": "confirm-cutting-reassign",
+          "ms": 82.69999998807907
+        }
+      ],
+      "errors": [],
+      "body": "换片布菲票打印\n刷新分配与打印状态\n历史票查询\n本机数据\n来源生产单号\n面料编码 / 名称\n打印状态\n全部\n待打印\n部分已打印\n全部已打印\n无需换片布\n资料待核对\n查询\n重置\n导出\n生产单\n2\n当前菲票\n4 张\n待打印\n4 张\n换片布总长\n20 Yard\n换片布打印对象 · 2 条\n列设置\n来源生产单\n\t面料（不含朴）\t每张长度\t\n菲票 / 已打印\n\t\n打印状态\n\t操作\nPO-202603-0002\n\nF090\n\n\t\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\t5 Yard\n\n固定长度\n\n\t1 张 / 0 张\t待打印\t打印 / 详情\nPO14671\n\nOWN-CUTTING-001\n\n\t\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n面料 B · 白色条\nRELEASE-B · Black / White / Navy / Red\n面料 C · 兰色条\nRELEASE-C · Black / White / Navy / Red\n\t5 Yard\n\n固定长度\n\n\t3 张 / 0 张\t待打印\t打印 / 详情\n\n共 2 条，当前 1-2\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+      "initialTickets": 3,
+      "oldTicketNos": [
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002",
+        "HPB/PO14671/RELEASE-B/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-C/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001"
+      ],
+      "history": "历史换片布票\n关闭\n查询历史\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001\n\nPO14671 · 第 1 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002\n\nPO14671 · 第 2 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n上一页\n1 / 1 · 共 2 张\n下一页"
+    },
+    {
+      "scene": "dispatch",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "confirm-dispatch",
+          "ms": 82.59999999403954
+        },
+        {
+          "action": "confirm-cutting-reassign",
+          "ms": 82.40000000596046
+        }
+      ],
+      "errors": [],
+      "body": "换片布菲票打印\n刷新分配与打印状态\n历史票查询\n本机数据\n来源生产单号\n面料编码 / 名称\n打印状态\n全部\n待打印\n部分已打印\n全部已打印\n无需换片布\n资料待核对\n查询\n重置\n导出\n生产单\n2\n当前菲票\n4 张\n待打印\n4 张\n换片布总长\n20 Yard\n换片布打印对象 · 2 条\n列设置\n来源生产单\n\t面料（不含朴）\t每张长度\t\n菲票 / 已打印\n\t\n打印状态\n\t操作\nPO-202603-0002\n\nF090\n\n\t\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\t5 Yard\n\n固定长度\n\n\t1 张 / 0 张\t待打印\t打印 / 详情\nPO14671\n\nOWN-CUTTING-001\n\n\t\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n面料 B · 白色条\nRELEASE-B · Black / White / Navy / Red\n面料 C · 兰色条\nRELEASE-C · Black / White / Navy / Red\n\t5 Yard\n\n固定长度\n\n\t3 张 / 0 张\t待打印\t打印 / 详情\n\n共 2 条，当前 1-2\n\n10 条/页\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页",
+      "initialTickets": 3,
+      "oldTicketNos": [
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002",
+        "HPB/PO14671/RELEASE-B/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001",
+        "HPB/PO14671/RELEASE-C/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001"
+      ],
+      "history": "历史换片布票\n关闭\n查询历史\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/001\n\nPO14671 · 第 1 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n面料 A · 净色\nRELEASE-A · Black / White / Navy / Red\n\nHPB/PO14671/RELEASE-A/Black%20%2F%20White%20%2F%20Navy%20%2F%20Red/002\n\nPO14671 · 第 2 张 · 5 Yard\n\n原裁床分配或面料范围已变更，旧票不可继续流转\n\n失效票不允许打印、装袋或交出\n上一页\n1 / 1 · 共 2 张\n下一页"
+    },
+    {
+      "scene": "tender",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "confirm-award",
+          "ms": 81.90000000596046
+        }
+      ],
+      "errors": [],
+      "body": "TENDER-0003-001\tTASK-0003-002\t\n生产单号\nPO-2024-0003\n需求单号\n-\n售卖类型\nshopee备货\n\t裁片\t600 件\t5 家\t5 家\t0 家\t\n5 / 5\n\t16,200 IDR/件\t11,200 IDR/件\t11,000 IDR/件\t12,000 IDR/件\t2026-03-10 18:00\t\n已截止\n\t已定标\t万隆裁片厂\t11,200 IDR/件\t\n查看\n非车缝任务分配"
+    },
+    {
+      "scene": "tender",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "confirm-award",
+          "ms": 82
+        }
+      ],
+      "errors": [],
+      "body": "TENDER-0003-001\tTASK-0003-002\t\n生产单号\nPO-2024-0003\n需求单号\n-\n售卖类型\nshopee备货\n\t裁片\t600 件\t5 家\t5 家\t0 家\t\n5 / 5\n\t16,200 IDR/件\t11,200 IDR/件\t11,000 IDR/件\t12,000 IDR/件\t2026-03-10 18:00\t\n已截止\n\t已定标\t万隆裁片厂\t11,200 IDR/件\t\n查看\n非车缝任务分配"
+    },
+    {
+      "scene": "tender",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "confirm-award",
+          "ms": 81.40000000596046
+        }
+      ],
+      "errors": [],
+      "body": "TENDER-0003-001\tTASK-0003-002\t\n生产单号\nPO-2024-0003\n需求单号\n-\n售卖类型\nshopee备货\n\t裁片\t600 件\t5 家\t5 家\t0 家\t\n5 / 5\n\t16,200 IDR/件\t11,200 IDR/件\t11,000 IDR/件\t12,000 IDR/件\t2026-03-10 18:00\t\n已截止\n\t已定标\t万隆裁片厂\t11,200 IDR/件\t\n查看\n非车缝任务分配"
+    },
+    {
+      "scene": "tender",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "confirm-award",
+          "ms": 82
+        }
+      ],
+      "errors": [],
+      "body": "TENDER-0003-001\tTASK-0003-002\t\n生产单号\nPO-2024-0003\n需求单号\n-\n售卖类型\nshopee备货\n\t裁片\t600 件\t5 家\t5 家\t0 家\t\n5 / 5\n\t16,200 IDR/件\t11,200 IDR/件\t11,000 IDR/件\t12,000 IDR/件\t2026-03-10 18:00\t\n已截止\n\t已定标\t万隆裁片厂\t11,200 IDR/件\t\n查看\n非车缝任务分配"
+    },
+    {
+      "scene": "tender",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "confirm-award",
+          "ms": 81.40000000596046
+        }
+      ],
+      "errors": [],
+      "body": "TENDER-0003-001\tTASK-0003-002\t\n生产单号\nPO-2024-0003\n需求单号\n-\n售卖类型\nshopee备货\n\t裁片\t600 件\t5 家\t5 家\t0 家\t\n5 / 5\n\t16,200 IDR/件\t11,200 IDR/件\t11,000 IDR/件\t12,000 IDR/件\t2026-03-10 18:00\t\n已截止\n\t已定标\t万隆裁片厂\t11,200 IDR/件\t\n查看\n非车缝任务分配"
+    },
+    {
+      "scene": "sample",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "receive-sample",
+          "ms": 98.60000002384186
+        },
+        {
+          "action": "handoff-sample",
+          "ms": 82.30000001192093
+        }
+      ],
+      "errors": [],
+      "body": "批版建议\nPPIC视角\n批版人员视角\n待样衣送回\n0\n待批版\n2\n待反馈工厂\n1\n已完成\n0\n查询\n重置\n待批版的产前版样衣\n款式／产前版样衣\t批版时效\t执行任务\t工厂／PPIC\t任务类型\t当前节点\t最新批版建议／人员\t操作\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-INDEPENDENT\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t独立车缝\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-IRON-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-IRON-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-SEW-IRON\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t车缝+烫包\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n共 2 条，当前 1-2\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页"
+    },
+    {
+      "scene": "sample",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "receive-sample",
+          "ms": 98.69999998807907
+        },
+        {
+          "action": "handoff-sample",
+          "ms": 81.60000002384186
+        }
+      ],
+      "errors": [],
+      "body": "批版建议\nPPIC视角\n批版人员视角\n待样衣送回\n0\n待批版\n2\n待反馈工厂\n1\n已完成\n0\n查询\n重置\n待批版的产前版样衣\n款式／产前版样衣\t批版时效\t执行任务\t工厂／PPIC\t任务类型\t当前节点\t最新批版建议／人员\t操作\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-INDEPENDENT\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t独立车缝\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-IRON-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-IRON-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-SEW-IRON\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t车缝+烫包\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n共 2 条，当前 1-2\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页"
+    },
+    {
+      "scene": "sample",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "receive-sample",
+          "ms": 98.69999998807907
+        },
+        {
+          "action": "handoff-sample",
+          "ms": 82.30000001192093
+        }
+      ],
+      "errors": [],
+      "body": "批版建议\nPPIC视角\n批版人员视角\n待样衣送回\n0\n待批版\n2\n待反馈工厂\n1\n已完成\n0\n查询\n重置\n待批版的产前版样衣\n款式／产前版样衣\t批版时效\t执行任务\t工厂／PPIC\t任务类型\t当前节点\t最新批版建议／人员\t操作\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-INDEPENDENT\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t独立车缝\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-IRON-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-IRON-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-SEW-IRON\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t车缝+烫包\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n共 2 条，当前 1-2\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页"
+    },
+    {
+      "scene": "sample",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "receive-sample",
+          "ms": 98.19999998807907
+        },
+        {
+          "action": "handoff-sample",
+          "ms": 83.40000000596046
+        }
+      ],
+      "errors": [],
+      "body": "批版建议\nPPIC视角\n批版人员视角\n待样衣送回\n0\n待批版\n2\n待反馈工厂\n1\n已完成\n0\n查询\n重置\n待批版的产前版样衣\n款式／产前版样衣\t批版时效\t执行任务\t工厂／PPIC\t任务类型\t当前节点\t最新批版建议／人员\t操作\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-INDEPENDENT\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t独立车缝\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-IRON-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-IRON-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-SEW-IRON\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t车缝+烫包\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n共 2 条，当前 1-2\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页"
+    },
+    {
+      "scene": "sample",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "receive-sample",
+          "ms": 98.69999998807907
+        },
+        {
+          "action": "handoff-sample",
+          "ms": 82
+        }
+      ],
+      "errors": [],
+      "body": "批版建议\nPPIC视角\n批版人员视角\n待样衣送回\n0\n待批版\n2\n待反馈工厂\n1\n已完成\n0\n查询\n重置\n待批版的产前版样衣\n款式／产前版样衣\t批版时效\t执行任务\t工厂／PPIC\t任务类型\t当前节点\t最新批版建议／人员\t操作\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-INDEPENDENT\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t独立车缝\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n\nSPU-2024-004\n\nKaos Polos Premium\n\n实物：CY-SEW-IRON-DEMO-001 · 第1轮\n\nPPIC实物照片：1张\n\n\t待批版人员接收实物后计时\tSEW-IRON-DEMO-001\n\nPO-202603-0001\n\nTASK-PPIC-SAMPLE-DEMO-SEW-IRON\n\n\tCV Micro Sewing Jakarta Pusat\n\nPPIC：陈琳\n\n\t车缝+烫包\t待批版人员领取\t尚未上传\t\n查看样衣与依据\n\n共 2 条，当前 1-2\n\n20 条/页\n50 条/页\n上一页\n1 / 1\n下一页"
+    }
+  ],
+  "failed": []
+}

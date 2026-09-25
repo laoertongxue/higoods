@@ -1,10 +1,11 @@
 // @page-pattern: list
 import { listGeneratedCutOrderSourceRecords } from '../../../data/fcs/cutting/generated-cut-orders.ts'
-import { getCuttingRuntimeStorageSignature } from '../../../data/fcs/cutting/runtime-inputs.ts'
+import { getCuttingRuntimeStorageSignature, readCuttingTicketSourceSnapshot } from '../../../data/fcs/cutting/runtime-inputs.ts'
 import { renderDrawer as uiDrawer } from '../../../components/ui/index.ts'
 import { renderStandardListPage } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable } from '../../../components/ui/list-table.ts'
 import { renderTablePagination } from '../../../components/ui/pagination.ts'
+import { readPartTicketValue, writePartTicketValue, savePartTicketAction, PART_TICKET_KEYS } from '../../../data/fcs/cutting/part-ticket-records.ts'
 import { appStore } from '../../../state/store.ts'
 import { escapeHtml } from '../../../utils.ts'
 import {
@@ -31,7 +32,6 @@ import {
   findMarkerPlanContextForPlan,
   getMarkerPlanInitialEditTab,
   getMarkerPlanSourceerencedWarning,
-  getMarkerPlanStorageKey,
   hydrateMarkerPlan,
   serializeMarkerPlanStorage,
   type MarkerPlanBalanceSummaryRow,
@@ -432,15 +432,11 @@ function safeNumber(value: string | number | null | undefined): number {
 }
 
 function readStoredPlans(): MarkerPlan[] {
-  try {
-    return deserializeMarkerPlanStorage(localStorage.getItem(getMarkerPlanStorageKey()))
-  } catch {
-    return []
-  }
+  return deserializeMarkerPlanStorage(readPartTicketValue(PART_TICKET_KEYS.markerPlans))
 }
 
 function writeStoredPlans(records: MarkerPlan[]): void {
-  localStorage.setItem(getMarkerPlanStorageKey(), serializeMarkerPlanStorage(records))
+  writePartTicketValue(PART_TICKET_KEYS.markerPlans, serializeMarkerPlanStorage(records))
   markerPlanProjectionCache = null
 }
 
@@ -458,12 +454,12 @@ function removeStoredPlan(planId: string): void {
 }
 
 function getProjection() {
-  const markerPlanStorage = localStorage.getItem(getMarkerPlanStorageKey()) || ''
-  const spreadingStorage = localStorage.getItem('cuttingMarkerSpreadingLedger') || ''
+  const markerPlanStorage = readPartTicketValue(PART_TICKET_KEYS.markerPlans) || ''
+  const spreadingStorage = readPartTicketValue(PART_TICKET_KEYS.spreading) || ''
   const sourceKey = JSON.stringify(listGeneratedCutOrderSourceRecords().map(cut => [cut.cutOrderId, cut.generationKey, cut.cuttingTaskAssignmentStatus, cut.cuttingTaskAssigneeFactoryId]))
   const key = `${markerPlanStorage.length}:${markerPlanStorage}|${spreadingStorage.length}:${spreadingStorage}|${sourceKey}|${getCuttingRuntimeStorageSignature()}`
   if (markerPlanProjectionCache?.key === key) return markerPlanProjectionCache.projection
-  const projection = buildMarkerPlanProjection()
+  const projection = buildMarkerPlanProjection(readCuttingTicketSourceSnapshot())
   markerPlanProjectionCache = { key, projection }
   return projection
 }
@@ -4761,7 +4757,7 @@ function saveDraftPlan(stayOnPage = true, successMessage?: string): boolean {
   const nextPlan = persistDraftPlan()
   if (!nextPlan) return true
   if (!stayOnPage) {
-    appStore.navigate(buildDetailPath(nextPlan.id))
+    pendingSavedPlanPath = buildDetailPath(nextPlan.id)
     return true
   }
   setFeedback('success', successMessage || `已创建草稿 ${nextPlan.markerNo}，已记录来源裁片单。`)
@@ -5372,7 +5368,7 @@ if (action === 'add-scheme-bed') {
   return false
 }
 
-export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
+function handleCraftCuttingMarkerPlanEventInternal(target: Element): boolean {
   const route = parseRoute()
   if (route.kind === 'OTHER') return false
   const viewModel = getViewModel()
@@ -5641,4 +5637,26 @@ export function handleCraftCuttingMarkerPlanEvent(target: Element): boolean {
 
 export function isCraftCuttingMarkerPlanDialogOpen(): boolean {
   return state.contextDrawerOpen || state.mappingDrawerOpen
+}
+
+let pendingSavedPlanPath = ''
+export async function handleCraftCuttingMarkerPlanEvent(target: Element): Promise<boolean> {
+  const action = target.closest<HTMLElement>('[data-marker-plan-action]')?.dataset.markerPlanAction
+  if (!['save-plan', 'save-draft', 'save-and-view-detail', 'complete-plan', 'cancel-plan', 'delete-draft'].includes(action || '')) {
+    return handleCraftCuttingMarkerPlanEventInternal(target)
+  }
+  pendingSavedPlanPath = ''
+  try {
+    const handled = await savePartTicketAction({
+      intent: JSON.stringify({ action, planId: target.closest<HTMLElement>('[data-marker-plan-action]')?.dataset.planId, draft: state.draftPlan }),
+      capture: () => state,
+      restore: value => { Object.assign(state, value); markerPlanProjectionCache = null },
+      action: () => handleCraftCuttingMarkerPlanEventInternal(target),
+    })
+    if (pendingSavedPlanPath) appStore.navigate(pendingSavedPlanPath)
+    return handled
+  } catch (error) {
+    setFeedback('warning', `尚未保存：${error instanceof Error ? error.message : String(error)}`)
+    return true
+  } finally { pendingSavedPlanPath = '' }
 }

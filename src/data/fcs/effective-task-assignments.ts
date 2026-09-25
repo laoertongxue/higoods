@@ -1,3 +1,4 @@
+import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { getFactoryActivePpicSnapshot } from './factory-master-store.ts'
 import {
   getOnboardingPpicOptionById,
@@ -80,6 +81,23 @@ let auditSeq = 0
 const EFFECTIVE_ASSIGNMENT_STORAGE_KEY = 'higood.effective-task-assignments.v2'
 let assignmentReadError: Error | null = null
 let assignmentMutationDepth = 0
+let assignmentDefaults: ReturnType<typeof captureEffectiveTaskAssignmentState> | null = null
+export function buildEffectiveAssignmentStaticFixture<T>(action:()=>T):T {
+  const before=new Set(assignments.keys()); const beforeAudit=new Set(auditLogs.map(item=>item.auditId))
+  assignmentMutationDepth++
+  let result:T
+  try {result=action()} finally {assignmentMutationDepth--}
+  const added=[...assignments].filter(([id])=>!before.has(id)),addedIds=new Set(added.map(([id])=>id))
+  const prior=assignmentDefaults
+  assignmentDefaults={assignments:[...(prior?.assignments || []),...structuredClone(added)],current:[...(prior?.current || []),...structuredClone([...currentAssignmentIdsByTask].filter(([,ids])=>ids.some(id=>addedIds.has(id))))],auditLogs:[...(prior?.auditLogs || []),...structuredClone(auditLogs.filter(item=>!beforeAudit.has(item.auditId)))],assignmentSeq:Math.max(prior?.assignmentSeq || 0,assignmentSeq),auditSeq:Math.max(prior?.auditSeq || 0,auditSeq),stored:null}
+  return result
+}
+function restoreAssignmentDefaults():void {
+ assignments.clear();currentAssignmentIdsByTask.clear();auditLogs.splice(0)
+ assignmentDefaults?.assignments.forEach(([id,value])=>assignments.set(id,structuredClone(value)))
+ assignmentDefaults?.current.forEach(([id,value])=>currentAssignmentIdsByTask.set(id,[...value]))
+ auditLogs.push(...structuredClone(assignmentDefaults?.auditLogs || []));assignmentSeq=assignmentDefaults?.assignmentSeq || 0;auditSeq=assignmentDefaults?.auditSeq || 0
+}
 
 export function captureEffectiveTaskAssignmentState() {
   return { assignments: structuredClone([...assignments]), current: structuredClone([...currentAssignmentIdsByTask]),
@@ -102,7 +120,7 @@ function readEffectiveTaskAssignmentState(): void {
   if (typeof localStorage === 'undefined') return
   try {
     const raw = localStorage.getItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY)
-    if (!raw) return
+    if (!raw) {restoreAssignmentDefaults();return}
     const saved = JSON.parse(raw)
     if (saved.version !== 2 || !Array.isArray(saved.assignments) || !Array.isArray(saved.current) || !Array.isArray(saved.auditLogs)
       || !Number.isInteger(saved.assignmentSeq) || saved.assignmentSeq < 0 || !Number.isInteger(saved.auditSeq) || saved.auditSeq < 0
@@ -113,7 +131,11 @@ function readEffectiveTaskAssignmentState(): void {
     const byId = new Map<string, EffectiveTaskAssignment>(saved.assignments)
     if (byId.size !== saved.assignments.length || saved.current.some((row: [string, string[]]) => !Array.isArray(row) || row.length !== 2 || !Array.isArray(row[1])
       || row[1].some(id => byId.get(id)?.runtimeTaskId !== row[0] || byId.get(id)?.status !== 'EFFECTIVE'))) throw new Error('有效分配索引不一致')
-    restoreEffectiveTaskAssignmentState({ ...saved, stored: raw })
+    restoreAssignmentDefaults()
+    saved.assignments.forEach(([id,value]:[string,EffectiveTaskAssignment])=>assignments.set(id,value))
+    saved.current.forEach(([id,value]:[string,string[]])=>currentAssignmentIdsByTask.set(id,value))
+    const allAudit=new Map(auditLogs.map(item=>[item.auditId,item]));saved.auditLogs.forEach((item:EffectiveTaskAssignmentAuditLog)=>allAudit.set(item.auditId,item));auditLogs.splice(0,auditLogs.length,...allAudit.values())
+    assignmentSeq=Math.max(assignmentSeq,saved.assignmentSeq);auditSeq=Math.max(auditSeq,saved.auditSeq)
   } catch { assignmentReadError = new Error('已保存的任务分配无法读取，不能覆盖，请保留原记录并联系负责人。') }
 }
 
@@ -127,7 +149,12 @@ export function runEffectiveTaskAssignmentAction<T>(action: () => T): T {
     const current = captureEffectiveTaskAssignmentState()
     if (typeof localStorage !== 'undefined') {
       const { stored: _stored, ...state } = current
-      localStorage.setItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, JSON.stringify({ version: 2, ...state }))
+      const defaults=new Map(assignmentDefaults?.assignments || [])
+      const savedAssignments = state.assignments.filter(([id, item]) => (!item.indexedRuntimeSnapshot || item.status !== 'EFFECTIVE') && JSON.stringify(defaults.get(id))!==JSON.stringify(item))
+      const ids = new Set(savedAssignments.map(([id]) => id))
+      localStorage.setItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, JSON.stringify({ version: 2, ...state,
+        assignments: savedAssignments, auditLogs:state.auditLogs.filter(item=>ids.has(item.assignmentId)), current: state.current.map(([id, items]) => [id, items.filter(item => ids.has(item))]).filter(([, items]) => items.length),
+      }))
     }
     return result
   } catch (error) {
@@ -336,12 +363,11 @@ export function indexExistingRuntimeTaskAssignment(input: EffectiveTaskAssignmen
   const existing = listEffectiveTaskAssignments(input.runtimeTaskId)
   if (existing.length) return existing.find((item) => item.status === 'EFFECTIVE')
   if (!input.indexedRuntimeSnapshot || !input.factoryId || !input.runtimeTaskId || input.assignedQty <= 0) return undefined
-  return runEffectiveTaskAssignmentAction(() => {
+  // 已分配静态任务的索引只用于读取，不在打开任务单时落盘演示种子。
     const record = cloneAssignment({ ...input, status: 'EFFECTIVE', indexedRuntimeSnapshot: true })
     assignments.set(record.assignmentId, record)
     currentAssignmentIdsByTask.set(record.runtimeTaskId, [record.assignmentId])
     return cloneAssignment(record)
-  })
 }
 
 /** 提交前重读其他标签页已经保存的分配，避免使用旧工厂或旧状态。 */
@@ -368,6 +394,7 @@ export function listEffectiveTaskAssignmentAuditLogs(runtimeTaskId?: string): Ef
 }
 
 export function resetEffectiveTaskAssignmentsForTests(): void {
+  assignmentDefaults=null; localStorage.removeItem(EFFECTIVE_ASSIGNMENT_STORAGE_KEY)
   assignments.clear()
   currentAssignmentIdsByTask.clear()
   auditLogs.splice(0)
@@ -377,4 +404,5 @@ export function resetEffectiveTaskAssignmentsForTests(): void {
   resetSewingMaterialHandoversForTests()
 }
 
-readEffectiveTaskAssignmentState()
+onProductionContextChanged(EFFECTIVE_ASSIGNMENT_STORAGE_KEY, () => { assignmentReadError = null; readEffectiveTaskAssignmentState() })
+if (typeof window === 'undefined' || typeof document === 'undefined' || isProductionContextReady()) readEffectiveTaskAssignmentState()

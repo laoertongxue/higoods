@@ -1,0 +1,6 @@
+### Result
+[]
+### Ran Playwright code
+```js
+await (async(page)=>{const c=await page.context().browser().newContext(),p=await c.newPage();await p.route('**/acceptance-completion',r=>r.fulfill({contentType:'text/html',body:'test'}));await p.goto('http://127.0.0.1:43235/acceptance-completion');try{return await p.evaluate(async()=>{const {core,a,pda,runtime,part}=await import('/output/playwright/hpb/acceptance-storage-core/action-harness.ts?completion=1');await core.hydrateProductionContextRecords();await part.hydratePartTicketRecords();a.hydrateProductionSourceEffects();return pda.listPdaHandoverHeads().filter(h=>h.factoryCompletionRequired).map(h=>({id:h.handoverId,task:h.taskId,complete:h.factoryMarkedComplete,status:runtime.getRuntimeTaskById(h.taskId)?.status,valid:pda.canCompletePdaHandoutHead(h.handoverId),records:pda.listPdaHandoverRecordsByHeadId(h.handoverId).length}))})}finally{await c.close()}})(page);
+```

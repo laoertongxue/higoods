@@ -132,7 +132,9 @@ function isRuntimeEventForLedgerRow(event: CuttingRuntimeEvent, row: MaterialLed
 function buildRuntimeAdjustedLedgerRows(): MaterialLedgerProjection[] {
   const rows = listMaterialLedgerProjections().map(cloneLedgerRow)
   const runtimeEvents = listRuntimeWaitProcessEvents()
-  const prepByOrder = new Map(listMaterialPrepOrderProjections().map(prep => [prep.order.productionOrderId, prep]))
+  const productionOrderIds = new Set(rows.map(row => row.productionOrderId))
+  const prepByOrder = new Map(listMaterialPrepOrderProjections(undefined, { productionOrderIds })
+    .map(prep => [prep.order.productionOrderId, prep]))
   return rows.map((originalRow) => {
     const prep = prepByOrder.get(originalRow.productionOrderId)
     const prepLines = prep?.lines.filter(line => line.runtimeBomLine && line.cutOrderId === originalRow.cutOrderId

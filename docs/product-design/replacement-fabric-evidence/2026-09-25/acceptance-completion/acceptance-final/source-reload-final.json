@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "scene": "open-failure",
+      "message": "Error: injected-open"
+    },
+    {
+      "scene": "transaction-abort",
+      "failure": "Error: 尚未保存：本次操作已撤回，请重试。"
+    },
+    {
+      "scene": "listener-failure",
+      "failure": "Error: 生产记录已保存，但页面同步失败，请重新进入页面核对，不要重复新建。Error: injected-listener"
+    },
+    {
+      "scene": "reload-disabled-ls",
+      "saved": 1,
+      "refreshed": 1
+    }
+  ],
+  "failed": []
+}

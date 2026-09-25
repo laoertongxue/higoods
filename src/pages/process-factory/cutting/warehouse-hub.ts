@@ -42,7 +42,7 @@ import {
 import { hydrateRealQRCodes, renderRealQrPlaceholder } from '../../../components/real-qr.ts'
 import {
   appendCuttingRuntimeEvent,
-  listCuttingRuntimeEvents,
+  listManagedCuttingRuntimeEvents,
   listCuttingRuntimeEventsByInventoryScope,
   listCuttingRuntimeEventsByType,
   type CuttingRuntimeEvent,
@@ -2503,13 +2503,22 @@ function readWaitHandoverWebField(dialog: ParentNode, field: string): string {
 }
 
 // PROD-003: same receipt identity is used for display, scanning and existing bag events.
+let waitHandoverWoolReadWarning = ''
 function listWaitHandoverPieceSources(): GeneratedFeiTicketSourceRecord[] {
-  return [...listSpreadingResultGeneratedFeiTickets(), ...listWoolPanelCuttingReceiptSources()]
+  const parts = listSpreadingResultGeneratedFeiTickets()
+  try {
+    const wool = listWoolPanelCuttingReceiptSources(); waitHandoverWoolReadWarning = ''; return [...parts, ...wool]
+  } catch {
+    waitHandoverWoolReadWarning = '毛织来源记录暂时无法读取：当前待装袋列表未包含毛织片票，不能据此判断毛织已收齐或没有待办。请恢复旧存储权限后刷新毛织来源；已保存的裁后记录仍可核对。'
+    return parts
+  }
 }
 function isWoolPanelTicket(ticket: { feiTicketId?: string; feiTicketNo?: string; ticketNo?: string }): boolean {
   return (ticket.feiTicketNo || ticket.ticketNo || ticket.feiTicketId || '').startsWith('WOOL-PANEL:')
 }
-function renderWoolPanelReceiptTickets(): string {
+function renderWoolPanelReceiptTickets(pieceSources: GeneratedFeiTicketSourceRecord[]): string {
+  // 当前读帧已经取得全部实收毛织票；没有此类票时无需再次展开整个车缝分配来源。
+  if (!pieceSources.some(isWoolPanelTicket)) return ''
   const tickets = listAvailableFeiTicketsForSewingDispatch().filter(isWoolPanelTicket)
     .filter((ticket) => !runtimeEventHasWaitHandoverTicket('菲票装袋', ticket.feiTicketId))
   if (!tickets.length) return ''
@@ -2525,8 +2534,9 @@ function buildWaitHandoverWebInboundTempBags(): InboundTempBag[] {
   const generatedTickets = listWaitHandoverPieceSources()
   const runtimeEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeEvents, generatedTickets)
-  const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
-  return runtimeInboundTempBags.length ? runtimeInboundTempBags : fallbackInboundTempBags
+  return runtimeInboundTempBags.length
+    ? runtimeInboundTempBags
+    : buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
 }
 
 function buildWaitHandoverWebInventoryRecords(): InboundTempBagInventoryRecord[] {
@@ -2748,7 +2758,7 @@ export function buildWaitHandoverConfirmSelections(): WaitHandoverConfirmSelecti
       })),
     })
   })
-  const repackResultBagCodes = uniqueStrings(listCuttingRuntimeEvents()
+  const repackResultBagCodes = uniqueStrings(listManagedCuttingRuntimeEvents()
     .filter((event) => event.eventStatus !== '已取消' && event.eventType === '中转袋拆袋重装')
     .flatMap((event) => {
       const payload = toRuntimeRecord(event.payload)
@@ -4744,7 +4754,10 @@ function renderSewingAllocationArea(projection: SewingTaskAllocationProjection):
 }
 
 function renderCutPieceReturnZoneArea(): string {
-  const cases = listCutPieceReturnCases()
+  let cases: ReturnType<typeof listCutPieceReturnCases>
+  try { cases = listCutPieceReturnCases() } catch {
+    return `<section class="rounded-lg border border-amber-300 bg-amber-50 p-4" data-section="cut-piece-return-zone" role="status"><h3 class="font-semibold">退裁片库区暂时无法读取</h3><p class="mt-2 text-sm">请恢复旧记录的浏览器存储权限后刷新。当前未显示退裁片库存，不能据此判断退裁片数量为零；已迁移的裁片和换片布可继续办理。</p></section>`
+  }
   const returnZoneRows = cases.filter((record) => record.returnZoneAvailablePieceQty > 0)
   const transferredPieceQty = cases.reduce((sum, record) => sum + record.transferredToSupplementPieceQty, 0)
   const scrappedPieceQty = cases.reduce((sum, record) => sum + record.scrappedPieceQty, 0)
@@ -4786,13 +4799,15 @@ function renderWaitHandoverWorkbench(projection: WaitHandoverWorkbenchProjection
 }
 
 function listRuntimeWaitHandoverEvents(): CuttingRuntimeEvent[] {
+  // 一个页面读帧只读取一次事件集合，保留原分组顺序与去重口径。
+  const currentEvents = listManagedCuttingRuntimeEvents()
   const events = [
-    ...listCuttingRuntimeEventsByInventoryScope('裁床待交出仓'),
-    ...listCuttingRuntimeEventsByType('菲票装袋'),
-    ...listCuttingRuntimeEventsByType('交出装袋确认'),
-    ...listCuttingRuntimeEventsByType('新增交出记录'),
-    ...listCuttingRuntimeEventsByType('特殊工艺交出'),
-    ...listCuttingRuntimeEventsByType('特殊工艺回仓'),
+    ...currentEvents.filter((event) => event.inventoryEffect?.inventoryScope === '裁床待交出仓'),
+    ...currentEvents.filter((event) => event.eventType === '菲票装袋'),
+    ...currentEvents.filter((event) => event.eventType === '交出装袋确认'),
+    ...currentEvents.filter((event) => event.eventType === '新增交出记录'),
+    ...currentEvents.filter((event) => event.eventType === '特殊工艺交出'),
+    ...currentEvents.filter((event) => event.eventType === '特殊工艺回仓'),
   ]
   const seen = new Set<string>()
   return filterCurrentWaitHandoverRuntimeEvents(events)
@@ -5698,7 +5713,7 @@ function renderWaitHandoverContent(): string {
   }
   const firstTaskId = handoverPickingProjection.tasks[0]?.pickingTaskId || 'demo-task'
   const inventoryContent = () => `<section class="space-y-4">
-    ${renderWoolPanelReceiptTickets()}
+    ${renderWoolPanelReceiptTickets(generatedTickets)}
     ${renderCutPieceReturnZoneArea()}
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inventory' })}
     ${waitHandoverStats}
@@ -5742,7 +5757,7 @@ function renderWaitHandoverContent(): string {
     description: '基于菲票、裁片和中转袋管理待交出仓库存、菲票装袋、中转袋入仓、整袋交出、特殊工艺回仓和库区库位。',
     kpis: '',
     tabs: renderWaitHandoverTabs(activeTab),
-    content: `<div data-wait-handover-workbench-data>${activeContent}</div>`,
+    content: `${waitHandoverWoolReadWarning ? `<p role="status" data-wait-handover-source-warning class="mb-3 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">${escapeHtml(waitHandoverWoolReadWarning)}</p>` : ''}<div data-wait-handover-workbench-data>${activeContent}</div>`,
     headerActions: renderWaitHandoverHeaderActions(firstTaskId),
   })
 }

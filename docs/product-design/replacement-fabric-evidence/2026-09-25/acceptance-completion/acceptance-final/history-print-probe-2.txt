@@ -1,0 +1,14 @@
+### Result
+{"historyReprint":true,"legacyDisabled":true,"unchangedReceipt":true,"unchangedTicketCount":true,"errors":[]}
+### Ran Playwright code
+```js
+await (async root=>{
+ const c=await root.context().browser().newContext(),p=await c.newPage();p.setDefaultTimeout(10000);const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ await p.goto('http://127.0.0.1:43236/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-action=data-tools]').click();await p.locator('[data-hpb-restore-file]').setInputFiles('output/playwright/hpb/acceptance-final/mixed.higcut');await p.waitForFunction(()=>document.querySelector('[data-hpb-data-message]')?.textContent.includes('已恢复并读回确认'));await p.locator('[data-hpb-action=close]').click();await p.reload();await p.locator('[data-hpb-page]').waitFor();
+ await p.locator('[data-hpb-action=detail]').first().click();await p.locator('[data-hpb-action=add]').first().click();await p.waitForFunction(()=>document.querySelector('[role=dialog] [role=status]')?.textContent.includes('已新增'));await p.locator('[data-hpb-action=close]').click();
+ const records=()=>p.evaluate(()=>new Promise(resolve=>{const q=indexedDB.open('higood-cutting-records-v1');q.onsuccess=()=>{const d=q.result,r=d.transaction('records').objectStore('records').getAll();r.onsuccess=()=>{d.close();resolve(r.result)}}}));
+ const before=await records();await c.addInitScript(()=>{for(const method of ['getItem','setItem','removeItem'])Storage.prototype[method]=()=>{throw Error('旧存储禁用')};window.print=()=>{window.__printed=(window.__printed||0)+1}});
+ await p.locator('[data-hpb-action=history]').click();const popup=c.waitForEvent('page');await p.locator('[data-hpb-action=history-print]').first().click();const q=await popup;await q.locator('[data-hpb-label]').waitFor();await q.waitForFunction(()=>document.querySelector('[data-hpb-label] svg')&&[...document.querySelectorAll('[data-hpb-label] img')].every(i=>i.complete&&i.naturalWidth));await q.locator('[data-hpb-print-action=print]').click();await q.waitForFunction(()=>window.__printed===1);await q.locator('[data-hpb-print-success]').check();await q.locator('[data-hpb-print-action=confirm]').click();await q.waitForFunction(()=>document.querySelector('[data-hpb-print-feedback]')?.textContent.includes('已保存 1'));
+ const after=await records(),pick=(rows,c)=>rows.filter(r=>r.collection===c);if(JSON.stringify(pick(before,'replacement-receipts'))!==JSON.stringify(pick(after,'replacement-receipts')))throw Error('补打改变交出回执');if(pick(after,'replacement-prints').length!==pick(before,'replacement-prints').length+1)throw Error('补打次数错误');if(pick(after,'replacement-tickets').length!==pick(before,'replacement-tickets').length)throw Error('补打新增独立票');await q.screenshot({path:'output/playwright/hpb/acceptance-final/history-reprint.png',fullPage:true});await c.close();return {historyReprint:true,legacyDisabled:true,unchangedReceipt:true,unchangedTicketCount:true,errors};
+})(page);
+```

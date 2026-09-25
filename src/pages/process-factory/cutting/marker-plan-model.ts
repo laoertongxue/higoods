@@ -1,3 +1,4 @@
+import { partTicketStorage } from '../../../data/fcs/cutting/part-ticket-records.ts'
 import {
   listGeneratedCutOrderSourceRecords,
   type GeneratedCutOrderSourceRecord,
@@ -10,7 +11,6 @@ import {
   type CuttingTaskLink,
 } from '../../../data/fcs/cutting/cutting-task-routing.ts'
 import { findStyleArchiveByCode } from '../../../data/pcs-style-archive-repository.ts'
-import { getBrowserLocalStorage } from '../../../data/browser-storage.ts'
 import {
   getCurrentTechPackVersionByStyleId,
   getTechnicalDataVersionContentById,
@@ -247,7 +247,7 @@ function sanitizeKey(value: string): string {
 }
 
 function listReferencedCutOrderIdsFromSpreadingStorage(
-  storage: Pick<Storage, 'getItem'> | null = getBrowserLocalStorage(),
+  storage: Pick<Storage, 'getItem'> | null = partTicketStorage,
 ): string[] {
   if (!storage) return []
   try {
@@ -260,8 +260,8 @@ function listReferencedCutOrderIdsFromSpreadingStorage(
         ...(session.completionLinkage?.linkedCutOrderIds || []),
       ]),
     )
-  } catch {
-    return []
+  } catch (error) {
+    throw error
   }
 }
 
@@ -2296,7 +2296,6 @@ function mergePlans(seed: MarkerPlan[], stored: MarkerPlan[]): MarkerPlan[] {
   const merged = new Map<string, MarkerPlan>()
   seed.forEach((plan) => merged.set(plan.id, plan))
   stored.forEach((plan) => {
-    if (plan.id.startsWith('seed-marker-plan-') && plan.status !== 'CANCELED') return
     merged.set(plan.id, plan)
   })
   return Array.from(merged.values()).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt, 'zh-CN'))

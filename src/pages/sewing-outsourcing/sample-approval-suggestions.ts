@@ -1,3 +1,4 @@
+import {saveProductionSourceUiAction} from '../../data/fcs/production-context-actions.ts'
 import { getEffectiveTaskAssignment } from '../../data/fcs/effective-task-assignments.ts'
 // @page-pattern: list
 
@@ -481,14 +482,14 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
     } else if (action === 'submit-receive' && dialog?.kind === 'RECEIVE') {
       event?.preventDefault()
       const receivedSamplePhotoUrls = dialog.receivedSamplePhotoUrls
-      receivePreProductionSampleByPpic({ commandId: nextCommandId('RECEIVE'), assignmentId, actor, receivedSamplePhotoUrls, receivedAt: now })
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,receivedSamplePhotoUrls,}),()=>receivePreProductionSampleByPpic({ commandId: nextCommandId('RECEIVE'), assignmentId, actor, receivedSamplePhotoUrls, receivedAt: now }))
       feedback = `已上传${receivedSamplePhotoUrls.length}张产前版样衣实物照片并确认接收。`
       dialog = null
     } else if (action === 'handoff-approver') {
-      handoffPreProductionSampleToApprover({ commandId: nextCommandId('HANDOFF'), assignmentId, actor, approverTeamName: '大货批版组', handedAt: now })
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>handoffPreProductionSampleToApprover({ commandId: nextCommandId('HANDOFF'), assignmentId, actor, approverTeamName: '大货批版组', handedAt: now }))
       feedback = '已记录样衣转交批版人员。'
     } else if (action === 'start-approval') {
-      startSampleApproval({ commandId: nextCommandId('START'), assignmentId, actor, receivedAt: formatOperationLocalWallClock() })
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>startSampleApproval({ commandId: nextCommandId('START'), assignmentId, actor, receivedAt: formatOperationLocalWallClock() }))
       feedback = ''
     } else if (action === 'open-approval') {
       dialog = {
@@ -529,12 +530,12 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
         },
       }
     } else if (action === 'feedback-factory') {
-      recordSampleApprovalFeedbackToFactory({ commandId: nextCommandId('FEEDBACK'), assignmentId, actor, feedbackAt: now, feedbackNote: '已从系统截取批版建议卡并反馈给承接工厂生产负责人。' })
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,}),()=>recordSampleApprovalFeedbackToFactory({ commandId: nextCommandId('FEEDBACK'), assignmentId, actor, feedbackAt: now, feedbackNote: '已从系统截取批版建议卡并反馈给承接工厂生产负责人。' }))
       feedback = '已记录PPIC截图反馈工厂的时间和责任人。'
     } else if (action === 'submit-approval' && dialog?.kind === 'APPROVAL') {
       event?.preventDefault()
       const form = readApprovalFormFromDom(dialog.form)
-      submitSampleApprovalSuggestion({
+      await saveProductionSourceUiAction(JSON.stringify({action,assignmentId,actor,form}),()=>submitSampleApprovalSuggestion({
         commandId: nextCommandId('SUBMIT'),
         assignmentId,
         actor,
@@ -548,7 +549,7 @@ export async function handleSampleApprovalSuggestionsEvent(target: HTMLElement, 
         approvalSheetPhotoUrls: form.approvalSheetPhotoUrls,
         requiresAnotherApproval: form.requiresAnotherApproval,
         uploadedAt: now,
-      })
+      }))
       feedback = '批版建议已形成新版本，等待PPIC截图反馈工厂。'
       dialog = null
     } else {

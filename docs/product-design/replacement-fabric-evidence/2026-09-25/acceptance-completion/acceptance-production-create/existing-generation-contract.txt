@@ -1,0 +1,100 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 加工单必须保存正式技术包、BOM 面料、颜色、工艺、数量、单位与下单时间快照
++ actual - expected
+... Skipped lines
+
+  {
++   inputMaterialImageUrl: undefined,
++   inputMaterialName: '40S 精梳棉针织布',
++   inputMaterialSkuCode: 'MAT-FABRIC-001',
++   inputMaterialSkuId: undefined,
+    materialId: 'MAT-FABRIC-001',
+    materialItems: [
+      {
+        materialId: 'MAT-FABRIC-001',
+        materialName: '40S 精梳棉针织布',
+...
+    orderedAt: '2026-07-15 18:30:00',
++   outputMaterialImageUrl: undefined,
++   outputMaterialName: '40S 精梳棉针织布',
++   outputMaterialSkuCode: 'MAT-FABRIC-001',
++   outputMaterialSkuId: undefined,
+    plannedQty: 1280,
+    processCodes: [
+      'DYE'
+    ],
+    processName: '成衣染色',
+
+    at assertGeneratedOrder (/private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-production-process-work-order-generation.ts:949:10)
+    at <anonymous> (/private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-production-process-work-order-generation.ts:974:1)
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: {
+    productionOrderId: 'PO-AUTO-DYE-001',
+    productionOrderNo: 'PO-AUTO-DYE-001',
+    orderedAt: '2026-07-15 18:30:00',
+    techPackVersionId: 'TPV-FORMAL-001',
+    techPackVersionLabel: '正式版 V3',
+    materialId: 'MAT-FABRIC-001',
+    materialName: '40S 精梳棉针织布',
+    materialItems: [
+      {
+        sourceBomItemId: 'MAT-FABRIC-001',
+        materialId: 'MAT-FABRIC-001',
+        materialName: '40S 精梳棉针织布'
+      }
+    ],
+    inputMaterialSkuId: undefined,
+    inputMaterialSkuCode: 'MAT-FABRIC-001',
+    inputMaterialName: '40S 精梳棉针织布',
+    inputMaterialImageUrl: undefined,
+    outputMaterialSkuId: undefined,
+    outputMaterialSkuCode: 'MAT-FABRIC-001',
+    outputMaterialName: '40S 精梳棉针织布',
+    outputMaterialImageUrl: undefined,
+    targetColor: '雾霾蓝',
+    plannedQty: 1280,
+    qtyUnit: '米',
+    processCodes: [ 'DYE' ],
+    processName: '成衣染色',
+    requiresWaterSoluble: false,
+    spuCode: 'SPU-FORMAL-001',
+    spuName: '正式生产款',
+    requiredDeliveryDate: '2026-08-31'
+  },
+  expected: {
+    productionOrderId: 'PO-AUTO-DYE-001',
+    productionOrderNo: 'PO-AUTO-DYE-001',
+    orderedAt: '2026-07-15 18:30:00',
+    techPackVersionId: 'TPV-FORMAL-001',
+    techPackVersionLabel: '正式版 V3',
+    materialId: 'MAT-FABRIC-001',
+    materialName: '40S 精梳棉针织布',
+    materialItems: [
+      {
+        sourceBomItemId: 'MAT-FABRIC-001',
+        materialId: 'MAT-FABRIC-001',
+        materialName: '40S 精梳棉针织布'
+      }
+    ],
+    targetColor: '雾霾蓝',
+    plannedQty: 1280,
+    qtyUnit: '米',
+    processCodes: [ 'DYE' ],
+    processName: '成衣染色',
+    requiresWaterSoluble: false,
+    spuCode: 'SPU-FORMAL-001',
+    spuName: '正式生产款',
+    requiredDeliveryDate: '2026-08-31'
+  },
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v26.8.2

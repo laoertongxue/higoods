@@ -1,5 +1,5 @@
 import { getFactoryInternalWarehouseRegistryReference } from '../factory-internal-warehouse-locations.ts'
-import { readWoolStore } from './store.ts'
+import { readWoolStoreForCuttingReceipts } from './store.ts'
 import type { GeneratedFeiTicketSourceRecord } from '../cutting/generated-fei-tickets.ts'
 import type { FeiTicketQrPayload } from '../cutting/qr-payload.ts'
 
@@ -19,7 +19,7 @@ export function resolveWoolCuttingReceiver(receiverId: string): { factoryId: str
 
 /** PROD-003: read-only receipt identity. Bag occupancy/outbound remains sewing-dispatch's sole ledger. */
 export function listWoolPanelCuttingReceiptSources(factoryId?: string): WoolPanelCuttingReceiptSource[] {
-  const store = readWoolStore()
+  const store = readWoolStoreForCuttingReceipts()
   return store.handovers.flatMap((handover) => {
     const order = store.workOrders[handover.woolOrderId]
     const output = order?.outputPlanLines.find((line) => line.outputSkuCode === handover.outputSkuCode)

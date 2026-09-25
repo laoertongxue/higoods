@@ -1,3 +1,4 @@
+import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady, onProductionContextChanged } from './production-context-records.ts'
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
 import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
 import { isKnownPrintingFactoryDemoIdentity } from './printing-factories.ts'
@@ -2500,7 +2501,7 @@ function readFormalHandoutActions(): void {
   for (const [, head] of saved.handoverHeadAdditions as Array<[string, PdaHandoverHead]>) {
     if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('已保存的印花交接记录与冻结来源不一致，未覆盖原记录。')
   }
-  const snapshot = capturePdaHandoverState()
+  const snapshot = capturePdaHandoverState(false)
   for (const key of formalHandoutStateKeys) {
     // 只合入原动作保存的条目，原演示种子维持其现有范围。
     ;(snapshot as unknown as Record<string, unknown>)[key] = [...new Map<string, unknown>([...(snapshot[key] as Array<[string, unknown]>), ...saved[key]]).entries()]
@@ -2567,7 +2568,8 @@ function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: ()
   }
 }
 
-export function capturePdaHandoverState(): PdaHandoverStateSnapshot {
+export function capturePdaHandoverState(readPersisted = true): PdaHandoverStateSnapshot {
+  if (readPersisted) readFormalHandoutActions()
   return structuredClone({
     persistedActionsRaw: typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY),
     handoverHeadAdditions: Array.from(handoverHeadAdditions.entries()),
@@ -3349,13 +3351,31 @@ function buildHandoutLineRecord(
   }, head)
 }
 
-function getHeadCompletionOverride(handoverId: string): {
+interface FactoryHandoutCompletionFact { handoverId:string;taskId:string;completedAt:string;completedBy:string }
+function factoryHandoutCompletion(handoverId:string):FactoryHandoutCompletionFact | null {
+  if(typeof document!=='undefined' && !isProductionContextReady()) return null
+  const raw=productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
+  return raw ? JSON.parse(raw).entries.find(([id]:[string,unknown])=>id===`factory-completion:${handoverId}`)?.[1] ?? null : null
+}
+onProductionContextChanged(PRODUCTION_CONTEXT_KEYS.effects,invalidatePdaHandoverHeadCache)
+
+/** 开工时生成的空交出单头；交出明细仍由原有交接事实读取。 */
+function persistedStartedHandoverHeads(): PdaHandoverHead[] {
+  if (typeof document !== 'undefined' && !isProductionContextReady()) return []
+  const raw = productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
+  return raw ? JSON.parse(raw).entries.filter(([id]: [string, unknown]) => id.startsWith('started-handover-head:')).map(([, head]: [string, PdaHandoverHead]) => structuredClone(head)) : []
+}
+
+function getHeadCompletionOverride(handoverId: string, current?:PdaHandoverHead): {
   completionStatus: PdaHeadCompletionStatus
   completedByWarehouseAt?: string
   factoryMarkedComplete?: boolean
   factoryMarkedCompleteAt?: string
 } | null {
-  return headCompletionOverrides.get(handoverId) ?? null
+  const saved=factoryHandoutCompletion(handoverId)
+  const prior=headCompletionOverrides.get(handoverId)
+  if(saved && current?.taskId===saved.taskId) return {...prior,completionStatus:prior?.completionStatus ?? current.completionStatus,completedByWarehouseAt:prior?.completedByWarehouseAt ?? current.completedByWarehouseAt,factoryMarkedComplete:true,factoryMarkedCompleteAt:saved.completedAt}
+  return prior ?? null
 }
 
 function getPickupRecordsForHeadInternal(head: PdaHandoverHead): PdaPickupRecord[] {
@@ -3544,7 +3564,7 @@ function refreshPickupHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
           : 'WRITTEN_BACK',
   }
 
-  const completionOverride = getHeadCompletionOverride(head.handoverId)
+  const completionOverride = getHeadCompletionOverride(head.handoverId,head)
   if (completionOverride) {
     updated.completionStatus = completionOverride.completionStatus
     updated.completedByWarehouseAt = completionOverride.completedByWarehouseAt
@@ -3612,7 +3632,7 @@ function refreshHandoutHeadSummary(head: PdaHandoverHead): PdaHandoverHead {
               : 'WRITTEN_BACK',
   }
 
-  const completionOverride = getHeadCompletionOverride(head.handoverId)
+  const completionOverride = getHeadCompletionOverride(head.handoverId,head)
   if (completionOverride) {
     updated = hydrateHandoverHeadDomain(
       {
@@ -3687,7 +3707,7 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  const addedHeads = Array.from(handoverHeadAdditions.values()).map((head) =>
+  const addedHeads = [...persistedStartedHandoverHeads(), ...handoverHeadAdditions.values()].map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
       : refreshHandoutHeadSummary(cloneHead(head)),
@@ -3746,6 +3766,7 @@ function buildPostFinishingHeadsInternal(): PdaHandoverHead[] {
 }
 
 function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: ReadonlySet<string>): PdaHandoverHead[] {
+  readFormalHandoutActions()
   return [...(includeWool ? buildHeadsInternal() : buildNonWoolHeadsInternal()), ...buildSimpleCutPieceFactoryReceipts().heads]
     .filter((head) => (!factoryId || canPdaFactoryAccessHandoverHead(head, factoryId)) && (!taskIds || taskIds.has(head.taskId)))
     .sort((a, b) => {
@@ -3759,6 +3780,7 @@ function listHeadsSorted(factoryId?: string, includeWool = true, taskIds?: Reado
 }
 
 function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
+  readFormalHandoutActions()
   return buildPostFinishingHeadsInternal()
     .slice()
     .sort((a, b) => {
@@ -3774,6 +3796,7 @@ function listPostFinishingHeadsSorted(): PdaHandoverHead[] {
 function findHead(handoverId: string): PdaHandoverHead | undefined {
   const simple = buildSimpleCutPieceFactoryReceipts().heads.find((h) => h.handoverId === handoverId)
   if (simple) return simple
+  readFormalHandoutActions()
   const added = handoverHeadAdditions.get(handoverId)
   if (added && added.processBusinessCode !== 'WOOL') {
     return added.headType === 'PICKUP' ? refreshPickupHeadSummary(cloneHead(added)) : refreshHandoutHeadSummary(cloneHead(added))
@@ -3787,6 +3810,7 @@ function findHead(handoverId: string): PdaHandoverHead | undefined {
 }
 
 function findRecord(recordId: string, knownHeadId?: string): PdaHandoverRecord | undefined {
+  readFormalHandoutActions()
   if (knownHeadId) {
     const head = findHead(knownHeadId)
     return head?.headType === 'HANDOUT' ? getHandoutRecordsForHeadInternal(head).find(record => record.recordId === recordId) : undefined
@@ -3813,6 +3837,9 @@ function findRecord(recordId: string, knownHeadId?: string): PdaHandoverRecord |
 }
 
 function findPickupRecord(recordId: string, knownHeadId?: string): PdaPickupRecord | undefined {
+  const simpleReceipt = buildSimpleCutPieceFactoryReceipts().records.find(record => record.recordId === recordId)
+  if (simpleReceipt) return simpleReceipt
+  readFormalHandoutActions()
   const storedHeadId = knownHeadId || pickupRecordOverrides.get(recordId)?.handoverId
     || Array.from(pickupRecordAdditions.values()).flat().find(record => record.recordId === recordId)?.handoverId
   if (storedHeadId) {
@@ -4391,6 +4418,33 @@ export function listQuantityObjections(): QuantityObjection[] {
           createdBy: record.factorySubmittedBy || '工厂操作员',
         })),
     )
+}
+
+/** 开工与首次交出单头同事务；失败恢复内存，complete 后才发布。 */
+export async function saveRuntimeTaskStartWithHandover(taskId: string, start: () => void): Promise<void> {
+  const { saveProductionSourceAction } = await import('./production-context-actions.ts')
+  await saveProductionSourceAction({
+    id: `RUNTIME-TASK-START:${taskId}`,
+    intent: JSON.stringify({ action: 'runtime-task-start', taskId }),
+    captureAdditional: () => structuredClone([...handoverHeadAdditions]),
+    restoreAdditional: value => {
+      handoverHeadAdditions.clear()
+      for (const [id, head] of value as [string, PdaHandoverHead][]) handoverHeadAdditions.set(id, head)
+      invalidatePdaHandoverHeadCache()
+    },
+    action: () => {
+      start()
+      const ensured = ensureHandoverOrderForStartedTask(taskId)
+      if (ensured.created) {
+        const head = handoverHeadAdditions.get(ensured.handoverOrderId)!
+        const raw = productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
+        const entries = new Map<string, unknown>(raw ? JSON.parse(raw).entries : [])
+        entries.set(`started-handover-head:${head.handoverId}`, head)
+        productionContextStorage.setItem(PRODUCTION_CONTEXT_KEYS.effects, JSON.stringify({ version: 1, entries: [...entries] }))
+      }
+    },
+  })
+  invalidatePdaHandoverHeadCache()
 }
 
 export function ensureHandoverOrderForStartedTask(taskId: string, options: { includeWool?: boolean } = {}): {
@@ -5297,42 +5351,41 @@ export function markPdaPickupHeadCompleted(
   }) } catch (error) { return { ok: false, message: error instanceof Error ? error.message : '接收单未保存，请重试。' } }
 }
 
-export function markPdaHandoutHeadCompleted(
+export async function markPdaHandoutHeadCompleted(
   handoverId: string,
   completedAt: string,
   completedBy?: string,
-): { ok: boolean; message: string; data?: PdaHandoverHead } {
-  try { return runFormalHandoutAction(findPdaHandoutHead(handoverId), () => {
-  const validation = canCompletePdaHandoutHead(handoverId)
-  if (!validation.ok) return { ok: false, message: validation.message }
-
-  const head = findPdaHandoutHead(handoverId)!
-  if (head.factoryCompletionRequired) {
-    const task = getRuntimeTaskById(head.taskId)
-    if (!task || task.status !== 'IN_PROGRESS') return { ok: false, message: '当前加工任务不在生产中，不能结束。' }
-    if (!completedBy?.trim() || !Number.isFinite(parseDateMs(completedAt))) return { ok: false, message: '请核对当前操作人和结束时间。' }
-    recordRuntimeTaskExecution(task.taskId, { status: 'DONE', finishedAt: completedAt, updatedAt: completedAt,
-      auditLogs: [...task.auditLogs, { id: `AL-FACTORY-FINISH-${handoverId}-${completedAt}`, action: 'FACTORY_FINISH_HANDOUT', detail: '工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。', at: completedAt, by: completedBy.trim() }] })
-    headCompletionOverrides.set(handoverId, {
-      completionStatus: head.completionStatus,
-      completedByWarehouseAt: head.completedByWarehouseAt,
-      factoryMarkedComplete: true,
-      factoryMarkedCompleteAt: completedAt,
+): Promise<{ ok: boolean; message: string; data?: PdaHandoverHead }> {
+  try {
+    const head=findPdaHandoutHead(handoverId)
+    if(head?.factoryCompletionRequired) {
+      if(!completedBy?.trim() || !Number.isFinite(parseDateMs(completedAt))) return {ok:false,message:'请核对当前操作人和结束时间。'}
+      const {saveProductionSourceAction}=await import('./production-context-actions.ts')
+      await saveProductionSourceAction({id:`FACTORY-HANDOUT-COMPLETE:${handoverId}`,intent:JSON.stringify({action:'factory-handout-complete',handoverId,taskId:head.taskId}),action:()=>{
+        const validation=canCompletePdaHandoutHead(handoverId)
+        if(!validation.ok) throw new Error(validation.message)
+        const task=getRuntimeTaskById(head.taskId)
+        if(!task || task.status!=='IN_PROGRESS') throw new Error('当前加工任务不在生产中，不能结束。')
+        const actor=completedBy.trim()
+        recordRuntimeTaskExecution(task.taskId,{status:'DONE',finishedAt:completedAt,updatedAt:completedAt,
+          auditLogs:[...task.auditLogs,{id:`AL-FACTORY-FINISH-${handoverId}-${completedAt}`,action:'FACTORY_FINISH_HANDOUT',detail:'工厂确认加工完成并结束交出，接收方实收仍读取原交接记录。',at:completedAt,by:actor}]})
+        const raw=productionContextStorage.getItem(PRODUCTION_CONTEXT_KEYS.effects)
+        const entries=new Map<string,unknown>(raw ? JSON.parse(raw).entries : [])
+        entries.set(`factory-completion:${handoverId}`,{handoverId,taskId:task.taskId,completedAt,completedBy:actor})
+        productionContextStorage.setItem(PRODUCTION_CONTEXT_KEYS.effects,JSON.stringify({version:1,entries:[...entries]}))
+        return {handoverId,taskId:task.taskId,completedAt,completedBy:actor}
+      }})
+      invalidatePdaHandoverHeadCache()
+      return {ok:true,message:'已结束加工，交出数量仍以原交接记录为准',data:findPdaHandoutHead(handoverId)}
+    }
+    return runFormalHandoutAction(head,()=>{
+      const validation=canCompletePdaHandoutHead(handoverId)
+      if(!validation.ok) return {ok:false,message:validation.message}
+      headCompletionOverrides.set(handoverId,{completionStatus:'COMPLETED',completedByWarehouseAt:completedAt})
+      invalidatePdaHandoverHeadCache()
+      return {ok:true,message:'已完成交出单',data:findPdaHandoutHead(handoverId)}
     })
-  } else {
-    headCompletionOverrides.set(handoverId, {
-      completionStatus: 'COMPLETED',
-      completedByWarehouseAt: completedAt,
-    })
-  }
-  invalidatePdaHandoverHeadCache()
-
-  const updated = findHead(handoverId)
-  return updated
-    ? { ok: true, message: '已完成交出单', data: cloneHead(updated) }
-    : { ok: true, message: '已完成交出单' }
-
-  }) } catch (error) { return { ok: false, message: error instanceof Error ? error.message : '结束未保存，请重试' } }
+  } catch(error) { return {ok:false,message:error instanceof Error ? error.message : '结束未保存，请重试'} }
 }
 
 export function reportPdaHandoverQtyObjection(
@@ -5408,6 +5461,7 @@ export function syncPdaPickupHeadForMaterialRequest(materialRequestNo: string): 
 
 // Read only the original explicit handout records; do not rebuild heads or return documents here.
 export function getOriginalHandoutQuantities(handoverId: string, unit: string): { submittedQty: number; receivedQty: number } {
+  readFormalHandoutActions()
   let submittedQty = 0
   let receivedQty = 0
   for (const stored of handoutRecordAdditions.get(handoverId) ?? []) {
@@ -5422,8 +5476,7 @@ export function getOriginalHandoutQuantities(handoverId: string, unit: string): 
   return { submittedQty: roundNumber(submittedQty), receivedQty: roundNumber(receivedQty) }
 }
 
-// 正常模块加载读取原动作存储，不导入验收归档、不推断已完成数量。
-readFormalHandoutActions()
+// 原准备工艺的持久交接记录在访问该业务时读取；裁片回执从已提交裁床事件读取。
 
 /** Each warehouse confirmation is an already-received batch, including partial task receipts. */
 export function buildSimpleCutPieceFactoryReceipts(): { heads: PdaHandoverHead[]; records: PdaPickupRecord[]; readError?: string } {

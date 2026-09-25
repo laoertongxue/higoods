@@ -1,7 +1,17 @@
 import {
-  buildFcsCuttingDomainSnapshot,
-  type CuttingDomainSnapshot,
-} from '../../../domain/fcs-cutting-runtime/index.ts'
+  readCuttingTicketSourceSnapshot,
+  readCuttingPdaExecutionRuntimeState,
+  type CuttingTicketSourceSnapshot,
+} from '../../../data/fcs/cutting/runtime-inputs.ts'
+
+// 袋内来源只依赖裁片身份、铺布与已记录的裁床执行事件。
+// 不读取其他工艺备料/仓储汇总，避免查看袋档案启动染印、毛织演示初始化。
+type TransferBagSourceSnapshot = CuttingTicketSourceSnapshot & {
+  pdaExecutionState: ReturnType<typeof readCuttingPdaExecutionRuntimeState>
+}
+function readTransferBagSourceSnapshot(): TransferBagSourceSnapshot {
+  return { ...readCuttingTicketSourceSnapshot(), pdaExecutionState: readCuttingPdaExecutionRuntimeState() }
+}
 import {
   applyPocketBindingLocksToTicketRecords,
   buildSystemSeedTransferBagStore,
@@ -96,7 +106,7 @@ function buildSourceMarkerPlanSourceItems(source: {
 }
 
 function buildRuntimeMarkerPlanSourceRecords(
-  snapshot: CuttingDomainSnapshot,
+  snapshot: TransferBagSourceSnapshot,
   cutOrderRows: CutOrderRow[],
 ): MarkerPlanSourceRecord[] {
   const cutOrderRowsById = Object.fromEntries(cutOrderRows.map((row) => [row.cutOrderId, row]))
@@ -141,18 +151,19 @@ function buildRuntimeMarkerPlanSourceRecords(
 }
 
 function buildTransferBagCutOrderRows(
-  snapshot: CuttingDomainSnapshot,
+  snapshot: TransferBagSourceSnapshot,
   markerPlanSources: MarkerPlanSourceRecord[],
   progressRows: ReturnType<typeof buildProductionProgressRows>,
 ): CutOrderRow[] {
   return buildCutOrderViewModel(snapshot.progressRecords, markerPlanSources, {
+    sourceIdentityOnly: true,
     progressRows,
     markerPlanOccupancy: readStoredMarkerPlanOccupancyLookup(),
   }).rows
 }
 
 function buildTransferBagTicketRecords(input: {
-  snapshot: CuttingDomainSnapshot
+  snapshot: TransferBagSourceSnapshot
   cutOrderRows: CutOrderRow[]
   markerPlanSources: MarkerPlanSourceRecord[]
   markerStore: MarkerSpreadingStore
@@ -190,7 +201,7 @@ export function buildRuntimeTransferBagLifecycleProjection(
 }
 
 export function buildTransferBagsProjection(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot: TransferBagSourceSnapshot = readTransferBagSourceSnapshot(),
   storeOverride?: TransferBagStore,
 ) {
   const progressRows = buildProductionProgressRows(snapshot.progressRecords, {
@@ -246,7 +257,7 @@ export function buildTransferBagsProjection(
 }
 
 export function buildCarrierCycleProjection(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot: TransferBagSourceSnapshot = readTransferBagSourceSnapshot(),
   carrierId: string,
   cycleId?: string,
   storeOverride?: TransferBagStore,

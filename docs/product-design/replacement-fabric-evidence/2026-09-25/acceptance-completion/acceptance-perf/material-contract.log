@@ -1,0 +1,24 @@
+
+> higoods-vanilla-clone@1.0.0 check:material-prep-pickup-management
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-pickup-management.ts
+
+file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-material-prep-pickup-management.ts:45
+  if (!condition) throw new Error(message)
+                        ^
+
+Error: 页面级 runtime list 必须纯读组装补料和加工结果事实，并提供显式 bootstrap
+    at assert (file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-material-prep-pickup-management.ts:45:25)
+    at file:///private/tmp/higoods-replacement-fabric-release-20260925/scripts/check-material-prep-pickup-management.ts:154:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:569:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async node:internal/modules/esm/loader:650:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v26.8.2
+
+> higoods-vanilla-clone@1.0.0 check:material-prep-unit-summary-consumers
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-unit-summary-consumers.ts
+
+配料按单位汇总下游消费者检查通过
+(node:9050) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,3 +1,4 @@
+import { readPartTicketValue, PART_TICKET_KEYS } from './part-ticket-records.ts'
 import { getCuttingRuntimeEventProjectionRevision } from './cutting-runtime-event-ledger.ts'
 import {
   getProductionOrderTechPackSnapshot,
@@ -34,7 +35,6 @@ import {
   type SpreadingDifference,
 } from './spreading-differences.ts'
 import {
-  CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   listCuttingRuntimeEventsByType,
   type FinishCuttingPayload,
 } from './cutting-runtime-event-ledger.ts'
@@ -875,11 +875,7 @@ function buildBundleNo(index: number): string {
 }
 
 function readStoredMarkerSpreadingStore(): MarkerSpreadingStore {
-  const storage = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
-    ? localStorage
-    : null
-  if (!storage) return createEmptyStore()
-  const raw = storage.getItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY)
+  const raw = readPartTicketValue(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY)
   if (!raw) return createEmptyStore()
   try {
     return deserializeMarkerSpreadingStorage(raw)
@@ -2512,17 +2508,7 @@ let generatedFeiTicketDatasetCache: {
 } | null = null
 
 function getGeneratedFeiTicketRuntimeSignature(): string {
-  const storage = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
-    ? localStorage
-    : null
-  if (!storage) return String(getCuttingRuntimeEventProjectionRevision())
-  return [
-    'cuttingMarkerSpreadingLedger',
-    'cuttingMarkerPlanSourceLedger',
-    CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
-  ]
-    .map((key) => `${key}:${storage.getItem(key) || ''}`)
-    .concat(`event-projection:${getCuttingRuntimeEventProjectionRevision()}`).join('\n')
+  return `${readPartTicketValue(PART_TICKET_KEYS.spreading) || ''}\n${readPartTicketValue(PART_TICKET_KEYS.markerSources) || ''}\nevent-projection:${getCuttingRuntimeEventProjectionRevision()}`
 }
 
 function buildGeneratedFeiTicketDatasetSignature(sourceRecords: GeneratedCutOrderSourceRecord[]): string {

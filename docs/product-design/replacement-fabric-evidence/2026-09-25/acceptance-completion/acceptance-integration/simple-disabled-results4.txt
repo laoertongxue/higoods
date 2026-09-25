@@ -1,0 +1,31 @@
+### Error
+Error: id=>document.querySelector('[data-simple-cut-action="remove-replacement:'+id+'"]')
+
+简易裁片交出
+      关闭
+    任务单号
+      读取任务
+    验收禁止旧存储读取 cuttingRuntimeEventLedger当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin款图加载中…
+      重试款图
+    SPU-HOODIE-082 · 连帽拉链卫衣生产单：PO-DEMO-SIMPLE-0916任务单：RW-10CIVDB-0IZLA0Q · 独立车缝接收工厂：CV Micro Sewing Jakarta Pusat领取 PPIC：陈琳 · 分配 100 件本厂分配 SKU（1 项）SKU-SIMPLE-M-GRY · 雾霾灰 / M · 100 件应交裁片900 片此前已交0 片本次可交700 片确认后剩余200 片本次完整清单：5 张菲票，共 700 片菲票号SKU / 颜色 / 尺码部位编号范围本次片数FT-CUT-260916-916-01-054SKU-SIMPLE-M-GRY雾霾灰 / M后片1-100100 片FT-CUT-260916-916-01-062SKU-SIMPLE-M-GRY雾霾灰 / M左前片1-100100 片FT-CUT-260916-916-01-060SKU-SIMPLE-M-GRY雾霾灰 / M右前片1-100100 片FT-CUT-260916-916-01-056SKU-SIMPLE-M-GRY雾霾灰 / M口袋片1-200200 片FT-CUT-260916-916-01-058SKU-SIMPLE-M-GRY雾霾灰 / M袖片1-200200 片
+      上一页
+    第 1 / 1 页 · 共 5 张
+      下一页
+    另有 5 张暂不可交FT-CUT-260916-916-01-044：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-046：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-048：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-050：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-052：不属于本工厂分配的 SKU / 颜色 / 尺码随裁片交出的换片布每张固定 5 Yard；本任务已交过的面料无需重复交。雾霾灰卫衣抓绒面料 · tdv_demand_SPU_HOODIE_082-bom-main · 雾霾灰：还需换片布
+      加入
+    本次 0 张 / 0 Yard确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。
+      确认交出（5 张菲票 / 700 片）
+    
+任务单号
+      读取任务
+    验收禁止旧存储读取 cuttingRuntimeEventLedger当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin款图加载中…
+      重试款图
+    SPU-HOODIE-082 · 连帽拉链卫衣生产单：PO-DEMO-SIMPLE-0916任务单：RW-10CIVDB-0IZLA0Q · 独立车缝接收工厂：CV Micro Sewing Jakarta Pusat领取 PPIC：陈琳 · 分配 100 件本厂分配 SKU（1 项）SKU-SIMPLE-M-GRY · 雾霾灰 / M · 100 件应交裁片900 片此前已交0 片本次可交700 片确认后剩余200 片本次完整清单：5 张菲票，共 700 片菲票号SKU / 颜色 / 尺码部位编号范围本次片数FT-CUT-260916-916-01-054SKU-SIMPLE-M-GRY雾霾灰 / M后片1-100100 片FT-CUT-260916-916-01-062SKU-SIMPLE-M-GRY雾霾灰 / M左前片1-100100 片FT-CUT-260916-916-01-060SKU-SIMPLE-M-GRY雾霾灰 / M右前片1-100100 片FT-CUT-260916-916-01-056SKU-SIMPLE-M-GRY雾霾灰 / M口袋片1-200200 片FT-CUT-260916-916-01-058SKU-SIMPLE-M-GRY雾霾灰 / M袖片1-200200 片
+      上一页
+    第 1 / 1 页 · 共 5 张
+      下一页
+    另有 5 张暂不可交FT-CUT-260916-916-01-044：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-046：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-048：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-050：不属于本工厂分配的 SKU / 颜色 / 尺码FT-CUT-260916-916-01-052：不属于本工厂分配的 SKU / 颜色 / 尺码随裁片交出的换片布每张固定 5 Yard；本任务已交过的面料无需重复交。雾霾灰卫衣抓绒面料 · tdv_demand_SPU_HOODIE_082-bom-main · 雾霾灰：还需换片布
+      加入
+    本次 0 张 / 0 Yard确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。
+      确认交出（5 张菲票 / 700 片）
+    

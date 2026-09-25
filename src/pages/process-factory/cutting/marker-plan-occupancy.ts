@@ -3,6 +3,7 @@ import {
   type MarkerPlan,
   type MarkerPlanStatusKey,
 } from './marker-plan-domain.ts'
+import { partTicketStorage } from '../../../data/fcs/cutting/part-ticket-records.ts'
 
 export interface MarkerPlanOccupancyInfo {
   markerPlanId: string
@@ -48,14 +49,14 @@ export function buildMarkerPlanOccupancyLookup(
 }
 
 export function readStoredMarkerPlanOccupancyLookup(
-  storage: Pick<Storage, 'getItem'> | null = typeof localStorage === 'undefined' ? null : localStorage,
+  storage: Pick<Storage, 'getItem'> | null = partTicketStorage,
 ): MarkerPlanOccupancyLookup {
   if (!storage) return {}
   try {
     const parsed = JSON.parse(storage.getItem(MARKER_PLAN_STORAGE_KEY) || '[]')
     if (!Array.isArray(parsed)) return {}
     return buildMarkerPlanOccupancyLookup(parsed as Array<Partial<MarkerPlan>>)
-  } catch {
-    return {}
+  } catch (error) {
+    throw error
   }
 }

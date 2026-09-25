@@ -1,7 +1,7 @@
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { mixedBagSummary } from '../components/ui/mixed-bag-contents.ts'
 // @page-pattern: pda
-import { escapeHtml } from '../utils'
+import { escapeHtml, localDateTimeText } from '../utils'
 import { savePdaCuttingAction } from './pda-cutting-save.ts'
 import { replacementFabricCompanions } from '../data/fcs/cutting/replacement-fabric-bag-selection.ts'
 import { parseReplacementTicketCode } from '../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
@@ -127,7 +127,7 @@ export function createPdaTransferBagRepackState(): PdaTransferBagRepackState {
     step: 'SOURCE_BAGS',
     repackBatchId: newRepackBatchId(),
     handoverBatchId: `PDA-HANDOVER-${Date.now()}`,
-    occurredAt: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    occurredAt: localDateTimeText().slice(0, 16),
     sewingTaskNo: '',
     receiverPpicId: '',
     productionOrderNo: '',
@@ -906,8 +906,21 @@ export function setPdaRepackReturnLocation(
   }
 }
 
+/** 展示分别保留裁片、换片布和捆条的原数量单位；不把布长折成裁片数。 */
+function repackDisplayTickets(state: PdaTransferBagRepackState, summary: PdaRepackConfirmationSummary) {
+  const source = sourceTickets(state, getBrowserLocalStorage())
+  const resultIds = new Set(summary.resultBags.flatMap(bag => bag.ticketIds))
+  return {
+    source,
+    results: source.filter(item => resultIds.has(item.ticket.feiTicketId)),
+    direct: source.filter(item => summary.directBagCodes.includes(item.bagCode)),
+    retained: source.filter(item => !resultIds.has(item.ticket.feiTicketId) && !summary.directBagCodes.includes(item.bagCode)),
+  }
+}
+
 function renderSourceReturns(state: PdaTransferBagRepackState): string {
   const summary = buildPdaRepackConfirmation(state)
+  const display = repackDisplayTickets(state, summary)
   return `
     <div class="space-y-3">
       <div class="text-sm font-semibold">4 处理剩余来源袋</div>
@@ -917,7 +930,7 @@ function renderSourceReturns(state: PdaTransferBagRepackState): string {
         if (bag.becomesIdle) return `<div class="rounded-xl border border-green-200 bg-green-50 p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b><br>菲票已全部转出，重装后空闲并释放原库位。</div>`
         const original = state.sourceOriginalLocationByBagCode[bag.bagCode]
         const current = state.sourceReturnLocationByBagCode[bag.bagCode]
-        return `<div class="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm" data-pda-repack-return-row data-source-bag-code="${escapeHtml(bag.bagCode)}"><div><b>${escapeHtml(bag.bagCode)}</b> · 剩余 ${bag.retainedTicketCount} 张 / ${bag.retainedPieceQty} 片</div><div class="text-xs text-amber-800">原库位：${escapeHtml(original ? `${original.areaName} / ${original.locationNo}` : '未找到，请扫描实际库位')}</div><input class="h-12 w-full rounded-xl border bg-white px-3" value="${escapeHtml(current?.locationNo || '')}" data-pda-repack-field="returnLocation" data-source-bag-code="${escapeHtml(bag.bagCode)}" placeholder="扫描库位码或手工填写库位编号" /><button class="h-12 w-full rounded-xl border border-amber-400 bg-white font-semibold text-amber-800" data-pda-repack-action="set-return-location" data-source-bag-code="${escapeHtml(bag.bagCode)}" type="button">确认这个回仓库位</button></div>`
+        return `<div class="space-y-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm" data-pda-repack-return-row data-source-bag-code="${escapeHtml(bag.bagCode)}"><div><b>${escapeHtml(bag.bagCode)}</b> · 剩余 ${escapeHtml(mixedBagSummary(display.retained.filter(item => item.bagCode === bag.bagCode).map(item => item.ticket)))}</div><div class="text-xs text-amber-800">原库位：${escapeHtml(original ? `${original.areaName} / ${original.locationNo}` : '未找到，请扫描实际库位')}</div><input class="h-12 w-full rounded-xl border bg-white px-3" value="${escapeHtml(current?.locationNo || '')}" data-pda-repack-field="returnLocation" data-source-bag-code="${escapeHtml(bag.bagCode)}" placeholder="扫描库位码或手工填写库位编号" /><button class="h-12 w-full rounded-xl border border-amber-400 bg-white font-semibold text-amber-800" data-pda-repack-action="set-return-location" data-source-bag-code="${escapeHtml(bag.bagCode)}" type="button">确认这个回仓库位</button></div>`
       }).join('')}
       <button class="h-12 w-full rounded-xl bg-blue-600 font-semibold text-white" data-pda-repack-action="returns-done" type="button">库位已确认，核对汇总</button>
     </div>
@@ -926,22 +939,24 @@ function renderSourceReturns(state: PdaTransferBagRepackState): string {
 
 function renderConfirmation(state: PdaTransferBagRepackState): string {
   const summary = buildPdaRepackConfirmation(state)
+  const display = repackDisplayTickets(state, summary)
   return `
     <div class="space-y-4">
       <div class="text-sm font-semibold">5 核对系统汇总</div>
       <div class="grid grid-cols-2 gap-2 text-center text-xs">
-        <div class="rounded-xl border p-3">来源<br><b>${summary.totalSourceTicketCount} 张 / ${summary.totalSourcePieceQty} 片</b></div>
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3">直接交出<br><b>${summary.directBagCodes.length} 袋</b></div>
-        <div class="rounded-xl border border-violet-200 bg-violet-50 p-3">重装结果袋<br><b>${summary.totalResultTicketCount} 张 / ${summary.totalResultPieceQty} 片</b></div>
-        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">来源袋保留<br><b>${summary.totalRetainedTicketCount} 张 / ${summary.totalRetainedPieceQty} 片</b></div>
+        <div class="rounded-xl border p-3">来源<br><b>${escapeHtml(mixedBagSummary(display.source.map(item => item.ticket)))}</b></div>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3">直接交出<br><b>${summary.directBagCodes.length} 袋 · ${escapeHtml(mixedBagSummary(display.direct.map(item => item.ticket)))}</b></div>
+        <div class="rounded-xl border border-violet-200 bg-violet-50 p-3">重装结果袋<br><b>${escapeHtml(mixedBagSummary(display.results.map(item => item.ticket)))}</b></div>
+        <div class="rounded-xl border border-amber-200 bg-amber-50 p-3">来源袋保留<br><b>${escapeHtml(mixedBagSummary(display.retained.map(item => item.ticket)))}</b></div>
       </div>
       <div class="space-y-2">${summary.sourceBags.map((bag) => `
-        <div class="rounded-xl border p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b><br>转出 ${bag.transferredTicketCount} 张 / ${bag.transferredPieceQty} 片；保留 ${bag.retainedTicketCount} 张 / ${bag.retainedPieceQty} 片；${bag.usedAsResult ? '作为结果袋直接交出' : bag.becomesIdle ? '重装后空闲' : `重新入仓 ${escapeHtml(`${bag.returnLocationRef?.areaName || ''} / ${bag.returnLocationRef?.locationNo || ''}`)}`}</div>
+        <div class="rounded-xl border p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b><br>转出 ${escapeHtml(mixedBagSummary(display.results.filter(item => item.bagCode === bag.bagCode).map(item => item.ticket)))}；保留 ${escapeHtml(mixedBagSummary(display.retained.filter(item => item.bagCode === bag.bagCode).map(item => item.ticket)))}；${bag.usedAsResult ? '作为结果袋直接交出' : bag.becomesIdle ? '重装后空闲' : `重新入仓 ${escapeHtml(`${bag.returnLocationRef?.areaName || ''} / ${bag.returnLocationRef?.locationNo || ''}`)}`}</div>
       `).join('')}</div>
       <div class="space-y-2">${summary.resultBags.map((bag) => `
-        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b><br>${escapeHtml(bag.productionOrderNo)} · ${escapeHtml(bag.receiverFactoryName)}<br>${bag.ticketCount} 张 / ${bag.pieceQty} 片</div>
+        <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b><br>${escapeHtml(bag.productionOrderNo)} · ${escapeHtml(bag.receiverFactoryName)}<br>${escapeHtml(mixedBagSummary(display.results.filter(item => bag.ticketIds.includes(item.ticket.feiTicketId)).map(item => item.ticket)))}</div>
       `).join('')}</div>
       ${summary.errors.map((error) => `<div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">${escapeHtml(error)}</div>`).join('')}
+      ${summary.sourceBags.some(bag => bag.retainedTicketCount > 0 && !bag.usedAsResult) ? '<button class="h-12 w-full rounded-xl border font-semibold" data-pda-repack-action="review-return-locations" type="button">修改回仓库位</button>' : ''}
       ${summary.canSubmit ? '<button class="h-12 w-full rounded-xl bg-blue-600 font-semibold text-white" data-pda-repack-action="confirm" type="button">确认本次交出</button>' : ''}
     </div>
   `
@@ -949,15 +964,16 @@ function renderConfirmation(state: PdaTransferBagRepackState): string {
 
 function renderDone(state: PdaTransferBagRepackState): string {
   const summary = buildPdaRepackConfirmation(state)
+  const display = repackDisplayTickets(state, summary)
   return `
     <div class="space-y-4">
       <div class="rounded-xl border border-green-200 bg-green-50 p-4 text-green-800">
         <div class="font-semibold">本次中转袋交出成功</div>
         <div class="mt-1 text-sm">事实编号：${escapeHtml(state.submittedEventId)}</div>
       </div>
-      ${summary.directBagCodes.map((bagCode) => `<div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm"><b>${escapeHtml(bagCode)}</b> · 整袋直接交出 · 已交出待回收</div>`).join('')}
-      ${summary.resultBags.map((bag) => `<div class="rounded-xl border p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b> · ${bag.ticketCount} 张 / ${bag.pieceQty} 片 · 已交出待回收</div>`).join('')}
-      ${summary.sourceBags.filter((bag) => bag.retainedTicketCount && bag.returnLocationRef).map((bag) => `<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b> · ${bag.retainedTicketCount} 张 / ${bag.retainedPieceQty} 片 · 已入仓 ${escapeHtml(`${bag.returnLocationRef!.areaName} / ${bag.returnLocationRef!.locationNo}`)}</div>`).join('')}
+      ${summary.directBagCodes.map((bagCode) => `<div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm"><b>${escapeHtml(bagCode)}</b> · ${escapeHtml(mixedBagSummary(display.direct.filter(item => item.bagCode === bagCode).map(item => item.ticket)))} · 整袋直接交出 · 已交出待回收</div>`).join('')}
+      ${summary.resultBags.map((bag) => `<div class="rounded-xl border p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b> · ${escapeHtml(mixedBagSummary(display.results.filter(item => bag.ticketIds.includes(item.ticket.feiTicketId)).map(item => item.ticket)))} · 已交出待回收</div>`).join('')}
+      ${summary.sourceBags.filter((bag) => bag.retainedTicketCount && bag.returnLocationRef).map((bag) => `<div class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm"><b>${escapeHtml(bag.bagCode)}</b> · ${escapeHtml(mixedBagSummary(display.retained.filter(item => item.bagCode === bag.bagCode).map(item => item.ticket)))} · 已入仓 ${escapeHtml(`${bag.returnLocationRef!.areaName} / ${bag.returnLocationRef!.locationNo}`)}</div>`).join('')}
       <button class="w-full py-2 text-sm font-medium text-blue-700" data-pda-repack-action="reset" type="button">开始下一次交出</button>
     </div>
   `
@@ -1005,8 +1021,11 @@ function returnLocationFieldValue(container: HTMLElement, bagCode: string): stri
 
 function updateRepackWorkflow(container: HTMLElement | null, state: PdaTransferBagRepackState): PdaPageEventResult {
   replaceRepackState(state)
-  if (!container) return true
-  container.outerHTML = renderRepackWorkflow(state)
+  // 保存期间仓库通知可能重绘页面；反馈必须更新仍在页面上的工作区。
+  const current = container?.isConnected ? container : typeof document !== 'undefined'
+    ? document.querySelector<HTMLElement>('[data-pda-transfer-bag-repack]') : null
+  if (!current) return true
+  current.outerHTML = renderRepackWorkflow(state)
   return PDA_PAGE_HANDLED_LOCALLY
 }
 
@@ -1123,6 +1142,9 @@ export function handlePdaCuttingTransferBagRepackEvent(
         bagCode,
         returnLocationFieldValue(container, bagCode),
       ))
+    }
+    if (action === 'review-return-locations') {
+      return updateRepackWorkflow(container, { ...state, step: 'SOURCE_RETURNS', feedback: '已保留结果袋和菲票，请修改来源袋回仓库位。' })
     }
     if (action === 'returns-done') {
       const summary = buildPdaRepackConfirmation(state)

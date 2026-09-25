@@ -1,0 +1,14 @@
+(node:53314) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 混装打印保留裁片矩阵，捆条和换片布独立附页，不合并单位 (3.209042ms)
+✔ 纯换片布袋可生成货物标识，不制造尺码和部位 (0.198375ms)
+✔ 混装标签拒绝换片布错误长度、作废票和混生产单 (0.931292ms)
+✔ 旧业务存储不可读时仍用已提交的原装袋周期打印三类货物 (1.873209ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1944.779042

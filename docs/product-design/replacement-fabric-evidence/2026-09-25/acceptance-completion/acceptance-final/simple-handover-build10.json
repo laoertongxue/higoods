@@ -1,0 +1,230 @@
+{
+  "results": [
+    {
+      "surface": "WEB",
+      "sample": 1,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 29.69999998807907
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 162.80000001192093
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 67.69999998807907
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.400000005960464
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 32.10000002384186
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 49.5
+        },
+        {
+          "action": "confirm-handover",
+          "ms": 87.40000000596046
+        },
+        {
+          "action": "reset",
+          "ms": 32.099999994039536
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T04:57:57.749Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925045757",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 2,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 33.400000005960464
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165.10000002384186
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 66.69999998807907
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.299999982118607
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.900000005960464
+        },
+        {
+          "action": "confirm-handover",
+          "ms": 98
+        },
+        {
+          "action": "reset",
+          "ms": 30.5
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T04:58:01.085Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925045801",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 3,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 30.80000001192093
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 166.80000001192093
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 65
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48.5
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.5
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 48
+        },
+        {
+          "action": "confirm-handover",
+          "ms": 98.5
+        },
+        {
+          "action": "reset",
+          "ms": 30.19999998807907
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T04:58:04.502Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925045804",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 4,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 30
+        },
+        {
+          "action": "scan-task-sheet",
+          "ms": 165.7000000178814
+        },
+        {
+          "action": "missing-ticket-block",
+          "ms": 66.69999998807907
+        },
+        {
+          "action": "scan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 47.900000005960464
+        },
+        {
+          "action": "remove-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 31.5
+        },
+        {
+          "action": "rescan-replacement",
+          "ticketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "ms": 49
+        },
+        {
+          "action": "confirm-handover",
+          "ms": 98.69999998807907
+        },
+        {
+          "action": "reset",
+          "ms": 32.29999998211861
+        }
+      ],
+      "blocked": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "saved": "已交出 · 工厂已接收\n交出单：SIMPLE-ORDER-07E2WW7\n交出记录：JYJC-0ZZ7MBT\n8 张裁片票 / 7500 片\n换片布 1 张 / 5 Yard\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n交出人：HiGood_裁床厂_管理员\n时间：2026-09-25T04:58:07.901Z\n查看交出记录\n继续下一单",
+      "ticketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "eventId": "cutting-event:cutting-event:SIMPLE-HANDOVER:SIMPLE-RECORD-0ZZ7MBT-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-L-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-M-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-S-tdv_demand_SPU_2024_005-pattern-main-sleeve-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-front-SIMPLE-OUTPUT-PO-202603-0002-1-XL-tdv_demand_SPU_2024_005-pattern-main-sleeve-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260925045807",
+      "errors": [],
+      "prerequisite": "simple-prerequisite.higcut仅准备默认PO0002车缝有效分配及明确MOCK完成裁剪，无打印及交出结果；所有被测动作来自真实UI"
+    },
+    {
+      "surface": "WEB",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 31.599999994039536
+        }
+      ],
+      "error": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded.",
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/warehouse-management/wait-handover",
+      "body": "/ 库位\t状态\t操作\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 15 条\n上一页\n第\n页\n跳转\n下一页\n简易裁片交出\n关闭\n任务单号\n读取任务\n\n未找到任务单，请核对纸上的任务单号。\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）"
+    }
+  ],
+  "failed": [
+    {
+      "surface": "WEB",
+      "sample": 5,
+      "measures": [
+        {
+          "action": "open-web-dialog",
+          "ms": 31.599999994039536
+        }
+      ],
+      "error": "TimeoutError: page.waitForFunction: Timeout 10000ms exceeded.",
+      "errors": [],
+      "url": "http://127.0.0.1:43236/fcs/craft/cutting/warehouse-management/wait-handover",
+      "body": "/ 库位\t状态\t操作\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 15 条\n上一页\n第\n页\n跳转\n下一页\n简易裁片交出\n关闭\n任务单号\n读取任务\n\n未找到任务单，请核对纸上的任务单号。\n\n当前仓管账号：HiGood_裁床厂_管理员 · OWN-CUTTING-001_admin\n\n读取后核对工厂、PPIC 和裁片清单，再确认交出。\n\n确认后，本批裁片视为 PPIC 已领取、工厂已接收。确认包含全部分页清单。\n\n确认交出（0 张菲票 / 0 片）"
+    }
+  ]
+}

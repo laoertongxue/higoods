@@ -1,12 +1,8 @@
+import { savePartTicketAction } from '../../data/fcs/cutting/part-ticket-records.ts'
 import { buildUnifiedPrintPreviewLink } from '../../data/fcs/print-service.ts'
-import { tmfPrintFactsSignature } from './templates/tmf-process-sheet-template.ts'
 import { appStore } from '../../state/store.ts'
 import { recordActualFeiTicketFirstPrintFromPreview } from '../process-factory/cutting/fei-tickets.ts'
 import { escapeHtml } from '../../utils.ts'
-import {
-  buildPrintDocument,
-  renderPrintDocument,
-} from '../../data/fcs/print-template-registry.ts'
 import type {
   PrintDocumentBuildInput,
   PrintDocumentType,
@@ -17,6 +13,23 @@ import {
   listManualFeiTicketSources,
   recordManualFeiTicketPrint,
 } from '../../data/fcs/cutting/manual-fei-tickets.ts'
+
+type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
+/** 部位票和中转袋标签只加载对应模板，避免初始化无关生产确认业务。 */
+async function loadPrintAdapter(documentType: PrintDocumentType): Promise<PrintAdapter> {
+  if (documentType === 'FEI_TICKET_LABEL' || documentType === 'FEI_TICKET_REPRINT_LABEL'
+    || documentType === 'TRANSFER_BAG_LABEL' || documentType === 'TRANSFER_BAG_GOODS_LABEL') {
+    const labels = await import('./templates/label-print-template.ts')
+    const builders = {
+      FEI_TICKET_LABEL: labels.buildFeiTicketLabelPrintDocument,
+      FEI_TICKET_REPRINT_LABEL: labels.buildFeiTicketReprintLabelPrintDocument,
+      TRANSFER_BAG_LABEL: labels.buildTransferBagLabelPrintDocument,
+      TRANSFER_BAG_GOODS_LABEL: labels.buildTransferBagGoodsLabelPrintDocument,
+    }
+    return { buildPrintDocument: builders[documentType], renderPrintDocument: labels.renderLabelPrintTemplate }
+  }
+  return import('../../data/fcs/print-template-registry.ts')
+}
 
 function decodeParam(value: string): string {
   try {
@@ -129,7 +142,7 @@ function bindPrintImages(): void {
   })
 }
 
-export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
+export async function handleUnifiedPrintPreviewEvent(target: HTMLElement): Promise<boolean> {
   const retry = target.closest<HTMLElement>('[data-print-image-retry]')
   if (retry) {
     const img = retry.closest('[data-print-image-frame]')?.querySelector<HTMLImageElement>('img[data-print-image]')
@@ -145,10 +158,15 @@ export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', imageButton.dataset.printImageTitle || '图片预览')
     overlay.innerHTML = `<div class="relative max-h-[90vh] max-w-[90vw] rounded-lg bg-white p-3"><button class="absolute right-3 top-3 rounded border bg-white px-3 py-2" data-print-image-close>关闭</button><img class="max-h-[80vh] max-w-full object-contain" src="${escapeHtml(imageButton.dataset.printImageUrl || '')}" alt="${escapeHtml(imageButton.dataset.printImageTitle || '资料图片')}" /><p role="status" data-print-large-image-status>图片加载中…</p><button type="button" data-print-large-retry hidden>重试图片</button></div>`
-    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); imageButton.focus() }
-    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close() }
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); imageButton.focus() }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      close()
+    }
     overlay.addEventListener('click', (event) => { if (event.target === overlay || (event.target as HTMLElement).closest('[data-print-image-close]')) close() })
-    document.addEventListener('keydown', onKey)
+    document.addEventListener('keydown', onKey, true)
     const largeImage = overlay.querySelector<HTMLImageElement>('img')!
     const largeStatus = overlay.querySelector<HTMLElement>('[data-print-large-image-status]')!
     const largeRetry = overlay.querySelector<HTMLButtonElement>('[data-print-large-retry]')!
@@ -167,13 +185,15 @@ export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
   const action = actionNode.dataset.printPreviewAction
   if (action !== 'print' && action !== 'download-pdf') return false
   const input = resolveInput()
-  if (['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET'].includes(input.documentType)) {
+  if (['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET', 'TRANSFER_BAG_GOODS_LABEL'].includes(input.documentType)) {
     void prepareVerifiedDocumentPrint(actionNode)
     return true
   }
   if (action === 'print') {
     if (input.documentType === 'FEI_TICKET_LABEL' || input.documentType === 'FEI_TICKET_REPRINT_LABEL') {
-      const document = buildPrintDocument(input)
+      const document = (await loadPrintAdapter(input.documentType)).buildPrintDocument(input)
+      try {
+        await savePartTicketAction({ intent: JSON.stringify(input), action: () => {
       if (input.documentType === 'FEI_TICKET_LABEL') {
         recordActualFeiTicketFirstPrintFromPreview({
           sourceIds: decodeParam(input.sourceId).split(',').map((item) => item.trim()).filter(Boolean),
@@ -189,6 +209,13 @@ export function handleUnifiedPrintPreviewEvent(target: HTMLElement): boolean {
         templateCode: document.templateCode,
         labelSize: document.labelSize,
       })
+        } })
+      } catch (error) {
+        const feedback = actionNode.closest('.print-preview-root')?.querySelector<HTMLElement>('[data-print-ready-feedback]')
+        if (feedback) feedback.textContent = `尚未保存打印记录：${error instanceof Error ? error.message : String(error)}`
+        else window.alert(`尚未保存打印记录：${error instanceof Error ? error.message : String(error)}`)
+        return true
+      }
     }
   }
   window.print()
@@ -204,16 +231,22 @@ async function prepareVerifiedDocumentPrint(button: HTMLElement): Promise<void> 
   controls.forEach((control) => { control.disabled = true })
   if (feedback) feedback.textContent = '正在准备图片和条码…'
   try {
+    const {buildPrintDocument} = await loadPrintAdapter(resolveInput().documentType)
+    const tmfPrintFactsSignature = root.querySelector('[data-tmf-print-signature]')
+      ? (await import('./templates/tmf-process-sheet-template.ts')).tmfPrintFactsSignature : undefined
     const verifyTmfFacts = () => {
       const printed = root.querySelector<HTMLElement>('[data-tmf-print-signature]')
-      if (printed && printed.dataset.tmfPrintSignature !== tmfPrintFactsSignature(buildPrintDocument(resolveInput()))) throw new Error('加工要求、数量或生产状态已变化，请重新打开预览后核对。')
+      if (printed && tmfPrintFactsSignature && printed.dataset.tmfPrintSignature !== tmfPrintFactsSignature(buildPrintDocument(resolveInput()))) throw new Error('加工要求、数量或生产状态已变化，请重新打开预览后核对。')
     }
     verifyTmfFacts()
     if (root.querySelector('[data-print-image-missing]')) throw new Error('资料图片尚未维护，请补齐对应图片后再打印。')
     const images = Array.from(root.querySelectorAll<HTMLImageElement>('img[data-print-image]'))
     await Promise.all(images.map(async (img) => {
       try {
-        if (img.complete && !img.naturalWidth) { const src = img.src; img.removeAttribute('src'); img.src = src }
+        if (img.complete && !img.naturalWidth) {
+          if (resolveInput().documentType === 'TRANSFER_BAG_GOODS_LABEL') throw new Error('请先重试面料图片')
+          const src = img.src; img.removeAttribute('src'); img.src = src
+        }
         await Promise.race([img.decode(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error('图片加载超时')), 10000))])
         if (!img.naturalWidth) throw new Error()
         updatePrintImageState(img, 'loaded')
@@ -231,7 +264,7 @@ async function prepareVerifiedDocumentPrint(button: HTMLElement): Promise<void> 
     for (const paper of root.querySelectorAll<HTMLElement>('[data-tmf-label-paper]')) {
       if (paper.scrollHeight > paper.clientHeight + 1 || paper.scrollWidth > paper.clientWidth + 1) throw new Error('标签内容超出当前纸张，请切换A4预览并核对排版。')
     }
-    if (!['TMF_PACKAGE_LABEL','TMF_HANDOVER_SHEET'].includes(resolveInput().documentType) && !root.querySelector('[data-real-barcode] rect')) throw new Error('条码尚未生成，请重新打开任务单。')
+    if (!['TMF_PACKAGE_LABEL','TMF_HANDOVER_SHEET','TRANSFER_BAG_GOODS_LABEL'].includes(resolveInput().documentType) && !root.querySelector('[data-real-barcode] rect')) throw new Error('条码尚未生成，请重新打开任务单。')
     if (feedback) feedback.textContent = '图片和条码已就绪。'
     window.print()
   } catch (error) {
@@ -261,7 +294,7 @@ function renderPreviewFailure(message: string, backHref = '/fcs/progress/board')
   `
 }
 
-export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuildInput>): string {
+export async function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuildInput>): Promise<string> {
   const resolved = resolveInput(input)
   if (!resolved.sourceType || !resolved.sourceId) {
     return renderPreviewFailure('缺少打印来源或来源 ID，无法生成打印预览。')
@@ -276,6 +309,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
   }
 
   try {
+    const {buildPrintDocument, renderPrintDocument} = await loadPrintAdapter(resolved.documentType)
     const document = buildPrintDocument({
       documentType: resolved.documentType,
       sourceType: decodeParam(resolved.sourceType),
@@ -289,7 +323,7 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
     if (typeof window !== 'undefined' && typeof window.setTimeout === 'function') window.setTimeout(bindPrintImages, 0)
     return `
       ${renderUnifiedPrintStyles()}
-      <div class="print-preview-root" ${['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
+      <div class="print-preview-root" ${['DISPATCH_TASK_SHEET', 'PRODUCTION_CONFIRMATION', 'TMF_PROCESS_SHEET', 'TMF_PACKAGE_LABEL', 'TMF_HANDOVER_SHEET', 'TRANSFER_BAG_GOODS_LABEL'].includes(resolved.documentType) ? 'data-skip-page-rerender="true"' : ''}>
         <div class="print-preview-toolbar print-hidden">
           <div class="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-white p-3 shadow-sm">
             <div>

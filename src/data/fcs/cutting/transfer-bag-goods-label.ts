@@ -3,7 +3,7 @@ import { isFabricBagTicket, mixedBagTicketFields, validBagTicketQuantity } from 
 import { parseCompleteTransferBagRepackPayload } from './transfer-bag-operations.ts'
 import type { TransferBagTicketFactSnapshot } from './cutting-runtime-event-ledger.ts'
 import {
-  listCuttingRuntimeEvents,
+  listManagedCuttingRuntimeEvents,
   type FeiTicketBagSnapshotItem,
   type FeiTicketBaggingPayload,
 } from './cutting-runtime-event-ledger.ts'
@@ -18,6 +18,8 @@ export interface TransferBagGoodsLabelSource {
   baggingAt: string
   tickets: FeiTicketBagSnapshotItem[]
 }
+
+type ResolvedTransferBagGoodsLabelSource = Omit<TransferBagGoodsLabelSource, 'tickets'> & { tickets: Array<FeiTicketBagSnapshotItem & TransferBagTicketFactSnapshot> }
 
 export interface TransferBagGoodsLabelMatrixRow {
   color: string
@@ -63,11 +65,15 @@ function toNumber(value: unknown): number {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
-function normalizeSnapshotItem(value: unknown, fallback: { productionOrderId: string; productionOrderNo: string; cutOrderId: string; cutOrderNo: string }): FeiTicketBagSnapshotItem {
+function normalizeSnapshotItem(value: unknown, fallback: { productionOrderId: string; productionOrderNo: string; cutOrderId: string; cutOrderNo: string }): FeiTicketBagSnapshotItem & TransferBagTicketFactSnapshot {
   const item = toRecord(value)
   const hasSpecialCraft = Boolean(item.hasSpecialCraft)
   return {
     ...mixedBagTicketFields(item),
+    sewingTaskId: toText(item.sewingTaskId),
+    sewingTaskNo: toText(item.sewingTaskNo),
+    receiverFactoryId: toText(item.receiverFactoryId),
+    receiverFactoryName: toText(item.receiverFactoryName) || toText(item.receiverFactoryDisplay),
     feiTicketId: toText(item.feiTicketId),
     feiTicketNo: toText(item.feiTicketNo),
     productionOrderId: toText(item.productionOrderId) || fallback.productionOrderId,
@@ -140,11 +146,11 @@ function assertSourceCanPrint(source: TransferBagGoodsLabelSource): void {
 export function resolveTransferBagGoodsLabelSource(
   usageCycleId: string,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
-): TransferBagGoodsLabelSource | null {
+): ResolvedTransferBagGoodsLabelSource | null {
   const normalizedId = usageCycleId.trim()
   if (!normalizedId) return null
-  let source: TransferBagGoodsLabelSource | null = null
-  const events = listCuttingRuntimeEvents(storage).filter(event => event.eventStatus !== '已取消')
+  let source: ResolvedTransferBagGoodsLabelSource | null = null
+  const events = listManagedCuttingRuntimeEvents(storage).filter(event => event.eventStatus !== '已取消')
     .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || (a.ledgerSequence || 0) - (b.ledgerSequence || 0))
   for (const event of events) {
     const fallback = { productionOrderId: event.refs.productionOrderId || '', productionOrderNo: event.refs.productionOrderNo || '', cutOrderId: event.refs.cutOrderId || '', cutOrderNo: event.refs.cutOrderNo || '' }

@@ -1,4 +1,4 @@
-import { listCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents, type TransferBagTicketFactSnapshot, type HandoverRecordSubmitPayload, type SimpleCutPieceHandoverPayload } from './cutting-runtime-event-ledger.ts'
+import { listManagedCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents, type TransferBagTicketFactSnapshot, type HandoverRecordSubmitPayload, type SimpleCutPieceHandoverPayload } from './cutting-runtime-event-ledger.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
   type FeiTicketSpecialCraft,
@@ -375,8 +375,6 @@ export function getCutPieceReleaseHandoverSnapshot(snapshotId: string): CutPiece
     const staticOrder = handoverOrders.find((order) => order.cutPieceReleaseSnapshot?.releaseTargetSnapshotId === snapshotId)
     if (staticOrder?.cutPieceReleaseSnapshot) {
       snapshot = structuredClone(staticOrder.cutPieceReleaseSnapshot)
-      cutPieceReleaseHandoverSnapshots.set(snapshotId, snapshot)
-      persistHandoverSnapshotStorage()
     }
   }
   return snapshot ? structuredClone(snapshot) : null
@@ -806,27 +804,8 @@ export const handoverOrders: HandoverOrder[] = [
   },
 ]
 
-// 静态演示交出单也走统一快照仓储，刷新后由 localStorage 恢复。
-handoverOrders.forEach((order) => {
-  const snapshot = order.cutPieceReleaseSnapshot
-  if (snapshot) {
-    try {
-      createCutPieceReleaseHandoverSnapshot({
-        snapshotId: snapshot.releaseTargetSnapshotId,
-        productionOrderId: snapshot.productionOrderId,
-        batchNo: snapshot.batchNo,
-        completeKitQtyByColorSize: snapshot.completeKitQtyByColorSize,
-        surplusPieces: snapshot.surplusPieces,
-        matrixVersion: snapshot.matrixVersion,
-        targetBasisVersion: snapshot.targetBasisVersion,
-        targetConfirmedAt: snapshot.targetConfirmedAt,
-        frozenSourceTips: snapshot.frozenSourceTips,
-      })
-    } catch {
-      // 历史快照冲突时保留持久化版本，页面只读历史，不覆盖业务证据。
-    }
-  }
-})
+// 静态演示快照由 getCutPieceReleaseHandoverSnapshot 只读回退；
+// 首次打开列表不产生业务写入，已有持久历史仍优先读取。
 
 export const handoverRecords: HandoverRecord[] = [
   {
@@ -2317,7 +2296,7 @@ export function buildSimpleCutPieceHandoverProjection(): { orders: HandoverOrder
 export function buildRuntimeBagHandoverProjection(): { orders: HandoverOrder[]; records: HandoverRecord[] } {
   const records: HandoverRecord[] = []
   const orders = new Map<string, HandoverOrder>()
-  for (const event of listCuttingRuntimeEvents().filter(event => event.eventType === '新增交出记录' && event.eventStatus !== '已取消')
+  for (const event of listManagedCuttingRuntimeEvents().filter(event => event.eventType === '新增交出记录' && event.eventStatus !== '已取消')
     .sort((a, b) => (a.ledgerSequence || 0) - (b.ledgerSequence || 0))) {
     const p = event.payload as HandoverRecordSubmitPayload
     if (!p.handoverRecordId || handoverRecords.some(record => record.handoverRecordId === p.handoverRecordId)) continue

@@ -1,0 +1,109 @@
+{
+  "origin": "http://127.0.0.1:43235",
+  "fixturePath": "/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/mixed.higcut",
+  "printing": "window.print is intercepted as software-only evidence; no physical output claim",
+  "scenarios": [
+    {
+      "requirements": [
+        "BAG-002",
+        "BAG-003",
+        "BAG-004"
+      ],
+      "errors": [],
+      "ticket": {
+        "id": "HPB-973d027f-6fbd-4885-9c1c-61ffe0e1a079",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "productionOrderId": "PO-202603-0002",
+        "sequence": 3,
+        "unit": "Yard",
+        "length": 5
+      },
+      "passed": false,
+      "error": "Error: page.evaluate: Error: No distinct complete production order for cross-order boundary\n    at eval (eval at evaluate (:367:30), <anonymous>:4:23)\n    at async <anonymous>:393:30",
+      "url": "http://127.0.0.1:43235/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"
+    },
+    {
+      "requirements": [
+        "HAND-009"
+      ],
+      "errors": [],
+      "sheet": {
+        "taskSheetNo": "RW-10CIVDB-0IZLA0Q",
+        "orderId": "PO-DEMO-SIMPLE-0916"
+      },
+      "ticket": {
+        "id": "HPB-2b6843b6-890f-4b5c-b511-a6cd5bd393e0",
+        "ticketNo": "HPB/PO-DEMO-SIMPLE-0916/tdv_demand_SPU_HOODIE_082-bom-main/%E9%9B%BE%E9%9C%BE%E7%81%B0/002",
+        "productionOrderId": "PO-DEMO-SIMPLE-0916",
+        "sequence": 2,
+        "unit": "Yard",
+        "length": 5
+      },
+      "feedback": "这张换片布票已在 BAG-BOUNDARY-SIMPLE-OCCUPIED 中，请按该袋交出或先移出。",
+      "passed": true
+    },
+    {
+      "requirements": [
+        "BAG-009",
+        "BAG-010",
+        "BAG-011"
+      ],
+      "errors": [],
+      "reuseTicket": {
+        "id": "HPB-8b06b3c1-2c1d-40b4-855b-04b97856dc26",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "productionOrderId": "PO-202603-0002",
+        "sequence": 3,
+        "unit": "Yard",
+        "length": 5
+      },
+      "passed": false,
+      "error": "Error: page.evaluate: Error: Original mixed Mock must contain three ticket types\n    at eval (eval at evaluate (:367:30), <anonymous>:4:57)\n    at async <anonymous>:393:30",
+      "url": "http://127.0.0.1:43235/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"
+    }
+  ],
+  "failed": [
+    {
+      "requirements": [
+        "BAG-002",
+        "BAG-003",
+        "BAG-004"
+      ],
+      "errors": [],
+      "ticket": {
+        "id": "HPB-973d027f-6fbd-4885-9c1c-61ffe0e1a079",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "productionOrderId": "PO-202603-0002",
+        "sequence": 3,
+        "unit": "Yard",
+        "length": 5
+      },
+      "passed": false,
+      "error": "Error: page.evaluate: Error: No distinct complete production order for cross-order boundary\n    at eval (eval at evaluate (:367:30), <anonymous>:4:23)\n    at async <anonymous>:393:30",
+      "url": "http://127.0.0.1:43235/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"
+    },
+    {
+      "requirements": [
+        "BAG-009",
+        "BAG-010",
+        "BAG-011"
+      ],
+      "errors": [],
+      "reuseTicket": {
+        "id": "HPB-8b06b3c1-2c1d-40b4-855b-04b97856dc26",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "productionOrderId": "PO-202603-0002",
+        "sequence": 3,
+        "unit": "Yard",
+        "length": 5
+      },
+      "passed": false,
+      "error": "Error: page.evaluate: Error: Original mixed Mock must contain three ticket types\n    at eval (eval at evaluate (:367:30), <anonymous>:4:57)\n    at async <anonymous>:393:30",
+      "url": "http://127.0.0.1:43235/fcs/pda/exec",
+      "body": "HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"
+    }
+  ]
+}

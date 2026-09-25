@@ -1,0 +1,141 @@
+{
+  "base": "http://127.0.0.1:43235",
+  "executedActions": "real UI printing, cutting reassignment and handover; same-task factory source change explicitly Mock",
+  "performanceClaim": false,
+  "results": [
+    {
+      "scene": "ORDER-006-stale-preview",
+      "passed": true,
+      "oldTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+      "feedback": "裁床分配已变化，本次未新增，请刷新后核对。",
+      "unchangedPrints": true,
+      "unchangedReceipts": true,
+      "errors": []
+    },
+    {
+      "scene": "ORDER-007-handed-over-history",
+      "passed": true,
+      "fixture": {
+        "order": "PO-202603-0002",
+        "cutTaskId": "TASKGEN-202603-0002-001__ORDER",
+        "cutTaskNo": "TASKGEN-202603-0002-001",
+        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+        "oldFactory": "ID-F001",
+        "sheet": "RW-07E2WW7-124DJL2"
+      },
+      "history": "历史换片布票\n关闭\n查询历史\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\n\nPO-202603-0002 · 第 1 张 · 5 Yard\n\n已交出 · 任务 TASKGEN-202603-0002-002__ORDER · 接收工厂 ID-F001 · 2026-09-25T05:28:19.979Z\n\n补打原票\n上一页\n1 / 1 · 共 1 张\n下一页",
+      "visibleReceipt": "裁片接收记录 · 已接收\n\n仓库确认即 PPIC 和工厂已接收\n\nSPU-2024-005\nJaket Hoodie Unisex\n记录号：JYJC-0ZZ7MBT\n任务单：RW-07E2WW7-124DJL2\n任务：TASKGEN-202603-0002-002 · 独立车缝\n生产单：PO-202603-0002\n接收工厂：PT Sinar Garment Indonesia\n领取 PPIC：王芳\n仓库操作人：HiGood_裁床厂_管理员 / OWN-CUTTING-001_admin\n来源：WEB\n接收时间：2026-09-25T05:28:19.979Z\n本批：8 张菲票 / 7500 片；不使用中转袋\n本批菲票明细\nFT-CUT-260303-002-01-002\n\nSKU-005-L-GRY / Grey / L / 前片\n\n编号范围：1-800 / 800 片\n\nFT-CUT-260303-002-01-003\n\nSKU-005-L-GRY / Grey / L / 袖片\n\n编号范围：1-1600 / 1600 片\n\nFT-CUT-260303-002-01-005\n\nSKU-005-M-GRY / Grey / M / 前片\n\n编号范围：1-700 / 700 片\n\nFT-CUT-260303-002-01-006\n\nSKU-005-M-GRY / Grey / M / 袖片\n\n编号范围：1-1400 / 1400 片\n\nFT-CUT-260303-002-01-008\n\nSKU-005-S-GRY / Grey / S / 前片\n\n编号范围：1-500 / 500 片\n\nFT-CUT-260303-002-01-009\n\nSKU-005-S-GRY / Grey / S / 袖片\n\n编号范围：1-1000 / 1000 片\n\nFT-CUT-260303-002-01-011\n\nSKU-005-XL-GRY / Grey / XL / 前片\n\n编号范围：1-500 / 500 片\n\nFT-CUT-260303-002-01-012\n\nSKU-005-XL-GRY / Grey / XL / 袖片\n\n编号范围：1-1000 / 1000 片\n\n本批随交换片布\n\n换片布 1 张 / 5 Yard\n\n换片布 · 第 1 张\n5 Yard\n主面料\ntdv_demand_SPU_2024_005-bom-main · Grey\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\n\n生产单 PO-202603-0002\n\n车缝任务 TASKGEN-202603-0002-002 · 接收工厂 PT Sinar Garment Indonesia\n\n此处是本批接收结果，任务剩余数量与生产进度继续按任务记录计算。",
+      "receiptSnapshotsUnchanged": true,
+      "errors": []
+    },
+    {
+      "scene": "HAND-012-same-task-new-factory",
+      "passed": true,
+      "upstreamChangeIsExplicitMock": true,
+      "fixture": {
+        "order": "PO-202603-0002",
+        "cutTaskId": "TASKGEN-202603-0002-001__ORDER",
+        "cutTaskNo": "TASKGEN-202603-0002-001",
+        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+        "oldFactory": "ID-F001",
+        "sheet": "RW-07E2WW7-124DJL2"
+      },
+      "changed": {
+        "taskId": "TASKGEN-202603-0002-002__ORDER",
+        "factoryId": "ID-F021",
+        "factoryName": "CV Micro Sewing Jakarta Pusat",
+        "sheet": "RW-0KL4MIE-09YZXC6"
+      },
+      "missing": "未完成交出，请重试或重新读取核对。本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。",
+      "oldTicketRejected": "这张换片布票已交出，不能重复使用；需要另一份时请新增独立票。",
+      "firstTicketIds": [
+        "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+      ],
+      "newTicketId": "HPB-9b387847-f779-48bf-96b3-5ab57cf1d84f",
+      "receipts": [
+        {
+          "id": "replacement-receipts:HPB-RECEIPT:HPB-9b387847-f779-48bf-96b3-5ab57cf1d84f",
+          "collection": "replacement-receipts",
+          "value": {
+            "id": "HPB-RECEIPT:HPB-9b387847-f779-48bf-96b3-5ab57cf1d84f",
+            "ticket": {
+              "id": "HPB-9b387847-f779-48bf-96b3-5ab57cf1d84f",
+              "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "sequence": 2,
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cuttingFactoryId": "F090",
+              "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+              "material": {
+                "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "code": "tdv_demand_SPU_2024_005-bom-main",
+                "name": "主面料",
+                "color": "Grey",
+                "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "skuCodes": [
+                  "SKU-005-S-GRY",
+                  "SKU-005-M-GRY",
+                  "SKU-005-L-GRY",
+                  "SKU-005-XL-GRY"
+                ]
+              },
+              "length": 5,
+              "unit": "Yard",
+              "createdAt": "2026-09-25T05:28:27.830Z",
+              "createdBy": "裁床打票员",
+              "creationCommandId": "513158ff-8109-4e8d-9731-22e2accd58e4"
+            },
+            "taskId": "TASKGEN-202603-0002-002__ORDER",
+            "receiverFactoryId": "ID-F021",
+            "handoverRecordId": "SIMPLE-RECORD-0VSYUKU",
+            "confirmedAt": "2026-09-25T05:28:30.184Z",
+            "confirmedBy": "HiGood_裁床厂_管理员",
+            "bagUseId": ""
+          }
+        },
+        {
+          "id": "replacement-receipts:HPB-RECEIPT:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+          "collection": "replacement-receipts",
+          "value": {
+            "id": "HPB-RECEIPT:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+            "ticket": {
+              "id": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+              "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cuttingFactoryId": "F090",
+              "assignmentKey": "[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]",
+              "material": {
+                "key": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "code": "tdv_demand_SPU_2024_005-bom-main",
+                "name": "主面料",
+                "color": "Grey",
+                "imageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "skuCodes": [
+                  "SKU-005-S-GRY",
+                  "SKU-005-M-GRY",
+                  "SKU-005-L-GRY",
+                  "SKU-005-XL-GRY"
+                ]
+              },
+              "sequence": 1,
+              "length": 5,
+              "unit": "Yard",
+              "createdAt": "2026-03-19 10:00:00",
+              "createdBy": "裁床分配自动生成",
+              "creationCommandId": "assignment-default:[\"PO-202603-0002\",\"F090\",\"[\\\"TASKGEN-202603-0002-001__ORDER\\\",\\\"F090\\\",\\\"2026-03-19 10:00:00\\\"]\",\"[\\\"tdv_demand_SPU_2024_005-bom-main\\\",\\\"Grey\\\"]\"]"
+            },
+            "taskId": "TASKGEN-202603-0002-002__ORDER",
+            "receiverFactoryId": "ID-F001",
+            "handoverRecordId": "SIMPLE-RECORD-0ZZ7MBT",
+            "confirmedAt": "2026-09-25T05:28:26.456Z",
+            "confirmedBy": "HiGood_裁床厂_管理员",
+            "bagUseId": ""
+          }
+        }
+      ],
+      "errors": []
+    }
+  ],
+  "failed": []
+}

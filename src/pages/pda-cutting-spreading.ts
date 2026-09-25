@@ -1,3 +1,5 @@
+import { stagePartTicketSpreadingStore } from '../data/fcs/cutting/part-ticket-records.ts'
+import { runCuttingEventAction } from '../data/fcs/cutting/cutting-event-repository.ts'
 import { escapeHtml } from '../utils'
 import {
   listWorkerVisiblePdaSpreadingTargets,
@@ -12,6 +14,7 @@ import {
 } from '../data/fcs/pda-cutting-runtime-action-inputs.ts'
 import {
   appendCuttingRuntimeEvent,
+  appendCuttingRuntimeEventIdempotent,
 } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import {
   findFactoryPdaRoleById,
@@ -43,11 +46,9 @@ import {
   findCuttingTableById,
 } from './process-factory/cutting/cutting-table-resource'
 import {
-  CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY,
   createOperatorRecordDraft,
   createRollRecordDraft,
   formatRollOperatorLayerRows,
-  serializeMarkerSpreadingStorage,
   normalizeRollOperatorLayerRows,
   upsertSpreadingSession,
   type MarkerModeKey,
@@ -184,21 +185,20 @@ function resolveOwnerName(accountId: string, operator: CuttingPdaRuntimeOperator
   return buildOwnerOptions(operator).find((item) => item.accountId === accountId)?.name || operator.operatorName || '当前登录人'
 }
 
-function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null): SpreadingFormState {
+function getState(taskId: string, executionOrderId?: string | null, executionOrderNo?: string | null, preparedDetail?: PdaCuttingTaskDetailData | null): SpreadingFormState {
   const stateKey = buildPdaCuttingExecutionStateKey(taskId, executionOrderId, executionOrderNo)
   const existing = spreadingState.get(stateKey)
   if (existing) return existing
-  const detail = getSpreadingDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined)
+  const detail = preparedDetail === undefined ? getSpreadingDetail(taskId, executionOrderId ?? executionOrderNo ?? undefined) : preparedDetail
   const initialTarget = detail ? getSelectedTarget(detail, getDefaultTargetKey(detail)) : null
-  const initialSession = findStoredSpreadingSessionForTarget(initialTarget)
   const initialOperator = detail ? resolveCurrentOperator(taskId, detail) : resolvePdaCuttingRuntimeOperator(taskId, '现场铺布员')
   const initial: SpreadingFormState = {
     selectedTargetKey: detail ? getDefaultTargetKey(detail) : '',
     selectedPlanUnitId: getDefaultPlanUnitId(initialTarget),
     recordType: '开始铺布',
-    cuttingTableId: initialSession?.cuttingTableId || '',
-    ownerAccountId: initialSession?.ownerAccountId || initialOperator.operatorAccountId || 'current-operator',
-    ownerName: initialSession?.ownerName || initialOperator.operatorName || '当前登录人',
+    cuttingTableId: initialTarget?.cuttingTableId || '',
+    ownerAccountId: initialTarget?.ownerAccountId || initialOperator.operatorAccountId || 'current-operator',
+    ownerName: initialTarget?.ownerName || initialOperator.operatorName || '当前登录人',
     layerCount: '',
     actualLength: '',
     headLength: '',
@@ -825,7 +825,7 @@ function renderFormInner(
   const isSpreading = isSpreadingAction(actionLabel)
   const isRollEntryVisible = actionLabel === '完成铺布'
   const grossLength = getGrossOccupiedLength(form)
-  const nextFabricRollNo = resolveNextFabricRollNo(detail, selectedTarget)
+  const nextFabricRollNo = isRollEntryVisible ? resolveNextFabricRollNo(detail, selectedTarget) : ''
 
   return `
     <div class="space-y-2 pb-2 text-xs">
@@ -983,7 +983,7 @@ function syncSpreadingFormDom(taskId: string, executionOrderId?: string | null, 
   const { context, executionOrderId: stateExecutionOrderId, executionOrderNo: stateExecutionOrderNo } =
     resolveSpreadingStateScope(taskId, executionOrderId, executionOrderNo)
   if (!context.detail) return
-  const form = getState(taskId, stateExecutionOrderId, stateExecutionOrderNo)
+  const form = getState(taskId, stateExecutionOrderId, stateExecutionOrderNo, context.detail)
   const pageBackHref = form.backHrefOverride || context.backHref
   root.innerHTML = renderFormInner(taskId, context.detail, form, pageBackHref)
 }
@@ -1017,9 +1017,8 @@ function shouldRerenderAfterFieldInput(fieldNode: HTMLInputElement | HTMLTextAre
   return ['checkbox', 'radio', 'file', 'range', 'color'].includes(inputType)
 }
 
-function persistMarkerSpreadingStoreFromPda(store: ReturnType<typeof readMarkerSpreadingPrototypeData>['store']): void {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(CUTTING_MARKER_SPREADING_LEDGER_STORAGE_KEY, serializeMarkerSpreadingStorage(store))
+function persistMarkerSpreadingStoreFromPda(store: ReturnType<typeof readMarkerSpreadingPrototypeData>['store'], before: ReturnType<typeof readMarkerSpreadingPrototypeData>['store'], changedSessionId: string): void {
+  stagePartTicketSpreadingStore(store, before, { sessions: [changedSessionId] })
 }
 
 function mapPdaPlanUnitsToWeb(target: PdaCuttingSpreadingTarget): NonNullable<SpreadingSession['planUnits']> {
@@ -1183,7 +1182,7 @@ function syncWebSpreadingStage(input: {
     updatedFromPdaAt: input.occurredAt,
     updatedAt: input.occurredAt,
   }
-  persistMarkerSpreadingStoreFromPda(upsertSpreadingSession(nextSession, store))
+  persistMarkerSpreadingStoreFromPda(upsertSpreadingSession(nextSession, store), store, nextSession.spreadingSessionId)
 }
 
 function syncWebSpreadingRoll(input: {
@@ -1276,7 +1275,7 @@ function syncWebSpreadingRoll(input: {
     updatedFromPdaAt: input.occurredAt,
     updatedAt: input.occurredAt,
   }
-  persistMarkerSpreadingStoreFromPda(upsertSpreadingSession(nextSession, store))
+  persistMarkerSpreadingStoreFromPda(upsertSpreadingSession(nextSession, store), store, nextSession.spreadingSessionId)
 }
 
 export function renderPdaCuttingSpreadingPage(taskId: string): string {
@@ -1286,9 +1285,11 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
 
   const context = buildPdaCuttingExecutionContext(taskId, 'spreading')
   const detail = context.detail
+  const pageContext = context.task && detail ? { task: context.task, detail } : null
 
   if (!detail) {
     return renderPdaCuttingPageLayout({
+      context: pageContext,
       taskId,
       title: '铺布录入',
       subtitle: '',
@@ -1300,6 +1301,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
 
   if (context.requiresCutPieceOrderSelection) {
     return renderPdaCuttingPageLayout({
+      context: pageContext,
       taskId,
       title: '铺布录入',
       subtitle: '',
@@ -1309,7 +1311,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
     })
   }
 
-  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
+  const form = getState(taskId, context.selectedExecutionOrderId, context.selectedExecutionOrderNo, detail)
   const pageBackHref = form.backHrefOverride || context.backHref
   const actionLabel = getPrimaryActionLabel(detail)
 
@@ -1328,6 +1330,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
       </section>
     `
     return renderPdaCuttingPageLayout({
+      context: pageContext,
       taskId,
       title: '裁床现场执行',
       subtitle: '',
@@ -1348,6 +1351,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
       </section>
     `
     return renderPdaCuttingPageLayout({
+      context: pageContext,
       taskId,
       title: '裁床现场执行',
       subtitle: '',
@@ -1364,6 +1368,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   `
 
   return renderPdaCuttingPageLayout({
+    context: pageContext,
     taskId,
     title: '铺布录入',
     subtitle: '',
@@ -1373,7 +1378,7 @@ export function renderPdaCuttingSpreadingPage(taskId: string): string {
   })
 }
 
-export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
+async function handlePdaCuttingSpreadingEventInternal(target: HTMLElement): Promise<boolean> {
   if (!ensurePdaSessionForAction()) return true
 
   const operatorFieldNode = target.closest<HTMLElement>('[data-pda-cut-spreading-operator-field]')
@@ -1488,6 +1493,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     }
     const operator = resolveCurrentOperator(taskId, detail)
     const startedAt = formatPdaCuttingTimestamp()
+    const event = await savePdaSpreadingAction(taskId, actionNode, () => {
     const event = appendCuttingRuntimeEvent({
       eventType: '裁片单开工',
       eventSource: 'PDA',
@@ -1513,6 +1519,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         startedBy: operator.operatorName,
         startSource: 'PDA',
       },
+    })
+    return event
     })
     form.feedbackMessage = `开工已提交，${event.occurredAt}`
     form.feedbackTone = 'success'
@@ -1628,6 +1636,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         return true
       }
       const startedAt = formatPdaCuttingTimestamp()
+      const event = await savePdaSpreadingAction(taskId, actionNode, () => {
       const event = appendCuttingRuntimeEvent({
         eventType: '开始铺布',
         eventSource: 'PDA',
@@ -1682,6 +1691,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         form,
         operator,
       })
+      return event
+      })
       form.feedbackMessage = `开始铺布已提交，${event.occurredAt}`
       form.feedbackTone = 'success'
       form.syncStatus = '已同步'
@@ -1718,6 +1729,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         }
         const cuttingCompletedAt = submittedAt
         const outputLines = buildCuttingActualOutputLines(selectedTarget, actualCutQty, cuttingCompletedAt)
+        const event = await savePdaSpreadingAction(taskId, actionNode, () => {
         const event = appendCuttingRuntimeEvent({
           eventType: '完成裁剪',
           eventSource: 'PDA',
@@ -1767,7 +1779,10 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
           form,
           operator,
         })
+        return event
+        })
       } else {
+        const event = await savePdaSpreadingAction(taskId, actionNode, () => {
         const event = appendCuttingRuntimeEvent({
           eventType: '开始裁剪',
           eventSource: 'PDA',
@@ -1810,6 +1825,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
           form,
           operator,
         })
+        return event
+        })
       }
       form.actualCutQty = ''
       form.actualUsage = ''
@@ -1842,6 +1859,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         return true
       }
       const finishedAt = formatPdaCuttingTimestamp()
+      const event = await savePdaSpreadingAction(taskId, actionNode, () => {
       const event = appendCuttingRuntimeEvent({
         eventType: '完成铺布',
         eventSource: 'PDA',
@@ -1893,6 +1911,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
         form,
         operator,
       })
+      return event
+      })
       form.note = ''
       form.feedbackMessage = `完成铺布已提交，${event.occurredAt}`
       form.feedbackTone = 'success'
@@ -1940,7 +1960,11 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
     const runtimeRecordType: SpreadingRecordType = recordType === '完成铺布' ? '开始铺布' : recordType
     const submittedAt = formatPdaCuttingTimestamp()
     const varianceFlag = getPlannedLayerCount(selectedTarget) > 0 && layerCount < getPlannedLayerCount(selectedTarget)
-    const runtimeEvent = appendCuttingRuntimeEvent({
+    const rollEventKey = `pda-spreading-roll:${selectedTarget.spreadingSessionId || identity.executionOrderId}:${fabricRollNo}`
+    const runtimeEvent = await savePdaSpreadingAction(taskId, actionNode, () => {
+    const { event: runtimeEvent, appended } = appendCuttingRuntimeEventIdempotent({
+      eventId: rollEventKey,
+      idempotencyKey: rollEventKey,
       eventType: runtimeRecordType,
       eventSource: 'PDA',
       eventStatus: '已同步',
@@ -1990,7 +2014,7 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
           .join('；'),
       },
     })
-    syncWebSpreadingRoll({
+    if (appended) syncWebSpreadingRoll({
       detail,
       target: selectedTarget,
       identity,
@@ -2007,6 +2031,8 @@ export function handlePdaCuttingSpreadingEvent(target: HTMLElement): boolean {
       operatorLayerRows,
       operatorLayerText,
       operatorNames,
+    })
+    return runtimeEvent
     })
 
     form.lastSubmittedSnapshot = snapshot
@@ -2039,4 +2065,23 @@ function appTaskIdFromPath(): string {
   if (typeof window === 'undefined') return ''
   const matched = window.location.pathname.match(/\/fcs\/pda\/cutting\/spreading\/([^/]+)/)
   return matched?.[1] ?? ''
+}
+
+const pendingSpreadingCommands = new Map<string, { id: string; intent: string }>()
+async function savePdaSpreadingAction<T>(taskId: string, button: HTMLElement, action: () => T): Promise<T> {
+  const intent = JSON.stringify({taskId, action: button.dataset.pdaCutSpreadingAction, forms: [...spreadingState].map(([key, form]) => [key, {...form, feedbackMessage: '', feedbackTone: '', syncStatus: ''}])})
+  let command = pendingSpreadingCommands.get(taskId)
+  if (!command || command.intent !== intent) { command = {id: `PDA-SPREAD:${Date.now()}:${Math.random().toString(36).slice(2)}`, intent}; pendingSpreadingCommands.set(taskId,command) }
+  const result = await runCuttingEventAction({id: command.id, intent, action: () => action()})
+  pendingSpreadingCommands.delete(taskId)
+  return result
+}
+export async function handlePdaCuttingSpreadingEvent(target: HTMLElement): Promise<boolean> {
+  try { return await handlePdaCuttingSpreadingEventInternal(target) }
+  catch (error) {
+    const taskId = appTaskIdFromPath()
+    for (const form of spreadingState.values()) { form.feedbackMessage = `尚未保存：${error instanceof Error ? error.message : String(error)}`; form.feedbackTone = 'warning' }
+    if (taskId) syncSpreadingFormDom(taskId)
+    return true
+  }
 }

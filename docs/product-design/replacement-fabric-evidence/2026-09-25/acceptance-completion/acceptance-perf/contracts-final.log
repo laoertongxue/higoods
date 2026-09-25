@@ -1,0 +1,28 @@
+
+> higoods-vanilla-clone@1.0.0 check:web-cutting-transfer-bag-actions
+> tsx scripts/check-web-cutting-transfer-bag-actions.ts
+
+PASS check-web-cutting-transfer-bag-actions
+
+> higoods-vanilla-clone@1.0.0 check:cutting-wait-handover-transfer-bag-flow
+> tsx scripts/check-cutting-wait-handover-transfer-bag-flow.ts
+
+
+===== 裁床待交出仓与中转袋流转治理检查 =====
+通过: 266
+失败: 0
+
+全部断言通过 ✅
+(node:10559) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+> higoods-vanilla-clone@1.0.0 check:material-prep-unit-summary-consumers
+> node --experimental-strip-types --experimental-specifier-resolution=node scripts/check-material-prep-unit-summary-consumers.ts
+
+配料按单位汇总下游消费者检查通过
+(node:10578) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+PASS: 正式替换命令完成，技术包/冻结快照/occurrence稳定，已有未开工单读新料，历史交接未变
+PASS: 新生成下游印花单使用替换物料，完整物料替换链路通过
+(node:10579) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,0 +1,224 @@
+### Result
+{"origin":"http://127.0.0.1:43235","fixturePath":"/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/mixed.higcut","printing":"window.print is intercepted as software-only evidence; no physical output claim","scenarios":[{"requirements":["BAG-002","BAG-003","BAG-004"],"errors":[],"ticket":{"id":"HPB-973d027f-6fbd-4885-9c1c-61ffe0e1a079","ticketNo":"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003","productionOrderId":"PO-202603-0002","sequence":3,"unit":"Yard","length":5},"passed":false,"error":"Error: page.evaluate: Error: No distinct complete production order for cross-order boundary\n    at eval (eval at evaluate (:367:30), <anonymous>:4:23)\n    at async <anonymous>:393:30","url":"http://127.0.0.1:43235/fcs/pda/exec","body":"HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"},{"requirements":["HAND-009"],"errors":[],"sheet":{"taskSheetNo":"RW-10CIVDB-0IZLA0Q","orderId":"PO-DEMO-SIMPLE-0916"},"ticket":{"id":"HPB-2b6843b6-890f-4b5c-b511-a6cd5bd393e0","ticketNo":"HPB/PO-DEMO-SIMPLE-0916/tdv_demand_SPU_HOODIE_082-bom-main/%E9%9B%BE%E9%9C%BE%E7%81%B0/002","productionOrderId":"PO-DEMO-SIMPLE-0916","sequence":2,"unit":"Yard","length":5},"feedback":"这张换片布票已在 BAG-BOUNDARY-SIMPLE-OCCUPIED 中，请按该袋交出或先移出。","passed":true},{"requirements":["BAG-009","BAG-010","BAG-011"],"errors":[],"reuseTicket":{"id":"HPB-8b06b3c1-2c1d-40b4-855b-04b97856dc26","ticketNo":"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003","productionOrderId":"PO-202603-0002","sequence":3,"unit":"Yard","length":5},"passed":false,"error":"Error: page.evaluate: Error: Original mixed Mock must contain three ticket types\n    at eval (eval at evaluate (:367:30), <anonymous>:4:57)\n    at async <anonymous>:393:30","url":"http://127.0.0.1:43235/fcs/pda/exec","body":"HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"}],"failed":[{"requirements":["BAG-002","BAG-003","BAG-004"],"errors":[],"ticket":{"id":"HPB-973d027f-6fbd-4885-9c1c-61ffe0e1a079","ticketNo":"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003","productionOrderId":"PO-202603-0002","sequence":3,"unit":"Yard","length":5},"passed":false,"error":"Error: page.evaluate: Error: No distinct complete production order for cross-order boundary\n    at eval (eval at evaluate (:367:30), <anonymous>:4:23)\n    at async <anonymous>:393:30","url":"http://127.0.0.1:43235/fcs/pda/exec","body":"HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"},{"requirements":["BAG-009","BAG-010","BAG-011"],"errors":[],"reuseTicket":{"id":"HPB-8b06b3c1-2c1d-40b4-855b-04b97856dc26","ticketNo":"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003","productionOrderId":"PO-202603-0002","sequence":3,"unit":"Yard","length":5},"passed":false,"error":"Error: page.evaluate: Error: Original mixed Mock must contain three ticket types\n    at eval (eval at evaluate (:367:30), <anonymous>:4:57)\n    at async <anonymous>:393:30","url":"http://127.0.0.1:43235/fcs/pda/exec","body":"HiGood 裁床厂\n执行 · OWN-CUTTING-001\n待办\nH\nHiGo\n接单\n执行\n交接\n仓管\n结算"}]}
+### Ran Playwright code
+```js
+await (async page=>{const b=page.context().browser(),existing=new Set(b.contexts());try{return await (async page => {
+  // Prepared only; parent executes serially after its strict performance window.
+  // Imported mixed.higcut and module-created unused/preprinted tickets are explicit
+  // Mock prerequisites. Tested scans, bagging, handover, recovery and printing use UI.
+  const origin = 'http://127.0.0.1:43235'
+  const fixturePath = '/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/mixed.higcut'
+  const result = { origin, fixturePath, printing: 'window.print is intercepted as software-only evidence; no physical output claim', scenarios: [] }
+  const assert = (value, reason) => { if (!value) throw Error(reason) }
+  const readRecords = p => p.evaluate(async () => (await (await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/cutting-record-repository.ts') || '/src/data/fcs/cutting/cutting-record-repository.ts')).readCuttingRecords()).records)
+  const savedEvents = records => records.filter(record => record.collection === 'cutting-events').map(record => record.value)
+  async function importMixed(p) {
+    await p.goto(origin + '/fcs/craft/cutting/replacement-fabric-fei-tickets')
+    await p.locator('[data-hpb-action=data-tools]').click()
+    await p.locator('[data-hpb-restore-file]').setInputFiles(fixturePath)
+    await p.waitForFunction(() => document.querySelector('[data-hpb-data-message]')?.textContent.includes('已恢复'))
+  }
+  async function login(p) {
+    await p.goto(origin + '/fcs/pda/auth/login')
+    await p.getByRole('textbox', { name: '登录账号' }).fill('OWN-CUTTING-001_admin')
+    await p.getByRole('textbox', { name: '密码', exact: true }).fill('123456')
+    await p.getByRole('button', { name: '登录', exact: true }).click(); await p.waitForURL('**/fcs/pda/exec')
+  }
+  async function bagPage(p, bagCode) {
+    await p.setViewportSize({ width: 390, height: 844 })
+    await p.goto(origin + '/fcs/pda/warehouse/wait-handover?scope=cutting')
+    await p.locator('[data-pda-cutting-wait-handover-entry=fei-ticket-bagging]').click()
+    await p.getByPlaceholder('扫描中转袋', { exact: true }).fill(bagCode)
+    await p.getByPlaceholder('扫描中转袋', { exact: true }).press('Enter')
+    await p.getByPlaceholder('连续扫描菲票', { exact: true }).waitFor()
+  }
+  async function scan(p, ticketNo) {
+    await p.getByPlaceholder('连续扫描菲票', { exact: true }).fill(ticketNo)
+    await p.getByPlaceholder('连续扫描菲票', { exact: true }).press('Enter')
+  }
+  async function waitText(p, text) { await p.waitForFunction(text => document.body.innerText.includes(text), text) }
+  async function saveBag(p) {
+    await p.getByRole('button', { name: '确认装袋', exact: true }).click(); await waitText(p, '装袋成功')
+  }
+  async function freshPrintedTicket(p, orderId, commandSuffix) {
+    return p.evaluate(async ({ orderId, commandSuffix }) => {
+      const source = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-source.ts') || '/src/data/fcs/cutting/replacement-fabric-source.ts'), repo = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-repository.ts') || '/src/data/fcs/cutting/replacement-fabric-repository.ts')
+      await repo.loadReplacementFabricState()
+      const row = source.listReplacementFabricOrderRows().find(row => row.order.productionOrderId === orderId)
+      if (!row || row.issues.length || !row.materials.length) throw Error('No complete eligible Mock order: ' + orderId)
+      const scope = row.scopes.find(scope => scope.materials.length && !scope.issues.length)
+      const ticket = (await repo.addReplacementFabricTickets(scope, scope.materials[0].key, 1, { id: 'MOCK-BAG-BOUNDARY-ADD-' + commandSuffix, at: '2026-09-25T00:00:00Z', operator: '明确Mock前置' }))[0]
+      await repo.saveReplacementFabricPrint([ticket.id], source.listReplacementFabricOrderRows().flatMap(row => row.scopes), { id: 'MOCK-BAG-BOUNDARY-PRINT-' + commandSuffix, at: '2026-09-25T00:00:00Z', operator: '明确Mock预先已打印票' })
+      return { id: ticket.id, ticketNo: ticket.ticketNo, productionOrderId: ticket.productionOrderId, sequence: ticket.sequence, unit: ticket.unit, length: ticket.length }
+    }, { orderId, commandSuffix })
+  }
+  async function runScenario(requirements, run) {
+    const context = await page.context().browser().newContext({ viewport: { width: 1366, height: 768 } })
+    const p = await context.newPage(), out = { requirements, errors: [] }
+    await p.routeWebSocket('**',socket=>socket.close());p.setDefaultTimeout(10000); p.on('pageerror', error => out.errors.push(String(error)))
+    try { await run(p, out); assert(!out.errors.length, 'Uncaught browser error'); out.passed = true }
+    catch (error) { out.passed = false; out.error = String(error); out.url = p.url(); out.body = (await p.locator('body').innerText()).slice(-6500) }
+    finally { await context.close() }
+    result.scenarios.push(out)
+  }
+  await runScenario(['BAG-002', 'BAG-003', 'BAG-004'], async (p, out) => {
+    await importMixed(p); await login(p)
+    out.ticket = await freshPrintedTicket(p, 'PO-202603-0002', 'SCAN-A')
+    const otherOrderId = await p.evaluate(async () => {
+      const source = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/replacement-fabric-source.ts') || '/src/data/fcs/cutting/replacement-fabric-source.ts')
+      const row = source.listReplacementFabricOrderRows().find(row => row.order.productionOrderId !== 'PO-202603-0002' && !row.issues.length && row.materials.length)
+      if (!row) throw Error('No distinct complete production order for cross-order boundary')
+      return row.order.productionOrderId
+    })
+    out.foreignTicket = await freshPrintedTicket(p, otherOrderId, 'SCAN-FOREIGN')
+    const initialRecords = JSON.stringify(await readRecords(p))
+    await bagPage(p, 'BAG-BOUNDARY-SCAN-A'); await scan(p, out.ticket.ticketNo)
+    await waitText(p, '已扫菲票 1 张')
+    out.firstScan = await p.locator('[data-pda-cut-inbound-live]').innerText()
+    await scan(p, out.ticket.ticketNo)
+    await p.waitForFunction(() => /已扫过|已经扫过|无需重复扫描/.test(document.body.innerText))
+    out.duplicate = await p.locator('[data-pda-cut-inbound-live]').innerText()
+    assert(out.duplicate.includes('已扫菲票 1 张'), 'Duplicate scan increased ticket count')
+    assert(initialRecords === JSON.stringify(await readRecords(p)), 'Scanning/duplicate scan persisted bag contents before confirmation')
+    await scan(p, out.foreignTicket.ticketNo)
+    await p.waitForFunction(() => /不属于当前袋生产单|不属于当前生产单/.test(document.body.innerText))
+    out.crossOrder = await p.locator('[data-pda-cut-inbound-live]').innerText()
+    assert(out.crossOrder.includes('已扫菲票 1 张'), 'Cross-order scan changed ticket count')
+    assert(initialRecords === JSON.stringify(await readRecords(p)), 'Cross-order rejection persisted a record')
+    await saveBag(p)
+    const afterSave = await readRecords(p)
+    out.baggingEvents = savedEvents(afterSave).filter(event => event.eventType === '菲票装袋' && event.refs.transferBagCode === 'BAG-BOUNDARY-SCAN-A')
+    assert(out.baggingEvents.length === 1 && out.baggingEvents[0].payload.feiTicketItems.length === 1 && out.baggingEvents[0].payload.feiTicketItems[0].feiTicketId === out.ticket.id, 'Confirmed bag did not save exactly the accepted ticket')
+    await bagPage(p, 'BAG-BOUNDARY-SCAN-B'); await scan(p, out.ticket.ticketNo)
+    await p.waitForFunction(() => document.body.innerText.includes('已在 BAG-BOUNDARY-SCAN-A'))
+    out.crossBag = await p.locator('[data-pda-cut-inbound-live]').innerText()
+    assert(out.crossBag.includes('已扫菲票 0 张'), 'Cross-bag occupied ticket entered second bag')
+    assert(JSON.stringify(afterSave) === JSON.stringify(await readRecords(p)), 'Cross-bag rejection changed saved records')
+    await p.screenshot({ path: '/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/boundary-BAG002-003-004.png', fullPage: true })
+  })
+  await runScenario(['HAND-009'], async (p, out) => {
+    await login(p)
+    await p.goto(origin + '/fcs/craft/cutting/warehouse-management/wait-handover'); await p.locator('[data-simple-cut-open]').waitFor()
+    out.sheet = await p.evaluate(async () => {
+      const fixtures = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts') || '/src/data/fcs/cutting/simple-cut-piece-handover-fixtures.ts'); fixtures.ensureSimpleCutPieceHandoverFixtures()
+      const sheets = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/dispatch-task-sheet.ts') || '/src/data/fcs/dispatch-task-sheet.ts')
+      const sheet = sheets.listDispatchTaskSheetAssignments().filter(a => a.productionOrderId === fixtures.SIMPLE_CUT_PIECE_DEMO_ORDER_ID).map(a => sheets.buildDispatchTaskSheetData(a.assignmentId)).find(s => s.supportsCutPieceHandover && s.assignment.skuLines.some(line => line.size === 'M'))
+      if (!sheet) throw Error('Missing eligible simple-handover task fixture')
+      return { taskSheetNo: sheet.taskSheetNo, orderId: sheet.assignment.productionOrderId }
+    })
+    out.ticket = await freshPrintedTicket(p, out.sheet.orderId, 'SIMPLE-BOUND')
+    await bagPage(p, 'BAG-BOUNDARY-SIMPLE-OCCUPIED'); await scan(p, out.ticket.ticketNo); await waitText(p, '已扫菲票 1 张'); await saveBag(p)
+    await p.setViewportSize({ width: 1366, height: 768 }); await p.goto(origin + '/fcs/craft/cutting/warehouse-management/wait-handover')
+    await p.locator('[data-simple-cut-open]').click()
+    await p.locator('[data-simple-cut-input]').fill(out.sheet.taskSheetNo); await p.locator('[data-simple-cut-action=read]').click()
+    await p.waitForFunction(() => document.querySelector('[data-simple-cut-content]')?.textContent.includes('本次完整清单'))
+    const before = JSON.stringify(await readRecords(p))
+    await p.locator('[data-simple-replacement-input]').fill('HIG:HPB:1:' + encodeURIComponent(out.ticket.id)); await p.locator('[data-simple-cut-action=scan-replacement]').click()
+    await p.waitForFunction(() => document.querySelector('[data-simple-cut-content] [role=status]')?.textContent.includes('已在 BAG-BOUNDARY-SIMPLE-OCCUPIED'))
+    out.feedback = await p.locator('[data-simple-cut-content] [role=status]').innerText()
+    assert(await p.locator('[data-simple-cut-action="remove-replacement:' + out.ticket.id + '"]').count() === 0, 'Simple handover accepted an occupied ticket')
+    assert(before === JSON.stringify(await readRecords(p)), 'Occupied simple scan changed saved records')
+    await p.screenshot({ path: '/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/boundary-HAND009.png', fullPage: true })
+  })
+  await runScenario(['BAG-009', 'BAG-010', 'BAG-011'], async (p, out) => {
+    const bagCode = 'BAG-HPB-MIXED-VERIFY', oldCycle = 'CYCLE-' + bagCode
+    await importMixed(p); await login(p)
+    out.reuseTicket = await freshPrintedTicket(p, 'PO-202603-0002', 'REUSE')
+    out.original = await p.evaluate(async cycle => {
+      const label = await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/transfer-bag-goods-label.ts') || '/src/data/fcs/cutting/transfer-bag-goods-label.ts')
+      const source = label.resolveTransferBagGoodsLabelSource(cycle)
+      if (!source || source.tickets.length !== 3) throw Error('Original mixed Mock must contain three ticket types')
+      return source
+    }, oldCycle)
+    const canonical = tickets => JSON.stringify(tickets.map(ticket => ({ id: ticket.feiTicketId, no: ticket.feiTicketNo, kind: ticket.ticketKind || 'CUT_PIECE', quantity: ticket.quantity ?? ticket.pieceQty, unit: ticket.quantityUnit || '片' })).sort((a, b) => a.id.localeCompare(b.id)))
+    const oldIdentity = canonical(out.original.tickets)
+    out.oldHpb = out.original.tickets.find(ticket => ticket.ticketKind === 'REPLACEMENT_FABRIC')
+    assert(out.oldHpb && out.original.tickets.some(ticket => ticket.ticketKind === 'BINDING_STRIP'), 'Three-kind prerequisite is incomplete')
+    // Real archive creation makes the Web identity/cycle/history tabs reachable.
+    await p.setViewportSize({ width: 1366, height: 768 }); await p.goto(origin + '/fcs/craft/cutting/transfer-bags')
+    await p.locator('[data-transfer-bags-action=new-master]').click()
+    await p.locator('[data-transfer-bags-master-draft-field=bagCode]').fill(bagCode)
+    await p.locator('[data-transfer-bags-master-draft-field=ownershipFactoryId]').selectOption('OWN-CUTTING-001')
+    await p.locator('[data-transfer-bags-action=save-master]').click()
+    await p.waitForFunction(() => !document.querySelector('[data-transfer-bags-action=save-master]'))
+    await p.locator('tr').filter({ hasText: bagCode }).getByRole('button', { name: '查看袋内菲票明细和差异类型' }).click()
+    await p.locator('#transfer-bag-tab-cycle').click()
+    const detailUrl = p.url()
+    async function verifyGoodsPrint(label) {
+      const print = p.locator('[data-cycle-goods-print="' + oldCycle + '"]')
+      await print.waitFor()
+      const href = await print.getAttribute('data-nav')
+      assert(href?.includes('TRANSFER_BAG_GOODS_LABEL'), 'Cycle button points to archive QR rather than goods label')
+      const before = JSON.stringify(await readRecords(p))
+      await print.click() // Actual business-page navigation; never construct a print URL as fallback.
+      await p.locator('[data-testid=transfer-bag-goods-label]').first().waitFor()
+      await p.waitForFunction(() => [...document.querySelectorAll('[data-testid=transfer-bag-goods-label] img')].every(img => img.complete && img.naturalWidth))
+      const cards = await p.locator('[data-testid=transfer-bag-goods-label]').allTextContents()
+      const cycles = await p.locator('[data-testid=transfer-bag-goods-label]').evaluateAll(nodes => nodes.map(node => node.dataset.usageCycleId))
+      const text = cards.join('\n')
+      assert(cards.length === 3 && cycles.every(cycle => cycle === oldCycle), 'Expected three label pages belonging to the selected old cycle')
+      assert(text.includes('货物标识 · 换片布') && text.includes('5 Yard') && text.includes(out.oldHpb.feiTicketNo), 'HPB identity or 5 Yard missing from print')
+      assert(text.includes('货物标识 · 捆条') && text.includes('8 米') && text.includes('BND-MIX-2'), 'Binding strip identity or 8 metres missing from print')
+      assert(text.includes('20 片') && await p.locator('.transfer-bag-goods-matrix').count() === 1, 'Cut pieces must remain their own 20-piece matrix')
+      const source = await p.evaluate(async cycle => (await import(performance.getEntriesByType('resource').map(entry=>entry.name).find(url=>new URL(url).pathname==='/src/data/fcs/cutting/transfer-bag-goods-label.ts') || '/src/data/fcs/cutting/transfer-bag-goods-label.ts')).resolveTransferBagGoodsLabelSource(cycle), oldCycle)
+      assert(canonical(source.tickets) === oldIdentity, 'Selected cycle goods source changed identity or quantity')
+      await p.evaluate(() => { window.__boundaryPrintCount = 0; window.print = () => { window.__boundaryPrintCount++ } })
+      await p.locator('[data-print-preview-action=print]').click(); await p.waitForFunction(() => window.__boundaryPrintCount === 1)
+      assert(before === JSON.stringify(await readRecords(p)), 'Goods-label printing rewrote business contents')
+      await p.screenshot({ path: '/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/boundary-goods-' + label + '.png', fullPage: true })
+      return { label, href, previewUrl: p.url(), cards, cycles, sourceTicketIds: source.tickets.map(ticket => ticket.feiTicketId), sameOldIdentitiesAndUnits: true, softwarePrintInvocations: 1 }
+    }
+    out.currentPrint = await verifyGoodsPrint('current')
+    // Actually hand over the whole mixed bag, then physically recover through PDA.
+    await p.setViewportSize({ width: 390, height: 844 }); await p.goto(origin + '/fcs/pda/cutting/transfer-bag/repack')
+    await p.getByPlaceholder('扫描或填写车缝任务编号').fill('TASKGEN-202603-0002-002')
+    await p.getByPlaceholder('扫描或填写接收 PPIC 编号').fill('PPIC-ACTIVE-004')
+    await p.locator('[data-pda-repack-action=resolve-task]').click(); await p.locator('[data-pda-repack-action=bags-reviewed]').waitFor()
+    out.classification = await p.locator('body').innerText(); assert(out.classification.includes(bagCode) && out.classification.includes('整袋直接交出'), 'Expected original mixed bag as direct handover')
+    await p.locator('[data-pda-repack-action=bags-reviewed]').click(); await p.locator('[data-pda-repack-action=returns-done]').click(); await p.locator('[data-pda-repack-action=confirm]').click(); await waitText(p, '本次中转袋交出成功')
+    out.handover = await p.locator('body').innerText()
+    await p.goto(origin + '/fcs/pda/cutting/transfer-bag/recovery')
+    await p.getByPlaceholder('扫描或填写中转袋编号').fill(bagCode); await p.getByPlaceholder('扫描或填写中转袋编号').press('Enter')
+    await p.getByLabel('我已收到实物中转袋').check(); await p.getByLabel('我已确认实物袋内没有菲票或裁片').check()
+    await p.getByRole('button', { name: '确认回收', exact: true }).click(); await waitText(p, '回收成功，中转袋已空闲')
+    out.recovered = await p.locator('body').innerText()
+    await bagPage(p, bagCode)
+    const beforeRejected = JSON.stringify(await readRecords(p))
+    await scan(p, out.oldHpb.feiTicketNo); await waitText(p, '这张换片布票已交出，不能重复使用')
+    out.oldTicketRejected = await p.locator('[data-pda-cut-inbound-live]').innerText()
+    assert(out.oldTicketRejected.includes('已扫菲票 0 张'), 'Recovered physical bag revived an already-handed HPB ticket')
+    assert(beforeRejected === JSON.stringify(await readRecords(p)), 'Rejected old ticket changed persisted facts')
+    // Real reuse with a fresh independent ticket makes current contents differ from old cycle.
+    await scan(p, out.reuseTicket.ticketNo); await waitText(p, '已扫菲票 1 张'); await saveBag(p)
+    const afterReuse = await readRecords(p)
+    out.savedEvents = savedEvents(afterReuse).filter(event => event.refs.transferBagCode === bagCode || event.refs.transferBagCodes?.includes(bagCode)).map(event => ({ id: event.eventId, type: event.eventType, cycle: event.refs.usageCycleId }))
+    assert(out.savedEvents.filter(event => event.type === '中转袋回收').length === 1, 'Actual recovery event was not uniquely saved')
+    const baggingCycles = out.savedEvents.filter(event => event.type === '菲票装袋').map(event => event.cycle)
+    assert(baggingCycles.includes(oldCycle) && new Set(baggingCycles).size === 2, 'Reused physical bag did not receive a distinct new usage cycle')
+    await p.setViewportSize({ width: 1366, height: 768 }); await p.goto(origin + detailUrl.replace(origin, ''))
+    await p.locator('#transfer-bag-tab-history').click()
+    await p.locator('#transfer-bag-tab-history[aria-selected=true]').waitFor()
+    out.history = await p.locator('[data-transfer-bag-detail-layer]').innerText()
+    // Canonical recorded-cycle history is required; never bypass missing UI with
+    // a hand-built usageCycleId print link or a direct domain print call.
+    await p.locator('[data-recorded-bag-cycles]').waitFor()
+    const oldRow = p.locator('[data-recorded-cycle="' + oldCycle + '"]')
+    assert(await oldRow.count() === 1, 'Recovered mixed cycle has no unique actual history selector')
+    await oldRow.click()
+    const selected = p.locator('[data-selected-cycle="' + oldCycle + '"]')
+    await selected.waitFor()
+    out.selectedHistory = await selected.innerText()
+    const kinds = await selected.locator('[data-mixed-bag-kind]').evaluateAll(nodes => nodes.map(node => node.dataset.mixedBagKind))
+    assert(['CUT_PIECE', 'REPLACEMENT_FABRIC', 'BINDING_STRIP'].every(kind => kinds.includes(kind)), 'Selected history did not preserve all three ticket kinds')
+    assert(out.selectedHistory.includes('20 片') && out.selectedHistory.includes('5 Yard') && out.selectedHistory.includes('8 米'), 'History mixed quantities lost separate natural units')
+    await selected.locator('[data-cycle-goods-print="' + oldCycle + '"]').waitFor()
+    out.historicalPrint = await verifyGoodsPrint('historical-after-reuse')
+    assert(JSON.stringify(out.historicalPrint.sourceTicketIds.slice().sort()) === JSON.stringify(out.currentPrint.sourceTicketIds.slice().sort()), 'History printed the new cycle instead of old ticket identities')
+    assert(!out.historicalPrint.cards.join('\n').includes(out.reuseTicket.ticketNo), 'Historical print substituted fresh current ticket')
+  })
+  result.failed = result.scenarios.filter(scenario => !scenario.passed)
+  return result
+}
+)(page)}finally{for(const c of b.contexts())if(!existing.has(c))await c.close()}})(page);
+```
+

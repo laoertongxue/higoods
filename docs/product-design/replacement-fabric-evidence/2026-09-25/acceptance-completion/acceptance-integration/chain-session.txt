@@ -1,0 +1,10 @@
+### Browser `hpb-root-chain` opened with pid 25404.
+### Ran Playwright code
+```js
+await page.goto('http://127.0.0.1:43235');
+```
+### Page
+- Page URL: http://127.0.0.1:43235/
+- Page Title: HiGood - Vanilla TypeScript Clone
+### Snapshot
+- [Snapshot](.playwright-cli/page-2026-09-25T03-14-31-328Z.yml)

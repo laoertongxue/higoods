@@ -1,0 +1,3 @@
+simple cut-piece receipt projections: 43 assertions passed
+(node:23298) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

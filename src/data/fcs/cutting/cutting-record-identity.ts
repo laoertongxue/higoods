@@ -47,9 +47,12 @@ function sha256Bytes(input: Uint8Array): string {
   return Array.from(state, word => word.toString(16).padStart(8, '0')).join('')
 }
 
-export async function cuttingRecordFingerprint(value: string): Promise<string> {
-  const bytes = new TextEncoder().encode(value)
+export async function cuttingRecordBytesFingerprint(bytes: Uint8Array): Promise<string> {
   if (!crypto.subtle) return sha256Bytes(bytes)
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(bytes))
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+export function cuttingRecordFingerprint(value: string): Promise<string> {
+  return cuttingRecordBytesFingerprint(new TextEncoder().encode(value))
 }

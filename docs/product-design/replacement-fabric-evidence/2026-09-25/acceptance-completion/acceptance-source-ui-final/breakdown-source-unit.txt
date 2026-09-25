@@ -1,0 +1,87 @@
+node:internal/modules/esm/assert:110
+        throw new ERR_IMPORT_ATTRIBUTE_MISSING(url, 'type', validType);
+              ^
+
+TypeError [ERR_IMPORT_ATTRIBUTE_MISSING]: Module "file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-order-demo-tech-packs.json" needs an import attribute of "type: json"
+    at validateAttributes (node:internal/modules/esm/assert:110:15)
+    at defaultLoadSync (node:internal/modules/esm/load:161:3)
+    at #loadAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:809:12)
+    at #loadSync (node:internal/modules/esm/loader:841:53)
+    at ModuleLoader.load (node:internal/modules/esm/loader:790:26)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:501:31)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:567:36)
+    at afterResolve (node:internal/modules/esm/loader:614:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33) {
+  code: 'ERR_IMPORT_ATTRIBUTE_MISSING'
+}
+
+Node.js v26.8.2
+✖ tests/unit/fcs-printing-dispatch-readiness.test.ts (111.08625ms)
+✔ PRINT-HISTORY-001: demo identities remain fixed and reject another factory or task (0.469625ms)
+✔ PRINT-HISTORY-002: DYE-GOTO-GLOBAL historical slot 09 survives independent reloads without overwriting (1495.226166ms)
+✔ PRINT-HISTORY-002: ID-FAC-001165 historical slot 09 survives independent reloads without overwriting (1192.654625ms)
+node:internal/modules/esm/assert:110
+        throw new ERR_IMPORT_ATTRIBUTE_MISSING(url, 'type', validType);
+              ^
+
+TypeError [ERR_IMPORT_ATTRIBUTE_MISSING]: Module "file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-order-demo-tech-packs.json" needs an import attribute of "type: json"
+    at validateAttributes (node:internal/modules/esm/assert:110:15)
+    at defaultLoadSync (node:internal/modules/esm/load:161:3)
+    at #loadAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:809:12)
+    at #loadSync (node:internal/modules/esm/loader:841:53)
+    at ModuleLoader.load (node:internal/modules/esm/loader:790:26)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:501:31)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:567:36)
+    at afterResolve (node:internal/modules/esm/loader:614:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33) {
+  code: 'ERR_IMPORT_ATTRIBUTE_MISSING'
+}
+
+Node.js v26.8.2
+✖ tests/unit/printing-dispatch-read.test.ts (117.503833ms)
+✔ frozen printing images are losslessly stored once across orders, tasks and attachments (5.693542ms)
+✔ missing or malformed image references fail rather than silently replacing frozen evidence (0.55075ms)
+node:internal/modules/esm/assert:110
+        throw new ERR_IMPORT_ATTRIBUTE_MISSING(url, 'type', validType);
+              ^
+
+TypeError [ERR_IMPORT_ATTRIBUTE_MISSING]: Module "file:///private/tmp/higoods-replacement-fabric-release-20260925/src/data/fcs/production-order-demo-tech-packs.json" needs an import attribute of "type: json"
+    at validateAttributes (node:internal/modules/esm/assert:110:15)
+    at defaultLoadSync (node:internal/modules/esm/load:161:3)
+    at #loadAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:809:12)
+    at #loadSync (node:internal/modules/esm/loader:841:53)
+    at ModuleLoader.load (node:internal/modules/esm/loader:790:26)
+    at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:501:31)
+    at #getOrCreateModuleJobAfterResolve (node:internal/modules/esm/loader:567:36)
+    at afterResolve (node:internal/modules/esm/loader:614:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:620:12)
+    at ModuleJob.syncLink (node:internal/modules/esm/module_job:277:33) {
+  code: 'ERR_IMPORT_ATTRIBUTE_MISSING'
+}
+
+Node.js v26.8.2
+✖ tests/unit/production-created-process-sources.test.ts (106.657625ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 5
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2797.589958
+
+✖ failing tests:
+
+test at tests/unit/fcs-printing-dispatch-readiness.test.ts:1:1
+✖ tests/unit/fcs-printing-dispatch-readiness.test.ts (111.08625ms)
+  'test failed'
+
+test at tests/unit/printing-dispatch-read.test.ts:1:1
+✖ tests/unit/printing-dispatch-read.test.ts (117.503833ms)
+  'test failed'
+
+test at tests/unit/production-created-process-sources.test.ts:1:1
+✖ tests/unit/production-created-process-sources.test.ts (106.657625ms)
+  'test failed'

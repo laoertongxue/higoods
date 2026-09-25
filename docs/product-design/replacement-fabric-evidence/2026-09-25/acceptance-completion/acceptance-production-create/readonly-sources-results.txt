@@ -1,0 +1,22 @@
+### Result
+[{"kind":"sku","scene":"empty","count":214,"writes":[]},{"kind":"sku","scene":"stored","error":"Error: page.evaluate: Error: TypeError: Cannot read properties of undefined (reading 'startsWith')\n    at eval (eval at evaluate (:367:30), <anonymous>:10:55)\n    at async <anonymous>:393:30"},{"kind":"sku","scene":"corrupt","error":"Error: 已保存 SKU 档案格式错误，请保留原数据并核对。","writes":[]},{"kind":"sku","scene":"denied","error":"Error: 已保存 SKU 档案无法读取，请允许本机数据访问后重试；未使用空档案替换。","writes":[]},{"kind":"garment","scene":"empty","count":3,"writes":[]},{"kind":"garment","scene":"stored","count":1,"writes":[]},{"kind":"garment","scene":"corrupt","error":"Error: 已保存成衣换款记录格式错误，请保留原数据并核对。","writes":[]},{"kind":"garment","scene":"denied","error":"Error: 已保存成衣换款记录无法读取，请允许本机数据访问后重试；未覆盖原记录。","writes":[]}]
+### Ran Playwright code
+```js
+await (async page=>{
+ const results=[];
+ for(const kind of ['sku','garment']) for(const scene of ['empty','stored','corrupt','denied']){
+  const c=await page.context().browser().newContext(),p=await c.newPage();await p.route('**/source-readonly',r=>r.fulfill({contentType:'text/html',body:'<html>Source read</html>'}));await p.goto('http://127.0.0.1:43235/source-readonly');
+  try{results.push(await p.evaluate(async({kind,scene})=>{
+   const key=kind==='sku'?'higood-pcs-sku-archive-store-v1':'higood-fcs-garment-spu-replacement-v2';
+   const saved=kind==='sku'?{version:1,records:[{skuId:'USER-SKU',styleId:'USER-STYLE',styleCode:'USER-STYLE',skuCode:'USER-SKU',styleName:'用户自建款',colorName:'Blue',sizeName:'S'}]}:{version:1,records:[{replacementId:'USER-REPLACE',createdAt:'2026-09-25 12:00:00'}],inventoryBatches:[],relabelTasks:[],warehouseMovements:[]};
+   if(scene==='stored')localStorage.setItem(key,JSON.stringify(saved));if(scene==='corrupt')localStorage.setItem(key,'{bad');
+   const original=localStorage.getItem(key),get=Storage.prototype.getItem,set=Storage.prototype.setItem;const writes=[];
+   Storage.prototype.setItem=function(k,v){writes.push(k);return set.call(this,k,v)};if(scene==='denied')Storage.prototype.getItem=function(k){if(k===key)throw new DOMException('denied','SecurityError');return get.call(this,k)};
+   let error,rows;try{if(kind==='sku'){const m=await import('/src/data/pcs-sku-archive-repository.ts');rows=m.listSkuArchives()}else{const m=await import('/src/data/fcs/garment-spu-replacement.ts');rows=m.listGarmentSpuReplacements()}}catch(e){error=String(e)}
+   if(writes.includes(key))throw Error('read wrote source');if(get.call(localStorage,key)!==original)throw Error('old data overwritten');
+   if(['corrupt','denied'].includes(scene)&&!error)throw Error('invalid source silently accepted');
+   if(['empty','stored'].includes(scene)&&error)throw Error(error);if(scene==='stored'&&!rows.some(r=>kind==='sku'?r.skuCode==='USER-SKU':r.replacementId==='USER-REPLACE'))throw Error('user record lost');return{kind,scene,count:rows?.length,error,writes};
+  },{kind,scene}))}catch(e){results.push({kind,scene,error:String(e)})}finally{await c.close()}
+ }return results;
+})(page);
+```

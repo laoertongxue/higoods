@@ -1,0 +1,2959 @@
+{
+  "origin": "http://127.0.0.1:43235",
+  "fixturePath": "/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-final/mixed.higcut",
+  "printing": "window.print is intercepted as software-only evidence; no physical output claim",
+  "scenarios": [
+    {
+      "requirements": [
+        "BAG-009",
+        "BAG-010",
+        "BAG-011"
+      ],
+      "errors": [],
+      "reuseTicket": {
+        "id": "HPB-ba5799ff-916c-4182-84d4-9764c295249d",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "productionOrderId": "PO-202603-0002",
+        "sequence": 3,
+        "unit": "Yard",
+        "length": 5
+      },
+      "original": {
+        "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+        "bagCode": "BAG-HPB-MIXED-VERIFY",
+        "baggingAt": "2026-09-24 12:00:00",
+        "tickets": [
+          {
+            "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+            "sewingTaskNo": "TASKGEN-202603-0002-002",
+            "receiverFactoryId": "ID-F001",
+            "receiverFactoryName": "PT Sinar Garment Indonesia",
+            "feiTicketId": "CUT-MIX-2",
+            "feiTicketNo": "CUT-MIX-2",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "cutOrderId": "CUT-HPB-BROWSER-01",
+            "cutOrderNo": "CUT-HPB-BROWSER-01",
+            "spuCode": "未记录",
+            "color": "Grey",
+            "size": "M",
+            "partCode": "FRONT",
+            "partName": "前片",
+            "pieceQty": 20,
+            "unit": "片",
+            "pieceSequenceLabel": "按菲票追踪",
+            "hasSpecialCraft": false,
+            "specialCraftCategory": "无",
+            "specialCraftDisplay": "无",
+            "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+            "printStatus": "已打印",
+            "voidStatus": "有效"
+          },
+          {
+            "ticketKind": "REPLACEMENT_FABRIC",
+            "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+            "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+            "materialName": "主面料",
+            "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+            "quantity": 5,
+            "quantityUnit": "Yard",
+            "replacementSequence": 2,
+            "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+            "sewingTaskNo": "TASKGEN-202603-0002-002",
+            "receiverFactoryId": "ID-F001",
+            "receiverFactoryName": "PT Sinar Garment Indonesia",
+            "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+            "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "spuCode": "未记录",
+            "color": "Grey",
+            "size": "",
+            "partCode": "",
+            "partName": "未记录",
+            "pieceQty": 0,
+            "unit": "片",
+            "pieceSequenceLabel": "按菲票追踪",
+            "hasSpecialCraft": false,
+            "specialCraftCategory": "无",
+            "specialCraftDisplay": "无",
+            "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+            "printStatus": "已打印",
+            "voidStatus": "有效"
+          },
+          {
+            "ticketKind": "BINDING_STRIP",
+            "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+            "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+            "materialName": "主面料",
+            "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+            "quantity": 8,
+            "quantityUnit": "米",
+            "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+            "sewingTaskNo": "TASKGEN-202603-0002-002",
+            "receiverFactoryId": "ID-F001",
+            "receiverFactoryName": "PT Sinar Garment Indonesia",
+            "feiTicketId": "BND-MIX-2",
+            "feiTicketNo": "BND-MIX-2",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "spuCode": "未记录",
+            "color": "Grey",
+            "size": "",
+            "partCode": "",
+            "partName": "未记录",
+            "pieceQty": 0,
+            "unit": "片",
+            "pieceSequenceLabel": "按菲票追踪",
+            "hasSpecialCraft": false,
+            "specialCraftCategory": "无",
+            "specialCraftDisplay": "无",
+            "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+            "printStatus": "已打印",
+            "voidStatus": "有效"
+          }
+        ]
+      },
+      "oldHpb": {
+        "ticketKind": "REPLACEMENT_FABRIC",
+        "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+        "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+        "materialName": "主面料",
+        "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+        "quantity": 5,
+        "quantityUnit": "Yard",
+        "replacementSequence": 2,
+        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+        "sewingTaskNo": "TASKGEN-202603-0002-002",
+        "receiverFactoryId": "ID-F001",
+        "receiverFactoryName": "PT Sinar Garment Indonesia",
+        "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+        "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "spreadingOrderId": "",
+        "spreadingOrderNo": "",
+        "cutOrderId": "",
+        "cutOrderNo": "",
+        "spuCode": "未记录",
+        "color": "Grey",
+        "size": "",
+        "partCode": "",
+        "partName": "未记录",
+        "pieceQty": 0,
+        "unit": "片",
+        "pieceSequenceLabel": "按菲票追踪",
+        "hasSpecialCraft": false,
+        "specialCraftCategory": "无",
+        "specialCraftDisplay": "无",
+        "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+        "printStatus": "已打印",
+        "voidStatus": "有效"
+      },
+      "currentPrint": {
+        "label": "current",
+        "href": "/fcs/print/preview?documentType=TRANSFER_BAG_GOODS_LABEL&sourceType=TRANSFER_BAG_USAGE_RECORD&sourceId=CYCLE-BAG-HPB-MIXED-VERIFY",
+        "previewUrl": "http://127.0.0.1:43235/fcs/print/preview?documentType=TRANSFER_BAG_GOODS_LABEL&sourceType=TRANSFER_BAG_USAGE_RECORD&sourceId=CYCLE-BAG-HPB-MIXED-VERIFY",
+        "cards": [
+          "\n      \n        货物标识\n        第 1/3 页\n      \n      中转袋BAG-HPB-MIXED-VERIFY\n      \n        款号 / SPU未记录\n        生产单PO-202603-0002\n        部位数量1 个\n      \n      \n        颜色＼尺码M本页\n        Grey2020\n        本页合计2020\n      \n      \n        整袋：3 张菲票 / 20 片\n        共 1 色 × 1 码；本页 20 片\n        换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n      \n      打印：2026/9/25 13:31:53按袋号插入对应中转袋\n    ",
+          "\n      货物标识 · 换片布第 2/3 页\n      中转袋BAG-HPB-MIXED-VERIFY\n      生产单：PO-202603-0002\n      \n        \n        主面料tdv_demand_SPU_2024_005-bom-main · Grey\n      \n      5 Yard · 第 2 张\n      票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n      整袋：3 张菲票；裁片 20 片换片布（Yard） 5；捆条（米） 8\n      打印：2026/9/25 13:31:53按袋号插入对应中转袋\n    ",
+          "\n      货物标识 · 捆条第 3/3 页\n      中转袋BAG-HPB-MIXED-VERIFY\n      生产单：PO-202603-0002\n      \n        \n        主面料tdv_demand_SPU_2024_005-bom-main · Grey\n      \n      8 米\n      票号：BND-MIX-2\n      整袋：3 张菲票；裁片 20 片换片布（Yard） 5；捆条（米） 8\n      打印：2026/9/25 13:31:53按袋号插入对应中转袋\n    "
+        ],
+        "cycles": [
+          "CYCLE-BAG-HPB-MIXED-VERIFY",
+          "CYCLE-BAG-HPB-MIXED-VERIFY",
+          "CYCLE-BAG-HPB-MIXED-VERIFY"
+        ],
+        "sourceTicketIds": [
+          "CUT-MIX-2",
+          "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+          "BND-MIX-2"
+        ],
+        "sameOldIdentitiesAndUnits": true,
+        "softwarePrintInvocations": 1
+      },
+      "beforeHandover": {
+        "state": {
+          "bagCode": "BAG-HPB-MIXED-VERIFY",
+          "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+          "productionOrderNo": "PO-202603-0002",
+          "tickets": [
+            {
+              "feiTicketId": "CUT-MIX-2",
+              "feiTicketNo": "CUT-MIX-2",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cutOrderId": "CUT-HPB-BROWSER-01",
+              "cutOrderNo": "CUT-HPB-BROWSER-01",
+              "color": "Grey",
+              "size": "M",
+              "partCode": "FRONT",
+              "partName": "前片",
+              "pieceQty": 20,
+              "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+              "sewingTaskNo": "TASKGEN-202603-0002-002",
+              "receiverFactoryId": "ID-F001",
+              "receiverFactoryName": "PT Sinar Garment Indonesia"
+            },
+            {
+              "ticketKind": "REPLACEMENT_FABRIC",
+              "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+              "materialName": "主面料",
+              "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "quantity": 5,
+              "quantityUnit": "Yard",
+              "replacementSequence": 2,
+              "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cutOrderId": "",
+              "cutOrderNo": "",
+              "color": "Grey",
+              "size": "",
+              "partCode": "",
+              "partName": "",
+              "pieceQty": 0,
+              "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+              "sewingTaskNo": "TASKGEN-202603-0002-002",
+              "receiverFactoryId": "ID-F001",
+              "receiverFactoryName": "PT Sinar Garment Indonesia"
+            },
+            {
+              "ticketKind": "BINDING_STRIP",
+              "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+              "materialName": "主面料",
+              "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "quantity": 8,
+              "quantityUnit": "米",
+              "feiTicketId": "BND-MIX-2",
+              "feiTicketNo": "BND-MIX-2",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cutOrderId": "",
+              "cutOrderNo": "",
+              "color": "Grey",
+              "size": "",
+              "partCode": "",
+              "partName": "",
+              "pieceQty": 0,
+              "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+              "sewingTaskNo": "TASKGEN-202603-0002-002",
+              "receiverFactoryId": "ID-F001",
+              "receiverFactoryName": "PT Sinar Garment Indonesia"
+            }
+          ],
+          "mainStatus": "IN_USE",
+          "flowStage": "PACKED",
+          "latestHandoverEventId": ""
+        },
+        "events": [
+          {
+            "id": "cutting-event:cutting-event:BAGGING:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120000",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:BAGGING:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120000",
+              "eventNo": "BAGGING-20260924120000",
+              "ledgerSequence": 1,
+              "idempotencyKey": "HPB-SETUP:BAG-HPB-BROWSER-CUT",
+              "eventType": "菲票装袋",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:00:00",
+              "createdAt": "2026-09-24 12:00:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01"
+                ],
+                "feiTicketNos": [
+                  "FP-HPB-BROWSER-01"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-CUT",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "payload": {
+                "baggingRecordId": "PACK-BAG-HPB-BROWSER-CUT",
+                "bagCode": "BAG-HPB-BROWSER-CUT",
+                "feiTicketItems": [
+                  {
+                    "feiTicketId": "FT-HPB-BROWSER-PART-01",
+                    "feiTicketNo": "FP-HPB-BROWSER-01",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "CUT-HPB-BROWSER-01",
+                    "cutOrderNo": "CUT-HPB-BROWSER-01",
+                    "color": "Grey",
+                    "size": "M",
+                    "partCode": "FRONT",
+                    "partName": "前片",
+                    "pieceQty": 20,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "totalPieceQty": 20,
+                "mixedFlag": false,
+                "baggingBy": "隔离浏览器验收",
+                "baggingAt": "2026-09-24 12:00:00"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:BAGGING:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120000",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:BAGGING:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120000",
+              "eventNo": "BAGGING-20260924120000",
+              "ledgerSequence": 3,
+              "idempotencyKey": "HPB-SETUP:BAG-HPB-BROWSER-FAB",
+              "eventType": "菲票装袋",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:00:00",
+              "createdAt": "2026-09-24 12:00:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "feiTicketNos": [
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-FAB",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "payload": {
+                "baggingRecordId": "PACK-BAG-HPB-BROWSER-FAB",
+                "bagCode": "BAG-HPB-BROWSER-FAB",
+                "feiTicketItems": [
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "color": "Grey",
+                    "replacementSequence": 1,
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "pieceQty": 0,
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "totalPieceQty": 0,
+                "mixedFlag": false,
+                "baggingBy": "隔离浏览器验收",
+                "baggingAt": "2026-09-24 12:00:00"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:BAGGING:BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:20260924120000",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:BAGGING:BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:20260924120000",
+              "eventNo": "BAGGING-20260924120000",
+              "ledgerSequence": 7,
+              "idempotencyKey": "mixed-bag",
+              "eventType": "菲票装袋",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:00:00",
+              "createdAt": "2026-09-24 12:00:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "CUT-MIX-2",
+                  "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                  "BND-MIX-2"
+                ],
+                "feiTicketNos": [
+                  "CUT-MIX-2",
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                  "BND-MIX-2"
+                ],
+                "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "payload": {
+                "baggingRecordId": "PACK-BAG-HPB-MIXED-VERIFY",
+                "bagCode": "BAG-HPB-MIXED-VERIFY",
+                "feiTicketItems": [
+                  {
+                    "feiTicketId": "CUT-MIX-2",
+                    "feiTicketNo": "CUT-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "CUT-HPB-BROWSER-01",
+                    "cutOrderNo": "CUT-HPB-BROWSER-01",
+                    "color": "Grey",
+                    "size": "M",
+                    "partCode": "FRONT",
+                    "partName": "前片",
+                    "pieceQty": 20,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "color": "Grey",
+                    "replacementSequence": 2,
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "pieceQty": 0,
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "BINDING_STRIP",
+                    "feiTicketId": "BND-MIX-2",
+                    "feiTicketNo": "BND-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "color": "Grey",
+                    "quantity": 8,
+                    "quantityUnit": "米",
+                    "pieceQty": 0,
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "totalPieceQty": 20,
+                "mixedFlag": true,
+                "baggingBy": "隔离浏览器验收",
+                "baggingAt": "2026-09-24 12:00:00"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT:handover:1-FT-HPB-BROWSER-PART-01:20260924120300",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT:handover:1-FT-HPB-BROWSER-PART-01:20260924120300",
+              "eventNo": "HANDOVER-20260924120300",
+              "ledgerSequence": 6,
+              "idempotencyKey": "whole-bag-handover:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT",
+              "eventType": "新增交出记录",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:03:00",
+              "createdAt": "2026-09-24 12:03:00",
+              "operatorId": "HPB-TEST",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01"
+                ],
+                "feiTicketNos": [
+                  "FP-HPB-BROWSER-01"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-CUT",
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-CUT:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [
+                  "TASKGEN-202603-0002-002__ORDER"
+                ],
+                "sewingTaskNos": [
+                  "TASKGEN-202603-0002-002"
+                ]
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "OUT",
+                "qty": 20,
+                "unit": "片",
+                "fromWarehouseArea": "A区",
+                "fromLocationCode": "A-R01-L01-P01",
+                "toWarehouseArea": "",
+                "toLocationCode": ""
+              },
+              "payload": {
+                "canonicalIntent": "{\"bagCode\":\"BAG-HPB-BROWSER-CUT\",\"usageCycleId\":\"CYCLE-BAG-HPB-BROWSER-CUT\",\"handoverLegId\":\"CYCLE-BAG-HPB-BROWSER-CUT:handover:1\",\"handoverOrderId\":\"TASK-HO:HPB-BROWSER-BATCH-01\",\"handoverOrderNo\":\"车缝任务交出-TASKGEN-202603-0002-002\",\"handoverRecordId\":\"TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT\",\"handoverRecordNo\":\"交出-TASKGEN-202603-0002-002-2\",\"handoverContext\":{\"handoverBatchId\":\"HPB-BROWSER-BATCH-01\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\",\"receiverPpicId\":\"PPIC-ACTIVE-004\",\"receiverPpicName\":\"王芳\",\"targetFeiTicketIds\":[\"FT-HPB-BROWSER-PART-01\"]},\"assignments\":[{\"feiTicketId\":\"FT-HPB-BROWSER-PART-01\",\"feiTicketNo\":\"FP-HPB-BROWSER-01\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"submittedTicketSnapshot\":[{\"feiTicketId\":\"FT-HPB-BROWSER-PART-01\",\"feiTicketNo\":\"FP-HPB-BROWSER-01\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"CUT-HPB-BROWSER-01\",\"cutOrderNo\":\"CUT-HPB-BROWSER-01\",\"color\":\"Grey\",\"size\":\"M\",\"partCode\":\"FRONT\",\"partName\":\"前片\",\"pieceQty\":20,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"source\":\"PDA\",\"operator\":{\"operatorId\":\"HPB-TEST\",\"operatorName\":\"隔离浏览器验收\",\"operatorRole\":\"裁片仓交出员\"}}",
+                "automaticSewingReceipts": [
+                  {
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "runtimeTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "receivedPieceQty": 20,
+                    "receivedAt": "2026-09-24 12:03:00",
+                    "receivedBy": "PT Sinar Garment Indonesia",
+                    "ticketIds": [
+                      "FT-HPB-BROWSER-PART-01"
+                    ]
+                  }
+                ],
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-CUT:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "receiverPpicId": "PPIC-ACTIVE-004",
+                "receiverPpicName": "王芳",
+                "targetFeiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01",
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverOrderNo": "车缝任务交出-TASKGEN-202603-0002-002",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT",
+                "handoverRecordNo": "交出-TASKGEN-202603-0002-002-2",
+                "receiverType": "车缝厂",
+                "receiverId": "ID-F001",
+                "receiverName": "PT Sinar Garment Indonesia",
+                "transferBagUses": [
+                  {
+                    "bagUseId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                    "bagCode": "BAG-HPB-BROWSER-CUT",
+                    "containedFeiTicketIds": [
+                      "FT-HPB-BROWSER-PART-01"
+                    ],
+                    "totalPieceQty": 20,
+                    "sewingTaskIds": [
+                      "TASKGEN-202603-0002-002__ORDER"
+                    ],
+                    "sewingTaskNos": [
+                      "TASKGEN-202603-0002-002"
+                    ],
+                    "ticketSnapshot": [
+                      {
+                        "feiTicketId": "FT-HPB-BROWSER-PART-01",
+                        "feiTicketNo": "FP-HPB-BROWSER-01",
+                        "productionOrderId": "PO-202603-0002",
+                        "productionOrderNo": "PO-202603-0002",
+                        "cutOrderId": "CUT-HPB-BROWSER-01",
+                        "cutOrderNo": "CUT-HPB-BROWSER-01",
+                        "color": "Grey",
+                        "size": "M",
+                        "partCode": "FRONT",
+                        "partName": "前片",
+                        "pieceQty": 20,
+                        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                        "sewingTaskNo": "TASKGEN-202603-0002-002",
+                        "receiverFactoryId": "ID-F001",
+                        "receiverFactoryName": "PT Sinar Garment Indonesia"
+                      }
+                    ],
+                    "sourceWarehouseArea": "A区",
+                    "sourceLocationCode": "A-R01-L01-P01"
+                  }
+                ],
+                "feiTicketItems": [
+                  {
+                    "feiTicketId": "FT-HPB-BROWSER-PART-01",
+                    "feiTicketNo": "FP-HPB-BROWSER-01",
+                    "pieceQty": 20,
+                    "unit": "片"
+                  }
+                ],
+                "currentHandedOverQty": 20,
+                "submittedAt": "2026-09-24 12:03:00",
+                "submittedBy": "隔离浏览器验收"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB:handover:1-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120300",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB:handover:1-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120300",
+              "eventNo": "HANDOVER-20260924120300",
+              "ledgerSequence": 5,
+              "idempotencyKey": "whole-bag-handover:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+              "eventType": "新增交出记录",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:03:00",
+              "createdAt": "2026-09-24 12:03:00",
+              "operatorId": "HPB-TEST",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "feiTicketNos": [
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-FAB",
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-FAB:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [
+                  "TASKGEN-202603-0002-002__ORDER"
+                ],
+                "sewingTaskNos": [
+                  "TASKGEN-202603-0002-002"
+                ]
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "OUT",
+                "qty": 0,
+                "unit": "片",
+                "fromWarehouseArea": "A区",
+                "fromLocationCode": "A-R01-L01-P01",
+                "toWarehouseArea": "",
+                "toLocationCode": ""
+              },
+              "payload": {
+                "canonicalIntent": "{\"bagCode\":\"BAG-HPB-BROWSER-FAB\",\"usageCycleId\":\"CYCLE-BAG-HPB-BROWSER-FAB\",\"handoverLegId\":\"CYCLE-BAG-HPB-BROWSER-FAB:handover:1\",\"handoverOrderId\":\"TASK-HO:HPB-BROWSER-BATCH-01\",\"handoverOrderNo\":\"车缝任务交出-TASKGEN-202603-0002-002\",\"handoverRecordId\":\"TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB\",\"handoverRecordNo\":\"交出-TASKGEN-202603-0002-002-1\",\"handoverContext\":{\"handoverBatchId\":\"HPB-BROWSER-BATCH-01\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\",\"receiverPpicId\":\"PPIC-ACTIVE-004\",\"receiverPpicName\":\"王芳\",\"targetFeiTicketIds\":[\"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49\"]},\"assignments\":[{\"feiTicketId\":\"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"submittedTicketSnapshot\":[{\"feiTicketId\":\"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"\",\"cutOrderNo\":\"\",\"color\":\"Grey\",\"size\":\"\",\"partCode\":\"\",\"partName\":\"\",\"pieceQty\":0,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"source\":\"PDA\",\"operator\":{\"operatorId\":\"HPB-TEST\",\"operatorName\":\"隔离浏览器验收\",\"operatorRole\":\"裁片仓交出员\"}}",
+                "automaticSewingReceipts": [],
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-FAB:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "receiverPpicId": "PPIC-ACTIVE-004",
+                "receiverPpicName": "王芳",
+                "targetFeiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01",
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverOrderNo": "车缝任务交出-TASKGEN-202603-0002-002",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+                "handoverRecordNo": "交出-TASKGEN-202603-0002-002-1",
+                "receiverType": "车缝厂",
+                "receiverId": "ID-F001",
+                "receiverName": "PT Sinar Garment Indonesia",
+                "transferBagUses": [
+                  {
+                    "bagUseId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                    "bagCode": "BAG-HPB-BROWSER-FAB",
+                    "containedFeiTicketIds": [
+                      "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                    ],
+                    "totalPieceQty": 0,
+                    "sewingTaskIds": [
+                      "TASKGEN-202603-0002-002__ORDER"
+                    ],
+                    "sewingTaskNos": [
+                      "TASKGEN-202603-0002-002"
+                    ],
+                    "ticketSnapshot": [
+                      {
+                        "ticketKind": "REPLACEMENT_FABRIC",
+                        "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                        "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                        "materialName": "主面料",
+                        "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                        "quantity": 5,
+                        "quantityUnit": "Yard",
+                        "replacementSequence": 1,
+                        "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+                        "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+                        "productionOrderId": "PO-202603-0002",
+                        "productionOrderNo": "PO-202603-0002",
+                        "cutOrderId": "",
+                        "cutOrderNo": "",
+                        "color": "Grey",
+                        "size": "",
+                        "partCode": "",
+                        "partName": "",
+                        "pieceQty": 0,
+                        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                        "sewingTaskNo": "TASKGEN-202603-0002-002",
+                        "receiverFactoryId": "ID-F001",
+                        "receiverFactoryName": "PT Sinar Garment Indonesia"
+                      }
+                    ],
+                    "sourceWarehouseArea": "A区",
+                    "sourceLocationCode": "A-R01-L01-P01"
+                  }
+                ],
+                "feiTicketItems": [
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "replacementSequence": 1,
+                    "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+                    "pieceQty": 0,
+                    "unit": "片"
+                  }
+                ],
+                "currentHandedOverQty": 0,
+                "submittedAt": "2026-09-24 12:03:00",
+                "submittedBy": "隔离浏览器验收"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:TICKET-IN:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120100",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:TICKET-IN:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120100",
+              "eventNo": "TICKET-IN-20260924120100",
+              "ledgerSequence": 2,
+              "idempotencyKey": "HPB-IN:BAG-HPB-BROWSER-CUT",
+              "eventType": "中转袋入仓",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:01:00",
+              "createdAt": "2026-09-24 12:01:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01"
+                ],
+                "feiTicketNos": [
+                  "FP-HPB-BROWSER-01"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-CUT",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "IN",
+                "qty": 20,
+                "unit": "片",
+                "fromWarehouseArea": "",
+                "fromLocationCode": "",
+                "toWarehouseArea": "A区",
+                "toLocationCode": "A-R01-L01-P01"
+              },
+              "payload": {
+                "bagCode": "BAG-HPB-BROWSER-CUT",
+                "warehouseArea": "A区",
+                "locationCode": "A-R01-L01-P01",
+                "inboundAt": "2026-09-24 12:01:00",
+                "inboundBy": "隔离浏览器验收"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:TICKET-IN:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120100",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:TICKET-IN:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120100",
+              "eventNo": "TICKET-IN-20260924120100",
+              "ledgerSequence": 4,
+              "idempotencyKey": "HPB-IN:BAG-HPB-BROWSER-FAB",
+              "eventType": "中转袋入仓",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:01:00",
+              "createdAt": "2026-09-24 12:01:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "feiTicketNos": [
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-FAB",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "IN",
+                "qty": 0,
+                "unit": "片",
+                "fromWarehouseArea": "",
+                "fromLocationCode": "",
+                "toWarehouseArea": "A区",
+                "toLocationCode": "A-R01-L01-P01"
+              },
+              "payload": {
+                "bagCode": "BAG-HPB-BROWSER-FAB",
+                "warehouseArea": "A区",
+                "locationCode": "A-R01-L01-P01",
+                "inboundAt": "2026-09-24 12:01:00",
+                "inboundBy": "隔离浏览器验收"
+              }
+            }
+          }
+        ]
+      },
+      "actualInboundLocation": "A-R01-L04-P01",
+      "actualInbound": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n中转袋入仓\n入仓成功\n1 扫中转袋\n2 扫库区库位\n可扫码或点选多个空闲库位，再次点已选库位可取消。\n当前裁床工厂\nHiGood 裁床厂 · 待交出仓库位图\n空闲 33\n占用 1\n共 34\n已选 0 个库位\n清空选择\n库区：A区\nR01\n16 个库位\nL04\nP01 · 占用\nA-R01-L04-P01\nPO-202603-0002\n中转袋 BAG-HPB-MIXED-VERIFY\n20 片\nP02 · 空闲\nA-R01-L04-P02\nP03 · 空闲\nA-R01-L04-P03\nP04 · 空闲\nA-R01-L04-P04\nL03\nP01 · 空闲\nA-R01-L03-P01\nP02 · 空闲\nA-R01-L03-P02\nP03 · 空闲\nA-R01-L03-P03\nP04 · 空闲\nA-R01-L03-P04\nL02\nP01 · 空闲\nA-R01-L02-P01\nP02 · 空闲\nA-R01-L02-P02\nP03 · 空闲\nA-R01-L02-P03\nP04 · 空闲\nA-R01-L02-P04\nL01\nP01 · 空闲\nA-R01-L01-P01\nP02 · 空闲\nA-R01-L01-P02\nP03 · 空闲\nA-R01-L01-P03\nP04 · 空闲\nA-R01-L01-P04\nR02\n9 个库位\nL04\nP01 · 空闲\nA-R02-L04-P01\nP02 · 空闲\nA-R02-L04-P02\nL03\nP01 · 空闲\nA-R02-L03-P01\nP02 · 空闲\nA-R02-L03-P02\nP03 · 空闲\nA-R02-L03-P03\nL02\nP01 · 空闲\nA-R02-L02-P01\nP02 · 空闲\nA-R02-L02-P02\nL01\nP01 · 空闲\nA-R02-L01-P01\nP02 · 空闲\nA-R02-L01-P02\n库区：B区\nR01\n9 个库位\nL03\nP01 · 空闲\nB-R01-L03-P01\nP02 · 空闲\nB-R01-L03-P02\nP03 · 空闲\nB-R01-L03-P03\nL02\nP01 · 空闲\nB-R01-L02-P01\nP02 · 空闲\nB-R01-L02-P02\nP03 · 空闲\nB-R01-L02-P03\nL01\nP01 · 空闲\nB-R01-L01-P01\nP02 · 空闲\nB-R01-L01-P02\nP03 · 空闲\nB-R01-L01-P03\n3 确认入仓\n确认入仓\n接单\n执行\n交接\n仓管\n结算",
+      "classification": "HiGood 裁床厂\n中转袋交出 · OWN-CUTTING-001\n待办\nH\nHiGo\n返回待交出仓\n中转袋交出\n重新开始\n操作进度\n第 2 步，共 5 步\n1 扫车缝任务\n2 核对相关袋\n3 直接交出或重装\n4 剩余来源袋\n5 汇总确认\n已找到 1 只相关中转袋，请核对直接交出与重装处理。\n2 核对相关中转袋\nPO-202603-0002 / TASKGEN-202603-0002-002\nPT Sinar Garment Indonesia · 接收 PPIC 王芳\nBAG-HPB-MIXED-VERIFY\n本任务：部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n整袋直接交出\n加入本次交出 核对完成，继续处理\n接单\n执行\n交接\n仓管\n结算",
+      "handover": "HiGood 裁床厂\n中转袋交出 · OWN-CUTTING-001\n待办\nH\nHiGo\n返回待交出仓\n中转袋交出\n操作进度\n第 5 步，共 5 步\n1 扫车缝任务\n2 核对相关袋\n3 直接交出或重装\n4 剩余来源袋\n5 汇总确认\n本次中转袋交出成功\n事实编号：cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531\nBAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米 · 整袋直接交出 · 已交出待回收\n开始下一次交出\n接单\n执行\n交接\n仓管\n结算",
+      "afterHandoverEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:20260924120000",
+          "eventNo": "BAGGING-20260924120000",
+          "ledgerSequence": 7,
+          "idempotencyKey": "mixed-bag",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-24 12:00:00",
+          "createdAt": "2026-09-24 12:00:00",
+          "operatorId": "",
+          "operatorName": "隔离浏览器验收",
+          "operatorRole": "裁片仓交出员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "feiTicketNos": [
+              "CUT-MIX-2",
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "BND-MIX-2"
+            ],
+            "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "PACK-BAG-HPB-MIXED-VERIFY",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "feiTicketItems": [
+              {
+                "feiTicketId": "CUT-MIX-2",
+                "feiTicketNo": "CUT-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "CUT-HPB-BROWSER-01",
+                "cutOrderNo": "CUT-HPB-BROWSER-01",
+                "color": "Grey",
+                "size": "M",
+                "partCode": "FRONT",
+                "partName": "前片",
+                "pieceQty": 20,
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "sewingTaskNo": "TASKGEN-202603-0002-002",
+                "receiverFactoryId": "ID-F001",
+                "receiverFactoryName": "PT Sinar Garment Indonesia"
+              },
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "color": "Grey",
+                "replacementSequence": 2,
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "pieceQty": 0,
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "sewingTaskNo": "TASKGEN-202603-0002-002",
+                "receiverFactoryId": "ID-F001",
+                "receiverFactoryName": "PT Sinar Garment Indonesia"
+              },
+              {
+                "ticketKind": "BINDING_STRIP",
+                "feiTicketId": "BND-MIX-2",
+                "feiTicketNo": "BND-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "color": "Grey",
+                "quantity": 8,
+                "quantityUnit": "米",
+                "pieceQty": 0,
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "sewingTaskNo": "TASKGEN-202603-0002-002",
+                "receiverFactoryId": "ID-F001",
+                "receiverFactoryName": "PT Sinar Garment Indonesia"
+              }
+            ],
+            "totalPieceQty": 20,
+            "mixedFlag": true,
+            "baggingBy": "隔离浏览器验收",
+            "baggingAt": "2026-09-24 12:00:00"
+          }
+        },
+        {
+          "eventId": "cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531",
+          "eventNo": "HANDOVER-202609250531",
+          "ledgerSequence": 17,
+          "idempotencyKey": "whole-bag-handover:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY",
+          "eventType": "新增交出记录",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 05:31",
+          "createdAt": "2026-09-25 05:31",
+          "operatorId": "OWN-CUTTING-001_admin",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓交出员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "feiTicketNos": [
+              "CUT-MIX-2",
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "BND-MIX-2"
+            ],
+            "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+            "handoverOrderId": "TASK-HO:PDA-HANDOVER-1790314317524",
+            "handoverRecordId": "TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+            "handoverLegId": "CYCLE-BAG-HPB-MIXED-VERIFY:handover:1",
+            "handoverBatchId": "PDA-HANDOVER-1790314317524",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [
+              "TASKGEN-202603-0002-002__ORDER"
+            ],
+            "sewingTaskNos": [
+              "TASKGEN-202603-0002-002"
+            ]
+          },
+          "inventoryEffect": {
+            "inventoryScope": "裁床待交出仓",
+            "direction": "OUT",
+            "qty": 20,
+            "unit": "片",
+            "fromWarehouseArea": "A区",
+            "fromLocationCode": "A-R01-L04-P01",
+            "toWarehouseArea": "",
+            "toLocationCode": ""
+          },
+          "payload": {
+            "canonicalIntent": "{\"bagCode\":\"BAG-HPB-MIXED-VERIFY\",\"usageCycleId\":\"CYCLE-BAG-HPB-MIXED-VERIFY\",\"handoverLegId\":\"CYCLE-BAG-HPB-MIXED-VERIFY:handover:1\",\"handoverOrderId\":\"TASK-HO:PDA-HANDOVER-1790314317524\",\"handoverOrderNo\":\"车缝任务交出-TASKGEN-202603-0002-002\",\"handoverRecordId\":\"TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY\",\"handoverRecordNo\":\"交出-TASKGEN-202603-0002-002-1\",\"handoverContext\":{\"handoverBatchId\":\"PDA-HANDOVER-1790314317524\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\",\"receiverPpicId\":\"PPIC-ACTIVE-004\",\"receiverPpicName\":\"王芳\",\"targetFeiTicketIds\":[\"CUT-MIX-2\",\"HPB-e11af80e-4efa-422a-9608-ec7c67d49051\",\"BND-MIX-2\"]},\"assignments\":[{\"feiTicketId\":\"BND-MIX-2\",\"feiTicketNo\":\"BND-MIX-2\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"CUT-MIX-2\",\"feiTicketNo\":\"CUT-MIX-2\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"HPB-e11af80e-4efa-422a-9608-ec7c67d49051\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"submittedTicketSnapshot\":[{\"feiTicketId\":\"BND-MIX-2\",\"feiTicketNo\":\"BND-MIX-2\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"\",\"cutOrderNo\":\"\",\"color\":\"Grey\",\"size\":\"\",\"partCode\":\"\",\"partName\":\"\",\"pieceQty\":0,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"CUT-MIX-2\",\"feiTicketNo\":\"CUT-MIX-2\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"CUT-HPB-BROWSER-01\",\"cutOrderNo\":\"CUT-HPB-BROWSER-01\",\"color\":\"Grey\",\"size\":\"M\",\"partCode\":\"FRONT\",\"partName\":\"前片\",\"pieceQty\":20,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"HPB-e11af80e-4efa-422a-9608-ec7c67d49051\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"\",\"cutOrderNo\":\"\",\"color\":\"Grey\",\"size\":\"\",\"partCode\":\"\",\"partName\":\"\",\"pieceQty\":0,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"source\":\"PDA\",\"operator\":{\"operatorId\":\"OWN-CUTTING-001_admin\",\"operatorName\":\"HiGood_裁床厂_管理员\",\"operatorRole\":\"裁片仓交出员\"}}",
+            "automaticSewingReceipts": [
+              {
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "runtimeTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "receivedPieceQty": 20,
+                "receivedAt": "2026-09-25 05:31",
+                "receivedBy": "PT Sinar Garment Indonesia",
+                "ticketIds": [
+                  "CUT-MIX-2"
+                ]
+              }
+            ],
+            "handoverLegId": "CYCLE-BAG-HPB-MIXED-VERIFY:handover:1",
+            "handoverBatchId": "PDA-HANDOVER-1790314317524",
+            "receiverPpicId": "PPIC-ACTIVE-004",
+            "receiverPpicName": "王芳",
+            "targetFeiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "handoverOrderId": "TASK-HO:PDA-HANDOVER-1790314317524",
+            "handoverOrderNo": "车缝任务交出-TASKGEN-202603-0002-002",
+            "handoverRecordId": "TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY",
+            "handoverRecordNo": "交出-TASKGEN-202603-0002-002-1",
+            "receiverType": "车缝厂",
+            "receiverId": "ID-F001",
+            "receiverName": "PT Sinar Garment Indonesia",
+            "transferBagUses": [
+              {
+                "bagUseId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+                "bagCode": "BAG-HPB-MIXED-VERIFY",
+                "containedFeiTicketIds": [
+                  "CUT-MIX-2",
+                  "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                  "BND-MIX-2"
+                ],
+                "totalPieceQty": 20,
+                "sewingTaskIds": [
+                  "TASKGEN-202603-0002-002__ORDER"
+                ],
+                "sewingTaskNos": [
+                  "TASKGEN-202603-0002-002"
+                ],
+                "ticketSnapshot": [
+                  {
+                    "feiTicketId": "CUT-MIX-2",
+                    "feiTicketNo": "CUT-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "CUT-HPB-BROWSER-01",
+                    "cutOrderNo": "CUT-HPB-BROWSER-01",
+                    "color": "Grey",
+                    "size": "M",
+                    "partCode": "FRONT",
+                    "partName": "前片",
+                    "pieceQty": 20,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "replacementSequence": 2,
+                    "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "color": "Grey",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "pieceQty": 0,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "BINDING_STRIP",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "quantity": 8,
+                    "quantityUnit": "米",
+                    "feiTicketId": "BND-MIX-2",
+                    "feiTicketNo": "BND-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "color": "Grey",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "pieceQty": 0,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "sourceWarehouseArea": "A区",
+                "sourceLocationCode": "A-R01-L04-P01",
+                "sourceLocationRef": {
+                  "factoryId": "OWN-CUTTING-001",
+                  "warehouseId": "FIW-OWN-CUTTING-001-WAIT_HANDOVER",
+                  "warehouseKind": "WAIT_HANDOVER",
+                  "areaId": "CUT-WH-AREA-A",
+                  "areaName": "A区",
+                  "shelfId": "CUT-WH-SHELF-A-R01",
+                  "shelfNo": "R01",
+                  "locationId": "CUT-WH-LOC-A-R01-L04-P01",
+                  "locationNo": "A-R01-L04-P01"
+                }
+              }
+            ],
+            "feiTicketItems": [
+              {
+                "feiTicketId": "CUT-MIX-2",
+                "feiTicketNo": "CUT-MIX-2",
+                "pieceQty": 20,
+                "unit": "片"
+              },
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 2,
+                "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                "pieceQty": 0,
+                "unit": "片"
+              },
+              {
+                "ticketKind": "BINDING_STRIP",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 8,
+                "quantityUnit": "米",
+                "feiTicketId": "BND-MIX-2",
+                "feiTicketNo": "BND-MIX-2",
+                "pieceQty": 0,
+                "unit": "片"
+              }
+            ],
+            "currentHandedOverQty": 20,
+            "submittedAt": "2026-09-25 05:31",
+            "submittedBy": "HiGood_裁床厂_管理员"
+          }
+        },
+        {
+          "eventId": "cutting-event:TICKET-IN:CUT-HPB-BROWSER-01-CUT-HPB-BROWSER-01-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609251331",
+          "eventNo": "TICKET-IN-202609251331",
+          "ledgerSequence": 10,
+          "idempotencyKey": "CYCLE-BAG-HPB-MIXED-VERIFY:INBOUND_CONFIRMED",
+          "eventType": "中转袋入仓",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 13:31",
+          "createdAt": "2026-09-25 13:31",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓入仓员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "CUT-HPB-BROWSER-01",
+            "cutOrderNo": "CUT-HPB-BROWSER-01",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "feiTicketNos": [
+              "CUT-MIX-2",
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "BND-MIX-2"
+            ],
+            "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "inventoryEffect": {
+            "inventoryScope": "裁床待交出仓",
+            "direction": "IN",
+            "qty": 20,
+            "unit": "片",
+            "fromWarehouseArea": "",
+            "fromLocationCode": "",
+            "toWarehouseArea": "A区",
+            "toLocationCode": "A-R01-L04-P01"
+          },
+          "payload": {
+            "tempBagUseId": "temp-bag:BAG-HPB-MIXED-VERIFY:202609251331",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "warehouseArea": "A区",
+            "locationCode": "A-R01-L04-P01",
+            "inboundBy": "HiGood_裁床厂_管理员",
+            "inboundAt": "2026-09-25 13:31",
+            "feiTicketItems": [
+              {
+                "feiTicketId": "CUT-MIX-2",
+                "feiTicketNo": "CUT-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "CUT-HPB-BROWSER-01",
+                "cutOrderNo": "CUT-HPB-BROWSER-01",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "M",
+                "partCode": "FRONT",
+                "partName": "前片",
+                "pieceQty": 20,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              },
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 2,
+                "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              },
+              {
+                "ticketKind": "BINDING_STRIP",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 8,
+                "quantityUnit": "米",
+                "feiTicketId": "BND-MIX-2",
+                "feiTicketNo": "BND-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 20,
+            "mixedFlag": false,
+            "warehouseLocations": [
+              {
+                "factoryId": "OWN-CUTTING-001",
+                "warehouseId": "FIW-OWN-CUTTING-001-WAIT_HANDOVER",
+                "warehouseKind": "WAIT_HANDOVER",
+                "areaId": "CUT-WH-AREA-A",
+                "areaName": "A区",
+                "shelfId": "CUT-WH-SHELF-A-R01",
+                "shelfNo": "R01",
+                "locationId": "CUT-WH-LOC-A-R01-L04-P01",
+                "locationNo": "A-R01-L04-P01"
+              }
+            ],
+            "idempotencyKey": "CYCLE-BAG-HPB-MIXED-VERIFY:INBOUND_CONFIRMED"
+          }
+        }
+      ],
+      "afterHandoverState": {
+        "bagCode": "BAG-HPB-MIXED-VERIFY",
+        "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+        "productionOrderNo": "PO-202603-0002",
+        "tickets": [],
+        "mainStatus": "IN_USE",
+        "flowStage": "INBOUND_STORED",
+        "latestHandoverEventId": "cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531"
+      },
+      "passed": false,
+      "error": "Error: Actual persisted handover must project HANDED_OVER; actual=INBOUND_STORED",
+      "url": "http://127.0.0.1:43235/fcs/pda/cutting/transfer-bag/repack",
+      "body": "HiGood 裁床厂\n中转袋交出 · OWN-CUTTING-001\n待办\nH\nHiGo\n返回待交出仓\n中转袋交出\n操作进度\n第 5 步，共 5 步\n1 扫车缝任务\n2 核对相关袋\n3 直接交出或重装\n4 剩余来源袋\n5 汇总确认\n本次中转袋交出成功\n事实编号：cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531\nBAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米 · 整袋直接交出 · 已交出待回收\n开始下一次交出\n接单\n执行\n交接\n仓管\n结算"
+    }
+  ],
+  "failed": [
+    {
+      "requirements": [
+        "BAG-009",
+        "BAG-010",
+        "BAG-011"
+      ],
+      "errors": [],
+      "reuseTicket": {
+        "id": "HPB-ba5799ff-916c-4182-84d4-9764c295249d",
+        "ticketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/003",
+        "productionOrderId": "PO-202603-0002",
+        "sequence": 3,
+        "unit": "Yard",
+        "length": 5
+      },
+      "original": {
+        "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+        "bagCode": "BAG-HPB-MIXED-VERIFY",
+        "baggingAt": "2026-09-24 12:00:00",
+        "tickets": [
+          {
+            "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+            "sewingTaskNo": "TASKGEN-202603-0002-002",
+            "receiverFactoryId": "ID-F001",
+            "receiverFactoryName": "PT Sinar Garment Indonesia",
+            "feiTicketId": "CUT-MIX-2",
+            "feiTicketNo": "CUT-MIX-2",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "cutOrderId": "CUT-HPB-BROWSER-01",
+            "cutOrderNo": "CUT-HPB-BROWSER-01",
+            "spuCode": "未记录",
+            "color": "Grey",
+            "size": "M",
+            "partCode": "FRONT",
+            "partName": "前片",
+            "pieceQty": 20,
+            "unit": "片",
+            "pieceSequenceLabel": "按菲票追踪",
+            "hasSpecialCraft": false,
+            "specialCraftCategory": "无",
+            "specialCraftDisplay": "无",
+            "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+            "printStatus": "已打印",
+            "voidStatus": "有效"
+          },
+          {
+            "ticketKind": "REPLACEMENT_FABRIC",
+            "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+            "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+            "materialName": "主面料",
+            "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+            "quantity": 5,
+            "quantityUnit": "Yard",
+            "replacementSequence": 2,
+            "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+            "sewingTaskNo": "TASKGEN-202603-0002-002",
+            "receiverFactoryId": "ID-F001",
+            "receiverFactoryName": "PT Sinar Garment Indonesia",
+            "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+            "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "spuCode": "未记录",
+            "color": "Grey",
+            "size": "",
+            "partCode": "",
+            "partName": "未记录",
+            "pieceQty": 0,
+            "unit": "片",
+            "pieceSequenceLabel": "按菲票追踪",
+            "hasSpecialCraft": false,
+            "specialCraftCategory": "无",
+            "specialCraftDisplay": "无",
+            "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+            "printStatus": "已打印",
+            "voidStatus": "有效"
+          },
+          {
+            "ticketKind": "BINDING_STRIP",
+            "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+            "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+            "materialName": "主面料",
+            "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+            "quantity": 8,
+            "quantityUnit": "米",
+            "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+            "sewingTaskNo": "TASKGEN-202603-0002-002",
+            "receiverFactoryId": "ID-F001",
+            "receiverFactoryName": "PT Sinar Garment Indonesia",
+            "feiTicketId": "BND-MIX-2",
+            "feiTicketNo": "BND-MIX-2",
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "spuCode": "未记录",
+            "color": "Grey",
+            "size": "",
+            "partCode": "",
+            "partName": "未记录",
+            "pieceQty": 0,
+            "unit": "片",
+            "pieceSequenceLabel": "按菲票追踪",
+            "hasSpecialCraft": false,
+            "specialCraftCategory": "无",
+            "specialCraftDisplay": "无",
+            "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+            "printStatus": "已打印",
+            "voidStatus": "有效"
+          }
+        ]
+      },
+      "oldHpb": {
+        "ticketKind": "REPLACEMENT_FABRIC",
+        "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+        "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+        "materialName": "主面料",
+        "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+        "quantity": 5,
+        "quantityUnit": "Yard",
+        "replacementSequence": 2,
+        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+        "sewingTaskNo": "TASKGEN-202603-0002-002",
+        "receiverFactoryId": "ID-F001",
+        "receiverFactoryName": "PT Sinar Garment Indonesia",
+        "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+        "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+        "productionOrderId": "PO-202603-0002",
+        "productionOrderNo": "PO-202603-0002",
+        "spreadingOrderId": "",
+        "spreadingOrderNo": "",
+        "cutOrderId": "",
+        "cutOrderNo": "",
+        "spuCode": "未记录",
+        "color": "Grey",
+        "size": "",
+        "partCode": "",
+        "partName": "未记录",
+        "pieceQty": 0,
+        "unit": "片",
+        "pieceSequenceLabel": "按菲票追踪",
+        "hasSpecialCraft": false,
+        "specialCraftCategory": "无",
+        "specialCraftDisplay": "无",
+        "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+        "printStatus": "已打印",
+        "voidStatus": "有效"
+      },
+      "currentPrint": {
+        "label": "current",
+        "href": "/fcs/print/preview?documentType=TRANSFER_BAG_GOODS_LABEL&sourceType=TRANSFER_BAG_USAGE_RECORD&sourceId=CYCLE-BAG-HPB-MIXED-VERIFY",
+        "previewUrl": "http://127.0.0.1:43235/fcs/print/preview?documentType=TRANSFER_BAG_GOODS_LABEL&sourceType=TRANSFER_BAG_USAGE_RECORD&sourceId=CYCLE-BAG-HPB-MIXED-VERIFY",
+        "cards": [
+          "\n      \n        货物标识\n        第 1/3 页\n      \n      中转袋BAG-HPB-MIXED-VERIFY\n      \n        款号 / SPU未记录\n        生产单PO-202603-0002\n        部位数量1 个\n      \n      \n        颜色＼尺码M本页\n        Grey2020\n        本页合计2020\n      \n      \n        整袋：3 张菲票 / 20 片\n        共 1 色 × 1 码；本页 20 片\n        换片布（Yard） 5；捆条（米） 8；面料明细见本袋附页\n      \n      打印：2026/9/25 13:31:53按袋号插入对应中转袋\n    ",
+          "\n      货物标识 · 换片布第 2/3 页\n      中转袋BAG-HPB-MIXED-VERIFY\n      生产单：PO-202603-0002\n      \n        \n        主面料tdv_demand_SPU_2024_005-bom-main · Grey\n      \n      5 Yard · 第 2 张\n      票号：HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\n      整袋：3 张菲票；裁片 20 片换片布（Yard） 5；捆条（米） 8\n      打印：2026/9/25 13:31:53按袋号插入对应中转袋\n    ",
+          "\n      货物标识 · 捆条第 3/3 页\n      中转袋BAG-HPB-MIXED-VERIFY\n      生产单：PO-202603-0002\n      \n        \n        主面料tdv_demand_SPU_2024_005-bom-main · Grey\n      \n      8 米\n      票号：BND-MIX-2\n      整袋：3 张菲票；裁片 20 片换片布（Yard） 5；捆条（米） 8\n      打印：2026/9/25 13:31:53按袋号插入对应中转袋\n    "
+        ],
+        "cycles": [
+          "CYCLE-BAG-HPB-MIXED-VERIFY",
+          "CYCLE-BAG-HPB-MIXED-VERIFY",
+          "CYCLE-BAG-HPB-MIXED-VERIFY"
+        ],
+        "sourceTicketIds": [
+          "CUT-MIX-2",
+          "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+          "BND-MIX-2"
+        ],
+        "sameOldIdentitiesAndUnits": true,
+        "softwarePrintInvocations": 1
+      },
+      "beforeHandover": {
+        "state": {
+          "bagCode": "BAG-HPB-MIXED-VERIFY",
+          "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+          "productionOrderNo": "PO-202603-0002",
+          "tickets": [
+            {
+              "feiTicketId": "CUT-MIX-2",
+              "feiTicketNo": "CUT-MIX-2",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cutOrderId": "CUT-HPB-BROWSER-01",
+              "cutOrderNo": "CUT-HPB-BROWSER-01",
+              "color": "Grey",
+              "size": "M",
+              "partCode": "FRONT",
+              "partName": "前片",
+              "pieceQty": 20,
+              "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+              "sewingTaskNo": "TASKGEN-202603-0002-002",
+              "receiverFactoryId": "ID-F001",
+              "receiverFactoryName": "PT Sinar Garment Indonesia"
+            },
+            {
+              "ticketKind": "REPLACEMENT_FABRIC",
+              "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+              "materialName": "主面料",
+              "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "quantity": 5,
+              "quantityUnit": "Yard",
+              "replacementSequence": 2,
+              "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cutOrderId": "",
+              "cutOrderNo": "",
+              "color": "Grey",
+              "size": "",
+              "partCode": "",
+              "partName": "",
+              "pieceQty": 0,
+              "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+              "sewingTaskNo": "TASKGEN-202603-0002-002",
+              "receiverFactoryId": "ID-F001",
+              "receiverFactoryName": "PT Sinar Garment Indonesia"
+            },
+            {
+              "ticketKind": "BINDING_STRIP",
+              "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+              "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+              "materialName": "主面料",
+              "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+              "quantity": 8,
+              "quantityUnit": "米",
+              "feiTicketId": "BND-MIX-2",
+              "feiTicketNo": "BND-MIX-2",
+              "productionOrderId": "PO-202603-0002",
+              "productionOrderNo": "PO-202603-0002",
+              "cutOrderId": "",
+              "cutOrderNo": "",
+              "color": "Grey",
+              "size": "",
+              "partCode": "",
+              "partName": "",
+              "pieceQty": 0,
+              "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+              "sewingTaskNo": "TASKGEN-202603-0002-002",
+              "receiverFactoryId": "ID-F001",
+              "receiverFactoryName": "PT Sinar Garment Indonesia"
+            }
+          ],
+          "mainStatus": "IN_USE",
+          "flowStage": "PACKED",
+          "latestHandoverEventId": ""
+        },
+        "events": [
+          {
+            "id": "cutting-event:cutting-event:BAGGING:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120000",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:BAGGING:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120000",
+              "eventNo": "BAGGING-20260924120000",
+              "ledgerSequence": 1,
+              "idempotencyKey": "HPB-SETUP:BAG-HPB-BROWSER-CUT",
+              "eventType": "菲票装袋",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:00:00",
+              "createdAt": "2026-09-24 12:00:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01"
+                ],
+                "feiTicketNos": [
+                  "FP-HPB-BROWSER-01"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-CUT",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "payload": {
+                "baggingRecordId": "PACK-BAG-HPB-BROWSER-CUT",
+                "bagCode": "BAG-HPB-BROWSER-CUT",
+                "feiTicketItems": [
+                  {
+                    "feiTicketId": "FT-HPB-BROWSER-PART-01",
+                    "feiTicketNo": "FP-HPB-BROWSER-01",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "CUT-HPB-BROWSER-01",
+                    "cutOrderNo": "CUT-HPB-BROWSER-01",
+                    "color": "Grey",
+                    "size": "M",
+                    "partCode": "FRONT",
+                    "partName": "前片",
+                    "pieceQty": 20,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "totalPieceQty": 20,
+                "mixedFlag": false,
+                "baggingBy": "隔离浏览器验收",
+                "baggingAt": "2026-09-24 12:00:00"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:BAGGING:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120000",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:BAGGING:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120000",
+              "eventNo": "BAGGING-20260924120000",
+              "ledgerSequence": 3,
+              "idempotencyKey": "HPB-SETUP:BAG-HPB-BROWSER-FAB",
+              "eventType": "菲票装袋",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:00:00",
+              "createdAt": "2026-09-24 12:00:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "feiTicketNos": [
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-FAB",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "payload": {
+                "baggingRecordId": "PACK-BAG-HPB-BROWSER-FAB",
+                "bagCode": "BAG-HPB-BROWSER-FAB",
+                "feiTicketItems": [
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "color": "Grey",
+                    "replacementSequence": 1,
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "pieceQty": 0,
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "totalPieceQty": 0,
+                "mixedFlag": false,
+                "baggingBy": "隔离浏览器验收",
+                "baggingAt": "2026-09-24 12:00:00"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:BAGGING:BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:20260924120000",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:BAGGING:BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:20260924120000",
+              "eventNo": "BAGGING-20260924120000",
+              "ledgerSequence": 7,
+              "idempotencyKey": "mixed-bag",
+              "eventType": "菲票装袋",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:00:00",
+              "createdAt": "2026-09-24 12:00:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "CUT-MIX-2",
+                  "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                  "BND-MIX-2"
+                ],
+                "feiTicketNos": [
+                  "CUT-MIX-2",
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                  "BND-MIX-2"
+                ],
+                "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "payload": {
+                "baggingRecordId": "PACK-BAG-HPB-MIXED-VERIFY",
+                "bagCode": "BAG-HPB-MIXED-VERIFY",
+                "feiTicketItems": [
+                  {
+                    "feiTicketId": "CUT-MIX-2",
+                    "feiTicketNo": "CUT-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "CUT-HPB-BROWSER-01",
+                    "cutOrderNo": "CUT-HPB-BROWSER-01",
+                    "color": "Grey",
+                    "size": "M",
+                    "partCode": "FRONT",
+                    "partName": "前片",
+                    "pieceQty": 20,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "color": "Grey",
+                    "replacementSequence": 2,
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "pieceQty": 0,
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "BINDING_STRIP",
+                    "feiTicketId": "BND-MIX-2",
+                    "feiTicketNo": "BND-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "color": "Grey",
+                    "quantity": 8,
+                    "quantityUnit": "米",
+                    "pieceQty": 0,
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "totalPieceQty": 20,
+                "mixedFlag": true,
+                "baggingBy": "隔离浏览器验收",
+                "baggingAt": "2026-09-24 12:00:00"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT:handover:1-FT-HPB-BROWSER-PART-01:20260924120300",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT:handover:1-FT-HPB-BROWSER-PART-01:20260924120300",
+              "eventNo": "HANDOVER-20260924120300",
+              "ledgerSequence": 6,
+              "idempotencyKey": "whole-bag-handover:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT",
+              "eventType": "新增交出记录",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:03:00",
+              "createdAt": "2026-09-24 12:03:00",
+              "operatorId": "HPB-TEST",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01"
+                ],
+                "feiTicketNos": [
+                  "FP-HPB-BROWSER-01"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-CUT",
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-CUT:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [
+                  "TASKGEN-202603-0002-002__ORDER"
+                ],
+                "sewingTaskNos": [
+                  "TASKGEN-202603-0002-002"
+                ]
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "OUT",
+                "qty": 20,
+                "unit": "片",
+                "fromWarehouseArea": "A区",
+                "fromLocationCode": "A-R01-L01-P01",
+                "toWarehouseArea": "",
+                "toLocationCode": ""
+              },
+              "payload": {
+                "canonicalIntent": "{\"bagCode\":\"BAG-HPB-BROWSER-CUT\",\"usageCycleId\":\"CYCLE-BAG-HPB-BROWSER-CUT\",\"handoverLegId\":\"CYCLE-BAG-HPB-BROWSER-CUT:handover:1\",\"handoverOrderId\":\"TASK-HO:HPB-BROWSER-BATCH-01\",\"handoverOrderNo\":\"车缝任务交出-TASKGEN-202603-0002-002\",\"handoverRecordId\":\"TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT\",\"handoverRecordNo\":\"交出-TASKGEN-202603-0002-002-2\",\"handoverContext\":{\"handoverBatchId\":\"HPB-BROWSER-BATCH-01\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\",\"receiverPpicId\":\"PPIC-ACTIVE-004\",\"receiverPpicName\":\"王芳\",\"targetFeiTicketIds\":[\"FT-HPB-BROWSER-PART-01\"]},\"assignments\":[{\"feiTicketId\":\"FT-HPB-BROWSER-PART-01\",\"feiTicketNo\":\"FP-HPB-BROWSER-01\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"submittedTicketSnapshot\":[{\"feiTicketId\":\"FT-HPB-BROWSER-PART-01\",\"feiTicketNo\":\"FP-HPB-BROWSER-01\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"CUT-HPB-BROWSER-01\",\"cutOrderNo\":\"CUT-HPB-BROWSER-01\",\"color\":\"Grey\",\"size\":\"M\",\"partCode\":\"FRONT\",\"partName\":\"前片\",\"pieceQty\":20,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"source\":\"PDA\",\"operator\":{\"operatorId\":\"HPB-TEST\",\"operatorName\":\"隔离浏览器验收\",\"operatorRole\":\"裁片仓交出员\"}}",
+                "automaticSewingReceipts": [
+                  {
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "runtimeTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "receivedPieceQty": 20,
+                    "receivedAt": "2026-09-24 12:03:00",
+                    "receivedBy": "PT Sinar Garment Indonesia",
+                    "ticketIds": [
+                      "FT-HPB-BROWSER-PART-01"
+                    ]
+                  }
+                ],
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-CUT:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "receiverPpicId": "PPIC-ACTIVE-004",
+                "receiverPpicName": "王芳",
+                "targetFeiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01",
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverOrderNo": "车缝任务交出-TASKGEN-202603-0002-002",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-CUT",
+                "handoverRecordNo": "交出-TASKGEN-202603-0002-002-2",
+                "receiverType": "车缝厂",
+                "receiverId": "ID-F001",
+                "receiverName": "PT Sinar Garment Indonesia",
+                "transferBagUses": [
+                  {
+                    "bagUseId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                    "bagCode": "BAG-HPB-BROWSER-CUT",
+                    "containedFeiTicketIds": [
+                      "FT-HPB-BROWSER-PART-01"
+                    ],
+                    "totalPieceQty": 20,
+                    "sewingTaskIds": [
+                      "TASKGEN-202603-0002-002__ORDER"
+                    ],
+                    "sewingTaskNos": [
+                      "TASKGEN-202603-0002-002"
+                    ],
+                    "ticketSnapshot": [
+                      {
+                        "feiTicketId": "FT-HPB-BROWSER-PART-01",
+                        "feiTicketNo": "FP-HPB-BROWSER-01",
+                        "productionOrderId": "PO-202603-0002",
+                        "productionOrderNo": "PO-202603-0002",
+                        "cutOrderId": "CUT-HPB-BROWSER-01",
+                        "cutOrderNo": "CUT-HPB-BROWSER-01",
+                        "color": "Grey",
+                        "size": "M",
+                        "partCode": "FRONT",
+                        "partName": "前片",
+                        "pieceQty": 20,
+                        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                        "sewingTaskNo": "TASKGEN-202603-0002-002",
+                        "receiverFactoryId": "ID-F001",
+                        "receiverFactoryName": "PT Sinar Garment Indonesia"
+                      }
+                    ],
+                    "sourceWarehouseArea": "A区",
+                    "sourceLocationCode": "A-R01-L01-P01"
+                  }
+                ],
+                "feiTicketItems": [
+                  {
+                    "feiTicketId": "FT-HPB-BROWSER-PART-01",
+                    "feiTicketNo": "FP-HPB-BROWSER-01",
+                    "pieceQty": 20,
+                    "unit": "片"
+                  }
+                ],
+                "currentHandedOverQty": 20,
+                "submittedAt": "2026-09-24 12:03:00",
+                "submittedBy": "隔离浏览器验收"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB:handover:1-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120300",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:HANDOVER:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB:handover:1-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120300",
+              "eventNo": "HANDOVER-20260924120300",
+              "ledgerSequence": 5,
+              "idempotencyKey": "whole-bag-handover:TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+              "eventType": "新增交出记录",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:03:00",
+              "createdAt": "2026-09-24 12:03:00",
+              "operatorId": "HPB-TEST",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "feiTicketNos": [
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-FAB",
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-FAB:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [
+                  "TASKGEN-202603-0002-002__ORDER"
+                ],
+                "sewingTaskNos": [
+                  "TASKGEN-202603-0002-002"
+                ]
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "OUT",
+                "qty": 0,
+                "unit": "片",
+                "fromWarehouseArea": "A区",
+                "fromLocationCode": "A-R01-L01-P01",
+                "toWarehouseArea": "",
+                "toLocationCode": ""
+              },
+              "payload": {
+                "canonicalIntent": "{\"bagCode\":\"BAG-HPB-BROWSER-FAB\",\"usageCycleId\":\"CYCLE-BAG-HPB-BROWSER-FAB\",\"handoverLegId\":\"CYCLE-BAG-HPB-BROWSER-FAB:handover:1\",\"handoverOrderId\":\"TASK-HO:HPB-BROWSER-BATCH-01\",\"handoverOrderNo\":\"车缝任务交出-TASKGEN-202603-0002-002\",\"handoverRecordId\":\"TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB\",\"handoverRecordNo\":\"交出-TASKGEN-202603-0002-002-1\",\"handoverContext\":{\"handoverBatchId\":\"HPB-BROWSER-BATCH-01\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\",\"receiverPpicId\":\"PPIC-ACTIVE-004\",\"receiverPpicName\":\"王芳\",\"targetFeiTicketIds\":[\"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49\"]},\"assignments\":[{\"feiTicketId\":\"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"submittedTicketSnapshot\":[{\"feiTicketId\":\"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"\",\"cutOrderNo\":\"\",\"color\":\"Grey\",\"size\":\"\",\"partCode\":\"\",\"partName\":\"\",\"pieceQty\":0,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"source\":\"PDA\",\"operator\":{\"operatorId\":\"HPB-TEST\",\"operatorName\":\"隔离浏览器验收\",\"operatorRole\":\"裁片仓交出员\"}}",
+                "automaticSewingReceipts": [],
+                "handoverLegId": "CYCLE-BAG-HPB-BROWSER-FAB:handover:1",
+                "handoverBatchId": "HPB-BROWSER-BATCH-01",
+                "receiverPpicId": "PPIC-ACTIVE-004",
+                "receiverPpicName": "王芳",
+                "targetFeiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01",
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "handoverOrderId": "TASK-HO:HPB-BROWSER-BATCH-01",
+                "handoverOrderNo": "车缝任务交出-TASKGEN-202603-0002-002",
+                "handoverRecordId": "TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB",
+                "handoverRecordNo": "交出-TASKGEN-202603-0002-002-1",
+                "receiverType": "车缝厂",
+                "receiverId": "ID-F001",
+                "receiverName": "PT Sinar Garment Indonesia",
+                "transferBagUses": [
+                  {
+                    "bagUseId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                    "bagCode": "BAG-HPB-BROWSER-FAB",
+                    "containedFeiTicketIds": [
+                      "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                    ],
+                    "totalPieceQty": 0,
+                    "sewingTaskIds": [
+                      "TASKGEN-202603-0002-002__ORDER"
+                    ],
+                    "sewingTaskNos": [
+                      "TASKGEN-202603-0002-002"
+                    ],
+                    "ticketSnapshot": [
+                      {
+                        "ticketKind": "REPLACEMENT_FABRIC",
+                        "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                        "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                        "materialName": "主面料",
+                        "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                        "quantity": 5,
+                        "quantityUnit": "Yard",
+                        "replacementSequence": 1,
+                        "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+                        "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+                        "productionOrderId": "PO-202603-0002",
+                        "productionOrderNo": "PO-202603-0002",
+                        "cutOrderId": "",
+                        "cutOrderNo": "",
+                        "color": "Grey",
+                        "size": "",
+                        "partCode": "",
+                        "partName": "",
+                        "pieceQty": 0,
+                        "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                        "sewingTaskNo": "TASKGEN-202603-0002-002",
+                        "receiverFactoryId": "ID-F001",
+                        "receiverFactoryName": "PT Sinar Garment Indonesia"
+                      }
+                    ],
+                    "sourceWarehouseArea": "A区",
+                    "sourceLocationCode": "A-R01-L01-P01"
+                  }
+                ],
+                "feiTicketItems": [
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "replacementSequence": 1,
+                    "feiTicketId": "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001",
+                    "pieceQty": 0,
+                    "unit": "片"
+                  }
+                ],
+                "currentHandedOverQty": 0,
+                "submittedAt": "2026-09-24 12:03:00",
+                "submittedBy": "隔离浏览器验收"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:TICKET-IN:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120100",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:TICKET-IN:BAG-HPB-BROWSER-CUT-CYCLE-BAG-HPB-BROWSER-CUT-FT-HPB-BROWSER-PART-01:20260924120100",
+              "eventNo": "TICKET-IN-20260924120100",
+              "ledgerSequence": 2,
+              "idempotencyKey": "HPB-IN:BAG-HPB-BROWSER-CUT",
+              "eventType": "中转袋入仓",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:01:00",
+              "createdAt": "2026-09-24 12:01:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "FT-HPB-BROWSER-PART-01"
+                ],
+                "feiTicketNos": [
+                  "FP-HPB-BROWSER-01"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-CUT",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-CUT",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "IN",
+                "qty": 20,
+                "unit": "片",
+                "fromWarehouseArea": "",
+                "fromLocationCode": "",
+                "toWarehouseArea": "A区",
+                "toLocationCode": "A-R01-L01-P01"
+              },
+              "payload": {
+                "bagCode": "BAG-HPB-BROWSER-CUT",
+                "warehouseArea": "A区",
+                "locationCode": "A-R01-L01-P01",
+                "inboundAt": "2026-09-24 12:01:00",
+                "inboundBy": "隔离浏览器验收"
+              }
+            }
+          },
+          {
+            "id": "cutting-event:cutting-event:TICKET-IN:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120100",
+            "collection": "cutting-events",
+            "value": {
+              "eventId": "cutting-event:TICKET-IN:BAG-HPB-BROWSER-FAB-CYCLE-BAG-HPB-BROWSER-FAB-HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49:20260924120100",
+              "eventNo": "TICKET-IN-20260924120100",
+              "ledgerSequence": 4,
+              "idempotencyKey": "HPB-IN:BAG-HPB-BROWSER-FAB",
+              "eventType": "中转袋入仓",
+              "eventSource": "PDA",
+              "eventStatus": "已同步",
+              "occurredAt": "2026-09-24 12:01:00",
+              "createdAt": "2026-09-24 12:01:00",
+              "operatorId": "",
+              "operatorName": "隔离浏览器验收",
+              "operatorRole": "裁片仓交出员",
+              "refs": {
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "markerPlanId": "",
+                "markerPlanNo": "",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "feiTicketIds": [
+                  "HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49"
+                ],
+                "feiTicketNos": [
+                  "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001"
+                ],
+                "transferBagCode": "BAG-HPB-BROWSER-FAB",
+                "handoverOrderId": "",
+                "handoverRecordId": "",
+                "specialCraftId": "",
+                "usageCycleId": "CYCLE-BAG-HPB-BROWSER-FAB",
+                "handoverLegId": "",
+                "handoverBatchId": "",
+                "repackBatchId": "",
+                "transferBagCodes": [],
+                "sewingTaskIds": [],
+                "sewingTaskNos": []
+              },
+              "inventoryEffect": {
+                "inventoryScope": "裁床待交出仓",
+                "direction": "IN",
+                "qty": 0,
+                "unit": "片",
+                "fromWarehouseArea": "",
+                "fromLocationCode": "",
+                "toWarehouseArea": "A区",
+                "toLocationCode": "A-R01-L01-P01"
+              },
+              "payload": {
+                "bagCode": "BAG-HPB-BROWSER-FAB",
+                "warehouseArea": "A区",
+                "locationCode": "A-R01-L01-P01",
+                "inboundAt": "2026-09-24 12:01:00",
+                "inboundBy": "隔离浏览器验收"
+              }
+            }
+          }
+        ]
+      },
+      "actualInboundLocation": "A-R01-L04-P01",
+      "actualInbound": "HiGood 裁床厂\n仓管 · OWN-CUTTING-001\n待办\n4\nH\nHiGo\n返回\n裁片任务\n中转袋入仓\n入仓成功\n1 扫中转袋\n2 扫库区库位\n可扫码或点选多个空闲库位，再次点已选库位可取消。\n当前裁床工厂\nHiGood 裁床厂 · 待交出仓库位图\n空闲 33\n占用 1\n共 34\n已选 0 个库位\n清空选择\n库区：A区\nR01\n16 个库位\nL04\nP01 · 占用\nA-R01-L04-P01\nPO-202603-0002\n中转袋 BAG-HPB-MIXED-VERIFY\n20 片\nP02 · 空闲\nA-R01-L04-P02\nP03 · 空闲\nA-R01-L04-P03\nP04 · 空闲\nA-R01-L04-P04\nL03\nP01 · 空闲\nA-R01-L03-P01\nP02 · 空闲\nA-R01-L03-P02\nP03 · 空闲\nA-R01-L03-P03\nP04 · 空闲\nA-R01-L03-P04\nL02\nP01 · 空闲\nA-R01-L02-P01\nP02 · 空闲\nA-R01-L02-P02\nP03 · 空闲\nA-R01-L02-P03\nP04 · 空闲\nA-R01-L02-P04\nL01\nP01 · 空闲\nA-R01-L01-P01\nP02 · 空闲\nA-R01-L01-P02\nP03 · 空闲\nA-R01-L01-P03\nP04 · 空闲\nA-R01-L01-P04\nR02\n9 个库位\nL04\nP01 · 空闲\nA-R02-L04-P01\nP02 · 空闲\nA-R02-L04-P02\nL03\nP01 · 空闲\nA-R02-L03-P01\nP02 · 空闲\nA-R02-L03-P02\nP03 · 空闲\nA-R02-L03-P03\nL02\nP01 · 空闲\nA-R02-L02-P01\nP02 · 空闲\nA-R02-L02-P02\nL01\nP01 · 空闲\nA-R02-L01-P01\nP02 · 空闲\nA-R02-L01-P02\n库区：B区\nR01\n9 个库位\nL03\nP01 · 空闲\nB-R01-L03-P01\nP02 · 空闲\nB-R01-L03-P02\nP03 · 空闲\nB-R01-L03-P03\nL02\nP01 · 空闲\nB-R01-L02-P01\nP02 · 空闲\nB-R01-L02-P02\nP03 · 空闲\nB-R01-L02-P03\nL01\nP01 · 空闲\nB-R01-L01-P01\nP02 · 空闲\nB-R01-L01-P02\nP03 · 空闲\nB-R01-L01-P03\n3 确认入仓\n确认入仓\n接单\n执行\n交接\n仓管\n结算",
+      "classification": "HiGood 裁床厂\n中转袋交出 · OWN-CUTTING-001\n待办\nH\nHiGo\n返回待交出仓\n中转袋交出\n重新开始\n操作进度\n第 2 步，共 5 步\n1 扫车缝任务\n2 核对相关袋\n3 直接交出或重装\n4 剩余来源袋\n5 汇总确认\n已找到 1 只相关中转袋，请核对直接交出与重装处理。\n2 核对相关中转袋\nPO-202603-0002 / TASKGEN-202603-0002-002\nPT Sinar Garment Indonesia · 接收 PPIC 王芳\nBAG-HPB-MIXED-VERIFY\n本任务：部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米\n整袋直接交出\n加入本次交出 核对完成，继续处理\n接单\n执行\n交接\n仓管\n结算",
+      "handover": "HiGood 裁床厂\n中转袋交出 · OWN-CUTTING-001\n待办\nH\nHiGo\n返回待交出仓\n中转袋交出\n操作进度\n第 5 步，共 5 步\n1 扫车缝任务\n2 核对相关袋\n3 直接交出或重装\n4 剩余来源袋\n5 汇总确认\n本次中转袋交出成功\n事实编号：cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531\nBAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米 · 整袋直接交出 · 已交出待回收\n开始下一次交出\n接单\n执行\n交接\n仓管\n结算",
+      "afterHandoverEvents": [
+        {
+          "eventId": "cutting-event:BAGGING:BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:20260924120000",
+          "eventNo": "BAGGING-20260924120000",
+          "ledgerSequence": 7,
+          "idempotencyKey": "mixed-bag",
+          "eventType": "菲票装袋",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-24 12:00:00",
+          "createdAt": "2026-09-24 12:00:00",
+          "operatorId": "",
+          "operatorName": "隔离浏览器验收",
+          "operatorRole": "裁片仓交出员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "feiTicketNos": [
+              "CUT-MIX-2",
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "BND-MIX-2"
+            ],
+            "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "payload": {
+            "baggingRecordId": "PACK-BAG-HPB-MIXED-VERIFY",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "feiTicketItems": [
+              {
+                "feiTicketId": "CUT-MIX-2",
+                "feiTicketNo": "CUT-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "cutOrderId": "CUT-HPB-BROWSER-01",
+                "cutOrderNo": "CUT-HPB-BROWSER-01",
+                "color": "Grey",
+                "size": "M",
+                "partCode": "FRONT",
+                "partName": "前片",
+                "pieceQty": 20,
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "sewingTaskNo": "TASKGEN-202603-0002-002",
+                "receiverFactoryId": "ID-F001",
+                "receiverFactoryName": "PT Sinar Garment Indonesia"
+              },
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "color": "Grey",
+                "replacementSequence": 2,
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "pieceQty": 0,
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "sewingTaskNo": "TASKGEN-202603-0002-002",
+                "receiverFactoryId": "ID-F001",
+                "receiverFactoryName": "PT Sinar Garment Indonesia"
+              },
+              {
+                "ticketKind": "BINDING_STRIP",
+                "feiTicketId": "BND-MIX-2",
+                "feiTicketNo": "BND-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "color": "Grey",
+                "quantity": 8,
+                "quantityUnit": "米",
+                "pieceQty": 0,
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "sewingTaskNo": "TASKGEN-202603-0002-002",
+                "receiverFactoryId": "ID-F001",
+                "receiverFactoryName": "PT Sinar Garment Indonesia"
+              }
+            ],
+            "totalPieceQty": 20,
+            "mixedFlag": true,
+            "baggingBy": "隔离浏览器验收",
+            "baggingAt": "2026-09-24 12:00:00"
+          }
+        },
+        {
+          "eventId": "cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531",
+          "eventNo": "HANDOVER-202609250531",
+          "ledgerSequence": 17,
+          "idempotencyKey": "whole-bag-handover:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY",
+          "eventType": "新增交出记录",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 05:31",
+          "createdAt": "2026-09-25 05:31",
+          "operatorId": "OWN-CUTTING-001_admin",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓交出员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "",
+            "cutOrderNo": "",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "feiTicketNos": [
+              "CUT-MIX-2",
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "BND-MIX-2"
+            ],
+            "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+            "handoverOrderId": "TASK-HO:PDA-HANDOVER-1790314317524",
+            "handoverRecordId": "TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+            "handoverLegId": "CYCLE-BAG-HPB-MIXED-VERIFY:handover:1",
+            "handoverBatchId": "PDA-HANDOVER-1790314317524",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [
+              "TASKGEN-202603-0002-002__ORDER"
+            ],
+            "sewingTaskNos": [
+              "TASKGEN-202603-0002-002"
+            ]
+          },
+          "inventoryEffect": {
+            "inventoryScope": "裁床待交出仓",
+            "direction": "OUT",
+            "qty": 20,
+            "unit": "片",
+            "fromWarehouseArea": "A区",
+            "fromLocationCode": "A-R01-L04-P01",
+            "toWarehouseArea": "",
+            "toLocationCode": ""
+          },
+          "payload": {
+            "canonicalIntent": "{\"bagCode\":\"BAG-HPB-MIXED-VERIFY\",\"usageCycleId\":\"CYCLE-BAG-HPB-MIXED-VERIFY\",\"handoverLegId\":\"CYCLE-BAG-HPB-MIXED-VERIFY:handover:1\",\"handoverOrderId\":\"TASK-HO:PDA-HANDOVER-1790314317524\",\"handoverOrderNo\":\"车缝任务交出-TASKGEN-202603-0002-002\",\"handoverRecordId\":\"TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY\",\"handoverRecordNo\":\"交出-TASKGEN-202603-0002-002-1\",\"handoverContext\":{\"handoverBatchId\":\"PDA-HANDOVER-1790314317524\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\",\"receiverPpicId\":\"PPIC-ACTIVE-004\",\"receiverPpicName\":\"王芳\",\"targetFeiTicketIds\":[\"CUT-MIX-2\",\"HPB-e11af80e-4efa-422a-9608-ec7c67d49051\",\"BND-MIX-2\"]},\"assignments\":[{\"feiTicketId\":\"BND-MIX-2\",\"feiTicketNo\":\"BND-MIX-2\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"CUT-MIX-2\",\"feiTicketNo\":\"CUT-MIX-2\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"HPB-e11af80e-4efa-422a-9608-ec7c67d49051\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\",\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"submittedTicketSnapshot\":[{\"feiTicketId\":\"BND-MIX-2\",\"feiTicketNo\":\"BND-MIX-2\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"\",\"cutOrderNo\":\"\",\"color\":\"Grey\",\"size\":\"\",\"partCode\":\"\",\"partName\":\"\",\"pieceQty\":0,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"CUT-MIX-2\",\"feiTicketNo\":\"CUT-MIX-2\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"CUT-HPB-BROWSER-01\",\"cutOrderNo\":\"CUT-HPB-BROWSER-01\",\"color\":\"Grey\",\"size\":\"M\",\"partCode\":\"FRONT\",\"partName\":\"前片\",\"pieceQty\":20,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"},{\"feiTicketId\":\"HPB-e11af80e-4efa-422a-9608-ec7c67d49051\",\"feiTicketNo\":\"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002\",\"productionOrderId\":\"PO-202603-0002\",\"productionOrderNo\":\"PO-202603-0002\",\"cutOrderId\":\"\",\"cutOrderNo\":\"\",\"color\":\"Grey\",\"size\":\"\",\"partCode\":\"\",\"partName\":\"\",\"pieceQty\":0,\"sewingTaskId\":\"TASKGEN-202603-0002-002__ORDER\",\"sewingTaskNo\":\"TASKGEN-202603-0002-002\",\"receiverFactoryId\":\"ID-F001\",\"receiverFactoryName\":\"PT Sinar Garment Indonesia\"}],\"source\":\"PDA\",\"operator\":{\"operatorId\":\"OWN-CUTTING-001_admin\",\"operatorName\":\"HiGood_裁床厂_管理员\",\"operatorRole\":\"裁片仓交出员\"}}",
+            "automaticSewingReceipts": [
+              {
+                "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "runtimeTaskId": "TASKGEN-202603-0002-002__ORDER",
+                "receivedPieceQty": 20,
+                "receivedAt": "2026-09-25 05:31",
+                "receivedBy": "PT Sinar Garment Indonesia",
+                "ticketIds": [
+                  "CUT-MIX-2"
+                ]
+              }
+            ],
+            "handoverLegId": "CYCLE-BAG-HPB-MIXED-VERIFY:handover:1",
+            "handoverBatchId": "PDA-HANDOVER-1790314317524",
+            "receiverPpicId": "PPIC-ACTIVE-004",
+            "receiverPpicName": "王芳",
+            "targetFeiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "handoverOrderId": "TASK-HO:PDA-HANDOVER-1790314317524",
+            "handoverOrderNo": "车缝任务交出-TASKGEN-202603-0002-002",
+            "handoverRecordId": "TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY",
+            "handoverRecordNo": "交出-TASKGEN-202603-0002-002-1",
+            "receiverType": "车缝厂",
+            "receiverId": "ID-F001",
+            "receiverName": "PT Sinar Garment Indonesia",
+            "transferBagUses": [
+              {
+                "bagUseId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+                "bagCode": "BAG-HPB-MIXED-VERIFY",
+                "containedFeiTicketIds": [
+                  "CUT-MIX-2",
+                  "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                  "BND-MIX-2"
+                ],
+                "totalPieceQty": 20,
+                "sewingTaskIds": [
+                  "TASKGEN-202603-0002-002__ORDER"
+                ],
+                "sewingTaskNos": [
+                  "TASKGEN-202603-0002-002"
+                ],
+                "ticketSnapshot": [
+                  {
+                    "feiTicketId": "CUT-MIX-2",
+                    "feiTicketNo": "CUT-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "CUT-HPB-BROWSER-01",
+                    "cutOrderNo": "CUT-HPB-BROWSER-01",
+                    "color": "Grey",
+                    "size": "M",
+                    "partCode": "FRONT",
+                    "partName": "前片",
+                    "pieceQty": 20,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "REPLACEMENT_FABRIC",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "quantity": 5,
+                    "quantityUnit": "Yard",
+                    "replacementSequence": 2,
+                    "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                    "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "color": "Grey",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "pieceQty": 0,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  },
+                  {
+                    "ticketKind": "BINDING_STRIP",
+                    "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                    "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                    "materialName": "主面料",
+                    "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                    "quantity": 8,
+                    "quantityUnit": "米",
+                    "feiTicketId": "BND-MIX-2",
+                    "feiTicketNo": "BND-MIX-2",
+                    "productionOrderId": "PO-202603-0002",
+                    "productionOrderNo": "PO-202603-0002",
+                    "cutOrderId": "",
+                    "cutOrderNo": "",
+                    "color": "Grey",
+                    "size": "",
+                    "partCode": "",
+                    "partName": "",
+                    "pieceQty": 0,
+                    "sewingTaskId": "TASKGEN-202603-0002-002__ORDER",
+                    "sewingTaskNo": "TASKGEN-202603-0002-002",
+                    "receiverFactoryId": "ID-F001",
+                    "receiverFactoryName": "PT Sinar Garment Indonesia"
+                  }
+                ],
+                "sourceWarehouseArea": "A区",
+                "sourceLocationCode": "A-R01-L04-P01",
+                "sourceLocationRef": {
+                  "factoryId": "OWN-CUTTING-001",
+                  "warehouseId": "FIW-OWN-CUTTING-001-WAIT_HANDOVER",
+                  "warehouseKind": "WAIT_HANDOVER",
+                  "areaId": "CUT-WH-AREA-A",
+                  "areaName": "A区",
+                  "shelfId": "CUT-WH-SHELF-A-R01",
+                  "shelfNo": "R01",
+                  "locationId": "CUT-WH-LOC-A-R01-L04-P01",
+                  "locationNo": "A-R01-L04-P01"
+                }
+              }
+            ],
+            "feiTicketItems": [
+              {
+                "feiTicketId": "CUT-MIX-2",
+                "feiTicketNo": "CUT-MIX-2",
+                "pieceQty": 20,
+                "unit": "片"
+              },
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 2,
+                "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                "pieceQty": 0,
+                "unit": "片"
+              },
+              {
+                "ticketKind": "BINDING_STRIP",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 8,
+                "quantityUnit": "米",
+                "feiTicketId": "BND-MIX-2",
+                "feiTicketNo": "BND-MIX-2",
+                "pieceQty": 0,
+                "unit": "片"
+              }
+            ],
+            "currentHandedOverQty": 20,
+            "submittedAt": "2026-09-25 05:31",
+            "submittedBy": "HiGood_裁床厂_管理员"
+          }
+        },
+        {
+          "eventId": "cutting-event:TICKET-IN:CUT-HPB-BROWSER-01-CUT-HPB-BROWSER-01-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609251331",
+          "eventNo": "TICKET-IN-202609251331",
+          "ledgerSequence": 10,
+          "idempotencyKey": "CYCLE-BAG-HPB-MIXED-VERIFY:INBOUND_CONFIRMED",
+          "eventType": "中转袋入仓",
+          "eventSource": "PDA",
+          "eventStatus": "已同步",
+          "occurredAt": "2026-09-25 13:31",
+          "createdAt": "2026-09-25 13:31",
+          "operatorId": "",
+          "operatorName": "HiGood_裁床厂_管理员",
+          "operatorRole": "裁片仓入仓员",
+          "refs": {
+            "productionOrderId": "PO-202603-0002",
+            "productionOrderNo": "PO-202603-0002",
+            "cutOrderId": "CUT-HPB-BROWSER-01",
+            "cutOrderNo": "CUT-HPB-BROWSER-01",
+            "markerPlanId": "",
+            "markerPlanNo": "",
+            "spreadingOrderId": "",
+            "spreadingOrderNo": "",
+            "feiTicketIds": [
+              "CUT-MIX-2",
+              "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+              "BND-MIX-2"
+            ],
+            "feiTicketNos": [
+              "CUT-MIX-2",
+              "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+              "BND-MIX-2"
+            ],
+            "transferBagCode": "BAG-HPB-MIXED-VERIFY",
+            "handoverOrderId": "",
+            "handoverRecordId": "",
+            "specialCraftId": "",
+            "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+            "handoverLegId": "",
+            "handoverBatchId": "",
+            "repackBatchId": "",
+            "transferBagCodes": [],
+            "sewingTaskIds": [],
+            "sewingTaskNos": []
+          },
+          "inventoryEffect": {
+            "inventoryScope": "裁床待交出仓",
+            "direction": "IN",
+            "qty": 20,
+            "unit": "片",
+            "fromWarehouseArea": "",
+            "fromLocationCode": "",
+            "toWarehouseArea": "A区",
+            "toLocationCode": "A-R01-L04-P01"
+          },
+          "payload": {
+            "tempBagUseId": "temp-bag:BAG-HPB-MIXED-VERIFY:202609251331",
+            "bagCode": "BAG-HPB-MIXED-VERIFY",
+            "warehouseArea": "A区",
+            "locationCode": "A-R01-L04-P01",
+            "inboundBy": "HiGood_裁床厂_管理员",
+            "inboundAt": "2026-09-25 13:31",
+            "feiTicketItems": [
+              {
+                "feiTicketId": "CUT-MIX-2",
+                "feiTicketNo": "CUT-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "CUT-HPB-BROWSER-01",
+                "cutOrderNo": "CUT-HPB-BROWSER-01",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "M",
+                "partCode": "FRONT",
+                "partName": "前片",
+                "pieceQty": 20,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              },
+              {
+                "ticketKind": "REPLACEMENT_FABRIC",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 5,
+                "quantityUnit": "Yard",
+                "replacementSequence": 2,
+                "feiTicketId": "HPB-e11af80e-4efa-422a-9608-ec7c67d49051",
+                "feiTicketNo": "HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/002",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              },
+              {
+                "ticketKind": "BINDING_STRIP",
+                "materialKey": "[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]",
+                "materialCode": "tdv_demand_SPU_2024_005-bom-main",
+                "materialName": "主面料",
+                "materialImageUrl": "/materials/fei-ticket/grey-main-fabric.png",
+                "quantity": 8,
+                "quantityUnit": "米",
+                "feiTicketId": "BND-MIX-2",
+                "feiTicketNo": "BND-MIX-2",
+                "productionOrderId": "PO-202603-0002",
+                "productionOrderNo": "PO-202603-0002",
+                "spreadingOrderId": "",
+                "spreadingOrderNo": "",
+                "cutOrderId": "",
+                "cutOrderNo": "",
+                "spuCode": "",
+                "color": "Grey",
+                "size": "",
+                "partCode": "",
+                "partName": "",
+                "pieceQty": 0,
+                "unit": "片",
+                "pieceSequenceLabel": "按菲票追踪",
+                "hasSpecialCraft": false,
+                "specialCraftCategory": "无",
+                "specialCraftDisplay": "无",
+                "receiverFactoryDisplay": "PT Sinar Garment Indonesia",
+                "printStatus": "已打印",
+                "voidStatus": "有效"
+              }
+            ],
+            "totalPieceQty": 20,
+            "mixedFlag": false,
+            "warehouseLocations": [
+              {
+                "factoryId": "OWN-CUTTING-001",
+                "warehouseId": "FIW-OWN-CUTTING-001-WAIT_HANDOVER",
+                "warehouseKind": "WAIT_HANDOVER",
+                "areaId": "CUT-WH-AREA-A",
+                "areaName": "A区",
+                "shelfId": "CUT-WH-SHELF-A-R01",
+                "shelfNo": "R01",
+                "locationId": "CUT-WH-LOC-A-R01-L04-P01",
+                "locationNo": "A-R01-L04-P01"
+              }
+            ],
+            "idempotencyKey": "CYCLE-BAG-HPB-MIXED-VERIFY:INBOUND_CONFIRMED"
+          }
+        }
+      ],
+      "afterHandoverState": {
+        "bagCode": "BAG-HPB-MIXED-VERIFY",
+        "usageCycleId": "CYCLE-BAG-HPB-MIXED-VERIFY",
+        "productionOrderNo": "PO-202603-0002",
+        "tickets": [],
+        "mainStatus": "IN_USE",
+        "flowStage": "INBOUND_STORED",
+        "latestHandoverEventId": "cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531"
+      },
+      "passed": false,
+      "error": "Error: Actual persisted handover must project HANDED_OVER; actual=INBOUND_STORED",
+      "url": "http://127.0.0.1:43235/fcs/pda/cutting/transfer-bag/repack",
+      "body": "HiGood 裁床厂\n中转袋交出 · OWN-CUTTING-001\n待办\nH\nHiGo\n返回待交出仓\n中转袋交出\n操作进度\n第 5 步，共 5 步\n1 扫车缝任务\n2 核对相关袋\n3 直接交出或重装\n4 剩余来源袋\n5 汇总确认\n本次中转袋交出成功\n事实编号：cutting-event:HANDOVER:TASK-HR:PDA-HANDOVER-1790314317524:BAG-HPB-MIXED-VERIFY-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY-CYCLE-BAG-HPB-MIXED-VERIFY:handover:1-CUT-MIX-2-HPB-e11af80e-4efa-422a-9608-ec7c67d49051-BND-MIX-2:202609250531\nBAG-HPB-MIXED-VERIFY · 部位裁片 1 张 / 20 片；换片布 1 张 / 5 Yard；捆条 1 张 / 8 米 · 整袋直接交出 · 已交出待回收\n开始下一次交出\n接单\n执行\n交接\n仓管\n结算"
+    }
+  ]
+}

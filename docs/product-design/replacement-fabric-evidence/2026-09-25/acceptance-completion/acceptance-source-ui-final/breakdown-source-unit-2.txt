@@ -1,0 +1,27 @@
+(node:40137) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 可打印不等于可建交出单，必须完成真实标签打印 (0.443958ms)
+✔ 卷规格无效时不可建交出单，且不改变原可打印判定语义 (0.067958ms)
+✔ 人工完成印花加工单不再自动填充操作人 (177.805792ms)
+✔ PRINT-HISTORY-001: demo identities remain fixed and reject another factory or task (0.476459ms)
+✔ PRINT-HISTORY-002: DYE-GOTO-GLOBAL historical slot 09 survives independent reloads without overwriting (1261.444791ms)
+✔ PRINT-HISTORY-002: ID-FAC-001165 historical slot 09 survives independent reloads without overwriting (1185.9565ms)
+(node:40139) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: dispatch reads keep all documents and independent copies without projecting unrelated business views (180.172667ms)
+✔ frozen printing images are losslessly stored once across orders, tasks and attachments (3.310125ms)
+✔ missing or malformed image references fail rather than silently replacing frozen evidence (0.234875ms)
+(node:40141) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 生产单创建来源只覆盖旧匹配事实，不复活已取消或覆盖更新后的匹配 (0.359792ms)
+✔ 提前来源随PO唯一保存，重复生成不会追加第二份事实；查询投影不反向写PO (0.259709ms)
+✔ 失败和嵌套投影后创建stage标记恢复，不影响后续染印执行保存 (0.17975ms)
+✔ 备份拒绝错误归属、重复、未知状态和缺少正式冻结来源的匹配 (0.140834ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2637.627875

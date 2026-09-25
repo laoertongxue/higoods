@@ -1,3 +1,5 @@
+import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
+import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import {
   createEffectiveTaskAssignment,
   getEffectiveTaskAssignment,
@@ -70,7 +72,7 @@ function ensureAssignment(input: {
   })
 }
 
-export function ensureSewingOutsourcingSampleDemo(): typeof SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS {
+function buildSewingOutsourcingSampleDemo(): typeof SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS {
   const independent = ensureAssignment({
     assignmentId: SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS.independent,
     runtimeTaskId: 'TASK-PPIC-SAMPLE-DEMO-INDEPENDENT',
@@ -166,5 +168,10 @@ export function ensureSewingOutsourcingSampleDemo(): typeof SEWING_SAMPLE_DEMO_A
   })
 
   if (!getSewingSampleApprovalRecord(independent.assignmentId)) throw new Error('批版建议演示初始化失败')
+  return SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS
+}
+
+export function ensureSewingOutsourcingSampleDemo():typeof SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS {
+  buildEffectiveAssignmentStaticFixture(()=>buildSewingSampleStaticFixture(()=>{buildSewingOutsourcingSampleDemo()}))
   return SEWING_SAMPLE_DEMO_ASSIGNMENT_IDS
 }

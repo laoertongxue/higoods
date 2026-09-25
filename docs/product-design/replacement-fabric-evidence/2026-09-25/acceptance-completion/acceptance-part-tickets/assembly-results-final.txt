@@ -1,0 +1,10 @@
+{
+  "铺布产出矩阵五维": "通过",
+  "菲票来源与归属": "通过",
+  "五维打印标题": "通过",
+  "同组裁片追溯": "通过",
+  "菲票二维码字段": "通过",
+  "中转袋同组裁片查看": "通过"
+}
+(node:27596) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,7 +1,7 @@
 import { getFactoryActivePpicSnapshot, getFactoryMasterRecordById } from './factory-master-store.ts'
 import {
   getEffectiveTaskAssignment, indexExistingRuntimeTaskAssignment, listEffectiveTaskAssignments,
-  refreshEffectiveTaskAssignments, runEffectiveTaskAssignmentAction, type EffectiveTaskAssignment,
+  refreshEffectiveTaskAssignments, type EffectiveTaskAssignment,
 } from './effective-task-assignments.ts'
 import { listRuntimeProcessTasks, getRuntimeTaskById, type RuntimeProcessTask } from './runtime-process-tasks.ts'
 import { classifyTaskFulfillmentPolicy } from './task-fulfillment-policy.ts'
@@ -53,7 +53,7 @@ export function ensureDispatchTaskSheetAssignments(): void {
   const indexed = new Set(listEffectiveTaskAssignments().map((item) => item.runtimeTaskId))
   const missing = listRuntimeProcessTasks().filter((task) => !indexed.has(task.taskId)
     && task.assignedFactoryId && ['ASSIGNED', 'AWARDED'].includes(task.assignmentStatus))
-  if (missing.length) runEffectiveTaskAssignmentAction(() => { for (const task of missing) indexRuntimeAssignment(task) })
+  for (const task of missing) indexRuntimeAssignment(task)
 }
 
 export function listDispatchTaskSheetAssignments(taskId?: string): EffectiveTaskAssignment[] {

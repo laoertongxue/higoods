@@ -1,0 +1,10 @@
+### Result
+{"error":"Error: 加工任务未保存，原动作已撤回；请检查本机存储后重试。裁片放行不足，不能分配车缝任务。Grey/S：当前放行 490 件，已占用 0 件，可分配 490 件，少于本次任务 500 件。；Grey/M：当前放行 680 件，已占用 0 件，可分配 680 件，少于本次任务 700 件。；Grey/L：当前放行 720 件，已占用 0 件，可分配 720 件，少于本次任务 800 件。；另有1项\n    at runRuntimeTaskAction (http://127.0.0.1:43235/src/data/fcs/runtime-process-tasks.ts?t=1790307477785:137:11)\n    at Module.applyRuntimeDirectDispatchMeta (http://127.0.0.1:43235/src/data/fcs/runtime-process-tasks.ts?t=1790307477785:2602:10)\n    at Object.action (http://127.0.0.1:43235/output/playwright/hpb/acceptance-source-ui-final/ui-fixture.ts:15:29)\n    at Object.action (http://127.0.0.1:43235/src/data/fcs/production-context-actions.ts?t=1790307477785:129:27)\n    at saveProductionContextAction (http://127.0.0.1:43235/src/data/fcs/production-context-records.ts?t=1790307477785:474:22)\n    at async eval (eval at evaluate (:367:30), <anonymous>:1:22)\n    at async <anonymous>:393:30"}
+### Ran Playwright code
+```js
+await (async(page)=>{
+ const c=await page.context().browser().newContext(),p=await c.newPage();
+ try {await p.route('**/acceptance-fixture',r=>r.fulfill({contentType:'text/html',body:'Isolated Mock prerequisite'}));await p.goto('http://127.0.0.1:43235/fcs/dispatch/workbench?type=NON_SEWING');await p.locator('[data-unified-dispatch-page]').waitFor();const fixture=await p.evaluate(async()=>{try{return await(await import('/output/playwright/hpb/acceptance-source-ui-final/ui-fixture.ts')).setup('contract')}catch(e){return{error:e.stack}}});if(fixture.error)return fixture;const download=p.waitForEvent('download');await p.evaluate(async()=>{const blob=await(await import('/src/data/fcs/cutting/cutting-backup-file.ts')).buildCuttingBackupFile();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='source-ui-fixture.higcut';a.click()});await(await download).saveAs('/private/tmp/higoods-replacement-fabric-release-20260925/output/playwright/hpb/acceptance-source-ui-final/source-ui-fixture.higcut');return{fixture,explicitMockPrerequisite:true}}
+ finally{await c.close()}
+})(page);
+```

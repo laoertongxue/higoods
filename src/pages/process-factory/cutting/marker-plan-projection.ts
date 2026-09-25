@@ -5,7 +5,7 @@ import {
 import { cuttingOrderProgressRecords } from '../../../data/fcs/cutting/order-progress.ts'
 import { listMarkerPlanCutOrderSourceRecords } from '../../../data/fcs/cutting/marker-plan-source.ts'
 import type { CuttingOrderProgressRecord } from '../../../data/fcs/cutting/types.ts'
-import { getBrowserLocalStorage, readBrowserStorageItem } from '../../../data/browser-storage.ts'
+import { readPartTicketValue } from '../../../data/fcs/cutting/part-ticket-records.ts'
 import type { CuttingSummaryBuildOptions } from './summary-model.ts'
 import {
   createEmptyStore,
@@ -25,20 +25,14 @@ import type { MarkerPlan } from './marker-plan-domain.ts'
 import { buildMarkerPlanOccupancyLookup, type MarkerPlanOccupancyLookup } from './marker-plan-occupancy.ts'
 
 export interface MarkerPlanProjection {
-  snapshot: CuttingDomainSnapshot
+  snapshot: Pick<CuttingDomainSnapshot, 'progressRecords'>
   sources: CuttingSummaryBuildOptions
   storedPlans: MarkerPlan[]
   viewModel: MarkerPlanViewModel
 }
 
 function readStoredMarkerPlans(): MarkerPlan[] {
-  try {
-    return deserializeMarkerPlanStorage(
-      readBrowserStorageItem(getBrowserLocalStorage(), getMarkerPlanStorageKey()),
-    )
-  } catch {
-    return []
-  }
+  return deserializeMarkerPlanStorage(readPartTicketValue(getMarkerPlanStorageKey()))
 }
 
 function buildMarkerPlanSourceMarkerPlanSourceItems(
@@ -115,15 +109,17 @@ function buildMarkerPlanSeedMarkerStore(options: {
 export function buildMarkerPlanSummaryBuildOptions(
   progressRecords: CuttingOrderProgressRecord[] = cuttingOrderProgressRecords,
   markerPlanOccupancy: MarkerPlanOccupancyLookup = {},
+  options: { sourceIdentityOnly?: boolean } = {},
 ): CuttingSummaryBuildOptions {
   const productionRows = buildProductionProgressRows(progressRecords)
-  const seedCutOrderRows = buildCutOrderViewModel(progressRecords, [], { progressRows: productionRows, markerPlanOccupancy }).rows
+  const rowOptions = { progressRows: productionRows, markerPlanOccupancy, sourceIdentityOnly: options.sourceIdentityOnly }
+  const seedCutOrderRows = buildCutOrderViewModel(progressRecords, [], rowOptions).rows
   const markerPlanSources: MarkerPlanSourceRecord[] = buildSystemSeedMarkerPlanSources(
     buildMarkerPlanSourceMarkerPlanSourceItems(seedCutOrderRows),
   )
-  const cutOrderRows = buildCutOrderViewModel(progressRecords, markerPlanSources, { progressRows: productionRows, markerPlanOccupancy }).rows
+  const cutOrderRows = buildCutOrderViewModel(progressRecords, markerPlanSources, rowOptions).rows
   const materialPrepRows = buildMaterialPrepViewModel(progressRecords, markerPlanSources, {
-    pickupEvents: [],
+    ...(options.sourceIdentityOnly ? { sourceIdentityOnly: true } : { pickupEvents: [] }),
     includeClaimDisputes: false,
   }).rows
   const markerStore = buildMarkerPlanSeedMarkerStore({
@@ -148,10 +144,11 @@ export function buildMarkerPlanSummaryBuildOptions(
 }
 
 export function buildMarkerPlanProjection(
-  snapshot: CuttingDomainSnapshot = buildFcsCuttingDomainSnapshot(),
+  snapshot: Pick<CuttingDomainSnapshot, 'progressRecords'> = buildFcsCuttingDomainSnapshot(),
+  options: { sourceIdentityOnly?: boolean } = {},
 ): MarkerPlanProjection {
   const storedPlans = readStoredMarkerPlans()
-  const sources = buildMarkerPlanSummaryBuildOptions(snapshot.progressRecords, buildMarkerPlanOccupancyLookup(storedPlans))
+  const sources = buildMarkerPlanSummaryBuildOptions(snapshot.progressRecords, buildMarkerPlanOccupancyLookup(storedPlans), options)
   return {
     snapshot,
     sources,

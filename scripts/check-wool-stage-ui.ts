@@ -8,6 +8,9 @@ const location = { pathname: '/fcs/craft/wool/pending-receipts', search: '?workO
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage })
 Object.defineProperty(globalThis, 'window', { configurable: true, value: { localStorage: storage, sessionStorage: storage, addEventListener() {}, dispatchEvent() {}, location } })
 Object.defineProperty(globalThis, 'document', { configurable: true, value: { addEventListener() {}, querySelector() { return null }, querySelectorAll() { return [] } } })
+// Explicit empty isolated record snapshot replaces the browser bootstrap normally run by main.
+await (await import('../src/data/fcs/cutting/part-ticket-records.ts')).hydratePartTicketRecords({ revision: 0, records: [] })
+await (await import('../src/data/fcs/production-context-records.ts')).hydrateProductionContextRecords({ revision: 0, records: [] })
 let checks = 0
 const failures: string[] = []
 const check = (name: string, fn: () => void) => {

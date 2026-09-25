@@ -1,0 +1,571 @@
+{
+  "results": [
+    {
+      "scenario": "unbound-fabric-omission-and-retry",
+      "error": "Error: 真实任务下拉没有Mock分配任务",
+      "steps": [],
+      "errors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "url": "http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工艺工厂运营系统\n\nPFOS\n\n裁床厂管理\n裁床总览\n裁前准备\n接收管理\n铺布执行\n裁后处理\n裁床仓库管理\n待加工仓\n待交出仓\n交出单\n样衣仓\n裁床统计\n印花厂管理\n印花管理\n染厂管理\n染厂管理\n毛织厂管理\n毛织管理\n辅料工厂管理\n花边厂管理\n织带厂管理\n后道工厂管理\n后道工厂管理\n辅助工艺工厂管理\n打揽加工单\n打条加工单\n烫画加工单\n直喷加工单\n布包扣加工单\n绣花加工单\n压褶加工单\n贝壳绣加工单\n曲牙绣加工单\n一字贝绣花加工单\n盘扣加工单\n花朵加工单\n打褶加工单\n烫钻加工单\n辅助工艺待加工仓\n辅助工艺待交出仓\n特种工艺工厂管理\n模板工序加工单\n激光开袋加工单\n特种车缝（花样机）加工单\n橡筋定长切割加工单\n特种工艺待加工仓\n特种工艺待交出仓\n换片布菲票打印\n \n待交出仓\n全部关闭\n裁床待交出仓\n简易裁片交出\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n中转袋回收\n中转袋报废\n库存明细\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n库位图\n退裁片库区\n\n三方车缝工厂退回裁片确认后进入本仓内独立库区；报废在此核销，非报废裁片在创建补料单时转入对应补料业务。后续齐套、装袋与正式交出统一走普通补料和交出流程。\n\n在库 0 片\n已转补料 48 片\n已报废 0 片\n当前在库退裁片\n与普通待交出中转袋严格分区，不直接形成待交出库存\n退裁片库区暂无可用裁片。\n菲票 / 生产单 / 袋码 \n库存状态 \n全部\n在库可分配\n已占用\n待拆袋重装\n已装袋待交出\n已交出待回收\n已作废 / 不可用\n库区 \n全部\nA区\n特殊工艺 \n全部\n无特殊工艺\n未做特殊工艺\n特殊工艺加工中\n已做特殊工艺\n接收对象 \n筛选\n重置\n待入仓菲票：\n74\n已打印未确认入仓\n在库裁片：\n320 片\n17 条库存\n已占用裁片：\n320 片\n车缝任务占用\n已装袋待交出：\n5\n当前筛选中转袋\n交出差异：\n0\n同步失败与回仓差异\n无特殊工艺\n320 片\n17 条库存 · 普通裁片，可直接参与车缝分配\n未做特殊工艺\n0 片\n0 条库存 · 需完成特殊工艺回仓后再交出\n已做特殊工艺\n0 片\n0 条库存 · 回仓入库后可参与车缝分配\n待交出仓裁片库存\n共 17 条库存记录\n菲票 / 来源\t款式 / 裁片\t数量账\t袋码 / 库位\t状态\t操作\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\n生产单：PO-202603-0002\n裁片单：按菲票事件追踪\n\t\n按菲票追踪\nGrey / 未标记 / 未标记\n件序：按菲票追踪\n\t\n当前库存：0 片\n已占用：0 片\n可交出：0 片\n\t\nBAG-HPB-FABRIC-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：无\n在库可分配\t\n查看流水\n调整库位\n\n\nFP-HPB-BROWSER-01\n生产单：PO-202603-0002\n裁片单：CUT-HPB-BROWSER-01\n\t\n按菲票追踪\nGrey / M / 前片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-HPB-PARTS-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 17 条\n上一页\n第\n页\n跳转\n下一页\n中转袋交出\n\nWeb 端手工填写为主；失败会保留当前输入。\n\n关闭\n中转袋交出进度\n第 1 步，共 5 步\n1\n确定车缝任务\n2\n核对相关中转袋\n3\n直接交出或重装\n4\n剩余来源袋\n5\n汇总确认\n1\n1 确定生产单和车缝任务\n\n可以直接填写车缝任务编号，或填写生产单后选择接收车缝工厂。\n\n车缝任务编号\n可选车缝任务\n请选择\n暂无可用车缝任务\n生产单号\n接收车缝工厂\n交出接收人（PPIC）\n请先选择车缝任务\n请先确定车缝任务和接收 PPIC，系统会自动显示相关中转袋。\n下一步：核对相关中转袋\n重复双击不会新增第二条业务事实。\n取消",
+      "buttons": [
+        {
+          "action": "open-simple-cut-piece",
+          "text": "简易裁片交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-bagging",
+          "text": "菲票装袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-inbound",
+          "text": "中转袋入仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-handover",
+          "text": "中转袋交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-special-craft-return",
+          "text": "特殊工艺回仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-recovery",
+          "text": "中转袋回收",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-scrap",
+          "text": "中转袋报废",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "关闭",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：核对相关中转袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "add-repack-source",
+          "text": "加入本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理交出袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理剩余来源袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：汇总确认",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "取消",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "submit-handover",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "submit-repack",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "scenario": "both-bound-auto-aggregation",
+      "error": "Error: 真实任务下拉没有Mock分配任务",
+      "steps": [],
+      "errors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "url": "http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工艺工厂运营系统\n\nPFOS\n\n裁床厂管理\n裁床总览\n裁前准备\n接收管理\n铺布执行\n裁后处理\n裁床仓库管理\n待加工仓\n待交出仓\n交出单\n样衣仓\n裁床统计\n印花厂管理\n印花管理\n染厂管理\n染厂管理\n毛织厂管理\n毛织管理\n辅料工厂管理\n花边厂管理\n织带厂管理\n后道工厂管理\n后道工厂管理\n辅助工艺工厂管理\n打揽加工单\n打条加工单\n烫画加工单\n直喷加工单\n布包扣加工单\n绣花加工单\n压褶加工单\n贝壳绣加工单\n曲牙绣加工单\n一字贝绣花加工单\n盘扣加工单\n花朵加工单\n打褶加工单\n烫钻加工单\n辅助工艺待加工仓\n辅助工艺待交出仓\n特种工艺工厂管理\n模板工序加工单\n激光开袋加工单\n特种车缝（花样机）加工单\n橡筋定长切割加工单\n特种工艺待加工仓\n特种工艺待交出仓\n换片布菲票打印\n \n待交出仓\n全部关闭\n裁床待交出仓\n简易裁片交出\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n中转袋回收\n中转袋报废\n库存明细\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n库位图\n退裁片库区\n\n三方车缝工厂退回裁片确认后进入本仓内独立库区；报废在此核销，非报废裁片在创建补料单时转入对应补料业务。后续齐套、装袋与正式交出统一走普通补料和交出流程。\n\n在库 0 片\n已转补料 48 片\n已报废 0 片\n当前在库退裁片\n与普通待交出中转袋严格分区，不直接形成待交出库存\n退裁片库区暂无可用裁片。\n菲票 / 生产单 / 袋码 \n库存状态 \n全部\n在库可分配\n已占用\n待拆袋重装\n已装袋待交出\n已交出待回收\n已作废 / 不可用\n库区 \n全部\nA区\n特殊工艺 \n全部\n无特殊工艺\n未做特殊工艺\n特殊工艺加工中\n已做特殊工艺\n接收对象 \n筛选\n重置\n待入仓菲票：\n74\n已打印未确认入仓\n在库裁片：\n320 片\n17 条库存\n已占用裁片：\n320 片\n车缝任务占用\n已装袋待交出：\n5\n当前筛选中转袋\n交出差异：\n0\n同步失败与回仓差异\n无特殊工艺\n320 片\n17 条库存 · 普通裁片，可直接参与车缝分配\n未做特殊工艺\n0 片\n0 条库存 · 需完成特殊工艺回仓后再交出\n已做特殊工艺\n0 片\n0 条库存 · 回仓入库后可参与车缝分配\n待交出仓裁片库存\n共 17 条库存记录\n菲票 / 来源\t款式 / 裁片\t数量账\t袋码 / 库位\t状态\t操作\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\n生产单：PO-202603-0002\n裁片单：按菲票事件追踪\n\t\n按菲票追踪\nGrey / 未标记 / 未标记\n件序：按菲票追踪\n\t\n当前库存：0 片\n已占用：0 片\n可交出：0 片\n\t\nBAG-HPB-FABRIC-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n在库可分配\t\n查看流水\n调整库位\n\n\nFP-HPB-BROWSER-01\n生产单：PO-202603-0002\n裁片单：CUT-HPB-BROWSER-01\n\t\n按菲票追踪\nGrey / M / 前片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-HPB-PARTS-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 17 条\n上一页\n第\n页\n跳转\n下一页\n中转袋交出\n\nWeb 端手工填写为主；失败会保留当前输入。\n\n关闭\n中转袋交出进度\n第 1 步，共 5 步\n1\n确定车缝任务\n2\n核对相关中转袋\n3\n直接交出或重装\n4\n剩余来源袋\n5\n汇总确认\n1\n1 确定生产单和车缝任务\n\n可以直接填写车缝任务编号，或填写生产单后选择接收车缝工厂。\n\n车缝任务编号\n可选车缝任务\n请选择\n暂无可用车缝任务\n生产单号\n接收车缝工厂\n交出接收人（PPIC）\n请先选择车缝任务\n请先确定车缝任务和接收 PPIC，系统会自动显示相关中转袋。\n下一步：核对相关中转袋\n重复双击不会新增第二条业务事实。\n取消",
+      "buttons": [
+        {
+          "action": "open-simple-cut-piece",
+          "text": "简易裁片交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-bagging",
+          "text": "菲票装袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-inbound",
+          "text": "中转袋入仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-handover",
+          "text": "中转袋交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-special-craft-return",
+          "text": "特殊工艺回仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-recovery",
+          "text": "中转袋回收",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-scrap",
+          "text": "中转袋报废",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "关闭",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：核对相关中转袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "add-repack-source",
+          "text": "加入本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理交出袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理剩余来源袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：汇总确认",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "取消",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "submit-handover",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "submit-repack",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": true
+        }
+      ]
+    }
+  ],
+  "failed": [
+    {
+      "scenario": "unbound-fabric-omission-and-retry",
+      "error": "Error: 真实任务下拉没有Mock分配任务",
+      "steps": [],
+      "errors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "url": "http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工艺工厂运营系统\n\nPFOS\n\n裁床厂管理\n裁床总览\n裁前准备\n接收管理\n铺布执行\n裁后处理\n裁床仓库管理\n待加工仓\n待交出仓\n交出单\n样衣仓\n裁床统计\n印花厂管理\n印花管理\n染厂管理\n染厂管理\n毛织厂管理\n毛织管理\n辅料工厂管理\n花边厂管理\n织带厂管理\n后道工厂管理\n后道工厂管理\n辅助工艺工厂管理\n打揽加工单\n打条加工单\n烫画加工单\n直喷加工单\n布包扣加工单\n绣花加工单\n压褶加工单\n贝壳绣加工单\n曲牙绣加工单\n一字贝绣花加工单\n盘扣加工单\n花朵加工单\n打褶加工单\n烫钻加工单\n辅助工艺待加工仓\n辅助工艺待交出仓\n特种工艺工厂管理\n模板工序加工单\n激光开袋加工单\n特种车缝（花样机）加工单\n橡筋定长切割加工单\n特种工艺待加工仓\n特种工艺待交出仓\n换片布菲票打印\n \n待交出仓\n全部关闭\n裁床待交出仓\n简易裁片交出\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n中转袋回收\n中转袋报废\n库存明细\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n库位图\n退裁片库区\n\n三方车缝工厂退回裁片确认后进入本仓内独立库区；报废在此核销，非报废裁片在创建补料单时转入对应补料业务。后续齐套、装袋与正式交出统一走普通补料和交出流程。\n\n在库 0 片\n已转补料 48 片\n已报废 0 片\n当前在库退裁片\n与普通待交出中转袋严格分区，不直接形成待交出库存\n退裁片库区暂无可用裁片。\n菲票 / 生产单 / 袋码 \n库存状态 \n全部\n在库可分配\n已占用\n待拆袋重装\n已装袋待交出\n已交出待回收\n已作废 / 不可用\n库区 \n全部\nA区\n特殊工艺 \n全部\n无特殊工艺\n未做特殊工艺\n特殊工艺加工中\n已做特殊工艺\n接收对象 \n筛选\n重置\n待入仓菲票：\n74\n已打印未确认入仓\n在库裁片：\n320 片\n17 条库存\n已占用裁片：\n320 片\n车缝任务占用\n已装袋待交出：\n5\n当前筛选中转袋\n交出差异：\n0\n同步失败与回仓差异\n无特殊工艺\n320 片\n17 条库存 · 普通裁片，可直接参与车缝分配\n未做特殊工艺\n0 片\n0 条库存 · 需完成特殊工艺回仓后再交出\n已做特殊工艺\n0 片\n0 条库存 · 回仓入库后可参与车缝分配\n待交出仓裁片库存\n共 17 条库存记录\n菲票 / 来源\t款式 / 裁片\t数量账\t袋码 / 库位\t状态\t操作\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\n生产单：PO-202603-0002\n裁片单：按菲票事件追踪\n\t\n按菲票追踪\nGrey / 未标记 / 未标记\n件序：按菲票追踪\n\t\n当前库存：0 片\n已占用：0 片\n可交出：0 片\n\t\nBAG-HPB-FABRIC-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：无\n在库可分配\t\n查看流水\n调整库位\n\n\nFP-HPB-BROWSER-01\n生产单：PO-202603-0002\n裁片单：CUT-HPB-BROWSER-01\n\t\n按菲票追踪\nGrey / M / 前片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-HPB-PARTS-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 17 条\n上一页\n第\n页\n跳转\n下一页\n中转袋交出\n\nWeb 端手工填写为主；失败会保留当前输入。\n\n关闭\n中转袋交出进度\n第 1 步，共 5 步\n1\n确定车缝任务\n2\n核对相关中转袋\n3\n直接交出或重装\n4\n剩余来源袋\n5\n汇总确认\n1\n1 确定生产单和车缝任务\n\n可以直接填写车缝任务编号，或填写生产单后选择接收车缝工厂。\n\n车缝任务编号\n可选车缝任务\n请选择\n暂无可用车缝任务\n生产单号\n接收车缝工厂\n交出接收人（PPIC）\n请先选择车缝任务\n请先确定车缝任务和接收 PPIC，系统会自动显示相关中转袋。\n下一步：核对相关中转袋\n重复双击不会新增第二条业务事实。\n取消",
+      "buttons": [
+        {
+          "action": "open-simple-cut-piece",
+          "text": "简易裁片交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-bagging",
+          "text": "菲票装袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-inbound",
+          "text": "中转袋入仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-handover",
+          "text": "中转袋交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-special-craft-return",
+          "text": "特殊工艺回仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-recovery",
+          "text": "中转袋回收",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-scrap",
+          "text": "中转袋报废",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "关闭",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：核对相关中转袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "add-repack-source",
+          "text": "加入本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理交出袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理剩余来源袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：汇总确认",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "取消",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "submit-handover",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "submit-repack",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": true
+        }
+      ]
+    },
+    {
+      "scenario": "both-bound-auto-aggregation",
+      "error": "Error: 真实任务下拉没有Mock分配任务",
+      "steps": [],
+      "errors": [
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr .",
+        "[vite] failed to connect to websocket.\nyour current setup:\n  (browser) 127.0.0.1:43235/ <--[HTTP]--> localhost:43235/ (server)\n  (browser) 127.0.0.1:43235/ <--[WebSocket (failing)]--> localhost:43235/ (server)\nCheck out your Vite / network configuration and https://vite.dev/config/server-options.html#server-hmr ."
+      ],
+      "url": "http://127.0.0.1:43235/fcs/craft/cutting/warehouse-management/wait-handover",
+      "body": "HG\nHiGood\n商品中心系统\n(PCS)\n采购管理系统\n(PMS)\n工厂生产协同系统\n(FCS)\n工艺工厂运营系统\n(PFOS)\n仓储物流系统\n(WLS)\n直播运营系统\n(LOS)\n订单管理系统\n(OMS)\n业财一体化系统\n(BFIS)\n数据决策系统\n(DDS)\n管理员\n工艺工厂运营系统\n\nPFOS\n\n裁床厂管理\n裁床总览\n裁前准备\n接收管理\n铺布执行\n裁后处理\n裁床仓库管理\n待加工仓\n待交出仓\n交出单\n样衣仓\n裁床统计\n印花厂管理\n印花管理\n染厂管理\n染厂管理\n毛织厂管理\n毛织管理\n辅料工厂管理\n花边厂管理\n织带厂管理\n后道工厂管理\n后道工厂管理\n辅助工艺工厂管理\n打揽加工单\n打条加工单\n烫画加工单\n直喷加工单\n布包扣加工单\n绣花加工单\n压褶加工单\n贝壳绣加工单\n曲牙绣加工单\n一字贝绣花加工单\n盘扣加工单\n花朵加工单\n打褶加工单\n烫钻加工单\n辅助工艺待加工仓\n辅助工艺待交出仓\n特种工艺工厂管理\n模板工序加工单\n激光开袋加工单\n特种车缝（花样机）加工单\n橡筋定长切割加工单\n特种工艺待加工仓\n特种工艺待交出仓\n换片布菲票打印\n \n待交出仓\n全部关闭\n裁床待交出仓\n简易裁片交出\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n中转袋回收\n中转袋报废\n库存明细\n菲票装袋\n中转袋入仓\n中转袋交出\n特殊工艺回仓\n库位图\n退裁片库区\n\n三方车缝工厂退回裁片确认后进入本仓内独立库区；报废在此核销，非报废裁片在创建补料单时转入对应补料业务。后续齐套、装袋与正式交出统一走普通补料和交出流程。\n\n在库 0 片\n已转补料 48 片\n已报废 0 片\n当前在库退裁片\n与普通待交出中转袋严格分区，不直接形成待交出库存\n退裁片库区暂无可用裁片。\n菲票 / 生产单 / 袋码 \n库存状态 \n全部\n在库可分配\n已占用\n待拆袋重装\n已装袋待交出\n已交出待回收\n已作废 / 不可用\n库区 \n全部\nA区\n特殊工艺 \n全部\n无特殊工艺\n未做特殊工艺\n特殊工艺加工中\n已做特殊工艺\n接收对象 \n筛选\n重置\n待入仓菲票：\n74\n已打印未确认入仓\n在库裁片：\n320 片\n17 条库存\n已占用裁片：\n320 片\n车缝任务占用\n已装袋待交出：\n5\n当前筛选中转袋\n交出差异：\n0\n同步失败与回仓差异\n无特殊工艺\n320 片\n17 条库存 · 普通裁片，可直接参与车缝分配\n未做特殊工艺\n0 片\n0 条库存 · 需完成特殊工艺回仓后再交出\n已做特殊工艺\n0 片\n0 条库存 · 回仓入库后可参与车缝分配\n待交出仓裁片库存\n共 17 条库存记录\n菲票 / 来源\t款式 / 裁片\t数量账\t袋码 / 库位\t状态\t操作\n\nHPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001\n生产单：PO-202603-0002\n裁片单：按菲票事件追踪\n\t\n按菲票追踪\nGrey / 未标记 / 未标记\n件序：按菲票追踪\n\t\n当前库存：0 片\n已占用：0 片\n可交出：0 片\n\t\nBAG-HPB-FABRIC-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n在库可分配\t\n查看流水\n调整库位\n\n\nFP-HPB-BROWSER-01\n生产单：PO-202603-0002\n裁片单：CUT-HPB-BROWSER-01\n\t\n按菲票追踪\nGrey / M / 前片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-HPB-PARTS-VERIFY\nA区 / A-R01-L01-P01\n入仓：2026-09-24 12:01:00\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-03-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-03\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-03\nA区 / A-R01-L01-P03\n入仓：2026-08-03 08:13\n\t\n无特殊工艺\n接收对象：其他任务演示车缝厂\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-02-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-02\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-02\nA区 / A-R01-L01-P02\n入仓：2026-08-03 08:12\n\t\n无特殊工艺\n接收对象：无\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-01\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / S / 前片\n件序：按菲票追踪\n\t\n当前库存：18 片\n已占用：18 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-02\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n藏青 / M / 后片\n件序：按菲票追踪\n\t\n当前库存：20 片\n已占用：20 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-03\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / L / 袖片\n件序：按菲票追踪\n\t\n当前库存：22 片\n已占用：22 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-04\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n灰蓝 / XL / 领片\n件序：按菲票追踪\n\t\n当前库存：16 片\n已占用：16 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n\n\nFP-RP-01-05\n生产单：PO-REPACK-DEMO-001\n裁片单：CUT-RP-01\n\t\n按菲票追踪\n黑色 / 2XL / 口袋片\n件序：按菲票追踪\n\t\n当前库存：24 片\n已占用：24 片\n可交出：0 片\n\t\nBAG-REPACK-DEMO-01\nA区 / A-R01-L01-P01\n入仓：2026-08-03 08:11\n\t\n无特殊工艺\n接收对象：PT Sinar Garment Indonesia\n已占用\t\n查看流水\n调整库位\n第 1 页 / 共 1 页 · 每页 20 条 · 共 17 条\n上一页\n第\n页\n跳转\n下一页\n中转袋交出\n\nWeb 端手工填写为主；失败会保留当前输入。\n\n关闭\n中转袋交出进度\n第 1 步，共 5 步\n1\n确定车缝任务\n2\n核对相关中转袋\n3\n直接交出或重装\n4\n剩余来源袋\n5\n汇总确认\n1\n1 确定生产单和车缝任务\n\n可以直接填写车缝任务编号，或填写生产单后选择接收车缝工厂。\n\n车缝任务编号\n可选车缝任务\n请选择\n暂无可用车缝任务\n生产单号\n接收车缝工厂\n交出接收人（PPIC）\n请先选择车缝任务\n请先确定车缝任务和接收 PPIC，系统会自动显示相关中转袋。\n下一步：核对相关中转袋\n重复双击不会新增第二条业务事实。\n取消",
+      "buttons": [
+        {
+          "action": "open-simple-cut-piece",
+          "text": "简易裁片交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-bagging",
+          "text": "菲票装袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-inbound",
+          "text": "中转袋入仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-handover",
+          "text": "中转袋交出",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-special-craft-return",
+          "text": "特殊工艺回仓",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-recovery",
+          "text": "中转袋回收",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "open-scrap",
+          "text": "中转袋报废",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "关闭",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：核对相关中转袋",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "add-repack-source",
+          "text": "加入本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理交出袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：处理剩余来源袋",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-next",
+          "text": "下一步：汇总确认",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "repack-back",
+          "text": "上一步",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "close-dialog",
+          "text": "取消",
+          "visible": true,
+          "disabled": false
+        },
+        {
+          "action": "submit-handover",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": false
+        },
+        {
+          "action": "submit-repack",
+          "text": "确认本次交出",
+          "visible": false,
+          "disabled": true
+        }
+      ]
+    }
+  ],
+  "reverseOrder": {
+    "uiApplicable": false,
+    "reason": "页面固定按任务自动归集已绑定袋；未提供控制批次处理先后顺序的用户操作。未强改hidden select或制造DOM按钮。逆序提交由既有领域单元/集成证据覆盖，由root绑定对应证据。"
+  },
+  "performance": "该脚本是功能与原子性边界验证，不作为5样本strict性能结果。"
+}

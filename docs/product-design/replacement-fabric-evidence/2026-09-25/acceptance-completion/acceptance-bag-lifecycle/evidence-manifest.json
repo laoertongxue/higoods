@@ -1,0 +1,47 @@
+{
+  "baselineHead": "3a3d16481156a8858155f992aab492cd2cf6bfde",
+  "worktree": "/private/tmp/higoods-replacement-fabric-release-20260925",
+  "branch": "codex/replacement-fabric-acceptance-20260925",
+  "preview": "http://127.0.0.1:43236",
+  "sources": [
+    {
+      "file": "lifecycle-five-samples-build7.json",
+      "build": 7,
+      "contexts": 5,
+      "measurements": 80,
+      "maxMs": 249.30000001192093,
+      "under500": true,
+      "browserErrors": 0
+    },
+    {
+      "file": "web-detail-five-samples-build7.json",
+      "build": 7,
+      "contexts": 5,
+      "measurements": 65,
+      "maxMs": 183.19999998807907,
+      "under500": true,
+      "browserErrors": 0
+    },
+    {
+      "file": "hpb-scan-five-samples-build7.json",
+      "build": 7,
+      "contexts": 5,
+      "measurements": 20,
+      "maxMs": 268.7000000178814,
+      "under500": true,
+      "browserErrors": 0
+    },
+    {
+      "file": "../acceptance-legacy-bags/preview-five-samples-build8.json",
+      "build": 8,
+      "contexts": 5,
+      "measurements": 45,
+      "maxMs": 285.2000000178814,
+      "under500": true,
+      "browserErrors": 0,
+      "businessLocalStorageWrites": 0
+    }
+  ],
+  "totalMeasurements": 210,
+  "note": "build8仅收口旧袋读侧模块初始化写与主代理合同入口，已测现代袋相关源码未变；保留真实构建版本。软件打印不代表实体打印机输出。"
+}

@@ -1,0 +1,235 @@
+{
+  "results": [
+    {
+      "sample": 1,
+      "ms": 223.60000002384186,
+      "explicitMockPrerequisite": true,
+      "legacyWrites": [],
+      "persisted": {
+        "assignmentMode": "DIRECT",
+        "assignmentStatus": "ASSIGNED",
+        "assignedFactoryId": "ID-F021",
+        "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+        "dispatchedAt": "2026-09-25 10:00:00",
+        "businessAssignedAt": "2026-09-25 10:00:00",
+        "dispatchedBy": "陈琳",
+        "dispatchPrice": 1000,
+        "acceptanceStatus": "ACCEPTED",
+        "status": "IN_PROGRESS",
+        "updatedAt": "2026-09-25 12:16:36",
+        "startedAt": "2026-09-25 12:16:36",
+        "startProofFiles": [],
+        "auditLogs": [
+          {
+            "id": "GAL-TASKGEN-202603-082-002-001",
+            "action": "GENERATE",
+            "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+            "at": "2026-03-01 00:00:00",
+            "by": "系统"
+          },
+          {
+            "id": "RAL-MERGEDCUTSEWIRONPODEMOTRIPLE09160WPGX2R-000133",
+            "action": "CREATE_FIXED_MERGED_TASK",
+            "detail": "创建裁剪+车缝+烫包：TASK-PO-DEMO-TRIPLE-0916-CUT_PANEL、TASK-PO-DEMO-TRIPLE-0916-SEW、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK",
+            "at": "2026-09-25 12:07:50",
+            "by": "演示初始化"
+          },
+          {
+            "id": "AL-START-1790309796834",
+            "action": "START_TASK",
+            "detail": "任务开工，开工时间：2026-09-25 12:16:36，开工凭证：0个",
+            "at": "2026-09-25 12:16:36",
+            "by": "CV_Micro_管理员"
+          }
+        ]
+      },
+      "body": "CV Micro Sewing Jakarta Pusat\n执行 · ID-F021\n待办\n7\nC\nCV_M\n返回任务\n\nPO-DEMO-TRIPLE-0916\n\n裁剪+车缝+烫包\n\nMOCK-START-001\n\n生产中，待交出\n本厂责任范围\n\n裁剪、车缝至烫包；按冻结技术包一并完成辅助工艺、特种工艺、开扣眼和装扣子\n\n任务数量\n180 件\n分配颗粒度\n完整 SKU\n源任务\nTASK-PO-DEMO-TRIPLE-0916-CUT_PANEL__ORDER、TASK-PO-DEMO-TRIPLE-0916-SEW__ORDER、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK__ORDER\n本次承接 SKU\nSKU-SIMPLE-M-GRY · 雾霾灰 · M\n100件\nSKU-SIMPLE-L-GRY · 雾霾灰 · L\n80件\n现场操作\n\nPDA 只负责接单、开始和交出；不设置执行步骤、关键节点或单独完工。\n\n交出并结束\n接单\n执行\n交接\n结算",
+      "errors": []
+    },
+    {
+      "sample": 2,
+      "ms": 221,
+      "explicitMockPrerequisite": true,
+      "legacyWrites": [],
+      "persisted": {
+        "assignmentMode": "DIRECT",
+        "assignmentStatus": "ASSIGNED",
+        "assignedFactoryId": "ID-F021",
+        "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+        "dispatchedAt": "2026-09-25 10:00:00",
+        "businessAssignedAt": "2026-09-25 10:00:00",
+        "dispatchedBy": "陈琳",
+        "dispatchPrice": 1000,
+        "acceptanceStatus": "ACCEPTED",
+        "status": "IN_PROGRESS",
+        "updatedAt": "2026-09-25 12:16:38",
+        "startedAt": "2026-09-25 12:16:38",
+        "startProofFiles": [],
+        "auditLogs": [
+          {
+            "id": "GAL-TASKGEN-202603-082-002-001",
+            "action": "GENERATE",
+            "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+            "at": "2026-03-01 00:00:00",
+            "by": "系统"
+          },
+          {
+            "id": "RAL-MERGEDCUTSEWIRONPODEMOTRIPLE09160WPGX2R-000133",
+            "action": "CREATE_FIXED_MERGED_TASK",
+            "detail": "创建裁剪+车缝+烫包：TASK-PO-DEMO-TRIPLE-0916-CUT_PANEL、TASK-PO-DEMO-TRIPLE-0916-SEW、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK",
+            "at": "2026-09-25 12:07:50",
+            "by": "演示初始化"
+          },
+          {
+            "id": "AL-START-1790309798907",
+            "action": "START_TASK",
+            "detail": "任务开工，开工时间：2026-09-25 12:16:38，开工凭证：0个",
+            "at": "2026-09-25 12:16:38",
+            "by": "CV_Micro_管理员"
+          }
+        ]
+      },
+      "body": "CV Micro Sewing Jakarta Pusat\n执行 · ID-F021\n待办\n7\nC\nCV_M\n返回任务\n\nPO-DEMO-TRIPLE-0916\n\n裁剪+车缝+烫包\n\nMOCK-START-001\n\n生产中，待交出\n本厂责任范围\n\n裁剪、车缝至烫包；按冻结技术包一并完成辅助工艺、特种工艺、开扣眼和装扣子\n\n任务数量\n180 件\n分配颗粒度\n完整 SKU\n源任务\nTASK-PO-DEMO-TRIPLE-0916-CUT_PANEL__ORDER、TASK-PO-DEMO-TRIPLE-0916-SEW__ORDER、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK__ORDER\n本次承接 SKU\nSKU-SIMPLE-M-GRY · 雾霾灰 · M\n100件\nSKU-SIMPLE-L-GRY · 雾霾灰 · L\n80件\n现场操作\n\nPDA 只负责接单、开始和交出；不设置执行步骤、关键节点或单独完工。\n\n交出并结束\n接单\n执行\n交接\n结算",
+      "errors": []
+    },
+    {
+      "sample": 3,
+      "ms": 220.7999999821186,
+      "explicitMockPrerequisite": true,
+      "legacyWrites": [],
+      "persisted": {
+        "assignmentMode": "DIRECT",
+        "assignmentStatus": "ASSIGNED",
+        "assignedFactoryId": "ID-F021",
+        "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+        "dispatchedAt": "2026-09-25 10:00:00",
+        "businessAssignedAt": "2026-09-25 10:00:00",
+        "dispatchedBy": "陈琳",
+        "dispatchPrice": 1000,
+        "acceptanceStatus": "ACCEPTED",
+        "status": "IN_PROGRESS",
+        "updatedAt": "2026-09-25 12:16:40",
+        "startedAt": "2026-09-25 12:16:40",
+        "startProofFiles": [],
+        "auditLogs": [
+          {
+            "id": "GAL-TASKGEN-202603-082-002-001",
+            "action": "GENERATE",
+            "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+            "at": "2026-03-01 00:00:00",
+            "by": "系统"
+          },
+          {
+            "id": "RAL-MERGEDCUTSEWIRONPODEMOTRIPLE09160WPGX2R-000133",
+            "action": "CREATE_FIXED_MERGED_TASK",
+            "detail": "创建裁剪+车缝+烫包：TASK-PO-DEMO-TRIPLE-0916-CUT_PANEL、TASK-PO-DEMO-TRIPLE-0916-SEW、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK",
+            "at": "2026-09-25 12:07:50",
+            "by": "演示初始化"
+          },
+          {
+            "id": "AL-START-1790309800989",
+            "action": "START_TASK",
+            "detail": "任务开工，开工时间：2026-09-25 12:16:40，开工凭证：0个",
+            "at": "2026-09-25 12:16:40",
+            "by": "CV_Micro_管理员"
+          }
+        ]
+      },
+      "body": "CV Micro Sewing Jakarta Pusat\n执行 · ID-F021\n待办\n7\nC\nCV_M\n返回任务\n\nPO-DEMO-TRIPLE-0916\n\n裁剪+车缝+烫包\n\nMOCK-START-001\n\n生产中，待交出\n本厂责任范围\n\n裁剪、车缝至烫包；按冻结技术包一并完成辅助工艺、特种工艺、开扣眼和装扣子\n\n任务数量\n180 件\n分配颗粒度\n完整 SKU\n源任务\nTASK-PO-DEMO-TRIPLE-0916-CUT_PANEL__ORDER、TASK-PO-DEMO-TRIPLE-0916-SEW__ORDER、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK__ORDER\n本次承接 SKU\nSKU-SIMPLE-M-GRY · 雾霾灰 · M\n100件\nSKU-SIMPLE-L-GRY · 雾霾灰 · L\n80件\n现场操作\n\nPDA 只负责接单、开始和交出；不设置执行步骤、关键节点或单独完工。\n\n交出并结束\n接单\n执行\n交接\n结算",
+      "errors": []
+    },
+    {
+      "sample": 4,
+      "ms": 224.40000000596046,
+      "explicitMockPrerequisite": true,
+      "legacyWrites": [],
+      "persisted": {
+        "assignmentMode": "DIRECT",
+        "assignmentStatus": "ASSIGNED",
+        "assignedFactoryId": "ID-F021",
+        "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+        "dispatchedAt": "2026-09-25 10:00:00",
+        "businessAssignedAt": "2026-09-25 10:00:00",
+        "dispatchedBy": "陈琳",
+        "dispatchPrice": 1000,
+        "acceptanceStatus": "ACCEPTED",
+        "status": "IN_PROGRESS",
+        "updatedAt": "2026-09-25 12:16:43",
+        "startedAt": "2026-09-25 12:16:43",
+        "startProofFiles": [],
+        "auditLogs": [
+          {
+            "id": "GAL-TASKGEN-202603-082-002-001",
+            "action": "GENERATE",
+            "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+            "at": "2026-03-01 00:00:00",
+            "by": "系统"
+          },
+          {
+            "id": "RAL-MERGEDCUTSEWIRONPODEMOTRIPLE09160WPGX2R-000133",
+            "action": "CREATE_FIXED_MERGED_TASK",
+            "detail": "创建裁剪+车缝+烫包：TASK-PO-DEMO-TRIPLE-0916-CUT_PANEL、TASK-PO-DEMO-TRIPLE-0916-SEW、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK",
+            "at": "2026-09-25 12:07:50",
+            "by": "演示初始化"
+          },
+          {
+            "id": "AL-START-1790309803111",
+            "action": "START_TASK",
+            "detail": "任务开工，开工时间：2026-09-25 12:16:43，开工凭证：0个",
+            "at": "2026-09-25 12:16:43",
+            "by": "CV_Micro_管理员"
+          }
+        ]
+      },
+      "body": "CV Micro Sewing Jakarta Pusat\n执行 · ID-F021\n待办\n7\nC\nCV_M\n返回任务\n\nPO-DEMO-TRIPLE-0916\n\n裁剪+车缝+烫包\n\nMOCK-START-001\n\n生产中，待交出\n本厂责任范围\n\n裁剪、车缝至烫包；按冻结技术包一并完成辅助工艺、特种工艺、开扣眼和装扣子\n\n任务数量\n180 件\n分配颗粒度\n完整 SKU\n源任务\nTASK-PO-DEMO-TRIPLE-0916-CUT_PANEL__ORDER、TASK-PO-DEMO-TRIPLE-0916-SEW__ORDER、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK__ORDER\n本次承接 SKU\nSKU-SIMPLE-M-GRY · 雾霾灰 · M\n100件\nSKU-SIMPLE-L-GRY · 雾霾灰 · L\n80件\n现场操作\n\nPDA 只负责接单、开始和交出；不设置执行步骤、关键节点或单独完工。\n\n交出并结束\n接单\n执行\n交接\n结算",
+      "errors": []
+    },
+    {
+      "sample": 5,
+      "ms": 221.40000000596046,
+      "explicitMockPrerequisite": true,
+      "legacyWrites": [],
+      "persisted": {
+        "assignmentMode": "DIRECT",
+        "assignmentStatus": "ASSIGNED",
+        "assignedFactoryId": "ID-F021",
+        "assignedFactoryName": "CV Micro Sewing Jakarta Pusat",
+        "dispatchedAt": "2026-09-25 10:00:00",
+        "businessAssignedAt": "2026-09-25 10:00:00",
+        "dispatchedBy": "陈琳",
+        "dispatchPrice": 1000,
+        "acceptanceStatus": "ACCEPTED",
+        "status": "IN_PROGRESS",
+        "updatedAt": "2026-09-25 12:16:45",
+        "startedAt": "2026-09-25 12:16:45",
+        "startProofFiles": [],
+        "auditLogs": [
+          {
+            "id": "GAL-TASKGEN-202603-082-002-001",
+            "action": "GENERATE",
+            "detail": "从统一 TASK 产物生成车缝，覆盖工序：车缝",
+            "at": "2026-03-01 00:00:00",
+            "by": "系统"
+          },
+          {
+            "id": "RAL-MERGEDCUTSEWIRONPODEMOTRIPLE09160WPGX2R-000133",
+            "action": "CREATE_FIXED_MERGED_TASK",
+            "detail": "创建裁剪+车缝+烫包：TASK-PO-DEMO-TRIPLE-0916-CUT_PANEL、TASK-PO-DEMO-TRIPLE-0916-SEW、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK",
+            "at": "2026-09-25 12:07:50",
+            "by": "演示初始化"
+          },
+          {
+            "id": "AL-START-1790309805331",
+            "action": "START_TASK",
+            "detail": "任务开工，开工时间：2026-09-25 12:16:45，开工凭证：0个",
+            "at": "2026-09-25 12:16:45",
+            "by": "CV_Micro_管理员"
+          }
+        ]
+      },
+      "body": "CV Micro Sewing Jakarta Pusat\n执行 · ID-F021\n待办\n7\nC\nCV_M\n返回任务\n\nPO-DEMO-TRIPLE-0916\n\n裁剪+车缝+烫包\n\nMOCK-START-001\n\n生产中，待交出\n本厂责任范围\n\n裁剪、车缝至烫包；按冻结技术包一并完成辅助工艺、特种工艺、开扣眼和装扣子\n\n任务数量\n180 件\n分配颗粒度\n完整 SKU\n源任务\nTASK-PO-DEMO-TRIPLE-0916-CUT_PANEL__ORDER、TASK-PO-DEMO-TRIPLE-0916-SEW__ORDER、TASK-PO-DEMO-TRIPLE-0916-IRON_PACK__ORDER\n本次承接 SKU\nSKU-SIMPLE-M-GRY · 雾霾灰 · M\n100件\nSKU-SIMPLE-L-GRY · 雾霾灰 · L\n80件\n现场操作\n\nPDA 只负责接单、开始和交出；不设置执行步骤、关键节点或单独完工。\n\n交出并结束\n接单\n执行\n交接\n结算",
+      "errors": []
+    }
+  ],
+  "failed": []
+}

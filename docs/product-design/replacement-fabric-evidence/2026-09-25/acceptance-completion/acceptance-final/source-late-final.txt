@@ -1,0 +1,33 @@
+### Result
+{"results":[{"scene":"unready","bad":2},{"scene":"initialization-race"},{"scene":"complete-publication","beforeComplete":[{"memory":0,"read":null}]},{"scene":"same-command-race","error":"Error: page.evaluate: Error: 本次确认编号已用于不同内容，请重新核对。\n    at commandRequest.onsuccess (http://127.0.0.1:43235/src/data/fcs/cutting/cutting-record-repository.ts?t=1790309106272:118:17)"},{"scene":"migration-target-conflict"},{"scene":"migration-copy-abort"},{"scene":"migration-empty"},{"scene":"migration-cleanup-failure"}],"failed":[{"scene":"same-command-race","error":"Error: page.evaluate: Error: 本次确认编号已用于不同内容，请重新核对。\n    at commandRequest.onsuccess (http://127.0.0.1:43235/src/data/fcs/cutting/cutting-record-repository.ts?t=1790309106272:118:17)"}]}
+### Ran Playwright code
+```js
+await (async page=>{const b=page.context().browser(),existing=new Set(b.contexts());try{return await (async(page)=>{
+ const results=[];
+ for(const scene of ['unready','initialization-race','complete-publication','same-command-race','migration-target-conflict','migration-copy-abort','migration-empty','migration-cleanup-failure']){
+ const c=await page.context().browser().newContext(),p=await c.newPage();await p.route('**/acceptance-core',r=>r.fulfill({contentType:'text/html',body:'<body>storage acceptance</body>'}));await p.goto('http://127.0.0.1:43235/acceptance-core');
+ try{results.push(await p.evaluate(async(scene)=>{
+ const m=await import('/src/data/fcs/production-context-records.ts'),r=await import('/src/data/fcs/cutting/cutting-record-repository.ts');const key=m.PRODUCTION_CONTEXT_KEYS.orders,raw=JSON.stringify({version:1,orders:[{productionOrderId:'p1',v:1}]});const assert=(b,s)=>{if(!b)throw Error(s)};const reject=async(fn,s)=>{try{await fn();throw Error('not-rejected')}catch(e){assert(String(e).includes(s),String(e));return String(e)}};
+ if(scene==='unready'){assert(!m.isProductionContextReady(),'not ready');let bad=0;try{m.readProductionContextValue(key)}catch(e){bad+=m.isProductionContextRecoveryError(e)?1:0}try{m.productionContextInitializationRecords()}catch(e){bad+=m.isProductionContextRecoveryError(e)?1:0}Storage.prototype.getItem=function(){throw Error('disabled')};await reject(()=>m.hydrateProductionContextRecords(),'无法检查');assert(!m.isProductionContextReady(),'failure not ready');return{scene,bad};}
+ if(scene.startsWith('migration-')){
+  if(scene!=='migration-empty')localStorage.setItem(key,raw);
+  const put=IDBObjectStore.prototype.put,remove=Storage.prototype.removeItem;
+  if(scene==='migration-target-conflict'){const snapshot=await r.readCuttingRecords();const records=m.decodeProductionContextRecords(key,raw);records[0].value.v=99;await r.commitCuttingRecords({revision:snapshot.revision,change:{puts:records},command:{id:'existing',intent:'x',result:0,at:'now'}});await reject(()=>m.migrateProductionContextRecords({otherPagesClosed:true,progress:()=>{}}),'冲突');assert(JSON.parse(localStorage.getItem(key)).orders[0].v===1,'source unchanged');assert((await r.readCuttingRecords()).records[0].value.v===99,'target unchanged');return{scene};}
+  if(scene==='migration-copy-abort'){IDBObjectStore.prototype.put=function(v,...args){if(v?.collection==='production-context:orders')throw Error('copy-aborted');return put.call(this,v,...args)};await reject(()=>m.migrateProductionContextRecords({otherPagesClosed:true,progress:()=>{}}),'copy-aborted');IDBObjectStore.prototype.put=put;assert((await r.readCuttingRecords()).records.length===0,'no partial batch');assert(localStorage.getItem(key)===raw,'source intact');}
+  if(scene==='migration-cleanup-failure'){Storage.prototype.removeItem=function(k){if(k===key)throw Error('remove-failed');return remove.call(this,k)};await reject(()=>m.migrateProductionContextRecords({otherPagesClosed:true,progress:()=>{}}),'remove-failed');Storage.prototype.removeItem=remove;assert(localStorage.getItem(key)===raw,'source retained');assert((await m.listProductionContextMigrationStatus())[0].phase==='VERIFIED','verified resume');}
+  await m.migrateProductionContextRecords({otherPagesClosed:true,progress:()=>{}});assert((await m.listProductionContextMigrationStatus()).every(x=>x.phase==='COMPLETE'),'all complete');return{scene};
+ }
+ await m.hydrateProductionContextRecords();assert(m.productionContextInitializationRecords().length===7,'init 7 registered keys');let memory={v:0};const capture=()=>memory,restore=v=>{memory=v;m.writeProductionContextValue(key,JSON.stringify({version:1,orders:v.productionOrderId?[v]:[]}))};const action=()=>{memory={productionOrderId:'p1',v:1};m.writeProductionContextValue(key,raw);return{winner:1}};
+ if(scene==='initialization-race'){localStorage.setItem(key,raw);await reject(()=>m.saveProductionContextAction({id:'race',intent:'x',capture,restore,action}),'旧页面');assert((await r.readCuttingRecords()).records.length===0,'no initialization overwrite');assert(memory.v===0,'rollback');return{scene};}
+ const db=await r.openCuttingRecordDatabase();let beforeComplete=[];const put=IDBObjectStore.prototype.put;IDBObjectStore.prototype.put=function(v,...args){if(v?.collection==='production-context:orders')beforeComplete.push({memory:memory.v,read:m.readProductionContextValue(key)});return put.call(this,v,...args)};
+ if(scene==='same-command-race'){
+  const actionRace=()=>{action();const tx=db.transaction(['records','commands','meta'],'readwrite');for(const item of m.decodeProductionContextRecords(key,JSON.stringify({version:1,orders:[{productionOrderId:'p1',v:7}]})))tx.objectStore('records').put(item);for(const item of m.productionContextInitializationRecords())tx.objectStore('records').put(item);tx.objectStore('commands').add({id:'same',intent:'x',result:{winner:7},at:'now'});tx.objectStore('meta').put({id:'revision',value:1});return{winner:1}};
+  m.onProductionContextChanged(key,()=>{memory=JSON.parse(m.readProductionContextValue(key)).orders[0]});const out=await m.saveProductionContextAction({id:'same',intent:'x',action:actionRace,capture,restore});assert(out.winner===7&&memory.v===7,'replay publishes persisted winner not computed after');IDBObjectStore.prototype.put=put;return{scene,winner:out.winner};
+ }
+ const out=await m.saveProductionContextAction({id:'one',intent:'x',action,capture,restore});IDBObjectStore.prototype.put=put;assert(beforeComplete.length===1&&beforeComplete[0].memory===0&&beforeComplete[0].read===null,'memory and readers original during requests');assert(memory.v===1,'published after complete');return{scene,beforeComplete};
+ },scene))}catch(e){results.push({scene,error:String(e)})}finally{await c.close()}}
+ return{results,failed:results.filter(x=>x.error)};
+}
+)(page)}finally{for(const c of b.contexts())if(!existing.has(c))await c.close()}})(page);
+```
+

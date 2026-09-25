@@ -1,0 +1,51 @@
+{
+  "results": [
+    {
+      "scene": "assignment-commit",
+      "saved": {
+        "assignmentId": "ASG-TRANSACTION-001",
+        "contractId": "CONTRACT-000001"
+      },
+      "calls": 1,
+      "records": 30,
+      "files": 1,
+      "reopened": {
+        "assignmentId": "ASG-TRANSACTION-001",
+        "contractId": "CONTRACT-000001",
+        "scan": true
+      }
+    },
+    {
+      "scene": "assignment-abort",
+      "saved": {
+        "assignmentId": "ASG-TRANSACTION-001",
+        "contractId": "CONTRACT-000001"
+      },
+      "calls": 2,
+      "records": 30,
+      "files": 1,
+      "error": "QuotaExceededError: injected-action-abort",
+      "reopened": {
+        "assignmentId": "ASG-TRANSACTION-001",
+        "contractId": "CONTRACT-000001",
+        "scan": true
+      }
+    },
+    {
+      "scene": "attachments-migrate",
+      "records": 9,
+      "files": 1
+    },
+    {
+      "scene": "event-commit",
+      "result": "cutting-event:START:SPREAD-ACTION-ONE-CUT-ACTION-ONE:20260925100000",
+      "records": 20
+    },
+    {
+      "scene": "event-abort",
+      "error": "QuotaExceededError: injected-event-abort",
+      "records": 0
+    }
+  ],
+  "failed": []
+}
