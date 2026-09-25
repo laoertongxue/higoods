@@ -1,0 +1,33 @@
+[1m
+CodeGraph Status
+[0m
+[36mProject:[0m /Users/laoer/.codex/worktrees/replacement-fabric-tickets/higoods
+
+[1mIndex Statistics:[0m
+  Files:     2,234
+  Nodes:     64,326
+  Edges:     246,355
+  DB Size:   186.84 MB
+  Backend:   [32mnode:sqlite — built-in (full WAL)[0m
+  Journal:   [32mwal[0m
+
+[1mNodes by Kind:[0m
+  function        23,998
+  constant        16,477
+  import          11,758
+  interface       3,318
+  property        3,048
+  file            2,233
+  type_alias      2,202
+  variable        1,062
+  method          181
+  class           49
+
+[1mFiles by Language:[0m
+  typescript      2,117
+  javascript      111
+  python          5
+  yaml            1
+
+[32m✓[0m Index is up to date
+

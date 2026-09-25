@@ -391,6 +391,10 @@ const buildInboundConfirmHarness = (taskId: string, carrierCode: string) => {
   const workflowContainer = {
     innerHTML: '',
     scrollTop: 287,
+    attributes: new Map<string, string>(),
+    querySelectorAll() { return [carrierInput, ticketInput] },
+    setAttribute(key: string, value: string) { this.attributes.set(key, value) },
+    removeAttribute(key: string) { this.attributes.delete(key) },
     querySelector(selector: string) {
       if (selector === '[data-pda-cut-inbound-field="carrierCode"]') return carrierInput
       if (selector === '[data-pda-cut-inbound-field="scanCode"]') return ticketInput
@@ -444,21 +448,14 @@ assert.equal(
   'handled-locally',
   '工作区存在且局部更新成功时必须返回精确的局部处理结果',
 )
-assert(
-  successHarness.workflowContainer.innerHTML.includes('装袋成功'),
-  '确认装袋成功后必须立即在当前工作区显示结果',
-)
-assert.match(
-  successHarness.workflowContainer.innerHTML,
-  /data-pda-cut-inbound-field="carrierCode"[\s\S]*?value=""/,
-  '确认装袋成功后局部工作区必须显示已清空的新一轮袋码',
-)
-assert.equal(successHarness.workflowContainer.scrollTop, 287, '局部刷新不得改变页面工作区滚动位置')
-assert.deepEqual(
-  successHarness.carrierInput.focusOptions,
-  { preventScroll: true },
-  '成功后必须聚焦替换后的袋码输入且禁止浏览器自动滚动',
-)
+assert.equal(successHarness.workflowContainer.attributes.get('aria-busy'), 'true', '事务等待期间必须标记保存中')
+assert.equal(successHarness.workflowContainer.innerHTML.includes('装袋成功'), false, '事务 complete 前不得展示成功')
+// Node 夹具没有 IndexedDB：验证真实保存失败分支；成功事务另由浏览器专项验证。
+await new Promise(resolve => setTimeout(resolve, 30))
+assert.match(successHarness.workflowContainer.innerHTML, /未保存.*本地数据库|未保存.*IndexedDB/, '本地数据库不可用必须明确未保存')
+assert.match(successHarness.workflowContainer.innerHTML, /value="BAG-001"/, '保存失败保留袋码以便恢复')
+assert.equal(successHarness.workflowContainer.attributes.has('aria-busy'), false, '失败后恢复可重试状态')
+assert.equal(successHarness.workflowContainer.scrollTop, 287, '失败反馈不得改变滚动位置')
 
 const failedHarness = buildInboundConfirmHarness('TASK-INBOUND-LOCAL-FAIL', 'BAG-002')
 assert.equal(

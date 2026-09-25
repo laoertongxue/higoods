@@ -1,3 +1,4 @@
+import { getCuttingRuntimeEventProjectionRevision } from './cutting-runtime-event-ledger.ts'
 import {
   getProductionOrderTechPackSnapshot,
 } from '../production-orders.ts'
@@ -2514,14 +2515,14 @@ function getGeneratedFeiTicketRuntimeSignature(): string {
   const storage = typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
     ? localStorage
     : null
-  if (!storage) return ''
+  if (!storage) return String(getCuttingRuntimeEventProjectionRevision())
   return [
     'cuttingMarkerSpreadingLedger',
     'cuttingMarkerPlanSourceLedger',
     CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY,
   ]
     .map((key) => `${key}:${storage.getItem(key) || ''}`)
-    .join('\n')
+    .concat(`event-projection:${getCuttingRuntimeEventProjectionRevision()}`).join('\n')
 }
 
 function buildGeneratedFeiTicketDatasetSignature(sourceRecords: GeneratedCutOrderSourceRecord[]): string {

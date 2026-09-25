@@ -45,6 +45,7 @@ const emptyCraftTraceProjection = {
   itemsByTicketId: {} as Record<string, never>,
   itemsByTicketNo: {} as Record<string, never>,
 }
+import { listMixedFabricBagCandidates } from './mixed-bag-candidates.ts'
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values.filter(Boolean)))
@@ -227,6 +228,7 @@ export function buildTransferBagsProjection(
     store: transferBagStore,
     baseViewModel: transferBagViewModel,
   })
+  transferBagViewModel.ticketCandidates.push(...listMixedFabricBagCandidates())
   const runtimeLifecycleByBagCode =
     buildRuntimeTransferBagLifecycleProjection(
       transferBagViewModel.masters.map((master) => master.bagCode),

@@ -1,5 +1,10 @@
+import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
+import { mixedBagSummary } from '../components/ui/mixed-bag-contents.ts'
 // @page-pattern: pda
 import { escapeHtml } from '../utils'
+import { savePdaCuttingAction } from './pda-cutting-save.ts'
+import { replacementFabricCompanions } from '../data/fcs/cutting/replacement-fabric-bag-selection.ts'
+import { parseReplacementTicketCode } from '../data/fcs/cutting/replacement-fabric-fei-tickets.ts'
 import { getBrowserLocalStorage, type BrowserStorageLike } from '../data/browser-storage.ts'
 import {
   classifyTransferBagForHandoverTask,
@@ -228,6 +233,11 @@ function resolvePdaHandoverTaskContext(
   if ([taskIds, productionOrderIds, productionOrderNos, factoryIds, factoryNames].some((items) => items.length !== 1)) {
     throw new Error('一次只能处理一个生产单的一个车缝任务和一个接收车缝工厂。')
   }
+  const companionBags = state.sourceBagCodes.length ? state.sourceBagCodes : listCurrentTransferBagCodes(storage).filter(code =>
+    resolveTransferBagCurrentUse(code, storage).tickets.some(ticket => tickets.some(target => target.feiTicketId === ticket.feiTicketId)))
+  const companions = replacementFabricCompanions(companionBags.flatMap(code => resolveTransferBagCurrentUse(code, storage).tickets), {
+    taskId: taskIds[0], taskNo: tickets[0].sewingTaskNo, factoryId: factoryIds[0], factoryName: factoryNames[0], productionOrderId: productionOrderIds[0],
+  })
   const ppicOptions = buildCuttingHandoverPpicOptions({ runtimeTaskId: taskIds[0], receiverFactoryId: factoryIds[0], receiverFactoryName: factoryNames[0] })
   const selectedPpic = ppicOptions.find((item) => normalizeCode(item.ppicId) === normalizeCode(state.receiverPpicId))
   if (!selectedPpic) throw new Error('请扫描或填写当前接收工厂的 PPIC 编号。')
@@ -248,7 +258,7 @@ function resolvePdaHandoverTaskContext(
     receiverFactoryName: factoryNames[0],
     receiverPpicId: ppic.ppicId,
     receiverPpicName: ppic.ppicName,
-    targetFeiTicketIds: unique(tickets.map((ticket) => ticket.feiTicketId)),
+    targetFeiTicketIds: unique([...tickets, ...companions].map((ticket) => ticket.feiTicketId)),
   }
 }
 
@@ -284,11 +294,14 @@ export function preparePdaHandoverTask(
 
 function sourceTickets(
   state: PdaTransferBagRepackState,
-  _storage: BrowserStorageLike | null,
+  storage: BrowserStorageLike | null,
 ): Array<{ bagCode: string; ticket: TransferBagTicketFactSnapshot }> {
+  const context = state.sewingTaskNo ? resolvePdaHandoverTaskContext(state, storage) : null
   return Object.values(state.sourceTicketSnapshotById).map((ticket) => ({
     bagCode: state.sourceBagByTicketId[ticket.feiTicketId] || '',
-    ticket,
+    ticket: context && ticket.ticketKind === 'REPLACEMENT_FABRIC' && context.targetFeiTicketIds.includes(ticket.feiTicketId)
+      ? { ...ticket, sewingTaskId: context.sewingTaskId, sewingTaskNo: context.sewingTaskNo,
+        receiverFactoryId: context.receiverFactoryId, receiverFactoryName: context.receiverFactoryName } : ticket,
   }))
 }
 
@@ -413,7 +426,8 @@ function resolveSourceTicket(
   const ticketCode = normalizeCode(rawTicketCode)
   if (!ticketCode) throw new Error('请扫描或填写菲票编号。')
   const matches = sourceTickets(state, storage).filter(({ ticket }) =>
-    [ticket.feiTicketId, ticket.feiTicketNo].some((value) => normalizeCode(value) === ticketCode))
+    ticket.feiTicketId === parseReplacementTicketCode(rawTicketCode)
+    || [ticket.feiTicketId, ticket.feiTicketNo].some((value) => normalizeCode(value) === ticketCode))
   if (matches.length !== 1) throw new Error('这张菲票不在已扫描来源袋内，请重新扫描。')
   return matches[0]
 }
@@ -723,7 +737,7 @@ export function submitPdaTransferBagRepack(
         feiTicketIds: sourceTickets(state, storage).filter((item) => item.bagCode === bag.bagCode && !state.ticketTargetById[item.ticket.feiTicketId]).map((item) => item.ticket.feiTicketId),
         returnLocationRef: bag.returnLocationRef!,
       })),
-      operator: { operatorName: 'PDA 仓务操作员', operatorRole: '裁片仓重装员' },
+      operator: repackOperator(),
       source: 'PDA',
       occurredAt: state.occurredAt,
     }, storage)
@@ -763,11 +777,11 @@ export function submitPdaTransferBagRepack(
             .map((item) => item.ticket.feiTicketId),
           returnLocationRef: bag.returnLocationRef!,
         })),
-      operator: { operatorName: 'PDA 仓务操作员', operatorRole: '裁片仓重装员' },
+      operator: repackOperator(),
       source: 'PDA' as const,
       occurredAt: state.occurredAt,
     } } : {}),
-    operator: { operatorName: 'PDA 仓务操作员', operatorRole: '裁片仓重装员' },
+    operator: repackOperator(),
     source: 'PDA',
     occurredAt: state.occurredAt,
   }, storage)
@@ -799,8 +813,9 @@ function renderGroupStep(state: PdaTransferBagRepackState): string {
       <div class="rounded-xl border bg-slate-50 p-3 text-sm"><b>${escapeHtml(context.productionOrderNo)} / ${escapeHtml(context.sewingTaskNo)}</b><br>${escapeHtml(context.receiverFactoryName)} · 接收 PPIC ${escapeHtml(context.receiverPpicName)}</div>
       ${state.sourceBagCodes.map((bagCode) => {
         const classification = classifyTransferBagForHandoverTask({ currentUse: resolveTransferBagCurrentUse(bagCode), handoverContext: context })
-        return `<div class="rounded-xl border ${classification.disposition === 'DIRECT_HANDOVER' ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50'} p-3 text-sm"><b>${escapeHtml(bagCode)}</b><br>本任务 ${classification.targetTickets.length} 张 / ${classification.targetTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片${classification.otherTickets.length ? `；其他菲票 ${classification.otherTickets.length} 张 / ${classification.otherTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片` : ''}<div class="mt-1 font-medium">${classification.disposition === 'DIRECT_HANDOVER' ? '整袋直接交出' : '正常拆袋重装（不是异常）'}</div></div>`
+        return `<div class="rounded-xl border ${classification.disposition === 'DIRECT_HANDOVER' ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50'} p-3 text-sm"><b>${escapeHtml(bagCode)}</b><br>本任务：${escapeHtml(mixedBagSummary(classification.targetTickets))}${classification.otherTickets.length ? `；其他：${escapeHtml(mixedBagSummary(classification.otherTickets))}` : ''}<div class="mt-1 font-medium">${classification.disposition === 'DIRECT_HANDOVER' ? '整袋直接交出' : '正常拆袋重装（不是异常）'}</div></div>`
       }).join('')}
+      <input class="h-12 w-full rounded-xl border px-3" data-pda-repack-field="sourceBag" placeholder="扫描同批换片布袋或捆条袋" /><button class="h-12 w-full rounded-xl border font-semibold" data-pda-repack-action="add-source" type="button">加入本次交出</button>
       <button class="h-12 w-full rounded-xl bg-blue-600 font-semibold text-white" data-pda-repack-action="bags-reviewed" type="button">核对完成，继续处理</button>
     </div>
   `
@@ -1032,7 +1047,9 @@ export function handlePdaCuttingTransferBagRepackEvent(
       return updateRepackWorkflow(container, preparePdaHandoverTask(next))
     }
     if (action === 'add-source') {
-      return updateRepackWorkflow(container, scanRepackSourceBag(state, fieldValue(container, 'sourceBag')))
+      const next = scanRepackSourceBag(state, fieldValue(container, 'sourceBag'))
+      if (next.sewingTaskNo) next.targetFeiTicketIds = resolvePdaHandoverTaskContext(next).targetFeiTicketIds
+      return updateRepackWorkflow(container, next)
     }
     if (action === 'sources-done') {
       if (!state.sourceBagCodes.length) throw new Error('请先扫描来源袋。')
@@ -1082,25 +1099,13 @@ export function handlePdaCuttingTransferBagRepackEvent(
         operator: { operatorName: 'PDA 仓务操作员', operatorRole: '裁片仓回收员' },
         source: 'PDA',
       }
-      const activated = activatePdaRepackResultBag(
-        state,
-        state.pendingForceBagCode,
-        getBrowserLocalStorage(),
-        confirmation,
-      )
-      return updateRepackWorkflow(container, {
-        ...activated,
-        forceRecoveryByBagCode: {
-          ...activated.forceRecoveryByBagCode,
-          [state.pendingForceBagCode]: {
-            physicalBagReceived: true,
-            physicalBagEmpty: true,
-            recoveryNode: confirmation.recoveryNode,
-            recoveryLocation: confirmation.recoveryLocation,
-            reason,
-          },
-        },
-      })
+      savePdaCuttingAction({ container, intent: JSON.stringify(['recover-result-bag', state.pendingForceBagCode, state.repackBatchId, confirmation]),
+        action: storage => activatePdaRepackResultBag(state, state.pendingForceBagCode, storage, confirmation),
+        success: activated => { updateRepackWorkflow(container, { ...activated, forceRecoveryByBagCode: {
+          ...activated.forceRecoveryByBagCode, [state.pendingForceBagCode]: { physicalBagReceived: true, physicalBagEmpty: true,
+            recoveryNode: confirmation.recoveryNode, recoveryLocation: confirmation.recoveryLocation, reason } } }) },
+        failure: feedback => { updateRepackWorkflow(container, { ...state, feedback }) } })
+      return PDA_PAGE_HANDLED_LOCALLY
     }
     if (action === 'scan-ticket-to-active') {
       return updateRepackWorkflow(container, scanRepackTicketToActiveResult(state, fieldValue(container, 'ticket')))
@@ -1125,13 +1130,12 @@ export function handlePdaCuttingTransferBagRepackEvent(
       return updateRepackWorkflow(container, { ...state, step: 'CONFIRM', feedback: '相关中转袋和回仓库位已核对，请确认本次交出。' })
     }
     if (action === 'confirm') {
-      const submitted = submitPdaTransferBagRepack(state)
-      return updateRepackWorkflow(container, {
-        ...state,
-        step: 'DONE',
-        submittedEventId: submitted.repackEvent?.eventId || submitted.handoverEvents[0]?.eventId || '',
-        feedback: '',
-      })
+      savePdaCuttingAction({ container, intent: JSON.stringify(['repack-handover', state]),
+        action: storage => submitPdaTransferBagRepack(state, storage),
+        success: submitted => { updateRepackWorkflow(container, { ...state, step: 'DONE',
+          submittedEventId: submitted.repackEvent?.eventId || submitted.handoverEvents[0]?.eventId || '', feedback: '' }) },
+        failure: feedback => { updateRepackWorkflow(container, { ...state, feedback }) } })
+      return PDA_PAGE_HANDLED_LOCALLY
     }
   } catch (error) {
     return updateRepackWorkflow(container, {
@@ -1140,4 +1144,10 @@ export function handlePdaCuttingTransferBagRepackEvent(
     })
   }
   return false
+}
+
+function repackOperator() {
+  const session = getPdaSession()
+  if (typeof document !== 'undefined' && !session) throw new Error('请登录仓管账号后确认。')
+  return { operatorId: session?.userId, operatorName: session?.userName || 'PDA 仓务操作员', operatorRole: '裁片仓重装员' }
 }

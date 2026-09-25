@@ -1,6 +1,18 @@
 type RuntimeTaskReadResolver = (taskId: string) => unknown | null
 type RuntimeTaskListResolver = () => readonly unknown[]
 
+let cuttingReceiptProjection: ((task: unknown) => unknown) | null = null
+let cuttingProjectionCache = new WeakMap<object, unknown[]>()
+export function installCuttingReceiptTaskProjection(project: ((task: unknown) => unknown) | null): void {
+  cuttingReceiptProjection = project; cuttingProjectionCache = new WeakMap()
+}
+export function projectCuttingReceiptTasks<T>(tasks: T[]): T[] {
+  if (!cuttingReceiptProjection) return tasks
+  let projected = cuttingProjectionCache.get(tasks)
+  if (!projected) { projected = tasks.map(cuttingReceiptProjection); cuttingProjectionCache.set(tasks, projected) }
+  return projected as T[]
+}
+
 let resolveRuntimeTask: RuntimeTaskReadResolver | null = null
 let listRuntimeTasks: RuntimeTaskListResolver | null = null
 let resolverOwner = ''

@@ -1,3 +1,5 @@
+import { withGeneratedCutOrderReadFrame } from '../../../data/fcs/cutting/generated-cut-orders.ts'
+import { runCuttingEventAction } from '../../../data/fcs/cutting/cutting-event-repository.ts'
 import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
 import { readWoolStore } from '../../../data/fcs/wool-domain/store.ts'
 // @page-pattern: dashboard
@@ -159,8 +161,9 @@ interface WaitHandoverFilterState {
   dateTo: string
 }
 
+const warehouseNumberFormatter = new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 })
 function formatNumber(value: number): string {
-  return new Intl.NumberFormat('zh-CN', { maximumFractionDigits: 1 }).format(value)
+  return warehouseNumberFormatter.format(value)
 }
 
 function formatLength(value: number, unit = 'yard'): string {
@@ -3673,15 +3676,22 @@ export function handleCraftCuttingWaitHandoverEvent(target: HTMLElement): boolea
   }
   const dialog = actionNode?.closest<HTMLElement>('[data-wait-handover-modal]')
   if (!dialog) return false
-  const blocked =
-    action === 'submit-bagging' ? submitWaitHandoverBagging(dialog) :
-    action === 'submit-inbound' ? submitWaitHandoverInbound(dialog) :
-    action === 'submit-handover' ? submitWaitHandoverRecord(dialog) :
-    action === 'submit-special-craft-return' ? submitWaitHandoverSpecialCraftReturn(dialog) :
-    true
-  if (blocked) return true
-  removeWaitHandoverWebActionDialog()
-  requestWaitHandoverWebRefresh()
+  if (dialog.dataset.saving === 'true') return true
+  const operationId = dialog.dataset.operationId || crypto.randomUUID()
+  dialog.dataset.operationId = operationId; dialog.dataset.saving = 'true'
+  const controls = Array.from(dialog.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('input,button,select'))
+  const disabled = controls.map(control => control.disabled)
+  controls.forEach(control => { control.disabled = true })
+  void runCuttingEventAction({ id: `warehouse:${operationId}`, intent: JSON.stringify([action, Array.from(dialog.querySelectorAll<HTMLInputElement>('input,select')).map(input => [input.name, input.value])]), action: () => {
+    const blocked = action === 'submit-bagging' ? submitWaitHandoverBagging(dialog)
+      : action === 'submit-inbound' ? submitWaitHandoverInbound(dialog)
+      : action === 'submit-handover' ? submitWaitHandoverRecord(dialog)
+      : action === 'submit-special-craft-return' ? submitWaitHandoverSpecialCraftReturn(dialog) : true
+    if (blocked) throw new Error('请按提示核对，当前输入尚未保存。')
+    return true
+  } }).then(() => { removeWaitHandoverWebActionDialog(); requestWaitHandoverWebRefresh() })
+    .catch(error => { window.alert(`未保存：${error instanceof Error ? error.message : String(error)}`) })
+    .finally(() => { delete dialog.dataset.saving; controls.forEach((control, index) => { control.disabled = disabled[index] }) })
   return true
 }
 
@@ -5582,6 +5592,9 @@ export function renderCraftCuttingWarehouseManagementWaitProcessPage(): string {
 }
 
 export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string {
+  return withGeneratedCutOrderReadFrame(renderWaitHandoverContent)
+}
+function renderWaitHandoverContent(): string {
   configureWaitHandoverWebActionBridge()
   if (getWarehouseSearchParams().get('inventoryType') === 'binding') {
     return renderBindingInventoryQueryPage()
@@ -5591,9 +5604,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const generatedTickets = listWaitHandoverPieceSources()
   const runtimeWaitHandoverEvents = listRuntimeWaitHandoverEvents()
   const runtimeInboundTempBags = buildRuntimeInboundTempBagsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
-  const fallbackInboundTempBags = buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
-  const inboundTempBags = runtimeInboundTempBags.length ? runtimeInboundTempBags : fallbackInboundTempBags
-  const transferBagSummary = { bagCount: uniqueStrings(inboundTempBags.map((bag) => bag.bagCode)).length }
+  const inboundTempBags = runtimeInboundTempBags.length ? runtimeInboundTempBags : buildInboundTempBagsFromTransferBagViewModel(buildTransferBagsProjection().viewModel)
   const inboundInventoryRecords = buildInboundTempBagInventoryRecords(inboundTempBags)
   const runtimeSpecialCraftReturnInventoryRecords = buildRuntimeSpecialCraftReturnInventoryRecordsFromEvents(runtimeWaitHandoverEvents, generatedTickets)
   const effectiveInventoryRecords = [
@@ -5604,10 +5615,8 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
   const ticketCandidates = buildRuntimeTicketCandidatesFromGeneratedTickets(generatedTickets)
     .filter((ticket) => !inboundTicketIds.has(ticket.feiTicketId))
   const specialCraftReturnProjection = buildRuntimeSpecialCraftReturnProjectionFromEvents(runtimeWaitHandoverEvents, generatedTickets)
-  const specialCraftHandoverGroups = buildRuntimeSpecialCraftHandoverGroups(runtimeWaitHandoverEvents, inboundInventoryRecords, generatedTickets)
   const sewingAllocationProjection = buildSewingTaskAllocationProjectionFromInventory(effectiveInventoryRecords)
   const handoverPickingProjection = buildHandoverPickingTaskProjectionFromAllocationProjection(sewingAllocationProjection)
-  const handoverTableProjection = buildRuntimeHandoverTableProjection(runtimeWaitHandoverEvents, generatedTickets)
   const activeTab = readTabKey<WaitHandoverTabKey>('inventory', [
     'inventory',
     'bagging',
@@ -5616,19 +5625,6 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     'special-craft-return',
     'locations',
   ])
-  const workbenchProjection = buildWaitHandoverWorkbenchProjection({
-    runtimeEvents: runtimeWaitHandoverEvents,
-    ticketCandidates,
-    generatedTickets,
-    inboundTempBags,
-    inboundInventoryRecords,
-    specialCraftReturnProjection,
-    specialCraftReturnInventoryRecords: runtimeSpecialCraftReturnInventoryRecords,
-    sewingAllocationProjection,
-    handoverPickingProjection,
-    transferBagSummary,
-    specialCraftHandoverGroups,
-  })
   const filters = getWaitHandoverFilters()
   const reservedQtyByRecord = buildWaitHandoverReservedQtyMap(handoverPickingProjection)
   const filteredInventoryRecords = filterWaitHandoverInventoryRecords(effectiveInventoryRecords, filters, reservedQtyByRecord)
@@ -5677,30 +5673,9 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
         ['SCR-20260322-004', 'HR-CF-20260322-006', '激光开袋专属工厂', '激光开袋', '54 片 / 54 片', '裁床待交出仓 / 已定位', '已回仓', '无差异'],
       ]
   const pagedSpecialCraftReturnRows = getWaitHandoverPage('special-craft-return-records', specialCraftReturnRows)
-  const writebackDifferenceRows = [
-    ...workbenchProjection.discrepancyAndShortageItems.map((item) => [
-      item.targetTaskId || item.itemId,
-      item.productionOrderNo,
-      item.feiTicketNos.join('、') || '按交出记录追踪',
-      formatPieceQty(item.pieceQty),
-      item.targetReceiver || '待接收方回写',
-      item.shortageAfterHandover,
-      item.urgentLevel,
-      item.updatedAt,
-    ]),
-    ...specialCraftReturnProjection.discrepancyRecords.flatMap((record) =>
-      record.discrepancyItems.map((item) => [
-        record.returnRecordNo,
-        record.sourceHandoverRecordNo,
-        item.feiTicketId || '按回仓记录追踪',
-        formatPieceQty(Math.abs(item.differenceQty)),
-        record.receiverFactoryName,
-        item.description,
-        item.handlingStatus,
-        item.reportedAt,
-      ]),
-    ),
-  ]
+  // 当前列表只显示差异条数；不构建未展示的整套旧工作台卡片。
+  const writebackDifferenceCount = Math.min(3, runtimeWaitHandoverEvents.filter(event => event.eventType === '新增交出记录').length)
+    + specialCraftReturnProjection.discrepancyRecords.reduce((count, record) => count + record.discrepancyItems.length, 0)
 
   const filteredReservedPieceQty = filteredInventoryRecords.reduce(
     (sum, record) => sum + (reservedQtyByRecord.get(record.inventoryRecordId) || 0),
@@ -5712,7 +5687,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ${renderCompactKpiCard('在库裁片', formatPieceQty(filteredInventoryPieceQty), `${filteredInventoryRecords.length} 条库存`, 'text-emerald-600')}
     ${renderCompactKpiCard('已占用裁片', formatPieceQty(filteredReservedPieceQty), '车缝任务占用', 'text-amber-600')}
     ${renderCompactKpiCard('已装袋待交出', readyHandoverBagCount, '当前筛选中转袋', 'text-violet-600')}
-    ${renderCompactKpiCard('交出差异', writebackDifferenceRows.length, '同步失败与回仓差异', 'text-rose-600')}
+    ${renderCompactKpiCard('交出差异', writebackDifferenceCount, '同步失败与回仓差异', 'text-rose-600')}
   `)
 
   const filterPanelOptions = {
@@ -5722,7 +5697,7 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     reservedQtyByRecord,
   }
   const firstTaskId = handoverPickingProjection.tasks[0]?.pickingTaskId || 'demo-task'
-  const inventoryContent = `<section class="space-y-4">
+  const inventoryContent = () => `<section class="space-y-4">
     ${renderWoolPanelReceiptTickets()}
     ${renderCutPieceReturnZoneArea()}
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inventory' })}
@@ -5730,37 +5705,37 @@ export function renderCraftCuttingWarehouseManagementWaitHandoverPage(): string 
     ${renderWaitHandoverSpecialCraftInventorySummary(filteredInventoryRecords)}
     ${renderWaitHandoverInventoryTable(filteredInventoryRecords, reservedQtyByRecord, runtimeWaitHandoverEvents)}
   </section>`
-  const inboundBaggingContent = `<section class="space-y-4">
+  const inboundBaggingContent = () => `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'bagging' })}
     ${waitHandoverStats}
     ${renderWaitHandoverBaggingRecordTable(inboundTempUseRows)}
   </section>`
-  const inboundContent = `<section class="space-y-4">
+  const inboundContent = () => `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'inbound' })}
     ${waitHandoverStats}
     ${renderWaitHandoverInboundLocationTable(actualInboundTempUseRows)}
   </section>`
-  const handoverRecordContent = `<section class="space-y-4">
+  const handoverRecordContent = () => `<section class="space-y-4">
     ${renderWaitHandoverFilterPanel({ ...filterPanelOptions, tabKey: 'handover-bagging' })}
     ${waitHandoverStats}
-    ${renderWaitHandoverHandoverRecordTable(handoverTableProjection.recordRows)}
+    ${renderWaitHandoverHandoverRecordTable(buildRuntimeHandoverTableProjection(runtimeWaitHandoverEvents, generatedTickets).recordRows)}
   </section>`
-  const specialCraftReturnContent = `<section class="space-y-4">
+  const specialCraftReturnContent = () => `<section class="space-y-4">
     <div data-wait-handover-paged-list="special-craft-return-records">${renderHubTable(['回仓记录', '来源交出记录', '承接工厂', '工艺', '应回 / 实回', '回仓库位', '状态', '差异'], pagedSpecialCraftReturnRows.records, '暂无特殊工艺回仓记录。', renderWaitHandoverPagination('special-craft-return-records', pagedSpecialCraftReturnRows.total, pagedSpecialCraftReturnRows.page, pagedSpecialCraftReturnRows.pageSize))}</div>
   </section>`
-  const locationContent = renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
+  const locationContent = () => renderCuttingWarehouseLocationMapSection('WAIT_HANDOVER')
   const activeContent =
     activeTab === 'bagging'
-      ? inboundBaggingContent
+      ? inboundBaggingContent()
       : activeTab === 'inbound'
-        ? inboundContent
+        ? inboundContent()
         : activeTab === 'handover-bagging'
-          ? handoverRecordContent
+          ? handoverRecordContent()
         : activeTab === 'special-craft-return'
-          ? specialCraftReturnContent
+          ? specialCraftReturnContent()
         : activeTab === 'locations'
-          ? locationContent
-          : inventoryContent
+          ? locationContent()
+          : inventoryContent()
 
   return renderHubShell({
     metaKey: 'warehouse-management-wait-handover',

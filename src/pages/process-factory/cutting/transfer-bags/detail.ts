@@ -1,3 +1,5 @@
+import { renderMixedBagTicket, mixedBagSummary } from '../../../../components/ui/mixed-bag-contents.ts'
+import type { TransferBagTicketFactSnapshot } from '../../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { appStore } from '../../../../state/store.ts'
 import { renderRealQrPlaceholder } from '../../../../components/real-qr.ts'
 import { escapeHtml, formatDateTime } from '../../../../utils.ts'
@@ -925,7 +927,7 @@ export function renderTransferBagCurrentTab(
         ${renderDetailMetric('当前库位', carrierRecord?.currentLocation || '—')}
         ${renderDetailMetric(
           '当前装载摘要',
-          `${currentUse.tickets.length} 张菲票 / ${currentUse.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)} 片裁片`,
+          mixedBagSummary(currentUse.tickets),
         )}
       </div>
     </section>
@@ -937,6 +939,10 @@ export function renderTransferBagItemsTab(
   focusedUsage: TransferBagUsageItem | null,
 ): string {
   const currentUse = resolveTransferBagCurrentUse(activeMaster.bagCode)
+  if (currentUse.tickets.some(ticket => ticket.ticketKind === 'REPLACEMENT_FABRIC' || ticket.ticketKind === 'BINDING_STRIP')) {
+    const paging = paginateDetailItems(currentUse.tickets)
+    return `<section class="space-y-3 rounded-xl border bg-card p-4"><h2 class="font-semibold">当前袋内菲票快照</h2><p>${escapeHtml(mixedBagSummary(currentUse.tickets))}</p><div class="grid gap-3 md:grid-cols-2">${paging.items.map(renderMixedBagTicket).join('')}</div>${renderDetailPagination({activeMaster,focusedUsage,activeTab:'cycle',total:currentUse.tickets.length,...paging})}</section>`
+  }
   const rows = currentUse.tickets.map((ticket) => ({
         ticketNo: ticket.feiTicketNo,
         productionOrderNo: ticket.productionOrderNo,
@@ -1143,8 +1149,9 @@ export function renderTransferBagHandoverTab(
                   <span class="font-medium text-foreground">${escapeHtml(runtimeString(payload.handoverRecordNo) || event.refs.handoverRecordId || event.eventNo)}</span>
                   <span class="text-xs text-muted-foreground">${escapeHtml(`${event.operatorName} / ${formatDateTime(event.occurredAt)}`)}</span>
                 </div>
-                ${snapshots.length
-                  ? renderStickyTableScroller(`
+                ${snapshots.some(ticket => ticket.ticketKind === 'REPLACEMENT_FABRIC' || ticket.ticketKind === 'BINDING_STRIP')
+                  ? `<p>${escapeHtml(mixedBagSummary(snapshots as unknown as TransferBagTicketFactSnapshot[]))}</p><div class="grid gap-3 md:grid-cols-2">${(snapshots as unknown as TransferBagTicketFactSnapshot[]).map(renderMixedBagTicket).join('')}</div>`
+                  : snapshots.length ? renderStickyTableScroller(`
                       <table class="min-w-[900px] w-full text-sm">
                         <thead class="bg-muted/95 text-xs text-muted-foreground"><tr><th class="px-3 py-2 text-left">菲票</th><th class="px-3 py-2 text-left">生产单</th><th class="px-3 py-2 text-left">裁片单</th><th class="px-3 py-2 text-left">颜色 / 尺码 / 部位</th><th class="px-3 py-2 text-right">交出片数</th><th class="px-3 py-2 text-left">接收工厂</th></tr></thead>
                         <tbody>${snapshots.map((ticket) => `<tr class="border-b bg-card"><td class="px-3 py-2 font-medium">${escapeHtml(runtimeString(ticket.feiTicketNo))}</td><td class="px-3 py-2">${escapeHtml(runtimeString(ticket.productionOrderNo))}</td><td class="px-3 py-2">${escapeHtml(runtimeString(ticket.cutOrderNo))}</td><td class="px-3 py-2">${escapeHtml([runtimeString(ticket.color), runtimeString(ticket.size), runtimeString(ticket.partName)].filter(Boolean).join(' / '))}</td><td class="px-3 py-2 text-right tabular-nums">${escapeHtml(String(ticket.pieceQty || 0))} 片</td><td class="px-3 py-2">${escapeHtml(runtimeString(ticket.receiverFactoryName) || runtimeString(payload.receiverName))}</td></tr>`).join('')}</tbody>
@@ -1475,6 +1482,14 @@ export function renderDetailPage(): string {
   const activeMaster = getActiveMaster()
   const activeTab = readTransferBagDetailTab()
   const focusedUsage = getDetailFocusedUsage(activeMaster)
+  // Runtime bagging accepts a scanned physical bag before an archive master exists.
+  // Display the recorded contents without inventing capacity, ownership, or a master.
+  const scannedBagCode = (getWarehouseSearchParams().get('bagCode') || '').trim().toUpperCase()
+  if (!activeMaster && scannedBagCode) {
+    const current = resolveTransferBagCurrentUse(scannedBagCode)
+    const events = getDetailRuntimeEvents(scannedBagCode)
+    if (events.length) return `<div class="space-y-3 p-4"><header class="flex items-center justify-between"><h1 class="text-xl font-bold">中转袋详情：${escapeHtml(scannedBagCode)}</h1><button class="rounded border p-2" data-nav="${escapeHtml(buildTransferBagListRoute())}">返回中转袋流转</button></header><p class="text-sm text-slate-600">袋号已有装袋记录，档案信息待补充。当前使用周期：${escapeHtml(current.usageCycleId || '暂无')}</p><section class="space-y-3 rounded border p-4"><h2 class="font-semibold">当前袋内内容</h2><p>${escapeHtml(mixedBagSummary(current.tickets))}</p><div class="grid gap-3 md:grid-cols-2">${current.tickets.map(renderMixedBagTicket).join('')}</div></section><section class="space-y-3 rounded border p-4"><h2 class="font-semibold">交出历史</h2>${events.filter(event => event.eventType === '新增交出记录').map(event => { const payload = runtimeRecord(event.payload); const tickets = runtimeRecords(payload.transferBagUses).filter(bag => bag.bagCode === scannedBagCode).flatMap(bag => runtimeRecords(bag.ticketSnapshot)) as unknown as TransferBagTicketFactSnapshot[]; return `<details><summary>${escapeHtml(event.occurredAt)} · ${escapeHtml(mixedBagSummary(tickets))}</summary><div class="grid gap-3 md:grid-cols-2">${tickets.map(renderMixedBagTicket).join('')}</div></details>` }).join('') || '<p>暂无交出记录</p>'}</section></div>`
+  }
 
   return `
     <div class="space-y-3 p-4">

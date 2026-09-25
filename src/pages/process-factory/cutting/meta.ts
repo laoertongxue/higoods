@@ -24,6 +24,7 @@ export type CuttingCanonicalPageKey =
   | 'spreading-edit'
   | 'fei-tickets'
   | 'binding-fei-tickets'
+  | 'replacement-fabric-fei-tickets'
   | 'fei-ticket-detail'
   | 'fei-ticket-printed'
   | 'fei-ticket-print'
@@ -243,6 +244,11 @@ export const CUTTING_PAGE_META: Record<CuttingCanonicalPageKey, CuttingPageMeta>
     pageSubtitle: '',
     isPlaceholder: false,
     shortDescription: '按捆条加工单查看捆条菲票明细、打印状态和打印入口。',
+  },
+  'replacement-fabric-fei-tickets': {
+    key: 'replacement-fabric-fei-tickets', canonicalPath: '/fcs/craft/cutting/replacement-fabric-fei-tickets', aliases: [],
+    menuGroupTitle: '裁后处理', pageTitle: '换片布菲票打印', pageSubtitle: '', isPlaceholder: false,
+    shortDescription: '按生产单和面料打印固定 5 Yard 的换片布菲票，新增独立票或补打原票。',
   },
   'fei-ticket-detail': {
     key: 'fei-ticket-detail',

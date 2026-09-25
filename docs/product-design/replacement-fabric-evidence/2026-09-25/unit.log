@@ -1,0 +1,33 @@
+✔ 备份恢复不能借原票编号伪造另一种面料的交出回执 (1.506ms)
+✔ 部位票缓存感知已提交事件版本，重复读取同一版本不失效 (0.326375ms)
+✔ 按名称排朴，空名拒绝，同名不同编码/颜色保留独立身份 (0.66525ms)
+✔ 初始每面料一张，重复分配幂等；新增与补打不混淆 (0.667625ms)
+✔ 改派未交票失效，已交历史不抹除，新范围递增序号 (0.488084ms)
+✔ 部分出纸仅确认勾选票；重复确认不增加次数，内容变化拒绝 (0.127709ms)
+✔ 整个批次多袋并集检查，非本次袋不可借用，顺序无关 (0.480417ms)
+✔ 同任务同工厂历史可满足；不同任务或换厂必须另交 (0.178583ms)
+✔ 三方自行裁剪排除，资料缺失与无需面料分开判断 (0.063333ms)
+✔ 混装按类型和单位分项，换片布不能拆成非5 Yard (0.113458ms)
+✔ 局域网 HTTP 的摘要与原生 SHA-256 相同，既有票号不变化 (13.941917ms)
+(node:98086) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 混装打印保留裁片矩阵，捆条和换片布独立附页，不合并单位 (0.976667ms)
+✔ 纯换片布袋可生成货物标识，不制造尺码和部位 (0.097125ms)
+✔ 混装标签拒绝换片布错误长度、作废票和混生产单 (0.213167ms)
+(node:98087) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 分配 SKU 的需料不同；多尺码共料去重，名称含朴排除 (0.872875ms)
+✔ 完整但全是朴为空集合；缺颜色映射或空名称属于资料错误 (0.230625ms)
+✔ 同名不同编码面料不混并；BOM 身份歧义阻断 (0.146208ms)
+✔ 交出回执从快照保留三种明细，Yard 与米不进入裁片数量 (0.523333ms)
+✔ 回执任务读取保持数组身份；只在事实变更后重新投影 (0.191292ms)
+✔ 款式需料读取的配置查询只返回独立副本，不能污染下次来源读取 (0.261292ms)
+✔ 来源读取失败时不能把不可用哨兵值当作稳定分配继续保存 (0.277583ms)
+ℹ tests 21
+ℹ suites 0
+ℹ pass 21
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 438.541208

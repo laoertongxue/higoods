@@ -3778,12 +3778,19 @@ function findHead(handoverId: string): PdaHandoverHead | undefined {
   if (added && added.processBusinessCode !== 'WOOL') {
     return added.headType === 'PICKUP' ? refreshPickupHeadSummary(cloneHead(added)) : refreshHandoutHeadSummary(cloneHead(added))
   }
+  // These heads are created only by the special-craft flow in handoverHeadAdditions.
+  // A missing exact ID must not materialize every unrelated warehouse head.
+  if (/^SC-(DISPATCH|PICKUP|RETURN)-/.test(handoverId)) return undefined
   const nonWoolHead = buildNonWoolHeadsInternal().find((item) => item.handoverId === handoverId)
   if (nonWoolHead) return nonWoolHead
   return listWoolFactHandoverHeads().find((item) => item.handoverId === handoverId)
 }
 
-function findRecord(recordId: string): PdaHandoverRecord | undefined {
+function findRecord(recordId: string, knownHeadId?: string): PdaHandoverRecord | undefined {
+  if (knownHeadId) {
+    const head = findHead(knownHeadId)
+    return head?.headType === 'HANDOUT' ? getHandoutRecordsForHeadInternal(head).find(record => record.recordId === recordId) : undefined
+  }
   const overrideHeadId = handoutRecordOverrides.get(recordId)?.handoverId
   const added = Array.from(handoutRecordAdditions.values()).flat().find(record => record.recordId === recordId)
   const storedHeadId = overrideHeadId || added?.handoverId
@@ -3805,7 +3812,13 @@ function findRecord(recordId: string): PdaHandoverRecord | undefined {
   return undefined
 }
 
-function findPickupRecord(recordId: string): PdaPickupRecord | undefined {
+function findPickupRecord(recordId: string, knownHeadId?: string): PdaPickupRecord | undefined {
+  const storedHeadId = knownHeadId || pickupRecordOverrides.get(recordId)?.handoverId
+    || Array.from(pickupRecordAdditions.values()).flat().find(record => record.recordId === recordId)?.handoverId
+  if (storedHeadId) {
+    const head = findHead(storedHeadId)
+    return head?.headType === 'PICKUP' ? getPickupRecordsForHeadInternal(head).find(record => record.recordId === recordId) : undefined
+  }
   const simple = buildSimpleCutPieceFactoryReceipts().records.find((r) => r.recordId === recordId)
   if (simple) return simple
   const issueMatch = /^PKR-(ISSUE-.+)-([0-9]{3})$/.exec(recordId)
@@ -3911,7 +3924,7 @@ function resolveTaskReceiver(task: {
 
 function savePickupRecord(record: PdaPickupRecord): void {
   return runFormalHandoutAction(findHead(record.handoverId), () => {
-  if (findPickupRecord(record.recordId)) {
+  if (findPickupRecord(record.recordId, record.handoverId)) {
     const existedOverride = pickupRecordOverrides.get(record.recordId) ?? {}
     pickupRecordOverrides.set(record.recordId, { ...existedOverride, ...record })
     if (cachedBuiltHeads) cachedBuiltHeads = cachedBuiltHeads.map(head =>
@@ -3938,7 +3951,7 @@ function savePickupRecord(record: PdaPickupRecord): void {
 }
 
 function saveHandoutRecord(record: PdaHandoverRecord): void {
-  const current = findRecord(record.recordId)
+  const current = findRecord(record.recordId, record.handoverId)
   const projectionVersionSignature = (item: PdaHandoverRecord): string => JSON.stringify({
     recordId: item.handoverRecordId || item.recordId,
     handoverId: item.handoverId,
@@ -4296,6 +4309,8 @@ import.meta.hot?.dispose(disposeCompleteHandoutReaders)
 export function getHandoverOrderById(handoverOrderId: string): PdaHandoverHead | undefined {
   const matchHead = (head: PdaHandoverHead) =>
     head.headType === 'HANDOUT' && (head.handoverOrderId || head.handoverId) === handoverOrderId
+  const added = Array.from(handoverHeadAdditions.values()).find(matchHead)
+  if (added && added.processBusinessCode !== 'WOOL') return cloneHead(refreshHandoutHeadSummary(cloneHead(added)))
   const nonWoolHead = buildNonWoolHeadsInternal().find(matchHead)
   if (nonWoolHead) return cloneHead(nonWoolHead)
   const woolHead = listWoolFactHandoverHeads().find(matchHead)
@@ -4767,7 +4782,7 @@ export function upsertPdaHandoverHeadMock(head: PdaHandoverHead): PdaHandoverHea
 }
 
 export function upsertPdaPickupRecordMock(record: PdaPickupRecord): PdaPickupRecord {
-  const exists = findPickupRecord(record.recordId)
+  const exists = findPickupRecord(record.recordId, record.handoverId)
   const head = findHead(record.handoverId)
   if (!exists && head?.completionStatus === 'COMPLETED') {
     throw new Error('接收单已完成，不允许新增接收记录')
@@ -4777,7 +4792,7 @@ export function upsertPdaPickupRecordMock(record: PdaPickupRecord): PdaPickupRec
 }
 
 export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord): PdaHandoverRecord {
-  const exists = findRecord(record.recordId)
+  const exists = findRecord(record.recordId, record.handoverId)
   const head = findHead(record.handoverId)
   if (!exists && head?.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')

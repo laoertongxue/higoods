@@ -1,4 +1,5 @@
 import { buildTmfPackageLabelsPrintDocument, buildTmfHandoverPrintDocument, renderTmfPackageLabelsTemplate, renderTmfHandoverTemplate } from '../../pages/print/templates/tmf-package-print-template.ts'
+import { buildReplacementFabricPrintDocument, renderReplacementFabricPrintDocument } from '../../pages/print/templates/replacement-fabric-label-template.ts'
 import { buildTmfProcessSheetPrintDocument, renderTmfProcessSheetTemplate } from '../../pages/print/templates/tmf-process-sheet-template.ts'
 import type {
   PrintDocument,
@@ -98,6 +99,7 @@ export interface PrintTemplateRegistration {
 }
 
 export const printTemplateRegistry: PrintTemplateRegistration[] = [
+  { templateCode: 'REPLACEMENT_FABRIC_LABEL_V1', templateName: '换片布菲票', documentType: 'REPLACEMENT_FABRIC_LABEL', supportedSourceTypes: ['FEI_TICKET_RECORD'], buildDocument: buildReplacementFabricPrintDocument, render: renderReplacementFabricPrintDocument },
   { templateCode: 'TMF_PACKAGE_LABEL_V1', templateName: '织带包装标签', documentType: 'TMF_PACKAGE_LABEL', supportedSourceTypes: ['TMF_OUTPUT_PACKAGE'], buildDocument: buildTmfPackageLabelsPrintDocument, render: renderTmfPackageLabelsTemplate },
   { templateCode: 'TMF_HANDOVER_SHEET_V1', templateName: '织带产出交出单', documentType: 'TMF_HANDOVER_SHEET', supportedSourceTypes: ['TMF_OUTPUT_HANDOVER'], buildDocument: buildTmfHandoverPrintDocument, render: renderTmfHandoverTemplate },
   { templateCode: 'TMF_PROCESS_SHEET_V1', templateName: '织带加工明细单', documentType: 'TMF_PROCESS_SHEET', supportedSourceTypes: ['TMF_WORK_ORDER'], buildDocument: buildTmfProcessSheetPrintDocument, render: renderTmfProcessSheetTemplate },

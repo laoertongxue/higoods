@@ -1,0 +1,18 @@
+
+> higoods-vanilla-clone@1.0.0 check:post-finishing-default-demo
+> node --import tsx scripts/check-post-finishing-default-demo.ts
+
+{
+  "suite": "QC 后道默认 3×5×5 Mock 数据检查",
+  "productionOrders": 3,
+  "returns": 15,
+  "skuLines": 75,
+  "warehouseRecords": 15,
+  "warehouseMovements": 21,
+  "waitHandoverWarehouseRecords": 1,
+  "waitHandoverWarehouseMovements": 1,
+  "qcTasks": 12,
+  "result": "通过"
+}
+(node:92445) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

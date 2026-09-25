@@ -751,7 +751,7 @@ export function registerProductionOrderSewingFactory(input: {
   factoryName?: string
   by: string
   at?: string
-}): ProductionOrder | null {
+}, options: { staticDemo?: boolean } = {}): ProductionOrder | null {
   const order = productionOrders.find((item) => item.productionOrderId === input.productionOrderId)
   if (!order) return null
 
@@ -792,7 +792,7 @@ export function registerProductionOrderSewingFactory(input: {
     ),
   )
 
-  persistCreatedProductionOrders()
+  if (!options.staticDemo) persistCreatedProductionOrders()
   return order
 }
 

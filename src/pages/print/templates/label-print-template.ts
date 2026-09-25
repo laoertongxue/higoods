@@ -918,6 +918,20 @@ function renderLabelItem(item: PrintLabelItem, paperType: PrintPaperType): strin
 function renderTransferBagGoodsLabelItem(item: PrintLabelItem, paperType: PrintPaperType): string {
   const page = item.transferBagGoods
   if (!page) throw new Error('货物标识缺少颜色尺码矩阵数据。')
+  if (page.fabricItems?.length) return page.fabricItems.map(ticket => `
+    <section class="print-label-card transfer-bag-goods-label-card label-paper-${paperType.toLowerCase().replace(/_/g, '-')}" data-testid="transfer-bag-goods-label" data-usage-cycle-id="${escapeHtml(page.usageCycleId)}" data-bag-code="${escapeHtml(page.bagCode)}">
+      <header class="transfer-bag-goods-header"><strong>货物标识 · ${ticket.ticketKind === 'REPLACEMENT_FABRIC' ? '换片布' : '捆条'}</strong><span>第 ${page.pageIndex}/${page.pageCount} 页</span></header>
+      <div class="transfer-bag-goods-bag"><span>中转袋</span><strong>${escapeHtml(page.bagCode)}</strong></div>
+      <div style="font-size:12px;overflow-wrap:anywhere">生产单：<strong>${escapeHtml(page.productionOrderNo)}</strong></div>
+      <div style="display:flex;gap:8px;align-items:center;margin:8px 0;font-size:12px;overflow-wrap:anywhere">
+        ${ticket.materialImageUrl ? `<img src="${escapeHtml(ticket.materialImageUrl)}" alt="${escapeHtml(ticket.materialName || '')}" style="width:18mm;height:18mm;object-fit:contain" data-pda-image-preview-url="${escapeHtml(ticket.materialImageUrl)}">` : '<span>面料图缺失</span>'}
+        <div><strong>${escapeHtml(ticket.materialName || '')}</strong><div>${escapeHtml(ticket.materialCode || '')} · ${escapeHtml(ticket.color)}</div></div>
+      </div>
+      <strong style="display:block;font-size:20px">${ticket.quantity} ${escapeHtml(ticket.quantityUnit || '')}${ticket.replacementSequence ? ` · 第 ${ticket.replacementSequence} 张` : ''}</strong>
+      <div style="font-size:10px;overflow-wrap:anywhere;margin:6px 0">票号：${escapeHtml(ticket.feiTicketNo)}</div>
+      <div class="transfer-bag-goods-summary"><strong>整袋：${page.ticketCount} 张菲票；裁片 ${page.totalPieceQty} 片</strong><span>${escapeHtml(page.fabricSummary || '')}</span></div>
+      <footer class="transfer-bag-goods-footer"><span>打印：${escapeHtml(page.printedAt)}</span><strong>按袋号插入对应中转袋</strong></footer>
+    </section>`).join('')
   const formatQty = (value: number) => value > 0 ? value.toLocaleString('zh-CN') : '—'
   return `
     <section class="print-label-card transfer-bag-goods-label-card label-paper-${paperType.toLowerCase().replace(/_/g, '-')}" data-testid="transfer-bag-goods-label" data-usage-cycle-id="${escapeHtml(page.usageCycleId)}" data-bag-code="${escapeHtml(page.bagCode)}">
@@ -939,6 +953,7 @@ function renderTransferBagGoodsLabelItem(item: PrintLabelItem, paperType: PrintP
       <div class="transfer-bag-goods-summary">
         <strong>整袋：${page.ticketCount.toLocaleString('zh-CN')} 张菲票 / ${page.totalPieceQty.toLocaleString('zh-CN')} 片</strong>
         <span>共 ${page.totalColorCount} 色 × ${page.totalSizeCount} 码；本页 ${page.pagePieceQty.toLocaleString('zh-CN')} 片</span>
+        ${page.fabricSummary ? `<span>${escapeHtml(page.fabricSummary)}；面料明细见本袋附页</span>` : ''}
       </div>
       <footer class="transfer-bag-goods-footer"><span>打印：${escapeHtml(page.printedAt)}</span><strong>按袋号插入对应中转袋</strong></footer>
     </section>

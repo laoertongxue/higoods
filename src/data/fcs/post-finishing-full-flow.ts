@@ -3782,9 +3782,9 @@ function shouldBootstrapPostFinishingDemo(): boolean {
   }
 }
 
-export function loadPostFinishingDemoData(): void {
+export function loadPostFinishingDemoData(options: { persist?: boolean } = {}): void {
   if (buildingDemoData) throw new Error('后道演示数据正在初始化，请稍后重试。')
-  const storage = globalThis.localStorage
+  const storage = options.persist === false ? undefined : globalThis.localStorage
   const storageKeys = [
     STORAGE_KEY, POST_FINISHING_DEMO_MODE_STORAGE_KEY,
     'higood-fcs-post-finishing-full-flow-operation-logs-v1',
@@ -3805,7 +3805,7 @@ export function loadPostFinishingDemoData(): void {
     resetPostFinishingFullFlow()
     populatePostFinishingDemoData()
     // 全部命令成功后才写入；任一保存失败都恢复五组内存事实及原存储。
-    for (const batch of batches) batch.commit()
+    if (options.persist !== false) for (const batch of batches) batch.commit()
     storage?.setItem(STORAGE_KEY, JSON.stringify(state))
     storage?.setItem(POST_FINISHING_DEMO_MODE_STORAGE_KEY, 'demo')
   } catch (error) {
@@ -4019,4 +4019,6 @@ if (needsLegacyStateMigration) {
   needsLegacyStateMigration = false
 }
 // 已保存的旧/当前空回货库可能仍有 QC 等历史事实，不得被默认演示重置。
-if (!hasPersistedFullFlowState && state.deliveries.length === 0 && shouldBootstrapPostFinishingDemo()) loadPostFinishingDemoData()
+// Imported by cutting/task pages too. Reading static demo data must not save a
+// different module's entire demo or fail the importing page when quota is full.
+if (!hasPersistedFullFlowState && state.deliveries.length === 0 && shouldBootstrapPostFinishingDemo()) loadPostFinishingDemoData({ persist: false })

@@ -1,6 +1,10 @@
 import { getOnboardingPpicOptionById } from '../factory-onboarding-ppic.ts'
 import { getCurrentSewingPickupSlip } from '../sewing-pickup-slips.ts'
 import { getBrowserLocalStorage } from '../../browser-storage.ts'
+import { runCuttingEventAction } from './cutting-event-repository.ts'
+import { validateReplacementFabricEventBatch } from './replacement-fabric-event-validation.ts'
+import { loadReplacementFabricState } from './replacement-fabric-repository.ts'
+import { replacementFabricBagTicket } from './mixed-transfer-bag-ticket.ts'
 import { resolveDispatchTaskSheet, dispatchTaskSheetFingerprint, type DispatchTaskSheetData } from '../dispatch-task-sheet.ts'
 import { listEffectiveTaskAssignments } from '../effective-task-assignments.ts'
 import { getProductionOrderCutPieceParts } from '../production-order-tech-pack-runtime.ts'
@@ -172,9 +176,13 @@ export function resolveSimpleCutPieceHandover(raw: string): SimpleCutPieceHandov
 // The synchronous fallback supports environments without Web Locks; no offline queue is introduced.
 export async function confirmSimpleCutPieceHandover(input: {
   taskSheetNo: string; candidateFingerprint: string; commandId: string; actor: SimpleCutPieceHandoverActor
+  replacementFabricTicketIds?: string[]
 }) {
   assertSimpleCutPieceWarehouseActor(input.actor)
   if (!input.commandId.trim()) throw new Error('本次确认编号缺失，请重新读取任务单。')
+  const replacementTickets = input.replacementFabricTicketIds?.length
+    ? (await loadReplacementFabricState()).tickets.filter(ticket => input.replacementFabricTicketIds!.includes(ticket.id)).map(replacementFabricBagTicket) : []
+  if (replacementTickets.length !== (input.replacementFabricTicketIds || []).length) throw new Error('换片布票不存在或重复，请重新扫描。')
   const commit = () => {
     const storage = getBrowserLocalStorage()
     if (!storage?.setItem) throw new Error('尚未保存：浏览器存储不可用，请恢复后重试。')
@@ -197,6 +205,7 @@ export async function confirmSimpleCutPieceHandover(input: {
     const orderId = `SIMPLE-ORDER-${dispatchTaskSheetFingerprint(sheet.assignment.assignmentId)}`
     const recordId = `SIMPLE-RECORD-${suffix}`
     const payload: SimpleCutPieceHandoverPayload = {
+      replacementFabricTickets: replacementTickets,
       schemaVersion: 1, assignmentId: sheet.assignment.assignmentId, runtimeTaskId: sheet.assignment.runtimeTaskId,
       taskNo: sheet.taskNo, taskSheetNo: sheet.taskSheetNo, taskSheetVersion: sheet.version, taskTypeLabel: sheet.taskTypeLabel,
       productionOrderId: sheet.assignment.productionOrderId, productionOrderNo: sheet.productionOrderNo,
@@ -214,13 +223,16 @@ export async function confirmSimpleCutPieceHandover(input: {
       occurredAt: now, operatorId: input.actor.operatorId, operatorName: input.actor.operatorName, operatorRole: input.actor.operatorRole,
       refs: { productionOrderId: payload.productionOrderId, productionOrderNo: payload.productionOrderNo,
         handoverOrderId: orderId, handoverRecordId: recordId, sewingTaskIds: [payload.runtimeTaskId], sewingTaskNos: [payload.taskNo],
-        feiTicketIds: payload.tickets.map((ticket) => ticket.feiTicketId), feiTicketNos: payload.tickets.map((ticket) => ticket.feiTicketNo) },
+        feiTicketIds: [...payload.tickets, ...replacementTickets].map((ticket) => ticket.feiTicketId), feiTicketNos: [...payload.tickets, ...replacementTickets].map((ticket) => ticket.feiTicketNo) },
       inventoryEffect: { inventoryScope: '裁床待交出仓', direction: 'OUT', qty: payload.totalPieceQty, unit: '片' }, payload,
     }), () => {
       const current = resolveSimpleCutPieceHandover(input.taskSheetNo)
       if (current.candidateFingerprint !== input.candidateFingerprint) throw new Error('菲票状态已变化，请重新核对。')
     }, storage)
   }
-  if (typeof window !== 'undefined' && window.navigator?.locks) return window.navigator.locks.request('higood-cut-piece-handover', commit)
-  return commit()
+  const save = () => typeof document === 'undefined' ? commit() : runCuttingEventAction({
+    id: input.commandId, intent: JSON.stringify(['simple-cut-piece', input]), action: commit, validate: validateReplacementFabricEventBatch,
+  })
+  if (typeof window !== 'undefined' && window.navigator?.locks) return window.navigator.locks.request('higood-cut-piece-handover', save)
+  return save()
 }

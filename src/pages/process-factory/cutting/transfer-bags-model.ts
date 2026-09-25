@@ -635,6 +635,14 @@ export interface TransferBagParentChildSummary {
 }
 
 export interface TransferBagTicketCandidate {
+  ticketKind?: 'CUT_PIECE' | 'WOOL_PIECE' | 'BINDING_STRIP' | 'REPLACEMENT_FABRIC'
+  materialKey?: string
+  materialCode?: string
+  materialName?: string
+  quantity?: number
+  quantityUnit?: string
+  replacementSequence?: number
+  scanValue?: string
   ticketRecordId: string
   feiTicketId: string
   ticketNo: string

@@ -1,4 +1,5 @@
 // @page-pattern: list
+import { renderMixedBagTicket, mixedBagSummary } from '../../../components/ui/mixed-bag-contents.ts'
 import { renderStandardListPage, renderStandardListStats } from '../../../components/ui/list-page.ts'
 import { renderStandardListTable, type StandardListColumn } from '../../../components/ui/list-table.ts'
 import { loadListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, sortStandardListRows, type StandardListSortState } from '../../../components/ui/list-table-model.ts'
@@ -217,7 +218,7 @@ function renderOrderCard(order: HandoverOrder, records: HandoverRecord[]): strin
       </div>
       <dl class="mt-4 grid gap-3 md:grid-cols-4">
         <div class="rounded-md border bg-background px-3 py-2"><dt class="text-xs text-muted-foreground">交出记录</dt><dd class="mt-1 font-semibold">${formatNumber(order.totalRecordCount)} 条</dd></div>
-        <div class="rounded-md border bg-background px-3 py-2"><dt class="text-xs text-muted-foreground">计划裁片</dt><dd class="mt-1 font-semibold">${formatNumber(order.totalPlannedPieceQty)} 片</dd></div>
+        <div class="rounded-md border bg-background px-3 py-2"><dt class="text-xs text-muted-foreground">计划裁片</dt><dd class="mt-1 font-semibold">${order.handoverBasis === '已提交中转袋快照' ? '见任务裁片放行' : `${formatNumber(order.totalPlannedPieceQty)} 片`}</dd></div>
         <div class="rounded-md border bg-background px-3 py-2"><dt class="text-xs text-muted-foreground">已交出</dt><dd class="mt-1 font-semibold">${formatNumber(order.totalHandedOverPieceQty)} 片</dd></div>
         <div class="rounded-md border bg-background px-3 py-2"><dt class="text-xs text-muted-foreground">接收回写</dt><dd class="mt-1 font-semibold">${formatNumber(order.totalReceivedPieceQty)} 片</dd></div>
       </dl>
@@ -493,8 +494,9 @@ function renderRecordDetail(record: HandoverRecord): string {
           : ''
       }
 
+      ${record.fabricTicketItems?.length ? `<section class="rounded-lg border bg-card p-4"><h2 class="text-base font-semibold">换片布 / 捆条</h2><p class="my-2 text-sm">${escapeHtml(mixedBagSummary(record.fabricTicketItems))}</p><div class="grid gap-3 md:grid-cols-2">${record.fabricTicketItems.map(renderMixedBagTicket).join('')}</div></section>` : ''}
       <section class="rounded-lg border bg-card p-4">
-        <h2 class="text-base font-semibold">菲票明细</h2>
+        <h2 class="text-base font-semibold">部位裁片菲票明细</h2>
         <div class="mt-3 grid gap-3 md:grid-cols-2">
           ${record.feiTicketItems
             .map((item) => `
@@ -543,7 +545,7 @@ export function renderCraftCuttingHandoverOrdersPage(): string {
   const projection = buildUniversalHandoverProjection()
   const filters = getHandoverListFilters()
   const orders = projection.orders.filter((o) => orderMatchesFilters(o, projection.recordsByOrderId[o.handoverOrderId] || [], filters))
-  handoverTicketCounts = Object.fromEntries(Object.entries(projection.recordsByOrderId).map(([id, records]) => [id, records.reduce((n, r) => n + r.feiTicketItems.length, 0)]))
+  handoverTicketCounts = Object.fromEntries(Object.entries(projection.recordsByOrderId).map(([id, records]) => [id, records.reduce((n, r) => n + r.feiTicketItems.length + (r.fabricTicketItems?.length || 0), 0)]))
   const sorted = sortStandardListRows(orders, handoverListState.sort, (r, key) => (r as unknown as Record<string, unknown>)[key])
   const paging = paginateStandardListRows(sorted, handoverListState.page, handoverPreferences.pageSize)
   handoverListState.page = paging.currentPage
@@ -586,7 +588,7 @@ export function handleCraftCuttingHandoverOrdersEvent(target: Element): boolean 
     if (action === 'export') {
       const p = buildUniversalHandoverProjection(), f = getHandoverListFilters(), rows = p.orders.filter((o) => orderMatchesFilters(o, p.recordsByOrderId[o.handoverOrderId] || [], f))
       if (!rows.length) { window.alert('当前查询没有可导出记录'); return true }
-      const csv = [['交出单', '任务单', '工厂', 'PPIC', '交出方式', '本单已交片数', '本单已收片数', '状态'], ...rows.map((r) => [r.handoverOrderNo, r.taskSheetNo || '', r.receiverName, r.ppicName || '', r.handoverMethod || '中转袋交出', r.totalHandedOverPieceQty, r.totalReceivedPieceQty, r.status])].map((row) => row.map((v) => '"' + String(v).replaceAll('"', '""') + '"').join(',')).join('\n')
+      const csv = [['交出单', '任务单', '工厂', 'PPIC', '交出方式', '本单已交片数', '本单已收片数', '换片布与捆条', '状态'], ...rows.map((r) => [r.handoverOrderNo, r.taskSheetNo || '', r.receiverName, r.ppicName || '', r.handoverMethod || '中转袋交出', r.totalHandedOverPieceQty, r.totalReceivedPieceQty, mixedBagSummary((p.recordsByOrderId[r.handoverOrderId] || []).flatMap(record => record.fabricTicketItems || [])), r.status])].map((row) => row.map((v) => '"' + String(v).replaceAll('"', '""') + '"').join(',')).join('\n')
       const url = URL.createObjectURL(new Blob(['\ufeff' + csv], {type: 'text/csv;charset=utf-8'})), a = document.createElement('a'); a.href = url; a.download = '裁床交出单.csv'; a.click(); URL.revokeObjectURL(url); return true
     }
     handoverPreferences = normalizeListColumnPreferences(handoverColumns, handoverPreferences, [10, 20, 50])

@@ -1102,7 +1102,12 @@ function listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch(): GeneratedF
   return [...byFeiTicketNo.values()].map(buildReturnedSpecialCraftFeiTicketSource)
 }
 
+// Demo initialization only: its bag/receipt writes never change upstream ticket sources.
+// Discard immediately afterwards so real actions always see fresh sources.
+let seedTicketSources: GeneratedFeiTicketSourceRecord[] | undefined
+let seedSpecialCraftStatuses: Map<string, ReturnType<typeof mapSpecialCraftReturnStatus>> | undefined
 function listSewingDispatchFeiTicketSources(): GeneratedFeiTicketSourceRecord[] {
+  if (seedTicketSources) return seedTicketSources
   const byNo = new Map<string, GeneratedFeiTicketSourceRecord>()
   listSpreadingResultGeneratedFeiTickets().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
   listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach((ticket) => byNo.set(ticket.feiTicketNo, ticket))
@@ -1401,7 +1406,11 @@ function listReadyFeiTicketSourcesForSewingDispatch(input: {
     if (input.colorName && ticket.garmentColor !== input.colorName) return false
     if (input.sizeCode && ticket.skuSize !== input.sizeCode) return false
     if (input.partName && ticket.partName !== input.partName) return false
-    const specialCraft = mapSpecialCraftReturnStatus(ticket.feiTicketNo)
+    let specialCraft = seedSpecialCraftStatuses?.get(ticket.feiTicketNo)
+    if (!specialCraft) {
+      specialCraft = mapSpecialCraftReturnStatus(ticket.feiTicketNo)
+      seedSpecialCraftStatuses?.set(ticket.feiTicketNo, specialCraft)
+    }
     if (!specialCraft.specialCraftRequired) return true
     return specialCraft.specialCraftReturnStatus === '已回仓'
   })
@@ -1610,8 +1619,18 @@ export function buildSewingTaskAllocationProjectionFromInventory(
     specialCraft: ReturnType<typeof mapSpecialCraftReturnStatus>
   }> = []
 
+  // Resolve each source collection once in this synchronous projection.
+  let supplementalTickets: Map<string, GeneratedFeiTicketSourceRecord> | undefined
+
   inventoryRecords.forEach((record) => {
-    const ticket = resolveFeiTicketForSewingDispatch(record.feiTicketNo)
+    let ticket = getFeiTicketByNo(record.feiTicketNo)
+    if (!ticket) {
+      if (!supplementalTickets) {
+        supplementalTickets = new Map(listWoolPanelCuttingReceiptSources().map(ticket => [ticket.feiTicketNo, ticket]))
+        listReturnedSpecialCraftFeiTicketSourcesForSewingDispatch().forEach(ticket => supplementalTickets!.set(ticket.feiTicketNo, ticket))
+      }
+      ticket = supplementalTickets.get(record.feiTicketNo) || null
+    }
     if (record.voidStatus === '已作废' || ticket?.printStatus === 'VOIDED') {
       excludedItems.push({ inventoryRecordId: record.inventoryRecordId, feiTicketNo: record.feiTicketNo, exclusionReason: '菲票已作废' })
       return
@@ -3776,7 +3795,14 @@ export function ensureCuttingSewingDispatchSeeded(): CuttingSewingDispatchStore 
       transferBags: [],
       validationResults: [],
     }
-    seedStore()
+    try {
+      seedTicketSources = listSewingDispatchFeiTicketSources()
+      seedSpecialCraftStatuses = new Map()
+      seedStore()
+    } finally {
+      seedTicketSources = undefined
+      seedSpecialCraftStatuses = undefined
+    }
   }
   return store
 }

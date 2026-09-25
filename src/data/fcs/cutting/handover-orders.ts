@@ -1,4 +1,4 @@
-import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting-runtime-event-ledger.ts'
+import { listCuttingRuntimeEvents, listSimpleCutPieceHandoverEvents, type TransferBagTicketFactSnapshot, type HandoverRecordSubmitPayload, type SimpleCutPieceHandoverPayload } from './cutting-runtime-event-ledger.ts'
 import {
   listSpreadingResultGeneratedFeiTickets,
   type FeiTicketSpecialCraft,
@@ -183,6 +183,8 @@ export interface CutPieceReturnResponsibilitySnapshot {
 }
 
 export interface HandoverRecord {
+  /** 非裁片单独列示，不参与齐套、应回数量或片数统计。 */
+  fabricTicketItems?: TransferBagTicketFactSnapshot[]
   simpleCutPiece?: SimpleCutPieceHandoverPayload
   sourceChannel?: string
   warehouseOperatorId?: string
@@ -2217,11 +2219,11 @@ export function calculateMinimumReturnQtyByBags(
 }
 
 export function listHandoverOrders(): HandoverOrder[] {
-  return clone([...handoverOrders, ...buildSimpleCutPieceHandoverProjection().orders])
+  return clone([...handoverOrders, ...buildSimpleCutPieceHandoverProjection().orders, ...buildRuntimeBagHandoverProjection().orders])
 }
 
 export function listHandoverRecords(): HandoverRecord[] {
-  return clone([...handoverRecords, ...buildSimpleCutPieceHandoverProjection().records])
+  return clone([...handoverRecords, ...buildSimpleCutPieceHandoverProjection().records, ...buildRuntimeBagHandoverProjection().records])
 }
 
 export function getUniversalHandoverOrderById(handoverOrderId: string): HandoverOrder | undefined {
@@ -2299,7 +2301,7 @@ export function buildSimpleCutPieceHandoverProjection(): { orders: HandoverOrder
     const record: HandoverRecord = {
       handoverRecordId: p.handoverRecordId, handoverRecordNo: p.handoverRecordNo, handoverOrderId: p.handoverOrderId, handoverOrderNo: p.handoverOrderNo, handoverType: '车缝交出', handoverMethod: '简易裁片交出', simpleCutPiece: p, sourceChannel: event.eventSource, warehouseOperatorId: event.operatorId,
       recordSequence: previous.length + 1, receiverType: '车缝厂', receiverId: p.factoryId, receiverCode: p.factoryId, receiverName: p.factoryName, sourceWarehouseId: '', sourceWarehouseName: '裁床待交出仓', relatedProductionOrderIds: [p.productionOrderNo], relatedCutOrderIds: [...new Set(p.tickets.map((t) => t.cutOrderNo))], relatedSewingTaskId: p.runtimeTaskId,
-      transferBagUses: [], feiTicketItems: p.tickets.map((t) => ({ feiTicketId: t.feiTicketId, feiTicketNo: t.feiTicketNo, sourceType: 'ACTUAL_CUT_OUTPUT', sourceOutputLineId: t.sourceOutputLineId, productionOrderNo: p.productionOrderNo, cutOrderNo: t.cutOrderNo, markerPlanNo: '', spreadingOrderNo: '', spuCode: p.styleCode, color: t.color, size: t.size, partCode: t.partCode, partName: t.partName, pieceQty: t.pieceQty, pieceSequenceLabel: t.pieceRange, hasSpecialCraft: false, specialCraftDisplay: '已满足交出条件', receiverFactoryDisplay: p.factoryName, currentInventoryStatus: '已交出', sourceTempBagCode: '', targetTransferBagCode: '' })),
+      fabricTicketItems: p.replacementFabricTickets || [], transferBagUses: [], feiTicketItems: p.tickets.map((t) => ({ feiTicketId: t.feiTicketId, feiTicketNo: t.feiTicketNo, sourceType: 'ACTUAL_CUT_OUTPUT', sourceOutputLineId: t.sourceOutputLineId, productionOrderNo: p.productionOrderNo, cutOrderNo: t.cutOrderNo, markerPlanNo: '', spreadingOrderNo: '', spuCode: p.styleCode, color: t.color, size: t.size, partCode: t.partCode, partName: t.partName, pieceQty: t.pieceQty, pieceSequenceLabel: t.pieceRange, hasSpecialCraft: false, specialCraftDisplay: '已满足交出条件', receiverFactoryDisplay: p.factoryName, currentInventoryStatus: '已交出', sourceTempBagCode: '', targetTransferBagCode: '' })),
       previousHandedOverSummary: prior, currentHandedOverSummary: current, cumulativeHandedOverSummary: cumulative, completenessAfterRecord: { isCompleteAfterRecord: !shortage.length, completeBy: '交出单', checkedAt: event.occurredAt, summaryText: shortage.length ? '任务尚有裁片未交齐；本批已接收' : '任务裁片已全部接收' }, shortageAfterRecord: shortage,
       receiverWritebackStatus: '已回写', receiverWritebackAt: event.occurredAt, receiverWritebackBy: event.operatorName, receivedItems: current, discrepancyItems: [], objectionItems: [], recordStatus: '已接收', handedOverAt: event.occurredAt, handedOverBy: event.operatorName, createdAt: event.createdAt, createdBy: event.operatorName, remark: '仓库确认即 PPIC 与工厂已接收；不使用中转袋。',
     }
@@ -2307,6 +2309,63 @@ export function buildSimpleCutPieceHandoverProjection(): { orders: HandoverOrder
     const taskTotal = cumulative.reduce((n, r) => n + r.pieceQty, 0)
     const total = [...previous.flatMap((r) => r.currentHandedOverSummary), ...current].reduce((n, r) => n + r.pieceQty, 0)
     orders.set(p.handoverOrderId, { handoverOrderId: p.handoverOrderId, handoverOrderNo: p.handoverOrderNo, handoverType: '车缝交出', handoverMethod: '简易裁片交出', taskSheetNo: p.taskSheetNo, ppicName: p.ppicName, sourceSystem: 'PFOS', sourceFactoryId: p.warehouseFactoryId, sourceFactoryCode: p.warehouseFactoryId, sourceFactoryName: '裁床工厂', sourceWarehouseId: '', sourceWarehouseName: '裁床待交出仓', receiverType: '车缝厂', receiverId: p.factoryId, receiverCode: p.factoryId, receiverName: p.factoryName, receiverFactoryType: '三方车缝工厂', relatedProductionOrderIds: [p.productionOrderNo], relatedCutOrderIds: record.relatedCutOrderIds, relatedSewingTaskId: p.runtimeTaskId, handoverBasis: `${p.taskSheetNo} / ${p.taskNo} / ${p.ppicName}`, status: shortage.length ? '部分接收' : '已接收', totalRecordCount: previous.length + 1, totalPlannedPieceQty: p.requirements.reduce((n, r) => n + r.piecesPerGarment * r.allocatedGarmentQty, 0), totalHandedOverPieceQty: total, totalReceivedPieceQty: total, taskCumulativeHandedOverPieceQty: taskTotal, shortageAfterLatestRecord: shortage.reduce((n, r) => n + r.shortageQty, 0), latestRecordId: p.handoverRecordId, latestRecordAt: event.occurredAt, createdAt: previous[0]?.createdAt || event.createdAt, createdBy: previous[0]?.createdBy || event.operatorName, updatedAt: event.occurredAt, remark: record.remark })
+  }
+  return { orders: [...orders.values()], records }
+}
+
+/** 从已提交袋内快照生成交出记录；不把 Yard 混入裁片或齐套计算。 */
+export function buildRuntimeBagHandoverProjection(): { orders: HandoverOrder[]; records: HandoverRecord[] } {
+  const records: HandoverRecord[] = []
+  const orders = new Map<string, HandoverOrder>()
+  for (const event of listCuttingRuntimeEvents().filter(event => event.eventType === '新增交出记录' && event.eventStatus !== '已取消')
+    .sort((a, b) => (a.ledgerSequence || 0) - (b.ledgerSequence || 0))) {
+    const p = event.payload as HandoverRecordSubmitPayload
+    if (!p.handoverRecordId || handoverRecords.some(record => record.handoverRecordId === p.handoverRecordId)) continue
+    const tickets = (p.transferBagUses || []).flatMap(bag => bag.ticketSnapshot || [])
+    if (!tickets.length) continue // 无快照的旧记录继续由原历史来源展示。
+    const fabrics = tickets.filter(ticket => ticket.ticketKind === 'REPLACEMENT_FABRIC' || ticket.ticketKind === 'BINDING_STRIP')
+    const pieces = tickets.filter(ticket => !fabrics.includes(ticket))
+    const previous = records.filter(record => record.handoverOrderId === p.handoverOrderId)
+    const current = pieces.map(ticket => ({ productionOrderNo: ticket.productionOrderNo, cutOrderNo: ticket.cutOrderNo,
+      color: ticket.color, size: ticket.size, partCode: ticket.partCode, partName: ticket.partName,
+      pieceQty: ticket.pieceQty, unit: '片', summaryText: `${ticket.color} / ${ticket.size} / ${ticket.partName}：${ticket.pieceQty} 片` }))
+    const prior = previous.flatMap(record => record.currentHandedOverSummary)
+    const taskIds = [...new Set(tickets.map(ticket => ticket.sewingTaskId).filter(Boolean))]
+    const poNos = [...new Set(tickets.map(ticket => ticket.productionOrderNo))]
+    const cutNos = [...new Set(pieces.map(ticket => ticket.cutOrderNo).filter(Boolean))]
+    const record: HandoverRecord = {
+      handoverRecordId: p.handoverRecordId, handoverRecordNo: p.handoverRecordNo,
+      handoverOrderId: p.handoverOrderId, handoverOrderNo: p.handoverOrderNo, handoverType: '车缝交出', handoverMethod: '中转袋交出',
+      sourceChannel: event.eventSource, warehouseOperatorId: event.operatorId, recordSequence: previous.length + 1,
+      receiverType: p.receiverType, receiverId: p.receiverId, receiverCode: p.receiverId, receiverName: p.receiverName,
+      sourceWarehouseId: '', sourceWarehouseName: '裁床待交出仓', relatedProductionOrderIds: poNos, relatedCutOrderIds: cutNos,
+      relatedSewingTaskId: taskIds.length === 1 ? taskIds[0] : undefined,
+      transferBagUses: p.transferBagUses.map(bag => ({ ...bag, bagMasterId: bag.bagCode, useStage: '交出装袋',
+        relatedHandoverOrderId: p.handoverOrderId, relatedHandoverRecordId: p.handoverRecordId, receiverType: p.receiverType,
+        receiverId: p.receiverId, packedAt: event.occurredAt, packedBy: p.submittedBy })),
+      fabricTicketItems: fabrics,
+      feiTicketItems: pieces.map(ticket => ({ ...ticket, markerPlanNo: '', spreadingOrderNo: '', spuCode: '',
+        pieceSequenceLabel: '', hasSpecialCraft: false, specialCraftDisplay: '见来源菲票', receiverFactoryDisplay: p.receiverName,
+        currentInventoryStatus: '已交出', sourceTempBagCode: '', targetTransferBagCode: p.transferBagUses.find(bag => bag.containedFeiTicketIds.includes(ticket.feiTicketId))?.bagCode || '' })),
+      previousHandedOverSummary: prior, currentHandedOverSummary: current, cumulativeHandedOverSummary: [...prior, ...current],
+      completenessAfterRecord: { isCompleteAfterRecord: false, completeBy: '交出单', checkedAt: event.occurredAt,
+        summaryText: '本记录仅证明本批实交；任务齐套情况请查看裁片放行。' }, shortageAfterRecord: [],
+      receiverWritebackStatus: '已回写', receiverWritebackAt: event.occurredAt, receiverWritebackBy: p.receiverName,
+      receivedItems: current, discrepancyItems: [], objectionItems: [], recordStatus: '已接收',
+      handedOverAt: event.occurredAt, handedOverBy: p.submittedBy, createdAt: event.createdAt, createdBy: p.submittedBy,
+      remark: '同批确认裁片、捆条与换片布；面料长度单独列示，不计入裁片数量。',
+    }
+    records.push(record)
+    const total = [...prior, ...current].reduce((sum, line) => sum + line.pieceQty, 0)
+    orders.set(p.handoverOrderId, { handoverOrderId: p.handoverOrderId, handoverOrderNo: p.handoverOrderNo,
+      handoverType: '车缝交出', handoverMethod: '中转袋交出', ppicName: p.receiverPpicName, sourceSystem: 'PFOS',
+      sourceFactoryId: '', sourceFactoryCode: '', sourceFactoryName: '裁床工厂', sourceWarehouseId: '', sourceWarehouseName: '裁床待交出仓',
+      receiverType: p.receiverType, receiverId: p.receiverId, receiverCode: p.receiverId, receiverName: p.receiverName, receiverFactoryType: '车缝厂',
+      relatedProductionOrderIds: poNos, relatedCutOrderIds: cutNos, relatedSewingTaskId: record.relatedSewingTaskId,
+      handoverBasis: '已提交中转袋快照', status: '已接收', totalRecordCount: previous.length + 1, totalPlannedPieceQty: 0,
+      totalHandedOverPieceQty: total, totalReceivedPieceQty: total, shortageAfterLatestRecord: 0,
+      latestRecordId: p.handoverRecordId, latestRecordAt: event.occurredAt, createdAt: previous[0]?.createdAt || event.createdAt,
+      createdBy: previous[0]?.createdBy || p.submittedBy, updatedAt: event.occurredAt, remark: record.remark })
   }
   return { orders: [...orders.values()], records }
 }

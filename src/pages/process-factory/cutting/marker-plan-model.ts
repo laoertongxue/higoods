@@ -642,8 +642,9 @@ function buildCutOrderContextCandidate(input: {
   materialPrepRow: MaterialPrepRow | null
   productionRow: ProductionProgressRow | null
   sourceRecord: GeneratedCutOrderSourceRecord | null
+  formalTechPackSnapshot?: ReturnType<typeof getFormalTechPackSnapshotForCutOrderRow>
 }): MarkerPlanContextCandidate | null {
-  const formalTechPackSnapshot = getFormalTechPackSnapshotForCutOrderRow(input.row)
+  const formalTechPackSnapshot = input.formalTechPackSnapshot === undefined ? getFormalTechPackSnapshotForCutOrderRow(input.row) : input.formalTechPackSnapshot
   if (!formalTechPackSnapshot) return null
 
   const sourceGeneratedRows = input.sourceRecord ? [input.sourceRecord] : []
@@ -797,6 +798,12 @@ export function buildMarkerPlanContextCandidates(sources: CuttingSummaryBuildOpt
   const cutOrderRowsById = buildCutOrderRowMap(sources.cutOrderRows)
   const productionRowsById = buildProductionRowMap(sources.productionRows)
   const generatedRowsById = buildGeneratedRowMap()
+  // The formal version is a style fact, shared by this render's cut orders.
+  // Keep this map local: an edited or newly published version is read on the next call.
+  const formalByStyle = new Map<string, ReturnType<typeof getFormalTechPackSnapshotForCutOrderRow>>()
+  for (const row of sources.cutOrderRows) {
+    if (!formalByStyle.has(row.spuCode)) formalByStyle.set(row.spuCode, getFormalTechPackSnapshotForCutOrderRow(row))
+  }
 
   const cutOrderContexts = sources.cutOrderRows
     .map((row) =>
@@ -805,6 +812,7 @@ export function buildMarkerPlanContextCandidates(sources: CuttingSummaryBuildOpt
         materialPrepRow: materialPrepRowsById[row.cutOrderId] || null,
         productionRow: productionRowsById[row.productionOrderId] || null,
         sourceRecord: generatedRowsById[row.cutOrderId] || null,
+        formalTechPackSnapshot: formalByStyle.get(row.spuCode),
       }),
     )
     .filter((item): item is MarkerPlanContextCandidate => Boolean(item))

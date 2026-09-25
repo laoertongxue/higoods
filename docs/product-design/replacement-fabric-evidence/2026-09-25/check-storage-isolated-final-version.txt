@@ -1,0 +1,51 @@
+### Result
+{"readonly":true,"abort":{"message":"验收模拟容量不足","unchanged":true},"replay":true,"conflict":"其他页面已更新票据或交出记录。本次未保存，请刷新并重新核对后确认。","backup":{"bytes":3280,"records":2,"unchanged":true},"badBackup":"备份打印记录缺少关联原票或确认信息。","migrationConfirmation":"请先关闭其他 HiGood 页面，并勾选确认；源记录尚未清理。","migrated":1,"migration":{"progress":["迁移中：已转换 1 / 1 条，源记录仍保留。","迁移完成：1 条已读回核对，旧源已清理；保留其他模块 1 条。"],"sourceRetained":[{"eventId":"OTHER-18b5a861-4f19-4156-a752-8e0203c92e06","eventNo":"FIXTURE","eventType":"验收保留的其他模块事件","eventStatus":"已同步","eventSource":"PDA","occurredAt":"2026-09-25","createdAt":"2026-09-25","refs":{},"payload":{}}],"readback":true}}
+### Ran Playwright code
+```js
+await (async (page) => {
+  const context=await page.context().browser().newContext(),p=await context.newPage();await p.goto('http://127.0.0.1:43225/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-page]').waitFor();
+  const result=await p.evaluate(async () => {
+    const db=await import('/src/data/fcs/cutting/cutting-record-repository.ts');
+    const files=await import('/src/data/fcs/cutting/cutting-backup-file.ts');
+    const repo=await import('/src/data/fcs/cutting/replacement-fabric-repository.ts');
+    const sources=await import('/src/data/fcs/cutting/replacement-fabric-source.ts');
+    const migrations=await import('/src/data/fcs/cutting/cutting-event-migration.ts');
+    const results={};const run=crypto.randomUUID();
+    const before=await db.readCuttingRecords();
+    await repo.loadReplacementFabricState();await repo.loadReplacementFabricState();
+    results.readonly=JSON.stringify(before)===JSON.stringify(await db.readCuttingRecords());
+    const oldPut=IDBObjectStore.prototype.put;
+    let failure='';
+    try {
+      IDBObjectStore.prototype.put=function(){if(this.name==='records')throw new DOMException('验收模拟容量不足','QuotaExceededError');return oldPut.apply(this,arguments)};
+      const scope=sources.listReplacementFabricOrderRows()[0].scopes[0];
+      await repo.addReplacementFabricTickets(scope,scope.materials[0].key,1,{id:'FAULT-'+run,at:new Date().toISOString(),operator:'隔离验收'});
+    } catch(e){failure=e.message} finally {IDBObjectStore.prototype.put=oldPut}
+    results.abort={message:failure,unchanged:JSON.stringify(before)===JSON.stringify(await db.readCuttingRecords())};
+    const command={id:'CAS-'+run,intent:'CAS-'+run,result:'saved',at:new Date().toISOString()};
+    await db.commitCuttingRecords({revision:before.revision,change:{puts:[]},command});
+    results.replay=(await db.commitCuttingRecords({revision:before.revision,change:{puts:[]},command})).replayed;
+    try{await db.commitCuttingRecords({revision:before.revision,change:{puts:[]},command:{...command,id:'STALE-'+run}})}catch(e){results.conflict=e.message}
+    const scope=sources.listReplacementFabricOrderRows()[0].scopes[0];await repo.addReplacementFabricTickets(scope,scope.materials[0].key,1,{id:'BACKUP-'+run,at:new Date().toISOString(),operator:'隔离验收'});
+    const backup=await files.buildCuttingBackupFile();const decoded=await files.readCuttingBackupFile(backup);
+    const expected=await db.readCuttingRecords();await db.restoreCuttingRecordBackup(decoded);
+    results.backup={bytes:backup.size,records:decoded.records.length,unchanged:JSON.stringify(expected.records)===JSON.stringify((await db.readCuttingRecords()).records)};
+    const invalid={...decoded,records:[...decoded.records,{id:'replacement-prints:INVALID',collection:'replacement-prints',value:{id:'INVALID',ticketId:'missing'}}]};
+    try{await db.restoreCuttingRecordBackup(invalid)}catch(e){results.badBackup=e.message}
+    const key='cuttingRuntimeEventLedger';const old=localStorage.getItem(key);
+    const event={eventId:'fixture',eventNo:'FIXTURE',eventType:'菲票装袋',eventStatus:'已同步',eventSource:'PDA',occurredAt:'2026-09-25',createdAt:'2026-09-25',refs:{},payload:{}};
+    const selected={...event,eventId:'MIG-'+run,eventNo:'MIG-'+run};
+    const unrelated={...event,eventId:'OTHER-'+run,eventType:'验收保留的其他模块事件'};
+    localStorage.setItem(key,JSON.stringify({version:1,events:[selected,unrelated]}));
+    try{
+      try{await migrations.migrateLegacyCuttingEvents({otherPagesClosed:false,progress:()=>{}})}catch(e){results.migrationConfirmation=e.message}
+      const progress=[];
+      results.migrated=await migrations.migrateLegacyCuttingEvents({otherPagesClosed:true,progress:m=>progress.push(m)});
+      results.migration={progress,sourceRetained:JSON.parse(localStorage.getItem(key)).events,readback:(await db.readCuttingRecords()).records.some(r=>r.id==='cutting-event:'+selected.eventId)};
+    }finally{if(old===null)localStorage.removeItem(key);else localStorage.setItem(key,old)}
+    if(!results.readonly||!results.abort.unchanged||!failure||!results.replay||!results.conflict||!results.backup.unchanged||!results.badBackup||!results.migration.readback||results.migration.sourceRetained.length!==1||results.migration.sourceRetained[0].eventId!==unrelated.eventId)throw new Error(JSON.stringify(results));
+    return results;
+  });
+ await context.close();return result;
+})(page);
+```

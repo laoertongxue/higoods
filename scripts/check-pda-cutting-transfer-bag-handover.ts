@@ -197,7 +197,8 @@ assert.equal(timerController.flush('handover'), true)
 assert.deepEqual(effects, ['latest'])
 
 assert(pageSource.includes("if (action === 'confirm-transfer-bag-handover')"))
-assert(pageSource.includes('submitPdaTransferBagHandover(state, taskId)'))
+assert(pageSource.includes('submitPdaTransferBagHandover(state, taskId, storage)'), '整袋交出必须使用当前事务暂存数据，不能回到独立旧存储写入')
+assert(pageSource.includes("intent: JSON.stringify(['whole-bag-handover', stateKey, state])"), '整袋确认必须经过持久事务再进入成功页')
 assert(!keydownSource.includes('sewingTaskCode'), '全局 Enter 路由不得保留已删除的任务扫码框')
 
 console.log('PDA 中转袋整袋交出专项检查通过：同工厂多任务、只扫袋、阶段阻断、跨工厂拆袋提示、不可重复交出和事实快照均已闭环。')

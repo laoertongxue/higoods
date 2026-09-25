@@ -1,4 +1,6 @@
 import { escapeHtml } from '../utils'
+import { savePdaCuttingAction } from './pda-cutting-save.ts'
+import { replacementFabricCompanions } from '../data/fcs/cutting/replacement-fabric-bag-selection.ts'
 import {
   buildPdaUniversalHandoverRecordDraft,
   listHandoverRecords,
@@ -134,13 +136,20 @@ export function createPdaTransferBagHandoverFormState(): PdaTransferBagHandoverF
 function buildPdaTransferBagHandoverAssignments(
   tickets: ReturnType<typeof resolveTransferBagCurrentUse>['tickets'],
 ) {
+  const assigned = tickets.filter(ticket => ticket.sewingTaskId && ticket.receiverFactoryId)
+  const tasks = new Set(assigned.map(ticket => `${ticket.sewingTaskId}|${ticket.receiverFactoryId}`))
+  const base = assigned[0]
+  const companions = base && tasks.size === 1 ? replacementFabricCompanions(tickets, {
+    taskId: base.sewingTaskId, taskNo: base.sewingTaskNo, factoryId: base.receiverFactoryId,
+    factoryName: base.receiverFactoryName, productionOrderId: base.productionOrderId,
+  }) : []
   return tickets.map((ticket) => ({
     feiTicketId: ticket.feiTicketId,
     feiTicketNo: ticket.feiTicketNo,
-    sewingTaskId: ticket.sewingTaskId,
-    sewingTaskNo: ticket.sewingTaskNo,
-    receiverFactoryId: ticket.receiverFactoryId,
-    receiverFactoryName: ticket.receiverFactoryName,
+    sewingTaskId: companions.find(item => item.feiTicketId === ticket.feiTicketId)?.sewingTaskId || ticket.sewingTaskId,
+    sewingTaskNo: companions.find(item => item.feiTicketId === ticket.feiTicketId)?.sewingTaskNo || ticket.sewingTaskNo,
+    receiverFactoryId: companions.find(item => item.feiTicketId === ticket.feiTicketId)?.receiverFactoryId || ticket.receiverFactoryId,
+    receiverFactoryName: companions.find(item => item.feiTicketId === ticket.feiTicketId)?.receiverFactoryName || ticket.receiverFactoryName,
   }))
 }
 
@@ -182,11 +191,12 @@ export function scanPdaTransferBagForHandover(
     return failed('这个中转袋当前不能交出，请先核对袋内菲票和所处阶段。')
   }
 
+  const assignments = buildPdaTransferBagHandoverAssignments(currentUse.tickets)
   const eligibility = resolveWholeBagHandoverEligibility({
     currentUse,
-    assignments: buildPdaTransferBagHandoverAssignments(currentUse.tickets),
+    assignments,
     existingHandoverEvents: listWaitHandoverRuntimeEvents(storage),
-    submittedTicketSnapshot: currentUse.tickets,
+    submittedTicketSnapshot: currentUse.tickets.map(ticket => ({ ...ticket, ...assignments.find(item => item.feiTicketId === ticket.feiTicketId) })),
   })
   if (!eligibility.ok) return failed(eligibility.reason)
 
@@ -234,7 +244,7 @@ export function submitPdaTransferBagHandover(
       handoverRecordId: `PDA-HR-${stableKey}`,
       handoverRecordNo,
       assignments,
-      submittedTicketSnapshot: current.tickets,
+      submittedTicketSnapshot: current.tickets.map(ticket => ({ ...ticket, ...assignments.find(item => item.feiTicketId === ticket.feiTicketId) })),
       source: 'PDA',
       occurredAt: currentIndonesiaDateTime(),
       operator: {
@@ -456,91 +466,6 @@ function runtimeEventHasTicket(eventType: string, feiTicketId: string, specialCr
 
 function findHandoverRecordForDraft(draft: PdaHandoverRecordDraftProjection): HandoverRecord | undefined {
   return listHandoverRecords().find((record) => record.handoverOrderId === draft.handoverOrderId)
-}
-
-function validateUniversalHandoverScans(
-  draft: PdaHandoverRecordDraftProjection,
-  sourceRecord: HandoverRecord,
-  form: HandoverFormState,
-):
-  | {
-      ok: true
-      bag: HandoverRecord['transferBagUses'][number]
-      ticket: HandoverRecord['feiTicketItems'][number]
-    }
-  | { ok: false; message: string } {
-  if (!matchesScannedValue(form.handoverOrderScan, [draft.handoverOrderNo, draft.handoverOrderId])) {
-    return { ok: false, message: '请先扫描当前交出单。' }
-  }
-  const bag = sourceRecord.transferBagUses.find((item) => matchesScannedValue(form.handoverBagScan, [item.bagCode, item.bagUseId]))
-  if (!bag) return { ok: false, message: '该中转袋不属于当前交出单。' }
-
-  const ticket = sourceRecord.feiTicketItems.find((item) => matchesScannedValue(form.handoverFeiTicketScan, [item.feiTicketNo, item.feiTicketId]))
-  if (!ticket) return { ok: false, message: '该菲票不属于当前交出单。' }
-  if (bag.containedFeiTicketIds.length && !bag.containedFeiTicketIds.includes(ticket.feiTicketId)) {
-    return { ok: false, message: '该菲票不在已扫描的交出中转袋中。' }
-  }
-  const numberingValidation = validateFeiTicketNumberingBeforeBagging({
-    feiTicketId: ticket.feiTicketId,
-    feiTicketNo: ticket.feiTicketNo,
-    partName: ticket.partName,
-    pieceSequenceLabel: ticket.pieceSequenceLabel,
-  })
-  if (!numberingValidation.ok) return { ok: false, message: numberingValidation.reason }
-  if (runtimeEventHasTicket('新增交出记录', ticket.feiTicketId)) {
-    return { ok: false, message: '该菲票已有交出记录事件，不能重复交出。' }
-  }
-  return { ok: true, bag, ticket }
-}
-
-function appendRuntimeUniversalHandoverEvent(draft: PdaHandoverRecordDraftProjection, form: HandoverFormState, operatorName: string): string {
-  const sourceRecord = findHandoverRecordForDraft(draft)
-  if (!sourceRecord || !sourceRecord.feiTicketItems.length) return '当前交出单没有可提交的菲票明细。'
-  const validation = validateUniversalHandoverScans(draft, sourceRecord, form)
-  if (!validation.ok) return validation.message
-
-  const now = new Date().toISOString()
-  const recordId = `PDA-HR-${draft.handoverOrderId}-${now.replace(/\D/g, '')}`
-  const recordNo = `${draft.handoverOrderNo}-PDA-${String(draft.nextRecordSequence).padStart(3, '0')}`
-  const payload: HandoverRecordSubmitPayload = {
-    handoverOrderId: draft.handoverOrderId,
-    handoverOrderNo: draft.handoverOrderNo,
-    handoverRecordId: recordId,
-    handoverRecordNo: recordNo,
-    receiverType: draft.receiverType,
-    receiverId: sourceRecord.receiverId,
-    receiverName: draft.receiverName,
-    transferBagUses: [{
-      bagUseId: validation.bag.bagUseId,
-      bagCode: validation.bag.bagCode,
-      containedFeiTicketIds: [validation.ticket.feiTicketId],
-      totalPieceQty: validation.ticket.pieceQty,
-    }],
-    feiTicketItems: [{
-      feiTicketId: validation.ticket.feiTicketId,
-      feiTicketNo: validation.ticket.feiTicketNo,
-      pieceQty: validation.ticket.pieceQty,
-      unit: '片',
-    }],
-    currentHandedOverQty: validation.ticket.pieceQty,
-    submittedAt: now,
-    submittedBy: operatorName,
-  }
-
-  appendWaitHandoverHandoverRecordEvent({
-    source: 'PDA',
-    operator: {
-      operatorName,
-      operatorRole: '裁片仓交出员',
-    },
-    payload,
-    fromWarehouseArea: sourceRecord.sourceWarehouseName,
-    fromLocationCode: validation.bag.bagCode,
-    usageCycleId: validation.bag.bagUseId,
-    occurredAt: now,
-  })
-
-  return `已同步交出记录：${recordNo}，本次交出 ${payload.currentHandedOverQty} 片。`
 }
 
 function validateSpecialCraftHandoverScans(
@@ -1126,52 +1051,7 @@ export function renderPdaCuttingHandoverPage(taskId: string): string {
     })
   }
 
-  const confirmSection = `
-    <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
-      <div class="rounded-xl border bg-muted/20 px-3 py-3">
-        <div class="text-muted-foreground">通用交出记录</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(universalDraft.handoverOrderNo)} / 第 ${universalDraft.nextRecordSequence} 次交出</div>
-        <div class="mt-1 text-muted-foreground">接收对象：${escapeHtml(universalDraft.receiverType)} ${escapeHtml(universalDraft.receiverName)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(universalDraft.modelHint)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(universalDraft.submitConditionText)}</div>
-      </div>
-      <div class="rounded-xl border px-3 py-3">
-        <div class="font-medium text-foreground">扫码确认</div>
-        <div class="mt-2 grid gap-2">
-          ${renderPdaScanInput('交出单', 'handoverOrderScan', form.handoverOrderScan, universalDraft.handoverOrderNo)}
-          ${renderPdaScanInput('中转袋', 'handoverBagScan', form.handoverBagScan, '扫本次交出中转袋')}
-          ${renderPdaScanInput('菲票', 'handoverFeiTicketScan', form.handoverFeiTicketScan, '扫本次交出菲票')}
-        </div>
-      </div>
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">操作人</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-handover-field="operatorName" value="${escapeHtml(form.operatorName)}" />
-      </label>
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">交出对象</span>
-        <input class="h-10 w-full rounded-xl border bg-background px-3 text-sm" data-pda-cut-handover-field="targetLabel" value="${escapeHtml(form.targetLabel)}" placeholder="例如：裁片仓交出位 / 后道工位" />
-      </label>
-      <label class="block space-y-1">
-        <span class="text-muted-foreground">交出备注</span>
-        <textarea class="min-h-24 w-full rounded-xl border bg-background px-3 py-2 text-sm" data-pda-cut-handover-field="note" placeholder="填写交出提醒、后续去向和异常记录">${escapeHtml(form.note)}</textarea>
-      </label>
-      <div class="rounded-xl border bg-muted/20 px-3 py-3 text-xs">
-        <div class="text-muted-foreground">本次交出预览</div>
-        <div class="mt-1 text-sm font-semibold text-foreground">${escapeHtml(form.targetLabel || '待填写交出对象')}</div>
-        <div class="mt-1 text-muted-foreground">当前位置：${escapeHtml(detail.inboundZoneLabel)} / ${escapeHtml(detail.inboundLocationLabel)}</div>
-        <div class="mt-1 text-muted-foreground">${escapeHtml(universalDraft.riskTips[0]?.tipText || '提交后按交出记录展示累计交出、交出后是否齐套和缺口。')}</div>
-      </div>
-      ${form.feedbackMessage ? renderPdaCuttingFeedbackNotice(form.feedbackMessage, 'success') : ''}
-      <div class="grid grid-cols-2 gap-2">
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl border px-3 py-2 text-xs font-medium hover:bg-muted" data-nav="${escapeHtml(pageBackHref)}">
-          返回裁片任务
-        </button>
-        <button class="inline-flex min-h-10 items-center justify-center rounded-xl bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90" data-pda-cut-handover-action="confirm" data-task-id="${escapeHtml(taskId)}">
-          新增交出记录
-        </button>
-      </div>
-    </div>
-  `
+  const confirmSection = `<section class="space-y-3 rounded-xl border p-4 text-sm"><p>按车缝任务核对本次全部中转袋，换片布与裁片同次交出。</p><a class="flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-3 text-white" href="/fcs/pda/cutting/transfer-bag/repack">扫描任务并交出</a></section>`
 
   const specialCraftSection = `
     <div class="space-y-3 text-xs" data-task-id="${escapeHtml(taskId)}">
@@ -1454,26 +1334,22 @@ export function handlePdaCuttingHandoverEvent(
       transferContext.executionOrderId,
       transferContext.executionOrderNo,
     )
-    const nextState = submitPdaTransferBagHandover(state, taskId)
-    if (nextState.resultMessage.startsWith('交出成功')) {
-      transferBagScanTimerController.cancel(stateKey)
+    const container = resolveTransferBagHandoverContainer(actionNode)
+    if (!container) return true
+    const finish = (nextState: PdaTransferBagHandoverFormState) => {
+      const ok = nextState.resultMessage.startsWith('交出成功')
+      if (ok) transferBagScanTimerController.cancel(stateKey)
+      replaceTransferBagHandoverState(taskId, nextState, transferContext.executionOrderId, transferContext.executionOrderNo)
+      updatePdaTransferBagHandoverWorkflow(container, nextState, taskId,
+        resolvePdaTransferBagHandoverConfirmFocus({ ok, message: nextState.resultMessage }))
     }
-    replaceTransferBagHandoverState(
-      taskId,
-      nextState,
-      transferContext.executionOrderId,
-      transferContext.executionOrderNo,
-    )
-    const updatedLocally = updatePdaTransferBagHandoverWorkflow(
-      resolveTransferBagHandoverContainer(actionNode),
-      nextState,
-      taskId,
-      resolvePdaTransferBagHandoverConfirmFocus({
-        ok: nextState.resultMessage.startsWith('交出成功'),
-        message: nextState.resultMessage,
-      }),
-    )
-    return updatedLocally ? PDA_PAGE_HANDLED_LOCALLY : true
+    savePdaCuttingAction({ container, intent: JSON.stringify(['whole-bag-handover', stateKey, state]),
+      action: storage => {
+        const next = submitPdaTransferBagHandover(state, taskId, storage)
+        if (!next.resultMessage.startsWith('交出成功')) throw new Error(next.resultMessage)
+        return next
+      }, success: finish, failure: resultMessage => finish({ ...state, resultMessage }) })
+    return PDA_PAGE_HANDLED_LOCALLY
   }
 
   const executionContext = resolvePdaHandoverExecutionContext(taskId)
@@ -1481,58 +1357,25 @@ export function handlePdaCuttingHandoverEvent(
   const resolvedExecutionOrderId = executionContext.executionOrderId
   const resolvedExecutionOrderNo = executionContext.executionOrderNo
 
-  if (action === 'confirm') {
+  if (action === 'confirm-special-craft-handover' || action === 'confirm-special-craft-return') {
     const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
     syncHandoverFormFromControls(form)
-    const identity = resolvePdaCuttingRuntimeIdentity(taskId, {
-      executionOrderId: context.selectedExecutionOrderId || undefined,
-      executionOrderNo: context.selectedExecutionOrderNo || undefined,
-      cutOrderId: context.selectedExecutionOrder?.cutOrderId || undefined,
-      cutOrderNo: context.selectedExecutionOrder?.cutOrderNo || undefined,
-      markerPlanId: context.selectedExecutionOrder?.markerPlanId || undefined,
-      markerPlanNo: context.selectedExecutionOrder?.markerPlanNo || undefined,
-      materialSku: context.selectedExecutionOrder?.materialSku || undefined,
-    })
-    const operator = resolvePdaCuttingRuntimeOperator(taskId, form.operatorName.trim() || '交出操作员')
-    if (!identity || !operator) {
-      form.feedbackMessage = '当前铺布单或操作人无法识别，不能新增交出记录。'
-      return true
+    const container = actionNode.parentElement?.closest<HTMLElement>('[data-task-id]')
+    if (!container) return true
+    const show = (message: string) => {
+      form.feedbackMessage = message
+      let feedback = container.querySelector<HTMLElement>('[data-cutting-save-feedback]')
+      if (!feedback) { feedback = document.createElement('p'); feedback.dataset.cuttingSaveFeedback = ''; feedback.className = 'rounded border p-3 text-sm'; feedback.setAttribute('role', 'status'); container.append(feedback) }
+      feedback.textContent = message
     }
-    form.feedbackMessage = appendRuntimeUniversalHandoverEvent(
-      buildPdaUniversalHandoverRecordDraft(),
-      form,
-      form.operatorName.trim() || operator.operatorName || '交出操作员',
-    )
-    form.backHrefOverride = buildPdaCuttingCompletedReturnHref(
-      taskId,
-      context.selectedExecutionOrderId,
-      context.selectedExecutionOrderNo,
-      context.navContext,
-      'handover',
-    )
-    return true
-  }
-
-  if (action === 'confirm-special-craft-handover') {
-    const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
-    syncHandoverFormFromControls(form)
-    form.feedbackMessage = appendRuntimeSpecialCraftHandoverEvent(
-      buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'),
-      form,
-      form.operatorName.trim() || '特殊工艺交出员',
-    )
-    return true
-  }
-
-  if (action === 'confirm-special-craft-return') {
-    const form = getState(taskId, resolvedExecutionOrderId, resolvedExecutionOrderNo)
-    syncHandoverFormFromControls(form)
-    form.feedbackMessage = appendRuntimeSpecialCraftReturnEvent(
-      buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'),
-      form,
-      form.operatorName.trim() || '特殊工艺回仓员',
-    )
-    return true
+    savePdaCuttingAction({ container, intent: JSON.stringify([action, taskId, form]), action: () => {
+      const message = action === 'confirm-special-craft-handover'
+        ? appendRuntimeSpecialCraftHandoverEvent(buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'), form, form.operatorName.trim() || '特殊工艺交出员')
+        : appendRuntimeSpecialCraftReturnEvent(buildPdaUniversalHandoverRecordDraft('HO-CUT-AUX-260324-001'), form, form.operatorName.trim() || '特殊工艺回仓员')
+      if (!/成功|已同步/.test(message)) throw new Error(message)
+      return message
+    }, success: show, failure: show })
+    return PDA_PAGE_HANDLED_LOCALLY
   }
 
   return false

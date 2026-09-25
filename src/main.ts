@@ -1,3 +1,4 @@
+import { escapeHtml } from './utils.ts'
 import { dispatchMaterialDecisionClick, dispatchMaterialDecisionInput, dispatchMaterialDecisionChange, dispatchMaterialDecisionKey } from './pages/material-decision/events-bridge'
 import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey } from './pages/production-fulfillment/events'
 import './styles.css'
@@ -730,6 +731,14 @@ function includeTmfStorageWarning(pageContent: string): string {
 }
 
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  if (normalizedPathname.includes('/cutting/') || normalizedPathname.startsWith('/fcs/pda/transfer-bag')
+    || normalizedPathname.startsWith('/fcs/sewing-outsourcing/') || normalizedPathname.startsWith('/fcs/pda/tasks/')
+    || normalizedPathname === '/fcs/pda/handover' || normalizedPathname.startsWith('/fcs/pda/handover/')
+    || normalizedPathname === '/fcs/pda/warehouse/wait-handover'
+    || normalizedPathname === '/fcs/print/preview') {
+    const records = await import('./data/fcs/cutting/cutting-event-repository.ts')
+    await records.hydrateCuttingEventRecords()
+  }
   const isSupplementManagementEntry =
     normalizedPathname === supplementManagementRoutePath &&
     previousRenderedPagePathname !== supplementManagementRoutePath
@@ -951,6 +960,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       return '<section class="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">页面模块加载失败，正在刷新当前页面。</section>'
     }
     console.error('路由模块加载失败，进入降级页', error)
+    if (pathname.includes('/cutting/') || pathname.startsWith('/fcs/pda/transfer-bag') || pathname.startsWith('/fcs/print/preview')) {
+      const reason = error instanceof Error ? error.message : String(error)
+      return `<section role="alert" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"><strong>当前记录未能读取，暂不能继续操作。</strong><p class="mt-2">${escapeHtml(reason)}</p><p class="mt-2">请恢复浏览器存储权限并刷新；原记录没有被覆盖，请勿清除网站数据。</p></section>`
+    }
     return '<section class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">页面内容加载失败，请稍后重试。</section>'
   }
 }
@@ -1768,6 +1781,10 @@ function dispatchListColumnDragEvent(event: DragEvent): void {
   internalEvent.higoodStandardListColumnDrag = true
   internalEvent.higoodStandardListColumnKey = activeStandardListColumnDrag?.columnKey
   if (event.type === 'drop' || event.type === 'dragend') activeStandardListColumnDrag = null
+  if (target?.closest('[data-hpb-page]')) {
+    void import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts').then(module => module.handleReplacementFabricEvent(target, internalEvent))
+    return
+  }
   void dispatchPageEvent(target, internalEvent)
 }
 
@@ -1779,6 +1796,15 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (target.closest('[data-hpb-print-action]')) {
+    event.preventDefault()
+    const module = await import('./pages/print/replacement-fabric-preview.ts')
+    if (await module.handleReplacementFabricPrintEvent(target)) return
+  }
+  if (target.closest('[data-hpb-page]') && !target.closest('[data-pda-image-preview-url]')) {
+    const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    if (await module.handleReplacementFabricEvent(target, event)) return
+  }
   if (dispatchMaterialDecisionClick(target)) { event.preventDefault(); return }
   if (target.closest('[data-pf-action]') && handleProductionFulfillmentClick(target)) { event.preventDefault(); return }
   if (target.closest('#pf-app [data-pf-field], #pf-app .pf-form')) return
@@ -1992,6 +2018,11 @@ root.addEventListener('compositionend', async (event) => {
 })
 
 root.addEventListener('change', async (event) => {
+  const replacementTarget = resolveEventElementTarget(event.target)
+  if (replacementTarget?.closest('[data-hpb-page]')) {
+    const module = await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')
+    if (await module.handleReplacementFabricEvent(replacementTarget, event)) return
+  }
   const mdTarget = resolveEventElementTarget(event.target)
   if (mdTarget && dispatchMaterialDecisionChange(mdTarget)) return
   if (mdTarget?.closest('[data-pf-field]') && handleProductionFulfillmentField(mdTarget)) return
@@ -2055,6 +2086,10 @@ document.addEventListener('keydown', async (event) => {
   if (closePdaImagePreview()) {
     event.preventDefault()
     return
+  }
+
+  if (document.querySelector('[data-hpb-page]') && (await import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts')).closeReplacementFabricOverlay()) {
+    event.preventDefault(); return
   }
 
   const shouldUseScopedRender = isTechPackPageMounted()

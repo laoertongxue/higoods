@@ -1,6 +1,9 @@
 import { getBrowserLocalStorage, type BrowserStorageLike } from '../../browser-storage.ts'
+import { isFabricBagTicket, mixedBagTicketFields, validBagTicketQuantity } from './mixed-transfer-bag-ticket.ts'
+import { parseCompleteTransferBagRepackPayload } from './transfer-bag-operations.ts'
+import type { TransferBagTicketFactSnapshot } from './cutting-runtime-event-ledger.ts'
 import {
-  listCuttingRuntimeEventsByType,
+  listCuttingRuntimeEvents,
   type FeiTicketBagSnapshotItem,
   type FeiTicketBaggingPayload,
 } from './cutting-runtime-event-ledger.ts'
@@ -23,6 +26,8 @@ export interface TransferBagGoodsLabelMatrixRow {
 }
 
 export interface TransferBagGoodsLabelPage {
+  fabricItems?: FeiTicketBagSnapshotItem[]
+  fabricSummary?: string
   usageCycleId: string
   bagCode: string
   productionOrderNo: string
@@ -62,6 +67,7 @@ function normalizeSnapshotItem(value: unknown, fallback: { productionOrderId: st
   const item = toRecord(value)
   const hasSpecialCraft = Boolean(item.hasSpecialCraft)
   return {
+    ...mixedBagTicketFields(item),
     feiTicketId: toText(item.feiTicketId),
     feiTicketNo: toText(item.feiTicketNo),
     productionOrderId: toText(item.productionOrderId) || fallback.productionOrderId,
@@ -119,11 +125,12 @@ function assertSourceCanPrint(source: TransferBagGoodsLabelSource): void {
   const voided = source.tickets.filter(isVoidedTicket).map((ticket) => ticket.feiTicketNo || ticket.feiTicketId)
   if (voided.length) throw new Error(`${source.bagCode} 包含已作废菲票：${uniqueNonEmpty(voided).join('、')}。请先检查装袋内容。`)
   const invalidQty = source.tickets
-    .filter((ticket) => !Number.isSafeInteger(Number(ticket.pieceQty)) || Number(ticket.pieceQty) <= 0)
+    .filter((ticket) => isFabricBagTicket(ticket) ? !validBagTicketQuantity(ticket as unknown as TransferBagTicketFactSnapshot)
+      : !Number.isSafeInteger(Number(ticket.pieceQty)) || Number(ticket.pieceQty) <= 0)
     .map((ticket) => ticket.feiTicketNo || ticket.feiTicketId)
   if (invalidQty.length) throw new Error(`${source.bagCode} 包含非正整数裁片数量：${uniqueNonEmpty(invalidQty).join('、')}。请先检查装袋内容。`)
   const missingDimensions = source.tickets
-    .filter((ticket) => !ticket.color.trim() || !ticket.size.trim())
+    .filter((ticket) => !ticket.color.trim() || (!isFabricBagTicket(ticket) && !ticket.size.trim()))
     .map((ticket) => ticket.feiTicketNo || ticket.feiTicketId)
   if (missingDimensions.length) throw new Error(`${source.bagCode} 的菲票缺少颜色或尺码：${uniqueNonEmpty(missingDimensions).join('、')}。请先补齐后打印。`)
   const productionOrders = uniqueNonEmpty(source.tickets.map((ticket) => ticket.productionOrderNo))
@@ -136,26 +143,54 @@ export function resolveTransferBagGoodsLabelSource(
 ): TransferBagGoodsLabelSource | null {
   const normalizedId = usageCycleId.trim()
   if (!normalizedId) return null
-  const event = listCuttingRuntimeEventsByType('菲票装袋', storage)
-    .filter((candidate) => candidate.eventStatus !== '已取消')
-    .find((candidate) => (candidate.refs.usageCycleId || candidate.eventId) === normalizedId)
-  if (!event) return null
-  const payload = event.payload as FeiTicketBaggingPayload
-  return {
-    usageCycleId: event.refs.usageCycleId || event.eventId,
-    bagCode: payload.bagCode || event.refs.transferBagCode || '',
-    baggingAt: payload.baggingAt || event.occurredAt,
-    tickets: (Array.isArray(payload.feiTicketItems) ? payload.feiTicketItems : []).map((item) => normalizeSnapshotItem(item, {
-      productionOrderId: event.refs.productionOrderId || '',
-      productionOrderNo: event.refs.productionOrderNo || '',
-      cutOrderId: event.refs.cutOrderId || '',
-      cutOrderNo: event.refs.cutOrderNo || '',
-    })),
+  let source: TransferBagGoodsLabelSource | null = null
+  const events = listCuttingRuntimeEvents(storage).filter(event => event.eventStatus !== '已取消')
+    .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt) || (a.ledgerSequence || 0) - (b.ledgerSequence || 0))
+  for (const event of events) {
+    const fallback = { productionOrderId: event.refs.productionOrderId || '', productionOrderNo: event.refs.productionOrderNo || '', cutOrderId: event.refs.cutOrderId || '', cutOrderNo: event.refs.cutOrderNo || '' }
+    if (event.eventType === '菲票装袋' && (event.refs.usageCycleId || event.eventId) === normalizedId) {
+      const payload = event.payload as FeiTicketBaggingPayload
+      source = { usageCycleId: normalizedId, bagCode: payload.bagCode || event.refs.transferBagCode || '',
+        baggingAt: payload.baggingAt || event.occurredAt, tickets: (payload.feiTicketItems || []).map(item => normalizeSnapshotItem(item, fallback)) }
+    }
+    const repack = parseCompleteTransferBagRepackPayload(event)
+    if (repack) {
+      const result = repack.resultBags.find(bag => bag.usageCycleId === normalizedId)
+      const retained = repack.sourceBags.find(bag => bag.usageCycleId === normalizedId)
+      if (result) source = { usageCycleId: normalizedId, bagCode: result.bagCode, baggingAt: event.occurredAt,
+        tickets: result.tickets.map(item => normalizeSnapshotItem(item, fallback)) }
+      else if (retained && source) source = { ...source, tickets: (retained.afterTickets || []).map(item => normalizeSnapshotItem(item, fallback)) }
+    }
+    if (event.eventType === '新增交出记录') {
+      const payload = event.payload as { transferBagUses?: Array<{ bagUseId: string; bagCode: string; ticketSnapshot?: TransferBagTicketFactSnapshot[] }> }
+      const bag = payload.transferBagUses?.find(bag => bag.bagUseId === normalizedId)
+      if (bag?.ticketSnapshot?.length) source = { usageCycleId: normalizedId, bagCode: bag.bagCode,
+        baggingAt: source?.baggingAt || event.occurredAt, tickets: bag.ticketSnapshot.map(item => normalizeSnapshotItem(item, fallback)) }
+    }
   }
+  return source
 }
 
 export function buildTransferBagGoodsLabelPages(source: TransferBagGoodsLabelSource): TransferBagGoodsLabelPage[] {
   assertSourceCanPrint(source)
+  const fabrics = source.tickets.filter(isFabricBagTicket)
+  if (fabrics.length) {
+    const pieces = source.tickets.filter(ticket => !isFabricBagTicket(ticket))
+    const pages = pieces.length ? buildTransferBagGoodsLabelPages({ ...source, tickets: pieces }) : []
+    const totals = new Map<string, number>()
+    for (const ticket of fabrics) {
+      const key = `${ticket.ticketKind === 'REPLACEMENT_FABRIC' ? '换片布' : '捆条'}（${ticket.quantityUnit}）`
+      totals.set(key, (totals.get(key) || 0) + Number(ticket.quantity))
+    }
+    const fabricSummary = [...totals].map(([name, qty]) => `${name} ${qty}`).join('；')
+    // 面料一票一页，保留图片、长物料名、票号及独立单位，不挤入裁片颜色尺码矩阵。
+    for (const ticket of fabrics) pages.push({ usageCycleId: source.usageCycleId, bagCode: source.bagCode,
+      productionOrderNo: ticket.productionOrderNo, spuCodes: [], partCount: 0, sizes: [], rows: [], sizeTotals: [],
+      pagePieceQty: 0, totalPieceQty: pieces.reduce((sum, piece) => sum + piece.pieceQty, 0),
+      ticketCount: source.tickets.length, totalColorCount: 0, totalSizeCount: 0, pageIndex: 0, pageCount: 0,
+      baggingAt: source.baggingAt, fabricItems: [ticket], fabricSummary })
+    return pages.map((page, index) => ({ ...page, ticketCount: source.tickets.length, fabricSummary, pageIndex: index + 1, pageCount: pages.length }))
+  }
   const colors = uniqueNonEmpty(source.tickets.map((ticket) => ticket.color))
   const sizes = uniqueNonEmpty(source.tickets.map((ticket) => ticket.size)).sort(compareApparelSizes)
   const productionOrderNo = uniqueNonEmpty(source.tickets.map((ticket) => ticket.productionOrderNo))[0] || ''

@@ -277,6 +277,14 @@ export interface FinishCuttingPayload {
 }
 
 export interface FeiTicketBagSnapshotItem {
+  ticketKind?: TransferBagTicketFactSnapshot['ticketKind']
+  materialKey?: string
+  materialCode?: string
+  materialName?: string
+  materialImageUrl?: string
+  quantity?: number
+  quantityUnit?: string
+  replacementSequence?: number
   feiTicketId: string
   feiTicketNo: string
   productionOrderId: string
@@ -383,6 +391,14 @@ export interface HandoverBaggingConfirmPayload {
 }
 
 export interface TransferBagTicketFactSnapshot {
+  ticketKind?: 'CUT_PIECE' | 'WOOL_PIECE' | 'BINDING_STRIP' | 'REPLACEMENT_FABRIC'
+  materialKey?: string
+  materialCode?: string
+  materialName?: string
+  materialImageUrl?: string
+  quantity?: number
+  quantityUnit?: string
+  replacementSequence?: number
   feiTicketId: string
   feiTicketNo: string
   productionOrderId: string
@@ -627,6 +643,7 @@ export interface SimpleCutPieceRequirementSnapshot {
   allocatedGarmentQty: number
 }
 export interface SimpleCutPieceHandoverPayload {
+  replacementFabricTickets?: TransferBagTicketFactSnapshot[]
   schemaVersion: 1
   assignmentId: string
   runtimeTaskId: string
@@ -1037,13 +1054,46 @@ export function deserializeCuttingRuntimeEventLedgerStorage(raw: string | null):
 export function hydrateCuttingRuntimeEventLedgerStore(
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEventLedgerStore {
-  return deserializeCuttingRuntimeEventLedgerStorage(storage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null)
+  const store = deserializeCuttingRuntimeEventLedgerStorage(storage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null)
+  if (storage === getBrowserLocalStorage() && !isBrowserBusinessStorageStaged()) {
+    store.events = uniqueByEventId([...staticRuntimeEvents.values(), ...store.events])
+    if (committedEventReader) store.events = sortEvents(committedEventReader(store.events))
+  }
+  return store
+}
+
+const staticRuntimeEvents = new Map<string, CuttingRuntimeEvent>()
+let committedEventReader: ((legacy: CuttingRuntimeEvent[]) => CuttingRuntimeEvent[]) | null = null
+let committedReaderRevision: number | undefined
+let eventProjectionRevision = 0
+import { isBrowserBusinessStorageStaged } from '../../browser-storage.ts'
+export function getCuttingRuntimeEventProjectionRevision(): number { return eventProjectionRevision }
+export function installCuttingCommittedEventReader(reader: (legacy: CuttingRuntimeEvent[]) => CuttingRuntimeEvent[], revision?: number): void {
+  if (committedEventReader !== reader || committedReaderRevision !== revision) eventProjectionRevision++
+  committedEventReader = reader
+  committedReaderRevision = revision
 }
 
 export function persistCuttingRuntimeEventLedgerStore(
   store: CuttingRuntimeEventLedgerStore,
   storage: BrowserStorageLike | null = getBrowserLocalStorage(),
 ): CuttingRuntimeEventLedgerStore {
+  if (typeof document !== 'undefined' && storage === getBrowserLocalStorage() && !isBrowserBusinessStorageStaged()) {
+    const previous = hydrateCuttingRuntimeEventLedgerStore(storage).events
+    const before = new Map(previous.map(event => [event.eventId, JSON.stringify(event)]))
+    const changed = store.events.filter(event => before.get(event.eventId) !== JSON.stringify(event))
+    const affected = new Set(['菲票装袋', '中转袋入仓', '新增交出记录', '简易裁片交出', '中转袋拆袋重装', '中转袋回收', '中转袋报废', '特殊工艺交出', '特殊工艺回仓'])
+    if (changed.some(event => event.eventSource !== 'MOCK' && affected.has(event.eventType))) throw new Error('本次裁后动作尚未保存，请从当前装袋、交出或回收页面重新确认。')
+    for (const event of changed.filter(event => event.eventSource === 'MOCK')) staticRuntimeEvents.set(event.eventId, event)
+    if (changed.some(event => event.eventSource === 'MOCK')) eventProjectionRevision++
+    if (!changed.some(event => event.eventSource !== 'MOCK')) return store
+    // 共用旧键仅保留旧事实及本次未迁移模块的变化，不把 IDB 记录或静态演示复制回去。
+    const legacy = deserializeCuttingRuntimeEventLedgerStorage(storage?.getItem(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY) ?? null).events
+    const merged = new Map(legacy.map(event => [event.eventId, event]))
+    changed.filter(event => event.eventSource !== 'MOCK').forEach(event => merged.set(event.eventId, event))
+    storage?.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, serializeCuttingRuntimeEventLedgerStorage({ events: [...merged.values()] }))
+    return store
+  }
   storage?.setItem?.(CUTTING_RUNTIME_EVENT_LEDGER_STORAGE_KEY, serializeCuttingRuntimeEventLedgerStorage(store))
   return store
 }
@@ -1516,6 +1566,6 @@ export function listSimpleCutPieceHandoverEvents(
 }
 
 export function isFeiTicketSimplyHandedOver(feiTicketId: string, feiTicketNo?: string): boolean {
-  return listSimpleCutPieceHandoverEvents().some((event) => event.payload.tickets.some((ticket) =>
+  return listSimpleCutPieceHandoverEvents().some((event) => [...event.payload.tickets, ...(event.payload.replacementFabricTickets || [])].some((ticket) =>
     ticket.feiTicketId === feiTicketId || (!!feiTicketNo && ticket.feiTicketNo === feiTicketNo)))
 }

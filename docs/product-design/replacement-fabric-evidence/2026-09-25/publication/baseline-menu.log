@@ -1,0 +1,17 @@
+
+> higoods-vanilla-clone@1.0.0 check:menu-routes
+> tsx scripts/check-menu-routes.mjs
+
+[check-menu-routes] 菜单路由一致性检查
+  systems: fcs, pfos, pcs, pms
+  menu href total: 218
+  menu href unique: 218
+  uncovered: 5
+  duplicates: 0
+
+[菜单存在但无精确路由的 href]
+  - /fcs/craft/accessory/webbing/handover-records
+  - /fcs/craft/accessory/webbing/pending-receipts
+  - /fcs/craft/accessory/webbing/purchase-demands
+  - /fcs/craft/accessory/webbing/semi-finished-orders
+  - /fcs/craft/accessory/webbing/work-orders

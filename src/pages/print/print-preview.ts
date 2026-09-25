@@ -316,6 +316,9 @@ export function renderUnifiedPrintPreviewPage(input?: Partial<PrintDocumentBuild
   }
 }
 
-export function renderPrintPreviewPage(): string {
+export function renderPrintPreviewPage(): string | Promise<string> {
+  if (getSearchParams().get('documentType') === 'REPLACEMENT_FABRIC_LABEL') {
+    return import('./replacement-fabric-preview.ts').then(module => module.renderReplacementFabricPrintPreview())
+  }
   return renderUnifiedPrintPreviewPage()
 }

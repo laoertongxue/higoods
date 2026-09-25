@@ -1,0 +1,9 @@
+唛架计划层公式与状态检查通过
+唛架成衣件数（件）：12
+系统单件成衣用量（m/件）：0.7
+高低层矩阵成衣件数（件）：12
+捆条原算长度样例（m）：21
+捆条计划长度样例（m）：4
+模式数：4
+(node:94985) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

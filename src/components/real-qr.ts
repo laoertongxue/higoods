@@ -9,6 +9,7 @@ interface RealQrPlaceholderOptions {
   title?: string
   label?: string
   className?: string
+  batch?: boolean
 }
 
 const qrRootMap = new WeakMap<Element, Root>()
@@ -29,7 +30,7 @@ export function renderRealQrPlaceholder(options: RealQrPlaceholderOptions): stri
   const label = (options.label || title).trim()
   const className = options.className?.trim() ? ` class="${escapeHtml(options.className.trim())}"` : ''
 
-  return `<div data-real-qr data-qr-value="${escapeHtml(value)}" data-qr-size="${size}" data-qr-title="${escapeHtml(title)}" data-qr-label="${escapeHtml(label)}"${className}></div>`
+  return `<div data-real-qr${options.batch ? ' data-qr-batch="true"' : ''} data-qr-value="${escapeHtml(value)}" data-qr-size="${size}" data-qr-title="${escapeHtml(title)}" data-qr-label="${escapeHtml(label)}"${className}></div>`
 }
 
 function mountRealQr(node: HTMLElement): void {
@@ -74,7 +75,16 @@ function scheduleFlush(): void {
     const nextNode = pendingQrNodes.values().next().value as HTMLElement | undefined
     if (nextNode) {
       pendingQrNodes.delete(nextNode)
-      mountRealQr(nextNode)
+      if (nextNode.isConnected) mountRealQr(nextNode)
+      // 多张标签在本帧内批量提交；普通页面仍保持既有逐帧策略。
+      if (nextNode.dataset.qrBatch === 'true') {
+        const started = performance.now()
+        for (const node of pendingQrNodes) {
+          if (node.dataset.qrBatch !== 'true' || performance.now() - started > 8) break
+          pendingQrNodes.delete(node)
+          if (node.isConnected) mountRealQr(node)
+        }
+      }
     }
 
     qrHydrationScheduled = false

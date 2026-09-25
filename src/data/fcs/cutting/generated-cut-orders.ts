@@ -897,8 +897,18 @@ function buildPrompt1DimensionScenarioRecords(records: GeneratedCutOrderSourceRe
 
 let cachedRecords: GeneratedCutOrderSourceRecord[] | null = null
 let cachedSourceKey = ''
+let readFrameDepth = 0
+let readFrameResolved = false
+/** 同一同步渲染只核对一次上游；退出后下次动作重新校验，绝不跨保存动作复用。 */
+export function withGeneratedCutOrderReadFrame<T>(read: () => T): T {
+  const outer = readFrameDepth === 0
+  if (outer) readFrameResolved = false
+  readFrameDepth++
+  try { return read() } finally { readFrameDepth--; if (outer) readFrameResolved = false }
+}
 
 export function listGeneratedCutOrderSourceRecords(): GeneratedCutOrderSourceRecord[] {
+  if (!readFrameDepth || !readFrameResolved || !cachedRecords) {
   const orders = listCuttingProductionOrdersWithFormalTechPack()
   // A new frozen order, breakdown or dispatch must invalidate this derived view.
   const sourceKey = JSON.stringify([orders.map(order => [order.productionOrderId, order.productionOrderNo,
@@ -913,7 +923,9 @@ export function listGeneratedCutOrderSourceRecords(): GeneratedCutOrderSourceRec
     cachedSourceKey = sourceKey
     cachedRecords = [...baseRecords, ...buildPrompt1DimensionScenarioRecords(baseRecords)]
   }
-  return cachedRecords.map((record) => ({
+  if (readFrameDepth) readFrameResolved = true
+  }
+  return cachedRecords!.map((record) => ({
     ...record,
     sourceBomItemIds: [...(record.sourceBomItemIds || [])],
     productionOrderNo: normalizeText(record.productionOrderNo) || normalizeText(record.productionOrderId),
@@ -935,4 +947,5 @@ export function getGeneratedCutOrderSourceRecordById(cutOrderId: string): Genera
 
 export function resetGeneratedCutOrderSourceCache(): void {
   cachedRecords = null
+  readFrameResolved = false
 }

@@ -1,6 +1,7 @@
+import { renderMixedBagTicket, mixedBagSummary } from '../components/ui/mixed-bag-contents.ts'
 import { appStore } from '../state/store'
 import { escapeHtml } from '../utils'
-import { listCuttingRuntimeEvents, type CuttingRuntimeEvent } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { listCuttingRuntimeEvents, type CuttingRuntimeEvent, type TransferBagTicketFactSnapshot } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { resolveTransferBagCurrentUse } from '../data/fcs/cutting/transfer-bag-operations.ts'
 import type { TransferBagFlowStageKey, TransferBagLifecycleAction, TransferBagMainStatusKey } from '../data/fcs/cutting/transfer-bag-lifecycle.ts'
 import { renderPdaFrame } from './pda-shell'
@@ -46,9 +47,9 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
     event.refs.transferBagCode === bagCode || event.refs.transferBagCodes?.includes(bagCode))
   const latestHandover = history.filter((event) => event.eventType === '新增交出记录').at(-1)
   const latestHandoverPayload = latestHandover ? eventPayload(latestHandover) : {}
+  const latestTickets = ((latestHandoverPayload.transferBagUses || []) as Array<{ bagCode: string; ticketSnapshot?: TransferBagTicketFactSnapshot[] }>).filter(bag => bag.bagCode === bagCode).flatMap(bag => bag.ticketSnapshot || [])
   const recoveryRecords = history.filter((event) => event.eventType === '中转袋回收')
   const scrapRecords = history.filter((event) => event.eventType === '中转袋报废')
-  const pieceQty = current.tickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
 
   const content = `
     <main class="space-y-4 px-4 pb-5 pt-4">
@@ -63,30 +64,20 @@ export function renderPdaTransferBagDetailPage(routeBagNo?: string): string {
           <div><span class="text-muted-foreground">当前阶段：</span>${escapeHtml(lifecycle.flowStageLabel)}</div>
           <div class="col-span-2"><span class="text-muted-foreground">当前使用周期：</span>${escapeHtml(current.usageCycleId || '无')}</div>
           <div><span class="text-muted-foreground">当前生产单：</span>${escapeHtml(current.productionOrderNo || '无')}</div>
-          <div><span class="text-muted-foreground">当前菲票 / 裁片：</span>${current.tickets.length} 张 / ${pieceQty} 片</div>
+          <div><span class="text-muted-foreground">当前袋内货物：</span>${escapeHtml(mixedBagSummary(current.tickets))}</div>
         </div>
       </section>
 
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <h2 class="text-sm font-semibold">当前袋内菲票</h2>
         <div class="mt-3 space-y-2">
-          ${current.tickets.length ? current.tickets.map((ticket) => `
-            <article class="rounded-xl border px-3 py-3 text-xs">
-              <div class="font-semibold">${escapeHtml(ticket.feiTicketNo)}</div>
-              <div class="mt-2 grid grid-cols-2 gap-1 text-muted-foreground">
-                <div>颜色：${escapeHtml(ticket.color)}</div><div>尺码：${escapeHtml(ticket.size)}</div>
-                <div>部位：${escapeHtml(ticket.partName)}</div><div>数量：${ticket.pieceQty} 片</div>
-                <div class="col-span-2">车缝任务：${escapeHtml(ticket.sewingTaskNo || '未分配')}</div>
-                <div class="col-span-2">计划接收工厂：${escapeHtml(ticket.receiverFactoryName || '未分配')}</div>
-              </div>
-            </article>
-          `).join('') : '<div class="rounded-xl border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">当前袋内没有有效菲票</div>'}
+          ${current.tickets.length ? current.tickets.map(renderMixedBagTicket).join('') : '<div class="rounded-xl border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">当前袋内没有有效菲票</div>'}
         </div>
       </section>
 
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">
         <h2 class="text-sm font-semibold">最近交出快照</h2>
-        ${latestHandover ? `<div class="mt-3 rounded-xl border px-3 py-3 text-xs"><div>交出记录：${escapeHtml(latestHandover.eventNo)}</div><div class="mt-1">交出时间：${escapeHtml(latestHandover.occurredAt)}</div><div class="mt-1">交给：${escapeHtml(String(latestHandoverPayload.receiverName || '待核对'))}</div><div class="mt-1">车缝任务：${escapeHtml((latestHandover.refs.sewingTaskNos || []).join('、') || '无')}</div></div>` : '<div class="mt-3 rounded-xl border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无交出记录</div>'}
+        ${latestHandover ? `<div class="mt-3 rounded-xl border px-3 py-3 text-xs"><div>交出记录：${escapeHtml(latestHandover.eventNo)}</div><div class="mt-1">交出时间：${escapeHtml(latestHandover.occurredAt)}</div><div class="mt-1">交给：${escapeHtml(String(latestHandoverPayload.receiverName || '待核对'))}</div><div class="mt-1">车缝任务：${escapeHtml((latestHandover.refs.sewingTaskNos || []).join('、') || '无')}</div><div class="mt-2">${escapeHtml(mixedBagSummary(latestTickets))}</div><div class="mt-2 space-y-2">${latestTickets.map(renderMixedBagTicket).join('')}</div></div>` : '<div class="mt-3 rounded-xl border border-dashed px-3 py-6 text-center text-xs text-muted-foreground">暂无交出记录</div>'}
       </section>
 
       <section class="rounded-2xl border bg-card px-4 py-4 shadow-sm">

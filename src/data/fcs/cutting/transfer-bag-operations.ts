@@ -329,6 +329,9 @@ const WHOLE_BAG_SNAPSHOT_FIELDS: Array<keyof TransferBagTicketFactSnapshot> = [
   'receiverFactoryName',
 ]
 
+import { isFabricBagTicket, validBagTicketQuantity, bagTicketFieldMissing, mixedBagTicketFields, MIXED_BAG_EXTRA_FIELDS } from './mixed-transfer-bag-ticket.ts'
+import { isBrowserBusinessStorageStaged } from '../../browser-storage.ts'
+
 function sameWholeBagTicketSnapshot(
   left: TransferBagTicketFactSnapshot[],
   right: TransferBagTicketFactSnapshot[],
@@ -341,7 +344,7 @@ function sameWholeBagTicketSnapshot(
   return normalizedLeft.every((ticket) => {
     const expected = rightById.get(ticket.feiTicketId)
     return Boolean(expected)
-      && WHOLE_BAG_SNAPSHOT_FIELDS.every((field) => ticket[field] === expected?.[field])
+      && [...WHOLE_BAG_SNAPSHOT_FIELDS, ...MIXED_BAG_EXTRA_FIELDS].every((field) => ticket[field] === expected?.[field])
   })
 }
 
@@ -375,9 +378,7 @@ function normalizeRequiredSubmittedTicketSnapshot(
   }
   const snapshot = value.map((item) => normalizeWholeBagTicketSnapshot(record(item) as unknown as TransferBagTicketFactSnapshot))
   const incomplete = snapshot.find((item) =>
-    WHOLE_BAG_SNAPSHOT_FIELDS.some((field) => field === 'pieceQty'
-      ? !Number.isFinite(item.pieceQty) || item.pieceQty <= 0
-      : (field === 'cutOrderId' || field === 'cutOrderNo') && item.feiTicketNo.startsWith('WOOL-PANEL:') ? false : !text(item[field])))
+    WHOLE_BAG_SNAPSHOT_FIELDS.some((field) => bagTicketFieldMissing(item, field)))
   if (incomplete) {
     throw new Error(`整袋交出的提交快照不完整：${incomplete.feiTicketNo || incomplete.feiTicketId || '未知菲票'}。`)
   }
@@ -436,7 +437,7 @@ export function resolveWholeBagHandoverEligibility(
   if (!currentUse.tickets.length) {
     return failedWholeBagHandover('当前中转袋没有菲票，不能整袋交出。')
   }
-  const simplyHandedOver = new Set(listSimpleCutPieceHandoverEvents().flatMap((event) => event.payload.tickets.map((ticket) => ticket.feiTicketId)))
+  const simplyHandedOver = new Set(listSimpleCutPieceHandoverEvents().flatMap((event) => [...event.payload.tickets, ...(event.payload.replacementFabricTickets || [])].map((ticket) => ticket.feiTicketId)))
   if (currentUse.tickets.some((ticket) => simplyHandedOver.has(ticket.feiTicketId))) {
     return failedWholeBagHandover('袋内菲票已经通过简易裁片交出，请重新核对袋内裁片。')
   }
@@ -475,13 +476,10 @@ export function resolveWholeBagHandoverEligibility(
   const incompleteTicket = currentUse.tickets.find((ticket) =>
     !ticket.feiTicketNo.trim()
     || !ticket.productionOrderId.trim()
-    || (!ticket.feiTicketNo.startsWith('WOOL-PANEL:') && (!ticket.cutOrderId.trim() || !ticket.cutOrderNo.trim()))
+    || (!isFabricBagTicket(ticket) && !ticket.feiTicketNo.startsWith('WOOL-PANEL:') && (!ticket.cutOrderId.trim() || !ticket.cutOrderNo.trim()))
     || !ticket.color.trim()
-    || !ticket.size.trim()
-    || !ticket.partCode.trim()
-    || !ticket.partName.trim()
-    || !Number.isFinite(ticket.pieceQty)
-    || ticket.pieceQty <= 0)
+    || (!isFabricBagTicket(ticket) && (!ticket.size.trim() || !ticket.partCode.trim() || !ticket.partName.trim()))
+    || !validBagTicketQuantity(ticket))
   if (incompleteTicket) {
     return failedWholeBagHandover(`菲票 ${incompleteTicket.feiTicketNo || incompleteTicket.feiTicketId} 的当前袋内事实不完整。`)
   }
@@ -741,6 +739,7 @@ function ticketSnapshot(
 ): TransferBagTicketFactSnapshot {
   const value = record(raw)
   const snapshot: TransferBagTicketFactSnapshot = {
+    ...mixedBagTicketFields(value),
     feiTicketId: text(value.feiTicketId),
     feiTicketNo: text(value.feiTicketNo),
     productionOrderId: text(value.productionOrderId) || event.refs.productionOrderId || '',
@@ -785,13 +784,13 @@ function compatibilityReasonForTickets(
   if (tickets.some((ticket) => !ticket.productionOrderNo)) {
     return '历史袋内快照缺少生产单事实，当前关系仅供核查，不能拆袋重装。'
   }
-  if (tickets.some((ticket) => !Number.isFinite(ticket.pieceQty) || ticket.pieceQty <= 0)) {
+  if (tickets.some((ticket) => !validBagTicketQuantity(ticket))) {
     return '历史袋内快照缺少有效片数事实，当前关系仅供核查，不能拆袋重装。'
   }
-  if (tickets.some((ticket) => !ticket.receiverFactoryId)) {
+  if (tickets.some((ticket) => !isFabricBagTicket(ticket) && !ticket.receiverFactoryId)) {
     return '历史袋内快照缺少接收工厂事实，当前关系仅供核查，不能拆袋重装。'
   }
-  if (tickets.some((ticket) => !ticket.sewingTaskId || !ticket.sewingTaskNo)) {
+  if (tickets.some((ticket) => !isFabricBagTicket(ticket) && (!ticket.sewingTaskId || !ticket.sewingTaskNo))) {
     return '历史袋内快照缺少车缝任务事实，当前关系仅供核查，不能拆袋重装。'
   }
   return undefined
@@ -1967,7 +1966,7 @@ function existingRepackIntent(event: CuttingRuntimeEvent): string {
 function assertRepackSourceTicketComplete(ticket: TransferBagTicketFactSnapshot): void {
   if (!ticket.feiTicketId) throw new Error('来源袋存在无法唯一识别的菲票，不能拆袋重装。')
   if (!ticket.productionOrderNo) throw new Error(`${ticket.feiTicketNo || ticket.feiTicketId} 缺少生产单事实，不能拆袋重装。`)
-  if (!Number.isFinite(ticket.pieceQty) || ticket.pieceQty <= 0) {
+  if (!validBagTicketQuantity(ticket)) {
     throw new Error(`${ticket.feiTicketNo || ticket.feiTicketId} 缺少有效片数，不能拆袋重装。`)
   }
 }
@@ -2052,6 +2051,18 @@ export function submitTransferBagRepack(
   if (missingTicketIds.length) throw new Error(`结果袋和剩余来源袋缺失来源菲票：${missingTicketIds.join('、')}。`)
 
   const sourceTicketById = new Map(sourceTickets.map((item) => [item.ticket.feiTicketId, item]))
+  // 换片布不在装袋时预占车缝任务；在已确认的任务重装动作中绑定去向。
+  if (handoverContext) for (const id of handoverContext.targetFeiTicketIds) {
+    const item = sourceTicketById.get(id)
+    if (!item || !isFabricBagTicket(item.ticket)) continue
+    const ticket = item.ticket
+    if (ticket.productionOrderId !== handoverContext.productionOrderId
+      || (ticket.sewingTaskId && ticket.sewingTaskId !== handoverContext.sewingTaskId)
+      || (ticket.receiverFactoryId && ticket.receiverFactoryId !== handoverContext.receiverFactoryId)) throw new Error('换片布票属于其他生产单、任务或工厂。')
+    sourceTicketById.set(id, { ...item, ticket: { ...ticket, sewingTaskId: handoverContext.sewingTaskId,
+      sewingTaskNo: handoverContext.sewingTaskNo, receiverFactoryId: handoverContext.receiverFactoryId,
+      receiverFactoryName: handoverContext.receiverFactoryName } })
+  }
   for (const retained of retainedSources) {
     if (!sourceBagCodes.includes(retained.bagCode)) {
       throw new Error(`${retained.bagCode} 不是本次来源袋，不能登记剩余菲票。`)
@@ -2776,6 +2787,7 @@ function parseStrictWholeBagHandoverEvent(
       || text(item.feiTicketNo) !== snapshot.feiTicketNo
       || item.pieceQty !== snapshot.pieceQty
       || item.unit !== '片'
+      || MIXED_BAG_EXTRA_FIELDS.some(field => item[field] !== snapshot[field])
   })) return null
 
   if (
@@ -3886,6 +3898,7 @@ function findWholeBagHandoverEventsByRecordId(
 function buildWholeBagAutomaticSewingReceipts(tickets: TransferBagTicketFactSnapshot[], receivedAt: string, receivedBy: string) {
   const receipts = new Map<string, NonNullable<WholeBagHandoverSubmitPayload['automaticSewingReceipts']>[number]>()
   for (const ticket of tickets) {
+    if (isFabricBagTicket(ticket)) continue
     const task = getRuntimeTaskById(ticket.sewingTaskId)
     if (task && (!isRuntimeSewingTask(task) || task.productionOrderId !== ticket.productionOrderId || ['CANCELLED', 'BLOCKED', 'DONE'].includes(task.status))) {
       throw new Error(`车缝任务 ${ticket.sewingTaskId} 当前不能接收本生产单裁片`)
@@ -3900,7 +3913,7 @@ function buildWholeBagAutomaticSewingReceipts(tickets: TransferBagTicketFactSnap
 
 function startWholeBagReceivedSewingTasks(event: CuttingRuntimeEvent<'新增交出记录'>, storage: BrowserStorageLike | null): void {
   // Task-batch preflight replays into temporary storage; only the actual current ledger may start tasks.
-  if (storage !== getBrowserLocalStorage()) return
+  if (storage !== getBrowserLocalStorage() || isBrowserBusinessStorageStaged()) return
   const payload = event.payload as WholeBagHandoverSubmitPayload
   for (const receipt of payload.automaticSewingReceipts || []) {
     if (!receipt.runtimeTaskId) continue // Explicitly unbound historical prototype task; never invent a runtime task.
@@ -3996,8 +4009,9 @@ export function submitWholeBagHandover(
     ...(handoverContext ? { handoverContext: { ...handoverContext, targetFeiTicketIds: submittedTicketSnapshot.map((ticket) => ticket.feiTicketId) } } : {}),
   })
   const sourceLocation = wholeBagHandoverSourceLocation({ currentUse, events })
-  const woolSources = listWoolPanelCuttingReceiptSources()
-  for (const ticket of eligibility.ticketSnapshot.filter((item) => item.feiTicketNo.startsWith('WOOL-PANEL:'))) {
+  const woolTickets = eligibility.ticketSnapshot.filter((item) => item.feiTicketNo.startsWith('WOOL-PANEL:'))
+  const woolSources = woolTickets.length ? listWoolPanelCuttingReceiptSources() : []
+  for (const ticket of woolTickets) {
     const source = woolSources.find((item) => item.feiTicketNo === ticket.feiTicketNo)
     if (!source || source.receivingFactoryId !== (sourceLocation.locationRef?.factoryId || WOOL_DEFAULT_CUTTING_FACTORY_ID)
       || (sourceLocation.locationRef && source.receivingWarehouseId !== sourceLocation.locationRef.warehouseId) || source.feiTicketId !== ticket.feiTicketId || Boolean(ticket.cutOrderId || ticket.cutOrderNo) || source.productionOrderId !== ticket.productionOrderId || source.partCode !== ticket.partCode || source.skuColor !== ticket.color || source.skuSize !== ticket.size || source.qty !== ticket.pieceQty) throw new Error(`毛织片票 ${ticket.feiTicketNo} 与裁床实收事实不一致`)
@@ -4038,6 +4052,7 @@ export function submitWholeBagHandover(
     receiverName: eligibility.receiverFactoryName,
     transferBagUses: [transferBagUse],
     feiTicketItems: ticketSnapshot.map((ticket) => ({
+      ...mixedBagTicketFields(ticket as unknown as Record<string, unknown>),
       feiTicketId: ticket.feiTicketId,
       feiTicketNo: ticket.feiTicketNo,
       pieceQty: ticket.pieceQty,

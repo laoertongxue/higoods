@@ -1,4 +1,10 @@
+import { withGeneratedCutOrderReadFrame } from '../data/fcs/cutting/generated-cut-orders.ts'
+import { resolveReplacementFabricScanFromCurrent } from '../data/fcs/cutting/replacement-fabric-scan.ts'
 import { escapeHtml, localDateTimeText } from '../utils'
+import { savePdaCuttingAction } from './pda-cutting-save.ts'
+import { mixedBagSummary, renderMixedBagTicket } from '../components/ui/mixed-bag-contents.ts'
+import { mixedBagTicketFields } from '../data/fcs/cutting/mixed-transfer-bag-ticket.ts'
+import type { TransferBagTicketFactSnapshot } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
 import { getPdaSession } from '../data/fcs/store-domain-pda.ts'
 import { validateFeiTicketNumberingBeforeBagging } from '../data/fcs/cutting/fei-ticket-numbering.ts'
 import {
@@ -1110,28 +1116,8 @@ function buildInboundRuntimeTickets(
   const candidates = listInboundTicketCandidates()
   return bag.ticketNos.map((ticketNo) => {
     const candidate = candidates.find((item) => normalizeInboundCode(item.ticketNo) === normalizeInboundCode(ticketNo))
-    return {
-      feiTicketId: candidate?.feiTicketId || ticketNo,
-      feiTicketNo: ticketNo,
-      productionOrderId: candidate?.productionOrderId || '',
-      productionOrderNo: candidate?.productionOrderNo || bag.productionOrderNo,
-      cutOrderId: candidate?.cutOrderId || '',
-      cutOrderNo: candidate?.cutOrderNo || '',
-      spreadingOrderId: candidate?.sourceSpreadingSessionId || '',
-      spreadingOrderNo: candidate?.sourceSpreadingSessionNo || '',
-      spuCode: candidate?.spuCode || candidate?.styleCode || '',
-      color: candidate?.color || candidate?.fabricColor || '',
-      size: candidate?.size || '',
-      partCode: candidate?.partCode || '',
-      partName: candidate?.partName || '',
-      pieceQty: Number(candidate?.actualCutPieceQty || candidate?.qty || 0),
-      pieceSequenceLabel: candidate?.pieceSequenceLabel || '',
-      hasSpecialCraft: Boolean(candidate?.hasSpecialCraft),
-      specialCraftDisplay: candidate?.specialCraftDisplayLabel || '无',
-      receiverFactoryDisplay: candidate?.receiverFactoryDisplay || '待分配',
-      printStatus: candidate?.printStatus || 'PRINTED',
-      voidStatus: candidate?.ticketStatus === 'VOIDED' ? 'VOIDED' : 'VALID',
-    }
+    if (!candidate) throw new Error(`${ticketNo} 没有找到，请重新扫描。`)
+    return buildWaitHandoverRuntimeTicketFromTransferCandidate(candidate)
   })
 }
 
@@ -1151,7 +1137,7 @@ function resolveInboundScanTicketFromCandidates(
   if (!normalized) return null
   return (
     candidates.find((ticket) =>
-      [ticket.ticketNo, ticket.feiTicketId, ticket.ticketRecordId].some(
+      [ticket.ticketNo, ticket.feiTicketId, ticket.ticketRecordId, ticket.scanValue].some(
         (value) => String(value || '').toUpperCase() === normalized,
       ),
     ) || null
@@ -1167,13 +1153,17 @@ function validateInboundScan(
 ): { ok: boolean; reason: string; ticket: TransferBagTicketCandidate | null } {
   const normalized = scanCode.trim().toUpperCase()
   if (!normalized) return { ok: false, reason: '请扫描菲票。', ticket: null }
-  if (normalized.includes('WAIT') || normalized.includes('未打印')) {
+  const ticket = resolveInboundScanTicketFromCandidates(scanCode, candidates)
+  if (!ticket && (normalized.includes('WAIT') || normalized.includes('未打印'))) {
     return { ok: false, reason: '这张菲票未打印，请换一张。', ticket: null }
   }
-  if (normalized.includes('VOID') || normalized.includes('作废')) {
+  if (!ticket && (normalized.includes('VOID') || normalized.includes('作废'))) {
     return { ok: false, reason: '这张菲票已作废，请换一张。', ticket: null }
   }
-  const ticket = resolveInboundScanTicketFromCandidates(scanCode, candidates)
+  if (!ticket && (normalized.startsWith('HIG:HPB:1:') || normalized.startsWith('HPB/'))) {
+    try { resolveReplacementFabricScanFromCurrent(scanCode, undefined, form.carrierCode) }
+    catch (error) { return { ok: false, reason: error instanceof Error ? error.message : '换片布票无法读取。', ticket: null } }
+  }
   if (!ticket) return { ok: false, reason: '没有找到这张菲票，请重新扫描。', ticket: null }
   if (ticket.ticketStatus === 'VOIDED' || ticket.printStatus === 'VOIDED') {
     return { ok: false, reason: '这张菲票已作废，请换一张。', ticket }
@@ -1215,7 +1205,7 @@ function validateInboundScan(
     partName: ticket.partName,
     pieceSequenceLabel: ticket.pieceSequenceLabel,
   })
-  if (!numberingValidation.ok) return { ok: false, reason: numberingValidation.reason, ticket }
+  if (!['REPLACEMENT_FABRIC', 'BINDING_STRIP'].includes(ticket.ticketKind || '') && !numberingValidation.ok) return { ok: false, reason: numberingValidation.reason, ticket }
   if (form.scannedTicketNos.includes(ticket.ticketNo)) {
     return { ok: false, reason: `${ticket.ticketNo} 已扫过，请扫下一张。`, ticket }
   }
@@ -1260,20 +1250,23 @@ function renderResultMessage(form: InboundFormState): string {
 }
 
 function renderBaggingLiveState(form: InboundFormState): string {
+  const candidates = form.scannedTicketNos.length ? listInboundTicketCandidates() : []
+  const scanned = form.scannedTicketNos.flatMap(no => {
+    const candidate = candidates.find(item => normalizeInboundCode(item.ticketNo) === normalizeInboundCode(no))
+    if (!candidate) return []
+    const ticket = buildWaitHandoverRuntimeTicketFromTransferCandidate(candidate)
+    return [{ ...ticket, ...mixedBagTicketFields(candidate as unknown as Record<string, unknown>),
+      sewingTaskId: '', sewingTaskNo: '', receiverFactoryId: '', receiverFactoryName: '' } as TransferBagTicketFactSnapshot]
+  })
   return `
     <div class="rounded-xl border bg-muted/20 px-3 py-2.5">
       <div class="flex items-center justify-between gap-3">
         <span class="font-medium text-foreground">已扫菲票 ${form.scannedTicketNos.length} 张</span>
-        <span class="text-muted-foreground">${escapeHtml(form.inboundQty || '0')} 片</span>
+        <span class="text-muted-foreground">${escapeHtml(mixedBagSummary(scanned))}</span>
       </div>
       ${
         form.scannedTicketNos.length
-          ? `<div class="mt-2 flex flex-wrap gap-1.5">${form.scannedTicketNos
-              .map(
-                (ticketNo) =>
-                  `<span class="rounded-lg border bg-background px-2 py-1 text-[11px] text-foreground">${escapeHtml(ticketNo)}</span>`,
-              )
-              .join('')}</div>`
+          ? `<div class="mt-2 space-y-2">${scanned.map(renderMixedBagTicket).join('')}</div>`
           : ''
       }
     </div>
@@ -1441,6 +1434,9 @@ export function resolvePdaCuttingInboundConfirmFocus(
 }
 
 export function renderPdaCuttingInboundPage(taskId: string): string {
+  return withGeneratedCutOrderReadFrame(() => renderPdaCuttingInboundContent(taskId))
+}
+function renderPdaCuttingInboundContent(taskId: string): string {
   const mode = getInboundMode()
   const context = buildPdaCuttingExecutionContext(taskId, 'inbound')
   const form = getState(taskId, mode, context.selectedExecutionOrderId, context.selectedExecutionOrderNo)
@@ -1448,6 +1444,7 @@ export function renderPdaCuttingInboundPage(taskId: string): string {
 
   return renderPdaCuttingPageLayout({
     taskId,
+    context: context.task && context.detail ? { task: context.task, detail: context.detail } : null,
     title: pageTitle,
     subtitle: '',
     activeTab: 'warehouse',
@@ -1702,22 +1699,20 @@ export function handlePdaCuttingInboundEvent(
     }
   } else if (mode === 'bagging' && eventState.form.scanCode.trim()) {
     result = { ok: false, message: '请先完成当前菲票扫描。' }
+  } else if (mode === 'bagging' && !eventState.form.scannedTicketNos.length) {
+    result = { ok: false, message: '请扫描菲票。' }
   } else {
-    try {
-      appendPdaCuttingInboundRuntimeEvent(
-        eventState.form,
-        mode,
-        listInboundTicketCandidates(),
-        getBrowserLocalStorage(),
-      )
-      ticketScanTimerController.cancel(stateKey)
-      result = { ok: true }
-    } catch (error) {
-      result = {
-        ok: false,
-        message: error instanceof Error ? error.message : '事实账写入失败，请重试。',
-      }
+    if (!workflowContainer) return true
+    const finish = (outcome: InboundRoundResult) => {
+      if (outcome.ok) ticketScanTimerController.cancel(stateKey)
+      const nextForm = completePdaCuttingInboundRound(eventState.form, mode, outcome)
+      replaceState(taskId, mode, nextForm, eventState.selectedExecutionOrderId, eventState.selectedExecutionOrderNo)
+      updatePdaCuttingInboundWorkflow(workflowContainer, mode, nextForm, taskId, resolvePdaCuttingInboundConfirmFocus(mode, outcome))
     }
+    savePdaCuttingAction({ container: workflowContainer, intent: JSON.stringify(['inbound', stateKey, eventState.form]),
+      action: storage => appendPdaCuttingInboundRuntimeEvent(eventState.form, mode, listInboundTicketCandidates(), storage),
+      success: () => finish({ ok: true }), failure: message => finish({ ok: false, message }) })
+    return PDA_PAGE_HANDLED_LOCALLY
   }
   const confirmation: PdaCuttingInboundConfirmOutcome = {
     result,

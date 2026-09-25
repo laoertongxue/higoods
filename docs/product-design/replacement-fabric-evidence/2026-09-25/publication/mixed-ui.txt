@@ -1,0 +1,72 @@
+### Result
+{"result":{"missing":"Error: 本次不能交出，缺少换片布：主面料（tdv_demand_SPU_2024_005-bom-main Grey）。请补齐对应菲票后与裁片一起确认。\n    at validateReplacementFabricHandover (http://127.0.0.1:43235/src/data/fcs/cutting/replacement-fabric-fei-tickets.ts:156:38)\n    at validateReplacementFabricEventBatch (http://127.0.0.1:43235/src/data/fcs/cutting/replacement-fabric-event-validation.ts:56:21)\n    at Module.runCuttingEventAction (http://127.0.0.1:43235/src/data/fcs/cutting/cutting-event-repository.ts:91:3)\n    at async eval (eval at evaluate (:367:30), <anonymous>:44:11)\n    at async <anonymous>:393:30","failedUnchanged":true,"handovers":2,"receipt":[{"id":"HPB-RECEIPT:HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49","ticket":{"id":"HPB-9d4be639f04a5998f33d9fc453a5f404f0156805ff666bb090b049b164226b49","ticketNo":"HPB/PO-202603-0002/tdv_demand_SPU_2024_005-bom-main/Grey/001","productionOrderId":"PO-202603-0002","productionOrderNo":"PO-202603-0002","cuttingFactoryId":"F090","assignmentKey":"[\"TASKGEN-202603-0002-001__ORDER\",\"F090\",\"2026-03-19 10:00:00\"]","material":{"key":"[\"tdv_demand_SPU_2024_005-bom-main\",\"Grey\"]","code":"tdv_demand_SPU_2024_005-bom-main","name":"主面料","color":"Grey","imageUrl":"/materials/fei-ticket/grey-main-fabric.png","skuCodes":["SKU-005-S-GRY","SKU-005-M-GRY","SKU-005-L-GRY","SKU-005-XL-GRY"]},"sequence":1,"length":5,"unit":"Yard","createdAt":"2026-03-19 10:00:00","createdBy":"裁床分配自动生成","creationCommandId":"assignment-default:[\"PO-202603-0002\",\"F090\",\"[\\\"TASKGEN-202603-0002-001__ORDER\\\",\\\"F090\\\",\\\"2026-03-19 10:00:00\\\"]\",\"[\\\"tdv_demand_SPU_2024_005-bom-main\\\",\\\"Grey\\\"]\"]"},"taskId":"TASKGEN-202603-0002-002__ORDER","receiverFactoryId":"ID-F001","handoverRecordId":"TASK-HR:HPB-BROWSER-BATCH-01:BAG-HPB-BROWSER-FAB","confirmedAt":"2026-09-24 12:03:00","confirmedBy":"隔离浏览器验收","bagUseId":"CYCLE-BAG-HPB-BROWSER-FAB"}],"status":"IN_PROGRESS"},"views":[{"name":"pda","kinds":["CUT_PIECE","REPLACEMENT_FABRIC","BINDING_STRIP"],"overflow":false},{"name":"web","kinds":["CUT_PIECE","REPLACEMENT_FABRIC","BINDING_STRIP"],"overflow":false}]}
+### Ran Playwright code
+```js
+await (async (page) => {
+  const auth=await page.evaluate(()=>localStorage.getItem('fcs_pda_session')); const context=await page.context().browser().newContext(); const p=await context.newPage(); await p.addInitScript(auth=>localStorage.setItem('fcs_pda_session',auth),auth); await p.goto('http://127.0.0.1:43235/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.locator('[data-hpb-page]').waitFor();
+  const result=await p.evaluate(async () => {
+    const tasks = await import('/src/data/fcs/process-tasks.ts');
+    const runtime = await import('/src/data/fcs/runtime-process-tasks.ts');
+    const factories = await import('/src/data/fcs/factory-master-store.ts');
+    const assignments = await import('/src/data/fcs/effective-task-assignments.ts');
+    const repo = await import('/src/data/fcs/cutting/replacement-fabric-repository.ts');
+    const storage = await import('/src/data/fcs/cutting/cutting-record-repository.ts');
+    const actions = await import('/src/data/fcs/cutting/cutting-event-repository.ts');
+    const ledger = await import('/src/data/fcs/cutting/cutting-runtime-event-ledger.ts');
+    const bag = await import('/src/data/fcs/cutting/transfer-bag-operations.ts');
+    const mixed = await import('/src/data/fcs/cutting/mixed-transfer-bag-ticket.ts');
+    const handover = await import('/src/pages/process-factory/cutting/wait-handover-runtime.ts');
+    const master=factories.getFactoryMasterRecordById('ID-F001');
+    const ppic=factories.getFactoryActivePpicSnapshot('ID-F001');
+    const source=tasks.processTasks.find(x=>x.productionOrderId==='PO-202603-0002'&&x.processCode==='PROC_SEW');
+    Object.assign(source,{assignedFactoryId:master.id,assignedFactoryName:master.name,assignmentStatus:'ASSIGNED',status:'NOT_STARTED'});
+    runtime.clearRuntimeProcessTasksCache();
+    const task=runtime.listRuntimeProcessTasks().find(x=>x.baseTaskId===source.taskId);
+    if(!assignments.listCurrentEffectiveTaskAssignments(task.taskId).length) assignments.createEffectiveTaskAssignment({assignmentId:'ASG-HPB-BROWSER-TEST',runtimeTaskId:task.taskId,productionOrderId:task.productionOrderId,productionOrderNo:task.productionOrderId,taskNo:task.taskNo,factoryId:master.id,factoryName:master.name,source:'DIRECT_DISPATCH',assignedQty:task.qty,skuLines:task.scopeSkuLines,processCodes:['SEW'],frozenPrice:1000,priceCurrency:'IDR',priceUnit:'件',businessAssignedAt:'2026-09-24 10:00:00',operatedAt:'2026-09-24 10:00:00',operatedBy:ppic.ppicName,allocationOperatorPpicId:ppic.ppicId,allocationOperatorPpicName:ppic.ppicName});
+    const dispatch=runtime.captureRuntimeDirectDispatchState();
+    dispatch.taskOverrides=dispatch.taskOverrides.filter(([id])=>id!==task.taskId);
+    dispatch.taskOverrides.push([task.taskId,{assignmentMode:'DIRECT',assignmentStatus:'ASSIGNED',assignedFactoryId:master.id,assignedFactoryName:master.name,dispatchedAt:'2026-09-24 10:00:00',businessAssignedAt:'2026-09-24 10:00:00',dispatchedBy:ppic.ppicName,dispatchPrice:1000,acceptanceStatus:'PENDING',status:'NOT_STARTED',updatedAt:'2026-09-24 10:00:00'}]);
+    runtime.restoreRuntimeDirectDispatchState(dispatch);
+    const scopes=(await import('/src/data/fcs/cutting/replacement-fabric-source.ts')).listReplacementFabricOrderRows().flatMap(row=>row.scopes); const initial=await repo.loadReplacementFabricState(); await repo.saveReplacementFabricPrint([initial.tickets[0].id],scopes,{id:'fixture-print',at:'2026-09-25 11:00:00',operator:'隔离验收夹具'});
+    const state=await repo.loadReplacementFabricState();
+    const hpb=state.tickets.find(t=>state.prints.some(p=>p.ticketId===t.id)&&!state.receipts.some(r=>r.ticket.id===t.id));
+    if(!hpb) throw new Error('缺少未交出的已打印票');
+    const taskFields={sewingTaskId:task.taskId,sewingTaskNo:task.taskNo,receiverFactoryId:master.id,receiverFactoryName:master.name};
+    const fabric={...mixed.replacementFabricBagTicket(hpb),...taskFields};
+    const part={feiTicketId:'FT-HPB-BROWSER-PART-01',feiTicketNo:'FP-HPB-BROWSER-01',productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,cutOrderId:'CUT-HPB-BROWSER-01',cutOrderNo:'CUT-HPB-BROWSER-01',color:'Grey',size:'M',partCode:'FRONT',partName:'前片',pieceQty:20,...taskFields};
+    const operator={operatorId:'HPB-TEST',operatorName:'隔离浏览器验收',operatorRole:'裁片仓交出员'};
+    const at='2026-09-24 12:00:00';
+    await actions.runCuttingEventAction({id:'HPB-BROWSER-SETUP-01',intent:'HPB-BROWSER-SETUP-01',action: target=>{
+      for(const [code,ticket] of [['BAG-HPB-BROWSER-CUT',part],['BAG-HPB-BROWSER-FAB',fabric]]){
+        const cycle='CYCLE-'+code;
+        ledger.appendCuttingRuntimeEventIdempotent({eventType:'菲票装袋',eventSource:'PDA',eventStatus:'已同步',idempotencyKey:'HPB-SETUP:'+code,occurredAt:at,operatorName:operator.operatorName,operatorRole:operator.operatorRole,refs:{productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,transferBagCode:code,usageCycleId:cycle,feiTicketIds:[ticket.feiTicketId],feiTicketNos:[ticket.feiTicketNo]},payload:{baggingRecordId:'PACK-'+code,bagCode:code,feiTicketItems:[ticket],totalPieceQty:ticket.pieceQty,mixedFlag:false,baggingBy:operator.operatorName,baggingAt:at}},target);
+        ledger.appendCuttingRuntimeEventIdempotent({eventType:'中转袋入仓',eventSource:'PDA',eventStatus:'已同步',idempotencyKey:'HPB-IN:'+code,occurredAt:'2026-09-24 12:01:00',operatorName:operator.operatorName,operatorRole:operator.operatorRole,refs:{productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,transferBagCode:code,usageCycleId:cycle,feiTicketIds:[ticket.feiTicketId],feiTicketNos:[ticket.feiTicketNo]},inventoryEffect:{inventoryScope:'裁床待交出仓',direction:'IN',qty:ticket.pieceQty,unit:'片',toWarehouseArea:'A区',toLocationCode:'A-R01-L01-P01'},payload:{bagCode:code,warehouseArea:'A区',locationCode:'A-R01-L01-P01',inboundAt:'2026-09-24 12:01:00',inboundBy:operator.operatorName}},target);
+      }
+      return true;
+    }});
+    const context={handoverBatchId:'HPB-BROWSER-BATCH-01',productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,...taskFields,receiverPpicId:ppic.ppicId,receiverPpicName:ppic.ppicName,targetFeiTicketIds:[part.feiTicketId,fabric.feiTicketId]};
+    const direct=(code)=>{const use=bag.resolveTransferBagCurrentUse(code);return {bagCode:code,usageCycleId:use.usageCycleId,assignments:use.tickets.map(t=>({feiTicketId:t.feiTicketId,feiTicketNo:t.feiTicketNo,...taskFields})),submittedTicketSnapshot:use.tickets.map(t=>({...t,...taskFields}))}};
+    const before=await storage.readCuttingRecords(); let missing='';
+    try { await actions.runCuttingEventAction({id:'HPB-BROWSER-MISSING',intent:'HPB-BROWSER-MISSING',action:target=>handover.submitWaitHandoverTaskBatch({handoverContext:context,directBags:[direct('BAG-HPB-BROWSER-CUT')],operator,source:'PDA',occurredAt:'2026-09-24 12:02:00'},target)}); } catch(e){ missing=e.stack; }
+    const afterFailure=await storage.readCuttingRecords();
+    if(!missing.includes('缺少换片布')||JSON.stringify(before)!==JSON.stringify(afterFailure))throw new Error('缺票阻断或原子性失败: '+missing+'\n task='+JSON.stringify(runtime.getRuntimeTaskById(task.taskId))+'\n context='+JSON.stringify((await import('/src/data/fcs/cutting/replacement-fabric-source.ts')).resolveReplacementFabricRuntimeTaskContext(task.taskId,master.id)));
+    const result=await actions.runCuttingEventAction({id:'HPB-BROWSER-OK',intent:'HPB-BROWSER-OK',action:target=>handover.submitWaitHandoverTaskBatch({handoverContext:context,directBags:[direct('BAG-HPB-BROWSER-FAB'),direct('BAG-HPB-BROWSER-CUT')],operator,source:'PDA',occurredAt:'2026-09-24 12:03:00'},target)});
+    const more=await repo.addReplacementFabricTickets(scopes[0],scopes[0].materials[0].key,1,{id:'mixed-add',at:'2026-09-25 11:00:00',operator:'隔离验收'});
+    await repo.saveReplacementFabricPrint([more[0].id],scopes,{id:'mixed-print',at:'2026-09-25 11:01:00',operator:'隔离验收'});
+    const mixCode='BAG-HPB-MIXED-VERIFY',mixCycle='CYCLE-'+mixCode;
+    const mixTickets=[{...part,feiTicketId:'CUT-MIX-2',feiTicketNo:'CUT-MIX-2'}, {...mixed.replacementFabricBagTicket(more[0]),...taskFields}, {...fabric,feiTicketId:'BND-MIX-2',feiTicketNo:'BND-MIX-2',ticketKind:'BINDING_STRIP',replacementSequence:undefined,quantity:8,quantityUnit:'米'}];
+    await actions.runCuttingEventAction({id:'mixed-bag',intent:'mixed-bag',action:target=>ledger.appendCuttingRuntimeEventIdempotent({eventType:'菲票装袋',eventSource:'PDA',eventStatus:'已同步',idempotencyKey:'mixed-bag',occurredAt:at,operatorName:operator.operatorName,operatorRole:operator.operatorRole,refs:{productionOrderId:hpb.productionOrderId,productionOrderNo:hpb.productionOrderNo,transferBagCode:mixCode,usageCycleId:mixCycle,feiTicketIds:mixTickets.map(t=>t.feiTicketId),feiTicketNos:mixTickets.map(t=>t.feiTicketNo)},payload:{baggingRecordId:'PACK-'+mixCode,bagCode:mixCode,feiTicketItems:mixTickets,totalPieceQty:20,mixedFlag:true,baggingBy:operator.operatorName,baggingAt:at}},target)});
+    const final=await repo.loadReplacementFabricState();
+    return {missing,failedUnchanged:JSON.stringify(before)===JSON.stringify(afterFailure),handovers:result.handoverEvents.length,receipt:final.receipts.filter(r=>r.ticket.id===hpb.id),status:runtime.getRuntimeTaskById(task.taskId).status};
+  });
+  const views=[];
+  for(const [name,url,width,height] of [['pda','/fcs/pda/transfer-bag-detail?bagNo=BAG-HPB-MIXED-VERIFY',360,800],['web','/fcs/craft/cutting/transfer-bag-detail?bagCode=BAG-HPB-MIXED-VERIFY',1366,768]]){
+    await p.setViewportSize({width,height}); await p.goto('http://127.0.0.1:43235'+url);await p.locator('[data-mixed-bag-kind]').first().waitFor();
+    await p.waitForFunction(()=>[...document.querySelectorAll('[data-mixed-bag-kind] img')].every(i=>i.complete&&i.naturalWidth));
+    const kinds=await p.locator('[data-mixed-bag-kind]').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('data-mixed-bag-kind')));
+    if(!['CUT_PIECE','BINDING_STRIP','REPLACEMENT_FABRIC'].every(k=>kinds.includes(k)))throw Error(name+' missing kinds '+kinds);
+    views.push({name,kinds,overflow:await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth)});await p.screenshot({path:'output/playwright/hpb/mixed-'+name+'.png',fullPage:true});
+  }
+  await context.close();return {result,views};
+})(page);
+```

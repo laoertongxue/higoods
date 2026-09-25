@@ -1,3 +1,4 @@
+import { savePdaCuttingAction } from './pda-cutting-save.ts'
 // @page-pattern: pda
 import { escapeHtml } from '../utils'
 import { listCuttingRuntimeEvents } from '../data/fcs/cutting/cutting-runtime-event-ledger.ts'
@@ -149,9 +150,11 @@ export function handlePdaCuttingTransferBagRecoveryEvent(target: HTMLElement, ev
   }
   const action = target.closest<HTMLElement>('[data-pda-recovery-action="confirm"]')
   if (!action) return false
-  try {
+  const container = action.closest<HTMLElement>('[data-pda-transfer-bag-recovery-page]')
+  if (!container) return true
+  savePdaCuttingAction({ container, intent: JSON.stringify(['recovery', recoveryState]), action: () => {
     const operator = resolvePdaCuttingRuntimeOperator('', '中转袋回收员')
-    const eventRecord = recoverTransferBag({
+    return recoverTransferBag({
       bagCode: recoveryState.bagCode,
       physicalBagReceived: recoveryState.physicalBagReceived,
       physicalBagEmpty: recoveryState.physicalBagEmpty,
@@ -163,10 +166,9 @@ export function handlePdaCuttingTransferBagRecoveryEvent(target: HTMLElement, ev
       source: 'PDA',
       operator: { operatorId: operator.operatorAccountId, operatorName: operator.operatorName, operatorRole: operator.operatorRole },
     })
+  }, success: eventRecord => {
     recoveryState = { ...recoveryState, identified: false, feedback: '回收成功，中转袋已变为空闲。', recoveryRecordNo: eventRecord.eventNo }
-  } catch (error) {
-    recoveryState = { ...recoveryState, feedback: error instanceof Error ? error.message : '回收失败，请检查后重试。' }
-  }
-  refreshRecoveryPage(action)
+    refreshRecoveryPage(action)
+  }, failure: feedback => { recoveryState = { ...recoveryState, feedback }; refreshRecoveryPage(action) } })
   return PDA_PAGE_HANDLED_LOCALLY
 }

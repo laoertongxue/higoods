@@ -1,3 +1,8 @@
+import { cuttingRecordUuid } from '../../../data/fcs/cutting/cutting-record-identity.ts'
+import { mixedBagSummary } from '../../../components/ui/mixed-bag-contents.ts'
+import { listMixedFabricBagCandidates, fabricCandidateRuntimeTicket } from './mixed-bag-candidates.ts'
+import { replacementFabricCompanions } from '../../../data/fcs/cutting/replacement-fabric-bag-selection.ts'
+import type { WaitHandoverRuntimeTicketInput } from './wait-handover-runtime.ts'
 import { handleSimpleCutPieceUiEvent } from '../../simple-cut-piece-handover-ui.ts'
 import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
 import { listEffectiveTaskAssignments } from '../../../data/fcs/effective-task-assignments.ts'
@@ -364,34 +369,26 @@ function refreshWorkbenchData(): void {
   actionAdapter.hydrateRegion?.(next)
 }
 
-function findGeneratedTickets(dialog: ParentNode): GeneratedFeiTicketSourceRecord[] {
+function findGeneratedTickets(dialog: ParentNode): WaitHandoverRuntimeTicketInput[] {
   const selected = readField(dialog, 'feiTicketId')
-  const codes = readField(dialog, 'ticketScanInput')
-    .split(/[\s,，、;；\n\r]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-  const all = [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter((ticket) => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
-  const requested = [selected, ...codes].filter(Boolean)
-  const resolved = requested.map((code) => ({
-    code,
-    ticket: all.find((ticket) => [ticket.feiTicketId, ticket.feiTicketNo].includes(code)),
-  }))
-  const missingCodes = unique(resolved.filter((item) => !item.ticket).map((item) => item.code))
-  const seenTicketIds = new Set<string>()
-  const duplicateCodes: string[] = []
-  resolved.forEach(({ code, ticket }) => {
-    if (!ticket) return
-    if (seenTicketIds.has(ticket.feiTicketId)) duplicateCodes.push(code)
-    seenTicketIds.add(ticket.feiTicketId)
+  const codes = readField(dialog, 'ticketScanInput').split(/[\s,，、;；\n\r]+/).map(item => item.trim()).filter(Boolean)
+  const all = [...listSpreadingResultGeneratedFeiTickets(), ...listAvailableFeiTicketsForSewingDispatch().filter(ticket => ticket.sourceBasisType === 'WOOL_PANEL_RECEIPT')]
+  const fabric = listMixedFabricBagCandidates()
+  const requested = codes.length ? codes : [selected].filter(Boolean)
+  const seen = new Set<string>()
+  return requested.map(code => {
+    const material = fabric.find(ticket => [ticket.feiTicketId, ticket.ticketNo, ticket.scanValue].includes(code))
+    const generated = all.find(ticket => [ticket.feiTicketId, ticket.feiTicketNo].includes(code))
+    if (!material && !generated) throw new Error(`菲票 ${code} 未匹配或尚未打印，请核对原票。`)
+    if (generated && generated.sourceBasisType !== 'WOOL_PANEL_RECEIPT') {
+      const numbered = validateFeiTicketNumberingBeforeBagging(generated)
+      if (!numbered.ok) throw new Error(`${generated.feiTicketNo} 不能装袋：${numbered.reason}`)
+    }
+    const ticket = material ? fabricCandidateRuntimeTicket(material) : buildWaitHandoverRuntimeTicketFromGeneratedTicket(generated!)
+    if (seen.has(ticket.feiTicketId)) throw new Error(`菲票 ${ticket.feiTicketNo} 重复输入，请核对。`)
+    seen.add(ticket.feiTicketId)
+    return ticket
   })
-  const inputProblems = [
-    missingCodes.length ? `以下菲票码未匹配：${missingCodes.join('、')}` : '',
-    duplicateCodes.length ? `以下菲票重复输入：${unique(duplicateCodes).join('、')}` : '',
-  ].filter(Boolean)
-  if (inputProblems.length) throw new Error(inputProblems.join('；'))
-  return resolved
-    .map((item) => item.ticket)
-    .filter((ticket): ticket is GeneratedFeiTicketSourceRecord => Boolean(ticket))
 }
 
 function submitBagging(dialog: HTMLElement): string {
@@ -399,11 +396,6 @@ function submitBagging(dialog: HTMLElement): string {
   if (!bagCode) throw new Error('请扫描或输入中转袋编号。')
   const tickets = findGeneratedTickets(dialog)
   if (!tickets.length) throw new Error('请选择或扫描可装袋菲票。')
-  const numberingBlocked = tickets.filter((ticket) => ticket.sourceBasisType !== 'WOOL_PANEL_RECEIPT' && !validateFeiTicketNumberingBeforeBagging(ticket).ok)
-  if (numberingBlocked.length) {
-    const reason = validateFeiTicketNumberingBeforeBagging(numberingBlocked[0]).reason
-    throw new Error(`${numberingBlocked.map((ticket) => ticket.feiTicketNo).join('、')} 不能装袋：${reason}`)
-  }
   const forceReason = readField(dialog, 'forceRecoveryReason')
   const forceRecovery = forceReason ? {
     physicalBagReceived: readChecked(dialog, 'physicalBagReceived'),
@@ -419,7 +411,7 @@ function submitBagging(dialog: HTMLElement): string {
     source: 'WEB' as const,
     operator: operator(dialog, '裁片仓装袋员'),
     bagCode,
-    tickets: tickets.map(buildWaitHandoverRuntimeTicketFromGeneratedTicket),
+    tickets,
     occurredAt,
     idempotencyKey: `web:${modalRoot()?.dataset?.operationKey || bagCode}:bagging`,
   }
@@ -501,6 +493,12 @@ function resolveHandoverTaskContext(dialog: HTMLElement): TransferBagHandoverTas
     throw new Error('一次只能处理一个生产单的一个车缝任务和一个接收车缝工厂。')
   }
   const [ppicId, ppicName, ppicFactoryId] = readField(dialog, 'handoverPpicSelection').split('|')
+  const selectedBags = readMulti(dialog, 'sourceBagCodes')
+  const companionBags = selectedBags.length ? selectedBags : collectCurrentBagCodes().filter(code =>
+    resolveActionBagCurrent(code).tickets.some(ticket => matchingTickets.some(target => target.feiTicketId === ticket.feiTicketId)))
+  const companions = replacementFabricCompanions(companionBags.flatMap(code => resolveActionBagCurrent(code).tickets), {
+    taskId: taskIds[0], taskNo: taskNos[0], factoryId: factoryIds[0], factoryName: factoryNames[0], productionOrderId: productionOrderIds[0],
+  })
   if (ppicFactoryId !== factoryIds[0]) throw new Error('请选择当前接收车缝工厂的 PPIC。')
   const ppic = assertCuttingHandoverPpic({
     runtimeTaskId: taskIds[0],
@@ -519,7 +517,7 @@ function resolveHandoverTaskContext(dialog: HTMLElement): TransferBagHandoverTas
     receiverFactoryName: factoryNames[0],
     receiverPpicId: ppic.ppicId,
     receiverPpicName: ppic.ppicName,
-    targetFeiTicketIds: unique(matchingTickets.map((ticket) => ticket.feiTicketId)),
+    targetFeiTicketIds: unique([...matchingTickets, ...companions].map((ticket) => ticket.feiTicketId)),
   }
 }
 
@@ -974,7 +972,7 @@ function renderRepackEditor(
       ? sourceBagCodes.map((bagCode) => {
         const current = resolveActionBagCurrent(bagCode)
         const pieceQty = current.tickets.reduce((sum, ticket) => sum + Number(ticket.pieceQty || 0), 0)
-        return `<div class="flex items-start justify-between gap-3 rounded-md border bg-background p-3 text-sm"><div><div class="font-semibold">${escapeHtml(bagCode)}</div><div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(current.productionOrderNo || '待核查')} · ${current.tickets.length} 张 · ${pieceQty} 片</div></div><button type="button" class="shrink-0 rounded border px-2 py-1 text-xs text-rose-700" data-skip-page-rerender="true" data-wait-handover-action="remove-repack-source" data-source-bag-code="${escapeHtml(bagCode)}">移除</button></div>`
+        return `<div class="flex items-start justify-between gap-3 rounded-md border bg-background p-3 text-sm"><div><div class="font-semibold">${escapeHtml(bagCode)}</div><div class="mt-1 text-xs text-muted-foreground">生产单 ${escapeHtml(current.productionOrderNo || '待核查')} · ${escapeHtml(mixedBagSummary(current.tickets))}</div></div><button type="button" class="shrink-0 rounded border px-2 py-1 text-xs text-rose-700" data-skip-page-rerender="true" data-wait-handover-action="remove-repack-source" data-source-bag-code="${escapeHtml(bagCode)}">移除</button></div>`
       }).join('')
       : '<div class="rounded-md border border-dashed bg-background p-4 text-sm text-muted-foreground">请先确定车缝任务和接收 PPIC，系统会自动显示相关中转袋。</div>'
   }
@@ -994,7 +992,7 @@ function renderRepackEditor(
         const classification = classifyTransferBagForHandoverTask({ currentUse: current, handoverContext: handoverContext! })
         const targetQty = classification.targetTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
         const otherQty = classification.otherTickets.reduce((sum, ticket) => sum + ticket.pieceQty, 0)
-        return `<article class="rounded-lg border ${classification.disposition === 'DIRECT_HANDOVER' ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50'} p-3"><div class="flex items-center justify-between gap-2"><strong>${escapeHtml(bagCode)}</strong><span class="text-xs font-medium">${classification.disposition === 'DIRECT_HANDOVER' ? '直接交出' : '需要拆袋重装'}</span></div><div class="mt-2 text-sm">本任务 ${classification.targetTickets.length} 张 / ${targetQty} 片${classification.otherTickets.length ? ` · 其他菲票 ${classification.otherTickets.length} 张 / ${otherQty} 片` : ''}</div>${classification.otherTickets.length ? '<div class="mt-1 text-xs text-amber-800">其他菲票属于正常重装对象，不是交出异常。</div>' : ''}</article>`
+        return `<article class="rounded-lg border ${classification.disposition === 'DIRECT_HANDOVER' ? 'border-blue-200 bg-blue-50' : 'border-amber-200 bg-amber-50'} p-3"><div class="flex items-center justify-between gap-2"><strong>${escapeHtml(bagCode)}</strong><span class="text-xs font-medium">${classification.disposition === 'DIRECT_HANDOVER' ? '直接交出' : '需要拆袋重装'}</span></div><div class="mt-2 text-sm">本任务：${escapeHtml(mixedBagSummary(classification.targetTickets))}${classification.otherTickets.length ? ` · 其他：${escapeHtml(mixedBagSummary(classification.otherTickets))}` : ''}</div>${classification.otherTickets.length ? '<div class="mt-1 text-xs text-amber-800">其他菲票属于正常重装对象，不是交出异常。</div>' : ''}</article>`
       }).join('')
       : '<div class="rounded-md border border-dashed p-4 text-sm text-muted-foreground">请先确定一个生产单的一个车缝任务。</div>'
   }
@@ -1149,6 +1147,9 @@ function refreshBagEligibility(dialog: HTMLElement): void {
   if (dialog.dataset.waitHandoverModal === 'scrap') refreshScrapEligibility(dialog, current)
 }
 
+import { runCuttingEventAction } from '../../../data/fcs/cutting/cutting-event-repository.ts'
+import { validateReplacementFabricEventBatch } from '../../../data/fcs/cutting/replacement-fabric-event-validation.ts'
+
 export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   if (handleSimpleCutPieceUiEvent(target)) return true
   const fieldNode = target.closest<HTMLElement>('[data-wait-handover-field]')
@@ -1262,17 +1263,26 @@ export function handleWaitHandoverActionEvent(target: HTMLElement): boolean {
   submitLocks.add(dialog)
   if (dialog.dataset) dialog.dataset.submitLock = 'true'
   const action = actionName.slice(7) as WaitHandoverWebAction
-  try {
-    const feedback = submitAction(action, dialog)
+  const operationId = modalRoot()?.dataset?.operationKey || cuttingRecordUuid()
+  if (modalRoot()?.dataset) modalRoot()!.dataset.operationKey = operationId
+  const controls = Array.from(dialog.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement | HTMLTextAreaElement>('input,button,select,textarea'))
+  const previousDisabled = controls.map(control => control.disabled)
+  controls.forEach(control => { control.disabled = true })
+  showFeedback(dialog, '正在保存，请稍候。')
+  void runCuttingEventAction({ id: `wait-handover:${action}:${operationId}`,
+    intent: JSON.stringify([action, [...dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input,select,textarea')].map(field => [field.getAttribute('data-wait-handover-field') || field.name, field.value, field instanceof HTMLInputElement ? field.checked : null])]),
+    action: () => submitAction(action, dialog), validate: validateReplacementFabricEventBatch,
+  }).then(feedback => {
     refreshWorkbenchData()
     // 成功后锁定本次对象，避免修改成下一袋却被防重复锁静默吞掉。
     dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>('input, select, textarea').forEach((field) => { field.disabled = true })
     if (actionNode instanceof HTMLButtonElement) { actionNode.disabled = true; actionNode.textContent = '已保存' }
     showFeedback(dialog, `${feedback} 如需处理下一笔，请关闭后重新打开。`)
-  } catch (error) {
+  }).catch(error => {
     if (dialog.dataset) delete dialog.dataset.submitLock
     submitLocks.delete(dialog)
+    controls.forEach((control, index) => { control.disabled = previousDisabled[index] })
     showFeedback(dialog, error instanceof Error ? error.message : '操作失败，请保留输入并重试。', true)
-  }
+  })
   return true
 }

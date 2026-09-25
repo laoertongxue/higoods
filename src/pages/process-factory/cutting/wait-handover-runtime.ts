@@ -1,4 +1,5 @@
 import { isFeiTicketSimplyHandedOver } from '../../../data/fcs/cutting/cutting-runtime-event-ledger.ts'
+import { mixedBagTicketFields } from '../../../data/fcs/cutting/mixed-transfer-bag-ticket.ts'
 import { runRuntimeTaskAction } from '../../../data/fcs/runtime-process-tasks.ts'
 import { localDateTimeText } from '../../../utils.ts'
 import { listWoolPanelCuttingReceiptSources } from '../../../data/fcs/wool-domain/cutting-receipts.ts'
@@ -75,6 +76,14 @@ export interface WaitHandoverRuntimeOperator {
 }
 
 export interface WaitHandoverRuntimeTicketInput {
+  ticketKind?: TransferBagTicketFactSnapshot['ticketKind']
+  materialKey?: string
+  materialCode?: string
+  materialName?: string
+  materialImageUrl?: string
+  quantity?: number
+  quantityUnit?: string
+  replacementSequence?: number
   feiTicketId: string
   feiTicketNo: string
   productionOrderId: string
@@ -860,6 +869,7 @@ function buildWaitHandoverBagSnapshotItems(
   tickets: WaitHandoverRuntimeTicketInput[],
 ): FeiTicketBagSnapshotItem[] {
   return tickets.map((ticket) => ({
+    ...mixedBagTicketFields(ticket as unknown as Record<string, unknown>),
     feiTicketId: ticket.feiTicketId,
     feiTicketNo: ticket.feiTicketNo,
     productionOrderId: ticket.productionOrderId,
@@ -892,6 +902,7 @@ function buildWaitHandoverRuntimeTicketFromSnapshotItem(
 ): WaitHandoverRuntimeTicketInput {
   const hasSpecialCraft = Boolean(item.hasSpecialCraft)
   return {
+    ...mixedBagTicketFields(item),
     feiTicketId: runtimeString(item.feiTicketId),
     feiTicketNo: runtimeString(item.feiTicketNo),
     productionOrderId:
@@ -947,6 +958,7 @@ function buildWaitHandoverRuntimeTicketFromTransferBagFact(
 ): WaitHandoverRuntimeTicketInput {
   const compatibility = runtimeRecord(ticket)
   return {
+    ...mixedBagTicketFields(compatibility),
     feiTicketId: ticket.feiTicketId,
     feiTicketNo: ticket.feiTicketNo,
     productionOrderId: ticket.productionOrderId,
@@ -1000,6 +1012,7 @@ export function buildWaitHandoverRuntimeTicketFromGeneratedTicket(ticket: Genera
 
 export function buildWaitHandoverRuntimeTicketFromTransferCandidate(ticket: TransferBagTicketCandidate): WaitHandoverRuntimeTicketInput {
   return {
+    ...mixedBagTicketFields(ticket as unknown as Record<string, unknown>),
     feiTicketId: ticket.feiTicketId,
     feiTicketNo: ticket.ticketNo,
     productionOrderId: ticket.productionOrderId,

@@ -1,3 +1,4 @@
+import { savePdaCuttingAction } from './pda-cutting-save.ts'
 // @page-pattern: pda
 import { escapeHtml } from '../utils'
 import {
@@ -104,7 +105,9 @@ export function handlePdaCuttingTransferBagScrapEvent(target: HTMLElement, event
   }
   const action = target.closest<HTMLElement>('[data-pda-scrap-action="confirm"]')
   if (!action) return false
-  try {
+  const container = action.closest<HTMLElement>('[data-pda-transfer-bag-scrap-page]')
+  if (!container) return true
+  savePdaCuttingAction({ container, intent: JSON.stringify(['scrap', scrapState]), action: () => {
     if (!scrapState.finalConfirmed) throw new Error('请勾选报废二次确认。')
     const operator = resolvePdaCuttingRuntimeOperator('', '中转袋报废员')
     const common = {
@@ -128,18 +131,16 @@ export function handlePdaCuttingTransferBagScrapEvent(target: HTMLElement, event
         },
         scrap: common,
       })
-      scrapState = { ...scrapState, mode: 'BLOCKED', feedback: '报废成功，中转袋已永久停用。', recoveryRecordNo: result.recoveryEvent.eventNo, scrapRecordNo: result.scrapEvent.eventNo }
+      return { ...scrapState, mode: 'BLOCKED' as const, feedback: '报废成功，中转袋已永久停用。', recoveryRecordNo: result.recoveryEvent.eventNo, scrapRecordNo: result.scrapEvent.eventNo }
     } else if (scrapState.mode === 'DIRECT') {
       const result = submitTransferBagScrap({
         bagCode: scrapState.bagCode, source: 'PDA', operator: { operatorId: operator.operatorAccountId, operatorName: operator.operatorName, operatorRole: operator.operatorRole }, ...common,
       })
-      scrapState = { ...scrapState, mode: 'BLOCKED', feedback: '报废成功，中转袋已永久停用。', scrapRecordNo: result.eventNo }
+      return { ...scrapState, mode: 'BLOCKED' as const, feedback: '报废成功，中转袋已永久停用。', scrapRecordNo: result.eventNo }
     } else {
       throw new Error('当前中转袋不能报废。')
     }
-  } catch (error) {
-    scrapState = { ...scrapState, feedback: error instanceof Error ? error.message : '报废失败，请检查后重试。' }
-  }
-  refreshScrapPage(action)
+  }, success: next => { scrapState = next; refreshScrapPage(action) },
+    failure: feedback => { scrapState = { ...scrapState, feedback }; refreshScrapPage(action) } })
   return PDA_PAGE_HANDLED_LOCALLY
 }

@@ -1817,7 +1817,7 @@ function ensureDispatchBoardSeedData(): void {
     factoryName: delayedReceiptDemoFactoryName,
     by: '跟单A',
     at: delayedReceiptDemoAcceptedAt,
-  })
+  }, { staticDemo: true })
   if (!registeredDelayedDemoOrder) throw new Error('含车缝接收确认延迟演示任务登记车缝工厂失败')
 
   registerProductionOrderSewingFactory({
@@ -1826,7 +1826,7 @@ function ensureDispatchBoardSeedData(): void {
     factoryName: 'CV Micro Sewing Jakarta Pusat',
     by: '运营A',
     at: '2026-07-01 12:00:00',
-  })
+  }, { staticDemo: true })
   readRuntimeTaskActions()
 }
 
@@ -1840,8 +1840,10 @@ export function listRuntimeProcessTasks(): RuntimeProcessTask[] {
   if (!runtimeTasksCache) {
     runtimeTasksCache = buildRuntimeProcessTasks()
   }
-  return runtimeTasksCache
+  return projectCuttingReceiptTasks(runtimeTasksCache)
 }
+
+import { projectCuttingReceiptTasks } from './runtime-task-read-bridge.ts'
 
 export function evaluateFixedMergedTask(
   taskIds: string[],

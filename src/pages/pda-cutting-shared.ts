@@ -28,6 +28,7 @@ interface CuttingPageLayoutOptions {
   backHref?: string
   hideHeaderToolbar?: boolean
   titleActionHtml?: string
+  context?: PdaCuttingPageContext | null
 }
 
 export interface PdaCuttingPageContext {
@@ -225,7 +226,7 @@ export function renderPdaCuttingRiskList(riskTips: string[]): string {
 }
 
 export function renderPdaCuttingPageLayout(options: CuttingPageLayoutOptions): string {
-  const context = getPdaCuttingPageContext(options.taskId)
+  const context = options.context === undefined ? getPdaCuttingPageContext(options.taskId) : options.context
   const backHref = options.backHref ?? '/fcs/pda/exec'
 
   if (!context) {

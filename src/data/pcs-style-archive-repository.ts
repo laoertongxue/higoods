@@ -233,14 +233,12 @@ function loadSnapshot(): StyleArchiveStoreSnapshot {
     const raw = localStorage.getItem(STYLE_ARCHIVE_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = seedSnapshot()
-      localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
 
     const parsed = JSON.parse(raw) as Partial<StyleArchiveStoreSnapshot>
     if (!Array.isArray(parsed.records) || !Array.isArray(parsed.pendingItems)) {
       memorySnapshot = seedSnapshot()
-      localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
 

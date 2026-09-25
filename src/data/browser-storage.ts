@@ -4,7 +4,17 @@ export interface BrowserStorageLike {
   removeItem?(key: string): void
 }
 
+let stagedBusinessStorage: BrowserStorageLike | null = null
+export function isBrowserBusinessStorageStaged(): boolean { return stagedBusinessStorage !== null }
+/** 只包围同步业务计算；成功提示和 await 必须在作用域之外。 */
+export function withBrowserBusinessStorage<T>(storage: BrowserStorageLike, action: () => T): T {
+  const previous = stagedBusinessStorage
+  stagedBusinessStorage = storage
+  try { return action() } finally { stagedBusinessStorage = previous }
+}
+
 export function getBrowserLocalStorage(): BrowserStorageLike | null {
+  if (stagedBusinessStorage) return stagedBusinessStorage
   try {
     if (typeof window === 'undefined') return null
     const storage = window.localStorage

@@ -1,5 +1,10 @@
 type AnyAsyncRenderer = (...args: unknown[]) => Promise<string>
 
+export const renderReplacementFabricFeiTicketsPage = createAsyncRenderer(
+  () => import('../pages/process-factory/cutting/replacement-fabric-fei-tickets.ts'),
+  'renderReplacementFabricFeiTicketsPage',
+)
+
 function createAsyncRenderer<TArgs extends unknown[]>(
   importModule: () => Promise<Record<string, unknown>>,
   exportName: string,

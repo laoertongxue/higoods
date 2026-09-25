@@ -1,6 +1,7 @@
 import type { TaskRouteCardSourceType } from './task-print-cards.ts'
 
 export type PrintDocumentType =
+  | 'REPLACEMENT_FABRIC_LABEL'
   | 'TMF_PACKAGE_LABEL'
   | 'TMF_HANDOVER_SHEET'
   | 'TMF_PROCESS_SHEET'
@@ -123,6 +124,8 @@ export type PrintLabelLayout = '单张标签' | 'A4 多列标签' | 'A4 多行�
 export type PrintThermalPaperColor = 'WHITE' | 'YELLOW'
 
 export interface PrintTransferBagGoodsLabelPage {
+  fabricItems?: import('./cutting/cutting-runtime-event-ledger.ts').FeiTicketBagSnapshotItem[]
+  fabricSummary?: string
   usageCycleId: string
   bagCode: string
   productionOrderNo: string
@@ -167,6 +170,7 @@ export interface PrintMeta {
 }
 
 export interface PrintDocument {
+  replacementFabricTickets?: import('./cutting/replacement-fabric-fei-tickets.ts').ReplacementFabricTicket[]
   printDocumentId: string
   documentType: PrintDocumentType
   documentTitle: string

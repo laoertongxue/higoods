@@ -177,26 +177,24 @@ function persistSnapshot(snapshot: ConfigWorkspaceSnapshot): void {
   }
 }
 
-function loadSnapshot(): ConfigWorkspaceSnapshot {
-  if (memorySnapshot) return cloneSnapshot(memorySnapshot)
+function readSnapshot(): ConfigWorkspaceSnapshot {
+  if (memorySnapshot) return memorySnapshot
 
   if (!canUseStorage()) {
     memorySnapshot = seedSnapshot()
-    return cloneSnapshot(memorySnapshot)
+    return memorySnapshot
   }
 
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) {
       memorySnapshot = seedSnapshot()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
-      return cloneSnapshot(memorySnapshot)
+      return memorySnapshot
     }
     const parsed = JSON.parse(raw) as Partial<ConfigWorkspaceSnapshot>
     if (!parsed.flatOptions || !parsed.categoryNodes) {
       memorySnapshot = seedSnapshot()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
-      return cloneSnapshot(memorySnapshot)
+      return memorySnapshot
     }
     memorySnapshot = {
       version: STORE_VERSION,
@@ -205,14 +203,16 @@ function loadSnapshot(): ConfigWorkspaceSnapshot {
       ) as Record<FlatDimensionId, ConfigOption[]>,
       categoryNodes: Array.isArray(parsed.categoryNodes) ? parsed.categoryNodes.map(cloneCategoryNode) : [],
     }
-    return cloneSnapshot(memorySnapshot)
+    return memorySnapshot
   } catch {
     memorySnapshot = seedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
-    return cloneSnapshot(memorySnapshot)
+    return memorySnapshot
   }
+}
+
+// 写操作仍复制完整快照；查询只复制即将返回的维度，避免每个款式属性复制整个配置库。
+function loadSnapshot(): ConfigWorkspaceSnapshot {
+  return cloneSnapshot(readSnapshot())
 }
 
 function latestValue<T extends { updatedAt: string; updatedBy: string }>(items: T[]): { updatedAt: string; updatedBy: string } {
@@ -325,7 +325,7 @@ export function listConfigWorkspaceSummaries(): ConfigWorkspaceSummaryItem[] {
 }
 
 export function listConfigDimensionOptions(dimensionId: FlatDimensionId): ConfigOption[] {
-  return (loadSnapshot().flatOptions[dimensionId] || [])
+  return (readSnapshot().flatOptions[dimensionId] || [])
     .map(cloneOption)
     .sort((left, right) => left.sortOrder - right.sortOrder || Number(left.code) - Number(right.code))
 }
@@ -392,7 +392,7 @@ export function saveConfigDimensionOption(
 }
 
 export function listProductCategoryNodes(): ProductCategoryNode[] {
-  return loadSnapshot().categoryNodes
+  return readSnapshot().categoryNodes
     .map(cloneCategoryNode)
     .sort((left, right) => left.level - right.level || left.sortOrder - right.sortOrder || Number(left.code) - Number(right.code))
 }

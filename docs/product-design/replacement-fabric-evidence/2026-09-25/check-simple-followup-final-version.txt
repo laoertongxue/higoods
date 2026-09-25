@@ -1,0 +1,19 @@
+### Error
+TimeoutError: locator.click: Timeout 30000ms exceeded.
+Call log:
+[2m  - waiting for locator('[data-simple-cut-action="confirm"]')[22m
+[2m    - locator resolved to <button disabled type="button" data-skip-page-rerender="true" data-simple-cut-action="confirm" class="inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 h-9 px-4 text-sm min-h-10">↵      确认交出（0 张菲票 / 0 片）↵    </button>[22m
+[2m  - attempting click action[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying click action[22m
+[2m    - waiting 20ms[22m
+[2m    2 × waiting for element to be visible, enabled and stable[22m
+[2m      - element is not enabled[22m
+[2m    - retrying click action[22m
+[2m      - waiting 100ms[22m
+[2m    58 × waiting for element to be visible, enabled and stable[22m
+[2m       - element is not enabled[22m
+[2m     - retrying click action[22m
+[2m       - waiting 500ms[22m
+
