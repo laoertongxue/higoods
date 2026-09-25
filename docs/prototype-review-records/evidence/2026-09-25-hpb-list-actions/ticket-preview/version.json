@@ -1,0 +1,13 @@
+{
+  "base": "ed0a4d050463c76d5e62fdff30c1c052e681ef0c",
+  "branch": "main",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "runtime": "http://127.0.0.1:43236",
+  "source": "src/pages/process-factory/cutting/replacement-fabric-fei-tickets.ts",
+  "sha256": "7d1330473f9fbc4ec748a3dee1bd0d255db024d6a93256573ec18f2d5ed548e9",
+  "fixture": "isolated browser: actual assignment material, 12 tickets, first/reprint and handover display fixture; not real factory data",
+  "samples": 225,
+  "maxMs": 242.69999998807907,
+  "evidence": "ticket-preview/",
+  "previousEvidence": "Parent directory browser evidence is superseded by ticket-preview v2 results"
+}

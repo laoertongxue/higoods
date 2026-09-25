@@ -19,8 +19,12 @@ let filter = { order: '', material: '', status: '' }
 let history = false; let historyQuery = ''; let historyPage = 1
 let page = 1; let ticketPage = 1; let sort: StandardListSortState | null = null
 let preferences: StandardListColumnPreferences | null = null
+let orderMode: 'print' | 'detail' = 'print'
 let activeOrder = ''; let settings = false; let feedback = ''; let error = false; let busy = false
 let dataTools = false
+let enlargedTicketId = ''
+let labelTemplate: typeof import('../../print/templates/replacement-fabric-label-template.ts') | null = null
+let hydrateTicketQr: typeof import('../../../components/real-qr.ts').hydrateRealQRCodes | null = null
 const selected = new Set<string>()
 const button = (label: string, action: string, extra = '') => `<button type="button" class="rounded border bg-white px-3 py-2 text-sm text-blue-700 disabled:opacity-50" data-hpb-action="${action}" ${extra}>${label}</button>`
 const pendingAdds = new Map<string, ReturnType<typeof command>>()
@@ -49,7 +53,7 @@ const columns: StandardListColumn<ReplacementFabricOrderRow>[] = [
   { key: 'length', title: '每张长度', width: 110, render: () => '<strong>5 Yard</strong><p class="text-xs text-slate-500">固定长度</p>' },
   { key: 'count', title: '菲票 / 已打印', width: 130, sortable: true, render: row => `${ticketsFor(row).length} 张 / ${ticketsFor(row).filter(ticket => printed(ticket.id).length).length} 张`, sortValue: row => ticketsFor(row).length },
   { key: 'status', title: '打印状态', width: 140, sortable: true, render: row => `<span class="rounded bg-slate-100 px-2 py-1 text-xs">${status(row)}</span>${row.issues.length ? `<p class="mt-1 text-xs text-red-700">${e(row.issues.join('；'))}</p>` : ''}`, sortValue: status },
-  { key: 'actions', title: '操作', width: 130, actionColumn: true, render: row => button('打印 / 详情', 'detail', `data-order-id="${e(row.order.productionOrderId)}"`) },
+  { key: 'actions', title: '操作', width: 180, actionColumn: true, render: row => `<div class="flex items-center gap-2 whitespace-nowrap">${button('打印', 'print', `data-order-id="${e(row.order.productionOrderId)}"`)}${button('详情', 'detail', `data-order-id="${e(row.order.productionOrderId)}"`)}</div>` },
 ]
 function defaults() { return { order: columns.map(column => column.key), visibleKeys: columns.map(column => column.key), frozenKeys: ['order'], pageSize: 10 } }
 function prefs(): StandardListColumnPreferences {
@@ -72,21 +76,63 @@ function renderHistory(): string {
     return `<article class="space-y-2 rounded border p-3">${renderReplacementFabricMaterial(ticket.material)}<p class="break-all font-semibold">${e(ticket.ticketNo)}</p><p>${e(ticket.productionOrderNo)} · 第 ${ticket.sequence} 张 · 5 Yard</p><p class="text-sm">${receipt ? `已交出 · 任务 ${e(receipt.taskId)} · 接收工厂 ${e(receipt.receiverFactoryId)} · ${e(receipt.confirmedAt)}` : '原裁床分配或面料范围已变更，旧票不可继续流转'}</p>${receipt ? button('补打原票', 'history-print', `data-ticket-id="${e(ticket.id)}"`) : '<span class="text-sm text-amber-800">失效票不允许打印、装袋或交出</span>'}</article>`
   }).join('') || '<p class="py-5 text-center text-slate-500">没有匹配的历史票</p>'}<div class="flex items-center gap-3">${button('上一页', 'history-prev', slice.currentPage === 1 ? 'disabled' : '')}<span>${slice.currentPage} / ${slice.totalPages} · 共 ${tickets.length} 张</span>${button('下一页', 'history-next', slice.currentPage === slice.totalPages ? 'disabled' : '')}</div></div></section></div>`
 }
+function renderOrderDetail(row: ReplacementFabricOrderRow): string {
+  const currentIds = new Set(ticketsFor(row).map(ticket => ticket.id))
+  const tickets = records.tickets.filter(ticket => ticket.productionOrderId === row.order.productionOrderId)
+    .sort((a, b) => a.material.code.localeCompare(b.material.code) || a.sequence - b.sequence)
+  const slice = paginateStandardListRows(tickets, ticketPage, 10)
+  const printedCount = tickets.filter(ticket => printed(ticket.id).length).length
+  const handedCount = tickets.filter(ticket => records.receipts.some(receipt => receipt.ticket.id === ticket.id)).length
+  return `${labelTemplate?.replacementFabricPrintStyles() || ''}<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" data-hpb-backdrop>
+    <section role="dialog" aria-modal="true" aria-label="换片布菲票详情" class="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-lg bg-white shadow-xl">
+      <header class="flex items-center justify-between gap-3 border-b p-4"><div><h2 class="font-semibold">${e(row.order.productionOrderNo)} · 换片布菲票详情</h2><p class="mt-1 text-xs text-slate-500">预览实际菲票票面，并查看打印、交出记录；预览不会标记已打印。</p></div>${button('关闭', 'close')}</header>
+      <div class="space-y-3 overflow-y-auto p-4">
+        ${renderStandardListStats([{ label: '全部菲票', value: `${tickets.length} 张` }, { label: '已打印', value: `${printedCount} 张` }, { label: '已交出', value: `${handedCount} 张` }])}
+        ${slice.rows.map(ticket => {
+          const prints = [...printed(ticket.id)].sort((a, b) => a.printedAt.localeCompare(b.printedAt))
+          const receipts = records.receipts.filter(receipt => receipt.ticket.id === ticket.id)
+          const scopeLabel = currentIds.has(ticket.id) ? '当前票' : receipts.length ? '历史已交出票' : '已失效'
+          return `<article class="space-y-3 rounded-lg border p-3" data-hpb-detail-ticket="${e(ticket.id)}">
+            <div class="flex flex-wrap items-start justify-between gap-2"><div class="min-w-0"><strong class="break-all">${e(ticket.ticketNo)}</strong><p class="mt-1 text-xs text-slate-500">第 ${ticket.sequence} 张 · 5 Yard · 裁床工厂 ${e(ticket.cuttingFactoryId)}</p></div><span class="rounded bg-slate-100 px-2 py-1 text-xs">${scopeLabel}</span></div>
+            ${scopeLabel === '已失效' ? `<p class="text-sm text-amber-800">${e(ticket.invalidReason || '裁床分配或面料范围已变更')}，不可继续打印、装袋或交出。</p>` : ''}
+            <div class="grid items-start gap-4 lg:grid-cols-2">
+              <section class="min-w-0 rounded bg-slate-100 p-3"><div class="flex items-center justify-between gap-2"><h3 class="text-sm font-semibold">菲票预览 · 100 × 100 mm</h3>${button('放大预览', 'preview-ticket', `data-ticket-id="${e(ticket.id)}"`)}</div><div class="overflow-x-auto" data-hpb-ticket-preview>${labelTemplate?.renderReplacementFabricLabel(ticket) || ''}</div>${scopeLabel === '已失效' ? '<p class="text-center text-sm text-amber-800">失效票 · 仅供查看，不可继续流转</p>' : ''}</section>
+              <div class="min-w-0 space-y-3">
+              <section class="min-w-0 rounded bg-slate-50 p-3"><h3 class="text-sm font-semibold">打印情况 · ${prints.length ? `已打印 ${prints.length} 次` : '待打印'}</h3>
+                ${prints.length ? `<ol class="mt-2 space-y-2 text-sm">${prints.map(print => `<li class="break-words"><span>${print.kind === 'FIRST_PRINT' ? '首次打印' : '补打'}</span> · ${e(print.printedBy)}<time class="block text-xs text-slate-500">${e(print.printedAt)}</time></li>`).join('')}</ol>` : '<p class="mt-2 text-sm text-slate-500">暂无打印记录</p>'}
+              </section>
+              <section class="min-w-0 rounded bg-slate-50 p-3"><h3 class="text-sm font-semibold">交出情况 · ${receipts.length ? '已交出' : '未交出'}</h3>
+                ${receipts.length ? receipts.map(receipt => `<dl class="mt-2 space-y-1 break-all text-sm"><div><dt class="inline text-slate-500">车缝任务：</dt><dd class="inline">${e(receipt.taskId)}</dd></div><div><dt class="inline text-slate-500">接收工厂：</dt><dd class="inline">${e(receipt.receiverFactoryId)}</dd></div><div><dt class="inline text-slate-500">交出时间：</dt><dd class="inline">${e(receipt.confirmedAt)}</dd></div><div><dt class="inline text-slate-500">确认人：</dt><dd class="inline">${e(receipt.confirmedBy)}</dd></div><div><dt class="inline text-slate-500">交出记录：</dt><dd class="inline">${e(receipt.handoverRecordId)}</dd></div>${receipt.bagUseId ? `<div><dt class="inline text-slate-500">中转袋使用记录：</dt><dd class="inline">${e(receipt.bagUseId)}</dd></div>` : ''}</dl>`).join('') : '<p class="mt-2 text-sm text-slate-500">暂无交出记录</p>'}
+              </section>
+              </div>
+            </div>
+          </article>`
+        }).join('') || '<p class="py-5 text-center text-slate-500">尚未生成菲票，请先核对裁床分配。</p>'}
+        <div class="flex items-center gap-3">${button('上一页', 'ticket-prev', slice.currentPage === 1 ? 'disabled' : '')}<span>${slice.currentPage} / ${slice.totalPages} · 共 ${tickets.length} 张</span>${button('下一页', 'ticket-next', slice.currentPage === slice.totalPages ? 'disabled' : '')}</div>
+      </div>
+    </section>
+  </div><div data-hpb-enlarged-host></div>`
+}
+function closeTicketPreview(): void {
+  enlargedTicketId = ''
+  document.querySelector('[data-hpb-enlarged-host]')?.replaceChildren()
+}
 function renderOverlay(): string {
   if (history) return renderHistory()
   if (dataTools) return renderReplacementFabricDataTools()
   if (settings) return renderStandardListColumnSettings({ title: '换片布列表列设置', columns, preferences: prefs(), eventPrefix: 'hpb', maxFrozenWidth: 600, skipPageRerender: true })
   const row = rows.find(item => item.order.productionOrderId === activeOrder)
   if (!row) return ''
+  if (orderMode === 'detail') return renderOrderDetail(row)
   const tickets = ticketsFor(row); const slice = paginateStandardListRows(tickets, ticketPage, 10)
-  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" data-hpb-backdrop><section role="dialog" aria-modal="true" aria-label="换片布菲票明细" class="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-lg bg-white shadow-xl"><header class="flex items-center justify-between border-b p-4"><div><h2 class="font-semibold">${e(row.order.productionOrderNo)} · 换片布菲票</h2><p class="text-xs text-slate-500">每张固定 5 Yard；新增独立票会增加备布份数，补打沿用原票。</p></div>${button('关闭', 'close')}</header><div class="space-y-3 overflow-y-auto p-4">${row.issues.map(issue => `<p class="text-red-700">${e(issue)}</p>`).join('')}<div class="grid gap-2 md:grid-cols-2">${row.materials.map(material => `<div class="flex flex-wrap items-center justify-between rounded border p-2">${renderReplacementFabricMaterial(material)}${button('新增独立票', 'add', `data-material-key="${e(material.key)}" ${row.issues.length ? 'disabled' : ''}`)}</div>`).join('')}</div><div class="flex flex-wrap gap-2">${button(`整单打印（${tickets.length} 张）`, 'print-all', tickets.length ? '' : 'disabled')}${button(`打印选中（${selected.size} 张）`, 'print-selected', selected.size ? '' : 'disabled')}${button('全选本单', 'select-all')}${button('清空选择', 'clear-selection')}</div><div class="space-y-2">${slice.rows.map(ticket => `<label class="flex items-start gap-3 rounded border p-3"><input type="checkbox" data-hpb-ticket="${e(ticket.id)}" class="mt-1" ${selected.has(ticket.id) ? 'checked' : ''}><span class="min-w-0 flex-1"><strong class="break-all">${e(ticket.ticketNo)}</strong><span class="block">${renderReplacementFabricMaterial(ticket.material)}</span><span class="block">第 ${ticket.sequence} 张 · 5 Yard</span><span class="block text-xs text-slate-500">${printed(ticket.id).length ? `已打印 ${printed(ticket.id).length} 次 · 最近 ${e(printed(ticket.id).at(-1)!.printedAt)}` : '待打印'} · ${records.receipts.some(receipt => receipt.ticket.id === ticket.id) ? '已交出（可补打）' : '未交出'}</span></span></label>`).join('') || '<p class="py-5 text-center text-slate-500">尚未生成菲票，请先核对裁床分配。</p>'}</div><div class="flex items-center gap-3">${button('上一页', 'ticket-prev', slice.currentPage === 1 ? 'disabled' : '')}<span>${slice.currentPage} / ${slice.totalPages} · 共 ${tickets.length} 张</span>${button('下一页', 'ticket-next', slice.currentPage === slice.totalPages ? 'disabled' : '')}</div><p class="text-sm ${error ? 'text-red-700' : 'text-blue-700'}" role="status">${e(feedback)}</p></div></section></div>`
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" data-hpb-backdrop><section role="dialog" aria-modal="true" aria-label="打印换片布菲票" class="flex max-h-[92vh] w-full max-w-5xl flex-col rounded-lg bg-white shadow-xl"><header class="flex items-center justify-between border-b p-4"><div><h2 class="font-semibold">${e(row.order.productionOrderNo)} · 打印换片布菲票</h2><p class="text-xs text-slate-500">每张固定 5 Yard；新增独立票会增加备布份数，补打沿用原票。</p></div>${button('关闭', 'close')}</header><div class="space-y-3 overflow-y-auto p-4">${row.issues.map(issue => `<p class="text-red-700">${e(issue)}</p>`).join('')}<div class="grid gap-2 md:grid-cols-2">${row.materials.map(material => `<div class="flex flex-wrap items-center justify-between rounded border p-2">${renderReplacementFabricMaterial(material)}${button('新增独立票', 'add', `data-material-key="${e(material.key)}" ${row.issues.length ? 'disabled' : ''}`)}</div>`).join('')}</div><div class="flex flex-wrap gap-2">${button(`整单打印（${tickets.length} 张）`, 'print-all', tickets.length ? '' : 'disabled')}${button(`打印选中（${selected.size} 张）`, 'print-selected', selected.size ? '' : 'disabled')}${button('全选本单', 'select-all')}${button('清空选择', 'clear-selection')}</div><div class="space-y-2">${slice.rows.map(ticket => `<label class="flex items-start gap-3 rounded border p-3"><input type="checkbox" data-hpb-ticket="${e(ticket.id)}" class="mt-1" ${selected.has(ticket.id) ? 'checked' : ''}><span class="min-w-0 flex-1"><strong class="break-all">${e(ticket.ticketNo)}</strong><span class="block">${renderReplacementFabricMaterial(ticket.material)}</span><span class="block">第 ${ticket.sequence} 张 · 5 Yard</span><span class="block text-xs text-slate-500">${printed(ticket.id).length ? `已打印 ${printed(ticket.id).length} 次 · 最近 ${e(printed(ticket.id).at(-1)!.printedAt)}` : '待打印'} · ${records.receipts.some(receipt => receipt.ticket.id === ticket.id) ? '已交出（可补打）' : '未交出'}</span></span></label>`).join('') || '<p class="py-5 text-center text-slate-500">尚未生成菲票，请先核对裁床分配。</p>'}</div><div class="flex items-center gap-3">${button('上一页', 'ticket-prev', slice.currentPage === 1 ? 'disabled' : '')}<span>${slice.currentPage} / ${slice.totalPages} · 共 ${tickets.length} 张</span>${button('下一页', 'ticket-next', slice.currentPage === slice.totalPages ? 'disabled' : '')}</div><p class="text-sm ${error ? 'text-red-700' : 'text-blue-700'}" role="status">${e(feedback)}</p></div></section></div>`
 }
 function renderContents(): string {
   const filtered = sortStandardListRows(matched(), sort, (row, key) => columns.find(column => column.key === key)?.sortValue?.(row))
   const slice = paginateStandardListRows(filtered, page, prefs().pageSize); page = slice.currentPage
   const totalTickets = filtered.flatMap(ticketsFor)
   return renderStandardListPage({ title: '换片布菲票打印',
-    primaryActionsHtml: button('刷新分配与打印状态', 'reload') + button('历史票查询', 'history') + button('本机数据', 'data-tools'),
+    primaryActionsHtml: `<div class="ml-auto flex flex-wrap items-center justify-end gap-2" data-hpb-toolbar>${button('刷新分配与打印状态', 'reload')}${button('历史票查询', 'history')}${button('本机数据', 'data-tools')}</div>`,
     feedbackHtml: feedback && !activeOrder ? `<p role="status" class="rounded p-2 text-sm ${error ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'}">${e(feedback)}</p>` : '',
     filtersHtml: `<div class="space-y-3 rounded-lg border bg-white p-3"><div class="grid gap-3 sm:grid-cols-3">${[['order', '来源生产单号', filter.order], ['material', '面料编码 / 名称', filter.material]].map(([field, label, value]) => `<label class="text-sm">${label}<input class="mt-1 h-9 w-full rounded border px-2" data-hpb-filter="${field}" value="${e(value)}" placeholder="请输入${label}"></label>`).join('')}<label class="text-sm">打印状态<select class="mt-1 h-9 w-full rounded border px-2" data-hpb-filter="status"><option value="">全部</option>${['待打印', '部分已打印', '全部已打印', '无需换片布', '资料待核对'].map(value => `<option ${value === filter.status ? 'selected' : ''}>${value}</option>`).join('')}</select></label></div><div class="flex gap-2" data-standard-list-query>${button('查询', 'query')}${button('重置', 'reset')}${button('导出', 'export')}</div></div>`,
     statsHtml: renderStandardListStats([{ label: '生产单', value: filtered.length }, { label: '当前菲票', value: `${totalTickets.length} 张` }, { label: '待打印', value: `${totalTickets.filter(ticket => !printed(ticket.id).length).length} 张` }, { label: '换片布总长', value: `${totalTickets.length * 5} Yard` }]),
@@ -97,12 +143,13 @@ function renderContents(): string {
 }
 function refresh(overlayOnly = false) {
   const host = document.querySelector<HTMLElement>('[data-hpb-page]'); if (!host) return
-  if (overlayOnly) { const overlay = host.querySelector('[data-hpb-overlay]'); if (overlay) overlay.innerHTML = renderOverlay(); return }
-  host.innerHTML = renderContents()
+  if (overlayOnly) { const overlay = host.querySelector('[data-hpb-overlay]'); if (overlay) { overlay.innerHTML = renderOverlay(); hydrateTicketQr?.(overlay) }; return }
+  host.innerHTML = renderContents(); hydrateTicketQr?.(host)
 }
 export function closeReplacementFabricOverlay(): boolean {
   if (!document.querySelector('[data-hpb-page]') || (!activeOrder && !settings && !dataTools && !history)) return false
   if (busy || isReplacementFabricDataToolBusy()) return true
+  if (enlargedTicketId) { closeTicketPreview(); return true }
   const changedColumns = settings
   activeOrder = ''; settings = false; dataTools = false; history = false; refresh(!changedColumns); return true
 }
@@ -135,7 +182,24 @@ export async function handleReplacementFabricEvent(target: HTMLElement, event: E
   event.preventDefault(); if (busy || isReplacementFabricDataToolBusy()) return true
   const action = actionNode.dataset.hpbAction; feedback = ''; error = false
   try {
-    if (action === 'detail') { activeOrder = actionNode.dataset.orderId || ''; selected.clear(); ticketPage = 1 }
+    if (action === 'preview-ticket') {
+      const ticket = records.tickets.find(item => item.id === actionNode.dataset.ticketId && item.productionOrderId === activeOrder)
+      const host = document.querySelector<HTMLElement>('[data-hpb-enlarged-host]')
+      if (!ticket || !host || !labelTemplate) return true
+      enlargedTicketId = ticket.id
+      host.innerHTML = `<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-3" data-hpb-action="close-ticket-preview"><section role="dialog" aria-modal="true" aria-label="菲票放大预览" class="flex max-h-[94vh] max-w-full flex-col rounded-lg bg-white shadow-xl" data-hpb-preview-panel><header class="flex items-center justify-between gap-3 border-b p-3"><div><h2 class="font-semibold">菲票放大预览</h2><p class="text-xs text-slate-500">仅查看，不会记录打印或交出</p></div>${button('关闭预览', 'close-ticket-preview')}</header><div class="overflow-auto p-4"><div style="zoom:1.25">${labelTemplate.renderReplacementFabricLabel(ticket)}</div></div></section></div>`
+      hydrateTicketQr?.(host); return true
+    }
+    if (action === 'close-ticket-preview') {
+      if (!target.closest('[data-hpb-preview-panel]') || target.closest('button[data-hpb-action="close-ticket-preview"]')) closeTicketPreview()
+      return true
+    }
+    if (action === 'detail' || action === 'print') {
+      if (action === 'detail' && !labelTemplate) {
+        const [template, qr] = await Promise.all([import('../../print/templates/replacement-fabric-label-template.ts'), import('../../../components/real-qr.ts')])
+        labelTemplate = template; hydrateTicketQr = qr.hydrateRealQRCodes
+      }
+      enlargedTicketId = ''; await reload(); activeOrder = actionNode.dataset.orderId || ''; orderMode = action; selected.clear(); ticketPage = 1 }
     else if (action === 'close') { activeOrder = ''; dataTools = false; history = false }
     else if (action === 'history') { await reload(); history = true; historyPage = 1 }
     else if (action === 'history-query') { historyQuery = document.querySelector<HTMLInputElement>('[data-hpb-history-query]')?.value.trim() || ''; historyPage = 1 }
@@ -188,6 +252,6 @@ export async function handleReplacementFabricEvent(target: HTMLElement, event: E
     }
   } catch (cause) { feedback = cause instanceof Error ? cause.message : String(cause); error = true }
   finally { busy = false }
-  refresh(['history', 'history-query', 'history-prev', 'history-next', 'history-print', 'detail', 'close', 'data-tools', 'ticket-prev', 'ticket-next', 'clear-selection', 'select-all', 'column-settings'].includes(action || ''))
+  refresh(['history', 'history-query', 'history-prev', 'history-next', 'history-print', 'detail', 'print', 'close', 'data-tools', 'ticket-prev', 'ticket-next', 'clear-selection', 'select-all', 'column-settings'].includes(action || ''))
   return true
 }

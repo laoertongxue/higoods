@@ -1,0 +1,24 @@
+### Result
+{"results":[{"name":"详情大图打开-button","ms":32.599999994039536},{"name":"详情大图关闭-button","ms":32.29999998211861},{"name":"详情大图打开-backdrop","ms":33.10000002384186},{"name":"详情大图关闭-backdrop","ms":31.30000001192093},{"name":"详情大图打开-escape","ms":33.19999998807907},{"name":"详情大图关闭-escape","ms":31.900000005960464},{"name":"详情Esc关闭","ms":30},{"name":"详情遮罩关闭","ms":63.30000001192093},{"name":"详情大图打开-button","ms":31.599999994039536},{"name":"详情大图关闭-button","ms":32},{"name":"详情大图打开-backdrop","ms":32.60000002384186},{"name":"详情大图关闭-backdrop","ms":30.80000001192093},{"name":"详情大图打开-escape","ms":29.30000001192093},{"name":"详情大图关闭-escape","ms":36},{"name":"详情Esc关闭","ms":29.80000001192093},{"name":"详情遮罩关闭","ms":64},{"name":"详情大图打开-button","ms":31.799999982118607},{"name":"详情大图关闭-button","ms":33.400000005960464},{"name":"详情大图打开-backdrop","ms":29.900000005960464},{"name":"详情大图关闭-backdrop","ms":30.69999998807907},{"name":"详情大图打开-escape","ms":30.5},{"name":"详情大图关闭-escape","ms":36.099999994039536},{"name":"详情Esc关闭","ms":26.400000005960464},{"name":"详情遮罩关闭","ms":63.5},{"name":"详情大图打开-button","ms":29.100000023841858},{"name":"详情大图关闭-button","ms":31.30000001192093},{"name":"详情大图打开-backdrop","ms":32.5},{"name":"详情大图关闭-backdrop","ms":33.400000005960464},{"name":"详情大图打开-escape","ms":31.5},{"name":"详情大图关闭-escape","ms":31.900000005960464},{"name":"详情Esc关闭","ms":31.100000023841858},{"name":"详情遮罩关闭","ms":64.5},{"name":"详情大图打开-button","ms":30.80000001192093},{"name":"详情大图关闭-button","ms":31.099999994039536},{"name":"详情大图打开-backdrop","ms":30.600000023841858},{"name":"详情大图关闭-backdrop","ms":31.69999998807907},{"name":"详情大图打开-escape","ms":30.400000005960464},{"name":"详情大图关闭-escape","ms":32.69999998807907},{"name":"详情Esc关闭","ms":29},{"name":"详情遮罩关闭","ms":64.40000000596046}],"max":64.5,"failed":[],"failedImageVisible":true}
+### Ran Playwright code
+```js
+await (async(page)=>{
+ const c=await page.context().browser().newContext({viewport:{width:1280,height:720}}),p=await c.newPage(),results=[];
+ await p.addInitScript(()=>{['click','keydown'].forEach(t=>document.addEventListener(t,()=>window.__stamp=performance.now(),true))});
+ await p.goto('http://127.0.0.1:43236/fcs/craft/cutting/replacement-fabric-fei-tickets');await p.waitForSelector('[data-hpb-action=detail]');
+ const act=async(name,run,check)=>{await run();await check();await p.evaluate(()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))));results.push({name,ms:await p.evaluate(()=>performance.now()-window.__stamp)})};
+ for(let i=0;i<5;i++){
+  await p.locator('[data-hpb-action=detail]').first().click();
+  for(const close of ['button','backdrop','escape']){
+   await act('详情大图打开-'+close,()=>p.locator('[role=dialog] [data-pda-image-preview-url]').first().click(),()=>p.waitForFunction(()=>document.querySelector('[data-pda-image-preview-root] img')?.complete));
+   await act('详情大图关闭-'+close,()=>close==='escape'?p.keyboard.press('Escape'):p.locator('[data-pda-image-preview-close]').nth(close==='button'?1:0).click({position:{x:5,y:5}}),()=>p.waitForFunction(()=>!document.querySelector('[data-pda-image-preview-root] img')));
+   if(!await p.getByRole('dialog',{name:'换片布菲票详情',exact:true}).count())throw Error('Image close also closed details');
+  }
+  await act('详情Esc关闭',()=>p.keyboard.press('Escape'),()=>p.waitForFunction(()=>!document.querySelector('[data-hpb-detail-ticket]')));
+  await p.locator('[data-hpb-action=detail]').first().click();await act('详情遮罩关闭',()=>p.locator('[data-hpb-backdrop]').click({position:{x:3,y:3}}),()=>p.waitForFunction(()=>!document.querySelector('[data-hpb-detail-ticket]')));
+ }
+ await p.locator('[data-hpb-action=detail]').first().click();await p.locator('[role=dialog] img').first().evaluate(img=>img.src='/missing-hpb-ui-material.png');await p.waitForFunction(()=>[...document.querySelectorAll('[role=dialog] span')].some(n=>n.textContent==='面料图片加载失败'&&!n.hidden));
+ const failedImageVisible=true;await c.close();return{results,max:Math.max(...results.map(r=>r.ms)),failed:results.filter(r=>r.ms>=500),failedImageVisible};
+}
+)(page);
+```

@@ -1,0 +1,31 @@
+### Result
+{"results":[{"name":"hpb","scene":"cold","sample":1,"ms":223.69999998807907},{"name":"hpb","scene":"refresh","sample":1,"ms":131.5},{"name":"hpb","scene":"navigation","sample":1,"ms":35.400000005960464},{"name":"hpb","scene":"cold","sample":2,"ms":242.69999998807907},{"name":"hpb","scene":"refresh","sample":2,"ms":146.59999999403954},{"name":"hpb","scene":"navigation","sample":2,"ms":30.099999994039536},{"name":"hpb","scene":"cold","sample":3,"ms":230.69999998807907},{"name":"hpb","scene":"refresh","sample":3,"ms":147},{"name":"hpb","scene":"navigation","sample":3,"ms":30.19999998807907},{"name":"hpb","scene":"cold","sample":4,"ms":237.19999998807907},{"name":"hpb","scene":"refresh","sample":4,"ms":147.40000000596046},{"name":"hpb","scene":"navigation","sample":4,"ms":43.89999997615814},{"name":"hpb","scene":"cold","sample":5,"ms":217.59999999403954},{"name":"hpb","scene":"refresh","sample":5,"ms":130.59999999403954},{"name":"hpb","scene":"navigation","sample":5,"ms":41.099999994039536}],"failed":[],"max":242.69999998807907}
+### Ran Playwright code
+```js
+await (async(page)=>{
+ const auth=null;
+ const browser=page.context().browser(),results=[];
+ const routes=[['hpb','/fcs/craft/cutting/replacement-fabric-fei-tickets','[data-hpb-page]']];
+ for(const [name,path,selector] of routes){
+  for(let sample=1;sample<=5;sample++){
+   const context=await browser.newContext({viewport:name.startsWith('pda')?{width:390,height:844}:{width:1366,height:768}});
+   const p=await context.newPage();
+   await p.addInitScript(({auth,selector})=>{
+    if(auth)localStorage.setItem('fcs_pda_session',auth);
+    window.__perfSelector=selector;window.__perfReady=0;window.__perfStart=0;
+    let scheduled=false;
+    const tick=()=>{if(window.__perfReady||scheduled)return;const root=document.querySelector(window.__perfSelector);if(!root)return;
+     const images=[...document.querySelectorAll('[data-page-content-root] img')];if(images.some(i=>!i.complete))return;
+     scheduled=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{window.__perfReady=performance.now()-window.__perfStart;scheduled=false}));};
+    new MutationObserver(tick).observe(document,{childList:true,subtree:true,attributes:true});document.addEventListener('load',tick,true);
+   },{auth,selector});
+   for(const scene of ['cold','refresh','navigation']){
+    try{if(scene==='cold')await p.goto('http://127.0.0.1:43236'+path);else if(scene==='refresh')await p.reload();else{await p.goto('http://127.0.0.1:43236'+(name==='records'?'/fcs/craft/cutting/replacement-fabric-fei-tickets':'/fcs/craft/cutting/handover-orders'));await p.waitForFunction(()=>document.querySelector('[data-hpb-page], [data-handover-list-root]'));await p.evaluate(({path,selector})=>{window.__perfReady=0;window.__perfStart=performance.now();window.__perfSelector=selector;history.pushState(null,'',path);dispatchEvent(new PopStateEvent('popstate'));},{path,selector});}await p.waitForFunction(()=>window.__perfReady>0,{},{timeout:10000});results.push({name,scene,sample,ms:await p.evaluate(()=>window.__perfReady)});}catch(e){results.push({name,scene,sample,error:String(e).slice(0,160)});break;}
+   }
+   await context.close();
+  }
+ }
+ return {results,failed:results.filter(r=>r.error||r.ms>=500),max:Math.max(...results.filter(r=>r.ms).map(r=>r.ms))};
+}
+)(page);
+```
