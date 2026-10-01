@@ -1,3 +1,4 @@
+import { buildReplacementFabricDemoOrders } from './cutting/replacement-fabric-demo.ts'
 import type { ProductionCreatedProcessSourceFact } from './production-created-process-sources.ts'
 import productionOrderDemoTechPacks from './production-order-demo-tech-packs.json' with { type: 'json' }
 import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
@@ -1801,6 +1802,7 @@ const postFinishingSourceOrders = POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map(
 })
 productionOrderRuntimeStore.splice(0, productionOrderRuntimeStore.length,
   ...seededProductionOrders,
+  ...buildReplacementFabricDemoOrders(seededProductionOrders[1]),
   buildReleaseTargetSupplementProductionOrder(seededProductionOrders[1]),
   ...postFinishingSourceOrders,
 )

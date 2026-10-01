@@ -1,0 +1,36 @@
+{
+  "results": [
+    {
+      "name": "hpb",
+      "scene": "navigation",
+      "sample": 1,
+      "ms": 61.80000001192093
+    },
+    {
+      "name": "hpb",
+      "scene": "navigation",
+      "sample": 2,
+      "ms": 46.10000002384186
+    },
+    {
+      "name": "hpb",
+      "scene": "navigation",
+      "sample": 3,
+      "ms": 47.19999998807907
+    },
+    {
+      "name": "hpb",
+      "scene": "navigation",
+      "sample": 4,
+      "ms": 46.400000005960464
+    },
+    {
+      "name": "hpb",
+      "scene": "navigation",
+      "sample": 5,
+      "ms": 45.80000001192093
+    }
+  ],
+  "failed": [],
+  "max": 61.80000001192093
+}

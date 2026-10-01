@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 2,
+  "workspace": "/Users/laoer/Documents/higoods",
+  "createdAt": "2026-10-01T01:24:05.756Z",
+  "state": "implemented",
+  "instructionContext": {
+    "taskBoundary": "MOCK-01至04：换片布五行静态演示、任务来源、票据回执与按记录覆盖；365浏览器样本通过",
+    "source": {
+      "path": "AGENTS.md",
+      "algorithm": "sha256",
+      "contentHash": "4a92a64739de2b53104a49f0b30bf38a86c8adce96fb78c9ffab1f42ddaa43e9"
+    },
+    "ruleBindings": [
+      {
+        "ruleRef": "AGENTS.md::## 8. CodeGraph 与交付",
+        "evidenceFields": [
+          "codegraph"
+        ]
+      },
+      {
+        "ruleRef": "AGENTS.md::### 8.1 任务收据与交付状态",
+        "evidenceFields": [
+          "revision",
+          "route",
+          "checks",
+          "codegraph"
+        ]
+      }
+    ]
+  },
+  "revision": {
+    "head": "e7aa82b5e17459f8b470210e49142e2287420cc9",
+    "diffHash": "0c4eccb555f00898ae16a08571b3a9827282e9b109f873e1fcbaa32f507f4f98",
+    "changedPaths": [
+      "docs/prototype-review-records/2026-09-25-replacement-fabric-multi-material.md",
+      "docs/prototype-review-records/2026-10-01-replacement-fabric-five-scenarios.md",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/browser.json",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/build.log",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/check.js",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/details.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/inspect.js",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/list-1024.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/list-1280.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/list-1366.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/navigation.js",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/navigation.json",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/print-all.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/version.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/browser.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/browser.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/build-final.log",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202603-0002.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9001.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9002.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9003.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9004.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/list-1024.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/list-1280.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/list-1366.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/navigation.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/navigation.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/state.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/storage.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/storage.txt",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/toolbar.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/toolbar.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/version.json",
+      "src/data/fcs/cutting/replacement-fabric-demo.ts",
+      "src/data/fcs/cutting/replacement-fabric-repository.ts",
+      "src/data/fcs/production-order-demo-tech-packs.json",
+      "src/data/fcs/production-orders.ts",
+      "src/data/fcs/runtime-process-tasks.ts",
+      "tests/unit/replacement-fabric-demo.test.ts"
+    ]
+  },
+  "route": {
+    "changedPaths": [
+      "docs/prototype-review-records/2026-09-25-replacement-fabric-multi-material.md",
+      "docs/prototype-review-records/2026-10-01-replacement-fabric-five-scenarios.md",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/browser.json",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/build.log",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/check.js",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/details.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/inspect.js",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/list-1024.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/list-1280.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/list-1366.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/navigation.js",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/navigation.json",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/print-all.png",
+      "docs/prototype-review-records/evidence/2026-09-25-hpb-multi-material/version.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/browser.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/browser.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/build-final.log",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202603-0002.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9001.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9002.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9003.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/detail-PO-202610-9004.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/list-1024.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/list-1280.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/list-1366.png",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/navigation.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/navigation.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/state.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/storage.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/storage.txt",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/toolbar.js",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/toolbar.json",
+      "docs/prototype-review-records/evidence/2026-10-01-hpb-five/version.json",
+      "src/data/fcs/cutting/replacement-fabric-demo.ts",
+      "src/data/fcs/cutting/replacement-fabric-repository.ts",
+      "src/data/fcs/production-order-demo-tech-packs.json",
+      "src/data/fcs/production-orders.ts",
+      "src/data/fcs/runtime-process-tasks.ts",
+      "tests/unit/replacement-fabric-demo.test.ts"
+    ],
+    "fastChecks": [
+      "npm run check:cutting:all"
+    ],
+    "governanceChecks": [
+      "npm run check:prototype-design-governance -- --all"
+    ],
+    "fullChecks": [
+      "npm run build"
+    ],
+    "unknownPaths": [
+      "tests/unit/replacement-fabric-demo.test.ts"
+    ],
+    "escalationReasons": [
+      "原型变更未匹配专项检查，需要构建兜底",
+      "未知路径需要升级到安全的完整检查"
+    ]
+  },
+  "checks": [
+    {
+      "command": "npm run check:cutting:all",
+      "exitCode": 0,
+      "startedAt": "2026-10-01T01:23:13.208Z",
+      "finishedAt": "2026-10-01T01:23:22.728Z",
+      "invariant": "受影响检查路由要求：npm run check:cutting:all"
+    },
+    {
+      "command": "npm run check:prototype-design-governance -- --all",
+      "exitCode": 0,
+      "startedAt": "2026-10-01T01:23:22.728Z",
+      "finishedAt": "2026-10-01T01:23:22.894Z",
+      "invariant": "受影响检查路由要求：npm run check:prototype-design-governance -- --all"
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "startedAt": "2026-10-01T01:23:22.894Z",
+      "finishedAt": "2026-10-01T01:24:04.961Z",
+      "invariant": "受影响检查路由要求：npm run build"
+    }
+  ],
+  "codegraph": {
+    "syncExitCode": 0,
+    "before": {
+      "initialized": true,
+      "projectPath": "/Users/laoer/Documents/higoods",
+      "pendingCount": 0,
+      "worktreeMismatch": false
+    },
+    "after": {
+      "initialized": true,
+      "projectPath": "/Users/laoer/Documents/higoods",
+      "pendingCount": 0,
+      "worktreeMismatch": false
+    }
+  },
+  "blockers": [
+    "最终改动已变化，必须重新运行相关检查"
+  ],
+  "stageTrace": {
+    "required": false,
+    "valid": true,
+    "stages": [],
+    "skills": [],
+    "blockers": []
+  }
+}

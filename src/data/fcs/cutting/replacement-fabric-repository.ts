@@ -1,3 +1,4 @@
+import { buildReplacementFabricDemoState } from './replacement-fabric-demo.ts'
 import { hydratePartTicketRecords, partTicketInitializationRecords, assertPartTicketLegacyUnchanged } from './part-ticket-records.ts'
 import { cuttingRecordFingerprint } from './cutting-record-identity.ts'
 import { hydrateProductionContextRecords, productionContextInitializationRecords } from '../production-context-records.ts'
@@ -16,10 +17,15 @@ export function readReplacementFabricState(): ReplacementFabricState {
   return cache
 }
 export async function replacementStateFromRecords(snapshot: CuttingRecordSnapshot): Promise<ReplacementFabricState> {
+  const demo = buildReplacementFabricDemoState()
   const state: ReplacementFabricState = {
     tickets: snapshot.records.filter(row => row.collection === collections.tickets).map(row => row.value as ReplacementFabricTicket),
     prints: snapshot.records.filter(row => row.collection === collections.prints).map(row => row.value as ReplacementFabricPrintRecord),
     receipts: snapshot.records.filter(row => row.collection === collections.receipts).map(row => row.value as ReplacementFabricReceipt),
+  }
+  for (const key of ['tickets', 'prints', 'receipts'] as const) {
+    const savedIds = new Set(state[key].map(item => item.id))
+    ;(state[key] as Array<{ id: string }>).unshift(...demo[key].filter(item => !savedIds.has(item.id)))
   }
   const scopes = listReplacementFabricOrderRows().flatMap(row => row.scopes)
   // 分配事实的默认视图：读取不落盘；稳定身份保证跨页面、刷新和打印选中一致。
@@ -78,7 +84,9 @@ export async function runReplacementFabricCommand<T>(input: {
   const state = await replacementStateFromRecords(structuredClone(snapshot))
   const { result, additionalRecords = [] } = input.recipe(state, snapshot)
   const before = snapshot.records.filter(row => Object.values(collections).includes(row.collection as typeof collections[keyof typeof collections]))
-  const change = diffCuttingRecords(before, replacementStateToRecords(state))
+  const demoRecords = replacementStateToRecords(buildReplacementFabricDemoState())
+  const baseline = new Map(demoRecords.map(record => [record.id, JSON.stringify(record)]))
+  const change = diffCuttingRecords(before, replacementStateToRecords(state).filter(record => !baseline.has(record.id) || baseline.get(record.id) !== JSON.stringify(record)))
   change.puts.push(...additionalRecords)
   change.puts.push(...productionContextInitializationRecords(), ...partTicketInitializationRecords(), ...eventSource.cuttingEventScopeInitializationRecords())
   const saved = await commitCuttingRecords({ revision: snapshot.revision, change, assertSourcesCurrent: () => { assertSourcesCurrent(); assertPartTicketLegacyUnchanged(); eventSource.assertManagedScopeCurrent() },

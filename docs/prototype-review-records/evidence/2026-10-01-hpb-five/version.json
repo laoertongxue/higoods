@@ -1,0 +1,20 @@
+{
+  "base": "e7aa82b5e17459f8b470210e49142e2287420cc9",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "runtime": "http://127.0.0.1:43236",
+  "hashes": {
+    "src/data/fcs/cutting/replacement-fabric-demo.ts": "51ef4c117e47d22234d95432650400d091dfae2b77b50a5d33b324644771c3dc",
+    "src/data/fcs/cutting/replacement-fabric-repository.ts": "23e5e77f84c260d16a1796aac2894535860f3a1067d6ec6e47ab21f94e97173a",
+    "src/data/fcs/production-orders.ts": "bb7cc80959b24fc3dcbb55b9cdb7f80746a7c3531586b3775dced303462253e9",
+    "src/data/fcs/runtime-process-tasks.ts": "c02641f7ca84bfa9eb9bdc07b8f7f1d52a558dae875481b4d528a5ca2ad2bbab",
+    "src/data/fcs/production-order-demo-tech-packs.json": "a126ef2a5e2d36b522fea003887b52886252a46227a14166b725cf05cbcb810a"
+  },
+  "samples": 365,
+  "maxMs": 382.90000000596046,
+  "validResults": [
+    "browser-target-ready.json",
+    "navigation-final.json",
+    "toolbar-final.json"
+  ],
+  "supersededResults": "browser-final.json includes closing popup cleanup, raw slow samples retained"
+}

@@ -1,3 +1,4 @@
+import { REPLACEMENT_FABRIC_DEMOS, REPLACEMENT_FABRIC_DEMO_ASSIGNED_AT } from './cutting/replacement-fabric-demo.ts'
 import { productionContextStorage as localStorage, onProductionContextChanged, isProductionContextReady } from './production-context-records.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { indonesiaFactories } from './indonesia-factories.ts'
@@ -1580,6 +1581,19 @@ function ensureDispatchBoardSeedData(): void {
   if (runtimeStorageFailure) throw runtimeStorageFailure
   if (dispatchBoardSeedReady) return
   dispatchBoardSeedReady = true
+
+  for (const demo of REPLACEMENT_FABRIC_DEMOS) {
+    for (const [process, factoryId, factoryName] of [['CUT_PANEL', TEST_FACTORY_ID, TEST_FACTORY_NAME], ['SEW', 'ID-F003', '万隆车缝厂']] as const) {
+      const identity = resolveInitialOrderRuntimeTaskIdentity(demo.id, process)
+      if (!identity) continue
+      seedRuntimeTaskOverride(identity.runtimeTaskId, {
+        assignmentMode: 'DIRECT', assignmentStatus: 'ASSIGNED', assignedFactoryId: factoryId, assignedFactoryName: factoryName,
+        acceptanceStatus: 'ACCEPTED', dispatchedAt: REPLACEMENT_FABRIC_DEMO_ASSIGNED_AT,
+        businessAssignedAt: REPLACEMENT_FABRIC_DEMO_ASSIGNED_AT, dispatchedBy: '原型演示', status: 'NOT_STARTED',
+        dispatchRemark: `换片布演示：${demo.scene}`,
+      }, [{ id: `${demo.id}-${process}-demo`, action: 'DISPATCH', detail: `固定演示分配：${demo.scene}`, at: REPLACEMENT_FABRIC_DEMO_ASSIGNED_AT, by: '原型演示' }])
+    }
+  }
 
   const centralSpecialFactory = specialCraftDedicatedFactories.find((factory) => factory.id === SPF_FACTORY_ID)
     ?? { id: SPF_FACTORY_ID, name: SPF_FACTORY_NAME }

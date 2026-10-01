@@ -1,0 +1,9 @@
+{
+  "base": "e7aa82b5e17459f8b470210e49142e2287420cc9",
+  "branch": "main",
+  "source": "src/data/fcs/production-order-demo-tech-packs.json",
+  "sha256": "a126ef2a5e2d36b522fea003887b52886252a46227a14166b725cf05cbcb810a",
+  "runtime": "http://127.0.0.1:43236",
+  "samples": 110,
+  "maxMs": 382.19999998807907
+}
