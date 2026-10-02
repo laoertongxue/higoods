@@ -1,6 +1,6 @@
 import { getPmsMaterialPurchaseOrder, listPmsMaterialLogisticsRecords, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
 import { getPmsFirstLegBatch, listPmsFirstLegBatches, type PmsFirstLegTransportMethod } from './first-leg-logistics.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -38,6 +38,22 @@ export function hydratePmsReconciliationsFromIdb(): Promise<void> {
           else rt.logisticsRows.push(saved as PmsLogisticsReconciliation)
         }
       }
+      // § 2.4.3.6 hydrate 后注入乐观锁版本号
+      try {
+        for (const row of rt.materialRows) {
+          if (row._pmsBaseVersion !== undefined) continue
+          const version = await pmsGetEntityVersion(PMS_STORES.pmsReconciliations, row.id)
+          if (version > 0) row._pmsBaseVersion = version
+        }
+        for (const row of rt.logisticsRows) {
+          if (row._pmsBaseVersion !== undefined) continue
+          const version = await pmsGetEntityVersion(PMS_STORES.pmsReconciliations, row.id)
+          if (version > 0) row._pmsBaseVersion = version
+        }
+      } catch (versionError) {
+        const message = versionError instanceof Error ? versionError.message : 'unknown'
+        console.warn('[PMS_IDB_VERSION_LOAD_WARN] 对账乐观锁版本号加载失败', { message })
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_LOAD_FAILED] 对账加载失败', { message })
@@ -46,7 +62,7 @@ export function hydratePmsReconciliationsFromIdb(): Promise<void> {
       const pending = pendingHydrationReconciliation.splice(0)
       for (const item of pending) {
         try {
-          await pmsPut(PMS_STORES.pmsReconciliations, item.entity)
+          await pmsPersistEntity(PMS_STORES.pmsReconciliations, item.entity, 'pms-user')
         } catch (error) {
           const message = error instanceof Error ? error.message : 'unknown'
           console.error('[PMS_IDB_SAVE_FAILED] 对账 IDB 写入失败(hydration 后)', { kind: item.kind, message })
@@ -59,7 +75,8 @@ export function hydratePmsReconciliationsFromIdb(): Promise<void> {
 
 function persistPmsMaterialReconciliation(row: PmsMaterialReconciliation): void {
   if (reconciliationHydrationReady) {
-    pmsPut(PMS_STORES.pmsReconciliations, row).catch((error: unknown) => {
+    // § 2.4.3.6 乐观锁
+    pmsPersistEntity(PMS_STORES.pmsReconciliations, row, 'pms-user').catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_SAVE_FAILED] 面辅料对账 IDB 写入失败', { id: row.id, message })
     })
@@ -70,7 +87,8 @@ function persistPmsMaterialReconciliation(row: PmsMaterialReconciliation): void 
 
 function persistPmsLogisticsReconciliation(row: PmsLogisticsReconciliation): void {
   if (reconciliationHydrationReady) {
-    pmsPut(PMS_STORES.pmsReconciliations, row).catch((error: unknown) => {
+    // § 2.4.3.6 乐观锁
+    pmsPersistEntity(PMS_STORES.pmsReconciliations, row, 'pms-user').catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_SAVE_FAILED] 物流对账 IDB 写入失败', { id: row.id, message })
     })
@@ -117,6 +135,8 @@ export interface PmsMaterialReconciliation {
   paymentRequestNo: string
   invoiceNo: string
   updatedAt: string
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 export type PmsLogisticsFeeKey = 'freight' | 'firstLegLogistics' | 'customsDuty' | 'vat' | 'clearance' | 'additional' | 'customsDeclaration'
@@ -162,6 +182,8 @@ export interface PmsLogisticsReconciliation {
   paymentRequestNo: string
   importedAt: string
   updatedAt: string
+  // § 2.4.3.6 乐观锁:hydrate 时从 pmsVersionSnapshots 注入;persist 时 pmsPersistEntity 自动检测版本冲突。
+  _pmsBaseVersion?: number
 }
 
 interface PmsReconciliationRuntime {

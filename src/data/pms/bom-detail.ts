@@ -1,5 +1,5 @@
 import { getPmsBomTemplate, listPmsBomLogs, publishPmsBomTemplate, type PmsBomLog } from './bom-templates.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -25,6 +25,17 @@ export function hydratePmsBomDetailsFromIdb(): Promise<void> {
         if (existing) Object.assign(existing, saved)
         else rt.details.set(saved.spu, saved)
       }
+      // § 2.4.3.6 hydrate 后注入乐观锁版本号
+      try {
+        for (const detail of rt.details.values()) {
+          if (detail._pmsBaseVersion !== undefined) continue
+          const version = await pmsGetEntityVersion(PMS_STORES.pmsBomDetails, detail.spu)
+          if (version > 0) detail._pmsBaseVersion = version
+        }
+      } catch (versionError) {
+        const message = versionError instanceof Error ? versionError.message : 'unknown'
+        console.warn('[PMS_IDB_VERSION_LOAD_WARN] BOM 样板详情乐观锁版本号加载失败', { message })
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_LOAD_FAILED] BOM 样板详情加载失败', { message })
@@ -33,7 +44,7 @@ export function hydratePmsBomDetailsFromIdb(): Promise<void> {
       const pending = pendingHydrationBomDetails.splice(0)
       for (const item of pending) {
         try {
-          await pmsPut(PMS_STORES.pmsBomDetails, item)
+          await pmsPersistEntity(PMS_STORES.pmsBomDetails, item, 'pms-user')
         } catch (error) {
           const message = error instanceof Error ? error.message : 'unknown'
           console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败(hydration 后)', { spu: item.spu, message })
@@ -46,7 +57,8 @@ export function hydratePmsBomDetailsFromIdb(): Promise<void> {
 
 function persistPmsBomDetail(detail: PmsBomDetail): void {
   if (bomDetailHydrationReady) {
-    pmsPut(PMS_STORES.pmsBomDetails, detail).catch((error: unknown) => {
+    // § 2.4.3.6 乐观锁:hydrate 后 entity 已注入 _pmsBaseVersion,pmsPersistEntity 自动选 pmsPutWithVersion
+    pmsPersistEntity(PMS_STORES.pmsBomDetails, detail, 'pms-user').catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败', { spu: detail.spu, message })
     })
@@ -109,6 +121,8 @@ export interface PmsBomDetail {
   options: PmsBomOption[]
   updatedBy: string
   updatedAt: string
+  // § 2.4.3.6 乐观锁:hydrate 时从 pmsVersionSnapshots 注入;persist 时 pmsPersistEntity 自动检测版本冲突。
+  _pmsBaseVersion?: number
 }
 
 interface PmsBomDetailRuntime {
