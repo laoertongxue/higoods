@@ -6,6 +6,7 @@ import {
   type PmsMaterialLogisticsRecord,
 } from './material-purchase-orders.ts'
 import { appendPmsLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 
 export type PmsFirstLegTransportMethod = '海卡' | '海派' | '空卡' | '空派' | '铁路' | '快递' | '卡航'
 export type PmsFirstLegBillingMethod = '计费重' | '实重' | '体积' | '整柜'
@@ -338,6 +339,76 @@ function toBatchRecord(record: PmsMaterialLogisticsRecord, qty: number, rolls: n
   }
 }
 
+let firstLegHydrationStarted = false
+let firstLegHydrationReady = false
+let firstLegHydrationPromise: Promise<void> | null = null
+const pendingHydrationFirstLeg: Array<{ kind: 'carrier' | 'channel' | 'batch'; entity: unknown }> = []
+
+/**
+ * 启动期加载:从 IDB 读 carriers/channels/batches 到 runtime。
+ * 启动期未就绪时返回种子;hydrate 完成后才"等于" IDB 数据。
+ */
+export function hydratePmsFirstLegFromIdb(): Promise<void> {
+  if (firstLegHydrationStarted) return firstLegHydrationPromise ?? Promise.resolve()
+  firstLegHydrationStarted = true
+  firstLegHydrationPromise = (async () => {
+    try {
+      const [carriers, channels, batches] = await Promise.all([
+        pmsAll<PmsFirstLegCarrier>(PMS_STORES.pmsFirstLegCarriers),
+        pmsAll<PmsFirstLegChannel>(PMS_STORES.pmsFirstLegChannels),
+        pmsAll<PmsFirstLegBatch>(PMS_STORES.pmsFirstLegBatches),
+      ])
+      const rt = getRuntime()
+      for (const saved of carriers) {
+        const existing = rt.carriers.find((c) => c.carrierCode === saved.carrierCode)
+        if (existing) Object.assign(existing, saved)
+        else rt.carriers.push(saved)
+      }
+      for (const saved of channels) {
+        const existing = rt.channels.find((c) => c.channelCode === saved.channelCode)
+        if (existing) Object.assign(existing, saved)
+        else rt.channels.push(saved)
+      }
+      for (const saved of batches) {
+        const existing = rt.batches.find((b) => b.batchNo === saved.batchNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.batches.push(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 头程物流加载失败', { message })
+    } finally {
+      firstLegHydrationReady = true
+      const pending = pendingHydrationFirstLeg.splice(0)
+      for (const item of pending) {
+        const store = item.kind === 'carrier' ? PMS_STORES.pmsFirstLegCarriers : item.kind === 'channel' ? PMS_STORES.pmsFirstLegChannels : PMS_STORES.pmsFirstLegBatches
+        try {
+          await pmsPut(store as typeof PMS_STORES.pmsFirstLegCarriers, item.entity as never)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 头程物流 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+        }
+      }
+    }
+  })()
+  return firstLegHydrationPromise
+}
+
+/**
+ * 内部:写入头程物流变更时调用。启动期 hydrate 未就绪时进入 pending 队列。
+ */
+function persistPmsFirstLeg(kind: 'carrier' | 'channel' | 'batch', entity: unknown): void {
+  if (firstLegHydrationReady) {
+    const store = kind === 'carrier' ? PMS_STORES.pmsFirstLegCarriers : kind === 'channel' ? PMS_STORES.pmsFirstLegChannels : PMS_STORES.pmsFirstLegBatches
+    pmsPut(store as typeof PMS_STORES.pmsFirstLegCarriers, entity as never).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 头程物流 IDB 写入失败', { kind, message })
+    })
+  } else {
+    pendingHydrationFirstLeg.push({ kind, entity })
+  }
+}
+
 function getRuntime(): PmsFirstLegRuntime {
   if (!runtime) {
     listPmsMaterialLogisticsRecords()
@@ -508,6 +579,7 @@ export function createPmsFirstLegCarrier(input: PmsCreateCarrierInput, actor: { 
   }
   getRuntime().carriers.unshift(carrier)
   appendPmsLog({ objectType: 'first-leg-carrier', objectId: carrier.carrierCode, action: '创建', beforeValue: '', afterValue: carrier.carrierName, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsFirstLeg('carrier', structuredClone(carrier))
   return carrier
 }
 
@@ -541,6 +613,7 @@ export function updatePmsFirstLegCarrier(carrierCode: string, patch: Partial<Pms
   if (patch.remark !== undefined) carrier.remark = patch.remark.trim()
   carrier.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'first-leg-carrier', objectId: carrierCode, action: '编辑', beforeValue: '', afterValue: carrier.carrierName, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsFirstLeg('carrier', structuredClone(carrier))
   return carrier
 }
 
@@ -551,6 +624,7 @@ export function togglePmsFirstLegCarrierStatus(carrierCode: string, actor: { id:
   carrier.status = before === '启用' ? '停用' : '启用'
   carrier.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'first-leg-carrier', objectId: carrierCode, action: '启停', beforeValue: before, afterValue: carrier.status, reason: '停用不影响历史头程单', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsFirstLeg('carrier', structuredClone(carrier))
   return carrier
 }
 
@@ -692,6 +766,7 @@ export function createPmsFirstLegChannel(input: PmsCreateChannelInput, actor: { 
   }
   getRuntime().channels.unshift(channel)
   appendPmsLog({ objectType: 'first-leg-channel', objectId: channel.channelCode, action: '创建', beforeValue: '', afterValue: `${carrier.shortName} · ${channel.channelName}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsFirstLeg('channel', structuredClone(channel))
   return channel
 }
 
@@ -755,6 +830,7 @@ export function updatePmsFirstLegChannel(channelCode: string, patch: Partial<Pms
   channel.remark = merged.remark.trim()
   channel.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'first-leg-channel', objectId: channelCode, action: '编辑', beforeValue: before, afterValue: `${channel.channelName} · ${channel.transportMethod}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsFirstLeg('channel', structuredClone(channel))
   return channel
 }
 
@@ -765,6 +841,7 @@ export function togglePmsFirstLegChannelStatus(channelCode: string, actor: { id:
   channel.status = before === '启用' ? '停用' : '启用'
   channel.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'first-leg-channel', objectId: channelCode, action: '启停', beforeValue: before, afterValue: channel.status, reason: '停用不影响历史头程单', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsFirstLeg('channel', structuredClone(channel))
   return channel
 }
 
@@ -883,6 +960,7 @@ export function createPmsFirstLegBatch(input: PmsCreateBatchInput, actor: { id: 
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsFirstLeg('batch', structuredClone(batch))
   return batch
 }
 
@@ -930,6 +1008,7 @@ export function advancePmsFirstLegBatchStatus(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsFirstLeg('batch', structuredClone(batch))
   return batch
 }
 
@@ -987,6 +1066,7 @@ export function updatePmsFirstLegBatch(
   }
   if (patch.fees !== undefined) batch.fees = normalizePmsFirstLegFees({ ...batch.fees, ...patch.fees })
   appendPmsLog({ objectType: 'first-leg-batch', objectId: batchNo, action: '编辑', beforeValue: '', afterValue: batch.remark, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsFirstLeg('batch', structuredClone(batch))
   return batch
 }
 

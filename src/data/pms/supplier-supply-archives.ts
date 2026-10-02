@@ -1,6 +1,57 @@
 import { getPmsMaterial } from './materials.ts'
 import { getPmsSupplier } from './suppliers.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * 供应商供应档案 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let archiveHydrationStarted = false
+let archiveHydrationPromise: Promise<void> | null = null
+let archiveHydrationReady = false
+const pendingHydrationArchive: PmsSupplyArchive[] = []
+
+export function hydratePmsSupplyArchivesFromIdb(): Promise<void> {
+  if (archiveHydrationStarted) return archiveHydrationPromise ?? Promise.resolve()
+  archiveHydrationStarted = true
+  archiveHydrationPromise = (async () => {
+    try {
+      // 注意:archives 是 const 数组,但元素对象本身可变;按 archiveId Object.assign 即可覆盖种子。
+      const stored = await pmsAll<PmsSupplyArchive>(PMS_STORES.pmsSupplyArchives)
+      for (const saved of stored) {
+        const existing = archives.find((a) => a.archiveId === saved.archiveId)
+        if (existing) Object.assign(existing, saved)
+        else archives.push(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 供应商供应档案加载失败', { message })
+    } finally {
+      archiveHydrationReady = true
+      const pending = pendingHydrationArchive.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsSupplyArchives, item)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 供应商供应档案 IDB 写入失败(hydration 后)', { archiveId: item.archiveId, message })
+        }
+      }
+    }
+  })()
+  return archiveHydrationPromise
+}
+
+function persistPmsSupplyArchive(archive: PmsSupplyArchive): void {
+  if (archiveHydrationReady) {
+    pmsPut(PMS_STORES.pmsSupplyArchives, archive).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 供应商供应档案 IDB 写入失败', { archiveId: archive.archiveId, message })
+    })
+  } else {
+    pendingHydrationArchive.push(archive)
+  }
+}
 
 export type PmsSupplyArchiveUnit = 'base' | 'package' | 'box'
 
@@ -169,5 +220,6 @@ export function updatePmsSupplyArchive(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsSupplyArchive(archive)
   return archive
 }

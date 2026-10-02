@@ -172,6 +172,108 @@ const root = rootNode
 
 appStore.init()
 
+/**
+ * PMS IDB hydrate/migrate 失败统一处理器(§ 2.4.3.7 "IndexedDB 不可用时…不能伪装正常空列表")。
+ * 失败时 console.error + 在页面顶部显示 banner,告知用户数据可能不可读或保存失败。
+ */
+function handlePmsIdbHydrateError(label: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error)
+  console.error(`[PMS_IDB_HYDRATE_FAILED] ${label}`, { message })
+  if (typeof document === 'undefined') return
+  const banner = document.createElement('div')
+  banner.setAttribute('role', 'alert')
+  banner.className = 'fixed top-4 left-1/2 z-50 max-w-2xl -translate-x-1/2 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 shadow-lg'
+  banner.textContent = `PMS 业务数据加载失败(${label}):${message}。当前可能显示种子数据,您的修改将无法持久化。请检查浏览器存储或刷新重试。`
+  document.body.appendChild(banner)
+  setTimeout(() => banner.remove(), 12000)
+}
+
+// PMS IDB 启动期加载:把已写入的 PMS 操作日志与业务变更从 IDB 搬到内存缓存。
+// 不阻塞首屏;加载失败时不影响业务数据种子展示,但通过 banner 明确告知用户。
+import('./data/pms/idb-storage.ts').then((mod) => {
+  mod.getPmsDb().catch((error: unknown) => handlePmsIdbHydrateError('数据库连接', error))
+})
+void import('./data/pms/runtime.ts').then((mod) => {
+  mod.hydratePmsLogsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('操作日志', error))
+})
+void import('./data/pms/bom-templates.ts').then((mod) => {
+  mod.hydratePmsBomLogsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('BOM 日志', error))
+  mod.hydratePmsBomTemplatesFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('BOM 模板', error))
+})
+void import('./data/pms/bom-detail.ts').then((mod) => {
+  mod.hydratePmsBomDetailsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('BOM 样板详情', error))
+})
+void import('./data/pms/first-leg-logistics.ts').then((mod) => {
+  mod.hydratePmsFirstLegFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('头程物流', error))
+})
+void import('./data/pms/material-purchase-orders.ts').then((mod) => {
+  mod.migrateMaterialPurchaseUpdatesFromLocalStorage().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.warn('[PMS_LEGACY_MIGRATION]', { message })
+    handlePmsIdbHydrateError('面辅料采购旧键迁移', error)
+  })
+})
+void import('./data/pms/payment-requests.ts').then((mod) => {
+  mod.hydratePmsPaymentFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('请款单', error))
+})
+void import('./data/pms/reconciliations.ts').then((mod) => {
+  mod.hydratePmsReconciliationsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('对账', error))
+})
+void import('./data/pms/material-requirements.ts').then((mod) => {
+  mod.hydratePmsMaterialRequirementsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('面辅料需求', error))
+})
+void import('./data/pms/suppliers.ts').then((mod) => {
+  mod.hydratePmsSuppliersFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商', error))
+})
+void import('./data/pms/supplier-confirmations.ts').then((mod) => {
+  mod.hydratePmsSupplierConfirmationsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商包装确认单', error))
+})
+void import('./data/pms/inventory-monitor.ts').then((mod) => {
+  mod.hydratePmsInventoryFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('库存监控', error))
+})
+void import('./data/pms/purchase-suggestions.ts').then((mod) => {
+  mod.hydratePmsPurchaseSuggestionsFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('采购建议', error))
+})
+void import('./data/pms/product-purchase-orders.ts').then((mod) => {
+  mod.hydratePmsProductPurchaseOrdersFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('商品采购单', error))
+})
+void import('./data/pms/supplier-supply-archives.ts').then((mod) => {
+  mod.hydratePmsSupplyArchivesFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('供应商供应档案', error))
+})
+void import('./data/pms/tmf-material-purchases.ts').then((mod) => {
+  mod.hydratePmsTmfPurchaseStateFromIdb().catch((error: unknown) => handlePmsIdbHydrateError('织带厂状态', error))
+  mod.migrateTmfPurchaseStateFromLocalStorage().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.warn('[TMF_LEGACY_MIGRATION]', { message })
+    handlePmsIdbHydrateError('织带厂旧键迁移', error)
+  })
+})
+
+// 多标签页同步(§ 2.4.3.6):订阅 BroadcastChannel,其他标签页写入 IDB 时提示用户刷新。
+// 实现机制:
+// 1. IDB 抽象层的 pmsPut 在每次写入后自动调用 recordPmsHydratedAtSafely,记录本标签页的 entity 时间戳;
+// 2. hydrate 函数完成后也会通过 pmsGetVersionMap 等机制填充 hydratedAt;
+// 3. 收到 PMS_DATA_CHANGED 时,若本标签页 hydratedAt 在消息时间之前 → 显示 banner 提示用户刷新;
+// 4. 本标签页后续写入会更新自己的 hydratedAt,所以只有"其他标签页后写入"才会触发 banner。
+import('./data/pms/idb-storage.ts').then((mod) => {
+  mod.subscribePmsDataChanged((message) => {
+    console.info('[PMS_IDB_CROSS_TAB]', message)
+    const g = globalThis as unknown as { __pmsHydratedAt?: Map<string, number> }
+    const cacheKey = `${message.store}::${String(message.key)}`
+    const localAt = g.__pmsHydratedAt?.get(cacheKey)
+    // 仅当本标签页在消息之前已 hydrate/写过同 entity,且消息时间更新,才提示刷新。
+    if (localAt !== undefined && localAt < message.at) {
+      if (typeof document === 'undefined') return
+      const banner = document.createElement('div')
+      banner.setAttribute('role', 'alert')
+      banner.className = 'fixed top-4 right-4 z-50 max-w-md rounded-md border border-blue-300 bg-blue-50 px-4 py-3 text-sm text-blue-900 shadow-lg'
+      banner.textContent = `PMS 业务数据已被其他标签页修改(${message.store}:${String(message.key)})。请刷新页面以加载最新数据。`
+      document.body.appendChild(banner)
+      setTimeout(() => banner.remove(), 8000)
+    }
+  })
+})
+
 const PRELOAD_ERROR_RELOAD_KEY = 'higood-vite-preload-reload'
 let dynamicModuleReloadScheduled = false
 const browserSessionStorage = getBrowserSessionStorage()
@@ -236,6 +338,20 @@ window.addEventListener('vite:preloadError', (event) => {
 
 window.addEventListener('unhandledrejection', (event) => {
   if (reloadForDynamicModuleLoadError(event.reason, '未处理 Promise ')) {
+    event.preventDefault()
+    return
+  }
+  // PMS IDB 写入失败(§ 2.4.3.5 禁止静默回退):显式提示用户。
+  const reason = event.reason as { code?: string; name?: string; message?: string } | undefined
+  if (reason && typeof reason.code === 'string' && reason.code.startsWith('PMS_IDB_')) {
+    console.error('[PMS_IDB_UNHANDLED]', reason)
+    // 通过提示卡片显示,后续 toast 系统接入后可改为 toast。
+    const banner = document.createElement('div')
+    banner.setAttribute('role', 'alert')
+    banner.className = 'fixed top-4 right-4 z-50 max-w-md rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-lg'
+    banner.textContent = `PMS 业务数据保存失败:${reason.message ?? 'unknown'}。请检查浏览器存储后重试。`
+    document.body.appendChild(banner)
+    setTimeout(() => banner.remove(), 8000)
     event.preventDefault()
   }
 })

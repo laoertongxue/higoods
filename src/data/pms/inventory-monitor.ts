@@ -1,5 +1,79 @@
 import { getPmsMaterial, type PmsPurchaseRegion } from './materials.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * 库存监控 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let inventoryHydrationStarted = false
+let inventoryHydrationPromise: Promise<void> | null = null
+let inventoryHydrationReady = false
+type PendingInventoryWrite =
+  | { kind: 'row'; entity: PmsInventoryMonitorRow }
+  | { kind: 'order'; entity: PmsInventoryOrder }
+const pendingHydrationInventory: PendingInventoryWrite[] = []
+
+export function hydratePmsInventoryFromIdb(): Promise<void> {
+  if (inventoryHydrationStarted) return inventoryHydrationPromise ?? Promise.resolve()
+  inventoryHydrationStarted = true
+  inventoryHydrationPromise = (async () => {
+    try {
+      const [storedRows, storedOrders] = await Promise.all([
+        pmsAll<PmsInventoryMonitorRow>(PMS_STORES.pmsInventoryMonitor),
+        pmsAll<PmsInventoryOrder>(PMS_STORES.pmsInventoryOrders),
+      ])
+      const rt = getRuntime()
+      for (const saved of storedRows) {
+        const existing = rt.rows.find((r) => r.id === saved.id)
+        if (existing) Object.assign(existing, saved)
+        else rt.rows.push(saved)
+      }
+      for (const saved of storedOrders) {
+        const existing = rt.orders.find((o) => o.orderNo === saved.orderNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.orders.push(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 库存监控加载失败', { message })
+    } finally {
+      inventoryHydrationReady = true
+      const pending = pendingHydrationInventory.splice(0)
+      for (const item of pending) {
+        try {
+          if (item.kind === 'row') await pmsPut(PMS_STORES.pmsInventoryMonitor, item.entity)
+          else await pmsPut(PMS_STORES.pmsInventoryOrders, item.entity)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 库存监控 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+        }
+      }
+    }
+  })()
+  return inventoryHydrationPromise
+}
+
+function persistPmsInventoryMonitorRow(row: PmsInventoryMonitorRow): void {
+  if (inventoryHydrationReady) {
+    pmsPut(PMS_STORES.pmsInventoryMonitor, row).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 库存监控行 IDB 写入失败', { id: row.id, message })
+    })
+  } else {
+    pendingHydrationInventory.push({ kind: 'row', entity: row })
+  }
+}
+
+function persistPmsInventoryOrder(order: PmsInventoryOrder): void {
+  if (inventoryHydrationReady) {
+    pmsPut(PMS_STORES.pmsInventoryOrders, order).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 库存单据 IDB 写入失败', { orderNo: order.orderNo, message })
+    })
+  } else {
+    pendingHydrationInventory.push({ kind: 'order', entity: order })
+  }
+}
 
 export type PmsInventoryRuleStatus = '正常' | '待补货' | '规则异常'
 export type PmsInventoryTriggerMode = '比例' | '固定'
@@ -331,6 +405,7 @@ export function updatePmsInventoryRule(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsInventoryMonitorRow(row)
   return row
 }
 
@@ -445,6 +520,7 @@ export function generatePmsInventoryOrder(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsInventoryOrder(order)
   return order
 }
 
@@ -457,6 +533,8 @@ export function refreshPmsInventoryStocks(actor: { id: string; name: string; rol
     computeRow(row)
     row.updatedAt = refreshedAt
   })
+  // 批量刷库时每行都需 IDB put;race condition 由 hydrateReady + pending 队列处理。
+  current.rows.forEach((row) => persistPmsInventoryMonitorRow(row))
   const afterTotal = roundPmsQty(current.rows.reduce((sum, row) => sum + row.stockQty, 0), 2)
   appendPmsLog({
     objectType: 'inventory-monitor',
@@ -517,5 +595,6 @@ export function createPmsInventoryMonitorRow(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsInventoryMonitorRow(row)
   return row
 }

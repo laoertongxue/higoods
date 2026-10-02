@@ -1,5 +1,56 @@
 import { applyPmsSupplierConfirmation, getPmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * 供应商包装确认单 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let confirmationHydrationStarted = false
+let confirmationHydrationPromise: Promise<void> | null = null
+let confirmationHydrationReady = false
+const pendingHydrationConfirmations: PmsSupplierConfirmation[] = []
+
+export function hydratePmsSupplierConfirmationsFromIdb(): Promise<void> {
+  if (confirmationHydrationStarted) return confirmationHydrationPromise ?? Promise.resolve()
+  confirmationHydrationStarted = true
+  confirmationHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsSupplierConfirmation>(PMS_STORES.pmsSupplierConfirmations)
+      const rt = getRuntime()
+      for (const saved of stored) {
+        const existing = rt.confirmations.find((c) => c.confirmationNo === saved.confirmationNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.confirmations.push(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 供应商包装确认单加载失败', { message })
+    } finally {
+      confirmationHydrationReady = true
+      const pending = pendingHydrationConfirmations.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsSupplierConfirmations, item)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败(hydration 后)', { confirmationNo: item.confirmationNo, message })
+        }
+      }
+    }
+  })()
+  return confirmationHydrationPromise
+}
+
+function persistPmsSupplierConfirmation(confirmation: PmsSupplierConfirmation): void {
+  if (confirmationHydrationReady) {
+    pmsPut(PMS_STORES.pmsSupplierConfirmations, confirmation).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败', { confirmationNo: confirmation.confirmationNo, message })
+    })
+  } else {
+    pendingHydrationConfirmations.push(confirmation)
+  }
+}
 
 export type PmsConfirmationStatus = '待确认' | '已编辑' | '已确认'
 export type PmsLabelStatus = '未生成' | '已生成' | '已打印' | '部分打印' | '已重打' | '异常'
@@ -59,6 +110,8 @@ export interface PmsSupplierConfirmation {
   rolls: PmsConfirmationRoll[]
   boxSpecs: PmsConfirmationBoxSpec[]
   packageDetails: PmsConfirmationPackageDetail[]
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 interface PmsConfirmationRuntime {
@@ -326,6 +379,7 @@ export function generatePmsConfirmationRolls(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -367,6 +421,7 @@ export function addPmsConfirmationBoxSpec(
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '新增箱规', beforeValue: '', afterValue: `${boxNo} · ${length}×${width}×${height}cm · ${volume}cm³`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -386,6 +441,7 @@ export function removePmsConfirmationBoxSpec(
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '删除箱规', beforeValue: `${removed.boxNo} · ${removed.length}×${removed.width}×${removed.height}cm · ${removed.volume}cm³`, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -407,6 +463,7 @@ export function addPmsConfirmationPackageDetail(
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '新增包装明细', beforeValue: '', afterValue: `${packageMethod} · ${qty} ${unit}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -424,6 +481,7 @@ export function removePmsConfirmationPackageDetail(
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '删除包装明细', beforeValue: `${removed.packageMethod} · ${removed.qty} ${removed.unit}`, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -440,6 +498,7 @@ export function recordPmsConfirmationLabelDownload(
     if (!roll.labelNo) throw new PmsDomainError('CONF_LABEL_REQUIRED', `${roll.packageNo} 还没有生成标签`)
   })
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '下载标签 PNG', beforeValue: '', afterValue: `${targets.length} 个包装标签`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -465,6 +524,7 @@ export function generatePmsConfirmationLabels(
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '生成标签', beforeValue: '', afterValue: `${targets.length} 个包装标签`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -485,6 +545,7 @@ export function printPmsConfirmationLabels(
     roll.labelStatus = derivePmsLabelStatus(roll)
   })
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '打印标签', beforeValue: '', afterValue: `${targets.length} 个包装`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -517,6 +578,7 @@ export function updatePmsConfirmationRoll(
   confirmation.editor = actor.name
   confirmation.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '编辑包装明细', beforeValue: '', afterValue: roll.packageNo, reason: confirmation.status === '已编辑' ? '已确认单被修改，需要重新确认' : '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 
@@ -543,6 +605,7 @@ export function confirmPmsSupplierConfirmation(
   confirmation.updatedAt = new Date().toISOString()
   applyPmsSupplierConfirmation(confirmation.purchaseOrderNo, actor)
   appendPmsLog({ objectType: 'supplier-confirmation', objectId: confirmationNo, action: '确认', beforeValue: '待确认', afterValue: '已确认', reason: '确认后回写采购单', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsSupplierConfirmation(confirmation)
   return confirmation
 }
 

@@ -33,3 +33,4 @@ export const renderPmsTransitPreparationTasksPage = createLazyRenderer(() => imp
 export const renderPmsUsersPage = createLazyRenderer(() => import('../pages/pms/settings'), 'renderPmsUsersPage')
 export const renderPmsRolesPage = createLazyRenderer(() => import('../pages/pms/settings'), 'renderPmsRolesPage')
 export const renderPmsDictionariesPage = createLazyRenderer(() => import('../pages/pms/settings'), 'renderPmsDictionariesPage')
+export const renderPmsDataManagementPage = createLazyRenderer(() => import('../pages/pms/data-management'), 'renderPmsDataManagementPage')

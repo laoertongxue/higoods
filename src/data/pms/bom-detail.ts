@@ -1,5 +1,71 @@
 import { getPmsBomTemplate, listPmsBomLogs, publishPmsBomTemplate, type PmsBomLog } from './bom-templates.ts'
+import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * BOM 样板详情 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let bomDetailHydrationStarted = false
+let bomDetailHydrationPromise: Promise<void> | null = null
+let bomDetailHydrationReady = false
+const pendingHydrationBomDetails: PmsBomDetail[] = []
+
+/**
+ * 启动期加载:从 IDB 把已保存的样板详情搬回内存。覆盖种子(按 spu)。
+ */
+export function hydratePmsBomDetailsFromIdb(): Promise<void> {
+  if (bomDetailHydrationStarted) return bomDetailHydrationPromise ?? Promise.resolve()
+  bomDetailHydrationStarted = true
+  bomDetailHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsBomDetail>(PMS_STORES.pmsBomDetails)
+      const rt = getRuntime()
+      for (const saved of stored) {
+        const existing = rt.details.get(saved.spu)
+        if (existing) Object.assign(existing, saved)
+        else rt.details.set(saved.spu, saved)
+      }
+      // § 2.4.3.6 hydrate 后注入乐观锁版本号
+      try {
+        for (const detail of rt.details.values()) {
+          if (detail._pmsBaseVersion !== undefined) continue
+          const version = await pmsGetEntityVersion(PMS_STORES.pmsBomDetails, detail.spu)
+          if (version > 0) detail._pmsBaseVersion = version
+        }
+      } catch (versionError) {
+        const message = versionError instanceof Error ? versionError.message : 'unknown'
+        console.warn('[PMS_IDB_VERSION_LOAD_WARN] BOM 样板详情乐观锁版本号加载失败', { message })
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] BOM 样板详情加载失败', { message })
+    } finally {
+      bomDetailHydrationReady = true
+      const pending = pendingHydrationBomDetails.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPersistEntity(PMS_STORES.pmsBomDetails, item, 'pms-user')
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败(hydration 后)', { spu: item.spu, message })
+        }
+      }
+    }
+  })()
+  return bomDetailHydrationPromise
+}
+
+function persistPmsBomDetail(detail: PmsBomDetail): void {
+  if (bomDetailHydrationReady) {
+    // § 2.4.3.6 乐观锁:hydrate 后 entity 已注入 _pmsBaseVersion,pmsPersistEntity 自动选 pmsPutWithVersion
+    pmsPersistEntity(PMS_STORES.pmsBomDetails, detail, 'pms-user').catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败', { spu: detail.spu, message })
+    })
+  } else {
+    pendingHydrationBomDetails.push(detail)
+  }
+}
 
 export type PmsBomSampleStatus = '未打样' | '打样中' | '已确认'
 
@@ -55,6 +121,8 @@ export interface PmsBomDetail {
   options: PmsBomOption[]
   updatedBy: string
   updatedAt: string
+  // § 2.4.3.6 乐观锁:hydrate 时从 pmsVersionSnapshots 注入;persist 时 pmsPersistEntity 自动检测版本冲突。
+  _pmsBaseVersion?: number
 }
 
 interface PmsBomDetailRuntime {
@@ -271,6 +339,7 @@ export function updatePmsBomDetail(spu: string, patch: PmsBomDetailPatch, actor:
   detail.updatedBy = actor.name
   detail.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'bom-template', objectId: spu, action: '保存样板详情', beforeValue: `${spu} 原总成本 ${detail.standardCost}`, afterValue: `总成本 ${detail.totalCost} · 目标毛利率 ${detail.targetGrossMargin}%`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsBomDetail(detail)
   return detail
 }
 
@@ -283,6 +352,7 @@ export function submitPmsBomTemplate(spu: string, actor: { id: string; name: str
   if (detail) {
     detail.updatedBy = actor.name
     detail.updatedAt = new Date().toISOString()
+    persistPmsBomDetail(detail)
   }
   appendPmsLog({ objectType: 'bom-template', objectId: spu, action: '提交 BOM', beforeValue: '草稿/未匹配', afterValue: '已发布', reason: '样板详情提交', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
   return { templateStatus: '已发布', updatedAt: new Date().toISOString() }

@@ -33,9 +33,28 @@ export function formatPmsQty(value: number, unit = ''): string {
   return unit ? `${formatted} ${unit}` : formatted
 }
 
-export function formatPmsMoney(value: number, currency: 'RMB' | 'USD' = 'RMB'): string {
+export type PmsCurrency = 'RMB' | 'USD' | 'IDR'
+
+const PMS_CURRENCY_SYMBOL: Record<PmsCurrency, string> = {
+  RMB: '¥',
+  USD: '$',
+  IDR: 'Rp',
+}
+
+/**
+ * § 共享层补 IDR:在 5 个 PMS 业务页面曾各自内联 formatFeeAmount / formatMaterialMoney 处理 IDR,
+ * 现在统一通过此函数渲染。
+ *
+ * - RMB / USD:zh-CN locale + 2 位小数 + 前缀货币符号
+ * - IDR:id-ID locale + 无小数(印尼盾无小数单位习惯)+ Rp 符号
+ */
+export function formatPmsMoney(value: number, currency: PmsCurrency = 'RMB'): string {
+  if (currency === 'IDR') {
+    const formatted = new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(value)
+    return `${PMS_CURRENCY_SYMBOL.IDR} ${formatted}`
+  }
   const formatted = new Intl.NumberFormat('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value)
-  return `${currency === 'USD' ? '$' : '¥'}${formatted}`
+  return `${PMS_CURRENCY_SYMBOL[currency]}${formatted}`
 }
 
 export function formatPmsTime(value: string | undefined, includeSeconds = false): string {

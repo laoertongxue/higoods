@@ -1,5 +1,6 @@
 import { computeBomDemand, computeMaterialSuggestedQty, getPmsBomTemplate, type PmsBomMaterialLine } from './bom-templates.ts'
 import { PMS_STYLE_IMAGES } from './images.ts'
+import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity } from './idb-storage.ts'
 import { nextPmsSequence, roundPmsQty } from './runtime.ts'
 
 export type PmsMaterialPushStatus = '待下推' | '已下推'
@@ -43,6 +44,8 @@ export interface PmsMaterialRequirement {
   createdAt: string
   status: PmsMaterialRequirementStatus
   lines: PmsMaterialRequirementLine[]
+  // § 2.4.3.6 乐观锁:hydrate 时从 pmsVersionSnapshots 注入;persist 时 pmsPersistEntity 自动检测版本冲突。
+  _pmsBaseVersion?: number
 }
 
 interface PmsRequirementRuntime {
@@ -50,6 +53,68 @@ interface PmsRequirementRuntime {
 }
 
 let runtime: PmsRequirementRuntime | null = null
+
+/**
+ * 面辅料需求 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let requirementHydrationStarted = false
+let requirementHydrationPromise: Promise<void> | null = null
+let requirementHydrationReady = false
+const pendingHydrationRequirement: PmsMaterialRequirement[] = []
+
+export function hydratePmsMaterialRequirementsFromIdb(): Promise<void> {
+  if (requirementHydrationStarted) return requirementHydrationPromise ?? Promise.resolve()
+  requirementHydrationStarted = true
+  requirementHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsMaterialRequirement>(PMS_STORES.pmsMaterialRequirements)
+      const rt = getRuntime()
+      for (const saved of stored) {
+        const existing = rt.requirements.find((r) => r.requirementNo === saved.requirementNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.requirements.push(saved)
+      }
+      // § 2.4.3.6 hydrate 后注入乐观锁版本号
+      try {
+        for (const requirement of rt.requirements) {
+          if (requirement._pmsBaseVersion !== undefined) continue
+          const version = await pmsGetEntityVersion(PMS_STORES.pmsMaterialRequirements, requirement.requirementNo)
+          if (version > 0) requirement._pmsBaseVersion = version
+        }
+      } catch (versionError) {
+        const message = versionError instanceof Error ? versionError.message : 'unknown'
+        console.warn('[PMS_IDB_VERSION_LOAD_WARN] 面辅料需求乐观锁版本号加载失败', { message })
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 面辅料需求加载失败', { message })
+    } finally {
+      requirementHydrationReady = true
+      const pending = pendingHydrationRequirement.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPersistEntity(PMS_STORES.pmsMaterialRequirements, item, 'pms-user')
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 面辅料需求 IDB 写入失败(hydration 后)', { requirementNo: item.requirementNo, message })
+        }
+      }
+    }
+  })()
+  return requirementHydrationPromise
+}
+
+function persistPmsMaterialRequirement(requirement: PmsMaterialRequirement): void {
+  if (requirementHydrationReady) {
+    // § 2.4.3.6 乐观锁
+    pmsPersistEntity(PMS_STORES.pmsMaterialRequirements, requirement, 'pms-user').catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 面辅料需求 IDB 写入失败', { requirementNo: requirement.requirementNo, message })
+    })
+  } else {
+    pendingHydrationRequirement.push(requirement)
+  }
+}
 
 function getRuntime(): PmsRequirementRuntime {
   if (!runtime) runtime = buildInitialRuntime()
@@ -169,6 +234,7 @@ export function createPmsMaterialRequirementFromOrder(order: PmsRequirementOrder
     lines,
   }
   getRuntime().requirements.unshift(requirement)
+  persistPmsMaterialRequirement(requirement)
   return { requirementNo, lines }
 }
 
@@ -193,6 +259,7 @@ export function registerPmsMaterialRequirementPrototype(requirement: PmsMaterial
   if (!requirement.requirementNo.trim() || !requirement.sourcePurchaseOrderNo.trim() || !requirement.lines.length) throw new Error('PMS 原型需求必须包含来源生产采购单和至少一条物料行。')
   if (requirement.lines.some((line) => !line.lineNo.trim() || !line.materialCode.trim() || line.actualQty <= 0 || !line.generatedPurchaseOrderNo.trim())) throw new Error('PMS 原型需求行必须包含物料、数量和已生成采购单。')
   getRuntime().requirements.unshift(structuredClone(requirement))
+  persistPmsMaterialRequirement(getRuntime().requirements[0])
 }
 
 export interface PmsRequirementPushInput {
@@ -213,6 +280,7 @@ export function applyPmsMaterialRequirementPush(requirementNo: string, pushedLin
   })
   const pushedCount = requirement.lines.filter((line) => line.pushStatus === '已下推').length
   requirement.status = pushedCount === requirement.lines.length ? '已下推' : '部分下推'
+  persistPmsMaterialRequirement(requirement)
   return requirement
 }
 

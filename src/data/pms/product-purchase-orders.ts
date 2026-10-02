@@ -1,7 +1,58 @@
 import { getPmsBomTemplate } from './bom-templates.ts'
 import { PMS_STYLE_IMAGES } from './images.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, listPmsLogs, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
 import { createPmsMaterialRequirementFromOrder, type PmsMaterialRequirementLine } from './material-requirements.ts'
+
+/**
+ * 商品采购单 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let ppoHydrationStarted = false
+let ppoHydrationPromise: Promise<void> | null = null
+let ppoHydrationReady = false
+const pendingHydrationPpo: PmsProductPurchaseOrder[] = []
+
+export function hydratePmsProductPurchaseOrdersFromIdb(): Promise<void> {
+  if (ppoHydrationStarted) return ppoHydrationPromise ?? Promise.resolve()
+  ppoHydrationStarted = true
+  ppoHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsProductPurchaseOrder>(PMS_STORES.pmsProductPurchaseOrders)
+      const rt = getRuntime()
+      for (const saved of stored) {
+        const existing = rt.orders.find((o) => o.purchaseOrderNo === saved.purchaseOrderNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.orders.push(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 商品采购单加载失败', { message })
+    } finally {
+      ppoHydrationReady = true
+      const pending = pendingHydrationPpo.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsProductPurchaseOrders, item)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败(hydration 后)', { purchaseOrderNo: item.purchaseOrderNo, message })
+        }
+      }
+    }
+  })()
+  return ppoHydrationPromise
+}
+
+function persistPmsProductPurchaseOrder(order: PmsProductPurchaseOrder): void {
+  if (ppoHydrationReady) {
+    pmsPut(PMS_STORES.pmsProductPurchaseOrders, order).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败', { purchaseOrderNo: order.purchaseOrderNo, message })
+    })
+  } else {
+    pendingHydrationPpo.push(order)
+  }
+}
 
 export type PmsProductPurchaseOrderStatus =
   | '草稿'
@@ -403,6 +454,7 @@ export function createPmsProductPurchaseOrders(
     }
     getRuntime().orders.unshift(order)
     created.push(order)
+    persistPmsProductPurchaseOrder(order)
     appendPmsLog({
       objectType: 'product-purchase-order',
       objectId: purchaseOrderNo,
@@ -488,6 +540,7 @@ export function updatePmsProductPurchaseOrder(
     actorRole: actor.role,
     relatedPurchaseOrderNo: purchaseOrderNo,
   })
+  persistPmsProductPurchaseOrder(order)
   return order
 }
 
@@ -515,6 +568,7 @@ export function advancePmsProductPurchaseOrderStatus(
     actorRole: actor.role,
     relatedPurchaseOrderNo: purchaseOrderNo,
   })
+  persistPmsProductPurchaseOrder(order)
   return order
 }
 
@@ -544,6 +598,7 @@ export function closePmsProductPurchaseOrder(
     relatedPurchaseOrderNo: purchaseOrderNo,
     secondConfirmation: true,
   })
+  persistPmsProductPurchaseOrder(order)
   return order
 }
 
@@ -604,6 +659,7 @@ export function generatePmsMaterialRequirement(
     actorRole: actor.role,
     relatedPurchaseOrderNo: purchaseOrderNo,
   })
+  persistPmsProductPurchaseOrder(order)
   return { purchaseOrderNo, requirementNo: result.requirementNo, lines: result.lines }
 }
 
@@ -617,4 +673,5 @@ export function markPmsProductPurchaseOrderMaterialPushed(purchaseOrderNo: strin
   order.lines.forEach((line) => {
     if (line.needBom && line.materialStatus === '已生成') line.materialStatus = '已下推'
   })
+  persistPmsProductPurchaseOrder(order)
 }

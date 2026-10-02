@@ -82,7 +82,7 @@ export function renderPmsTransitDashboardPage(): string {
   </div>`
 }
 
-export function handlePmsTransitDashboardEvent(target: HTMLElement): boolean {
+export function handlePmsTransitDashboardEvent(target: HTMLElement, _event?: Event): boolean {
   if (!rootElement()) return false
   const actionNode = target.closest<HTMLElement>(`[data-${EVENT_PREFIX}-action]`)
   if (!actionNode) return false

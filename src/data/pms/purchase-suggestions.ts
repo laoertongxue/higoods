@@ -1,5 +1,79 @@
 import { PMS_STYLE_IMAGES } from './images.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, listPmsLogs, nextPmsSequence, PmsDomainError, type PmsOperationLog } from './runtime.ts'
+
+/**
+ * 采购建议 + KOL 需求 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let suggestionHydrationStarted = false
+let suggestionHydrationPromise: Promise<void> | null = null
+let suggestionHydrationReady = false
+type PendingSuggestionWrite =
+  | { kind: 'suggestion'; entity: PmsPurchaseSuggestion }
+  | { kind: 'demand'; entity: PmsKolDemand }
+const pendingHydrationSuggestion: PendingSuggestionWrite[] = []
+
+export function hydratePmsPurchaseSuggestionsFromIdb(): Promise<void> {
+  if (suggestionHydrationStarted) return suggestionHydrationPromise ?? Promise.resolve()
+  suggestionHydrationStarted = true
+  suggestionHydrationPromise = (async () => {
+    try {
+      const [storedSuggestions, storedDemands] = await Promise.all([
+        pmsAll<PmsPurchaseSuggestion>(PMS_STORES.pmsPurchaseSuggestions),
+        pmsAll<PmsKolDemand>(PMS_STORES.pmsKolDemands),
+      ])
+      const rt = getRuntime()
+      for (const saved of storedSuggestions) {
+        const existing = rt.suggestions.find((s) => s.suggestionNo === saved.suggestionNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.suggestions.push(saved)
+      }
+      for (const saved of storedDemands) {
+        const existing = rt.kolDemands.find((d) => d.demandNo === saved.demandNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.kolDemands.push(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 采购建议加载失败', { message })
+    } finally {
+      suggestionHydrationReady = true
+      const pending = pendingHydrationSuggestion.splice(0)
+      for (const item of pending) {
+        try {
+          if (item.kind === 'suggestion') await pmsPut(PMS_STORES.pmsPurchaseSuggestions, item.entity)
+          else await pmsPut(PMS_STORES.pmsKolDemands, item.entity)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 采购建议 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+        }
+      }
+    }
+  })()
+  return suggestionHydrationPromise
+}
+
+function persistPmsPurchaseSuggestion(suggestion: PmsPurchaseSuggestion): void {
+  if (suggestionHydrationReady) {
+    pmsPut(PMS_STORES.pmsPurchaseSuggestions, suggestion).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 采购建议 IDB 写入失败', { suggestionNo: suggestion.suggestionNo, message })
+    })
+  } else {
+    pendingHydrationSuggestion.push({ kind: 'suggestion', entity: suggestion })
+  }
+}
+
+function persistPmsKolDemand(demand: PmsKolDemand): void {
+  if (suggestionHydrationReady) {
+    pmsPut(PMS_STORES.pmsKolDemands, demand).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] KOL 需求 IDB 写入失败', { demandNo: demand.demandNo, message })
+    })
+  } else {
+    pendingHydrationSuggestion.push({ kind: 'demand', entity: demand })
+  }
+}
 
 export type PmsSuggestionStatus = '待生成' | '部分生成' | '已生成' | '无需采购'
 export type PmsDemandLevel = '爆款' | '热销' | '常规'
@@ -33,6 +107,8 @@ export interface PmsPurchaseSuggestion {
   creator: string
   createdAt: string
   updatedAt: string
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 export interface PmsSuggestionSkuView extends PmsSuggestionSku {
@@ -78,6 +154,8 @@ export interface PmsKolDemand {
   remark: string
   rejectReason: string
   inboundRecords: PmsKolInboundRecord[]
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 const DEMAND_LEVEL_DISCOUNT: Record<PmsDemandLevel, number> = {
@@ -475,6 +553,7 @@ export function markSuggestionConverted(
     actorRole: actor.role,
     relatedPurchaseOrderNo: orderNo,
   })
+  persistPmsPurchaseSuggestion(suggestion)
 }
 
 export function listPmsKolDemands(): PmsKolDemand[] {
@@ -533,6 +612,7 @@ export function inboundPmsKolDemand(
     actorRole: actor.role,
     secondConfirmation: Boolean(input.overConfirm),
   })
+  persistPmsKolDemand(demand)
   return demand
 }
 
@@ -561,6 +641,7 @@ export function rejectPmsKolDemand(
     actorRole: actor.role,
     secondConfirmation: true,
   })
+  persistPmsKolDemand(demand)
   return demand
 }
 
@@ -584,6 +665,7 @@ export function updatePmsKolRemark(
     actorName: actor.name,
     actorRole: actor.role,
   })
+  persistPmsKolDemand(demand)
   return demand
 }
 

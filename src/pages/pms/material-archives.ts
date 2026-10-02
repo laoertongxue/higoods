@@ -410,7 +410,6 @@ function exportRows(): void {
 }
 
 function formatMaterialMoney(value: number, currency: 'RMB' | 'USD' | 'IDR'): string {
-  if (currency === 'IDR') return `Rp ${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(value)}`
   return formatPmsMoney(value, currency)
 }
 

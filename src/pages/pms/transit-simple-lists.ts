@@ -121,7 +121,7 @@ export function renderPmsTransitOrderChecksPage(): string {
   return orderChecksList.render()
 }
 
-export function handlePmsTransitOrderChecksEvent(target: HTMLElement): boolean {
+export function handlePmsTransitOrderChecksEvent(target: HTMLElement, _event?: Event): boolean {
   return orderChecksList.handle(target)
 }
 
@@ -133,7 +133,7 @@ export function renderPmsTransitPreparationTasksPage(): string {
   return preparationTasksList.render()
 }
 
-export function handlePmsTransitPreparationTasksEvent(target: HTMLElement): boolean {
+export function handlePmsTransitPreparationTasksEvent(target: HTMLElement, _event?: Event): boolean {
   return preparationTasksList.handle(target)
 }
 
@@ -141,7 +141,7 @@ export function closePmsTransitPreparationTaskOverlays(): boolean {
   return preparationTasksList.close()
 }
 
-export function handlePmsTransitSimpleListEvent(target: HTMLElement): boolean {
+export function handlePmsTransitSimpleListEvent(target: HTMLElement, _event?: Event): boolean {
   return orderChecksList.handle(target) || preparationTasksList.handle(target)
 }
 
