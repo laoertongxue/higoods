@@ -1,7 +1,7 @@
 import { readTmfPreparationHandoverRecord as readCurrentPreparationHandoverRecord, readTmfProductionOrderRuntimeFact as readProductionOrderRuntimeFact } from '../fcs/tmf-source-readers.ts'
 import type { PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
 import { getBrowserLocalStorage, writeBrowserStorageItem } from '../browser-storage.ts'
-import { PMS_STORES, pmsGet, pmsTx } from './idb-storage.ts'
+import { PMS_STORES, pmsGet, pmsTx, reportPmsSaveFailure, subscribePmsDataChanged } from './idb-storage.ts'
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
 import { deriveTmfProductionDemands, type TmfProductionDemand } from '../fcs/webbing-production-demands.ts'
 import { getWebbingPhysicalSpecificationKey, validateWebbingSpecifications, type WebbingSpecification, type WebbingEndRequirement } from '../fcs/webbing-specifications.ts'
@@ -480,6 +480,13 @@ const OPERATION_SIGNATURE_PREFIX = 'v2:'
 let tmfHydrationStarted = false
 let tmfHydrationPromise: Promise<void> | null = null
 let tmfHydrationReady = false
+/**
+ * IDB 是否可作为 TMF 的事实源(§ 2.4.1)。
+ * hydrate 成功置 true;hydrate 抛错(IDB 不可用/损坏)置 false,此时才回退 localStorage 降级路径。
+ * 之前无条件把 localStorage 当事实源(每个动作清空内存并从 localStorage 重建),
+ * 使 IDB 沦为旁路,且迁移删除的旧键会被再次写回,违反 § 2.4.1 / § 2.4.6。
+ */
+let tmfIdbAvailable = false
 let tmfMigrationPromise: Promise<void> | null = null
 /**
  * 启动期 hydrate 未就绪时,commit 已生成的 draft 进入 pending 队列。
@@ -578,31 +585,73 @@ async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState): Promise<vo
  * 启动期加载:从 IDB 把已保存的 TMF 4 个 section 搬回内存并合并到 state。
  * 加载未完成时 current() 返回 emptyState;hydrate 后用 IDB 数据覆盖内存。
  */
+/**
+ * 从 IDB 读取 TMF 的 4 个 section;缺失的 section 返回 null。
+ * 启动期 hydrate 与跨标签页 reload 共用,避免两处各写一遍 pmsGet。
+ */
+async function readTmfSectionsFromIdb(): Promise<{ orders: unknown; production: unknown; scrap: unknown; operations: unknown }> {
+  const [ordersSection, productionSection, scrapSection, operationsSection] = await Promise.all([
+    pmsGet<{ singleton: string; section: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown } }>(PMS_STORES.pmsTmfOrders, 'singleton'),
+    pmsGet<{ singleton: string; section: { demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown } }>(PMS_STORES.pmsTmfProduction, 'singleton'),
+    pmsGet<{ singleton: string; section: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown } }>(PMS_STORES.pmsTmfScrap, 'singleton'),
+    pmsGet<{ singleton: string; section: { operations: unknown } }>(PMS_STORES.pmsTmfOperations, 'singleton'),
+  ])
+  return {
+    orders: ordersSection?.section ?? null,
+    production: productionSection?.section ?? null,
+    scrap: scrapSection?.section ?? null,
+    operations: operationsSection?.section ?? null,
+  }
+}
+
+/**
+ * 跨标签页同步:其他标签页写了 TMF section 后,本标签页重新从 IDB 拉一次(§ 2.4.3.6)。
+ * 不能简单 `state = undefined`——IDB 可用时 current() 已不再读 localStorage,置空会退回空状态。
+ */
+async function reloadTmfStateFromIdb(): Promise<void> {
+  if (!tmfIdbAvailable) return
+  try {
+    const sections = await readTmfSectionsFromIdb()
+    const next = emptyState()
+    if (sections.orders || sections.production || sections.scrap || sections.operations) {
+      mergeTmfSectionsIntoState(next, sections as never)
+      validateLegacyTmfState(next)
+    }
+    state = next
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[PMS_IDB_LOAD_FAILED] TMF 跨标签页 reload 失败', { message })
+  }
+}
+
 export function hydratePmsTmfPurchaseStateFromIdb(): Promise<void> {
   if (tmfHydrationStarted) return tmfHydrationPromise ?? Promise.resolve()
   tmfHydrationStarted = true
   tmfHydrationPromise = (async () => {
     try {
-      const [ordersSection, productionSection, scrapSection, operationsSection] = await Promise.all([
-        pmsGet<{ singleton: string; section: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown } }>(PMS_STORES.pmsTmfOrders, 'singleton'),
-        pmsGet<{ singleton: string; section: { demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown } }>(PMS_STORES.pmsTmfProduction, 'singleton'),
-        pmsGet<{ singleton: string; section: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown } }>(PMS_STORES.pmsTmfScrap, 'singleton'),
-        pmsGet<{ singleton: string; section: { operations: unknown } }>(PMS_STORES.pmsTmfOperations, 'singleton'),
-      ])
+      const base = await readTmfSectionsFromIdb()
       // 旧格式(singleton store 'pmsTmfPurchaseState')兜底迁移:如果 4 个新 section 全空,但旧 store 有数据,迁移过来。
       // 该 store 已在 § 2.4.6 迁移完成后从 PMS_STORES 移除,本兜底仅在浏览器存储版本里残留旧键时尝试读取。
       let legacyData: TmfPurchaseState | undefined
       try {
-        const legacy = await pmsGet<{ singleton: string; state: TmfPurchaseState }>('pmsTmfPurchaseState', 'singleton')
+        // 历史 store 名(§ 2.4.6 迁移完成后已从 PMS_STORES 移除,不再是合法 PmsStoreName)。
+        // 仅当浏览器里仍残留该 object store 时才可能读到;读不到会抛错并被下方 catch 忽略。
+        const legacyStoreName = 'pmsTmfPurchaseState' as unknown as Parameters<typeof pmsGet>[0]
+        const legacy = await pmsGet<{ singleton: string; state: TmfPurchaseState }>(legacyStoreName, 'singleton')
         if (legacy?.state) legacyData = legacy.state
       } catch {
         // 旧 store 可能不存在,忽略
       }
+      // `??` 优先级高于 `?:`。原写法 `a ?? legacyData ? f(legacyData!) : null` 实际被解析为
+      // `(a ?? legacyData) ? f(legacyData!) : null`,即只要新 section 存在就无条件用 legacyData
+      // (旧 store 已移除,恒为 undefined)去 extract,进而抛 TypeError 并导致整个 hydrate 失败。
+      // 显式加括号:优先用新 section;只有新 section 缺失且确有旧数据时才从旧数据提取。
+      const legacy = legacyData ?? null
       const sections = {
-        orders: ordersSection?.section ?? legacyData ? extractOrdersSection(legacyData!) : null,
-        production: productionSection?.section ?? legacyData ? extractProductionSection(legacyData!) : null,
-        scrap: scrapSection?.section ?? legacyData ? extractScrapSection(legacyData!) : null,
-        operations: operationsSection?.section ?? legacyData ? extractOperationsSection(legacyData!) : null,
+        orders: base.orders ?? (legacy ? extractOrdersSection(legacy) : null),
+        production: base.production ?? (legacy ? extractProductionSection(legacy) : null),
+        scrap: base.scrap ?? (legacy ? extractScrapSection(legacy) : null),
+        operations: base.operations ?? (legacy ? extractOperationsSection(legacy) : null),
       }
       // 至少有一个 section 有数据才走合并路径
       if (sections.orders || sections.production || sections.scrap || sections.operations) {
@@ -616,8 +665,13 @@ export function hydratePmsTmfPurchaseStateFromIdb(): Promise<void> {
           validateLegacyTmfState(state)
         }
       }
+      // IDB 读取链路完整走通 → 后续以「内存 + IDB」为事实源,不再依赖 localStorage(§ 2.4.1)。
+      // 注意:section 全空(首次访问)也属成功,只是没有已存数据。
+      tmfIdbAvailable = true
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
+      // IDB 不可用或读取失败 → 保留 localStorage 降级路径,不伪装成空数据(§ 2.4.3.7)。
+      tmfIdbAvailable = false
       console.error('[PMS_IDB_LOAD_FAILED] TMF 全状态加载失败', { message })
     } finally {
       tmfHydrationReady = true
@@ -804,8 +858,22 @@ function compactOperationSignature(signature: string): string {
 
 function bindStorageSync(): void {
   if (storageListenerBound || typeof window === 'undefined' || typeof window.addEventListener !== 'function') return
+  // 跨标签页同步两条通道都注册,运行时按 tmfIdbAvailable 判定,避免绑定早于 hydrate 结果。
+  // § 2.4.1:IDB 可用时走 BroadcastChannel(事实源是 IDB);不可用时才回退 localStorage storage 事件。
+  subscribePmsDataChanged((message) => {
+    if (!tmfIdbAvailable) return
+    if (
+      message.store === PMS_STORES.pmsTmfOrders ||
+      message.store === PMS_STORES.pmsTmfProduction ||
+      message.store === PMS_STORES.pmsTmfScrap ||
+      message.store === PMS_STORES.pmsTmfOperations
+    ) {
+      // 重新从 IDB 拉取,而不是置空——置空会让 current() 退回 emptyState 丢数据。
+      void reloadTmfStateFromIdb()
+    }
+  })
   window.addEventListener('storage', (event) => {
-    if (event.key === TMF_PURCHASE_STORAGE_KEY) state = undefined
+    if (!tmfIdbAvailable && event.key === TMF_PURCHASE_STORAGE_KEY) state = undefined
   })
   storageListenerBound = true
 }
@@ -816,22 +884,24 @@ function emptyState(): TmfPurchaseState {
 function current(): TmfPurchaseState {
   bindStorageSync()
   if (state) return state
-  // 启动期 / hydrate 未完成 / IDB 不可用:先尝试 localStorage 兼容读取(测试环境 + 老浏览器)。
-  // § 2.4.6 迁移期内残留的旧键在此被使用一次。
-  try {
-    const storage = getBrowserLocalStorage()
-    const raw = storage?.getItem(TMF_PURCHASE_STORAGE_KEY)
-    if (raw) {
-      const saved = JSON.parse(raw) as TmfPurchaseState
-      validateLegacyTmfState(saved)
-      // 就地把历史大签名压缩成紧凑指纹,与 base 行为一致。
-      saved.operations.forEach((operation) => {
-        operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
-      })
-      return state = saved
+  // § 2.4.1:IDB 可用时业务数据只走 IDB,localStorage 不是事实源。
+  // 仅 IDB 不可用(hydrate 失败 / 尚未完成)时,才降级读取 localStorage(§ 2.4.6 迁移期残留旧键)。
+  if (!tmfIdbAvailable) {
+    try {
+      const storage = getBrowserLocalStorage()
+      const raw = storage?.getItem(TMF_PURCHASE_STORAGE_KEY)
+      if (raw) {
+        const saved = JSON.parse(raw) as TmfPurchaseState
+        validateLegacyTmfState(saved)
+        // 就地把历史大签名压缩成紧凑指纹,与 base 行为一致。
+        saved.operations.forEach((operation) => {
+          operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
+        })
+        return state = saved
+      }
+    } catch {
+      // localStorage 损坏或不可用,降级到 emptyState
     }
-  } catch {
-    // localStorage 损坏或不可用,降级到 emptyState
   }
   return state = emptyState()
 }
@@ -871,8 +941,9 @@ function commit(
   operationId: string, action: string, objectId: string, actor: TmfPurchaseActor,
   payload: unknown, mutate: (draft: TmfPurchaseState, occurredAt: string) => { quantity?: number; unit?: TmfPurchaseOperation['unit']; reason?: string },
 ): void {
-  // 浏览器内每次动作重新读取已保存结果，跨页面/重试不沿用过期数量。
-  if (typeof window !== 'undefined') state = undefined
+  // § 2.4.1:IDB 可用时内存 state 即权威,不能清空重建——清空会强制 current() 回落到 localStorage,
+  // 使 IDB 沦为旁路。仅 IDB 不可用时才清空,让 current() 走 localStorage 降级路径重读最新结果。
+  if (typeof window !== 'undefined' && !tmfIdbAvailable) state = undefined
   if (!operationId.trim()) throw new Error('缺少本次操作编号，请重新进入任务。')
   const signature = compactOperationSignature(JSON.stringify([action, objectId, actor.id, actor.role, payload]))
   const previous = current().operations.find((operation) => operation.id === operationId)
@@ -884,11 +955,13 @@ function commit(
   const occurredAt = new Date().toISOString()
   const result = mutate(draft, occurredAt)
   draft.operations.push({ id: operationId, action, objectId, actor: { ...actor }, occurredAt, quantity: result.quantity, unit: result.quantity === undefined ? undefined : result.unit ?? '米', reason: result.reason || '', payloadSignature: signature })
-  // § 2.4.6 迁移期:同步写 localStorage 作为测试场景兼容 + IDB 不可用时的回退;
-  // hydrate 完成且 IDB 写入成功后,迁移函数会删除该键。
-  const storage = getBrowserLocalStorage()
-  if (typeof window !== 'undefined' && (!storage || !writeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY, JSON.stringify(draft)))) {
-    throw new Error('本次未保存，数量未改变。请检查浏览器存储后使用原操作重试。')
+  // § 2.4.1 / § 2.4.6:IDB 可用时**不写** localStorage(否则迁移已删除的旧键会被再次写回,双写永久化)。
+  // 仅 IDB 不可用时降级写入,保证操作不丢。
+  if (typeof window !== 'undefined' && !tmfIdbAvailable) {
+    const storage = getBrowserLocalStorage()
+    if (!storage || !writeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY, JSON.stringify(draft))) {
+      throw new Error('本次未保存，数量未改变。请检查浏览器存储后使用原操作重试。')
+    }
   }
   // 同步更新内存 state,保证 current() 立即看到最新(写盘成功后才更新,失败抛错保持原态)。
   state = draft
@@ -897,12 +970,16 @@ function commit(
     pendingTmfCommits.push(draft)
     return
   }
-  // 异步写 IDB(fire-and-forget;失败抛错,unhandledrejection banner 暴露给用户)。
-  // § 2.4.3.5:IDB 失败不回退 localStorage(已写)。
+  // 异步写 IDB(fire-and-forget)。§ 2.4.3.5:失败不能静默——先回写 localStorage 兜底保住本次操作,
+  // 再重新抛出,由 main.ts 的 unhandledrejection banner 明确告知"未保存"(错误码以 PMS_IDB_ 开头)。
   persistTmfPurchaseStateToIdb(draft).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'unknown'
-    console.error('[PMS_IDB_SAVE_FAILED] TMF 全状态 IDB 写入失败', { operationId, message })
-    throw error
+    try {
+      const storage = getBrowserLocalStorage()
+      if (storage) writeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY, JSON.stringify(draft))
+    } catch (fallbackError) {
+      console.error('[PMS_IDB_SAVE_FAILED] TMF 兜底写入 localStorage 也失败', { operationId, message: String(fallbackError) })
+    }
+    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] TMF 全状态 IDB 写入失败', { operationId }, error)
   })
 }
 

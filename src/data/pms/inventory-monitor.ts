@@ -1,5 +1,5 @@
 import { getPmsMaterial, type PmsPurchaseRegion } from './materials.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -44,8 +44,7 @@ export function hydratePmsInventoryFromIdb(): Promise<void> {
           if (item.kind === 'row') await pmsPut(PMS_STORES.pmsInventoryMonitor, item.entity)
           else await pmsPut(PMS_STORES.pmsInventoryOrders, item.entity)
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 库存监控 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 库存监控 IDB 写入失败(hydration 后)', { kind: item.kind }, error)
         }
       }
     }
@@ -55,9 +54,9 @@ export function hydratePmsInventoryFromIdb(): Promise<void> {
 
 function persistPmsInventoryMonitorRow(row: PmsInventoryMonitorRow): void {
   if (inventoryHydrationReady) {
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPut(PMS_STORES.pmsInventoryMonitor, row).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 库存监控行 IDB 写入失败', { id: row.id, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 库存监控行 IDB 写入失败', { id: row.id }, error)
     })
   } else {
     pendingHydrationInventory.push({ kind: 'row', entity: row })
@@ -66,9 +65,9 @@ function persistPmsInventoryMonitorRow(row: PmsInventoryMonitorRow): void {
 
 function persistPmsInventoryOrder(order: PmsInventoryOrder): void {
   if (inventoryHydrationReady) {
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPut(PMS_STORES.pmsInventoryOrders, order).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 库存单据 IDB 写入失败', { orderNo: order.orderNo, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 库存单据 IDB 写入失败', { orderNo: order.orderNo }, error)
     })
   } else {
     pendingHydrationInventory.push({ kind: 'order', entity: order })

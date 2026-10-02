@@ -5,7 +5,7 @@ import {
   pmsApplyPaymentRequestNoToLogistics,
   pmsApplyPaymentRequestNoToMaterial,
 } from './reconciliations.ts'
-import { PMS_STORES, pmsAll, pmsDelete, pmsGetVersionMap, pmsPersistEntity, pmsPut, pmsTx } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsDelete, pmsPersistEntity, pmsPut, pmsTx, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, appendPmsLogInMemory, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -68,8 +68,8 @@ export function hydratePmsPaymentFromIdb(): Promise<void> {
             await pmsDelete(PMS_STORES.pmsPaymentDrafts, item.draftKey)
           }
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 请款 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+          // § 2.4.3.5:失败必须重新抛出,由 unhandledrejection banner 明确告知"未保存"。
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款 IDB 写入失败(hydration 后)', { kind: item.kind }, error)
         }
       }
     }
@@ -80,8 +80,7 @@ export function hydratePmsPaymentFromIdb(): Promise<void> {
 function persistPmsPaymentRequest(request: PmsPaymentRequest): void {
   if (paymentHydrationReady) {
     pmsPut(PMS_STORES.pmsPaymentRequests, request).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 请款单 IDB 写入失败', { requestNo: request.requestNo, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款单 IDB 写入失败', { requestNo: request.requestNo }, error)
     })
   } else {
     pendingHydrationPayment.push({ kind: 'request', entity: request })
@@ -91,8 +90,7 @@ function persistPmsPaymentRequest(request: PmsPaymentRequest): void {
 function persistPmsPaymentDraft(draftKey: 'material' | 'logistics', draft: PmsPaymentDraft): void {
   if (paymentHydrationReady) {
     pmsPut(PMS_STORES.pmsPaymentDrafts, { ...draft, draftKey }).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 写入失败', { draftKey, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 写入失败', { draftKey }, error)
     })
   } else {
     pendingHydrationPayment.push({ kind: 'draft', draftKey, entity: draft })
@@ -102,8 +100,7 @@ function persistPmsPaymentDraft(draftKey: 'material' | 'logistics', draft: PmsPa
 function deletePmsPaymentDraftFromIdb(draftKey: 'material' | 'logistics'): void {
   if (paymentHydrationReady) {
     pmsDelete(PMS_STORES.pmsPaymentDrafts, draftKey).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 删除失败', { draftKey, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 删除失败', { draftKey }, error)
     })
   } else {
     // race condition 防御:hydrate 未就绪就消费草稿,必须记录删除意图,
@@ -451,8 +448,7 @@ export function createPmsPaymentRequestFromDraft(draft: PmsPaymentDraft, actor: 
     }
     tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
   }).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'unknown'
-    console.error('[PMS_IDB_SAVE_FAILED] 创建请款单 IDB 写入失败', { requestNo, message })
+    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 创建请款单 IDB 写入失败', { requestNo }, error)
   })
   return request
 }
@@ -578,8 +574,7 @@ export function voidPmsPaymentRequest(requestNo: string, reason: string, actor: 
     }
     tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
   }).catch((error: unknown) => {
-    const message = error instanceof Error ? error.message : 'unknown'
-    console.error('[PMS_IDB_SAVE_FAILED] 作废请款单 IDB 写入失败', { requestNo, message })
+    reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 作废请款单 IDB 写入失败', { requestNo }, error)
   })
   return request
 }

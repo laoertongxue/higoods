@@ -1,5 +1,5 @@
 import { applyPmsSupplierConfirmation, getPmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -32,8 +32,7 @@ export function hydratePmsSupplierConfirmationsFromIdb(): Promise<void> {
         try {
           await pmsPut(PMS_STORES.pmsSupplierConfirmations, item)
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败(hydration 后)', { confirmationNo: item.confirmationNo, message })
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败(hydration 后)', { confirmationNo: item.confirmationNo }, error)
         }
       }
     }
@@ -43,9 +42,9 @@ export function hydratePmsSupplierConfirmationsFromIdb(): Promise<void> {
 
 function persistPmsSupplierConfirmation(confirmation: PmsSupplierConfirmation): void {
   if (confirmationHydrationReady) {
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPut(PMS_STORES.pmsSupplierConfirmations, confirmation).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败', { confirmationNo: confirmation.confirmationNo, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商包装确认单 IDB 写入失败', { confirmationNo: confirmation.confirmationNo }, error)
     })
   } else {
     pendingHydrationConfirmations.push(confirmation)

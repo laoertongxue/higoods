@@ -1,6 +1,6 @@
 import { getPmsBomTemplate } from './bom-templates.ts'
 import { PMS_STYLE_IMAGES } from './images.ts'
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, listPmsLogs, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
 import { createPmsMaterialRequirementFromOrder, type PmsMaterialRequirementLine } from './material-requirements.ts'
 
@@ -34,8 +34,7 @@ export function hydratePmsProductPurchaseOrdersFromIdb(): Promise<void> {
         try {
           await pmsPut(PMS_STORES.pmsProductPurchaseOrders, item)
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败(hydration 后)', { purchaseOrderNo: item.purchaseOrderNo, message })
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败(hydration 后)', { purchaseOrderNo: item.purchaseOrderNo }, error)
         }
       }
     }
@@ -45,9 +44,9 @@ export function hydratePmsProductPurchaseOrdersFromIdb(): Promise<void> {
 
 function persistPmsProductPurchaseOrder(order: PmsProductPurchaseOrder): void {
   if (ppoHydrationReady) {
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPut(PMS_STORES.pmsProductPurchaseOrders, order).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败', { purchaseOrderNo: order.purchaseOrderNo, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 商品采购单 IDB 写入失败', { purchaseOrderNo: order.purchaseOrderNo }, error)
     })
   } else {
     pendingHydrationPpo.push(order)

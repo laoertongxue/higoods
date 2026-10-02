@@ -1,4 +1,4 @@
-import { PMS_STORES, pmsAll, pmsPersistEntity, pmsGetEntityVersion } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsPersistEntity, pmsGetEntityVersion, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -24,11 +24,13 @@ export function hydratePmsSuppliersFromIdb(): Promise<void> {
       }
       // § 2.4.3.6 乐观锁 hydrate:为内存中存在的 supplier 注入 _pmsBaseVersion,
       // 让后续 pmsPersistEntity 自动用 pmsPutWithVersion 检测版本冲突。
+      // 注意:version 为 0(尚无快照)时**也必须注入**,否则该 entity 永远走 pmsPut,
+      // 而 pmsPut 不写快照 → 下次 hydrate 仍读到 0 → 乐观锁永不激活(死锁)。
       try {
         for (const supplier of suppliers) {
           if (supplier._pmsBaseVersion !== undefined) continue
           const version = await pmsGetEntityVersion(PMS_STORES.pmsSuppliers, supplier.supplierCode)
-          if (version > 0) supplier._pmsBaseVersion = version
+          supplier._pmsBaseVersion = version
         }
       } catch (versionError) {
         const message = versionError instanceof Error ? versionError.message : 'unknown'
@@ -44,8 +46,7 @@ export function hydratePmsSuppliersFromIdb(): Promise<void> {
         try {
           await pmsPersistEntity(PMS_STORES.pmsSuppliers, item, 'pms-user')
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败(hydration 后)', { supplierCode: item.supplierCode, message })
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败(hydration 后)', { supplierCode: item.supplierCode }, error)
         }
       }
     }
@@ -57,9 +58,9 @@ function persistPmsSupplier(supplier: PmsSupplier): void {
   if (supplierHydrationReady) {
     // § 2.4.3.6 乐观锁:hydrate 后 entity 已注入 _pmsBaseVersion,pmsPersistEntity 自动选 pmsPutWithVersion。
     // 多标签页同时改同 supplier 时,后到者会抛 PMS_IDB_VERSION_CONFLICT,由 unhandledrejection banner 暴露。
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存",不能只进 console。
     pmsPersistEntity(PMS_STORES.pmsSuppliers, supplier, 'pms-user').catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败', { supplierCode: supplier.supplierCode, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败', { supplierCode: supplier.supplierCode }, error)
     })
   } else {
     pendingHydrationSuppliers.push(supplier)

@@ -844,6 +844,9 @@ export function resetPmsMaterialPurchaseRuntimeForTest(): void {
 }
 
 // § 2.4.3.6 跨标签页同步:监听 storage 事件,其他标签页写入该键时刷新缓存。
+// 声明必须在 if 之前:原先放在 if 之后,`typeof window !== 'undefined'` 为真时会命中 let 的 TDZ,
+// 模块加载即抛 ReferenceError,导致监听从未注册(Node 下因 window 短路才未暴露)。
+let storageListenerInstalled = false
 if (typeof window !== 'undefined' && !storageListenerInstalled) {
   storageListenerInstalled = true
   window.addEventListener('storage', (event) => {
@@ -852,4 +855,3 @@ if (typeof window !== 'undefined' && !storageListenerInstalled) {
     }
   })
 }
-let storageListenerInstalled = false

@@ -1,6 +1,6 @@
 import { getPmsMaterialPurchaseOrder, listPmsMaterialLogisticsRecords, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
 import { getPmsFirstLegBatch, listPmsFirstLegBatches, type PmsFirstLegTransportMethod } from './first-leg-logistics.ts'
-import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity, pmsPut, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -40,15 +40,16 @@ export function hydratePmsReconciliationsFromIdb(): Promise<void> {
       }
       // § 2.4.3.6 hydrate 后注入乐观锁版本号
       try {
+        // version 为 0(尚无快照)时也必须注入,否则乐观锁永不激活(见 suppliers.ts 同名说明)。
         for (const row of rt.materialRows) {
           if (row._pmsBaseVersion !== undefined) continue
           const version = await pmsGetEntityVersion(PMS_STORES.pmsReconciliations, row.id)
-          if (version > 0) row._pmsBaseVersion = version
+          row._pmsBaseVersion = version
         }
         for (const row of rt.logisticsRows) {
           if (row._pmsBaseVersion !== undefined) continue
           const version = await pmsGetEntityVersion(PMS_STORES.pmsReconciliations, row.id)
-          if (version > 0) row._pmsBaseVersion = version
+          row._pmsBaseVersion = version
         }
       } catch (versionError) {
         const message = versionError instanceof Error ? versionError.message : 'unknown'
@@ -64,8 +65,7 @@ export function hydratePmsReconciliationsFromIdb(): Promise<void> {
         try {
           await pmsPersistEntity(PMS_STORES.pmsReconciliations, item.entity, 'pms-user')
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] 对账 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 对账 IDB 写入失败(hydration 后)', { kind: item.kind }, error)
         }
       }
     }
@@ -76,9 +76,9 @@ export function hydratePmsReconciliationsFromIdb(): Promise<void> {
 function persistPmsMaterialReconciliation(row: PmsMaterialReconciliation): void {
   if (reconciliationHydrationReady) {
     // § 2.4.3.6 乐观锁
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPersistEntity(PMS_STORES.pmsReconciliations, row, 'pms-user').catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 面辅料对账 IDB 写入失败', { id: row.id, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 面辅料对账 IDB 写入失败', { id: row.id }, error)
     })
   } else {
     pendingHydrationReconciliation.push({ kind: 'material', entity: row })
@@ -88,9 +88,9 @@ function persistPmsMaterialReconciliation(row: PmsMaterialReconciliation): void 
 function persistPmsLogisticsReconciliation(row: PmsLogisticsReconciliation): void {
   if (reconciliationHydrationReady) {
     // § 2.4.3.6 乐观锁
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPersistEntity(PMS_STORES.pmsReconciliations, row, 'pms-user').catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] 物流对账 IDB 写入失败', { id: row.id, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] 物流对账 IDB 写入失败', { id: row.id }, error)
     })
   } else {
     pendingHydrationReconciliation.push({ kind: 'logistics', entity: row })

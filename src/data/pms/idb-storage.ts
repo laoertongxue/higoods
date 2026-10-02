@@ -234,6 +234,27 @@ export async function pmsPersistEntity<T extends { _pmsBaseVersion?: number }>(
 }
 
 /**
+ * § 2.4.3.5 保存失败的统一出口:记录语义日志后**重新抛出**,由 main.ts 的
+ * unhandledrejection 处理器捕获 PMS_IDB_* 错误并以 banner 明确告知用户"未保存"。
+ *
+ * 之前各模块用 .catch(console.error) 吞掉失败,页面仍显示"已保存",属于虚假成功。
+ * 注意:PMS_IDB_UNAVAILABLE 已在 pmsPut / pmsPutWithVersion 内部消化(仅 warn 后返回),
+ * 不会走到这里,因此不会在隐私模式等场景下误报。
+ */
+export function reportPmsSaveFailure(logTag: string, detail: Record<string, unknown>, error: unknown): void {
+  const message = error instanceof Error ? error.message : 'unknown'
+  // PMS_IDB_UNAVAILABLE 是**设计内的降级**(Safari 隐私模式、Node 测试环境等):
+  // pmsPut / pmsPutWithVersion 已明确"持久化层静默跳过、内存态保留",此时不算保存失败,
+  // 不应向用户报"未保存",也不能产生 unhandledrejection。其余错误一律抛出,交给 banner 提示。
+  if (error instanceof PmsDomainError && error.code === 'PMS_IDB_UNAVAILABLE') {
+    console.warn(logTag, { ...detail, message, degraded: 'memory-only' })
+    return
+  }
+  console.error(logTag, { ...detail, message })
+  throw error
+}
+
+/**
  * 批量从 pmsVersionSnapshots 拉取某个 store 的版本号映射,供 hydrate 后给内存 entity 注入 _pmsBaseVersion。
  */
 export async function pmsGetVersionMap(storeName: PmsStoreName): Promise<Map<string, number>> {
@@ -268,9 +289,30 @@ export async function pmsGetVersionMap(storeName: PmsStoreName): Promise<Map<str
 }
 
 /**
+ * 本客户端已知的最新版本号(storeKey → version)。
+ *
+ * 版本号语义是"本会话对持久状态的认知",每个 store+key 只有一份权威值,
+ * **不能**只挂在 entity 对象副本上:业务层普遍使用 structuredClone / spread 产生副本,
+ * 回写只落在被保存的那一个副本上,其余副本的 _pmsBaseVersion 会永久落后,
+ * 再次保存时必然被误判为"其他标签页已修改"(实测 baseVersion=4 而 IDB=5)。
+ * 这里集中登记,写入前以表内值为准;跨标签页的真实冲突仍能检出——
+ * 因为别的标签页写入会把 IDB 版本推到本表之上。
+ */
+const pmsKnownVersions = new Map<string, number>()
+
+/**
+ * 同一 key 的写入队列。
+ *
+ * 并发写入同一 entity 时,前一个事务提交后版本表要等到 oncomplete 才更新,
+ * 后一个事务此刻已经读到新快照,必定误判为冲突(实测恒定差 1)。
+ * 按 key 串行化后,每次写入开始前读到的都是上一次已完成的最新版本。
+ */
+const pmsWriteQueue = new Map<string, Promise<void>>()
+
+/**
  * 乐观锁写入(§ 2.4.3.6):
  * - 读取 pmsVersionSnapshots 中该 entity 的 lastSyncedVersion
- * - 与 value._pmsBaseVersion(内存中预期的"上次同步的版本")比较
+ * - 与本客户端已知版本(pmsKnownVersions,缺失时回退 value._pmsBaseVersion)比较
  * - 一致:put entity + snapshot(nextVersion) 在同一 IDB 事务
  * - 不一致:抛 PMS_IDB_VERSION_CONFLICT,提示用户数据已被其他标签页修改
  * - hydrate 时会从 IDB 拉取 snapshot 的 version 并注入 entity._pmsBaseVersion。
@@ -282,7 +324,11 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
 ): Promise<void> {
   const keyValue = (value as { [k: string]: unknown })[STORE_KEYPATHS[storeName]]
   const snapshotKey = `${storeName}::${String(keyValue)}`
-  const baseVersion = (value._pmsBaseVersion ?? 0) as number
+
+  // 真正执行一次乐观锁写入;baseVersion 必须在这里读,串行化后才是最新值。
+  const writeOnce = async (): Promise<void> => {
+  // 以本客户端集中登记的版本为准,对象副本上的字段仅作首次回退(见 pmsKnownVersions 说明)。
+  const baseVersion = pmsKnownVersions.get(snapshotKey) ?? (value._pmsBaseVersion ?? 0)
   try {
     await new Promise<void>((resolve, reject) => {
     const dbPromise = getPmsDb()
@@ -291,6 +337,8 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
       const entityStore = tx.objectStore(storeName)
       const snapStore = tx.objectStore(PMS_STORES.pmsVersionSnapshots)
       let aborted = false
+      // 提交成功后的新版本号,需回写调用方内存对象(见 tx.oncomplete)。
+      let nextVersion = baseVersion + 1
       const getReq = snapStore.get(snapshotKey)
       getReq.onerror = (): void => {
         reject(
@@ -314,7 +362,7 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
           )
           return
         }
-        const nextVersion = lastSyncedVersion + 1
+        nextVersion = lastSyncedVersion + 1
         // 注入新 version 到 entity(_pmsBaseVersion 是内存中预期的上次同步值,这里改成新值用于下次 baseVersion)
         const valueWithVersion = { ...value, _pmsBaseVersion: nextVersion } as T
         entityStore.put(valueWithVersion)
@@ -327,6 +375,11 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
       }
       tx.oncomplete = (): void => {
         if (!aborted) {
+          // § 2.4.3.6 关键:把新版本号登记到本客户端版本表,并回写调用方的内存对象。
+          // 只写 IDB 不登记,会让同一对象第二次保存时 baseVersion 落后于快照,
+          // 必定误判为"其他标签页已修改"而保存失败。
+          pmsKnownVersions.set(snapshotKey, nextVersion)
+          Object.assign(value, { _pmsBaseVersion: nextVersion })
           broadcastPmsDataChanged(storeName, keyValue as string | number, actor)
           resolve()
         }
@@ -360,6 +413,14 @@ export async function pmsPutWithVersion<T extends { _pmsBaseVersion?: number }>(
     }
     throw error
   }
+  }
+
+  // 按 key 排队:等上一次写入结束后再执行本次,避免读到"已提交但版本表未更新"的中间态。
+  const previous = pmsWriteQueue.get(snapshotKey) ?? Promise.resolve()
+  const current = previous.catch(() => undefined).then(writeOnce)
+  // 队列里保留永不 reject 的镜像,避免一次失败把后续所有写入都毒化。
+  pmsWriteQueue.set(snapshotKey, current.catch(() => undefined))
+  return current
 }
 
 /**
@@ -374,7 +435,11 @@ export async function pmsGetEntityVersion(storeName: PmsStoreName, key: IDBValid
     const req = tx.objectStore(PMS_STORES.pmsVersionSnapshots).get(snapshotKey)
     req.onsuccess = (): void => {
       const result = req.result as { version: number } | undefined
-      resolve(result?.version ?? 0)
+      const version = result?.version ?? 0
+      // 同步本客户端版本表:hydrate / reload 时让本地认知追上 IDB。
+      // 缺少这一步,冲突后用户刷新页面会拿着旧版本反复冲突(表是权威,不能只更新对象副本)。
+      pmsKnownVersions.set(snapshotKey, version)
+      resolve(version)
     }
     req.onerror = (): void => {
       reject(

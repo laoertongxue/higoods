@@ -1,5 +1,5 @@
 import { getPmsBomTemplate, listPmsBomLogs, publishPmsBomTemplate, type PmsBomLog } from './bom-templates.ts'
-import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsGetEntityVersion, pmsPersistEntity, reportPmsSaveFailure } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
 
 /**
@@ -27,10 +27,11 @@ export function hydratePmsBomDetailsFromIdb(): Promise<void> {
       }
       // § 2.4.3.6 hydrate 后注入乐观锁版本号
       try {
+        // version 为 0(尚无快照)时也必须注入,否则乐观锁永不激活(见 suppliers.ts 同名说明)。
         for (const detail of rt.details.values()) {
           if (detail._pmsBaseVersion !== undefined) continue
           const version = await pmsGetEntityVersion(PMS_STORES.pmsBomDetails, detail.spu)
-          if (version > 0) detail._pmsBaseVersion = version
+          detail._pmsBaseVersion = version
         }
       } catch (versionError) {
         const message = versionError instanceof Error ? versionError.message : 'unknown'
@@ -46,8 +47,7 @@ export function hydratePmsBomDetailsFromIdb(): Promise<void> {
         try {
           await pmsPersistEntity(PMS_STORES.pmsBomDetails, item, 'pms-user')
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'unknown'
-          console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败(hydration 后)', { spu: item.spu, message })
+          reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败(hydration 后)', { spu: item.spu }, error)
         }
       }
     }
@@ -58,9 +58,9 @@ export function hydratePmsBomDetailsFromIdb(): Promise<void> {
 function persistPmsBomDetail(detail: PmsBomDetail): void {
   if (bomDetailHydrationReady) {
     // § 2.4.3.6 乐观锁:hydrate 后 entity 已注入 _pmsBaseVersion,pmsPersistEntity 自动选 pmsPutWithVersion
+    // § 2.4.3.5:失败必须抛出,交给 unhandledrejection banner 提示"未保存"。
     pmsPersistEntity(PMS_STORES.pmsBomDetails, detail, 'pms-user').catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : 'unknown'
-      console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败', { spu: detail.spu, message })
+      reportPmsSaveFailure('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败', { spu: detail.spu }, error)
     })
   } else {
     pendingHydrationBomDetails.push(detail)
