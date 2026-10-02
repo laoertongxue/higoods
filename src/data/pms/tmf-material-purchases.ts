@@ -1,7 +1,7 @@
 import { readTmfPreparationHandoverRecord as readCurrentPreparationHandoverRecord, readTmfProductionOrderRuntimeFact as readProductionOrderRuntimeFact } from '../fcs/tmf-source-readers.ts'
 import type { PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
 import { getBrowserLocalStorage, writeBrowserStorageItem } from '../browser-storage.ts'
-import { PMS_STORES, pmsGet, pmsPut, pmsTx } from './idb-storage.ts'
+import { PMS_STORES, pmsGet, pmsTx } from './idb-storage.ts'
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
 import { deriveTmfProductionDemands, type TmfProductionDemand } from '../fcs/webbing-production-demands.ts'
 import { getWebbingPhysicalSpecificationKey, validateWebbingSpecifications, type WebbingSpecification, type WebbingEndRequirement } from '../fcs/webbing-specifications.ts'

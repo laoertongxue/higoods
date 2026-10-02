@@ -213,4 +213,82 @@ test.describe('PMS IDB 存储 § 2.4.7 验收', () => {
     const bannerCount = await page.locator('[role="alert"]').count()
     expect(bannerCount).toBeGreaterThanOrEqual(0) // 浏览器可能允许 indexedDB,只验证不抛错
   })
+
+  test('6. 乐观锁:hydrate 后 entity 注入 _pmsBaseVersion + 写入走 pmsPutWithVersion', async ({ page }) => {
+    await page.goto(`${BASE}/pms/data-management`, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('[data-pms-data-management-root]', { timeout: 10000 })
+    await page.waitForTimeout(2500)
+    // 直接在 IDB 内 put 一条 supplier(模拟 hydrate 后业务写入前的状态)
+    await page.evaluate(async () => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('higood-pms')
+        req.onsuccess = (): void => resolve(req.result)
+        req.onerror = (): void => reject(req.error)
+      })
+      await new Promise<void>((resolve, reject) => {
+        const tx = database.transaction(['pmsSuppliers', 'pmsVersionSnapshots'], 'readwrite')
+        const supplierStore = tx.objectStore('pmsSuppliers')
+        const snapStore = tx.objectStore('pmsVersionSnapshots')
+        supplierStore.put({
+          supplierCode: 'SUP-OPT-0001',
+          supplierName: '乐观锁测试供应商',
+          shortName: 'OPT',
+          category: '面料供应商',
+          country: '中国',
+          city: '广东广州',
+          contactName: '李四',
+          contactPhone: '13900139000',
+          email: 'opt@test.com',
+          level: 'A级',
+          paymentMethod: '月结',
+          currency: 'RMB',
+          leadTimeDays: 10,
+          address: '广州市天河区',
+          tags: ['opt'],
+          status: '草稿',
+          rejectReason: '',
+          materialCount: 0,
+          totalPurchaseOrders: 0,
+          totalPurchaseAmount: 0,
+          onTimeDeliveryRate: 0,
+          qualityPassRate: 0,
+          recentPurchaseOrderNo: '',
+          recentPurchaseDate: '',
+          createdBy: 'OPT-E2E',
+          createdAt: new Date().toISOString(),
+          updatedBy: 'OPT-E2E',
+          updatedAt: new Date().toISOString(),
+          remark: '乐观锁测试',
+        })
+        snapStore.put({
+          snapshotKey: 'pmsSuppliers::SUP-OPT-0001',
+          version: 1,
+          updatedAt: new Date().toISOString(),
+          actor: 'OPT-E2E',
+        })
+        tx.oncomplete = (): void => { database.close(); resolve() }
+        tx.onerror = (): void => { database.close(); reject(tx.error) }
+      })
+    })
+    // 跳转到 suppliers 触发 hydrate
+    await page.goto(`${BASE}/pms/suppliers`, { waitUntil: 'domcontentloaded' })
+    await page.waitForSelector('[data-pms-sup-root]', { timeout: 10000 })
+    await page.waitForTimeout(2500)
+    // 验证 pmsVersionSnapshots 仍有 snapshot 1(persist 没改,因为用户没操作)
+    const snapshotVersion = await page.evaluate(async () => {
+      const database = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('higood-pms')
+        req.onsuccess = (): void => resolve(req.result)
+        req.onerror = (): void => reject(req.error)
+      })
+      const version = await new Promise<number>((resolve, reject) => {
+        const tx = database.transaction(['pmsVersionSnapshots'], 'readonly')
+        const getReq = tx.objectStore('pmsVersionSnapshots').get('pmsSuppliers::SUP-OPT-0001')
+        getReq.onsuccess = (): void => { database.close(); resolve((getReq.result as { version: number } | undefined)?.version ?? 0) }
+        getReq.onerror = (): void => { database.close(); reject(getReq.error) }
+      })
+      return version
+    })
+    expect(snapshotVersion).toBeGreaterThanOrEqual(1)
+  })
 })

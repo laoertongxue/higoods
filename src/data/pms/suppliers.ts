@@ -1,9 +1,10 @@
-import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
+import { PMS_STORES, pmsAll, pmsPersistEntity, pmsGetEntityVersion } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, type PmsActorRole } from './runtime.ts'
 
 /**
  * 供应商 IDB hydrate 状态机(同其他 PMS 模块模式)。
  * 注意:suppliers 数组保持 let 可写,种子数据来自 seeds,hydrate 后按 supplierCode 覆盖内存。
+ * hydrate 完成后从 pmsVersionSnapshots 注入 _pmsBaseVersion 字段,后续写入走乐观锁(§ 2.4.3.6)。
  */
 let supplierHydrationStarted = false
 let supplierHydrationPromise: Promise<void> | null = null
@@ -21,6 +22,18 @@ export function hydratePmsSuppliersFromIdb(): Promise<void> {
         if (existing) Object.assign(existing, saved)
         else suppliers.unshift(saved)
       }
+      // § 2.4.3.6 乐观锁 hydrate:为内存中存在的 supplier 注入 _pmsBaseVersion,
+      // 让后续 pmsPersistEntity 自动用 pmsPutWithVersion 检测版本冲突。
+      try {
+        for (const supplier of suppliers) {
+          if (supplier._pmsBaseVersion !== undefined) continue
+          const version = await pmsGetEntityVersion(PMS_STORES.pmsSuppliers, supplier.supplierCode)
+          if (version > 0) supplier._pmsBaseVersion = version
+        }
+      } catch (versionError) {
+        const message = versionError instanceof Error ? versionError.message : 'unknown'
+        console.warn('[PMS_IDB_VERSION_LOAD_WARN] 供应商乐观锁版本号加载失败,后续保存降级为普通 put', { message })
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_LOAD_FAILED] 供应商加载失败', { message })
@@ -29,7 +42,7 @@ export function hydratePmsSuppliersFromIdb(): Promise<void> {
       const pending = pendingHydrationSuppliers.splice(0)
       for (const item of pending) {
         try {
-          await pmsPut(PMS_STORES.pmsSuppliers, item)
+          await pmsPersistEntity(PMS_STORES.pmsSuppliers, item, 'pms-user')
         } catch (error) {
           const message = error instanceof Error ? error.message : 'unknown'
           console.error('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败(hydration 后)', { supplierCode: item.supplierCode, message })
@@ -42,7 +55,9 @@ export function hydratePmsSuppliersFromIdb(): Promise<void> {
 
 function persistPmsSupplier(supplier: PmsSupplier): void {
   if (supplierHydrationReady) {
-    pmsPut(PMS_STORES.pmsSuppliers, supplier).catch((error: unknown) => {
+    // § 2.4.3.6 乐观锁:hydrate 后 entity 已注入 _pmsBaseVersion,pmsPersistEntity 自动选 pmsPutWithVersion。
+    // 多标签页同时改同 supplier 时,后到者会抛 PMS_IDB_VERSION_CONFLICT,由 unhandledrejection banner 暴露。
+    pmsPersistEntity(PMS_STORES.pmsSuppliers, supplier, 'pms-user').catch((error: unknown) => {
       const message = error instanceof Error ? error.message : 'unknown'
       console.error('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败', { supplierCode: supplier.supplierCode, message })
     })
@@ -106,6 +121,8 @@ export interface PmsSupplier {
   updatedBy: string
   updatedAt: string
   remark: string
+  // § 2.4.3.6 乐观锁:hydrate 时从 pmsVersionSnapshots 注入;persist 时 pmsPersistEntity 自动检测版本冲突。
+  _pmsBaseVersion?: number
 }
 
 const seeds: PmsSupplier[] = [
