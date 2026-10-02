@@ -110,6 +110,8 @@ export interface PmsSupplierConfirmation {
   rolls: PmsConfirmationRoll[]
   boxSpecs: PmsConfirmationBoxSpec[]
   packageDetails: PmsConfirmationPackageDetail[]
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 interface PmsConfirmationRuntime {

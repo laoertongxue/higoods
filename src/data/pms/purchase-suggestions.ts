@@ -107,6 +107,8 @@ export interface PmsPurchaseSuggestion {
   creator: string
   createdAt: string
   updatedAt: string
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 export interface PmsSuggestionSkuView extends PmsSuggestionSku {
@@ -152,6 +154,8 @@ export interface PmsKolDemand {
   remark: string
   rejectReason: string
   inboundRecords: PmsKolInboundRecord[]
+  // § 2.4.3.6 乐观锁
+  _pmsBaseVersion?: number
 }
 
 const DEMAND_LEVEL_DISCOUNT: Record<PmsDemandLevel, number> = {
