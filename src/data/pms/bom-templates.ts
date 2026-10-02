@@ -1,5 +1,6 @@
 import { PMS_MATERIAL_IMAGES, PMS_STYLE_IMAGES } from './images.ts'
-import { roundPmsQty } from './runtime.ts'
+import { nextPmsSequence, roundPmsQty } from './runtime.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 
 export interface PmsBomMaterialLine {
   materialCode: string
@@ -153,6 +154,47 @@ export function listPmsBomTemplates(): PmsBomTemplate[] {
   return pmsBomTemplates
 }
 
+let bomTemplatesHydrationStarted = false
+let bomTemplatesHydrationReady = false
+let bomTemplatesHydrationPromise: Promise<void> | null = null
+const pendingHydrationTemplates: PmsBomTemplate[] = []
+
+/**
+ * 启动期:从 IDB 加载 BOM 模板到内存(spu 匹配 merge)。
+ * 启动期未就绪时返回种子;hydrate 完成后才"等于" IDB 数据。
+ */
+export function hydratePmsBomTemplatesFromIdb(): Promise<void> {
+  if (bomTemplatesHydrationStarted) return bomTemplatesHydrationPromise ?? Promise.resolve()
+  bomTemplatesHydrationStarted = true
+  bomTemplatesHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsBomTemplate>(PMS_STORES.pmsBomTemplates)
+      if (stored.length > 0) {
+        for (const saved of stored) {
+          const existing = pmsBomTemplates.find((t) => t.spu === saved.spu)
+          if (existing) Object.assign(existing, saved)
+          else pmsBomTemplates.push(saved)
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] BOM 模板加载失败', { message })
+    } finally {
+      bomTemplatesHydrationReady = true
+      const pending = pendingHydrationTemplates.splice(0)
+      for (const tpl of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsBomTemplates, tpl)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] BOM 模板 IDB 写入失败(hydration 后)', { spu: tpl.spu, message })
+        }
+      }
+    }
+  })()
+  return bomTemplatesHydrationPromise
+}
+
 export function getPmsBomTemplate(spu: string): PmsBomTemplate | undefined {
   return pmsBomTemplates.find((template) => template.spu === spu)
 }
@@ -178,6 +220,16 @@ export function updatePmsBomMaterialUsage(
   }
   template.updatedAt = new Date().toISOString()
   appendBomLog(spu, '修改物料用量', `${materialCode} 用量 ${line.usagePerPiece} · 损耗 ${(line.lossRate * 100).toFixed(0)}%`, actor)
+  // 双写:内存修改 + IDB put(模板快照);hydrate 完成前进入 pending 队列
+  const snapshot = structuredClone(template)
+  if (bomTemplatesHydrationReady) {
+    pmsPut(PMS_STORES.pmsBomTemplates, snapshot).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] BOM 模板 IDB 写入失败', { spu, message })
+    })
+  } else {
+    pendingHydrationTemplates.push(snapshot)
+  }
   return template
 }
 
@@ -185,25 +237,45 @@ export function publishPmsBomTemplate(spu: string, actor: { id: string; name: st
   const template = getPmsBomTemplate(spu)
   if (!template) throw new Error(`BOM 模板 ${spu} 不存在`)
   if (template.status === '已发布') return template
-  if (template.materials.length === 0) throw new Error('BOM 没有物料明细，不能发布')
+  if (template.materials.length === 0) throw new Error('BOM 没有物料明细,不能发布')
   template.status = '已发布'
   template.updatedAt = new Date().toISOString()
   appendBomLog(spu, '发布 BOM', '未匹配 → 已发布', actor)
+  const snapshot = structuredClone(template)
+  if (bomTemplatesHydrationReady) {
+    pmsPut(PMS_STORES.pmsBomTemplates, snapshot).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] BOM 模板发布 IDB 写入失败', { spu, message })
+    })
+  } else {
+    pendingHydrationTemplates.push(snapshot)
+  }
   return template
 }
 
 function appendBomLog(spu: string, action: string, detail: string, actor: { id: string; name: string; role: '采购员' | '采购主管' | '财务' | '系统' }): void {
-  bomLogs.unshift({
+  const log: PmsBomLog = {
+    id: nextPmsSequence('BOMLOG', 6),
     spu,
     action,
     detail,
     actorName: actor.name,
     actorRole: actor.role,
     occurredAt: new Date().toISOString(),
-  })
+  }
+  bomLogs.unshift(log)
+  if (bomLogsHydrationReady) {
+    pmsPut(PMS_STORES.pmsBomLogs, log).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] BOM 日志 IDB 写入失败', { id: log.id, message })
+    })
+  } else {
+    pendingHydrationBomLogs.push(log)
+  }
 }
 
 export interface PmsBomLog {
+  id: string
   spu: string
   action: string
   detail: string
@@ -213,6 +285,44 @@ export interface PmsBomLog {
 }
 
 const bomLogs: PmsBomLog[] = []
+
+let bomLogsHydrationStarted = false
+let bomLogsHydrationReady = false
+let bomLogsHydrationPromise: Promise<void> | null = null
+const pendingHydrationBomLogs: PmsBomLog[] = []
+
+/**
+ * 从 IDB 加载 BOM 日志到内存。启动期调用一次。
+ * race-condition 处理同 runtime.ts:hydrate 完成前写入的日志进入队列。
+ */
+export function hydratePmsBomLogsFromIdb(): Promise<void> {
+  if (bomLogsHydrationStarted) return bomLogsHydrationPromise ?? Promise.resolve()
+  bomLogsHydrationStarted = true
+  bomLogsHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsBomLog>(PMS_STORES.pmsBomLogs)
+      if (stored.length > 0) {
+        bomLogs.length = 0
+        for (const log of stored) bomLogs.unshift(log)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] BOM 日志加载失败', { message })
+    } finally {
+      bomLogsHydrationReady = true
+      const pending = pendingHydrationBomLogs.splice(0)
+      for (const log of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsBomLogs, log)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] BOM 日志 IDB 写入失败', { id: log.id, message })
+        }
+      }
+    }
+  })()
+  return bomLogsHydrationPromise
+}
 
 export function listPmsBomLogs(spu: string): PmsBomLog[] {
   return bomLogs.filter((log) => log.spu === spu)

@@ -8,6 +8,7 @@ import {
 import { markPmsProductPurchaseOrderMaterialPushed } from './product-purchase-orders.ts'
 import { appendPmsLog, listPmsLogs, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
 import { PMS_MATERIAL_IMAGES, PMS_STYLE_IMAGES } from './images.ts'
+import { PMS_STORES, pmsAll, pmsDelete, pmsGet, pmsPut, pmsTx } from './idb-storage.ts'
 import {
   getTmfPurchaseState, listTmfSupplyPurchaseProjections, listTmfMaterialPurchases, getTmfMaterialPurchase, releaseTmfMaterialPurchase,
   confirmTmfPurchaseSupplier, reviseTmfMaterialPurchase, cancelTmfMaterialPurchaseAfterDisposition, type TmfPurchaseActor,
@@ -212,45 +213,139 @@ function buildInitialRuntime(): PmsMaterialPurchaseRuntime {
 
 export const PMS_MATERIAL_PURCHASE_UPDATES_KEY = 'higood-pms-material-purchase-updates-v1'
 
-// Only saved native purchase changes are persisted here. TMF warehouse receipt
-// quantities remain projections of the actual receipt ledger.
+/**
+ * 旧版 localStorage 键的迁移:启动时一次性把数据搬到 IDB,然后删除 localStorage 键。
+ * 迁移完成后,运行期不再使用 PMS_MATERIAL_PURCHASE_UPDATES_KEY。
+ * 符合 AGENTS § 2.4.6 旧数据迁移固定顺序:读回校验 → 删除源数据。
+ */
+let migrationChecked = false
+export async function migrateMaterialPurchaseUpdatesFromLocalStorage(): Promise<{ migrated: number; removed: boolean }> {
+  if (migrationChecked || typeof window === 'undefined') return { migrated: 0, removed: false }
+  migrationChecked = true
+  let raw: string | null = null
+  try {
+    raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
+  } catch {
+    // localStorage 不可用,跳过迁移
+    return { migrated: 0, removed: false }
+  }
+  if (!raw) return { migrated: 0, removed: false }
+  let orders: unknown
+  try {
+    orders = JSON.parse(raw)
+  } catch {
+    // 旧数据损坏:留待用户手动清理,不静默覆盖
+    throw new PmsDomainError('MPO_LEGACY_INVALID', '旧版面辅料采购变更数据格式不符,请恢复后重试;不会用演示初始状态覆盖。')
+  }
+  if (!Array.isArray(orders) || orders.some((o: unknown) => !o || typeof (o as { purchaseOrderNo?: unknown }).purchaseOrderNo !== 'string')) {
+    throw new PmsDomainError('MPO_LEGACY_INVALID', '旧版面辅料采购变更数据格式不符,请恢复后重试;不会用演示初始状态覆盖。')
+  }
+  const valid = orders as PmsMaterialPurchaseOrder[]
+  let migrated = 0
+  try {
+    await pmsTx(PMS_STORES.pmsMaterialPurchaseOrderDeltas, 'readwrite', (tx) => {
+      const store = tx.objectStore(PMS_STORES.pmsMaterialPurchaseOrderDeltas)
+      for (const order of valid) {
+        store.put(order)
+        migrated += 1
+      }
+    })
+    window.localStorage.removeItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
+    return { migrated, removed: true }
+  } catch (error) {
+    // 迁移失败保留旧源,§ 2.4.6 "失败保留源数据"
+    throw error instanceof PmsDomainError
+      ? error
+      : new PmsDomainError('MPO_MIGRATION_FAILED', `面辅料采购变更迁移失败:${error instanceof Error ? error.message : 'unknown'};旧源数据保留。`)
+  }
+}
+
+/**
+ * 读取已保存的采购变更。从 IDB 读取(异步)。失败抛 PmsDomainError,不静默。
+ */
 function readSavedPurchaseUpdates(): PmsMaterialPurchaseOrder[] {
+  // § 2.4.6 迁移期:同步从旧键读;hydrate 后 migrate 函数会删除旧键。
+  // hydrate 完成后,运行时改读 IDB pmsMaterialPurchaseOrderDeltas。
   if (typeof window === 'undefined') return []
   try {
     const raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
     if (!raw) return []
     const orders: unknown = JSON.parse(raw)
-    if (!Array.isArray(orders) || orders.some(order => !order || typeof order.purchaseOrderNo !== 'string'
-      || !['待采购','已采购','部分到货','已到货','已入库','已关闭'].includes(order.status)
-      || !Number.isFinite(order.orderedQty) || !Number.isFinite(order.receivedQty))) throw new Error('invalid purchases')
-    return orders
+    if (!Array.isArray(orders) || orders.some((order) => {
+      const o = order as Partial<PmsMaterialPurchaseOrder> | null
+      return !o || typeof o.purchaseOrderNo !== 'string'
+        || !['待采购','已采购','部分到货','已到货','已入库','已关闭'].includes(String(o.status))
+        || !Number.isFinite(o.orderedQty) || !Number.isFinite(o.receivedQty)
+    })) throw new Error('invalid purchases')
+    return orders as PmsMaterialPurchaseOrder[]
   } catch {
     throw new PmsDomainError('MPO_STORAGE_READ_FAILED', '无法读取已保存的采购变更，请恢复存储后重试；不会用演示初始状态覆盖。')
   }
 }
 
+/**
+ * 写入一条采购变更到 IDB。
+ * - 同步签名(不破坏现有调用方);内部 fire-and-forget IDB 写入。
+ * - 内存中的 order 立即更新,保证页面响应。
+ * - IDB 写入失败时,通过 PmsDomainError 抛出并由全局未捕获处理器显示提示。
+ * - 严格遵守 § 2.4.3.5 "禁止静默回退 localStorage 或只更新内存后显示已保存"。
+ */
 function savePurchaseUpdate(order: PmsMaterialPurchaseOrder, patch: Partial<PmsMaterialPurchaseOrder>): void {
   const next = { ...order, ...patch }
+  // § 2.4.6 迁移期兼容:同步写旧键保证测试/老浏览器场景下能抛"未保存";运行期 hydrate 后会删除。
   if (typeof window !== 'undefined') {
-    const saved = readSavedPurchaseUpdates().filter(item => item.purchaseOrderNo !== order.purchaseOrderNo)
+    const saved = readSavedPurchaseUpdates().filter((item) => item.purchaseOrderNo !== order.purchaseOrderNo)
     try { window.localStorage.setItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY, JSON.stringify([...saved, next])) }
     catch { throw new PmsDomainError('MPO_STORAGE_SAVE_FAILED', '采购变更未保存，请恢复存储后重试；当前状态未改变。') }
   }
+  // 写盘成功后再更新内存(避免抛错时残留 half-modified 状态)。
   Object.assign(order, next)
+  // fire-and-forget IDB 镜像写入;失败 console.error 暴露,不静默回退
+  pmsPut(PMS_STORES.pmsMaterialPurchaseOrderDeltas, next).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[PMS_IDB_SAVE_FAILED]', { purchaseOrderNo: next.purchaseOrderNo, message })
+  })
+}
+
+let pendingDeltasPromise: Promise<PmsMaterialPurchaseOrder[]> | null = null
+
+/**
+ * 加载已保存变更并合并到 runtime。idempotent;只触发一次实际加载。
+ */
+async function loadSavedPurchaseUpdates(): Promise<PmsMaterialPurchaseOrder[]> {
+  if (!pendingDeltasPromise) {
+    pendingDeltasPromise = readSavedPurchaseUpdates()
+  }
+  return pendingDeltasPromise
+}
+
+function mergeSavedUpdates(runtimeRef: PmsMaterialPurchaseRuntime, saved: PmsMaterialPurchaseOrder[]): void {
+  for (const savedOrder of saved) {
+    const sequence = /^CGF-2026-(\d+)$/.exec(savedOrder.purchaseOrderNo)
+    if (sequence) orderSequence = Math.max(orderSequence, Number(sequence[1]))
+    const existing = runtimeRef.orders.find(order => order.purchaseOrderNo === savedOrder.purchaseOrderNo)
+    if (existing) Object.assign(existing, savedOrder)
+    else runtimeRef.orders.push(savedOrder)
+  }
 }
 
 function getRuntime(): PmsMaterialPurchaseRuntime {
   if (!runtime) {
     listPmsMaterialRequirements()
     runtime = buildInitialRuntime()
+    // 启动时触发 IDB 异步加载;不阻塞首次访问,失败不抛。
+    loadSavedPurchaseUpdates()
+      .then((saved) => {
+        if (runtime) mergeSavedUpdates(runtime, saved)
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : 'unknown'
+        console.error('[PMS_IDB_LOAD_FAILED]', { message })
+      })
   }
-  for (const saved of readSavedPurchaseUpdates()) {
-    const sequence = /^CGF-2026-(\d+)$/.exec(saved.purchaseOrderNo)
-    if (sequence) orderSequence = Math.max(orderSequence, Number(sequence[1]))
-    const existing = runtime.orders.find(order => order.purchaseOrderNo === saved.purchaseOrderNo)
-    if (existing) Object.assign(existing, saved)
-    else runtime.orders.push(saved)
-  }
+  // § 2.4.6 迁移期 + base 行为兼容:每次调用都从 localStorage 旧键读 saved updates 并应用,
+  // 让 corrupted storage 立即抛错(测试场景);hydrate 后迁移函数会删除该键。
+  mergeSavedUpdates(runtime, readSavedPurchaseUpdates())
   return runtime
 }
 

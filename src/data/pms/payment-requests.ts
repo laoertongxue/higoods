@@ -1,12 +1,116 @@
 import {
   checkPmsLogisticsReconciliationGenerate,
   checkPmsMaterialReconciliationGenerate,
-  markPmsLogisticsReconciliationPaymentRequest,
   markPmsMaterialReconciliationPaymentRequest,
-  unmarkPmsLogisticsReconciliationPaymentRequest,
-  unmarkPmsMaterialReconciliationPaymentRequest,
+  pmsApplyPaymentRequestNoToLogistics,
+  pmsApplyPaymentRequestNoToMaterial,
 } from './reconciliations.ts'
-import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+import { PMS_STORES, pmsAll, pmsDelete, pmsGetVersionMap, pmsPersistEntity, pmsPut, pmsTx } from './idb-storage.ts'
+import { appendPmsLog, appendPmsLogInMemory, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * 请款单 IDB hydrate 状态机(race-condition 防御同 runtime.ts):
+ * - 启动期 hydrate 未就绪时,业务写入的草稿/请求进入 pending 队列,等 hydrate 完成后由 hydrate 接管 put。
+ * - hydrate 完成后业务写入 fire-and-forget put,pmsPut 内部事务 oncomplete 后 broadcast 通知多标签页。
+ */
+let paymentHydrationStarted = false
+let paymentHydrationPromise: Promise<void> | null = null
+let paymentHydrationReady = false
+type PendingPaymentWrite =
+  | { kind: 'request'; entity: PmsPaymentRequest }
+  | { kind: 'draft'; draftKey: 'material' | 'logistics'; entity: PmsPaymentDraft }
+  | { kind: 'delete-draft'; draftKey: 'material' | 'logistics' }
+const pendingHydrationPayment: PendingPaymentWrite[] = []
+
+/**
+ * 启动期加载:从 IDB 把已保存的请款单与草稿搬回内存。
+ * 加载未完成时 listPmsPaymentRequests/getPmsPaymentRequest 返回种子;hydrate 后用 IDB 数据覆盖内存。
+ */
+export function hydratePmsPaymentFromIdb(): Promise<void> {
+  if (paymentHydrationStarted) return paymentHydrationPromise ?? Promise.resolve()
+  paymentHydrationStarted = true
+  paymentHydrationPromise = (async () => {
+    try {
+      const [storedRequests, storedDrafts] = await Promise.all([
+        pmsAll<PmsPaymentRequest>(PMS_STORES.pmsPaymentRequests),
+        pmsAll<PmsPaymentDraft & { draftKey: 'material' | 'logistics' }>(PMS_STORES.pmsPaymentDrafts),
+      ])
+      // 收集 hydrate 期间已声明要删除的草稿键,避免从 IDB 拉回覆盖内存(已消费)状态。
+      const deletedDraftKeys = new Set<'material' | 'logistics'>()
+      for (const pending of pendingHydrationPayment) {
+        if (pending.kind === 'delete-draft') deletedDraftKeys.add(pending.draftKey)
+      }
+      const rt = getRuntime()
+      for (const saved of storedRequests) {
+        const existing = rt.requests.find((r) => r.requestNo === saved.requestNo)
+        if (existing) Object.assign(existing, saved)
+        else rt.requests.push(saved)
+      }
+      for (const saved of storedDrafts) {
+        if (deletedDraftKeys.has(saved.draftKey)) continue
+        const { draftKey, ...draft } = saved
+        if (draftKey === 'material') materialDraft = draft
+        else if (draftKey === 'logistics') logisticsDraft = draft
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 请款加载失败', { message })
+    } finally {
+      paymentHydrationReady = true
+      const pending = pendingHydrationPayment.splice(0)
+      for (const item of pending) {
+        try {
+          if (item.kind === 'request') {
+            await pmsPut(PMS_STORES.pmsPaymentRequests, item.entity)
+          } else if (item.kind === 'draft') {
+            await pmsPut(PMS_STORES.pmsPaymentDrafts, { ...item.entity, draftKey: item.draftKey })
+          } else {
+            await pmsDelete(PMS_STORES.pmsPaymentDrafts, item.draftKey)
+          }
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 请款 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+        }
+      }
+    }
+  })()
+  return paymentHydrationPromise
+}
+
+function persistPmsPaymentRequest(request: PmsPaymentRequest): void {
+  if (paymentHydrationReady) {
+    pmsPut(PMS_STORES.pmsPaymentRequests, request).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 请款单 IDB 写入失败', { requestNo: request.requestNo, message })
+    })
+  } else {
+    pendingHydrationPayment.push({ kind: 'request', entity: request })
+  }
+}
+
+function persistPmsPaymentDraft(draftKey: 'material' | 'logistics', draft: PmsPaymentDraft): void {
+  if (paymentHydrationReady) {
+    pmsPut(PMS_STORES.pmsPaymentDrafts, { ...draft, draftKey }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 写入失败', { draftKey, message })
+    })
+  } else {
+    pendingHydrationPayment.push({ kind: 'draft', draftKey, entity: draft })
+  }
+}
+
+function deletePmsPaymentDraftFromIdb(draftKey: 'material' | 'logistics'): void {
+  if (paymentHydrationReady) {
+    pmsDelete(PMS_STORES.pmsPaymentDrafts, draftKey).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 请款草稿 IDB 删除失败', { draftKey, message })
+    })
+  } else {
+    // race condition 防御:hydrate 未就绪就消费草稿,必须记录删除意图,
+    // 防止 hydrate 完成后从 IDB 拉回旧的 draft 覆盖内存中的"已消费"状态。
+    pendingHydrationPayment.push({ kind: 'delete-draft', draftKey })
+  }
+}
 
 export type PmsPaymentRequestType = 'material' | 'logistics'
 export type PmsPaymentRequestStatus = '未请款' | '部分请款' | '已请款' | '已完成' | '已作废'
@@ -278,6 +382,7 @@ export function setPmsMaterialPaymentDraft(ids: string[]): PmsPaymentDraft {
     totalAmount: roundPmsQty(rows.reduce((sum, row) => sum + row.finalPayable, 0), 2),
     createdAt: new Date().toISOString(),
   }
+  persistPmsPaymentDraft('material', materialDraft)
   return materialDraft
 }
 
@@ -293,6 +398,7 @@ export function setPmsLogisticsPaymentDraft(ids: string[]): PmsPaymentDraft {
     totalAmount: roundPmsQty(rows.reduce((sum, row) => sum + (row.actualTotal || row.estimatedTotal), 0), 2),
     createdAt: new Date().toISOString(),
   }
+  persistPmsPaymentDraft('logistics', logisticsDraft)
   return logisticsDraft
 }
 
@@ -300,10 +406,12 @@ export function consumePmsPaymentDraft(type: PmsPaymentRequestType): PmsPaymentD
   if (type === 'material') {
     const draft = materialDraft
     materialDraft = null
+    if (draft) deletePmsPaymentDraftFromIdb('material')
     return draft
   }
   const draft = logisticsDraft
   logisticsDraft = null
+  if (draft) deletePmsPaymentDraftFromIdb('logistics')
   return draft
 }
 
@@ -330,9 +438,22 @@ export function createPmsPaymentRequestFromDraft(draft: PmsPaymentDraft, actor: 
   request.createdBy = actor.name
   getRuntime().requests.unshift(request)
   const ids = draft.rows.map((row) => row.sourceId)
-  if (draft.type === 'material') markPmsMaterialReconciliationPaymentRequest(ids, requestNo)
-  else markPmsLogisticsReconciliationPaymentRequest(ids, requestNo)
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '创建请款单', beforeValue: '', afterValue: `${draft.objectName} · ${draft.currency} ${draft.totalAmount}`, reason: '由对账明细生成', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  // § 2.4.3.3 原子提交:同一 IDB 事务内 put request + 关联 reconciliations + log。
+  const modifiedReconciliations = draft.type === 'material'
+    ? pmsApplyPaymentRequestNoToMaterial(ids, requestNo)
+    : pmsApplyPaymentRequestNoToLogistics(ids, requestNo)
+  const log = appendPmsLogInMemory({ objectType: 'payment-request', objectId: requestNo, action: '创建请款单', beforeValue: '', afterValue: `${draft.objectName} · ${draft.currency} ${draft.totalAmount}`, reason: '由对账明细生成', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  // § 2.4.3.3 原子提交:fire-and-forget 异步 IDB 事务,内存态已同步,失败由 unhandledrejection banner 暴露。
+  void pmsTx([PMS_STORES.pmsPaymentRequests, PMS_STORES.pmsReconciliations, PMS_STORES.pmsOperationLogs], 'readwrite', (tx) => {
+    tx.objectStore(PMS_STORES.pmsPaymentRequests).put(request)
+    for (const row of modifiedReconciliations) {
+      tx.objectStore(PMS_STORES.pmsReconciliations).put(row)
+    }
+    tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
+  }).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[PMS_IDB_SAVE_FAILED] 创建请款单 IDB 写入失败', { requestNo, message })
+  })
   return request
 }
 
@@ -376,6 +497,7 @@ export function updatePmsPaymentRequestInfo(
   if (patch.narrative) request.narrative = { ...request.narrative, ...patch.narrative }
   request.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '更新请款信息', beforeValue: '', afterValue: `${request.payee.name} · ${request.paymentInfo.paymentType}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsPaymentRequest(request)
   return request
 }
 
@@ -391,6 +513,7 @@ export function submitPmsPaymentRequest(requestNo: string, amount: number, actor
   request.updatedAt = new Date().toISOString()
   refresh(request)
   appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '提交请款', beforeValue: `已请款 ${request.requestedAmount - amount}`, afterValue: `已请款 ${request.requestedAmount} · ${request.status}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsPaymentRequest(request)
   return request
 }
 
@@ -429,6 +552,7 @@ export function registerPmsPayment(
     actorRole: actor.role,
     secondConfirmation: true,
   })
+  persistPmsPaymentRequest(request)
   return request
 }
 
@@ -442,9 +566,21 @@ export function voidPmsPaymentRequest(requestNo: string, reason: string, actor: 
   request.updatedAt = new Date().toISOString()
   refresh(request)
   const ids = request.sourceRows.map((row) => row.sourceId)
-  if (request.type === 'material') unmarkPmsMaterialReconciliationPaymentRequest(ids)
-  else unmarkPmsLogisticsReconciliationPaymentRequest(ids)
-  appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '作废', beforeValue: before, afterValue: '已作废', reason: reason.trim(), actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  // § 2.4.3.3 原子提交:同一 IDB 事务内 put request + unmark reconciliations + log。
+  const modifiedReconciliations = request.type === 'material'
+    ? pmsApplyPaymentRequestNoToMaterial(ids, '')
+    : pmsApplyPaymentRequestNoToLogistics(ids, '')
+  const log = appendPmsLogInMemory({ objectType: 'payment-request', objectId: requestNo, action: '作废', beforeValue: before, afterValue: '已作废', reason: reason.trim(), actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  void pmsTx([PMS_STORES.pmsPaymentRequests, PMS_STORES.pmsReconciliations, PMS_STORES.pmsOperationLogs], 'readwrite', (tx) => {
+    tx.objectStore(PMS_STORES.pmsPaymentRequests).put(request)
+    for (const row of modifiedReconciliations) {
+      tx.objectStore(PMS_STORES.pmsReconciliations).put(row)
+    }
+    tx.objectStore(PMS_STORES.pmsOperationLogs).put(log)
+  }).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[PMS_IDB_SAVE_FAILED] 作废请款单 IDB 写入失败', { requestNo, message })
+  })
   return request
 }
 
@@ -457,6 +593,7 @@ export function addPmsPaymentAttachment(requestNo: string, name: string, actor: 
   request.attachments.unshift({ name: name.trim(), description: description.trim(), uploadedBy: actor.name, uploadedAt: new Date().toISOString() })
   request.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '添加附件', beforeValue: '', afterValue: name.trim(), reason: description.trim(), actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsPaymentRequest(request)
   return request
 }
 
@@ -469,6 +606,7 @@ export function removePmsPaymentAttachment(requestNo: string, index: number, act
   const [removed] = request.attachments.splice(index, 1)
   request.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '删除附件', beforeValue: removed.name, afterValue: '', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsPaymentRequest(request)
   return request
 }
 
@@ -480,5 +618,6 @@ export function updatePmsPaymentRemark(requestNo: string, remark: string, actor:
   request.remark = remark.trim()
   request.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'payment-request', objectId: requestNo, action: '更新备注', beforeValue: '', afterValue: request.remark, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsPaymentRequest(request)
   return request
 }

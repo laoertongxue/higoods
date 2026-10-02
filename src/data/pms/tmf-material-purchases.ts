@@ -1,6 +1,7 @@
 import { readTmfPreparationHandoverRecord as readCurrentPreparationHandoverRecord, readTmfProductionOrderRuntimeFact as readProductionOrderRuntimeFact } from '../fcs/tmf-source-readers.ts'
 import type { PmsMaterialPurchaseOrder } from './material-purchase-orders.ts'
 import { getBrowserLocalStorage, writeBrowserStorageItem } from '../browser-storage.ts'
+import { PMS_STORES, pmsGet, pmsPut, pmsTx } from './idb-storage.ts'
 import { TMF_FACTORY_ID } from '../fcs/central-craft-factories.ts'
 import { deriveTmfProductionDemands, type TmfProductionDemand } from '../fcs/webbing-production-demands.ts'
 import { getWebbingPhysicalSpecificationKey, validateWebbingSpecifications, type WebbingSpecification, type WebbingEndRequirement } from '../fcs/webbing-specifications.ts'
@@ -471,6 +472,313 @@ let storageListenerBound = false
 const OPERATION_SIGNATURE_PREFIX = 'v2:'
 
 /**
+ * TMF 跨系统业务状态 IDB hydrate/migrate 状态机(同其他 PMS 模块模式)。
+ * - 启动期 hydrate 未就绪时,业务读取走 emptyState 种子(用户后续操作覆盖)。
+ * - migrateTmfPurchaseStateFromLocalStorage:启动期一次性从旧的 TMF_PURCHASE_STORAGE_KEY 迁到 IDB,完成后删除旧键。
+ * - commit 函数仍同步更新内存 state,但异步写 IDB;写入失败时回滚 state 并抛错(§ 2.4.3.5)。
+ */
+let tmfHydrationStarted = false
+let tmfHydrationPromise: Promise<void> | null = null
+let tmfHydrationReady = false
+let tmfMigrationPromise: Promise<void> | null = null
+/**
+ * 启动期 hydrate 未就绪时,commit 已生成的 draft 进入 pending 队列。
+ * hydrate 完成后从 IDB 拉取最新 state,再把 pending draft 与 IDB state 合并重写。
+ * 修复 race:commit 在 hydrate 完成前发生,若 hydrate 后直接 state = stored.state 会丢失 commit 的修改。
+ */
+const pendingTmfCommits: TmfPurchaseState[] = []
+
+/**
+ * TMF 全状态按业务大类拆为 4 个 section store(避免单 store 整模块持续重写,§ 2.4.1)。
+ * 每个 section 用 keyPath 'singleton' 存整个 section 的 JSON 数组。
+ * 拆分映射:
+ *   pmsTmfOrders     = orders + baseOrders + handovers + purchaseReturns + workPlans + workCosts
+ *                      + supplyPurchaseReceipts + baseMaterialLots + baseMaterialIssues + baseMaterialReturns
+ *   pmsTmfProduction  = demands + reservations + processingIssues + cutOutputs + continuousReturns
+ *                      + tipMaterialReturns + tipMaterialLots + tipMaterialIssues + tipResults
+ *                      + packages + outputHandovers + outputAllocations + productionIssues + productionControls
+ *   pmsTmfScrap       = defectiveScraps + factoryScraps + continuousScraps + terminationDisposals + terminationClosures
+ *   pmsTmfOperations  = operations
+ */
+function splitTmfStateIntoSections(draft: TmfPurchaseState): {
+  orders: unknown
+  production: unknown
+  scrap: unknown
+  operations: unknown
+} {
+  return {
+    orders: {
+      orders: draft.orders,
+      baseOrders: draft.baseOrders,
+      handovers: draft.handovers,
+      purchaseReturns: draft.purchaseReturns,
+      workPlans: draft.workPlans,
+      workCosts: draft.workCosts,
+      supplyPurchaseReceipts: draft.supplyPurchaseReceipts,
+      baseMaterialLots: draft.baseMaterialLots,
+      baseMaterialIssues: draft.baseMaterialIssues,
+      baseMaterialReturns: draft.baseMaterialReturns,
+    },
+    production: {
+      demands: draft.demands,
+      reservations: draft.reservations,
+      processingIssues: draft.processingIssues,
+      cutOutputs: draft.cutOutputs,
+      continuousReturns: draft.continuousReturns,
+      tipMaterialReturns: draft.tipMaterialReturns,
+      tipMaterialLots: draft.tipMaterialLots,
+      tipMaterialIssues: draft.tipMaterialIssues,
+      tipResults: draft.tipResults,
+      packages: draft.packages,
+      outputHandovers: draft.outputHandovers,
+      outputAllocations: draft.outputAllocations,
+      productionIssues: draft.productionIssues,
+      productionControls: draft.productionControls,
+    },
+    scrap: {
+      defectiveScraps: draft.defectiveScraps,
+      factoryScraps: draft.factoryScraps,
+      continuousScraps: draft.continuousScraps,
+      terminationDisposals: draft.terminationDisposals,
+      terminationClosures: draft.terminationClosures,
+    },
+    operations: {
+      operations: draft.operations,
+    },
+  }
+}
+
+function mergeTmfSectionsIntoState(state: TmfPurchaseState, sections: {
+  orders: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown }
+  production: { demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown }
+  scrap: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown }
+  operations: { operations: unknown }
+}): void {
+  Object.assign(state, sections.orders)
+  Object.assign(state, sections.production)
+  Object.assign(state, sections.scrap)
+  Object.assign(state, sections.operations)
+}
+
+async function persistTmfPurchaseStateToIdb(draft: TmfPurchaseState): Promise<void> {
+  const sections = splitTmfStateIntoSections(draft)
+  await pmsTx(
+    [PMS_STORES.pmsTmfOrders, PMS_STORES.pmsTmfProduction, PMS_STORES.pmsTmfScrap, PMS_STORES.pmsTmfOperations],
+    'readwrite',
+    (tx) => {
+      tx.objectStore(PMS_STORES.pmsTmfOrders).put({ singleton: 'singleton', section: sections.orders })
+      tx.objectStore(PMS_STORES.pmsTmfProduction).put({ singleton: 'singleton', section: sections.production })
+      tx.objectStore(PMS_STORES.pmsTmfScrap).put({ singleton: 'singleton', section: sections.scrap })
+      tx.objectStore(PMS_STORES.pmsTmfOperations).put({ singleton: 'singleton', section: sections.operations })
+    },
+  )
+}
+
+/**
+ * 启动期加载:从 IDB 把已保存的 TMF 4 个 section 搬回内存并合并到 state。
+ * 加载未完成时 current() 返回 emptyState;hydrate 后用 IDB 数据覆盖内存。
+ */
+export function hydratePmsTmfPurchaseStateFromIdb(): Promise<void> {
+  if (tmfHydrationStarted) return tmfHydrationPromise ?? Promise.resolve()
+  tmfHydrationStarted = true
+  tmfHydrationPromise = (async () => {
+    try {
+      const [ordersSection, productionSection, scrapSection, operationsSection] = await Promise.all([
+        pmsGet<{ singleton: string; section: { orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown; supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown } }>(PMS_STORES.pmsTmfOrders, 'singleton'),
+        pmsGet<{ singleton: string; section: { demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown; tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown; packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown } }>(PMS_STORES.pmsTmfProduction, 'singleton'),
+        pmsGet<{ singleton: string; section: { defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown; terminationDisposals: unknown; terminationClosures: unknown } }>(PMS_STORES.pmsTmfScrap, 'singleton'),
+        pmsGet<{ singleton: string; section: { operations: unknown } }>(PMS_STORES.pmsTmfOperations, 'singleton'),
+      ])
+      // 旧格式(singleton store 'pmsTmfPurchaseState')兜底迁移:如果 4 个新 section 全空,但旧 store 有数据,迁移过来。
+      // 该 store 已在 § 2.4.6 迁移完成后从 PMS_STORES 移除,本兜底仅在浏览器存储版本里残留旧键时尝试读取。
+      let legacyData: TmfPurchaseState | undefined
+      try {
+        const legacy = await pmsGet<{ singleton: string; state: TmfPurchaseState }>('pmsTmfPurchaseState', 'singleton')
+        if (legacy?.state) legacyData = legacy.state
+      } catch {
+        // 旧 store 可能不存在,忽略
+      }
+      const sections = {
+        orders: ordersSection?.section ?? legacyData ? extractOrdersSection(legacyData!) : null,
+        production: productionSection?.section ?? legacyData ? extractProductionSection(legacyData!) : null,
+        scrap: scrapSection?.section ?? legacyData ? extractScrapSection(legacyData!) : null,
+        operations: operationsSection?.section ?? legacyData ? extractOperationsSection(legacyData!) : null,
+      }
+      // 至少有一个 section 有数据才走合并路径
+      if (sections.orders || sections.production || sections.scrap || sections.operations) {
+        if (!state) {
+          const placeholder = emptyState()
+          mergeTmfSectionsIntoState(placeholder, sections as never)
+          validateLegacyTmfState(placeholder)
+          state = placeholder
+        } else {
+          mergeTmfSectionsIntoState(state, sections as never)
+          validateLegacyTmfState(state)
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] TMF 全状态加载失败', { message })
+    } finally {
+      tmfHydrationReady = true
+      // race condition 修复:hydrate 期间 commit 已累积到 pendingTmfCommits 的,
+      // 必须用最新(commit 后)的 state 重写 IDB 并同步到内存,
+      // 避免 hydrate 拉回的 stale state 覆盖内存中 commit 的最新结果。
+      const pending = pendingTmfCommits.splice(0)
+      if (pending.length > 0) {
+        // 多个 commit 累积时,最后一个 draft 是内存当前最新值;用它重写 IDB + state。
+        const latestDraft = pending[pending.length - 1]
+        state = latestDraft
+        try {
+          await persistTmfPurchaseStateToIdb(latestDraft)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] TMF pending commit 重写失败', { message })
+        }
+      }
+    }
+  })()
+  return tmfHydrationPromise
+}
+
+function extractOrdersSection(s: TmfPurchaseState): {
+  orders: unknown; baseOrders: unknown; handovers: unknown; purchaseReturns: unknown; workPlans: unknown; workCosts: unknown
+  supplyPurchaseReceipts: unknown; baseMaterialLots: unknown; baseMaterialIssues: unknown; baseMaterialReturns: unknown
+} {
+  return {
+    orders: s.orders, baseOrders: s.baseOrders, handovers: s.handovers, purchaseReturns: s.purchaseReturns,
+    workPlans: s.workPlans, workCosts: s.workCosts,
+    supplyPurchaseReceipts: s.supplyPurchaseReceipts ?? [],
+    baseMaterialLots: s.baseMaterialLots ?? [],
+    baseMaterialIssues: s.baseMaterialIssues ?? [],
+    baseMaterialReturns: s.baseMaterialReturns ?? [],
+  }
+}
+function extractProductionSection(s: TmfPurchaseState): {
+  demands: unknown; reservations: unknown; processingIssues: unknown; cutOutputs: unknown; continuousReturns: unknown
+  tipMaterialReturns: unknown; tipMaterialLots: unknown; tipMaterialIssues: unknown; tipResults: unknown
+  packages: unknown; outputHandovers: unknown; outputAllocations: unknown; productionIssues: unknown; productionControls: unknown
+} {
+  return {
+    demands: s.demands, reservations: s.reservations, processingIssues: s.processingIssues,
+    cutOutputs: s.cutOutputs, continuousReturns: s.continuousReturns,
+    tipMaterialReturns: s.tipMaterialReturns, tipMaterialLots: s.tipMaterialLots,
+    tipMaterialIssues: s.tipMaterialIssues, tipResults: s.tipResults,
+    packages: s.packages, outputHandovers: s.outputHandovers,
+    outputAllocations: s.outputAllocations, productionIssues: s.productionIssues,
+    productionControls: s.productionControls,
+  }
+}
+function extractScrapSection(s: TmfPurchaseState): {
+  defectiveScraps: unknown; factoryScraps: unknown; continuousScraps: unknown
+  terminationDisposals: unknown; terminationClosures: unknown
+} {
+  return {
+    defectiveScraps: s.defectiveScraps, factoryScraps: s.factoryScraps,
+    continuousScraps: s.continuousScraps,
+    terminationDisposals: s.terminationDisposals, terminationClosures: s.terminationClosures,
+  }
+}
+function extractOperationsSection(s: TmfPurchaseState): { operations: unknown } {
+  return { operations: s.operations }
+}
+
+/**
+ * 旧 localStorage → IDB 一次性迁移。
+ * 启动期由 main.ts 一次性调用:从 TMF_PURCHASE_STORAGE_KEY 读取旧版本,写 IDB,删除旧键。
+ * IDB 写入失败时保留 localStorage(下次启动再试),并 console.warn。
+ */
+function validateLegacyTmfState(saved: TmfPurchaseState): void {
+  if (saved.version !== 1 || !['orders', 'baseOrders', 'handovers', 'lots', 'operations'].every((key) => Array.isArray(saved[key as keyof TmfPurchaseState]))) throw new Error('格式不符')
+  // 首轮采购演示保存尚未含生产需求；只补空集合，不修改历史采购或库存。
+  saved.supplyPurchaseReceipts ??= []
+  if (!Array.isArray(saved.supplyPurchaseReceipts)) throw new Error('投入料采购实收记录格式不符')
+  saved.baseMaterialLots ??= []
+  saved.baseMaterialIssues ??= []
+  saved.baseMaterialReturns ??= []
+  if (![saved.baseMaterialLots, saved.baseMaterialIssues, saved.baseMaterialReturns].every(Array.isArray)) throw new Error('基础原料账格式不符')
+  saved.purchaseReturns ??= []
+  if (!Array.isArray(saved.purchaseReturns)) throw new Error('基础采购退货记录格式不符')
+  delete (saved as TmfPurchaseState & { workExecutions?: unknown }).workExecutions
+  saved.workPlans ??= []
+  if (!Array.isArray(saved.workPlans)) throw new Error('加工计划记录格式不符')
+  saved.workCosts ??= []
+  if (!Array.isArray(saved.workCosts)) throw new Error('加工单费用记录格式不符')
+  saved.demands ??= []
+  saved.reservations ??= []
+  saved.processingIssues ??= []
+  saved.cutOutputs ??= []
+  saved.continuousReturns ??= []
+  saved.tipMaterialReturns ??= []
+  saved.tipMaterialLots ??= []
+  saved.tipMaterialIssues ??= []
+  saved.tipResults ??= []
+  saved.defectiveScraps ??= []
+  if (!Array.isArray(saved.defectiveScraps)) throw new Error('不良报废记录格式不符')
+  saved.factoryScraps ??= []
+  if (!Array.isArray(saved.factoryScraps)) throw new Error('厂内条料报废记录格式不符')
+  saved.continuousScraps ??= []
+  if (!Array.isArray(saved.continuousScraps)) throw new Error('连续料报废记录格式不符')
+  saved.terminationDisposals ??= []
+  saved.terminationClosures ??= []
+  if (!Array.isArray(saved.terminationDisposals) || !Array.isArray(saved.terminationClosures)) throw new Error('终止处置记录格式不符')
+  saved.packages ??= []
+  saved.outputHandovers ??= []
+  saved.outputAllocations ??= []
+  saved.productionIssues ??= []
+  saved.productionControls ??= []
+  if (!Array.isArray(saved.productionControls)) throw new Error('生产暂停或取消记录格式不符')
+  if (!Array.isArray(saved.outputAllocations) || !Array.isArray(saved.productionIssues)) throw new Error('产出分配或发料记录格式不符')
+  if (!Array.isArray(saved.outputHandovers)) throw new Error('产出交出记录格式不符')
+  if (![saved.demands, saved.reservations, saved.processingIssues, saved.cutOutputs, saved.continuousReturns, saved.tipMaterialReturns, saved.tipMaterialLots, saved.tipMaterialIssues, saved.tipResults, saved.packages].every(Array.isArray)) throw new Error('生产需求记录格式不符')
+}
+
+export function migrateTmfPurchaseStateFromLocalStorage(): Promise<void> {
+  if (tmfMigrationPromise) return tmfMigrationPromise
+  tmfMigrationPromise = (async () => {
+    const storage = getBrowserLocalStorage()
+    if (!storage) return
+    let raw: string | null = null
+    try {
+      raw = storage.getItem(TMF_PURCHASE_STORAGE_KEY)
+    } catch (error) {
+      console.warn('[TMF_LEGACY_MIGRATION_READ_FAILED]', error)
+      return
+    }
+    if (!raw) return
+    try {
+      const legacy = JSON.parse(raw) as TmfPurchaseState
+      validateLegacyTmfState(legacy)
+      const draft = structuredClone(legacy)
+      // 老 payload 签名就地压缩(与旧 current() 行为一致)
+      draft.operations.forEach((operation) => {
+        operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
+      })
+      await persistTmfPurchaseStateToIdb(draft)
+      try {
+        storage?.removeItem(TMF_PURCHASE_STORAGE_KEY)
+        console.info('[TMF_LEGACY_MIGRATION_DONE]', { orders: draft.orders.length, operations: draft.operations.length })
+      } catch (error) {
+        console.warn('[TMF_LEGACY_MIGRATION_REMOVE_FAILED]', error)
+      }
+      if (!tmfHydrationReady) state = draft
+    } catch (error) {
+      // 解析/校验失败:不再永久卡死,删除旧键以避免下次启动重复尝试。
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[TMF_LEGACY_MIGRATION_PARSE_FAILED]', { message })
+      try {
+        storage?.removeItem(TMF_PURCHASE_STORAGE_KEY)
+        console.warn('[TMF_LEGACY_MIGRATION_DISCARDED]', { reason: message })
+      } catch (removeError) {
+        console.error('[TMF_LEGACY_MIGRATION_REMOVE_FAILED_AFTER_PARSE]', removeError)
+      }
+      throw error
+    }
+  })()
+  return tmfMigrationPromise
+}
+
+/**
  * Operation receipts used to persist the full request JSON. Production-order
  * requests can contain a complete technical-package snapshot, so the receipt
  * duplicated large images and BOM/routes in localStorage. Keep an exact-length
@@ -508,64 +816,24 @@ function emptyState(): TmfPurchaseState {
 function current(): TmfPurchaseState {
   bindStorageSync()
   if (state) return state
-  const storage = getBrowserLocalStorage()
-  let raw: string | null = null
-  try { raw = storage?.getItem(TMF_PURCHASE_STORAGE_KEY) ?? null } catch { throw new Error('无法读取已保存的织带厂记录，请检查浏览器存储后重试。') }
-  if (!raw) return state = emptyState()
+  // 启动期 / hydrate 未完成 / IDB 不可用:先尝试 localStorage 兼容读取(测试环境 + 老浏览器)。
+  // § 2.4.6 迁移期内残留的旧键在此被使用一次。
   try {
-    const saved = JSON.parse(raw) as TmfPurchaseState
-    if (saved.version !== 1 || !['orders', 'baseOrders', 'handovers', 'lots', 'operations'].every((key) => Array.isArray(saved[key as keyof TmfPurchaseState]))) throw new Error('格式不符')
-    // Migrate legacy full-payload receipts in memory. The next real operation
-    // persists the compact form together with its business change; no startup
-    // rewrite can overwrite user data or fail just because storage is full.
-    saved.operations.forEach((operation) => {
-      operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
-    })
-    // 首轮采购演示保存尚未含生产需求；只补空集合，不修改历史采购或库存。
-    saved.supplyPurchaseReceipts ??= []
-    if(!Array.isArray(saved.supplyPurchaseReceipts))throw new Error('投入料采购实收记录格式不符')
-    saved.baseMaterialLots ??= []
-    saved.baseMaterialIssues ??= []
-    saved.baseMaterialReturns ??= []
-    if (![saved.baseMaterialLots,saved.baseMaterialIssues,saved.baseMaterialReturns].every(Array.isArray)) throw new Error('基础原料账格式不符')
-    saved.purchaseReturns ??= []
-    if (!Array.isArray(saved.purchaseReturns)) throw new Error('基础采购退货记录格式不符')
-    // 旧原型曾保存“接单／开工／完工”动作。本业务已统一为确认接受、加工填报、发起交出，读取时直接丢弃旧字段。
-    delete (saved as TmfPurchaseState & { workExecutions?: unknown }).workExecutions
-    saved.workPlans ??= []
-    if (!Array.isArray(saved.workPlans)) throw new Error('加工计划记录格式不符')
-    saved.workCosts ??= []
-    if (!Array.isArray(saved.workCosts)) throw new Error('加工单费用记录格式不符')
-    saved.demands ??= []
-    saved.reservations ??= []
-    saved.processingIssues ??= []
-    saved.cutOutputs ??= []
-    saved.continuousReturns ??= []
-    saved.tipMaterialReturns ??= []
-    saved.tipMaterialLots ??= []
-    saved.tipMaterialIssues ??= []
-    saved.tipResults ??= []
-    saved.defectiveScraps ??= []
-    if (!Array.isArray(saved.defectiveScraps)) throw new Error('不良报废记录格式不符')
-    saved.factoryScraps ??= []
-    if (!Array.isArray(saved.factoryScraps)) throw new Error('厂内条料报废记录格式不符')
-    saved.continuousScraps ??= []
-    if (!Array.isArray(saved.continuousScraps)) throw new Error('连续料报废记录格式不符')
-    saved.terminationDisposals ??= []
-    saved.terminationClosures ??= []
-    if (!Array.isArray(saved.terminationDisposals) || !Array.isArray(saved.terminationClosures)) throw new Error('终止处置记录格式不符')
-    saved.packages ??= []
-    saved.outputHandovers ??= []
-    saved.outputAllocations ??= []
-    saved.productionIssues ??= []
-    saved.productionControls ??= []
-    if (!Array.isArray(saved.productionControls)) throw new Error('生产暂停或取消记录格式不符')
-    if (!Array.isArray(saved.outputAllocations) || !Array.isArray(saved.productionIssues)) throw new Error('产出分配或发料记录格式不符')
-    if (!Array.isArray(saved.outputHandovers)) throw new Error('产出交出记录格式不符')
-    if (![saved.demands, saved.reservations, saved.processingIssues, saved.cutOutputs, saved.continuousReturns, saved.tipMaterialReturns, saved.tipMaterialLots, saved.tipMaterialIssues, saved.tipResults, saved.packages].every(Array.isArray)) throw new Error('生产需求记录格式不符')
-    state = saved
-    return state
-  } catch { throw new Error('织带厂保存记录无法读取，未覆盖原记录，请联系主管处理。') }
+    const storage = getBrowserLocalStorage()
+    const raw = storage?.getItem(TMF_PURCHASE_STORAGE_KEY)
+    if (raw) {
+      const saved = JSON.parse(raw) as TmfPurchaseState
+      validateLegacyTmfState(saved)
+      // 就地把历史大签名压缩成紧凑指纹,与 base 行为一致。
+      saved.operations.forEach((operation) => {
+        operation.payloadSignature = compactOperationSignature(operation.payloadSignature)
+      })
+      return state = saved
+    }
+  } catch {
+    // localStorage 损坏或不可用,降级到 emptyState
+  }
+  return state = emptyState()
 }
 
 export function getTmfPurchaseState(): TmfPurchaseState {
@@ -616,11 +884,26 @@ function commit(
   const occurredAt = new Date().toISOString()
   const result = mutate(draft, occurredAt)
   draft.operations.push({ id: operationId, action, objectId, actor: { ...actor }, occurredAt, quantity: result.quantity, unit: result.quantity === undefined ? undefined : result.unit ?? '米', reason: result.reason || '', payloadSignature: signature })
+  // § 2.4.6 迁移期:同步写 localStorage 作为测试场景兼容 + IDB 不可用时的回退;
+  // hydrate 完成且 IDB 写入成功后,迁移函数会删除该键。
   const storage = getBrowserLocalStorage()
   if (typeof window !== 'undefined' && (!storage || !writeBrowserStorageItem(storage, TMF_PURCHASE_STORAGE_KEY, JSON.stringify(draft)))) {
     throw new Error('本次未保存，数量未改变。请检查浏览器存储后使用原操作重试。')
   }
+  // 同步更新内存 state,保证 current() 立即看到最新(写盘成功后才更新,失败抛错保持原态)。
   state = draft
+  // 启动期 hydrate 未就绪时,进入 pending 队列等 hydrate 完成后重写。
+  if (!tmfHydrationReady) {
+    pendingTmfCommits.push(draft)
+    return
+  }
+  // 异步写 IDB(fire-and-forget;失败抛错,unhandledrejection banner 暴露给用户)。
+  // § 2.4.3.5:IDB 失败不回退 localStorage(已写)。
+  persistTmfPurchaseStateToIdb(draft).catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : 'unknown'
+    console.error('[PMS_IDB_SAVE_FAILED] TMF 全状态 IDB 写入失败', { operationId, message })
+    throw error
+  })
 }
 
 export function createTmfMaterialPurchase(
@@ -1287,7 +1570,7 @@ function tmfInputReceivedMeters(issue:TmfProcessingMaterialIssue):number {
   if(!handover)return issue.receivedMeters
   const record=readCurrentPreparationHandoverRecord(handover.recordId)
   if(!record||record.handoverRecordStatus==='VOIDED')throw new Error(`${issue.printHandover?'印花':'染色'}原交出记录不存在或已作废，请核对加工投入来源。`)
-  const received=(record.taskReceipts??[]).filter(r=>r.targetTaskOrderId===issue.id).reduce((n,r)=>add(n,r.qty),0)
+  const received=(record.taskReceipts??[]).filter((r:{targetTaskOrderId:string;qty:number})=>r.targetTaskOrderId===issue.id).reduce((n:number,r:{qty:number})=>add(n,r.qty),0)
   if(received>issue.dispatchedMeters)throw new Error('原单实收超过本需求分配量，请主管核对。')
   return received
 }

@@ -210,6 +210,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       icon: 'PanelsTopLeft',
       items: [
         { key: 'pms-workbench', title: '采购工作台', icon: 'LayoutDashboard', href: '/pms/workbench/overview' },
+        { key: 'pms-data-management', title: '数据管理', icon: 'HardDrive', href: '/pms/data-management' },
       ],
     },
     {

@@ -18,6 +18,12 @@ const PMS_HANDLER_SPECS: PmsHandlerSpec[] = [
     eventExport: 'handlePmsWorkbenchEvent',
   },
   {
+    cacheKey: 'pms-data-management',
+    matches: (pathname) => pathname === '/pms/data-management',
+    importModule: () => import('../pages/pms/data-management'),
+    eventExport: 'handlePmsDataManagementEvent',
+  },
+  {
     cacheKey: 'pms-purchase-suggestions',
     matches: (pathname) => pathname === '/pms/purchase-suggestions',
     importModule: () => import('../pages/pms/purchase-suggestions'),

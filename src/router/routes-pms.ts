@@ -2,6 +2,7 @@ import type { RouteRegistry } from './route-types.ts'
 import {
   renderPmsBomDetailPage,
   renderPmsBomTemplatesPage,
+  renderPmsDataManagementPage,
   renderPmsDictionariesPage,
   renderPmsFirstLegCarriersPage,
   renderPmsFirstLegShipmentsPage,
@@ -69,6 +70,7 @@ export const routes: RouteRegistry = {
     '/pms/users': () => renderPmsUsersPage(),
     '/pms/roles': () => renderPmsRolesPage(),
     '/pms/dictionaries': () => renderPmsDictionariesPage(),
+    '/pms/data-management': renderPmsDataManagementPage,
   },
   dynamicRoutes: [
     {

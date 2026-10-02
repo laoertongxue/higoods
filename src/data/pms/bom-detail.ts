@@ -1,5 +1,59 @@
 import { getPmsBomTemplate, listPmsBomLogs, publishPmsBomTemplate, type PmsBomLog } from './bom-templates.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * BOM 样板详情 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ */
+let bomDetailHydrationStarted = false
+let bomDetailHydrationPromise: Promise<void> | null = null
+let bomDetailHydrationReady = false
+const pendingHydrationBomDetails: PmsBomDetail[] = []
+
+/**
+ * 启动期加载:从 IDB 把已保存的样板详情搬回内存。覆盖种子(按 spu)。
+ */
+export function hydratePmsBomDetailsFromIdb(): Promise<void> {
+  if (bomDetailHydrationStarted) return bomDetailHydrationPromise ?? Promise.resolve()
+  bomDetailHydrationStarted = true
+  bomDetailHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsBomDetail>(PMS_STORES.pmsBomDetails)
+      const rt = getRuntime()
+      for (const saved of stored) {
+        const existing = rt.details.get(saved.spu)
+        if (existing) Object.assign(existing, saved)
+        else rt.details.set(saved.spu, saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] BOM 样板详情加载失败', { message })
+    } finally {
+      bomDetailHydrationReady = true
+      const pending = pendingHydrationBomDetails.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsBomDetails, item)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败(hydration 后)', { spu: item.spu, message })
+        }
+      }
+    }
+  })()
+  return bomDetailHydrationPromise
+}
+
+function persistPmsBomDetail(detail: PmsBomDetail): void {
+  if (bomDetailHydrationReady) {
+    pmsPut(PMS_STORES.pmsBomDetails, detail).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] BOM 样板详情 IDB 写入失败', { spu: detail.spu, message })
+    })
+  } else {
+    pendingHydrationBomDetails.push(detail)
+  }
+}
 
 export type PmsBomSampleStatus = '未打样' | '打样中' | '已确认'
 
@@ -271,6 +325,7 @@ export function updatePmsBomDetail(spu: string, patch: PmsBomDetailPatch, actor:
   detail.updatedBy = actor.name
   detail.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'bom-template', objectId: spu, action: '保存样板详情', beforeValue: `${spu} 原总成本 ${detail.standardCost}`, afterValue: `总成本 ${detail.totalCost} · 目标毛利率 ${detail.targetGrossMargin}%`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsBomDetail(detail)
   return detail
 }
 
@@ -283,6 +338,7 @@ export function submitPmsBomTemplate(spu: string, actor: { id: string; name: str
   if (detail) {
     detail.updatedBy = actor.name
     detail.updatedAt = new Date().toISOString()
+    persistPmsBomDetail(detail)
   }
   appendPmsLog({ objectType: 'bom-template', objectId: spu, action: '提交 BOM', beforeValue: '草稿/未匹配', afterValue: '已发布', reason: '样板详情提交', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
   return { templateStatus: '已发布', updatedAt: new Date().toISOString() }

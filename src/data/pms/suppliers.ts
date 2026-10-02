@@ -1,4 +1,55 @@
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, type PmsActorRole } from './runtime.ts'
+
+/**
+ * 供应商 IDB hydrate 状态机(同其他 PMS 模块模式)。
+ * 注意:suppliers 数组保持 let 可写,种子数据来自 seeds,hydrate 后按 supplierCode 覆盖内存。
+ */
+let supplierHydrationStarted = false
+let supplierHydrationPromise: Promise<void> | null = null
+let supplierHydrationReady = false
+const pendingHydrationSuppliers: PmsSupplier[] = []
+
+export function hydratePmsSuppliersFromIdb(): Promise<void> {
+  if (supplierHydrationStarted) return supplierHydrationPromise ?? Promise.resolve()
+  supplierHydrationStarted = true
+  supplierHydrationPromise = (async () => {
+    try {
+      const stored = await pmsAll<PmsSupplier>(PMS_STORES.pmsSuppliers)
+      for (const saved of stored) {
+        const existing = suppliers.find((s) => s.supplierCode === saved.supplierCode)
+        if (existing) Object.assign(existing, saved)
+        else suppliers.unshift(saved)
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 供应商加载失败', { message })
+    } finally {
+      supplierHydrationReady = true
+      const pending = pendingHydrationSuppliers.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsSuppliers, item)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败(hydration 后)', { supplierCode: item.supplierCode, message })
+        }
+      }
+    }
+  })()
+  return supplierHydrationPromise
+}
+
+function persistPmsSupplier(supplier: PmsSupplier): void {
+  if (supplierHydrationReady) {
+    pmsPut(PMS_STORES.pmsSuppliers, supplier).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 供应商 IDB 写入失败', { supplierCode: supplier.supplierCode, message })
+    })
+  } else {
+    pendingHydrationSuppliers.push(supplier)
+  }
+}
 
 export type PmsSupplierStatus = '草稿' | '待审核' | '已启用' | '已驳回' | '已停用'
 
@@ -73,7 +124,7 @@ const seeds: PmsSupplier[] = [
   { supplierCode: 'SUP-2026-0013', supplierName: '中山综合服饰供应链有限公司', shortName: '中山综合', category: '综合供应商', country: '中国', city: '广东深圳', contactName: '何杰', contactPhone: '13800138213', email: 'zhongshan@sample.com', wechat: 'zs_supply', level: 'C级', paymentMethod: '月结', currency: 'IDR', defaultDeliveryMethod: '货代上门提货', invoiceInfo: '中山综合服饰供应链有限公司 税号 91442000XXXX', bankAccount: '中信银行中山分行 6226****0013', leadTimeDays: 21, address: '广东省中山市小榄镇综合产业园 1 号', tags: ['面料', '辅料', '成衣'], status: '已停用', rejectReason: '', materialCount: 4, totalPurchaseOrders: 29, totalPurchaseAmount: 420000, onTimeDeliveryRate: 78, qualityPassRate: 84, recentPurchaseOrderNo: 'PO-2026-0007', recentPurchaseDate: '2026-05-18', createdBy: '王采购', createdAt: '2026-03-20 11:40:00', updatedBy: '王采购', updatedAt: '2026-05-12 09:00:00', remark: '近期开票准确率偏低' },
 ]
 
-const suppliers: PmsSupplier[] = seeds.map((seed) => ({ ...seed }))
+const suppliers: PmsSupplier[] = seeds.map((seed) => ({ ...seed })) // eslint-disable-line @typescript-eslint/no-explicit-any -- 保持模块级数组可写,供 hydrate 按 supplierCode 覆盖
 
 let supplierSequence = seeds.length
 
@@ -208,6 +259,7 @@ export function createPmsSupplier(input: PmsSupplierInput, actor: { id: string; 
   }
   suppliers.unshift(supplier)
   appendPmsLog({ objectType: 'supplier', objectId: supplier.supplierCode, action: '创建', beforeValue: '', afterValue: `${supplier.supplierName} · 草稿`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplier(supplier)
   return supplier
 }
 
@@ -222,6 +274,7 @@ export function updatePmsSupplier(supplierCode: string, input: PmsSupplierInput,
   supplier.updatedBy = actor.name
   supplier.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'supplier', objectId: supplierCode, action: '编辑', beforeValue: '', afterValue: supplier.supplierName, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsSupplier(supplier)
   return supplier
 }
 
@@ -267,5 +320,6 @@ export function advancePmsSupplierStatus(
     actorRole: actor.role,
     secondConfirmation: nextStatus === '已停用' || nextStatus === '已驳回',
   })
+  persistPmsSupplier(supplier)
   return supplier
 }

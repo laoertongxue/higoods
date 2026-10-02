@@ -1,6 +1,83 @@
 import { getPmsMaterialPurchaseOrder, listPmsMaterialLogisticsRecords, listPmsMaterialPurchaseOrders } from './material-purchase-orders.ts'
 import { getPmsFirstLegBatch, listPmsFirstLegBatches, type PmsFirstLegTransportMethod } from './first-leg-logistics.ts'
+import { PMS_STORES, pmsAll, pmsPut } from './idb-storage.ts'
 import { appendPmsLog, PmsDomainError, roundPmsQty, type PmsActorRole } from './runtime.ts'
+
+/**
+ * 对账 IDB hydrate 状态机(同 payment-requests.ts / first-leg-logistics.ts 模式):
+ * - 启动期 hydrate 未就绪时,业务写入进入 pending 队列,等 hydrate 完成后由 hydrate 接管 put。
+ * - hydrate 完成后业务写入 fire-and-forget put,pmsPut 内部事务 oncomplete 后 broadcast。
+ */
+let reconciliationHydrationStarted = false
+let reconciliationHydrationPromise: Promise<void> | null = null
+let reconciliationHydrationReady = false
+type PendingReconciliationWrite =
+  | { kind: 'material'; entity: PmsMaterialReconciliation }
+  | { kind: 'logistics'; entity: PmsLogisticsReconciliation }
+const pendingHydrationReconciliation: PendingReconciliationWrite[] = []
+
+/**
+ * 启动期加载:从 IDB 把已保存的对账行搬回内存。覆盖种子。
+ */
+export function hydratePmsReconciliationsFromIdb(): Promise<void> {
+  if (reconciliationHydrationStarted) return reconciliationHydrationPromise ?? Promise.resolve()
+  reconciliationHydrationStarted = true
+  reconciliationHydrationPromise = (async () => {
+    try {
+      // pmsReconciliations store 共享 material 与 logistics 行,靠 id 前缀区分(MR- / LR-)。
+      const stored = await pmsAll<PmsMaterialReconciliation | PmsLogisticsReconciliation>(PMS_STORES.pmsReconciliations)
+      const rt = getRuntime()
+      for (const saved of stored) {
+        if (saved.id.startsWith('MR-')) {
+          const existing = rt.materialRows.find((r) => r.id === saved.id)
+          if (existing) Object.assign(existing, saved)
+          else rt.materialRows.push(saved as PmsMaterialReconciliation)
+        } else if (saved.id.startsWith('LR-')) {
+          const existing = rt.logisticsRows.find((r) => r.id === saved.id)
+          if (existing) Object.assign(existing, saved)
+          else rt.logisticsRows.push(saved as PmsLogisticsReconciliation)
+        }
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_LOAD_FAILED] 对账加载失败', { message })
+    } finally {
+      reconciliationHydrationReady = true
+      const pending = pendingHydrationReconciliation.splice(0)
+      for (const item of pending) {
+        try {
+          await pmsPut(PMS_STORES.pmsReconciliations, item.entity)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'unknown'
+          console.error('[PMS_IDB_SAVE_FAILED] 对账 IDB 写入失败(hydration 后)', { kind: item.kind, message })
+        }
+      }
+    }
+  })()
+  return reconciliationHydrationPromise
+}
+
+function persistPmsMaterialReconciliation(row: PmsMaterialReconciliation): void {
+  if (reconciliationHydrationReady) {
+    pmsPut(PMS_STORES.pmsReconciliations, row).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 面辅料对账 IDB 写入失败', { id: row.id, message })
+    })
+  } else {
+    pendingHydrationReconciliation.push({ kind: 'material', entity: row })
+  }
+}
+
+function persistPmsLogisticsReconciliation(row: PmsLogisticsReconciliation): void {
+  if (reconciliationHydrationReady) {
+    pmsPut(PMS_STORES.pmsReconciliations, row).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : 'unknown'
+      console.error('[PMS_IDB_SAVE_FAILED] 物流对账 IDB 写入失败', { id: row.id, message })
+    })
+  } else {
+    pendingHydrationReconciliation.push({ kind: 'logistics', entity: row })
+  }
+}
 
 export type PmsReconciliationStatus = '待确认' | '部分确认' | '已确认'
 
@@ -334,6 +411,7 @@ export function updatePmsMaterialReconciliation(
   refreshMaterialStatus(row)
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'material-reconciliation', objectId: id, action: '调整对账费用', beforeValue: '', afterValue: `最终应付 ${row.finalPayable} · 差异 ${row.difference}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsMaterialReconciliation(row)
   return row
 }
 
@@ -356,6 +434,7 @@ export function confirmPmsMaterialReconciliationFees(
   row.updatedAt = new Date().toISOString()
   const labels = keys.map((key) => PMS_MATERIAL_FEE_ITEMS.find((item) => item.key === key)?.label ?? key).join('、')
   appendPmsLog({ objectType: 'material-reconciliation', objectId: id, action: '分项确认费用', beforeValue: '', afterValue: `${labels} 已确认`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsMaterialReconciliation(row)
   return row
 }
 
@@ -402,6 +481,7 @@ export function confirmPmsMaterialReconciliationDifference(id: string, actor: { 
   row.differenceConfirmed = true
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'material-reconciliation', objectId: id, action: '确认差异', beforeValue: '', afterValue: `差异 ${row.difference}`, reason: '差异确认后才能确认对账', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsMaterialReconciliation(row)
   return row
 }
 
@@ -417,6 +497,7 @@ export function confirmPmsMaterialReconciliation(id: string, actor: { id: string
   row.confirmedAt = new Date().toISOString()
   row.updatedAt = row.confirmedAt
   appendPmsLog({ objectType: 'material-reconciliation', objectId: id, action: '确认对账', beforeValue: beforeStatus, afterValue: '已确认', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsMaterialReconciliation(row)
   return row
 }
 
@@ -438,15 +519,59 @@ export function checkPmsMaterialReconciliationGenerate(ids: string[]): { ok: boo
 export function markPmsMaterialReconciliationPaymentRequest(ids: string[], requestNo: string): void {
   ids.forEach((id) => {
     const row = getPmsMaterialReconciliation(id)
-    if (row) row.paymentRequestNo = requestNo
+    if (row) {
+      row.paymentRequestNo = requestNo
+      persistPmsMaterialReconciliation(row)
+    }
   })
 }
 
 export function unmarkPmsMaterialReconciliationPaymentRequest(ids: string[]): void {
   ids.forEach((id) => {
     const row = getPmsMaterialReconciliation(id)
-    if (row) row.paymentRequestNo = ''
+    if (row) {
+      row.paymentRequestNo = ''
+      persistPmsMaterialReconciliation(row)
+    }
   })
+}
+
+/**
+ * 原子化 helper:在外部 pmsTx 中调用,只修改内存,返回被修改的 material rows。
+ * 调用方负责把这些 rows 与其它业务写入放到同一个 IDB 事务里。
+ * 用于 createPmsPaymentRequestFromDraft / voidPmsPaymentRequest 的跨 store 原子提交。
+ */
+export function pmsApplyPaymentRequestNoToMaterial(
+  ids: string[],
+  requestNo: string,
+): PmsMaterialReconciliation[] {
+  const modified: PmsMaterialReconciliation[] = []
+  ids.forEach((id) => {
+    const row = getPmsMaterialReconciliation(id)
+    if (row) {
+      row.paymentRequestNo = requestNo
+      modified.push(row)
+    }
+  })
+  return modified
+}
+
+/**
+ * 同上,logistics 版本。
+ */
+export function pmsApplyPaymentRequestNoToLogistics(
+  ids: string[],
+  requestNo: string,
+): PmsLogisticsReconciliation[] {
+  const modified: PmsLogisticsReconciliation[] = []
+  ids.forEach((id) => {
+    const row = getPmsLogisticsReconciliation(id)
+    if (row) {
+      row.paymentRequestNo = requestNo
+      modified.push(row)
+    }
+  })
+  return modified
 }
 
 function recalcLogisticsRow(row: PmsLogisticsReconciliation): void {
@@ -481,6 +606,7 @@ export function updatePmsLogisticsReconciliationFee(
   refreshLogisticsStatus(row)
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'logistics-reconciliation', objectId: id, action: '调整物流费用', beforeValue: item.label, afterValue: `实际 ${item.actual}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsLogisticsReconciliation(row)
   return row
 }
 
@@ -500,6 +626,7 @@ export function confirmPmsLogisticsReconciliationFeeItem(
   refreshLogisticsStatus(row)
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'logistics-reconciliation', objectId: id, action: '分项确认费用', beforeValue: item.label, afterValue: `实际 ${item.actual} 已确认`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsLogisticsReconciliation(row)
   return row
 }
 
@@ -518,6 +645,7 @@ export function confirmAllPmsLogisticsReconciliationFees(
   refreshLogisticsStatus(row)
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'logistics-reconciliation', objectId: id, action: '确认全部费用', beforeValue: '', afterValue: `7 项费用已确认 · 实际 ${row.actualTotal}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsLogisticsReconciliation(row)
   return row
 }
 
@@ -535,6 +663,7 @@ export function updatePmsLogisticsReconciliationBill(
   recalcLogisticsRow(row)
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'logistics-reconciliation', objectId: id, action: '调整供应商账单', beforeValue: '', afterValue: `账单 ${row.supplierBillAmount} · 差异 ${row.difference}`, reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+  persistPmsLogisticsReconciliation(row)
   return row
 }
 
@@ -545,6 +674,7 @@ export function confirmPmsLogisticsReconciliationDifference(id: string, actor: {
   row.differenceConfirmed = true
   row.updatedAt = new Date().toISOString()
   appendPmsLog({ objectType: 'logistics-reconciliation', objectId: id, action: '确认差异', beforeValue: '', afterValue: `差异 ${row.difference}`, reason: '差异确认后才能确认对账', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsLogisticsReconciliation(row)
   return row
 }
 
@@ -560,6 +690,7 @@ export function confirmPmsLogisticsReconciliation(id: string, actor: { id: strin
   row.confirmedAt = new Date().toISOString()
   row.updatedAt = row.confirmedAt
   appendPmsLog({ objectType: 'logistics-reconciliation', objectId: id, action: '确认对账', beforeValue: '待确认', afterValue: '已确认', reason: '', actorId: actor.id, actorName: actor.name, actorRole: actor.role, secondConfirmation: true })
+  persistPmsLogisticsReconciliation(row)
   return row
 }
 
@@ -581,14 +712,20 @@ export function checkPmsLogisticsReconciliationGenerate(ids: string[]): { ok: bo
 export function markPmsLogisticsReconciliationPaymentRequest(ids: string[], requestNo: string): void {
   ids.forEach((id) => {
     const row = getPmsLogisticsReconciliation(id)
-    if (row) row.paymentRequestNo = requestNo
+    if (row) {
+      row.paymentRequestNo = requestNo
+      persistPmsLogisticsReconciliation(row)
+    }
   })
 }
 
 export function unmarkPmsLogisticsReconciliationPaymentRequest(ids: string[]): void {
   ids.forEach((id) => {
     const row = getPmsLogisticsReconciliation(id)
-    if (row) row.paymentRequestNo = ''
+    if (row) {
+      row.paymentRequestNo = ''
+      persistPmsLogisticsReconciliation(row)
+    }
   })
 }
 
@@ -654,6 +791,7 @@ export function importPmsLogisticsActualFees(
     match.updatedAt = match.importedAt
     imported += 1
     appendPmsLog({ objectType: 'logistics-reconciliation', objectId: match.id, action: '导入实际费用', beforeValue: '', afterValue: `实际合计 ${match.actualTotal} · 预计/实际差异 ${match.feeDifference}`, reason: '导入只覆盖实际层，不自动确认', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+    persistPmsLogisticsReconciliation(match)
   })
   return imported
 }
@@ -742,6 +880,7 @@ export function importPmsMaterialSupplierBills(
     match.updatedAt = new Date().toISOString()
     imported += 1
     appendPmsLog({ objectType: 'material-reconciliation', objectId: match.id, action: '导入供应商账单', beforeValue: '', afterValue: `最终应付 ${match.finalPayable} · 差异 ${match.difference}`, reason: '导入只覆盖实际层，不自动确认', actorId: actor.id, actorName: actor.name, actorRole: actor.role })
+    persistPmsMaterialReconciliation(match)
   })
   return imported
 }
