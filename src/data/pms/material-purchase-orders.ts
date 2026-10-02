@@ -261,15 +261,34 @@ export async function migrateMaterialPurchaseUpdatesFromLocalStorage(): Promise<
 }
 
 /**
- * 读取已保存的采购变更。从 IDB 读取(异步)。失败抛 PmsDomainError,不静默。
+ * 读取已保存的采购变更。缓存优化 + corrupted storage 抛错。
+ *
+ * 缓存策略(§ 2.4.3.5 性能优化):
+ * - cachedRaw 缓存上一次读取的 raw 字符串
+ * - cachedParsed 缓存对应的解析结果
+ * - 写入路径(savePurchaseUpdate)同时更新内存缓存,避免下次读盘
+ * - 外部写入(其他标签页)替换 raw 时,自动重新解析
+ * - corrupted storage 抛错后,下次调用仍然重新读,符合 base 行为
  */
+let cachedRaw: string | null = null
+let cachedParsed: PmsMaterialPurchaseOrder[] | null = null
+
 function readSavedPurchaseUpdates(): PmsMaterialPurchaseOrder[] {
   // § 2.4.6 迁移期:同步从旧键读;hydrate 后 migrate 函数会删除旧键。
   // hydrate 完成后,运行时改读 IDB pmsMaterialPurchaseOrderDeltas。
   if (typeof window === 'undefined') return []
+  const raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
+  if (!raw) {
+    cachedRaw = null
+    cachedParsed = []
+    return []
+  }
+  // 缓存命中:raw 与上次相同,直接返回
+  if (raw === cachedRaw && cachedParsed !== null) {
+    return cachedParsed
+  }
+  // 缓存未命中或首次读取
   try {
-    const raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
-    if (!raw) return []
     const orders: unknown = JSON.parse(raw)
     if (!Array.isArray(orders) || orders.some((order) => {
       const o = order as Partial<PmsMaterialPurchaseOrder> | null
@@ -277,10 +296,23 @@ function readSavedPurchaseUpdates(): PmsMaterialPurchaseOrder[] {
         || !['待采购','已采购','部分到货','已到货','已入库','已关闭'].includes(String(o.status))
         || !Number.isFinite(o.orderedQty) || !Number.isFinite(o.receivedQty)
     })) throw new Error('invalid purchases')
-    return orders as PmsMaterialPurchaseOrder[]
+    cachedRaw = raw
+    cachedParsed = orders as PmsMaterialPurchaseOrder[]
+    return cachedParsed
   } catch {
+    // 解析失败:不缓存,下次重新读,保留 base 的"立即抛错"语义。
     throw new PmsDomainError('MPO_STORAGE_READ_FAILED', '无法读取已保存的采购变更，请恢复存储后重试；不会用演示初始状态覆盖。')
   }
+}
+
+/**
+ * 显式使缓存失效。
+ * - 测试 resetPmsMaterialPurchaseRuntimeForTest 调用
+ * - 跨标签页 storage 事件触发(可选)
+ */
+export function invalidateReadSavedPurchaseUpdatesCache(): void {
+  cachedRaw = null
+  cachedParsed = null
 }
 
 /**
@@ -295,8 +327,14 @@ function savePurchaseUpdate(order: PmsMaterialPurchaseOrder, patch: Partial<PmsM
   // § 2.4.6 迁移期兼容:同步写旧键保证测试/老浏览器场景下能抛"未保存";运行期 hydrate 后会删除。
   if (typeof window !== 'undefined') {
     const saved = readSavedPurchaseUpdates().filter((item) => item.purchaseOrderNo !== order.purchaseOrderNo)
-    try { window.localStorage.setItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY, JSON.stringify([...saved, next])) }
-    catch { throw new PmsDomainError('MPO_STORAGE_SAVE_FAILED', '采购变更未保存，请恢复存储后重试；当前状态未改变。') }
+    const newSaved = [...saved, next]
+    try {
+      const newRaw = JSON.stringify(newSaved)
+      window.localStorage.setItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY, newRaw)
+      // 同步更新缓存,避免下次 readSavedUpdates 重复解析整组数据
+      cachedRaw = newRaw
+      cachedParsed = newSaved
+    } catch { throw new PmsDomainError('MPO_STORAGE_SAVE_FAILED', '采购变更未保存，请恢复存储后重试；当前状态未改变。') }
   }
   // 写盘成功后再更新内存(避免抛错时残留 half-modified 状态)。
   Object.assign(order, next)
@@ -802,4 +840,16 @@ export function closePmsMaterialPurchaseOrder(
 export function resetPmsMaterialPurchaseRuntimeForTest(): void {
   runtime = null
   orderSequence = 0
+  invalidateReadSavedPurchaseUpdatesCache()
 }
+
+// § 2.4.3.6 跨标签页同步:监听 storage 事件,其他标签页写入该键时刷新缓存。
+if (typeof window !== 'undefined' && !storageListenerInstalled) {
+  storageListenerInstalled = true
+  window.addEventListener('storage', (event) => {
+    if (event.key === PMS_MATERIAL_PURCHASE_UPDATES_KEY) {
+      invalidateReadSavedPurchaseUpdatesCache()
+    }
+  })
+}
+let storageListenerInstalled = false

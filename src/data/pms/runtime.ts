@@ -63,7 +63,11 @@ export function hydratePmsLogsFromIdb(): Promise<void> {
       const stored = await pmsAll<PmsOperationLog>(PMS_STORES.pmsOperationLogs)
       if (stored.length > 0) {
         logs.length = 0
-        for (const log of stored) logs.unshift(log)
+        logsByObjectType.clear()
+        for (const log of stored) {
+          logs.unshift(log)
+          indexLog(log)
+        }
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown'
@@ -108,6 +112,7 @@ export function roundPmsInteger(value: number): number {
 export function appendPmsLog(entry: Omit<PmsOperationLog, 'id' | 'occurredAt' | 'timeZone' | 'source'>): PmsOperationLog {
   const log = buildPmsLog(entry)
   logs.unshift(log)
+  indexLog(log)
   // 双写:内存缓存 + IDB 主存。
   // § 2.4.3.5:失败抛 PmsDomainError,不静默回退。
   if (logsHydrationReady) {
@@ -129,6 +134,7 @@ export function appendPmsLog(entry: Omit<PmsOperationLog, 'id' | 'occurredAt' | 
 export function appendPmsLogInMemory(entry: Omit<PmsOperationLog, 'id' | 'occurredAt' | 'timeZone' | 'source'>): PmsOperationLog {
   const log = buildPmsLog(entry)
   logs.unshift(log)
+  indexLog(log)
   return log
 }
 
@@ -143,13 +149,31 @@ function buildPmsLog(entry: Omit<PmsOperationLog, 'id' | 'occurredAt' | 'timeZon
 }
 
 export function listPmsLogs(objectType: string, objectId?: string): PmsOperationLog[] {
-  return logs.filter((log) => log.objectType === objectType && (!objectId || log.objectId === objectId))
+  // § 性能优化:按 objectType 索引 + 仅在指定 objectId 时二次过滤
+  // - logsByObjectType: Map< objectType, PmsOperationLog[] > O(1) 查表
+  // - 单 objectType 命中后再 filter objectId
+  const indexed = logsByObjectType.get(objectType)
+  if (!indexed) return []
+  return objectId ? indexed.filter((log) => log.objectId === objectId) : indexed
+}
+
+// § 性能优化:按 objectType 索引 O(1) 替代全表 filter(2000 logs × 60 业务类型)
+const logsByObjectType = new Map<string, PmsOperationLog[]>()
+
+function indexLog(log: PmsOperationLog): void {
+  let bucket = logsByObjectType.get(log.objectType)
+  if (!bucket) {
+    bucket = []
+    logsByObjectType.set(log.objectType, bucket)
+  }
+  bucket.push(log)
 }
 
 export function resetPmsRuntimeForTest(): void {
   actionSequence = 0
   prefixSequences.clear()
   logs.splice(0, logs.length)
+  logsByObjectType.clear()
   logsHydrationStarted = false
   logsHydrationPromise = null
   logsHydrationReady = false
