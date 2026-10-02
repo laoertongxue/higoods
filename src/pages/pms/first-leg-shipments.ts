@@ -103,7 +103,6 @@ function statusTone(status: PmsFirstLegBatchStatus): 'blue' | 'green' | 'yellow'
 }
 
 function formatFeeAmount(value: number, currency: 'RMB' | 'USD' | 'IDR'): string {
-  if (currency === 'IDR') return `Rp ${new Intl.NumberFormat('id-ID', { maximumFractionDigits: 0 }).format(value)}`
   return formatPmsMoney(value, currency)
 }
 

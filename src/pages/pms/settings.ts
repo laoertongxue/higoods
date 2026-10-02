@@ -198,7 +198,7 @@ export function renderPmsUsersPage(): string {
   return usersList.render()
 }
 
-export function handlePmsUsersEvent(target: HTMLElement): boolean {
+export function handlePmsUsersEvent(target: HTMLElement, _event?: Event): boolean {
   return usersList.handle(target)
 }
 
@@ -210,7 +210,7 @@ export function renderPmsRolesPage(): string {
   return rolesList.render()
 }
 
-export function handlePmsRolesEvent(target: HTMLElement): boolean {
+export function handlePmsRolesEvent(target: HTMLElement, _event?: Event): boolean {
   return rolesList.handle(target)
 }
 
@@ -222,7 +222,7 @@ export function renderPmsDictionariesPage(): string {
   return dictionariesList.render()
 }
 
-export function handlePmsDictionariesEvent(target: HTMLElement): boolean {
+export function handlePmsDictionariesEvent(target: HTMLElement, _event?: Event): boolean {
   return dictionariesList.handle(target)
 }
 
@@ -230,7 +230,7 @@ export function closePmsDictionaryOverlays(): boolean {
   return dictionariesList.close()
 }
 
-export function handlePmsSettingsEvent(target: HTMLElement): boolean {
+export function handlePmsSettingsEvent(target: HTMLElement, _event?: Event): boolean {
   return usersList.handle(target) || rolesList.handle(target) || dictionariesList.handle(target)
 }
 
