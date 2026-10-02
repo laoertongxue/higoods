@@ -20,12 +20,79 @@ export interface PmsOperationLog {
 
 export class PmsDomainError extends Error {
   readonly code: string
+  /** § P2-1 错误码字典:从 code 前缀自动推导 namespace,方便日志聚合 + 用户提示映射 */
+  readonly namespace: string
 
   constructor(code: string, message: string) {
     super(message)
     this.code = code
+    this.namespace = inferPmsNamespace(code)
     this.name = 'PmsDomainError'
   }
+}
+
+/**
+ * § P2-1 错误码字典:code 前缀 → namespace 映射。
+ *
+ * 新增错误码只需在此 dict 添加一行,无需改 type 定义。
+ * 调用 PmsDomainError 时自动从 code 推导 namespace。
+ */
+export const PMS_ERROR_NAMESPACE = {
+  IDB: 'PMS_IDB',
+  BOM: 'BOM',
+  MPO: 'MPO',
+  MREQ: 'MREQ',
+  KOL: 'KOL',
+  PAYMENT: 'PAYMENT',
+  RECON: 'RECON',
+  CONF: 'CONF',
+  TMF: 'TMF',
+  BATCH: 'BATCH',
+  CARRIER: 'CARRIER',
+  CHANNEL: 'CHANNEL',
+  FIRST_LEG: 'FL',
+  INVENTORY: 'INVENTORY',
+  MATERIAL: 'MATERIAL',
+  PRODUCTION: 'PRODUCTION',
+  PRODUCT: 'PRODUCT',
+  PROTOTYPE: 'PROTOTYPE',
+  PURCHASE: 'PURCHASE',
+  REQUIRE: 'REQUIRE',
+  ROLE: 'ROLE',
+  SUPPLY: 'SUPPLY',
+  TRANSIT: 'TRANSIT',
+  UNIT: 'UNIT',
+  USER: 'USER',
+  WAREHOUSE: 'WAREHOUSE',
+  SUGGEST: 'SUGGEST',
+  RECONCILIATION: 'RECONCILIATION',
+  BATCH_ALLOCATION: 'BATCH_ALLOCATION',
+  SUPPLIER: 'SUPPLIER',
+  DICTIONARY: 'DICTIONARY',
+  SOURCE: 'SOURCE',
+  HEADER: 'HEADER',
+  LOGISTICS: 'LOGISTICS',
+  INBOUND: 'INBOUND',
+  MIGRATION: 'MIGRATION',
+  ROLL: 'ROLL',
+  FEE: 'FEE',
+  WAYBILL: 'WAYBILL',
+  VERSION: 'VERSION',
+  DEMAND: 'DEMAND',
+  ORDER: 'ORDER',
+  STORAGE: 'STORAGE',
+  MISC: 'MISC',
+} as const
+
+/**
+ * 从 PmsDomainError.code 前缀推导 namespace。
+ * 未匹配的 code 归到 'MISC'(杂项)避免 undefined。
+ */
+export function inferPmsNamespace(code: string): string {
+  for (const [ns, prefix] of Object.entries(PMS_ERROR_NAMESPACE)) {
+    if (code.startsWith(`${prefix}_`) || code === prefix) return ns.toLowerCase()
+  }
+  return 'misc'
 }
 
 export const PMS_SYSTEM_ACTOR = { id: 'USR-PMS-SYSTEM', name: '系统计算', role: '系统' as PmsActorRole }
