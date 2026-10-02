@@ -292,7 +292,7 @@ const columns: StandardListColumn<PurchaseDemandRow>[] = [
   },
   {
     key: 'actions', title: '操作', width: 180, required: true, actionColumn: true,
-    render: (row) => `<div class="flex flex-col items-start gap-1">${row.changeStatus !== '无新变更' ? `<button type="button" class="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 hover:bg-amber-100" data-lace-demand-action="view-change" data-purchase-order-id="${escapeHtml(row.purchaseOrderId)}" data-skip-page-rerender="true">查看变更</button>` : ''}${row.workOrder ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/craft/accessory/lace/work-orders/${encodeURIComponent(row.workOrder.workOrderId)}">查看生产单</button>` : ''}${row.kind === 'failure' ? `<button type="button" class="rounded-md border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50" data-nav="/pms/purchase-order?keyword=${encodeURIComponent(row.purchaseOrderNo)}">前往 PMS 修复</button>` : ''}</div>`,
+    render: (row) => `<div class="flex flex-col items-start gap-1">${row.changeStatus !== '无新变更' ? `<button type="button" class="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs text-amber-900 hover:bg-amber-100" data-lace-demand-action="view-change" data-purchase-order-id="${escapeHtml(row.purchaseOrderId)}" data-skip-page-rerender="true">查看变更</button>` : ''}${row.workOrder ? `<button type="button" class="rounded-md border px-2 py-1 text-xs hover:bg-slate-50" data-nav="/fcs/craft/accessory/lace/work-orders/${encodeURIComponent(row.workOrder.workOrderId)}">查看生产单</button>` : ''}</div>`,
   },
 ]
 

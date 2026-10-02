@@ -556,7 +556,6 @@ assert.ok(unlinkedSurface.includes('未找到关联生产单'), '未关联对象
 assert.ok(unlinkedSurface.includes('查看来源'), '未关联对象必须保留来源入口')
 
 assert.ok(renderProductionObjectFloatingEntry('/pcs/products/styles').includes('查生产'), 'PCS 页面必须能显示查生产入口')
-assert.ok(renderProductionObjectFloatingEntry('/pms/purchase-order').includes('查生产'), 'PMS 页面必须能显示查生产入口')
 assert.ok(renderProductionObjectFloatingEntry('/wls/inventory').includes('查生产'), 'WLS 页面必须能显示查生产入口')
 assert.ok(renderProductionObjectFloatingEntry('/fcs/craft/post-finishing/qc-orders').includes('查生产'), 'PFOS 页面必须能显示查生产入口')
 assert.equal(renderProductionObjectFloatingEntry('/fcs/pda/exec').trim(), '', 'PDA 执行页不显示管理端浮动入口')

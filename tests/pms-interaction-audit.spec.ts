@@ -38,7 +38,6 @@ const ROUTES: Array<[string, string]> = [
   ['/pms/users', '[data-pms-usr-root]'],
   ['/pms/roles', '[data-pms-role-root]'],
   ['/pms/dictionaries', '[data-pms-dict-root]'],
-  ['/pms/purchase-order', '[data-pms-lace-purchase-root]'],
 ]
 
 const SIDE_EFFECT_ACTIONS = new Set([

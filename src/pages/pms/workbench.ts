@@ -11,7 +11,6 @@ const QUICK_ENTRIES = [
   { title: '商品采购建议', description: '按履约缺口与折扣生成采购单', href: '/pms/purchase-suggestions', icon: 'Lightbulb' },
   { title: '商品采购单', description: '维护采购单并生成面辅料需求', href: '/pms/product-purchase-orders', icon: 'FileText' },
   { title: 'KOL 采购需求', description: '入库、驳回与备注直播运营需求', href: '/pms/kol-demands', icon: 'Megaphone' },
-  { title: '采购订单（花边）', description: '查看辅料工厂花边采购订单', href: '/pms/purchase-order', icon: 'Flower2' },
 ]
 
 function renderRiskCard(risk: PmsWorkbenchRisk): string {

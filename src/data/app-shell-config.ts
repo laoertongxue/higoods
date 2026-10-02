@@ -213,13 +213,6 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       ],
     },
     {
-      title: '采购管理',
-      icon: 'ShoppingCart',
-      items: [
-        { key: 'purchase-order', title: '采购订单', icon: 'FileText', href: '/pms/purchase-order' },
-      ],
-    },
-    {
       title: '基础资料',
       icon: 'Library',
       items: [

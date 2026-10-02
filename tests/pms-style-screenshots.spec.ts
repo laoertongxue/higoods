@@ -39,7 +39,6 @@ const ROUTES: Array<[string, string]> = [
   ['pms-users', '/pms/users'],
   ['pms-roles', '/pms/roles'],
   ['pms-dictionaries', '/pms/dictionaries'],
-  ['pms-purchase-order', '/pms/purchase-order'],
 ]
 
 test('capture style alignment screenshots', async () => {

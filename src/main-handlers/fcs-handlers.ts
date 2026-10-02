@@ -331,7 +331,6 @@ export async function dispatchFcsPageEvent(target: HTMLElement, event?: Event): 
   if (
     pathname.startsWith('/fcs/craft/accessory/lace')
     || pathname.startsWith('/wls/accessory-receipts')
-    || pathname.startsWith('/pms/purchase-order')
   ) {
     return handleAccessoryFactoryManagementEvent(target, event)
   }

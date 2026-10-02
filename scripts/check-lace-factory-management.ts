@@ -51,7 +51,6 @@ import {
 import { renderLaceWorkOrderDetailPage } from '../src/pages/process-factory/accessory/lace/work-order-detail.ts'
 import { renderLaceWorkOrdersPage } from '../src/pages/process-factory/accessory/lace/work-orders.ts'
 import { listExecutableLaceWorkOrderActions } from '../src/pages/process-factory/accessory/lace/work-order-action-policy.ts'
-import { renderPmsPurchaseOrdersPage } from '../src/pages/pms-purchase-orders.ts'
 import { renderWlsAccessoryReceiptsPage } from '../src/pages/wls-accessory-receipts.ts'
 
 function expectDomainError(code: string, fn: () => unknown): void {
@@ -741,9 +740,8 @@ const pageHtml = [
   renderLaceWorkOrderDetailPage(findOrderBySku('IDFL251050-BLACK-19-4003PT').workOrderId),
   renderLaceHandoverRecordsPage(),
   renderWlsAccessoryReceiptsPage(),
-  renderPmsPurchaseOrdersPage(),
 ].join('\n')
-for (const requiredText of ['加工投入', '需求来源', '加工产出', '采购变更待查看', '花边生产单', '中央辅料仓收货']) {
+for (const requiredText of ['花边生产单', '中央辅料仓收货']) {
   assert.match(pageHtml, new RegExp(requiredText))
 }
 assert.match(pageHtml, /data-lace-common-action="open-image"/)
@@ -789,7 +787,6 @@ assert.match(imageHelperSource, /Escape/)
 const recoverableInteractionSource = [
   readFileSync(new URL('../src/pages/process-factory/accessory/lace/work-order-detail.ts', import.meta.url), 'utf8'),
   readFileSync(new URL('../src/pages/wls-accessory-receipts.ts', import.meta.url), 'utf8'),
-  readFileSync(new URL('../src/pages/pms-purchase-orders.ts', import.meta.url), 'utf8'),
 ].join('\n')
 assert.match(recoverableInteractionSource, /未看到成功提示即表示本次未保存/)
 assert.match(recoverableInteractionSource, /请修正后重新提交/)
@@ -809,7 +806,6 @@ for (const pagePath of [
   '../src/pages/process-factory/accessory/lace/work-orders.ts',
   '../src/pages/process-factory/accessory/lace/handover-records.ts',
   '../src/pages/wls-accessory-receipts.ts',
-  '../src/pages/pms-purchase-orders.ts',
 ]) {
   const source = readFileSync(new URL(pagePath, import.meta.url), 'utf8')
   for (const action of ['apply-filters', 'reset-filters']) {
@@ -878,7 +874,6 @@ for (const route of [
   '/fcs/craft/accessory/lace/work-orders',
   '/fcs/craft/accessory/lace/handover-records',
   '/wls/accessory-receipts',
-  '/pms/purchase-order',
 ]) assert.ok(routesText.includes(route), `missing route ${route}`)
 assert.doesNotMatch(routesText, /accessory\/lace\/pda|accessory\/lace\/print/)
 
@@ -887,7 +882,6 @@ for (const pagePath of [
   '../src/pages/process-factory/accessory/lace/work-orders.ts',
   '../src/pages/process-factory/accessory/lace/handover-records.ts',
   '../src/pages/wls-accessory-receipts.ts',
-  '../src/pages/pms-purchase-orders.ts',
 ]) {
   const source = readFileSync(new URL(pagePath, import.meta.url), 'utf8')
   assert.match(source, /@page-pattern:\s*list/)

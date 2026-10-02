@@ -1,4 +1,3 @@
-import { handlePmsPurchaseOrdersEvent } from '../../../pms-purchase-orders.ts'
 import { handleWlsAccessoryReceiptsEvent } from '../../../wls-accessory-receipts.ts'
 import { handleLaceHandoverRecordsEvent } from './handover-records.ts'
 import { handleLacePurchaseDemandsEvent } from './purchase-demands.ts'
@@ -11,5 +10,4 @@ export function handleAccessoryFactoryManagementEvent(target: HTMLElement, event
     || handleLaceWorkOrdersEvent(target, event)
     || handleLaceHandoverRecordsEvent(target, event)
     || handleWlsAccessoryReceiptsEvent(target, event)
-    || handlePmsPurchaseOrdersEvent(target, event)
 }

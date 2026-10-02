@@ -157,14 +157,10 @@ function getCurrentHandlerSystem(pathname: string): 'pcs' | 'fcs' | 'pda' | 'pms
   if (pathname.startsWith('/pcs')) return 'pcs'
   if (pathname.startsWith('/fcs/pda')) return 'pda'
   if (pathname.startsWith('/fcs')) return 'fcs'
-  // 花边辅料采购订单仍由 FCS 处理器认领，其余 PMS 路由走 PMS 处理器。
-  if (pathname.startsWith('/pms/') && !isPmsLegacyPurchaseOrderPath(pathname)) return 'pms'
+  if (pathname.startsWith('/pms/')) return 'pms'
   return 'all'
 }
 
-function isPmsLegacyPurchaseOrderPath(pathname: string): boolean {
-  return pathname === '/pms/purchase-order' || pathname.startsWith('/pms/purchase-order/')
-}
 
 const rootNode = document.querySelector('#app')
 

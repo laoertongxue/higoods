@@ -17,7 +17,6 @@ import {
   renderPmsMaterialReconciliationsPage,
   renderPmsMaterialRequirementsPage,
   renderPmsProductPurchaseOrdersPage,
-  renderPmsPurchaseOrderPage,
   renderPmsPurchaseSuggestionsPage,
   renderPmsRolesPage,
   renderPmsSampleSkusPage,
@@ -70,7 +69,6 @@ export const routes: RouteRegistry = {
     '/pms/users': () => renderPmsUsersPage(),
     '/pms/roles': () => renderPmsRolesPage(),
     '/pms/dictionaries': () => renderPmsDictionariesPage(),
-    '/pms/purchase-order': () => renderPmsPurchaseOrderPage(),
   },
   dynamicRoutes: [
     {

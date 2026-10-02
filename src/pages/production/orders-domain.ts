@@ -369,7 +369,6 @@ function getOrderCuttingMaterialLines(order: ProductionOrder, lines: MaterialPre
 function getUpstreamProgressNav(line: MaterialPrepBreakdownLineCheck): string {
   if (line.upstreamSourceType === '印花' || line.upstreamProgressStatus === '印花中') return '/fcs/process/print-orders'
   if (line.upstreamSourceType === '染色' || line.upstreamProgressStatus === '染色中') return '/fcs/process/dye-orders'
-  if (line.upstreamSourceType === '采购' || line.upstreamProgressStatus === '采购中') return '/pms/purchase-order'
   return ''
 }
 

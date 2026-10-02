@@ -234,7 +234,7 @@ assert.equal(
 
 assert.equal(first.masterOrderHref, '/pcs/production-preparation/orders/EM-TEST')
 assert.ok(first.items.every((item) => item.taskHref), '每个准备项必须保留专业任务查看链接')
-assert.equal(first.items.find((item) => item.itemType === '辅料下单')?.purchaseOrderHref, '/pms/purchase-order?purchaseOrderNo=CG-TEST-001')
+assert.equal(first.items.find((item) => item.itemType === '辅料下单')?.purchaseOrderHref, undefined)
 assert.equal(first.techPackHref, '/pcs/production-preparation/tech-pack/EM-TEST-TECH_PACK_CONFIRMATION')
 
 const capabilities = getPreparationRecordCapabilities(first)

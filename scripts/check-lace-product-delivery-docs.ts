@@ -173,7 +173,6 @@ for (const path of [
   'src/pages/process-factory/accessory/lace/work-order-detail.ts',
   'src/pages/process-factory/accessory/lace/handover-records.ts',
   'src/pages/wls-accessory-receipts.ts',
-  'src/pages/pms-purchase-orders.ts',
   'docs/prototype-review-records/2026-08-08-accessory-factory-management.md',
   'docs/prototype-review-records/2026-08-10-accessory-factory-input-simplification.md',
   'tests/lace-factory-input-v15.spec.ts',

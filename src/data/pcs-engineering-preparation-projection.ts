@@ -236,9 +236,7 @@ function createProjectedItem(
     accessoryPurchaseOrderNos: task?.boundPurchaseOrderNos ? [...task.boundPurchaseOrderNos] : [],
     accessoryPurchaseOrderedAts: task?.completedAt ? [task.completedAt] : [],
     accessoryPurchaseUpdatedAt: task?.completedAt || '',
-    purchaseOrderHref: orderNo
-      ? `/pms/purchase-order?purchaseOrderNo=${encodeURIComponent(orderNo)}`
-      : undefined,
+    purchaseOrderHref: undefined,
   }
 }
 
