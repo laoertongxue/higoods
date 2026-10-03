@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
 // 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
@@ -97,15 +98,15 @@ export function handleColorTaskInput(target: Element): boolean {
   return handleTaskUiInput(target, 'color')
 }
 
-export function handleColorTaskEvent(target: HTMLElement): boolean {
+export async function handleColorTaskEvent(target: HTMLElement): Promise<boolean> {
   const uploadRemove = target.closest<HTMLElement>('[data-color-upload-remove]')
   if (uploadRemove) {
     const taskId = uploadRemove.dataset.taskId || ''
-    removeEngineeringTaskUploadedFile({
+    await runPcsRecordCommand(() => removeEngineeringTaskUploadedFile({
       taskId,
       itemId: uploadRemove.dataset.itemId || 'TASK',
       fileId: uploadRemove.dataset.fileId || '',
-    })
+    }))
     refreshTaskUiRegion('color', taskId, renderColorDetailPage)
     return true
   }
@@ -118,6 +119,10 @@ export function handleColorTaskEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', `${uploadPreview.dataset.fileName || '调色成果'}大图`)
     overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-skip-page-rerender="true" data-color-preview-close>关闭</button><img src="${escapeHtml(uploadPreview.dataset.fileUrl || '')}" alt="${escapeHtml(uploadPreview.dataset.fileName || '调色成果大图')}" class="max-h-full max-w-full object-contain">`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-color-preview-close]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -140,14 +145,14 @@ export function handleColorTaskEvent(target: HTMLElement): boolean {
       changeTaskUiPage('color', taskId, Number(node.dataset.page || 1))
     } else if (action === 'confirm-color') {
       const operator = getEngineeringTeamCurrentOperator('跟单')
-      confirmEngineeringColorRequirements({
+      await runPcsRecordCommand(() => confirmEngineeringColorRequirements({
         masterOrderId: master.masterOrderId, taskId, confirmedBy: operator.operatorName,
         requirements: lines.map((line) => ({ materialLineId: line.materialLineId, pantoneColorCode: value(line.materialLineId, 'pantone', line.pantoneColorCode), colorName: value(line.materialLineId, 'colorName', line.colorName), dyeColorCode: value(line.materialLineId, 'dyeCode', line.dyeColorCode) })),
-      })
+      }))
     } else if (action === 'submit-color') {
       const resultLines = lines.filter((line) => line.reviewStatus !== '通过' && (task.status !== '返工中' || line.reviewStatus === '未通过'))
       const operator = getEngineeringTeamCurrentOperator('染厂')
-      submitEngineeringColorResults({
+      await runPcsRecordCommand(() => submitEngineeringColorResults({
         masterOrderId: master.masterOrderId,
         taskId,
         submittedBy: operator.operatorName,
@@ -161,14 +166,14 @@ export function handleColorTaskEvent(target: HTMLElement): boolean {
             effectImageIds: files.filter((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension)).map((file) => file.dataUrl),
           }
         }),
-      })
+      }))
     } else if (action === 'review-color' || action === 'pass-all-color') {
       const pending = lines.filter((line) => line.reviewStatus === '待审核')
       const reviewer = getEngineeringTeamCurrentOperator('买手')
-      reviewEngineeringMaterialResults({
+      await runPcsRecordCommand(() => reviewEngineeringMaterialResults({
         masterOrderId: master.masterOrderId, taskId, reviewerName: reviewer.operatorName, reviewerRole: '买手',
         decisions: pending.map((line) => ({ materialLineId: line.materialLineId, decision: action === 'pass-all-color' ? '通过' : value(line.materialLineId, 'decision') as '通过' | '未通过', reason: action === 'pass-all-color' ? '' : value(line.materialLineId, 'reason') })),
-      })
+      }))
     } else return false
     refreshTaskUiRegion('color', taskId, renderColorDetailPage)
     return true

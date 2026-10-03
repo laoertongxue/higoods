@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { localProductFixtureImageUrl } from '../../../data/pcs-product-archive-fixtures.ts'
 // @page-pattern: list
 import { listPrintingFactoryOptions } from '../../../data/fcs/printing-factories.ts'
@@ -282,9 +283,9 @@ export function refreshPrintingDispatchPage(): void { if (typeof document !== 'u
 function installEvents() {
   if (eventsInstalled || typeof document === 'undefined') return
   eventsInstalled = true
-  document.addEventListener('keydown', event => {
+  document.addEventListener('keydown', async event => {
     if (!(event.target instanceof HTMLElement) || !document.querySelector('[data-printing-dispatch-root]')) return
-    if (event.key === 'Enter' && event.target.matches('[data-dispatch-scan]')) { event.preventDefault(); const scan = document.querySelector<HTMLElement>('[data-printing-dispatch="scan"]'); if (scan) handlePrintingDispatchEvent(scan) }
+    if (event.key === 'Enter' && event.target.matches('[data-dispatch-scan]')) { event.preventDefault(); const scan = document.querySelector<HTMLElement>('[data-printing-dispatch="scan"]'); if (scan) await handlePrintingDispatchEvent(scan) }
     if (event.key === 'Escape' && !document.querySelector('[data-printing-image-preview], [data-printing-dialog-panel]')) {
       event.stopPropagation()
       const print = document.querySelector('[data-dispatch-print-preview]')
@@ -373,7 +374,7 @@ function handleListControls(target: HTMLElement): boolean {
   if (action === 'restore-column-settings') { ctrl.restorePreferences(); ctrl.refresh({ overlays: true }); return true }
   return false
 }
-export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
+export async function handlePrintingDispatchEvent(target: HTMLElement): Promise<boolean> {
   if (!target.closest('[data-printing-dispatch-root]')) return false
   if (target.matches('[data-dispatch-roll]')) {
     const input = target as HTMLInputElement
@@ -429,12 +430,21 @@ export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
       const created: string[] = []
       try {
         for (const group of groups) {
-          created.push(createPrintingDispatch(group.lines, operator, mergeId))
+          created.push(await runDesignRevisionFcsCommand(group.lines, () => createPrintingDispatch(group.lines, operator, mergeId)))
           group.lines.forEach(line => line.barcodeIds.forEach(rollId => selected.delete(keyOf(line.workOrderId, rollId))))
         }
       } catch (error) {
-        preview = null; feedback = created.length ? `已生成 ${created.join('、')}；其余分组未生成，请核对后重试。` : ''
-        refresh(); throw error
+        // 未提交的分组和原输入保留，重试不重新创建已成功的分组。
+        if (created.length) {
+          preview.groups = groupPrintingDispatchSelection(selected)
+          feedback = `已生成 ${created.join('、')}；其余分组未生成，请核对后重试。`
+          refresh()
+          const creator = document.querySelector<HTMLInputElement>('[data-dispatch-creator]')
+          if (creator) creator.value = operator
+          const merge = document.querySelector<HTMLSelectElement>('[data-dispatch-merge]')
+          if (merge && mergeId) merge.value = mergeId
+        }
+        throw error
       }
       preview = null; activeId = created[0] || ''; detailPage = 1; feedback = `${mergeId ? '已合入草稿' : '已生成交出草稿'}：${created.join('、')}。实物尚未交出。`
     } else if (action === 'detail') { if (!allDocuments().some(doc => doc.id === id)) throw new Error('未找到交出单'); activeId = id; detailPage = 1; preview = null; refreshOverlay(); return true }
@@ -444,7 +454,7 @@ export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
       const input = document.querySelector<HTMLInputElement>('[data-dispatch-scan]')
       const operator = document.querySelector<HTMLInputElement>('[data-dispatch-operator]')?.value.trim() || ''
       if (!input?.value.trim()) throw new Error('请扫描或输入本单卷码')
-      scanPrintingDispatchRoll(id, input.value.trim(), operator)
+      await runDesignRevisionFcsCommand(id, () => scanPrintingDispatchRoll(id, input.value.trim(), operator))
       refreshOverlay()
       const nextOperator = document.querySelector<HTMLInputElement>('[data-dispatch-operator]'); if (nextOperator) nextOperator.value = operator
       document.querySelector<HTMLInputElement>('[data-dispatch-scan]')?.focus()
@@ -456,7 +466,7 @@ export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
       if (!doc || printingDispatchProgress(doc) !== '工厂扫齐待交接') throw new Error('请先完成本单全部卷码核对')
       if (!operator) throw new Error('请填写实际交出人')
       if (!window.confirm(`确认 ${doc.id} 的 ${getPrintingDispatchLines(doc).length} 卷已实际交给 ${getPrintingDispatchLines(doc)[0]?.order.receivingTargetName || '接收方'}？确认后本厂扣减本次产出，下游等待实收。`)) return true
-      confirmPrintingDispatch(id, operator); feedback = '实际交出已记录，等待下游接收。'
+      await runDesignRevisionFcsCommand(id, () => confirmPrintingDispatch(id, operator)); feedback = '实际交出已记录，等待下游接收。'
     } else if(action==='receive-record'){
       const doc=allDocuments().find(item=>item.id===activeId)
       const record=doc&&getPrintingDispatchReceiptSummary(doc).records.find(r=>(r!.handoverRecordId||r!.recordId)===id)
@@ -465,7 +475,7 @@ export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
       const value=(key:string)=>form?.querySelector<HTMLInputElement>(`[data-downstream-${key}]`)?.value.trim()||''
       if(!record||!order||!value('qty')||!value('person'))throw new Error('请填写明确实收数量与接收人，未收到填 0；空白不能保存。')
       if(!window.confirm(`接收人 ${value('person')} 确认本记录累计实收 ${value('qty')} ${record.qtyUnit}？此动作只记录下游实收。`))return true
-      receivePrintingHandover(order.workOrderId,{handoverRecordId:id,receivedQty:Number(value('qty')),receiverName:value('person'),differenceReason:value('reason')})
+      await runDesignRevisionFcsCommand(order.workOrderId, () => receivePrintingHandover(order.workOrderId,{handoverRecordId:id,receivedQty:Number(value('qty')),receiverName:value('person'),differenceReason:value('reason')}))
       feedback='下游实收已保存，本厂交出数量保持不变。'
     } else if (action === 'remove-roll') {
       const [orderId, rollId] = id.split('|')
@@ -475,14 +485,14 @@ export function handlePrintingDispatchEvent(target: HTMLElement): boolean {
       const operator = document.querySelector<HTMLInputElement>('[data-dispatch-operator]')?.value.trim() || ''
       if (!operator) throw new Error('请填写操作人')
       if (!window.confirm(`从 ${doc.id} 移除 ${line.roll.barcode}（${quantity(line.roll.lengthY)} ${line.order.output.qtyUnit}）并释放占用？其余卷明细需重新核对；旧核对记录保留。`)) return true
-      removePrintingDispatchRoll(doc.id, orderId, rollId, operator); feedback = '卷明细已移除并释放占用，请核对当前单据。'
+      await runDesignRevisionFcsCommand(doc.id, () => removePrintingDispatchRoll(doc.id, orderId, rollId, operator)); feedback = '卷明细已移除并释放占用，请核对当前单据。'
     } else if (action === 'void') {
       const doc = allDocuments().find(item => item.id === id)
       const operator = document.querySelector<HTMLInputElement>('[data-dispatch-operator]')?.value.trim() || ''
       if (!doc || doc.status !== '草稿') throw new Error('只能作废尚未实际交出的草稿')
       if (!operator) throw new Error('请填写操作人')
       if (!window.confirm(`作废 ${id} 并释放 ${getPrintingDispatchLines(doc).length} 卷产出占用？保留原单据与操作记录，实物库存不变。`)) return true
-      voidPrintingDispatch(id, operator); feedback = '交出草稿已作废，产出占用已释放。'
+      await runDesignRevisionFcsCommand(id, () => voidPrintingDispatch(id, operator)); feedback = '交出草稿已作废，产出占用已释放。'
     } else return false
     refresh()
   } catch (error) { showError(error) }

@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 // 工程专业任务公共读取、办理入口与渲染。
 // 数据源为生产准备单任务记录；公共区只负责开始任务，专业成果仍由各专业页面维护。
 
@@ -223,17 +224,17 @@ export function renderTaskWorkbenchHeader(
   </section>`
 }
 
-export function startEngineeringTaskFromDetail(taskId: string): void {
+export async function startEngineeringTaskFromDetail(taskId: string): Promise<void> {
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail) throw new Error('未找到工程任务。')
   const { task, master } = detail
   const operator = getEngineeringTeamCurrentOperator(task.ownerTeamName)
-  startEngineeringTask({
+  await runPcsRecordCommand(() => startEngineeringTask({
     masterOrderId: master.masterOrderId,
     taskId,
     operatorId: operator.operatorId,
     operatorName: operator.operatorName,
-  })
+  }))
 }
 
 // 当前需处理团队下拉选项（按当前数据去重）。

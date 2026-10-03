@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { localDateTimeText } from '../../utils.ts'
 import { prepareMaterialRequestDraftsForOrder } from '../../data/fcs/material-request-drafts.ts'
 import { completeProductionOrderManually } from '../../data/fcs/production-orders.ts'
@@ -1826,9 +1827,9 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     return true
   }
 
-  if (action === 'close-tech-pack-publish-guide') {
+  if (action === 'close-tech-pack-publish-guide') return (async () => {
     if (state.techPackChangePublishGuideBatchId) {
-      markProductionTechPackPublishEvaluationEntered(state.techPackChangePublishGuideBatchId, currentUser.name)
+      await runPcsRecordCommand(() => markProductionTechPackPublishEvaluationEntered(state.techPackChangePublishGuideBatchId, currentUser.name))
     }
     state.techPackChangePublishGuideOpen = false
     state.techPackChangePublishGuideBatchId = ''
@@ -1836,11 +1837,11 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     showPlanMessage('已进入生产单变更')
     openAppRoute('/fcs/production/changes')
     return true
-  }
+  })()
 
-  if (action === 'generate-tech-pack-evaluation-todo') {
+  if (action === 'generate-tech-pack-evaluation-todo') return (async () => {
     if (state.techPackChangePublishGuideBatchId) {
-      markProductionTechPackPublishEvaluationTodo(state.techPackChangePublishGuideBatchId, currentUser.name)
+      await runPcsRecordCommand(() => markProductionTechPackPublishEvaluationTodo(state.techPackChangePublishGuideBatchId, currentUser.name))
     }
     state.techPackChangePublishGuideOpen = false
     state.techPackChangePublishGuideBatchId = ''
@@ -1848,19 +1849,19 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     showPlanMessage('生产单评估待办已生成')
     openAppRoute('/fcs/production/changes')
     return true
-  }
+  })()
 
-  if (action === 'mark-tech-pack-publish-ignore') {
+  if (action === 'mark-tech-pack-publish-ignore') return (async () => {
     if (!state.techPackChangePublishIgnoreReason) {
       showPlanMessage('请选择本次不处理原因', 'error')
       return true
     }
     if (state.techPackChangePublishGuideBatchId) {
-      ignoreProductionTechPackPublishEvaluationBatch(
+      await runPcsRecordCommand(() => ignoreProductionTechPackPublishEvaluationBatch(
         state.techPackChangePublishGuideBatchId,
         state.techPackChangePublishIgnoreReason,
         currentUser.name,
-      )
+      ))
     }
     state.techPackChangePublishGuideOpen = false
     state.techPackChangePublishGuideBatchId = ''
@@ -1868,7 +1869,7 @@ export function handleProductionEvent(target: HTMLElement, event?: Event): boole
     state.techPackChangePublishIgnoreReason = ''
     openAppRoute('/fcs/production/changes')
     return true
-  }
+  })()
 
   if (action === 'refresh-tech-pack-change-status') {
     showPlanMessage('版本状态已刷新')

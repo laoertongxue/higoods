@@ -7,12 +7,12 @@ const VIDEO_TESTING_STORE_VERSION = 1
 let memorySnapshot: VideoTestingStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return (
+  try { return (
     typeof localStorage !== 'undefined' &&
     typeof localStorage.getItem === 'function' &&
     typeof localStorage.setItem === 'function' &&
     typeof localStorage.removeItem === 'function'
-  )
+  ) } catch { return false }
 }
 
 function cloneRecord(record: VideoTestRecord): VideoTestRecord {
@@ -253,7 +253,6 @@ function loadSnapshot(): VideoTestingStoreSnapshot {
     const raw = localStorage.getItem(VIDEO_TESTING_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = buildSeedSnapshot()
-      localStorage.setItem(VIDEO_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<VideoTestingStoreSnapshot>
@@ -261,13 +260,9 @@ function loadSnapshot(): VideoTestingStoreSnapshot {
       version: VIDEO_TESTING_STORE_VERSION,
       records: Array.isArray(parsed.records) ? parsed.records as VideoTestRecord[] : buildSeedSnapshot().records,
     })
-    localStorage.setItem(VIDEO_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
     memorySnapshot = buildSeedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(VIDEO_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
     return cloneSnapshot(memorySnapshot)
   }
 }

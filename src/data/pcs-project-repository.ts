@@ -101,12 +101,12 @@ function formatDateKey(dateText: string): string {
 }
 
 function canUseStorage(): boolean {
-  return (
+  try { return (
     typeof localStorage !== 'undefined' &&
     typeof localStorage.getItem === 'function' &&
     typeof localStorage.setItem === 'function' &&
     typeof localStorage.removeItem === 'function'
-  )
+  ) } catch { return false }
 }
 
 const PROJECT_RECORD_FIELD_KEYS = [
@@ -838,7 +838,8 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
 
   const raw = canUseStorage() ? localStorage.getItem(PROJECT_STORAGE_KEY) : null
   if (!raw) {
-    return commitSnapshot(seedSnapshot())
+    memorySnapshot = seedSnapshot()
+    return cloneSnapshot(memorySnapshot)
   }
 
   const parsed = JSON.parse(raw) as Partial<PcsProjectStoreSnapshot>
@@ -846,12 +847,13 @@ function loadSnapshot(): PcsProjectStoreSnapshot {
     throw new Error('商品项目本地快照结构无效，已保留原始数据。')
   }
 
-  return commitSnapshot({
+  memorySnapshot = {
       version: typeof parsed.version === 'number' ? parsed.version : 0,
-      projects: parsed.projects as PcsProjectRecord[],
-      phases: parsed.phases as PcsProjectPhaseRecord[],
-      nodes: parsed.nodes as PcsProjectNodeRecord[],
-  })
+      projects: (parsed.projects as PcsProjectRecord[]).map(normalizeProject),
+      phases: (parsed.phases as PcsProjectPhaseRecord[]).map(normalizePhase),
+      nodes: (parsed.nodes as PcsProjectNodeRecord[]).map(normalizeNode),
+  }
+  return cloneSnapshot(memorySnapshot)
 }
 
 function persistSnapshot(snapshot: PcsProjectStoreSnapshot): void {
@@ -1336,18 +1338,18 @@ export function getProjectStoreSnapshot(): PcsProjectStoreSnapshot {
 }
 
 export function listProjects(): PcsProjectViewRecord[] {
-  const snapshot = readSnapshot()
+  const snapshot = memorySnapshot ?? readSnapshot()
   return sortProjects(snapshot.projects.map((project) => buildProjectViewRecord(project, snapshot)))
 }
 
 export function getProjectById(projectId: string): PcsProjectViewRecord | null {
-  const snapshot = readSnapshot()
+  const snapshot = memorySnapshot ?? readSnapshot()
   const project = snapshot.projects.find((item) => item.projectId === projectId)
   return project ? buildProjectViewRecord(project, snapshot) : null
 }
 
 export function getProjectIdentityById(projectId: string): ProjectIdentityRef | null {
-  const project = getProjectById(projectId)
+  const project = (memorySnapshot ?? readSnapshot()).projects.find(item => item.projectId === projectId)
   if (!project) return null
   return {
     projectId: project.projectId,
@@ -1357,13 +1359,13 @@ export function getProjectIdentityById(projectId: string): ProjectIdentityRef | 
 }
 
 export function findProjectByCode(projectCode: string): PcsProjectViewRecord | null {
-  const snapshot = readSnapshot()
+  const snapshot = memorySnapshot ?? readSnapshot()
   const project = snapshot.projects.find((item) => item.projectCode === projectCode)
   return project ? buildProjectViewRecord(project, snapshot) : null
 }
 
 export function listProjectPhases(projectId: string): PcsProjectPhaseRecord[] {
-  return readSnapshot()
+  return (memorySnapshot ?? readSnapshot())
     .phases
     .filter((item) => item.projectId === projectId)
     .sort((a, b) => a.phaseOrder - b.phaseOrder)
@@ -1371,7 +1373,7 @@ export function listProjectPhases(projectId: string): PcsProjectPhaseRecord[] {
 }
 
 export function listProjectNodes(projectId: string): PcsProjectNodeRecord[] {
-  return readSnapshot()
+  return (memorySnapshot ?? readSnapshot())
     .nodes
     .filter((item) => item.projectId === projectId)
     .sort((a, b) => {
@@ -1382,7 +1384,7 @@ export function listProjectNodes(projectId: string): PcsProjectNodeRecord[] {
 }
 
 export function getProjectNodeSequenceBlocker(projectId: string, projectNodeId: string): PcsProjectNodeRecord | null {
-  const blocker = getProjectNodeSequenceBlockerFromSnapshot(readSnapshot(), projectId, projectNodeId)
+  const blocker = getProjectNodeSequenceBlockerFromSnapshot((memorySnapshot ?? readSnapshot()), projectId, projectNodeId)
   return blocker ? cloneNode(blocker) : null
 }
 
@@ -1422,7 +1424,7 @@ export function repairAllProjectNodeSequences(
 }
 
 export function findProjectNodeById(projectId: string, projectNodeId: string): ProjectNodeIdentityRef | null {
-  const node = readSnapshot().nodes.find((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
+  const node = (memorySnapshot ?? readSnapshot()).nodes.find((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
   if (!node) return null
   return {
     projectNodeId: node.projectNodeId,
@@ -1436,12 +1438,12 @@ export function findProjectNodeById(projectId: string, projectNodeId: string): P
 }
 
 export function getProjectNodeRecordById(projectId: string, projectNodeId: string): PcsProjectNodeRecord | null {
-  const node = readSnapshot().nodes.find((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
+  const node = (memorySnapshot ?? readSnapshot()).nodes.find((item) => item.projectId === projectId && item.projectNodeId === projectNodeId)
   return node ? cloneNode(node) : null
 }
 
 export function findProjectNodeByStepCode(projectId: string, stepCode: string): ProjectNodeIdentityRef | null {
-  const node = readSnapshot()
+  const node = (memorySnapshot ?? readSnapshot())
     .nodes
     .filter((item) => item.projectId === projectId && item.stepCode === stepCode)
     .sort((a, b) => a.sequenceNo - b.sequenceNo)[0]
@@ -1461,7 +1463,7 @@ export function getProjectNodeRecordByStepCode(
   projectId: string,
   stepCode: string,
 ): PcsProjectNodeRecord | null {
-  const node = readSnapshot()
+  const node = (memorySnapshot ?? readSnapshot())
     .nodes
     .filter((item) => item.projectId === projectId && item.stepCode === stepCode)
     .sort((a, b) => a.sequenceNo - b.sequenceNo)[0]

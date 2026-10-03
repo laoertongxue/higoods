@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
 // 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
@@ -63,7 +64,7 @@ function renderResultEditor(taskId: string, status: string, taskType: string): s
       <label class="text-sm text-slate-600 md:col-span-2">成果说明<textarea class="mt-1 min-h-20 w-full rounded-md border border-slate-200 px-3 py-2" data-plate-field="note" data-task-id="${escapeHtml(taskId)}">${escapeHtml(draftValue(taskId, 'note'))}</textarea></label>
       </div>
     </div>
-    <div class="flex justify-end border-t border-slate-100 px-5 py-4"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-plate-action="submit-result" data-task-id="${escapeHtml(taskId)}">${replaceMode ? '保存新版本' : '提交并完成任务'}</button></div>
+    <div class="flex justify-end border-t border-slate-100 px-5 py-4"><button type="button" class="h-10 rounded-md bg-blue-600 px-4 text-sm font-medium text-white" data-skip-page-rerender="true" data-plate-action="submit-result" data-task-id="${escapeHtml(taskId)}">${replaceMode ? '保存新版本' : '提交并完成任务'}</button></div>
   </section>`
 }
 
@@ -106,11 +107,11 @@ function split(value: string): string[] {
   return value.split(/[,，\n]/).map((item) => item.trim()).filter(Boolean)
 }
 
-export function handlePlateMakingTaskEvent(target: HTMLElement): boolean {
+export async function handlePlateMakingTaskEvent(target: HTMLElement): Promise<boolean> {
   const uploadRemove = target.closest<HTMLElement>('[data-plate-upload-remove]')
   if (uploadRemove) {
     const taskId = uploadRemove.dataset.taskId || ''
-    removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' })
+    await runPcsRecordCommand(() => removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' }))
     const host = document.querySelector<HTMLElement>(`[data-plate-detail="${CSS.escape(taskId)}"]`)
     if (host) host.outerHTML = renderPcsPlateMakingTaskDetailPage(taskId)
     return true
@@ -124,6 +125,10 @@ export function handlePlateMakingTaskEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', `${uploadPreview.dataset.fileName || '纸样预览图'}大图`)
     overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-plate-action="close-preview">关闭</button><img src="${escapeHtml(uploadPreview.dataset.fileUrl || '')}" alt="${escapeHtml(uploadPreview.dataset.fileName || '纸样大图')}" class="max-h-full max-w-full object-contain">`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-plate-action="close-preview"]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -137,6 +142,10 @@ export function handlePlateMakingTaskEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', `${node.dataset.imageAlt || '纸样预览图'}大图`)
     overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-plate-action="close-preview">关闭</button><img src="${escapeHtml(node.dataset.imageUrl || '')}" alt="${escapeHtml(node.dataset.imageAlt || '纸样大图')}" class="max-h-full max-w-full object-contain">`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-plate-action="close-preview"]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -159,7 +168,7 @@ export function handlePlateMakingTaskEvent(target: HTMLElement): boolean {
     if (!sourceFiles.some((file) => file.extension === 'prj')) throw new Error('纸样源文件必须包含 .prj 文件。')
     if (!isFullSizePattern && !previewFiles.some((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension))) throw new Error('纸样预览必须包含真实图片。')
     const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
-    submitEngineeringPatternResult({
+    await runPcsRecordCommand(() => submitEngineeringPatternResult({
       masterOrderId: detail.master.masterOrderId,
       taskId,
       applicableSizes: isFullSizePattern ? [] : split(current.sizes || ''),
@@ -167,7 +176,7 @@ export function handlePlateMakingTaskEvent(target: HTMLElement): boolean {
       previewFiles,
       note: current.note || '',
       submittedBy: operator.operatorName,
-    })
+    }))
     drafts.delete(taskId)
     const host = document.querySelector<HTMLElement>(`[data-plate-detail="${CSS.escape(taskId)}"]`)
     if (host) host.outerHTML = renderPcsPlateMakingTaskDetailPage(taskId)

@@ -3,6 +3,8 @@ import {
   cancelProductionDemandDyeWorkOrder,
   linkProductionDemandDyeReplacement,
   listDyeWorkOrders,
+  captureDyeProductionCreationState,
+  restoreDyeProductionCreationState,
   runDyeProcessMutation,
   prepareProductionDemandDyeMatch,
   type DyeWorkOrder,
@@ -11,6 +13,8 @@ import {
   cancelProductionDemandPrintWorkOrder,
   linkProductionDemandPrintReplacement,
   listPrintWorkOrders,
+  capturePrintProductionCreationState,
+  restorePrintProductionCreationState,
   runPrintProcessMutation,
   prepareProductionDemandPrintMatch,
   type PrintWorkOrder,
@@ -25,6 +29,7 @@ import type {
   ProductionDemandProcessMatchDecision,
   ProductionDemandProcessMatchStatus,
 } from './process-work-order-domain.ts'
+import { withProductionCreationSourceStage } from './production-created-process-sources.ts'
 
 export type EarlyProcessCode = 'DYE' | 'PRINT'
 
@@ -354,10 +359,13 @@ export function ensureProductionDemandEarlyProcessAcceptanceData(onlyProcessCode
   for (const processCode of onlyProcessCode ? [onlyProcessCode] : ['DYE', 'PRINT'] as const) {
     if (acceptanceDataEnsured.has(processCode)) continue
     const replacementByScenario = new Map<string, string>()
-    // Each process fixture is one batch. A dyeing list initializes dyeing
-    // examples only; printing examples are initialized when printing is used.
-    const mutate = processCode === 'DYE' ? runDyeProcessMutation : runPrintProcessMutation
-    mutate(() => {
+    // 列表只在内存补齐静态演示场景，不把打开页面当作业务保存。
+    // 先读取既有来源，避免初始化阶段遮住已经保存的真实覆盖记录。
+    listEarlyOrders(processCode)
+    const rollback = processCode === 'DYE'
+      ? (() => { const before = captureDyeProductionCreationState(); return () => restoreDyeProductionCreationState(before) })()
+      : (() => { const before = capturePrintProductionCreationState(); return () => restorePrintProductionCreationState(before) })()
+    try { withProductionCreationSourceStage(() => {
     for (const row of EARLY_PROCESS_ACCEPTANCE_ROWS.filter(item => item.processCode === processCode)) {
       const demand = demandById(row.productionDemandId)
       const candidate = candidateFor(demand, row.processCode)
@@ -396,7 +404,7 @@ export function ensureProductionDemandEarlyProcessAcceptanceData(onlyProcessCode
       }, `2026-09-16 ${row.processCode === 'DYE' ? '09' : '10'}:${row.scenarioId.slice(-2)}:00`)
       applyAcceptanceState(row, result, replacementByScenario)
     }
-    })
+    }) } catch (error) { rollback(); throw error }
     acceptanceDataEnsured.add(processCode)
   }
 }

@@ -17,6 +17,12 @@ import {
 type PrintAdapter = Pick<typeof import('../../data/fcs/print-template-registry.ts'), 'buildPrintDocument' | 'renderPrintDocument'>
 /** 部位票和中转袋标签只加载对应模板，避免初始化无关生产确认业务。 */
 async function loadPrintAdapter(documentType: PrintDocumentType): Promise<PrintAdapter> {
+  if (documentType === 'PRINTING_ROLL_LABEL') {
+    const { ensurePcsRecordState } = await import('../../data/pcs-record-runtime.ts')
+    await ensurePcsRecordState()
+    const labels = await import('./templates/printing-work-order-template.ts')
+    return { buildPrintDocument: labels.buildPrintingRollLabelDocument, renderPrintDocument: labels.renderPrintingRollLabelDocument }
+  }
   if (documentType === 'FEI_TICKET_LABEL' || documentType === 'FEI_TICKET_REPRINT_LABEL'
     || documentType === 'TRANSFER_BAG_LABEL' || documentType === 'TRANSFER_BAG_GOODS_LABEL') {
     const labels = await import('./templates/label-print-template.ts')

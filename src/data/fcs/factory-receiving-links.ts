@@ -28,8 +28,11 @@ export function confirmFactoryMaterialReceipt(input:FactoryReceiptInput){
  if(session&&session.factoryId!==input.factoryId)throw new Error('当前操作人只能接收本厂来货，请核对登录工厂。')
  const receipt=prepareFactoryReceipt(input)
  if(listFactoryReceipts(input.factoryId).some(saved=>saved.id===receipt.id))return receipt
- const store=readWoolStore()
+ // Only wool receipts need the wool domain. Initializing its demo facts inside
+ // a PCS receipt transaction would persist the wool marker without its receipts.
  for(const line of receipt.lines){
+  if(line.material.kind!=='WOOL_PIECE'&&!line.woolOrderId)continue
+  const store=readWoolStore()
   if(line.material.kind==='WOOL_PIECE'){
    const source=getFactoryReceivingSource(line.sourceId)!
    if(line.woolOrderId&&store.completions.some(completion=>completion.woolOrderId===line.woolOrderId))throw new Error('该加工单已经完单，不能继续接收。')

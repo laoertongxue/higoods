@@ -79,7 +79,7 @@ const MATERIAL_UNIT_DEFAULTS: Record<MaterialArchiveKind, { mainUnit: string; au
 let memorySnapshot: MaterialArchiveStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  try { return typeof localStorage !== 'undefined' } catch { return false }
 }
 
 function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
@@ -1023,13 +1023,11 @@ function loadSnapshot(): MaterialArchiveStoreSnapshot {
     const raw = localStorage.getItem(MATERIAL_ARCHIVE_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = buildSeedSnapshot()
-      localStorage.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<MaterialArchiveStoreSnapshot>
     if (!Array.isArray(parsed.records) || !Array.isArray(parsed.skuRecords)) {
       memorySnapshot = buildSeedSnapshot()
-      localStorage.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
     memorySnapshot = hydrateSnapshot({
@@ -1039,13 +1037,9 @@ function loadSnapshot(): MaterialArchiveStoreSnapshot {
       usageRecords: (parsed.usageRecords || []) as MaterialUsageRecord[],
       logRecords: (parsed.logRecords || []) as MaterialLogRecord[],
     })
-    localStorage.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
     memorySnapshot = buildSeedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
     return cloneSnapshot(memorySnapshot)
   }
 }
@@ -1135,23 +1129,23 @@ export function getMaterialSkuSpecMeta(kind: MaterialArchiveKind): {
 }
 
 export function listMaterialArchives(kind?: MaterialArchiveKind): MaterialArchiveRecord[] {
-  return loadSnapshot().records
+  return (memorySnapshot ?? loadSnapshot()).records
     .filter((item) => !kind || item.kind === kind)
     .map(cloneRecord)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export function getMaterialArchiveById(materialId: string): MaterialArchiveRecord | null {
-  const record = loadSnapshot().records.find((item) => item.materialId === materialId)
+  const record = (memorySnapshot ?? loadSnapshot()).records.find((item) => item.materialId === materialId)
   return record ? cloneRecord(record) : null
 }
 
 export function listMaterialSkuRecordsByMaterialId(materialId: string): MaterialSkuRecord[] {
-  return loadSnapshot().skuRecords.filter((item) => item.materialId === materialId).map(cloneSkuRecord)
+  return (memorySnapshot ?? loadSnapshot()).skuRecords.filter((item) => item.materialId === materialId).map(cloneSkuRecord)
 }
 
 export function getMaterialSkuRecordById(materialSkuId: string): MaterialSkuRecord | null {
-  const record = loadSnapshot().skuRecords.find((item) => item.materialSkuId === materialSkuId)
+  const record = (memorySnapshot ?? loadSnapshot()).skuRecords.find((item) => item.materialSkuId === materialSkuId)
   return record ? cloneSkuRecord(record) : null
 }
 

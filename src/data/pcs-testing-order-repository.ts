@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { createStyleArchiveDirect, getStyleArchiveById, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { applyArchiveWriteback } from './pcs-archive-writeback-contract.ts'
 import { createTestingOrderChannelProducts, listProjectChannelProducts } from './pcs-channel-product-project-repository.ts'
@@ -133,11 +134,7 @@ function ensureTestingOrders(): void {
 const STORAGE_KEY = 'higood-pcs-testing-orders-v1'
 
 function persistStore(): void {
-  try {
-    if (typeof localStorage !== 'undefined') localStorage.setItem(STORAGE_KEY, JSON.stringify([...store.values()]))
-  } catch {
-    // 浏览器禁用存储时仍可继续当前会话的原型演示。
-  }
+  pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify([...store.values()]))
 }
 
 function buildSteps(doneUntil: TestingOrderStepKey): TestingOrderStep[] {
@@ -551,7 +548,7 @@ export function resetTestingOrderRepository(): void {
   store.clear()
   seq = 0
   try {
-    if (typeof localStorage !== 'undefined') localStorage.removeItem(STORAGE_KEY)
+    if (typeof pcsRecordStore !== 'undefined') pcsRecordStore.removeItem(STORAGE_KEY)
   } catch {
     // 测试环境可能没有浏览器存储。
   }
@@ -637,16 +634,13 @@ function seed(
 export function bootstrapTestingOrders(): void {
   initialized = true
   if (store.size > 0) return
-  let saved: TestingOrderRecord[] = []
-  try {
-    if (typeof localStorage !== 'undefined') {
-      const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
-      if (Array.isArray(parsed)) saved = parsed.filter((item): item is TestingOrderRecord =>
-        Boolean(item && typeof item.testingOrderId === 'string' && typeof item.orderCode === 'string'),
-      )
-    }
-  } catch {
-    // 损坏的本地演示数据回退到种子数据。
+  const raw = pcsRecordStore.getItem(STORAGE_KEY)
+  if (raw !== null) {
+    const saved: unknown = JSON.parse(raw)
+    if (!Array.isArray(saved) || saved.some(item => !item || typeof item.testingOrderId !== 'string' || typeof item.orderCode !== 'string')) throw new Error('测款记录格式不完整，原数据已保留。')
+    saved.forEach(item => store.set(item.testingOrderId, { ...item, buyerName: item.buyerName?.trim() || '待分配', styleImageUrl: localizeProductFixtureImageUrl(item.styleImageUrl || '') }))
+    seq = Math.max(0, ...saved.map(item => Number(item.orderCode.match(/^TO-(\d+)$/)?.[1] || 0)))
+    return
   }
   const styles = listStyleArchives()
   // 演示单绑定固定商品，不随档案修改时间或列表排序变化。
@@ -772,10 +766,7 @@ export function bootstrapTestingOrders(): void {
     })
     record.orderCode = 'TO-0005'
   }
-  saved.forEach((item) => store.set(item.testingOrderId, {
-    ...item,
-    buyerName: item.buyerName?.trim() || '待分配',
-    styleImageUrl: localizeProductFixtureImageUrl(item.styleImageUrl || ''),
-  }))
   seq = Math.max(seq, ...[...store.values()].map((item) => Number(item.orderCode.match(/^TO-(\d+)$/)?.[1] || 0)))
 }
+
+registerPcsRepositoryReset(() => { store.clear(); initialized = false; seq = 0 })

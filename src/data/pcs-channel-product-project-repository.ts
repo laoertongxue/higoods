@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import {
   findProjectByCode,
   getChannelNamesByCodes,
@@ -277,10 +278,10 @@ let demoStateApplied = false
 
 function canUseStorage(): boolean {
   return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
+    typeof pcsRecordStore !== 'undefined' &&
+    typeof pcsRecordStore.getItem === 'function' &&
+    typeof pcsRecordStore.setItem === 'function' &&
+    typeof pcsRecordStore.removeItem === 'function'
   )
 }
 
@@ -1388,27 +1389,27 @@ function hydrateSnapshot(snapshot: ChannelProductStoreSnapshot): ChannelProductS
 function loadSnapshot(): ChannelProductStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = pcsRecordStore.getItem(STORAGE_KEY)
     if (!raw) {
-      memorySnapshot = seedSnapshot()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+      memorySnapshot = withPcsDemoData(() => seedSnapshot())
+
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<ChannelProductStoreSnapshot>
     memorySnapshot = hydrateSnapshot({
       version: STORE_VERSION,
-      records: Array.isArray(parsed.records) ? (parsed.records as ProjectChannelProductRecord[]) : seedSnapshot().records,
+      records: Array.isArray(parsed.records) ? (parsed.records as ProjectChannelProductRecord[]) : withPcsDemoData(() => seedSnapshot()).records,
     })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+
     return cloneSnapshot(memorySnapshot)
   } catch {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     if (canUseStorage()) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+
     }
     return cloneSnapshot(memorySnapshot)
   }
@@ -1417,7 +1418,7 @@ function loadSnapshot(): ChannelProductStoreSnapshot {
 function persistSnapshot(snapshot: ChannelProductStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+    pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
   }
 }
 
@@ -3562,10 +3563,12 @@ export function syncProjectChannelProductAfterTechPackActivation(
 
 export function resetProjectChannelProductRepository(): void {
   demoStateApplied = false
-  const snapshot = seedSnapshot()
+  const snapshot = withPcsDemoData(() => seedSnapshot())
   persistSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+    pcsRecordStore.removeItem(STORAGE_KEY)
+    pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

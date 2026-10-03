@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { appStore } from '../../../state/store'
 import {
   canContinueDyeWaterSoluble,
@@ -11,7 +12,7 @@ import { getPdaSession } from '../../../data/fcs/store-domain-pda.ts'
 import { validateWaterSolublePdaActor, type WaterSolublePdaRoleAction } from '../../../data/fcs/water-soluble-pda-actor.ts'
 import { executeProcessWebAction } from '../../../data/fcs/process-web-status-actions.ts'
 import {
-  handleProcessWebStatusActionDialogEvent,
+  handlePersistedProcessWebStatusActionDialogEvent,
   openProcessWebStatusActionDialog,
 } from '../shared/web-status-action-dialog.ts'
 import { handleDyeWorkOrderListEvent } from './work-orders.ts'
@@ -72,11 +73,11 @@ let activeDyeWaterConfirmation: null | {
   actorLoginId: string
 } = null
 
-function executeConfirmedDyeWaterAction(
+async function executeConfirmedDyeWaterAction(
   actionNode: HTMLElement,
   action: 'START' | 'COMPLETE' | 'RESOLVE_PAUSE',
   values: { outputQty?: number; reason?: string; decision?: DyeWaterSolublePauseDecision } = {},
-): void {
+): Promise<void> {
   const dyeOrderId = actionNode.dataset.dyeOrderId || ''
   const order = getDyeWorkOrderById(dyeOrderId)
   const session = getPdaSession()
@@ -143,20 +144,20 @@ function executeConfirmedDyeWaterAction(
     actor: currentSession,
   }
   const result = action === 'START'
-    ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: current.status })
+    ? await runDesignRevisionFcsCommand({ action, ...common, expectedStatus: current.status }, () => executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: current.status }))
     : action === 'COMPLETE' && values.outputQty !== undefined && values.reason !== undefined
-      ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', outputQty: values.outputQty, reason: values.reason })
+      ? await runDesignRevisionFcsCommand({ action, ...common, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', outputQty: values.outputQty!, reason: values.reason! }, () => executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', outputQty: values.outputQty!, reason: values.reason! }))
       : action === 'RESOLVE_PAUSE' && values.decision !== undefined
-        ? executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'PRODUCTION_PAUSED', decision: values.decision })
+        ? await runDesignRevisionFcsCommand({ action, ...common, expectedStatus: 'PRODUCTION_PAUSED', decision: values.decision! }, () => executeDyeWaterSolublePdaAction({ action, ...common, expectedStatus: 'PRODUCTION_PAUSED', decision: values.decision! }))
         : { ok: false, message: '当前操作参数不完整，请重新操作。' }
   showDyeingToast(result.ok ? (action === 'START' ? '已开始水溶' : action === 'COMPLETE' ? (result.order?.status === 'PRODUCTION_PAUSED' ? '数量不足，已交主管处理' : '水溶完成，可继续染色') : '主管处理已记录') : result.message)
   if (result.ok) refreshCurrentDyeingPage()
 }
 
-export function handleCraftDyeingEvent(target: HTMLElement): boolean {
-  if (handleDyeWorkOrderListEvent(target)) return true
-  if (handleDyeWorkOrderReceiptDetailEvent(target)) return true
-  const dialogHandled = handleProcessWebStatusActionDialogEvent(target, {
+export async function handleCraftDyeingEvent(target: HTMLElement): Promise<boolean> {
+  if (await handleDyeWorkOrderListEvent(target)) return true
+  if (await handleDyeWorkOrderReceiptDetailEvent(target)) return true
+  const dialogHandled = await handlePersistedProcessWebStatusActionDialogEvent(target, {
     toast: showDyeingToast,
     refresh: refreshCurrentDyeingPage,
   })
@@ -184,14 +185,21 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     const actionCode = actionNode.dataset.actionCode
     if (!sourceId || !actionCode) return true
     try {
-      const result = executeProcessWebAction({
+      const result = await runDesignRevisionFcsCommand({
         sourceType: 'DYE_WORK_ORDER',
         sourceId,
         actionCode,
         operatorName: 'Web 端操作员',
         operatedAt: '2026-04-28 10:00',
         remark: '工艺工厂 Web 端状态操作',
-      })
+      }, () => executeProcessWebAction({
+        sourceType: 'DYE_WORK_ORDER',
+        sourceId,
+        actionCode,
+        operatorName: 'Web 端操作员',
+        operatedAt: '2026-04-28 10:00',
+        remark: '工艺工厂 Web 端状态操作',
+      }))
       showDyeingToast(result.message)
     } catch (error) {
       showDyeingToast(error instanceof Error ? error.message : '状态操作失败')
@@ -200,7 +208,7 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
   }
 
   if (action === 'start-water-soluble') {
-    executeConfirmedDyeWaterAction(actionNode, 'START')
+    await executeConfirmedDyeWaterAction(actionNode, 'START')
     return true
   }
 
@@ -216,7 +224,7 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     }
     const outputQty = Number(normalizedQtyText)
     const reason = window.prompt('如累计完成数量与计划不同，请填写原因') || ''
-    executeConfirmedDyeWaterAction(actionNode, 'COMPLETE', { outputQty, reason })
+    await executeConfirmedDyeWaterAction(actionNode, 'COMPLETE', { outputQty, reason })
     return true
   }
 
@@ -224,7 +232,7 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     const dyeOrderId = actionNode.dataset.dyeOrderId
     const decision = actionNode.dataset.decision as 'CONTINUE_PROCESSING' | 'CONTINUE_WITH_ACTUAL_QTY' | 'RETURN_FOR_REWORK' | undefined
     if (!dyeOrderId || !decision) return true
-    executeConfirmedDyeWaterAction(actionNode, 'RESOLVE_PAUSE', { decision })
+    await executeConfirmedDyeWaterAction(actionNode, 'RESOLVE_PAUSE', { decision })
     return true
   }
 
@@ -249,12 +257,12 @@ export function handleCraftDyeingEvent(target: HTMLElement): boolean {
     }
     const differenceReason = window.prompt('请输入收货差异原因')
     if (!differenceReason) return true
-    markDyeReceiptDifference(dyeOrderId, {
+    await runDesignRevisionFcsCommand(dyeOrderId, () => markDyeReceiptDifference(dyeOrderId, {
       receivedBy: '仓库收货员',
       receivedQty,
       differenceReason,
       remark: '仓库确认收货差异',
-    })
+    }))
     showDyeingToast('已标记收货差异')
     appStore.navigate(`/fcs/craft/dyeing/reports?dyeOrderId=${encodeURIComponent(dyeOrderId)}`)
     return true

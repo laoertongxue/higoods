@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { cloneWebbingSpecifications } from '../../data/fcs/webbing-specifications.ts'
 import { appStore } from '../../state/store.ts'
 import { escapeHtml } from '../../utils.ts'
@@ -48,6 +49,7 @@ import { compareBomPriceChanges } from '../../data/pcs-engineering-bom-pricing.t
 import { invalidateReviewForBomPriceChange } from '../../data/pcs-tech-pack-bom-price-review-invalidation.ts'
 import {
   getTechnicalDataVersionById,
+  hasTechnicalPatternOriginals,
   getTechnicalDataVersionContent,
   runTechnicalDataVersionRepositoryTransaction,
 } from '../../data/pcs-technical-data-version-repository.ts'
@@ -2727,58 +2729,19 @@ function buildEngineeringBomTaskRows(bomItems: BomItemRow[]) {
   }))
 }
 
-function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
+async function applyEngineeringTaskLinkageFromBomForTechnicalVersion(
   technicalVersionId: string | null,
   bomItems: BomItemRow[],
-): ApplyBomRequirementsToEngineeringTasksResult | null {
+): Promise<ApplyBomRequirementsToEngineeringTasksResult | null> {
   const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
   if (!master) return null
   const materialRows = buildEngineeringBomTaskRows(bomItems)
-  return applyBomRequirementsToEngineeringTasks(master.masterOrderId, materialRows)
+  return await runPcsRecordCommand(() => applyBomRequirementsToEngineeringTasks(master.masterOrderId, materialRows))
 }
 
 interface TechnicalContentEngineeringLinkageOperations {
   saveTechnicalContent?: typeof saveTechnicalDataVersionContent
   applyEngineeringTasks?: typeof applyBomRequirementsToEngineeringTasks
-}
-
-interface TechnicalContentEngineeringLinkageSnapshots {
-  relation: ReturnType<typeof getProjectRelationStoreSnapshot>
-  style: ReturnType<typeof captureStyleArchiveRepositoryState>
-  project: ReturnType<typeof getProjectStoreSnapshot>
-  archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
-}
-
-function captureTechnicalContentEngineeringLinkageSnapshots(): TechnicalContentEngineeringLinkageSnapshots {
-  return {
-    relation: getProjectRelationStoreSnapshot(),
-    style: captureStyleArchiveRepositoryState(),
-    project: getProjectStoreSnapshot(),
-    archive: getProjectArchiveStoreSnapshot(),
-  }
-}
-
-function restoreTechnicalContentEngineeringLinkageSnapshots(
-  snapshots: TechnicalContentEngineeringLinkageSnapshots,
-  originalError: unknown,
-): never {
-  const rollbackErrors: unknown[] = []
-  const restore = (action: () => void): void => {
-    try {
-      action()
-    } catch (error) {
-      rollbackErrors.push(error)
-    }
-  }
-  restore(() => replaceProjectStore(snapshots.project))
-  restore(() => replaceProjectRelationStore(snapshots.relation))
-  restore(() => replaceProjectArchiveStore(snapshots.archive))
-  // 商品项目仓恢复可能触发款式种子同步，因此款式仓最后精确恢复。
-  restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
-  if (rollbackErrors.length > 0 && originalError instanceof Error) {
-    Object.assign(originalError, { rollbackErrors })
-  }
-  throw originalError
 }
 
 function saveTechnicalDataVersionContentWithEngineeringLinkage(
@@ -2793,7 +2756,6 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
   const master = resolveEngineeringMasterForTechnicalVersion(technicalVersionId)
   const engineeringRows = master ? buildEngineeringBomTaskRows(bomItems) : []
   if (master) validateBomRequirementsForEngineeringTasks(master.masterOrderId, engineeringRows)
-  const snapshots = captureTechnicalContentEngineeringLinkageSnapshots()
   const saveTechnicalContent = operations.saveTechnicalContent ?? saveTechnicalDataVersionContent
   const applyEngineeringTasks = operations.applyEngineeringTasks ?? applyBomRequirementsToEngineeringTasks
   return runTechnicalDataVersionRepositoryTransaction(() =>
@@ -2814,7 +2776,7 @@ function saveTechnicalDataVersionContentWithEngineeringLinkage(
           : null
         return { technicalVersion, engineeringLinkage }
       } catch (error) {
-        restoreTechnicalContentEngineeringLinkageSnapshots(snapshots, error)
+        throw error
       }
     }),
   )
@@ -5098,7 +5060,7 @@ function getChecklist(): ChecklistItem[] {
       ? [{ key: 'difficulty', label: '做货难度', required: true, done: Boolean(currentRecord?.garmentDifficultyGrade) }]
       : []),
     { key: 'bom', label: '物料清单', required: true, done: state.bomItems.length > 0 },
-    { key: 'pattern', label: '纸样管理', required: true, done: state.patternItems.length > 0 },
+    { key: 'pattern', label: '纸样管理', required: true, done: hasTechnicalPatternOriginals(state.patternItems) },
     { key: 'process', label: '工艺路线', required: true, done: hasConfirmedProcessRoute() },
     { key: 'size', label: '放码规则', required: true, done: state.techPack.sizeTable.length > 0 },
     {
@@ -5137,7 +5099,7 @@ function findBomItemMissingUnitForWaterSoluble<T extends BomUnitWaterSolubleCand
   return items.find((item) => item.waterSolubleRequirement === '是' && !String(item.unit || '').trim()) ?? null
 }
 
-function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): boolean {
+function applyTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): boolean {
   if (!state.techPack) return false
 
   const routeSignatureBefore = getProcessRouteSignature(state.techniques)
@@ -5516,13 +5478,18 @@ function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { 
       processRouteUpdatedAt: state.processRouteUpdatedAt,
     }
     saveTechnicalDataVersionContentWithEngineeringLinkage(
-      state.currentTechnicalVersionId,
+      state.currentTechnicalVersionId!,
       state.bomItems,
       patch,
       currentUser.name,
     )
   }
   return true
+}
+
+async function syncTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): Promise<boolean> {
+  if (options.persist === false) return applyTechPackToStore(options)
+  return runPcsRecordCommand(() => applyTechPackToStore(options))
 }
 
 function closeAllDialogs(): void {
@@ -5949,6 +5916,7 @@ export {
   getChecklist,
   findBomItemMissingUnitForWaterSoluble,
   syncTechPackToStore,
+  applyTechPackToStore,
   closeAllDialogs,
   resetPatternForm,
   resetBomForm,

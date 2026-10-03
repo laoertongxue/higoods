@@ -13,6 +13,14 @@ function createAsyncRenderer<TArgs extends unknown[]>(
         throw error
       })
     }
+    if (exportName.startsWith('renderPcs') || exportName === 'renderTechPackPage') {
+      const { mountPcsLocalData } = await import('../pages/pcs-local-data.ts')
+      mountPcsLocalData()
+      const { ensurePcsRecordState } = await import('../data/pcs-record-runtime.ts')
+      try { await ensurePcsRecordState() } catch {
+        return '<div class="rounded border border-amber-300 bg-amber-50 p-6"><h1 class="text-xl font-semibold">本机资料暂时无法读取</h1><p>请通过右下角“本机数据”查看原因并重试。原有资料已保留。</p></div>'
+      }
+    }
 
     const module = await modulePromise
     if (["renderPdaCuttingSimpleCutPieceHandoverPage", "renderPdaWarehouseWaitHandoverPage"].includes(exportName)) {

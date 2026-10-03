@@ -3,7 +3,7 @@ import test from 'node:test'
 import { spawnSync } from 'node:child_process'
 
 for (const existing of [false, true]) {
-  test(`technical version reads do not write when storage is full (${existing ? 'saved data' : 'first visit'})`, () => {
+  test(`technical version working-copy reads do not write and failed staging preserves data (${existing ? 'saved data' : 'first visit'})`, () => {
     const result = spawnSync(process.execPath, ['--import', 'tsx', '--input-type=module', '-e', `
       import assert from 'node:assert/strict';
       import { createTechnicalDataVersionBootstrapSnapshot } from './src/data/pcs-technical-data-version-bootstrap.ts';
@@ -14,11 +14,12 @@ for (const existing of [false, true]) {
       if (${existing}) values.set(key, JSON.stringify(seed));
       const original = values.get(key);
       let blocked = true, writes = 0;
-      Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
+      const { pcsRecordStore } = await import('./src/data/pcs-record-runtime.ts');
+      Object.assign(pcsRecordStore, {
         getItem: k => values.get(k) ?? null,
         setItem: (k, v) => { if (k === key) { writes++; if (blocked) throw new DOMException('quota', 'QuotaExceededError'); } values.set(k, v); },
         removeItem: k => values.delete(k),
-      }});
+      });
       const repo = await import('./src/data/pcs-technical-data-version-repository.ts');
       const before = repo.getTechnicalDataVersionStoreSnapshot();
       assert.ok(before.records.length);

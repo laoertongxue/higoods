@@ -1,3 +1,4 @@
+import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
 import {getBrowserLocalStorage} from '../browser-storage.ts'
 import {listFactoryInternalWarehouses,resolveEnabledFactoryWarehouseLocation,resolveFactoryWarehouseLocation,type ResolvedFactoryWarehouseLocation} from './factory-internal-warehouse-locations.ts'
 import {calculateYarnWeight,weightGrams} from './yarn-weight.ts'
@@ -24,7 +25,7 @@ function validateStoredReceiving(data:ReceivingData){
 }
 function read():ReceivingData {
  if(cache)return cache
- const raw=getBrowserLocalStorage()?.getItem(FACTORY_RECEIVING_KEY)
+ const raw=getDesignRevisionFcsStorage()?.getItem(FACTORY_RECEIVING_KEY)
  if(raw){const saved=JSON.parse(raw) as ReceivingData;if(saved.version!==1||!['sources','deliveries','receipts','allocations'].every(k=>Array.isArray(saved[k as keyof ReceivingData])))throw new Error('接收记录格式不完整，请保留现场数据并联系主管。');validateStoredReceiving(saved)
   // Only correct the untouched seed association. Existing delivery/receipt facts remain immutable.
   const old=saved.sources.find(s=>s.id==='RCV-SRC-003'),seed=buildFactoryReceivingDemoSources().find(s=>s.id==='RCV-SRC-003')!
@@ -36,7 +37,7 @@ function read():ReceivingData {
  else { cache={version:1,sources:buildFactoryReceivingDemoSources(),deliveries:[],receipts:[],allocations:[],defaults:{}}; receivingRevision += 1 }
  return cache
 }
-function save(next:ReceivingData){if(initializingDemoBatch){cache=next;receivingRevision+=1;return}validateStoredReceiving(next);const storage=getBrowserLocalStorage();if(typeof window!=='undefined'&&!storage?.setItem)throw new Error('浏览器无法保存，请保留输入并恢复本地存储后重试。');storage?.setItem?.(FACTORY_RECEIVING_KEY,JSON.stringify(next));cache=next;receivingRevision += 1}
+function save(next:ReceivingData){if(initializingDemoBatch){cache=next;receivingRevision+=1;return}validateStoredReceiving(next);const storage=getDesignRevisionFcsStorage();if(typeof window!=='undefined'&&!storage?.setItem)throw new Error('浏览器无法保存，请保留输入并恢复本地存储后重试。');storage?.setItem?.(FACTORY_RECEIVING_KEY,JSON.stringify(next));cache=next;receivingRevision += 1}
 /** Synchronous demo initialization only: every receipt is prepared normally; publish the entire batch once. */
 export function initializeFactoryReceivingDemoBatch(run:()=>void):void {
  if(initializingDemoBatch)throw new Error('接收演示初始化不能嵌套。')
@@ -259,3 +260,5 @@ export function recordFactoryMaterialUsage(input:{id:string;printingOrderId?:str
  if(remaining>Math.max(0,input.materialSku?0:input.legacyAvailableQty)+.000001)throw new Error('本批投入超过本单所选物料的可用实收库存，请核对接收和已用数量。')
  const next=receiptWriteCopy();next.materialUses=[...uses,{id:input.id,printingOrderId:input.printingOrderId,dyeOrderId:input.dyeOrderId,waterOrderId:input.waterOrderId,factoryId:input.factoryId,operatorName:input.operatorName,at:input.at,lines}];save(next)
 }
+
+registerDesignRevisionFcsCacheHooks('receiving', { capture() { return { cache: structuredClone(cache), receivingRevision } }, restore(value) { cache = structuredClone(value.cache); receivingRevision = value.receivingRevision }, hydrate() { clearFactoryReceivingCache() } })

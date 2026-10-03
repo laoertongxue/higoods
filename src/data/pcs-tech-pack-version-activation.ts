@@ -1,19 +1,4 @@
 import {
-  getProjectStoreSnapshot,
-  replaceProjectStore,
-  updateProjectRecord,
-} from './pcs-project-repository.ts'
-import {
-  getProjectArchiveStoreSnapshot,
-  replaceProjectArchiveStore,
-} from './pcs-project-archive-repository.ts'
-import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
-import {
-  getProjectRelationStoreSnapshot,
-  replaceProjectRelationStore,
-  upsertProjectRelation,
-} from './pcs-project-relation-repository.ts'
-import {
   appendTechPackVersionLog,
   listTechPackVersionLogs,
   replaceTechPackVersionLogStore,
@@ -25,13 +10,13 @@ import {
   updateStyleArchive,
 } from './pcs-style-archive-repository.ts'
 import {
+  assertTechnicalDataReadyForPublish,
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
   runTechnicalDataVersionRepositoryTransaction,
   updateTechnicalDataVersionContent,
 } from './pcs-technical-data-version-repository.ts'
 import { freezeTechnicalDataVersionBomPricingSnapshot } from './pcs-engineering-bom-pricing.ts'
-import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 import {
   getEngineeringMasterOrderById,
   assertEngineeringTaskCanComplete,
@@ -57,9 +42,6 @@ export type TechPackActivationMutationStep =
   | 'BOM_VERSION'
   | 'ENGINEERING_TASK'
   | 'STYLE'
-  | 'PROJECT'
-  | 'RELATION'
-  | 'ARCHIVE'
   | 'LOG'
 
 let failureStepForTesting: TechPackActivationMutationStep | null = null
@@ -99,9 +81,6 @@ function completeSourceEngineeringTechPackTask(
 function restoreActivationStores(
   snapshots: {
     style: ReturnType<typeof captureStyleArchiveRepositoryState>
-    project: ReturnType<typeof getProjectStoreSnapshot>
-    relation: ReturnType<typeof getProjectRelationStoreSnapshot>
-    archive: ReturnType<typeof getProjectArchiveStoreSnapshot>
     logs: ReturnType<typeof listTechPackVersionLogs>
     bom: ReturnType<typeof captureEngineeringBomRepositoryState>
   },
@@ -115,12 +94,9 @@ function restoreActivationStores(
       rollbackErrors.push(error)
     }
   }
-  restore(() => replaceProjectStore(snapshots.project))
-  restore(() => replaceProjectRelationStore(snapshots.relation))
-  restore(() => replaceProjectArchiveStore(snapshots.archive))
   restore(() => replaceTechPackVersionLogStore(snapshots.logs))
   restore(() => restoreEngineeringBomRepositoryState(snapshots.bom))
-  // 项目仓恢复会触发款式种子同步，款式仓必须最后精确恢复。
+  // 恢复此前发布关联的款式记录。
   restore(() => restoreStyleArchiveRepositoryState(snapshots.style))
   if (rollbackErrors.length > 0 && originalError instanceof Error) {
     Object.assign(originalError, { rollbackErrors })
@@ -148,13 +124,11 @@ export function activateTechPackVersionForStyle(
 
   const content = getTechnicalDataVersionContent(technicalVersionId)
   if (!content) throw new Error('未找到技术包版本内容，不能启用为当前生效版本。')
+  assertTechnicalDataReadyForPublish(content)
   const activatedAt = nowText()
 
   const snapshotsBeforeActivation = {
     style: captureStyleArchiveRepositoryState(),
-    project: getProjectStoreSnapshot(),
-    relation: getProjectRelationStoreSnapshot(),
-    archive: getProjectArchiveStoreSnapshot(),
     logs: listTechPackVersionLogs(),
     bom: captureEngineeringBomRepositoryState(),
   }
@@ -193,48 +167,6 @@ export function activateTechPackVersionForStyle(
       if (!updatedStyle) throw new Error('更新款式当前生效技术包版本失败。')
       markActivationStepCompleted('STYLE')
 
-      const source = resolveTechnicalVersionProductProject(record)
-      if (source) {
-        updateProjectRecord(
-          source.project.projectId,
-          {
-            linkedTechPackVersionId: record.technicalVersionId,
-            linkedTechPackVersionCode: record.technicalVersionCode,
-            linkedTechPackVersionLabel: record.versionLabel,
-            linkedTechPackVersionStatus: record.versionStatus,
-            linkedTechPackVersionPublishedAt: record.publishedAt || activatedAt,
-            updatedAt: activatedAt,
-          },
-          operatorName,
-        )
-        markActivationStepCompleted('PROJECT')
-
-        upsertProjectRelation({
-          projectRelationId: `rel_tech_pack_${record.technicalVersionId}`,
-          projectId: source.project.projectId,
-          projectCode: source.project.projectCode,
-          relationRole: '产出对象',
-          sourceModule: '技术包',
-          sourceObjectType: '技术包版本',
-          sourceObjectId: record.technicalVersionId,
-          sourceObjectCode: record.technicalVersionCode,
-          sourceLineId: null,
-          sourceLineCode: null,
-          sourceTitle: `${record.styleName} ${record.versionLabel}`,
-          sourceStatus: record.versionStatus,
-          businessDate: activatedAt,
-          ownerName: operatorName,
-          createdAt: record.createdAt,
-          createdBy: record.createdBy,
-          updatedAt: activatedAt,
-          updatedBy: operatorName,
-          note: '',
-        })
-        markActivationStepCompleted('RELATION')
-
-        syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
-        markActivationStepCompleted('ARCHIVE')
-      }
 
       appendTechPackVersionLog({
         logId: `tech_pack_log_activate_${record.technicalVersionId}_${activatedAt.replace(/[^0-9]/g, '')}`,

@@ -206,7 +206,9 @@ export function computeAccessoryPurchaseTaskLinkage(masterOrderId: string, taskI
         : `采购单不属于当前款式：${wrongStyleOrders.map((order) => order.purchaseOrderNo).join('、')}`,
     }
   }
-  return { task, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
+  const projectedTask = structuredClone(task)
+  applyGate(projectedTask, gate)
+  return { task: projectedTask, purchaseOrders: purchaseOrders.map(toPurchaseOrderView), gate }
 }
 
 // 兼容既有只读调用；该入口只计算，不写回。

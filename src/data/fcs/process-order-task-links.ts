@@ -356,21 +356,35 @@ function inferWorkOrderEntryIds(input: {
     .map((entry) => entry.id)
 }
 
-function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessTask[], sourceTaskId?: string): ProcessOrderTaskDocumentRef[] {
-  const generatedCutOrders = listGeneratedCutOrderSourceRecords()
-  const specialCraftOrders = listSpecialCraftTaskOrders()
+function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessTask[], sourceTaskId?: string, designRevisionScope?: string): ProcessOrderTaskDocumentRef[] {
+  const generatedCutOrders = designRevisionScope ? [] : listGeneratedCutOrderSourceRecords()
+  const specialCraftOrders = designRevisionScope ? [] : listSpecialCraftTaskOrders()
   const scopedEntries = productionOrderId ? getProductionOrderProcessEntries(productionOrderId) : []
-  const needsWoolDocuments = !productionOrderId || scopedEntries.length === 0
-    || scopedEntries.some(entry => entry.processCode === 'WOOL' || entry.processCode === 'PROC_WOOL')
+  const needsWoolDocuments = !designRevisionScope && (!productionOrderId || scopedEntries.length === 0
+    || scopedEntries.some(entry => entry.processCode === 'WOOL' || entry.processCode === 'PROC_WOOL'))
   const woolWorkOrders = needsWoolDocuments ? listWoolWorkOrders({ productionOrderId }) : []
-  const laceFormalSnapshots = listCurrentLaceFormalRouteSnapshots()
+  const laceFormalSnapshots = designRevisionScope ? [] : listCurrentLaceFormalRouteSnapshots()
   const formalSnapshotByOrderId = new Map(laceFormalSnapshots.map((snapshot) => [snapshot.productionOrderId, snapshot]))
   const formalCuttingTaskIds = new Set(generatedCutOrders.map((order) => order.cuttingTaskId))
   const formalSpecialCraftTaskIds = new Set(specialCraftOrders.map((order) => order.sourceTaskId).filter(Boolean))
   const woolTaskIds = new Set(woolWorkOrders.map((order) => order.taskId))
-  const relationSources = listProcessWorkOrderRelationSources(
-    executionTasks && scopedEntries.length ? new Set(scopedEntries.map(entry => entry.processCode)) : undefined,
+  const allRelationSources = readRelationSources(
+    designRevisionScope ? new Set(['DYE', 'PRINT']) : executionTasks && scopedEntries.length ? new Set(scopedEntries.map(entry => entry.processCode)) : undefined,
   )
+  const relationSources = designRevisionScope
+    ? allRelationSources.filter(order => order.sourceSnapshot.designRevisionTaskId === designRevisionScope || order.workOrderId === designRevisionScope)
+    : allRelationSources
+  if (designRevisionScope) {
+    // 仅沿已明确绑定的加工单关系扩展，不初始化其他生产路线和演示工厂。
+    const ids = new Set(relationSources.map(order => order.workOrderId))
+    for (let index = 0; index < relationSources.length; index++) {
+      const source = relationSources[index].sourceSnapshot
+      for (const id of [source.upstreamWorkOrderId, source.downstreamWorkOrderId]) {
+        const linked = id && !ids.has(id) ? allRelationSources.find(order => order.workOrderId === id) : undefined
+        if (linked) { ids.add(linked.workOrderId); relationSources.push(linked) }
+      }
+    }
+  }
   const designRevisionSourceDocuments = [...new Map(relationSources
     .filter((order) => order.sourceType === 'DESIGN_REVISION' && order.sourceSnapshot.professionalTaskId)
     .map((order): [string, ProcessOrderTaskDocumentRef] => {
@@ -448,6 +462,8 @@ function buildDocumentRefs(productionOrderId?: string, executionTasks?: ProcessT
       successorDocumentIds: unique([order.sourceSnapshot.downstreamWorkOrderId]),
     }
   })
+
+  if (designRevisionScope) return [...designRevisionSourceDocuments, ...preparationDocuments]
 
   const productionDocuments = (executionTasks
     ? [...processTasks.filter(task => task.taskId !== sourceTaskId && !executionTasks.some(runtime => runtime.taskId === task.taskId)), ...executionTasks]
@@ -1022,6 +1038,13 @@ export function getProcessOrderTaskRelationView(documentId: string): ProcessOrde
     const documents = buildDocumentRefs(runtimeTask.productionOrderId, executionTasks, sourceTask.taskId)
     return buildProcessOrderTaskRelationViewFromDocuments(documentId, documents)
   }
+  const preparationSource = readRelationSources().find(order =>
+    order.workOrderId === documentId || order.workOrderNo === documentId,
+  )
+  if (preparationSource?.sourceType === 'DESIGN_REVISION') {
+    const documents = buildDocumentRefs(undefined, undefined, undefined, preparationSource.sourceSnapshot.designRevisionTaskId || preparationSource.workOrderId)
+    return buildProcessOrderTaskRelationViewFromDocuments(documentId, documents, new Map())
+  }
   if (relationReadDepth > 0) {
     if (!relationReadScope) {
       const documents = buildDocumentRefs()
@@ -1035,9 +1058,6 @@ export function getProcessOrderTaskRelationView(documentId: string): ProcessOrde
     }
     return scope.views.get(documentId)
   }
-  const preparationSource = listProcessWorkOrderRelationSources().find(order =>
-    order.workOrderId === documentId || order.workOrderNo === documentId,
-  )
   const productionOrderId = preparationSource?.sourceSnapshot.productionOrderId || preparationSource?.sourceProductionOrderId
   const documents = buildDocumentRefs(productionOrderId)
   const entriesByOrder = listEntriesByProductionOrder(documents)
@@ -1052,11 +1072,21 @@ let relationReadScope: {
   views: Map<string, ProcessOrderTaskRelationView | undefined>
 } | undefined
 let relationReadDepth = 0
+const relationSourceReads = new Map<string, ReturnType<typeof listProcessWorkOrderRelationSources>>()
+function readRelationSources(routeCodes?: ReadonlySet<string>): ReturnType<typeof listProcessWorkOrderRelationSources> {
+  if (relationReadDepth === 0) return listProcessWorkOrderRelationSources(routeCodes)
+  const key = routeCodes ? [...routeCodes].sort().join('|') : '*'
+  const existing = relationSourceReads.get('*') ?? relationSourceReads.get(key)
+  if (existing) return existing
+  const sources = listProcessWorkOrderRelationSources(routeCodes)
+  relationSourceReads.set(key, sources)
+  return sources
+}
 
 export function withProcessOrderTaskRelationRead<T>(read: () => T): T {
   relationReadDepth += 1
   try { return read() }
-  finally { if (--relationReadDepth === 0) relationReadScope = undefined }
+  finally { if (--relationReadDepth === 0) { relationReadScope = undefined; relationSourceReads.clear() } }
 }
 
 export function getProcessOrderTaskRelationViewByDetail(

@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset, hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
 import { createTaskRelationBootstrapSnapshot } from './pcs-task-bootstrap.ts'
 import { createProjectChannelProductRelationBootstrapSnapshot } from './pcs-channel-product-project-repository.ts'
 import {
@@ -33,10 +34,10 @@ export interface TestingProjectRelationCandidate {
 
 function canUseStorage(): boolean {
   return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
+    typeof pcsRecordStore !== 'undefined' &&
+    typeof pcsRecordStore.getItem === 'function' &&
+    typeof pcsRecordStore.setItem === 'function' &&
+    typeof pcsRecordStore.removeItem === 'function'
   )
 }
 
@@ -239,7 +240,8 @@ function normalizeRelationSnapshot(snapshot: ProjectRelationStoreSnapshot): Proj
 }
 
 function mergeMissingSeedData(snapshot: ProjectRelationStoreSnapshot): ProjectRelationStoreSnapshot {
-  const seeded = seedSnapshot()
+  if (hasPcsRecordSnapshot(PROJECT_RELATION_STORAGE_KEY)) return normalizeRelationSnapshot(snapshot)
+  const seeded = withPcsDemoData(() => seedSnapshot())
   return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
     // 同一业务关系时间相同时保留当前仓库中的显式写入，种子只补缺失数据。
@@ -260,22 +262,22 @@ function loadSnapshot(): ProjectRelationStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
 
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
 
   try {
-    const raw = localStorage.getItem(PROJECT_RELATION_STORAGE_KEY)
+    const raw = pcsRecordStore.getItem(PROJECT_RELATION_STORAGE_KEY)
     if (!raw) {
-      memorySnapshot = seedSnapshot()
-      localStorage.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(memorySnapshot))
+      memorySnapshot = withPcsDemoData(() => seedSnapshot())
+
       return cloneSnapshot(memorySnapshot)
     }
 
     const parsed = JSON.parse(raw) as Partial<ProjectRelationStoreSnapshot>
     if (!Array.isArray(parsed.relations) || !Array.isArray(parsed.pendingItems)) {
-      memorySnapshot = seedSnapshot()
-      localStorage.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(memorySnapshot))
+      memorySnapshot = withPcsDemoData(() => seedSnapshot())
+
       return cloneSnapshot(memorySnapshot)
     }
 
@@ -284,27 +286,25 @@ function loadSnapshot(): ProjectRelationStoreSnapshot {
       relations: parsed.relations as ProjectRelationRecord[],
       pendingItems: parsed.pendingItems as ProjectRelationPendingItem[],
     }))
-    localStorage.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(memorySnapshot))
+
     return cloneSnapshot(memorySnapshot)
   } catch {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     if (canUseStorage()) {
-      localStorage.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(memorySnapshot))
+
     }
     return cloneSnapshot(memorySnapshot)
   }
 }
 
 export function ensurePcsProjectFormalRelationSeedReady(): void {
-  const merged = mergeMissingSeedData(loadSnapshot())
-  persistSnapshot(merged)
+  memorySnapshot = mergeMissingSeedData(loadSnapshot())
 }
 
 function persistSnapshot(snapshot: ProjectRelationStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
-  if (canUseStorage()) {
-    localStorage.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(memorySnapshot))
-  }
+  const next = hydrateSnapshot(snapshot)
+  if (canUseStorage()) pcsRecordStore.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(next))
+  memorySnapshot = next
 }
 
 function nextRelationId(): string {
@@ -658,10 +658,12 @@ export function clearProjectRelationStore(): void {
 }
 
 export function resetProjectRelationRepository(): void {
-  const snapshot = seedSnapshot()
+  const snapshot = withPcsDemoData(() => seedSnapshot())
   persistSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.removeItem(PROJECT_RELATION_STORAGE_KEY)
-    localStorage.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(snapshot))
+    pcsRecordStore.removeItem(PROJECT_RELATION_STORAGE_KEY)
+    pcsRecordStore.setItem(PROJECT_RELATION_STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

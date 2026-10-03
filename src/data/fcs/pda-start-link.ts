@@ -329,6 +329,16 @@ export function getStartPrerequisite(task: ProcessTask): StartPrerequisiteInfo {
     }
   }
 
+  // 染印任务读取自身开工事实，避免为判断其前置而初始化无关后道/特殊工艺仓库。
+  if (task.processCode === 'PRINT' || task.processCode === 'PROC_PRINT') {
+    const prerequisite = getPrintStartPrerequisite(task)
+    if (prerequisite) return prerequisite
+  }
+  if (task.processCode === 'DYE' || task.processCode === 'PROC_DYE') {
+    const prerequisite = getDyeStartPrerequisite(task)
+    if (prerequisite) return prerequisite
+  }
+
   const cuttingPrerequisite = getCuttingStartPrerequisite(task)
   if (cuttingPrerequisite) return cuttingPrerequisite
 

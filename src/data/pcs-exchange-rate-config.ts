@@ -15,7 +15,7 @@ let memoryRate: PcsExchangeRateRecord = {
 }
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
+  try { return typeof localStorage !== 'undefined' } catch { return false }
 }
 
 function nowText(): string {
@@ -26,9 +26,9 @@ function nowText(): string {
 
 export function getLatestPcsExchangeRate(): PcsExchangeRateRecord {
   if (!canUseStorage()) return { ...memoryRate }
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) return { ...memoryRate }
   try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return { ...memoryRate }
     const parsed = JSON.parse(raw) as Partial<PcsExchangeRateRecord>
     if (!Number.isFinite(parsed.idrPerCny) || Number(parsed.idrPerCny) <= 0) return { ...memoryRate }
     return {

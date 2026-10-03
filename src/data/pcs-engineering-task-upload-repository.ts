@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset, runPcsRecordCommand } from './pcs-record-runtime.ts'
 import type { EngineeringUploadedFile, EngineeringUploadPurpose } from './pcs-engineering-file-upload.ts'
 import { captureEngineeringUploadedFiles } from './pcs-engineering-file-upload.ts'
 
@@ -13,7 +14,7 @@ export interface EngineeringTaskUploadGroup {
 let memoryGroups: EngineeringTaskUploadGroup[] | null = null
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+  return typeof pcsRecordStore !== 'undefined' && typeof pcsRecordStore.getItem === 'function'
 }
 
 function cloneGroup(group: EngineeringTaskUploadGroup): EngineeringTaskUploadGroup {
@@ -24,7 +25,7 @@ function readGroups(): EngineeringTaskUploadGroup[] {
   if (memoryGroups) return memoryGroups
   if (canUseStorage()) {
     try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as EngineeringTaskUploadGroup[]
+      const parsed = JSON.parse(pcsRecordStore.getItem(STORAGE_KEY) || '[]') as EngineeringTaskUploadGroup[]
       if (Array.isArray(parsed)) return (memoryGroups = parsed.map(cloneGroup))
     } catch { /* 使用空上传记录 */ }
   }
@@ -35,7 +36,7 @@ function writeGroups(groups: EngineeringTaskUploadGroup[]): void {
   const nextGroups = groups.map(cloneGroup)
   if (canUseStorage()) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextGroups))
+      pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(nextGroups))
     } catch {
       throw new Error('文件已读取，但浏览器存储空间不足。请删除不需要的草稿文件后重试。')
     }
@@ -87,12 +88,14 @@ export async function uploadEngineeringTaskFiles(input: {
     actor: input.actor,
     roundNo: input.roundNo,
   })
+  return runPcsRecordCommand(() => {
   const groups = readGroups().map(cloneGroup)
   const existing = groups.find((group) => group.taskId === input.taskId && group.itemId === itemId && group.purpose === input.purpose)
   if (existing) existing.files.push(...uploaded)
   else groups.push({ taskId: input.taskId, itemId, purpose: input.purpose, files: uploaded })
   writeGroups(groups)
-  return uploaded.map((file) => ({ ...file }))
+  return uploaded.map((file) => ({ ...file, status: '已保存' as const }))
+  })
 }
 
 export function removeEngineeringTaskUploadedFile(input: {
@@ -114,5 +117,7 @@ export function removeEngineeringTaskUploadedFile(input: {
 
 export function resetEngineeringTaskUploadRepository(): void {
   memoryGroups = []
-  if (canUseStorage()) localStorage.removeItem(STORAGE_KEY)
+  if (canUseStorage()) pcsRecordStore.removeItem(STORAGE_KEY)
 }
+
+registerPcsRepositoryReset(() => { memoryGroups = null })

@@ -211,7 +211,7 @@ function factoryPartner(id: string, name: string, processName: string): DyePartn
 }
 
 /** 来源状态与发出量属于上游单据，不能从染色接收量推导。 */
-function buildUpstreamDocuments(order: DyeWorkOrder, source: ReturnType<typeof getDyeMaterialReceiptOptions>, relation: ProcessOrderTaskRelationView | undefined, warehouseDocs: Array<ReturnType<typeof listWarehouseIssueOrders>[number] | ReturnType<typeof listWarehouseInternalTransferOrders>[number]>): DyeUpstreamDocument[] {
+function buildUpstreamDocuments(order: DyeWorkOrder, source: Pick<ReturnType<typeof getDyeMaterialReceiptOptions>, 'options'>, relation: ProcessOrderTaskRelationView | undefined, warehouseDocs: Array<ReturnType<typeof listWarehouseIssueOrders>[number] | ReturnType<typeof listWarehouseInternalTransferOrders>[number]>): DyeUpstreamDocument[] {
   const recordIds = new Set([...source.options.map(item => item.recordId), ...(order.materialReceipts ?? []).map(item => item.upstreamRecordId)])
   const documents: DyeUpstreamDocument[] = []
   if (order.initialYarnTransfer) {
@@ -373,12 +373,12 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
   const downstreamPartner = order.downstreamPartner || DYE_DEMO_PARTNER_SCENARIOS[order.dyeOrderId]?.downstream
   const useOutputFacts = forOutputList && Boolean(downstreamPartner)
   const source = useOutputFacts
-    ? { requiresSource: false, requiresUpstream: false, sourceMode: 'UNRESOLVED' as const, options: [] }
+    ? undefined
     : getDyeMaterialReceiptOptions(order.dyeOrderId, order, warehouseDocs)
   // A saved receiving partner already identifies the handover destination. The output list
   // does not need pending-input eligibility or a full production-route projection.
   const axes = useOutputFacts ? {
-    ...getDyeWorkOrderProgressView(order, 0), sourceMode: source.sourceMode, sourceDocumentNos: [],
+    ...getDyeWorkOrderProgressView(order, 0), sourceMode: 'UNRESOLVED' as const, sourceDocumentNos: [],
     receiver: { ready: true, receiverName: downstreamPartner!.name, receiverWarehouseName: downstreamPartner!.kind === 'WAREHOUSE' ? downstreamPartner!.name : '不适用（直接交加工厂）' },
   } : getDyeWorkOrderThreeAxisView(order, source, warehouseDocs)
   const presentation = DYE_WORK_ORDER_PRESENTATION_FACTS[order.dyeOrderId] || {}
@@ -429,7 +429,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
     ? snapshotMaterialTypes[0]
     : /纱|yarn/i.test(`${materialName} ${order.rawMaterialSku}`) ? '纱线' : '面料'
   const isYarn = materialType === '纱线' || /纱|yarn/i.test(materialType)
-  const upstreamDocuments = buildUpstreamDocuments(order, source, relation, warehouseDocs)
+  const upstreamDocuments = buildUpstreamDocuments(order, source ?? { options: [] }, relation, warehouseDocs)
   const outputRolls = getDyeOutputRolls(order.dyeOrderId)
   const composition = demo?.composition || (order.composition && ![snapshot?.materialName, ...(snapshot?.materialItems ?? []).map(item => item.materialName)].includes(order.composition) && !/主面料|放行|补料|净色/.test(order.composition) ? order.composition : '成分待补充')
   const width = isYarn ? '不适用（纱线）' : demo ? `${demo.widthCm} cm` : order.width || '—'
@@ -448,7 +448,7 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
       demands: demandIds.map(id => ({id, createdAt: productionDemands.find(demand => demand.demandId === id)?.createdAt || ''})),
     } : undefined,
     nodes: executionRecords, handovers: handoverRecords, plannedFinishAt,
-    upstreamRecordIds: [...source.options.map(option => option.recordId), ...(order.materialReceipts ?? []).flatMap(receipt => receipt.upstreamRecordId ? [receipt.upstreamRecordId] : [])],
+    upstreamRecordIds: [...(source?.options ?? []).map(option => option.recordId), ...(order.materialReceipts ?? []).flatMap(receipt => receipt.upstreamRecordId ? [receipt.upstreamRecordId] : [])],
     upstreamDocumentNos: upstreamDocuments.map(doc => doc.documentNo), materialSku: demo?.rawSku || order.rawMaterialSku,
     sentQty: upstreamDocuments.reduce((sum, doc) => sum + doc.sentQty, 0), receivedQty: axes.receivedInputQty,
     completedQty, handedOverQty: axes.handedOverQty, downstreamReceivedQty: axes.downstreamReceivedQty, context: timeContext,
@@ -569,13 +569,13 @@ function makeRow(order: DyeWorkOrder, timeContext: DyeTimeContext, relation: Pro
   }
 }
 
-export function listDyeWorkOrderOnlineRows(options: { forOutputList?: boolean } = {}): DyeWorkOrderOnlineRow[] {
-  const orders = listDyeWorkOrders()
+export function listDyeWorkOrderOnlineRows(options: { forOutputList?: boolean; workOrderId?: string } = {}): DyeWorkOrderOnlineRow[] {
+  const orders = listDyeWorkOrders().filter(order => !options.workOrderId || order.dyeOrderId === options.workOrderId || order.dyeOrderNo === options.workOrderId)
   const warehouseDocs = [...listWarehouseIssueOrders(), ...listWarehouseInternalTransferOrders()]
   const timeContext: DyeTimeContext = options.forOutputList ? { sources: [], receipts: [], deliveries: [], dispatches: [], warehouseFacts: [], upstreamHandovers: [] } : {sources: listFactoryReceivingSources(), receipts: listFactoryReceipts(), deliveries: listFactoryDeliveryNotes(), dispatches: listDyeDispatchDocuments(),
     warehouseFacts: warehouseDocs.map(doc => ({documentNo: doc.docNo, approvedAt: doc.approvedAt,
       sentAt: DYE_INPUT_TRANSFER_FIXTURES.find(fixture => fixture.taskId === doc.runtimeTaskId && doc.lines.some(line => line.lineId === `ISSUE-DYE-${fixture.workOrderId}-L001`))?.issuedAt})),
-    upstreamHandovers: listPdaHandoverHeads().flatMap(head => getPdaHandoverRecordsByHead(head.handoverId, head)),
+    upstreamHandovers: listPdaHandoverHeads({ includeWool: false, ...(options.workOrderId ? { taskIds: new Set(orders.map(order => order.taskId)) } : {}) }).flatMap(head => getPdaHandoverRecordsByHead(head.handoverId, head)),
   }
   // Output lists use quantities and handover facts, not the detail timeline or route-link columns.
   if (options.forOutputList) return withProcessOrderTaskRelationRead(() => orders.map(order => makeRow(order, timeContext, undefined, warehouseDocs, true)))

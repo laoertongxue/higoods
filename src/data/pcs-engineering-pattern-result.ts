@@ -1,3 +1,4 @@
+import { pcsRecordStore } from './pcs-record-runtime.ts'
 import {
   getEngineeringMasterOrderById,
   submitEngineeringTaskResult,
@@ -38,10 +39,6 @@ export interface EngineeringPatternResultVersion {
   replacedVersionId: string
 }
 
-function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
-}
-
 function clone(item: EngineeringPatternResultVersion): EngineeringPatternResultVersion {
   const sourceFiles = Array.isArray(item.sourceFiles) ? item.sourceFiles.map((file) => ({ ...file })) : []
   const previewFiles = Array.isArray(item.previewFiles) ? item.previewFiles.map((file) => ({ ...file })) : []
@@ -59,9 +56,8 @@ function clone(item: EngineeringPatternResultVersion): EngineeringPatternResultV
 }
 
 function readAll(): EngineeringPatternResultVersion[] {
-  if (!canUseStorage()) return []
   try {
-    const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')
+    const parsed = JSON.parse(pcsRecordStore.getItem(STORAGE_KEY) || '[]')
     return Array.isArray(parsed) ? parsed.map(clone) : []
   } catch {
     return []
@@ -69,8 +65,7 @@ function readAll(): EngineeringPatternResultVersion[] {
 }
 
 function writeAll(items: EngineeringPatternResultVersion[]): void {
-  if (!canUseStorage()) return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+  pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(items))
 }
 
 function nowText(): string {
@@ -147,10 +142,10 @@ export function submitEngineeringPatternResult(input: {
     submittedAt,
     replacedVersionId: existing[0]?.resultVersionId || '',
   }
-  writeAll([record, ...readAll()])
+  writeAll([...readAll(), record])
   return clone(record)
 }
 
 export function resetEngineeringPatternResultVersions(): void {
-  if (canUseStorage()) localStorage.removeItem(STORAGE_KEY)
+  pcsRecordStore.removeItem(STORAGE_KEY)
 }

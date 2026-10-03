@@ -537,6 +537,8 @@ export function getMobileTaskTabKey(task: ProcessTask | null | undefined): Mobil
 }
 
 export function isMobileTaskVisibleForFactory(task: ProcessTask | null | undefined, currentFactoryId = TEST_FACTORY_ID): boolean {
+  const processType = getMobileTaskProcessType(task)
+  if (processType === 'PRINT' || processType === 'DYE') return isTaskVisibleInMobileExecutionList(task, currentFactoryId)
   return (isTaskVisibleInMobileExecutionList(task, currentFactoryId) || isGarmentWarehouseOutboundPdaTaskForFactory(currentFactoryId, task))
     && canFactoryAccessSpecialCraftPdaTask(currentFactoryId, task)
 }

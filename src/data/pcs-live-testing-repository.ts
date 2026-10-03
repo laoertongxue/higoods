@@ -36,12 +36,12 @@ export interface CreateLiveTestingRecordInput {
 }
 
 function canUseStorage(): boolean {
-  return (
+  try { return (
     typeof localStorage !== 'undefined' &&
     typeof localStorage.getItem === 'function' &&
     typeof localStorage.setItem === 'function' &&
     typeof localStorage.removeItem === 'function'
-  )
+  ) } catch { return false }
 }
 
 function cloneSession(session: LiveSessionRecord): LiveSessionRecord {
@@ -592,7 +592,6 @@ function loadSnapshot(): LiveTestingStoreSnapshot {
     const raw = localStorage.getItem(LIVE_TESTING_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = buildSeedSnapshot()
-      localStorage.setItem(LIVE_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<LiveTestingStoreSnapshot>
@@ -603,13 +602,9 @@ function loadSnapshot(): LiveTestingStoreSnapshot {
         ? parsed.productLines as LiveProductLine[]
         : buildSeedSnapshot().productLines,
     })
-    localStorage.setItem(LIVE_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
     memorySnapshot = buildSeedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(LIVE_TESTING_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
     return cloneSnapshot(memorySnapshot)
   }
 }

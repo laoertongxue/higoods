@@ -1,3 +1,5 @@
+import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { PRODUCT_CONFIG_FIELDS, createStyleProductInformationContext, resolveStyleProductInformation } from './pcs-style-product-information.ts'
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildStyleFixture, isLegacyProductFixtureImage, migrateProductFixtureImage } from './pcs-product-archive-fixtures.ts'
@@ -22,7 +24,7 @@ function nowText(): string {
 function canUseStorage(): boolean {
   try {
     if (typeof window === 'undefined') return false
-    const storage = window.localStorage
+    const storage = pcsRecordStore
     return (
       typeof storage?.getItem === 'function' &&
       typeof storage.setItem === 'function' &&
@@ -75,7 +77,9 @@ function cloneSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSn
 }
 
 function seedSnapshot(): StyleArchiveStoreSnapshot {
-  return createStyleArchiveBootstrapSnapshot(STYLE_ARCHIVE_STORE_VERSION)
+  // Keep the in-memory baseline in the same shape as hydrated records. Otherwise
+  // saving one style would persist normalization-only changes for every demo style.
+  return hydrateSnapshot(createStyleArchiveBootstrapSnapshot(STYLE_ARCHIVE_STORE_VERSION))
 }
 
 function normalizeBaseInfoStatus(status: string): string {
@@ -161,7 +165,9 @@ function hydrateSnapshot(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStore
 }
 
 function mergeMissingSeedData(snapshot: StyleArchiveStoreSnapshot): StyleArchiveStoreSnapshot {
-  const seed = seedSnapshot()
+  if (hasPcsRecordSnapshot('higood-pcs-style-archive-store-v3')) return snapshot
+
+  const seed = withPcsDemoData(() => seedSnapshot())
   const seedById = new Map(seed.records.map((item) => [item.styleId, item]))
   const legacyById = new Map(createStyleArchiveBootstrapSnapshot(STYLE_ARCHIVE_STORE_VERSION, false).records.map((item) => [item.styleId, item]))
   const existingIds = new Set(snapshot.records.map((item) => item.styleId))
@@ -225,22 +231,19 @@ function loadSnapshot(): StyleArchiveStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
 
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
 
   try {
-    const raw = localStorage.getItem(STYLE_ARCHIVE_STORAGE_KEY)
+    const raw = pcsRecordStore.getItem(STYLE_ARCHIVE_STORAGE_KEY)
     if (!raw) {
-      memorySnapshot = seedSnapshot()
+      memorySnapshot = withPcsDemoData(() => seedSnapshot())
       return cloneSnapshot(memorySnapshot)
     }
 
     const parsed = JSON.parse(raw) as Partial<StyleArchiveStoreSnapshot>
-    if (!Array.isArray(parsed.records) || !Array.isArray(parsed.pendingItems)) {
-      memorySnapshot = seedSnapshot()
-      return cloneSnapshot(memorySnapshot)
-    }
+    if (!Array.isArray(parsed.records) || !Array.isArray(parsed.pendingItems)) throw new Error('商品档案格式不完整，原数据已保留，请核对后重试。')
 
     memorySnapshot = mergeMissingSeedData(
       hydrateSnapshot({
@@ -259,7 +262,7 @@ function loadSnapshot(): StyleArchiveStoreSnapshot {
 function persistSnapshot(snapshot: StyleArchiveStoreSnapshot): void {
   const nextSnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(nextSnapshot))
+    pcsRecordStore.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(nextSnapshot))
   }
   memorySnapshot = nextSnapshot
 }
@@ -276,7 +279,7 @@ export interface PreparedStyleArchiveRepositorySnapshot {
 
 export function captureStyleArchiveRepositoryState(): StyleArchiveRepositoryState {
   return {
-    rawSnapshot: canUseStorage() ? localStorage.getItem(STYLE_ARCHIVE_STORAGE_KEY) : null,
+    rawSnapshot: canUseStorage() ? pcsRecordStore.getItem(STYLE_ARCHIVE_STORAGE_KEY) : null,
     memorySnapshot: memorySnapshot ? cloneSnapshot(memorySnapshot) : null,
   }
 }
@@ -292,7 +295,7 @@ export function prepareStyleArchiveRepositorySnapshot(
   }
   if (state.rawSnapshot === null) {
     return {
-      snapshot: seedSnapshot(),
+      snapshot: withPcsDemoData(() => seedSnapshot()),
       writeRequired: true,
     }
   }
@@ -300,7 +303,7 @@ export function prepareStyleArchiveRepositorySnapshot(
   const parsed = JSON.parse(state.rawSnapshot) as Partial<StyleArchiveStoreSnapshot>
   if (!Array.isArray(parsed.records) || !Array.isArray(parsed.pendingItems)) {
     return {
-      snapshot: seedSnapshot(),
+      snapshot: withPcsDemoData(() => seedSnapshot()),
       writeRequired: true,
     }
   }
@@ -327,9 +330,9 @@ export function restoreStyleArchiveRepositoryState(
   try {
     if (restoreRawSnapshot && canUseStorage()) {
       if (state.rawSnapshot === null) {
-        localStorage.removeItem(STYLE_ARCHIVE_STORAGE_KEY)
+        pcsRecordStore.removeItem(STYLE_ARCHIVE_STORAGE_KEY)
       } else {
-        localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, state.rawSnapshot)
+        pcsRecordStore.setItem(STYLE_ARCHIVE_STORAGE_KEY, state.rawSnapshot)
       }
     }
   } finally {
@@ -343,17 +346,17 @@ export function getStyleArchiveStoreSnapshot(): StyleArchiveStoreSnapshot {
 
 export function listStyleArchives(): StyleArchiveShellRecord[] {
   const context = createStyleProductInformationContext()
-  return loadSnapshot().records.map((record) => resolveStyleProductInformation(cloneRecord(record), context)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  return (memorySnapshot ?? loadSnapshot()).records.map((record) => resolveStyleProductInformation(cloneRecord(record), context)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export function getStyleArchiveById(styleId: string): StyleArchiveShellRecord | null {
-  const record = loadSnapshot().records.find((item) => item.styleId === styleId)
+  const record = (memorySnapshot ?? loadSnapshot()).records.find((item) => item.styleId === styleId)
   return record ? resolveStyleProductInformation(cloneRecord(record)) : null
 }
 
 export function findStyleArchiveByCode(styleCode: string): StyleArchiveShellRecord | null {
   // FCS 需求页与转单链路都从正式款式档案读取当前生效技术包版本指针。
-  const matchedRecords = loadSnapshot().records.filter((item) => item.styleCode === styleCode)
+  const matchedRecords = (memorySnapshot ?? loadSnapshot()).records.filter((item) => item.styleCode === styleCode)
   const record =
     matchedRecords.find((item) => item.styleId.startsWith('style_demand_') && Boolean(item.currentTechPackVersionId)) ??
     matchedRecords.find((item) => Boolean(item.currentTechPackVersionId)) ??
@@ -522,10 +525,12 @@ export function replaceStyleArchiveStore(snapshot: StyleArchiveStoreSnapshot): v
 }
 
 export function resetStyleArchiveRepository(): void {
-  const snapshot = seedSnapshot()
+  const snapshot = withPcsDemoData(() => seedSnapshot())
   persistSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.removeItem(STYLE_ARCHIVE_STORAGE_KEY)
-    localStorage.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(snapshot))
+    pcsRecordStore.removeItem(STYLE_ARCHIVE_STORAGE_KEY)
+    pcsRecordStore.setItem(STYLE_ARCHIVE_STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

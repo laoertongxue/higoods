@@ -292,12 +292,12 @@ const ALLOWED_DETAIL_SNAPSHOT_KEYS: Record<PcsProjectInlineStepRecordCode, strin
 }
 
 function canUseStorage(): boolean {
-  return (
+  try { return (
     typeof localStorage !== 'undefined' &&
     typeof localStorage.getItem === 'function' &&
     typeof localStorage.setItem === 'function' &&
     typeof localStorage.removeItem === 'function'
-  )
+  ) } catch { return false }
 }
 
 function nowText(): string {
@@ -622,19 +622,14 @@ function loadSnapshot(): PcsProjectInlineNodeRecordStoreSnapshot {
     const raw = localStorage.getItem(INLINE_NODE_RECORD_STORAGE_KEY)
     if (!raw) {
       memorySnapshot = buildSeedSnapshot()
-      localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY, JSON.stringify(memorySnapshot))
       return cloneSnapshot(memorySnapshot)
     }
     memorySnapshot = mergeMissingSeedData(
       hydrateSnapshot(JSON.parse(raw) as Partial<PcsProjectInlineNodeRecordStoreSnapshot>),
     )
-    localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY, JSON.stringify(memorySnapshot))
     return cloneSnapshot(memorySnapshot)
   } catch {
     memorySnapshot = buildSeedSnapshot()
-    if (canUseStorage()) {
-      localStorage.setItem(INLINE_NODE_RECORD_STORAGE_KEY, JSON.stringify(memorySnapshot))
-    }
     return cloneSnapshot(memorySnapshot)
   }
 }
@@ -647,21 +642,21 @@ function persistSnapshot(snapshot: PcsProjectInlineNodeRecordStoreSnapshot): voi
 }
 
 export function listProjectInlineNodeRecords(): PcsProjectInlineNodeRecord[] {
-  return loadSnapshot().records.map((record) => cloneRecord(record))
+  return (memorySnapshot ?? loadSnapshot()).records.map((record) => cloneRecord(record))
 }
 
 export function listProjectInlineNodeRecordsByProject(projectId: string): PcsProjectInlineNodeRecord[] {
-  return listProjectInlineNodeRecords().filter((record) => record.projectId === projectId)
+  return (memorySnapshot ?? loadSnapshot()).records.filter((record) => record.projectId === projectId).map(cloneRecord)
 }
 
 export function listProjectInlineNodeRecordsByNode(projectNodeId: string): PcsProjectInlineNodeRecord[] {
-  return listProjectInlineNodeRecords().filter((record) => record.projectNodeId === projectNodeId)
+  return (memorySnapshot ?? loadSnapshot()).records.filter((record) => record.projectNodeId === projectNodeId).map(cloneRecord)
 }
 
 export function listProjectInlineNodeRecordsByStepType(
   stepCode: PcsProjectInlineStepRecordCode,
 ): PcsProjectInlineNodeRecord[] {
-  return listProjectInlineNodeRecords().filter((record) => record.stepCode === stepCode)
+  return (memorySnapshot ?? loadSnapshot()).records.filter((record) => record.stepCode === stepCode).map(cloneRecord)
 }
 
 export function getLatestProjectInlineNodeRecord(projectNodeId: string): PcsProjectInlineNodeRecord | null {

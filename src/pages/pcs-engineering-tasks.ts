@@ -51,7 +51,7 @@ const engineeringTaskDetailRenderers = {
   firstSample: renderPcsFirstSampleTaskDetailPage,
 } as const
 
-function handleEngineeringTaskWorkbenchAction(target: HTMLElement): boolean {
+async function handleEngineeringTaskWorkbenchAction(target: HTMLElement): Promise<boolean> {
   const node = target.closest<HTMLElement>('[data-engineering-task-action]')
   if (!node) return false
   const action = node.dataset.engineeringTaskAction || ''
@@ -61,6 +61,10 @@ function handleEngineeringTaskWorkbenchAction(target: HTMLElement): boolean {
     overlay.dataset.engineeringTaskImagePreview = 'true'
     const imageTitle = node.dataset.imageTitle || '图片预览'
     overlay.innerHTML = `<button type="button" class="absolute inset-0 bg-slate-950/70" data-engineering-task-action="close-preview" aria-label="关闭大图预览"></button><section class="relative z-10 flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-xl bg-white shadow-2xl"><header class="flex items-center justify-between border-b px-5 py-3"><h2 class="font-semibold text-slate-900">${escapeHtml(imageTitle)}</h2><button type="button" class="h-8 w-8 rounded-md border" data-engineering-task-action="close-preview" aria-label="关闭大图预览">×</button></header><div class="overflow-auto bg-slate-100 p-5"><img src="${escapeHtml(node.dataset.imageUrl || '')}" alt="${escapeHtml(imageTitle)}" class="mx-auto max-h-[80vh] max-w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><p hidden class="p-12 text-sm text-rose-700">图片加载失败，请检查原图地址。</p></div></section>`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-engineering-task-action="close-preview"]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -75,7 +79,7 @@ function handleEngineeringTaskWorkbenchAction(target: HTMLElement): boolean {
   try {
     const renderer = engineeringTaskDetailRenderers[module]
     if (!renderer) throw new Error('未找到当前任务页面。')
-    startEngineeringTaskFromDetail(taskId)
+    await startEngineeringTaskFromDetail(taskId)
     const host = document.querySelector<HTMLElement>(`[data-engineering-task-detail="${CSS.escape(`${module}:${taskId}`)}"]`)
     if (host) host.outerHTML = renderer(taskId)
     return true
@@ -218,16 +222,16 @@ export function handlePcsEngineeringTaskInput(target: Element): boolean {
     || handleListInput(target)
 }
 
-export function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePcsEngineeringTaskEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   if (
-    handleEngineeringTaskWorkbenchAction(target)
+    (await handleEngineeringTaskWorkbenchAction(target))
     ||
-    handlePatternTaskEvent(target)
-    || handleColorTaskEvent(target)
-    || handlePlateMakingTaskEvent(target)
-    || handleFirstSampleTaskEvent(target)
-    || handleTechPackTaskEvent(target)
-    || handlePurchaseTaskEvent(target, event)
+    (await handlePatternTaskEvent(target))
+    || (await handleColorTaskEvent(target))
+    || (await handlePlateMakingTaskEvent(target))
+    || (await handleFirstSampleTaskEvent(target))
+    || (await handleTechPackTaskEvent(target))
+    || (await handlePurchaseTaskEvent(target, event))
   ) return true
   const module = getEngineeringListModule(target)
   if (module && handleListDrag(module, target, event)) return true

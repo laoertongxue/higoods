@@ -48,7 +48,7 @@ function axisTone(status: string): 'success' | 'warning' | 'danger' | 'info' | '
 }
 
 function renderView(dyeOrderId: string): string {
-  const row = listDyeWorkOrderOnlineRows().find((item) => item.dyeOrderId === dyeOrderId)
+  const row = listDyeWorkOrderOnlineRows({workOrderId:dyeOrderId}).find((item) => item.dyeOrderId === dyeOrderId)
   if (!row) return renderDialog({ title: '查看染色加工单', closeAction: { prefix: EVENT_PREFIX, action: 'close-overlay' } }, '<p class="text-sm text-red-600">染色加工单不存在。</p>')
   const links = (items: Array<{label: string; href?: string}>) => items.map(item => item.href ? `<a class="text-blue-700 hover:underline" href="${escapeHtml(item.href)}">${escapeHtml(item.label)}</a>` : escapeHtml(item.label)).join(' / ')
   const table = (headers: string[], rows: string[][]) => `<div class="overflow-x-auto"><table class="w-full min-w-[620px] border-collapse text-left text-xs"><thead><tr>${headers.map(text => `<th class="border bg-muted/30 p-2">${escapeHtml(text)}</th>`).join('')}</tr></thead><tbody>${rows.map(cells => `<tr>${cells.map(text => `<td class="border p-2">${escapeHtml(text)}</td>`).join('')}</tr>`).join('') || `<tr><td class="border p-3 text-muted-foreground" colspan="${headers.length}">暂无记录</td></tr>`}</tbody></table></div>`
@@ -65,7 +65,7 @@ function renderView(dyeOrderId: string): string {
 }
 
 function renderEdit(dyeOrderId: string, error = ''): string {
-  const row = listDyeWorkOrderOnlineRows().find((item) => item.dyeOrderId === dyeOrderId)
+  const row = listDyeWorkOrderOnlineRows({workOrderId:dyeOrderId}).find((item) => item.dyeOrderId === dyeOrderId)
   if (!row) return renderView(dyeOrderId)
   const record = getDyeWorkOrderOnlineRecord(dyeOrderId)
   const factoryOptions = listBusinessFactoryMasterRecords({ includeTestFactories: true })

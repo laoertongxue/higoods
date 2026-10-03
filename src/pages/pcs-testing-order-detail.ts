@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 import { getTestingOrderBuyerName } from '../data/pcs-testing-order-repository.ts'
 import { renderProductInformation } from './pcs-product-information.ts'
 import { getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
@@ -263,7 +264,12 @@ export function handlePcsTestingOrderInput(_target: Element): boolean {
   return false
 }
 
-export function handlePcsTestingOrderEvent(target: HTMLElement): boolean {
+export async function handlePcsTestingOrderEvent(target: HTMLElement): Promise<boolean> {
+  try { return await runPcsRecordCommand(() => applyTestingOrderAction(target)) }
+  catch { return false } // 存储反馈保留当前表单，失败不触发整页重绘。
+}
+
+function applyTestingOrderAction(target: HTMLElement): boolean {
   const node = target.closest<HTMLElement>('[data-pcs-testing-action]')
   if (!node) return false
   const action = node.dataset.pcsTestingAction || ''

@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 // @page-pattern: list
 import { openDyeBarcodeDialog, handleDyeBarcodeEvent } from './barcode-dialog.ts'
 import { escapeHtml as e } from '../../../utils.ts'
@@ -159,9 +160,9 @@ export function renderWaterSolubleHandoverDocumentsPage(){return renderPage('doc
 export function renderCraftDyeingPendingHandoverPage(){return renderPage('pending')}
 export function renderCraftDyeingHandoverDocumentsPage(){return renderPage('documents')}
 export function openDyeOutput(next:'barcodes'|Mode,id='',snapshot?:DyeWorkOrderOnlineRow){if(next==='barcodes'){openDyeBarcodeDialog(id,snapshot);return}window.location.href=`/fcs/craft/dyeing/${next==='pending'?'pending-handover':'handover-documents'}`}
-export function handleDyeOutputEvent(target:HTMLElement,event?:Event):boolean{
+export async function handleDyeOutputEvent(target:HTMLElement,event?:Event):Promise<boolean>{
   if(target.closest('[data-water-barcode-root]'))return handleWaterOutputBarcode(target,event)
-  if(target.closest('[data-dye-barcode-root]')){if(event&&event.type!=='click'&&!target.matches('input,select,textarea'))return true;const done=handleDyeBarcodeEvent(target);return done}
+  if(target.closest('[data-dye-barcode-root]')){if(event&&event.type!=='click'&&!target.matches('input,select,textarea'))return true;const done=await handleDyeBarcodeEvent(target);return done}
   if(!target.closest('[data-dye-output-page]'))return false
   const actionNode=target.closest<HTMLElement>('[data-dye-output-action]'),action=actionNode?.dataset.dyeOutputAction,id=actionNode?.dataset.id||''
   if(event&&event.type!=='click'&&actionNode&&!target.matches('input,select'))return true
@@ -173,14 +174,14 @@ export function handleDyeOutputEvent(target:HTMLElement,event?:Event):boolean{
   try{
     if(action==='toggle-more'){showMore=!showMore;document.querySelector<HTMLElement>('[data-dye-output-more]')!.hidden=!showMore;actionNode!.textContent=showMore?'收起更多':'更多筛选';actionNode!.setAttribute('aria-expanded',String(showMore));return true}
     if(action==='close-overlay'){overlay='';refreshOverlay();return true}
-    if(action==='barcodes'){process==='water'?openWaterOutputBarcode(id,refreshList):openDyeBarcodeDialog(id,listDyeWorkOrderOnlineRows().find(r=>r.dyeOrderId===id),refreshList);return true}
+    if(action==='barcodes'){process==='water'?openWaterOutputBarcode(id,refreshList):openDyeBarcodeDialog(id,listDyeWorkOrderOnlineRows({workOrderId:id}).find(r=>r.dyeOrderId===id),refreshList);return true}
     if(action==='detail'||action==='print-doc'){docId=id;overlay=action==='detail'?'detail':'print';refreshOverlay();return true}
     if(action==='print-frame'){document.querySelector<HTMLIFrameElement>('[data-dye-output-print]')?.contentWindow?.print();return true}
     if(action==='create'||action==='join'||action==='join-row'){if(action==='join-row'){selected.clear();api.rolls(id).filter(r=>api.isAvailable(id,r)).forEach(r=>selected.add(`${id}|${r.id}`));syncSelection()}if(!selected.size)throw new Error('请先选择可交出的卷。');if(new Set(selections().map(s=>info(s.orderId).factoryId)).size!==1)throw new Error('不同加工厂请分别建单。');overlay=action==='create'?'create':'join';refreshOverlay();return true}
-    if(action==='save-document'){const merge=read('merge');if(overlay==='join'&&!merge)throw new Error('请选择尚未交出的单据。');const doc=api.create(selections(),read('operator'),overlay==='join'?merge:undefined);docId=doc.id;selected.clear();overlay='detail';refreshList();refreshOverlay();message('单据已保存，可逐卷扫码核对。');return true}
-    if(action==='scan'){const scanner=read('scanner');api.scan(id,read('scan'),scanner);refreshList();refreshOverlay();const input=document.querySelector<HTMLInputElement>('[data-dye-output-field="scanner"]');if(input)input.value=scanner;message('本卷核对成功。');return true}
-    if(action==='save-transport'){api.transport(id,{driver:read('driver'),vehicle:read('vehicle'),plate:read('plate'),note:read('note')});refreshList();message('运输信息已保存。');return true}
-    if(action==='confirm'||action==='void'){if(!window.confirm(action==='confirm'?'确认实物已按本单交给司机？下游将依据实际到货单独接收。':'确认作废此单并释放占用的卷？'))return true;api.finish(id,action);refreshList();refreshOverlay();message(action==='confirm'?'交出已保存，等待下游登记实收。':'单据已作废，所选卷已释放。');return true}
+    if(action==='save-document'){const merge=read('merge');if(overlay==='join'&&!merge)throw new Error('请选择尚未交出的单据。');const doc=await runDesignRevisionFcsCommand(selections(), () => api.create(selections(),read('operator'),overlay==='join'?merge:undefined));docId=doc.id;selected.clear();overlay='detail';refreshList();refreshOverlay();message('单据已保存，可逐卷扫码核对。');return true}
+    if(action==='scan'){const scanner=read('scanner');await runDesignRevisionFcsCommand(id, () => api.scan(id,read('scan'),scanner));refreshList();refreshOverlay();const input=document.querySelector<HTMLInputElement>('[data-dye-output-field="scanner"]');if(input)input.value=scanner;message('本卷核对成功。');return true}
+    if(action==='save-transport'){await runDesignRevisionFcsCommand(id, () => api.transport(id,{driver:read('driver'),vehicle:read('vehicle'),plate:read('plate'),note:read('note')}));refreshList();message('运输信息已保存。');return true}
+    if(action==='confirm'||action==='void'){if(!window.confirm(action==='confirm'?'确认实物已按本单交给司机？下游将依据实际到货单独接收。':'确认作废此单并释放占用的卷？'))return true;await runDesignRevisionFcsCommand(id, () => api.finish(id,action));refreshList();refreshOverlay();message(action==='confirm'?'交出已保存，等待下游登记实收。':'单据已作废，所选卷已释放。');return true}
     if(action==='factory'){factory=id;page=1;selected.clear()}
     else if(action==='query'){keyword=read('keyword');receiver=read('receiver');status=read('status');ready=read('ready');dateFrom=read('dateFrom');dateTo=read('dateTo');if(dateFrom&&dateTo&&dateFrom>dateTo)throw new Error('开始日期不能晚于结束日期。');page=1;selected.clear()}
     else if(action==='reset'){keyword=receiver=status=ready=dateFrom=dateTo='';if(process==='water'&&mode==='pending')status='待建单据';page=1;selected.clear()}

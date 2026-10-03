@@ -1,3 +1,4 @@
+import { withPcsDemoData, hasPcsRecordSnapshot, isPcsDemoData } from './pcs-record-runtime.ts'
 import { summarizeEngineeringTaskItems } from './pcs-engineering-task-item-progress.ts'
 import { computeAccessoryPurchaseTaskLinkage } from './pcs-engineering-purchase-linkage.ts'
 import { hasPassedTestingOrder, listTestingOrders } from './pcs-testing-order-repository.ts'
@@ -18,7 +19,6 @@ import {
   applyBomRequirementsToEngineeringTasks,
   listEngineeringMasterOrders,
   listEngineeringMasterPriorResultCandidates,
-  seedEngineeringMasterDemoLifecycleStatus,
   saveEngineeringMasterBomVersion,
   confirmEngineeringMasterBomVersion,
   setEngineeringMasterStatus,
@@ -109,6 +109,11 @@ function requiredBasePatternTaskTypes(preparationType: EngineeringPreparationTyp
 
 // 仓库为空时创建演示主单：首张发布为 EM-001，第二张保持草稿，用于展示不同状态。
 export function ensureEngineeringMasterDemoData(targetRecordCount = 12): void {
+  if (typeof window !== 'undefined' && !isPcsDemoData() && hasPcsRecordSnapshot('higood-pcs-engineering-master-store-v1')) return
+  return withPcsDemoData(() => initializeEngineeringMasterDemoData(targetRecordCount))
+}
+
+function initializeEngineeringMasterDemoData(targetRecordCount: number): void {
   const targetCount = Math.max(1, Math.min(12, Math.floor(targetRecordCount)))
   const records = listEngineeringMasterOrders()
   // Opening an existing workspace must not create demo orders or advance its lifecycle.
@@ -123,7 +128,6 @@ export function ensureEngineeringMasterDemoData(targetRecordCount = 12): void {
     .slice(0, Math.max(0, targetCount - records.length))
   if (candidates.length === 0) {
     ensureEngineeringDemoTaskMaterials(records)
-    ensureEngineeringLifecycleDemoData()
     return
   }
   const preparationTypes = ['PURE_WOVEN', 'KNIT', 'KNIT_WOVEN', 'HEAT_TRANSFER_DIRECT_PRINT'] as const
@@ -193,7 +197,6 @@ export function ensureEngineeringMasterDemoData(targetRecordCount = 12): void {
     ensureEngineeringDemoTaskMaterials([published])
     seedEngineeringMasterScenario(published.masterOrderId, scenarioNo)
   }
-  if (targetCount >= 12) ensureEngineeringLifecycleDemoData()
 }
 
 function ensureEngineeringDemoBomVersions(
@@ -356,6 +359,9 @@ function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number
   const completeTask = (taskId: string, offset: number) => updateEngineeringTaskRecord(masterOrderId, taskId, (task) => {
     const startedAt = `${baseTime} ${String(9 + offset).padStart(2, '0')}:00:00`
     const completedAt = `${baseTime} ${String(10 + offset).padStart(2, '0')}:30:00`
+    const progress = summarizeEngineeringTaskItems(task)
+    // 演示任务也须保留未完成明细事实，不能仅改父级标签。
+    if (progress.applicable && !progress.allCompleted) return
     task.status = '已完成'
     const completedOperators = ['周师傅', 'Ayu', 'Lina', '陈敏', 'Rudi', '王丽', '林晓']
     task.assigneeId = `PCS-DEMO-OPERATOR-${offset + 1}`
@@ -407,84 +413,6 @@ function seedEngineeringMasterScenario(masterOrderId: string, scenarioNo: number
   if (scenarioNo >= 2) setEngineeringMasterStatus(masterOrderId, scenarioNo >= 10 ? '技术包审核中' : '进行中')
   if (seedTechPackDraft && getEngineeringBomPricingPlan('ENGINEERING_MASTER', masterOrderId)?.status === 'COMPLETED_CONFIRMED') {
     createEngineeringMasterTechPackDraft(masterOrderId, master.merchandiserName)
-  }
-}
-
-function ensureEngineeringLifecycleDemoData(): void {
-  // 只允许初始化内置 BULK-DEMO 主单；人工新建草稿不得因追加到仓库末尾而被改写生命周期。
-  const records = listEngineeringMasterOrders().filter((record) =>
-    record.bulkProductionQualification.triggerBusinessObjectId.startsWith('BULK-DEMO-'))
-  const lifecycleCandidates = records.filter((record) =>
-    record.status !== '草稿'
-    && Boolean(record.taskPlanConfirmedAt)
-    && getEngineeringBomPricingPlan('ENGINEERING_MASTER', record.masterOrderId)?.status === 'COMPLETED_CONFIRMED')
-  const closingMaster = lifecycleCandidates.at(-2)
-  const closedMaster = lifecycleCandidates.at(-1)
-  if (closingMaster && closingMaster.status !== '待关闭' && closingMaster.status !== '已关闭') {
-    seedEngineeringMasterDemoLifecycleStatus(closingMaster.masterOrderId, '待关闭')
-  }
-  if (!closedMaster) return
-  let versions = listTechnicalDataVersionsByStyleId(closedMaster.styleId)
-    .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER')
-  if (versions.length === 0) {
-    if (getEngineeringBomPricingPlan('ENGINEERING_MASTER', closedMaster.masterOrderId)?.status !== 'COMPLETED_CONFIRMED') return
-    for (const task of closedMaster.tasks) {
-      if (task.status === '未启用') continue
-      updateEngineeringTaskRecord(closedMaster.masterOrderId, task.taskId, (stored) => {
-        stored.status = '已完成'
-        stored.startedAt ||= '2026-08-04 09:00:00'
-        stored.submittedAt ||= '2026-08-04 15:00:00'
-        stored.firstCompletedAt ||= stored.submittedAt
-        stored.effectiveCompletedAt ||= stored.submittedAt
-        stored.completedAt ||= stored.submittedAt
-      })
-    }
-    createEngineeringMasterTechPackDraft(closedMaster.masterOrderId, closedMaster.merchandiserName)
-    versions = listTechnicalDataVersionsByStyleId(closedMaster.styleId)
-      .filter((version) => version.createdFromTaskType === 'ENGINEERING_MASTER')
-  }
-  const currentVersion = versions[0]
-  if (currentVersion && currentVersion.versionStatus !== 'PUBLISHED') {
-    const pricingPlan = getEngineeringBomPricingPlan('TECH_PACK_DRAFT', currentVersion.technicalVersionId)
-    if (pricingPlan?.status === 'DRAFT') {
-      confirmEngineeringBomPricingPlan({
-        ownerStage: 'TECH_PACK_DRAFT',
-        ownerId: currentVersion.technicalVersionId,
-        role: '买手',
-        userId: pricingPlan.buyerId || 'U-BUYER-DEMO',
-        userName: pricingPlan.buyerName || '买手-阿乐',
-        confirmedAt: '2026-08-04 17:20:00',
-      })
-    }
-    updateTechnicalDataVersionRecord(currentVersion.technicalVersionId, {
-      versionStatus: 'PUBLISHED',
-      reviewStage: '已发布',
-      publishedAt: '2026-08-04 17:30:00',
-      publishedBy: closedMaster.merchandiserName,
-      updatedAt: '2026-08-04 17:30:00',
-      updatedBy: closedMaster.merchandiserName,
-    })
-  }
-  if (currentVersion) {
-    const technicalBomVersions = listEngineeringBomVersionsByOwner('TECH_PACK_DRAFT', currentVersion.technicalVersionId)
-    if (technicalBomVersions.length > 0 && technicalBomVersions.every((version) => version.versionStatus === 'COMPLETED_CONFIRMED')) {
-      markEngineeringBomVersionsPublished({
-        ownerStage: 'TECH_PACK_DRAFT',
-        ownerId: currentVersion.technicalVersionId,
-        publishedSnapshotId: currentVersion.technicalVersionId,
-        publishedBy: closedMaster.merchandiserName,
-        publishedAt: '2026-08-04 17:30:00',
-      })
-    }
-  }
-  if (currentVersion) {
-    updateStyleArchive(closedMaster.styleId, {
-      currentTechPackVersionId: currentVersion.technicalVersionId,
-      currentTechPackVersionCode: currentVersion.technicalVersionCode,
-    })
-  }
-  if (closedMaster.status !== '已关闭') {
-    seedEngineeringMasterDemoLifecycleStatus(closedMaster.masterOrderId, '已关闭')
   }
 }
 

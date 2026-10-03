@@ -174,7 +174,7 @@ function readStatus(ref: Pick<DesignRevisionProcessWorkOrderReference, 'processT
 function validateResultBinding(input: DesignRevisionApprovedProfessionalResultInput): void {
   if (!input.designRevisionTaskId.trim() || !input.professionalTaskId.trim()) throw new Error('设计改款任务和专业任务不能为空。')
   if (!input.professionalResultId.trim() || !input.professionalResultVersion.trim() || !input.approvedAt.trim() || !input.approvedBy.trim()) throw new Error('专业成果编号、版本和买手审核记录必须完整。')
-  if (!input.attachments.length || input.attachments.some((file) => !file.fileId.trim() || !file.fileName.trim() || !file.mimeType.trim() || !Number.isFinite(file.sizeBytes) || file.sizeBytes <= 0 || !/^data:[^;,]+;base64,/i.test(file.dataUrl))) throw new Error('专业成果必须包含已保存的真实附件。')
+  if (!input.attachments.length || input.attachments.some((file) => !file.fileId.trim() || !file.fileName.trim() || !file.mimeType.trim() || !Number.isFinite(file.sizeBytes) || file.sizeBytes <= 0 || !/^(?:data:[^;,]+;base64,|blob:|pcs-file:)/i.test(file.dataUrl))) throw new Error('专业成果必须包含已保存的真实附件。')
   if (!input.processWorkOrderRefs.length) throw new Error('专业任务没有对应的印花／染色加工单。')
   const seen = new Set<string>()
   input.processWorkOrderRefs.forEach((ref) => {

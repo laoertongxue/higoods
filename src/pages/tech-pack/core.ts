@@ -817,6 +817,10 @@ export function renderTechPackPage(
   const checklist = getChecklist()
   const hasIncomplete = checklist.some((item) => item.required && !item.done)
   const currentRecord = state.currentTechnicalVersionId ? getTechnicalDataVersionById(state.currentTechnicalVersionId) : null
+  const missingPublishedItems = [...new Set([
+    ...(currentRecord?.missingItemNames ?? []),
+    ...checklist.filter(item => item.required && !item.done).map(item => item.label),
+  ])]
   if (currentRecord && shouldOpenReviewDetailDrawerFromRoute()) {
     const review = normalizeTechnicalReviewSnapshot(currentRecord)
     if (review.reviewStage !== '未提交审核' || currentRecord.reviewSubmittedAt) {
@@ -832,11 +836,12 @@ export function renderTechPackPage(
               <i data-lucide="arrow-left" class="h-4 w-4"></i>
             </button>
             <h1 class="text-xl font-semibold">技术包版本 - ${escapeHtml(state.currentTechnicalVersionCode || state.currentSpuCode)}</h1>
-            ${renderStatusBadge(state.techPack.status)}
+            ${currentRecord?.versionStatus === 'PUBLISHED' && missingPublishedItems.length ? '<span class="rounded bg-amber-50 px-2 py-1 text-sm text-amber-800">已发布 · 资料待补齐</span>' : renderStatusBadge(state.techPack.status)}
             ${state.techPack.versionLabel ? `<span class="text-sm text-muted-foreground">(${escapeHtml(state.techPack.versionLabel)})</span>` : ''}
           </div>
           <p class="ml-10 text-sm text-muted-foreground">${escapeHtml(state.techPack.spuName)}</p>
           ${renderTechPackSummary()}
+          ${currentRecord?.versionStatus === 'PUBLISHED' && missingPublishedItems.length ? `<p class="ml-10 mt-2 text-sm text-amber-800">保留历史发布记录；当前缺少：${escapeHtml(missingPublishedItems.join('、'))}。请补齐资料和纸样原文件后重新审核发布。</p>` : ''}
           ${state.compatibilityMessage ? `<p class="ml-10 mt-2 text-sm text-red-600">${escapeHtml(state.compatibilityMessage)}</p>` : ''}
         </div>
 

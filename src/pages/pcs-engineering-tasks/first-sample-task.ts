@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
 // 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
@@ -131,7 +132,7 @@ export function renderPcsFirstSampleTaskDetailPage(taskId: string): string {
   </div>`
 }
 
-export function submitEngineeringFirstSampleResult(
+export async function submitEngineeringFirstSampleResult(
   taskId: string,
   input: {
     sampleActuals: Array<Omit<EngineeringSampleActualLine, 'actualLineId' | 'submittedAt'> & {
@@ -139,7 +140,7 @@ export function submitEngineeringFirstSampleResult(
       submittedAt?: string
     }>
   },
-): EngineeringTaskRecord {
+): Promise<EngineeringTaskRecord> {
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail || detail.task.taskType !== 'PRE_PRODUCTION_SAMPLE') throw new Error('未找到首单样衣任务。')
   const permittedVersions = new Set(availablePatternVersions(detail.task).map((version) => version.value))
@@ -147,7 +148,7 @@ export function submitEngineeringFirstSampleResult(
   if (input.sampleActuals.some((actual) => !permittedVersions.has(actual.sourcePatternVersion.trim()))) {
     throw new Error('首单样衣只能选择已完成的基码纸样版本。')
   }
-  return submitEngineeringTaskResult(detail.master.masterOrderId, taskId, input).task
+  return (await runPcsRecordCommand(() => submitEngineeringTaskResult(detail.master.masterOrderId, taskId, input))).task
 }
 
 function syncResultDraftsFromDom(task: EngineeringTaskRecord): void {
@@ -200,13 +201,13 @@ export function handleFirstSampleTaskInput(target: Element): boolean {
   return true
 }
 
-export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
+export async function handleFirstSampleTaskEvent(target: HTMLElement): Promise<boolean> {
   const uploadRemove = target.closest<HTMLElement>('[data-first-sample-upload-remove]')
   if (uploadRemove) {
     const taskId = uploadRemove.dataset.taskId || ''
     const detail = getEngineeringTaskDetail(taskId)
     if (detail) syncResultDraftsFromDom(detail.task)
-    removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' })
+    await runPcsRecordCommand(() => removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' }))
     const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
     if (host) host.outerHTML = renderPcsFirstSampleTaskDetailPage(taskId)
     return true
@@ -220,6 +221,10 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', `${uploadPreview.dataset.fileName || '首单样衣'}大图`)
     overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-skip-page-rerender="true" data-first-sample-action="close-preview">关闭</button><img src="${escapeHtml(uploadPreview.dataset.fileUrl || '')}" alt="${escapeHtml(uploadPreview.dataset.fileName || '首单样衣大图')}" class="max-h-full max-w-full object-contain">`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-first-sample-action="close-preview"]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -234,6 +239,10 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', node.dataset.imageAlt || '首单样衣大图')
     overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-skip-page-rerender="true" data-first-sample-action="close-preview">关闭</button><img src="${escapeHtml(node.dataset.imageUrl || '')}" alt="${escapeHtml(node.dataset.imageAlt || '首单样衣大图')}" class="max-h-full max-w-full object-contain">`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-first-sample-action="close-preview"]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -270,8 +279,10 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
     const draftId = node.dataset.draftId || ''
     const drafts = getResultDrafts(detail.task)
     if (drafts.length <= (detail.task.sampleRequirements?.length || 1)) return true
-    listEngineeringTaskUploadedFiles(taskId, draftId, 'SAMPLE_RESULT').forEach((file) => {
-      removeEngineeringTaskUploadedFile({ taskId, itemId: draftId, fileId: file.fileId })
+    await runPcsRecordCommand(() => {
+      listEngineeringTaskUploadedFiles(taskId, draftId, 'SAMPLE_RESULT').forEach((file) => {
+        removeEngineeringTaskUploadedFile({ taskId, itemId: draftId, fileId: file.fileId })
+      })
     })
     resultDrafts.set(taskId, drafts.filter((draft) => draft.draftId !== draftId))
     const host = document.querySelector<HTMLElement>(`[data-first-sample-detail="${CSS.escape(taskId)}"]`)
@@ -302,7 +313,7 @@ export function handleFirstSampleTaskEvent(target: HTMLElement): boolean {
         submittedBy: operator.operatorName,
       }
     })
-    submitEngineeringFirstSampleResult(taskId, {
+    await submitEngineeringFirstSampleResult(taskId, {
       sampleActuals,
     })
     resultDrafts.delete(taskId)

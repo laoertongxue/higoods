@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 // @page-pattern: detail
 
 // 生产准备单详情：按任务逐行展示的执行表格。
@@ -506,7 +507,7 @@ function showDetailFeedback(message: string, ok: boolean): void {
   `
 }
 
-export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): boolean {
+export async function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): Promise<boolean> {
   const actionNode = target.closest<HTMLElement>(`[data-${DETAIL_EVENT_PREFIX}-action]`)
   if (!actionNode) return false
   const action = actionNode.dataset.pcsEngineeringMasterAction
@@ -613,7 +614,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
         }]
       })
       syncPreProductionSampleRequirementsFromDom()
-      confirmEngineeringMasterTaskPlan(masterKey, {
+      await runPcsRecordCommand(() => confirmEngineeringMasterTaskPlan(masterKey, {
         confirmedBy: resolveEngineeringMasterDemoOperatorName(model),
         confirmedById: master.merchandiserId,
         confirmedByRole: '跟单',
@@ -628,7 +629,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
           requiredQuantity: line.requiredQuantity,
           requirementNote: line.requirementNote,
         })),
-      })
+      }))
       detailUiState.taskPlanError = ''
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
     } catch (error) {
@@ -645,12 +646,12 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
       const model = buildEngineeringMasterDetailModel(masterKey)
       if (!model) throw new Error('生产准备单不存在。')
       if (!model.bomSummary.buyerId || !model.bomSummary.buyerName) throw new Error('请先为工程 BOM 与价格分配买手。')
-      confirmEngineeringMasterBomPricingPlan({
+      await runPcsRecordCommand(() => confirmEngineeringMasterBomPricingPlan({
         masterOrderId: masterKey,
         role: '买手',
         userId: model.bomSummary.buyerId,
         userName: model.bomSummary.buyerName,
-      })
+      }))
       showDetailFeedback('工程 BOM 与价格已整款确认，条件任务建议已同步更新。', true)
       if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render'))
     } catch (error) {
@@ -667,7 +668,7 @@ export function handlePcsEngineeringMasterDetailEvent(target: HTMLElement): bool
     try {
       const currentModel = buildEngineeringMasterDetailModel(masterKey)
       if (!currentModel) throw new Error('未找到生产准备单，无法关闭。')
-      closeEngineeringMasterOrder(masterKey, resolveEngineeringMasterDemoOperatorName(currentModel))
+      await runPcsRecordCommand(() => closeEngineeringMasterOrder(masterKey, resolveEngineeringMasterDemoOperatorName(currentModel)))
       message = '生产准备单已关闭。'
       ok = true
     } catch (error) {

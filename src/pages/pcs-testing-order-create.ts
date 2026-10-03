@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 // @page-pattern: form
 import { escapeHtml } from '../utils.ts'
 import { appStore } from '../state/store.ts'
@@ -49,7 +50,7 @@ export function handlePcsTestingOrderCreateInput(target: Element): boolean {
   }
   return true
 }
-export function handlePcsTestingOrderCreateEvent(target: HTMLElement): boolean {
+export async function handlePcsTestingOrderCreateEvent(target: HTMLElement): Promise<boolean> {
   if (!target.closest('[data-testing-create-action="submit"]')) return false
   const feedback = document.querySelector('[data-testing-create-feedback]')!
   if (!state.styleId) { feedback.textContent = '请选择商品档案。'; return true }
@@ -57,7 +58,7 @@ export function handlePcsTestingOrderCreateEvent(target: HTMLElement): boolean {
   if (!state.skuCodes.length) { feedback.textContent = '请至少选择一个测款 SKU。'; return true }
   const picture = document.querySelector<HTMLImageElement>('[data-create-style-image]')
   if (!picture?.complete || !picture.naturalWidth) { feedback.textContent = '商品图片尚未成功加载，请核对商品档案图片后重试。'; return true }
-  const result = createTestingOrder({ styleId: state.styleId, skuCodes: state.skuCodes })
+  const result = await runPcsRecordCommand(() => createTestingOrder({ styleId: state.styleId, skuCodes: state.skuCodes }))
   if (!result.ok || !result.order) { feedback.textContent = result.message || '创建失败，请核对商品档案。'; return true }
   state.styleId = ''; state.skuCodes = []
   appStore.navigate(`/pcs/testing/orders/${encodeURIComponent(result.order.testingOrderId)}`)

@@ -1,3 +1,4 @@
+import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
 import { isProductionCreationSourceStage, withProductionCreationSourceStage, recordProductionCreatedProcessSource, listProductionCreatedProcessSources, shouldApplyProductionCreatedProcessSource } from './production-created-process-sources.ts'
 import { parsePrintExecution, serializePrintExecution } from './printing-execution-storage.ts'
 import { buildPrintingFactoryDemoOrders, initializePrintingFactoryDemoProgress } from './printing-factory-demos.ts'
@@ -655,7 +656,7 @@ export function restorePrintProcessMutationState(snapshot: PrintProcessMutationS
 
 
 export function preparePrintSourcesForProductionCreation(): string | null {
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY)
+  const raw = (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY)
   if (!raw) return raw
   const saved = parsePrintExecution(raw) as { version: number; state: PrintProcessMutationSnapshot }
   if (saved.version !== 1 || !saved.state || !Array.isArray(saved.state.workOrders)
@@ -664,7 +665,7 @@ export function preparePrintSourcesForProductionCreation(): string | null {
   return raw
 }
 export function assertPrintProductionCreationSourceUnchanged(raw: string | null): void {
-  if (typeof localStorage !== 'undefined' && localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('其他页面已修改提前加工来源，请重新读取后生成生产单。')
+  if ((typeof window !== 'undefined' || typeof localStorage !== 'undefined') && getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('其他页面已修改提前加工来源，请重新读取后生成生产单。')
 }
 export function capturePrintProductionCreationState() {
   return { state: capturePrintProcessMutationState(), createdIds: [...createdPrintOrderIds],
@@ -747,7 +748,7 @@ function hydrateDesignRevisionPrintPreview(order: PrintWorkOrder): void {
 
 function saveFormalPrintExecution(): void {
   applyProductionCreatedPrintSources()
-  if (typeof localStorage === 'undefined') return
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
   const ids = new Set(workOrderStore.keys()), state = capturePrintProcessMutationState()
   state.workOrders = state.workOrders.filter(([id]) => ids.has(id))
   // 新建但未开工的加工单也保存空执行记录，刷新时可区分“尚未执行”和缺失记录。
@@ -768,12 +769,12 @@ function saveFormalPrintExecution(): void {
     })))
     .filter(item => item.records.length > 0)
   const raw = serializePrintExecution({ version: 1, state, tasks, designRevisionHandovers })
-  localStorage.setItem(PRINT_EXECUTION_STORAGE_KEY, raw)
-  if (localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('印花保存结果未核实')
+  getDesignRevisionFcsStorage().setItem(PRINT_EXECUTION_STORAGE_KEY, raw)
+  if (getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) throw new Error('印花保存结果未核实')
 }
 function restoreFormalPrintExecution(): void {
-  if (typeof localStorage === 'undefined') return
-  const raw = localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY)
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
+  const raw = getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY)
   if (!raw) return
   try {
     const saved = parsePrintExecution(raw) as { version: number; state: PrintProcessMutationSnapshot; tasks: PdaGenericTaskMock[]; designRevisionHandovers?: Array<{orderId:string;head:PdaHandoverHead;records:PdaHandoverRecord[]}> }
@@ -835,7 +836,7 @@ function restoreFormalPrintExecution(): void {
       })) throw new Error('设计改款印花交出原记录与加工单不一致')
       saved.designRevisionHandovers.forEach(item => {
         upsertPdaHandoverHeadMock(item.head)
-        item.records.forEach(record => upsertPdaHandoutRecordMock(record))
+        item.records.forEach(record => upsertPdaHandoutRecordMock(record, true))
       })
     }
     // 兼容此前只保存了印花交出来源单、却遗漏原交出记录的演示数据。
@@ -855,7 +856,7 @@ function restoreFormalPrintExecution(): void {
           || source.targetFactoryId !== order.sourceSnapshot.receivingFactoryId
           || source.lines.length !== 1 || Math.abs(source.lines[0].sentQty - qty) > .001
           || rolls.length !== sourceRolls.length || rolls.some(roll => !sourceRolls.includes(roll.barcode))) continue
-        const handover = ensureHandoverOrderForStartedTask(order.taskId)
+        const handover = ensureHandoverOrderForStartedTask(order.taskId, { includeWool: false })
         if (handover.handoverOrderId !== order.handoverOrderId) throw new Error('印花交出原单编号与加工单不一致')
         const record = createFactoryHandoverRecord({
           handoverOrderId: handover.handoverOrderId,
@@ -875,7 +876,7 @@ function restoreFormalPrintExecution(): void {
         recoveredHandover = true
       }
     }
-    if (recoveredHandover) saveFormalPrintExecution()
+    // Historical handover projection is read-only; persist only on an explicit business action.
   } catch (error) { printPersistenceReadError = '已保存的印花记录损坏或与原来源不一致，未覆盖原记录，请联系负责人。' + (error instanceof Error ? error.message : String(error)); throw new Error(printPersistenceReadError) }
 }
 export function runPrintProcessMutation<T>(action: () => T): T {
@@ -887,7 +888,7 @@ export function runPrintProcessMutation<T>(action: () => T): T {
   const tasks = [...workOrderStore.values()].flatMap(order => { const task = getPrintingTaskById(order.taskId); return task ? [structuredClone(task)] : [] })
   const handoverBefore = capturePdaHandoverState()
   const receivingBefore = captureFactoryReceivingData()
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY)
+  const raw = (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY)
   printMutationDepth++
   try {
     const result = action()
@@ -895,11 +896,11 @@ export function runPrintProcessMutation<T>(action: () => T): T {
     for (const order of workOrderStore.values()) {
       if (!order.handoverOrderId) continue
       if(!ids.has(order.printOrderId)){
-        const head=getHandoverOrderById(order.handoverOrderId)
+        const head=getHandoverOrderById(order.handoverOrderId, { includeWool: false })
         if(head&&/^PWO-PRINT-(?:\d{3}|DEMO-\d{2}-[1-5])$/.test(order.printOrderId))upsertPdaHandoverHeadMock({...head,sourceBusinessType:'PRINT_WORK_ORDER',sourceDocId:order.printOrderId,sourceDocNo:order.printOrderNo})
         continue
       }
-      const head = getHandoverOrderById(order.handoverOrderId)
+      const head = getHandoverOrderById(order.handoverOrderId, { includeWool: false })
       if (!head || head.taskId !== order.taskId || JSON.stringify(head.sourceSnapshot) !== JSON.stringify(order.sourceSnapshot) || (head.sourceDocId && head.sourceDocId !== order.printOrderId) || (head.sourceBusinessType && head.sourceBusinessType !== 'PRINT_WORK_ORDER')) throw new Error('原交出单与印花加工单来源不一致')
       if (!head.sourceDocId || !head.sourceBusinessType) upsertPdaHandoverHeadMock({ ...head, sourceBusinessType: 'PRINT_WORK_ORDER', sourceDocId: order.printOrderId, sourceDocNo: order.printOrderNo })
       persistPdaHandoverState({ handoverId: head.handoverId, taskId: order.taskId, productionOrderId: order.sourceSnapshot?.productionOrderId || '', sourceDocId: order.printOrderId, sourceBusinessType: 'PRINT_WORK_ORDER' })
@@ -913,7 +914,7 @@ export function runPrintProcessMutation<T>(action: () => T): T {
     let rollbackFailed = false
     try { restorePdaHandoverState(handoverBefore) } catch { rollbackFailed = true }
     try { restoreFactoryReceivingData(receivingBefore) } catch { rollbackFailed = true }
-    try { if (typeof localStorage !== 'undefined' && localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) { if (raw === null) localStorage.removeItem(PRINT_EXECUTION_STORAGE_KEY); else localStorage.setItem(PRINT_EXECUTION_STORAGE_KEY, raw) } } catch { rollbackFailed = true }
+    try { if ((typeof window !== 'undefined' || typeof localStorage !== 'undefined') && getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY) !== raw) { if (raw === null) getDesignRevisionFcsStorage().removeItem(PRINT_EXECUTION_STORAGE_KEY); else getDesignRevisionFcsStorage().setItem(PRINT_EXECUTION_STORAGE_KEY, raw) } } catch { rollbackFailed = true }
     if (rollbackFailed) throw new Error('印花操作未保存，回退未核实，请保留页面并联系主管。')
     throw new Error('印花操作未保存，原动作已撤回。' + (error instanceof Error ? error.message : String(error)))
   } finally { printMutationDepth-- }
@@ -1491,7 +1492,7 @@ function syncTaskHandoverFields(taskId: string, handoverOrderId: string): void {
   if (!task) return
 
   task.handoverOrderId = handoverOrderId
-  const head = getHandoverOrderById(handoverOrderId)
+  const head = getHandoverOrderById(handoverOrderId, { includeWool: false })
   if (head?.handoverOrderStatus) {
     task.handoverStatus = head.handoverOrderStatus
   }
@@ -1519,7 +1520,7 @@ function ensureSeededHandoverRecord(input: {
   const handoverOrderId = ensureStartedTaskHandover(input.taskId)
   if (!handoverOrderId) return { recordIds: [] }
 
-  const head = getHandoverOrderById(handoverOrderId)
+  const head = getHandoverOrderById(handoverOrderId, { includeWool: false })
   if (!head) return { handoverOrderId, recordIds: [] }
   const existing = getPdaHandoverRecordsByHead(head.handoverId, head)
   if (existing.length === 0) {
@@ -1619,7 +1620,7 @@ function addSeedWorkOrder(input: Omit<
     receivingLocationId: input.sourceSnapshot?.receivingLocationId,
     receivingLocationName: input.sourceSnapshot?.receivingLocationName,
   })
-  const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId) : getPrimaryHandoverOrder(input.taskId)
+  const handoverOrder = input.handoverOrderId ? getHandoverOrderById(input.handoverOrderId, { includeWool: false }) : getPrimaryHandoverOrder(input.taskId)
   if (task) {
     const hasFactory = Boolean(input.printFactoryId)
     task.assignmentMode = 'DIRECT'
@@ -1780,7 +1781,7 @@ function seedWorkOrders(): void {
     diffReason: '局部花位偏差，需退回补送',
   })
   const handoverHead = handoverSeed.handoverOrderId
-    ? getHandoverOrderById(handoverSeed.handoverOrderId)
+    ? getHandoverOrderById(handoverSeed.handoverOrderId, { includeWool: false })
     : getPrimaryHandoverOrder('TASK-PRINT-000719')
 
   addSeedWorkOrder({
@@ -2469,7 +2470,7 @@ function seedReviewRecords(): void {
   const waitReviewOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.PARTIAL_HANDOVER)
   if (!waitReviewOrder?.handoverOrderId) return
 
-  const head = getHandoverOrderById(waitReviewOrder.handoverOrderId)
+  const head = getHandoverOrderById(waitReviewOrder.handoverOrderId, { includeWool: false })
   if (!head) return
   const records = getPdaHandoverRecordsByHead(head.handoverId, head)
   if (!records.length) return
@@ -2493,7 +2494,7 @@ function seedReviewRecords(): void {
   const completedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.FULL_HANDOVER)
   if (!completedOrder?.handoverOrderId) return
 
-  const completedHead = getHandoverOrderById(completedOrder.handoverOrderId)
+  const completedHead = getHandoverOrderById(completedOrder.handoverOrderId, { includeWool: false })
   if (!completedHead) return
   const completedRecords = getPdaHandoverRecordsByHead(completedHead.handoverId)
   if (!completedRecords.length) return
@@ -2519,7 +2520,7 @@ function seedReviewRecords(): void {
   const rejectedOrder = workOrderStore.get(PRINT_WORK_ORDER_IDS.HANDOVER_DIFFERENCE)
   if (!rejectedOrder?.handoverOrderId) return
 
-  const rejectedHead = getHandoverOrderById(rejectedOrder.handoverOrderId)
+  const rejectedHead = getHandoverOrderById(rejectedOrder.handoverOrderId, { includeWool: false })
   if (!rejectedHead) return
   const rejectedRecords = getPdaHandoverRecordsByHead(rejectedHead.handoverId)
   if (!rejectedRecords.length) return
@@ -3108,8 +3109,8 @@ export function readPrintWorkOrdersWithoutInitialization(): { orders: PrintWorkO
   if (printPersistenceReadError) throw new Error(printPersistenceReadError)
   return {
     orders: seeded ? listGeneratedPrintWorkOrders().map(cloneWorkOrder) : [],
-    needsRestoration: !seeded && typeof localStorage !== 'undefined'
-      && localStorage.getItem(PRINT_EXECUTION_STORAGE_KEY) !== null,
+    needsRestoration: !seeded && (typeof window !== 'undefined' || typeof localStorage !== 'undefined')
+      && getDesignRevisionFcsStorage().getItem(PRINT_EXECUTION_STORAGE_KEY) !== null,
   }
 }
 
@@ -3125,7 +3126,7 @@ export function listPrintWorkOrders(): PrintWorkOrder[] {
 export function listPrintWorkOrderListRecords() {
   return listPrintWorkOrders().map(order => {
     const review = reviewRecordStore.get(order.printOrderId)
-    const head = order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId) : undefined
+    const head = order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId, { includeWool: false }) : undefined
     return {
       order,
       review: review ? cloneReviewRecord(review) : undefined,
@@ -4211,7 +4212,7 @@ function getMutablePrintReceiptReview(printOrderId: string): { order: MutablePri
   let review = reviewRecordStore.get(printOrderId)
   if (!review) {
     const head =
-      (order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId) : null)
+      (order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId, { includeWool: false }) : null)
       || getPrimaryHandoverOrder(order.taskId)
     if (!head) {
       throw new Error('交出记录创建后才能确认收货')
@@ -4345,7 +4346,7 @@ export function getPrintWorkOrderSummary(): PrintWorkOrderSummary {
   const nodes = Array.from(nodeRecordStore.values()).flat()
   const reviews = Array.from(reviewRecordStore.values())
   const handoverHeads = orders
-    .map((order) => (order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId) : null))
+    .map((order) => (order.handoverOrderId ? getHandoverOrderById(order.handoverOrderId, { includeWool: false }) : null))
     .filter((item): item is PdaHandoverHead => Boolean(item))
 
   return {
@@ -4378,7 +4379,7 @@ export function getPrintOrderHandoverHead(printOrderId: string): PdaHandoverHead
   syncDerivedWorkflow()
   const order = workOrderStore.get(printOrderId)
   if (!order?.handoverOrderId) return undefined
-  return getHandoverOrderById(order.handoverOrderId) ?? undefined
+  return getHandoverOrderById(order.handoverOrderId, { includeWool: false }) ?? undefined
 }
 
 export function getPrintOrderHandoverRecords(printOrderId: string): PdaHandoverRecord[] {
@@ -4892,7 +4893,7 @@ export function handoverPrintingOutput(workOrderId: string, input: { qty: number
     const sourceId = `PRINT-HANDOUT-${recordId}`
     registerFactoryReceivingSource({
       id: sourceId,
-      documentNo: getHandoverOrderById(handoverOrderId)?.handoverOrderNo || handoverOrderId,
+      documentNo: getHandoverOrderById(handoverOrderId, { includeWool: false })?.handoverOrderNo || handoverOrderId,
       type: 'HANDOUT',
       origin: { kind: 'FACTORY', id: order.printFactoryId, name: order.printFactoryName, factoryType: '印花厂' },
       targetFactoryId,
@@ -4924,7 +4925,7 @@ export function handoverPrintingOutput(workOrderId: string, input: { qty: number
     })
   }
   order.handoverOrderId = handoverOrderId
-  const head = getHandoverOrderById(handoverOrderId)
+  const head = getHandoverOrderById(handoverOrderId, { includeWool: false })
   order.handoverOrderNo = head?.handoverOrderNo
   view.handover.handoverNo = head?.handoverOrderNo
   selected.forEach((barcode) => { barcode.status = '已交出'; barcode.handoverRecordId = record.handoverRecordId || record.recordId })
@@ -4946,7 +4947,7 @@ export function receivePrintingHandover(workOrderId: string, input: { receivedQt
   const order=getMutablePrintingBusinessOrder(workOrderId),view=order.businessView!
   if(!Number.isFinite(input.receivedQty)||input.receivedQty<0||!input.receiverName.trim())throw new Error('请明确填写本次实收数量与接收人，未收到请填写 0。')
   const receiverName=input.receiverName.trim(),receivedAt=nowTimestamp()
-  const head=order.handoverOrderId?getHandoverOrderById(order.handoverOrderId):undefined
+  const head=order.handoverOrderId?getHandoverOrderById(order.handoverOrderId, { includeWool: false }):undefined
   if(!head)throw new Error('未找到原交出单。')
   const linkedRecordIds=new Set(view.barcodes.map(b=>b.handoverRecordId).filter(Boolean))
   const records=getPdaHandoverRecordsByHead(head.handoverId, head).filter(r=>r.handoverRecordStatus!=='VOIDED'&&linkedRecordIds.has(r.handoverRecordId||r.recordId))
@@ -5001,7 +5002,7 @@ export function receivePrintingHandover(workOrderId: string, input: { receivedQt
 export function receivePrintingContinuationForTask(workOrderId:string,recordId:string,input:Parameters<typeof receivePreparationHandoverForTask>[1]):void {
  return runPrintProcessMutation(()=>{
   const order=getMutablePrintingBusinessOrder(workOrderId),view=order.businessView!
-  const head=order.handoverOrderId?getHandoverOrderById(order.handoverOrderId):undefined
+  const head=order.handoverOrderId?getHandoverOrderById(order.handoverOrderId, { includeWool: false }):undefined
   const record=head?getPdaHandoverRecordsByHead(head.handoverId, head).find(r=>(r.handoverRecordId||r.recordId)===recordId):undefined
   if(!order.productionTmfContinuation||head?.receiverId!==TMF_FACTORY_ID||head.receiverKind!=='FACTORY'||!record||!view.barcodes.some(b=>b.handoverRecordId===recordId))throw new Error('原交出不属于本次印花到TMF的接续。')
   const repeated=record.taskReceipts?.some(r=>r.receiptId===input.receiptId)
@@ -5556,3 +5557,13 @@ function bindPrintingDemoReceivingTargets():void {
   for(const head of heads)upsertPdaHandoverHeadMock({...head,targetKind:'WAREHOUSE',targetName:target.name,receiverKind:'WAREHOUSE',receiverId:target.id,receiverName:target.name})
  }
 }
+
+registerDesignRevisionFcsCacheHooks('print', {
+  capture() { return { ...capturePrintProductionCreationState(), seeded, pendingDemos: structuredClone(pendingFactoryDemoOrders) } },
+  restore(value: ReturnType<typeof capturePrintProductionCreationState> & { seeded: boolean; pendingDemos: PrintWorkOrder[] }) {
+    restorePrintProductionCreationState(value)
+    seeded = value.seeded
+    pendingFactoryDemoOrders = structuredClone(value.pendingDemos)
+  },
+  hydrate() { if (seeded) restoreFormalPrintExecution() },
+})

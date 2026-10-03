@@ -1,3 +1,4 @@
+import { registerPcsFile } from './pcs-record-runtime.ts'
 // PCS 生产工程成果文件：原型中也必须由真实 File 对象产生，不能用地址或文件名冒充上传。
 
 export type EngineeringUploadPurpose =
@@ -10,7 +11,7 @@ export type EngineeringUploadPurpose =
   | 'SAMPLE_RESULT'
   | 'TECHNICAL_ATTACHMENT'
 
-export type EngineeringUploadStatus = '上传中' | '已保存' | '上传失败'
+export type EngineeringUploadStatus = '上传中' | '待保存' | '已保存' | '上传失败'
 
 export interface EngineeringUploadedFile {
   fileId: string
@@ -78,18 +79,6 @@ export function validateEngineeringUploadFile(file: Pick<File, 'name' | 'size'>,
   }
 }
 
-async function fileToDataUrl(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  let binary = ''
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, Math.min(offset + 0x8000, bytes.length)))
-  }
-  const base64 = typeof btoa === 'function'
-    ? btoa(binary)
-    : (globalThis as unknown as { Buffer: { from: (value: string, encoding: string) => { toString: (encoding: string) => string } } }).Buffer.from(binary, 'binary').toString('base64')
-  return `data:${file.type || 'application/octet-stream'};base64,${base64}`
-}
-
 export async function captureEngineeringUploadedFiles(input: {
   files: FileList | File[]
   purpose: EngineeringUploadPurpose
@@ -104,27 +93,29 @@ export async function captureEngineeringUploadedFiles(input: {
   }
   files.forEach((file) => validateEngineeringUploadFile(file, input.purpose))
   const uploadedAt = input.uploadedAt || nowText()
-  return Promise.all(files.map(async (file, index) => ({
-    fileId: createEngineeringUploadFileId(index),
+  return Promise.all(files.map(async (file, index) => {
+    const fileId = createEngineeringUploadFileId(index)
+    return {
+    fileId,
     purpose: input.purpose,
     fileName: file.name,
     extension: getEngineeringFileExtension(file.name),
     mimeType: file.type || 'application/octet-stream',
     sizeBytes: file.size,
-    dataUrl: await fileToDataUrl(file),
-    status: '已保存' as const,
+    dataUrl: registerPcsFile(file, fileId).url,
+    status: '待保存' as const,
     uploadedById: input.actor.userId,
     uploadedByName: input.actor.userName,
     uploadedByTeam: input.actor.teamName,
     uploadedAt,
     roundNo: input.roundNo || 1,
     errorMessage: '',
-  })))
+  }}))
 }
 
 export function assertEngineeringUploadedFilesReady(files: EngineeringUploadedFile[], label = '成果文件'): void {
   if (files.length === 0) throw new Error(`请先上传并保存${label}。`)
-  const invalid = files.find((file) => file.status !== '已保存' || !file.dataUrl || !file.fileName)
+  const invalid = files.find((file) => !['已保存', '待保存'].includes(file.status) || !file.dataUrl || !file.fileName)
   if (invalid) throw new Error(`${invalid.fileName || label}尚未保存成功，不能推进任务。`)
 }
 

@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 // @page-pattern: list
 
 import { renderPrimaryButton, renderSecondaryButton } from '../components/ui/button.ts'
@@ -370,10 +371,10 @@ function getCreateStyleCandidate(style: StyleArchiveShellRecord): CreateStyleCan
   return { style, available: true, reason: '可创建' }
 }
 
-function createManualMasterForStyle(style: StyleArchiveShellRecord) {
+async function createManualMasterForStyle(style: StyleArchiveShellRecord) {
   const checkedAt = new Date().toISOString().replace('T', ' ').slice(0, 19)
   const triggerKey = `MANUAL-BULK-${style.styleCode}-${Date.now()}`
-  return createEngineeringMasterOrder({
+  return await runPcsRecordCommand(() => createEngineeringMasterOrder({
     styleId: style.styleId,
     styleCode: style.styleCode,
     merchandiserId: CURRENT_PCS_ENGINEERING_USER.userId,
@@ -399,7 +400,7 @@ function createManualMasterForStyle(style: StyleArchiveShellRecord) {
       uniqueTriggerKey: triggerKey,
     },
     creationReason: '跟单核实后人工创建',
-  })
+  }))
 }
 
 function renderCreateStyleCandidate(candidate: CreateStyleCandidate): string {
@@ -618,7 +619,7 @@ export function renderPcsEngineeringMasterListPage(): string {
   return `<div class="min-w-0 max-w-full" data-pcs-engineering-master-list-page>${page}</div>`
 }
 
-export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
   if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
     const columnKey = dragNode.dataset.pcsEngineeringMasterColumnKey
@@ -741,7 +742,7 @@ export function handlePcsEngineeringMasterListEvent(target: HTMLElement, event?:
       return true
     }
     try {
-      const master = createManualMasterForStyle(style)
+      const master = (await createManualMasterForStyle(style))
       masterListUiState.createDialogOpen = false
       if (typeof window !== 'undefined') {
         window.history.pushState(window.history.state, '', `/pcs/production-preparation/orders/${master.masterOrderId}`)

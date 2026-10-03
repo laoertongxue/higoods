@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 import { renderMixedBagTicket, mixedBagSummary } from '../components/ui/mixed-bag-contents.ts'
 import { productionOrders } from '../data/fcs/production-orders.ts'
 import { readWoolQuerySnapshot } from '../data/fcs/wool-domain/queries.ts'
@@ -2702,7 +2703,7 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
     const qtyUnit = isWaterSolubleHandoverHead(head) ? head.qtyUnit : detailState.newRecordUnit.trim() || head.qtyUnit || '件'
 
     try {
-      const created = createFactoryHandoverRecord({
+      const created = await runDesignRevisionFcsCommand({
         handoverOrderId: head.handoverOrderId || head.handoverId,
         submittedQty,
         qtyUnit,
@@ -2713,7 +2714,18 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
         objectType: detailState.newRecordObjectType,
         scanCode,
         actor: isWaterSolubleHandoverHead(head) ? getPdaSession() || undefined : undefined,
-      })
+      }, () => createFactoryHandoverRecord({
+        handoverOrderId: head.handoverOrderId || head.handoverId,
+        submittedQty,
+        qtyUnit,
+        factorySubmittedAt: nowTimestamp(),
+        factorySubmittedBy: getPdaRuntimeContext()?.userName || '交接员',
+        factoryRemark: [`扫码：${scanCode}`, detailState.newRecordRemark.trim()].filter(Boolean).join('；') || undefined,
+        factoryProofFiles: [],
+        objectType: detailState.newRecordObjectType,
+        scanCode,
+        actor: isWaterSolubleHandoverHead(head) ? getPdaSession() || undefined : undefined,
+      }))
 
       appendTaskAudit(
         created.taskId,
@@ -2842,14 +2854,21 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
 
     let updated: PdaHandoverRecord
     try {
-      updated = writeBackHandoverRecord({
+      updated = await runDesignRevisionFcsCommand({
         handoverRecordId: record.recordId,
         receiverWrittenQty,
         receiverWrittenAt: confirmedAt,
         receiverWrittenBy: '接收方扫码员',
         receiverRemark: detailState.writebackRemark.trim() || undefined,
         diffReason: detailState.writebackReason.trim() || undefined,
-      })
+      }, () => writeBackHandoverRecord({
+        handoverRecordId: record.recordId,
+        receiverWrittenQty,
+        receiverWrittenAt: confirmedAt,
+        receiverWrittenBy: '接收方扫码员',
+        receiverRemark: detailState.writebackRemark.trim() || undefined,
+        diffReason: detailState.writebackReason.trim() || undefined,
+      }))
     } catch (error) {
       const message = error instanceof Error ? error.message : '接收方确认收货失败'
       showPdaHandoverDetailToast(message)
@@ -3036,11 +3055,11 @@ export async function handlePdaHandoverDetailEvent(target: HTMLElement): Promise
     }
     let updated
     try {
-      updated = confirmPdaPickupRecordReceived(recordId, {
-        factoryConfirmedQty: currentRecord.warehouseHandedQty,
+      updated = await runDesignRevisionFcsCommand(recordId, () => confirmPdaPickupRecordReceived(recordId, {
+        factoryConfirmedQty: currentRecord.warehouseHandedQty!,
         factoryConfirmedAt: nowTimestamp(),
         factoryConfirmedBy: getPdaRuntimeContext()?.userName,
-      })
+      }))
     } catch (error) {
       showPdaHandoverDetailToast(error instanceof Error ? error.message : '接收未保存，请重试。')
       return true

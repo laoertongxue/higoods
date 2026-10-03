@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, isPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { parseEngineeringBomSnapshot, serializeEngineeringBomSnapshot } from './pcs-engineering-bom-storage.ts'
 import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
@@ -24,11 +25,26 @@ import { resolveEngineeringBomDraft } from './pcs-engineering-bom-pricing.ts'
 const STORAGE_KEY = 'higood-pcs-engineering-bom-pricing-plan-store-v2'
 const STORE_VERSION = 2
 let memorySnapshot: EngineeringBomVersionStoreSnapshot | null = null
+let demoBatchDepth = 0
+
+/** Assemble the static baseline without serializing the growing BOM store after every seed action. */
+export function withEngineeringBomDemoBatch<T>(recipe: () => T): T {
+  if (!isPcsDemoData()) throw new Error('BOM 基线批处理只允许用于静态演示初始化。')
+  demoBatchDepth++
+  try {
+    return recipe()
+  } finally {
+    demoBatchDepth--
+    if (demoBatchDepth === 0 && memorySnapshot) {
+      pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+    }
+  }
+}
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined'
-    && typeof localStorage.getItem === 'function'
-    && typeof localStorage.setItem === 'function'
+  return typeof pcsRecordStore !== 'undefined'
+    && typeof pcsRecordStore.getItem === 'function'
+    && typeof pcsRecordStore.setItem === 'function'
 }
 
 function nowText(): string {
@@ -71,7 +87,7 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (canUseStorage()) {
     try {
-      const parsed = parseEngineeringBomSnapshot(localStorage.getItem(STORAGE_KEY) || '') as EngineeringBomVersionStoreSnapshot
+      const parsed = parseEngineeringBomSnapshot(pcsRecordStore.getItem(STORAGE_KEY) || '') as EngineeringBomVersionStoreSnapshot
       if (parsed?.version === STORE_VERSION && Array.isArray(parsed.records) && Array.isArray(parsed.plans)) {
         memorySnapshot = {
           version: STORE_VERSION,
@@ -90,7 +106,7 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
 
 function writeSnapshot(snapshot: EngineeringBomVersionStoreSnapshot): void {
   const nextSnapshot = cloneSnapshot(snapshot)
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, serializeEngineeringBomSnapshot(nextSnapshot))
+  if (demoBatchDepth === 0 && canUseStorage()) pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(nextSnapshot))
   memorySnapshot = nextSnapshot
 }
 
@@ -103,7 +119,7 @@ function nextIdentity(records: EngineeringBomVersionRecord[]): { id: string; cod
     return match ? Math.max(highest, Number(match[1])) : highest
   }, 0)
   let sequence = Math.max(records.length, highestSequence) + 1
-  const timestamp = Date.now().toString(36)
+  const timestamp = isPcsDemoData() ? 'demo' : Date.now().toString(36)
   while (records.some((record) => record.bomDraftVersionId === `BOM-${timestamp}-${String(sequence).padStart(3, '0')}`)) sequence += 1
   return {
     id: `BOM-${timestamp}-${String(sequence).padStart(3, '0')}`,
@@ -202,7 +218,7 @@ export function captureEngineeringBomRepositoryState(): EngineeringBomVersionSto
 }
 
 export function restoreEngineeringBomRepositoryState(snapshot: EngineeringBomVersionStoreSnapshot): void {
-  if (canUseStorage() && localStorage.getItem(STORAGE_KEY) && JSON.stringify(readSnapshot()) === JSON.stringify(snapshot)) return
+  if (canUseStorage() && pcsRecordStore.getItem(STORAGE_KEY) && JSON.stringify(readSnapshot()) === JSON.stringify(snapshot)) return
   writeSnapshot(snapshot)
 }
 
@@ -1089,3 +1105,5 @@ export function markEngineeringBomVersionsPublished(input: {
 export function resetEngineeringBomRepository(): void {
   writeSnapshot({ version: STORE_VERSION, records: [], plans: [] })
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

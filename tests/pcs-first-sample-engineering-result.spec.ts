@@ -16,7 +16,55 @@ import {
   renderPcsFirstSampleTaskDetailPage,
   submitEngineeringFirstSampleResult,
 } from '../src/pages/pcs-engineering-tasks/first-sample-task.ts'
-import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
+
+
+
+import { chromium } from '@playwright/test'
+import { PCS_LEGACY_KEYS, pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import { getEngineeringMasterOrderStoreSnapshot, startEngineeringTask, updateEngineeringTaskRecord } from '../src/data/pcs-engineering-master-repository.ts'
+import { getEngineeringTeamCurrentOperator } from '../src/data/pcs-engineering-team-directory.ts'
+const transactionBrowser = await chromium.launch({ headless: true })
+const transactionPage = await transactionBrowser.newPage()
+await transactionPage.addInitScript('globalThis.__name = (value) => value')
+let browserHydrated = false
+function startTaskFixture(taskId: string) {
+  const owner = getEngineeringMasterOrderStoreSnapshot().records.find(item => item.tasks.some(task => task.taskId === taskId))!
+  const task = owner.tasks.find(task => task.taskId === taskId)!
+  const operator = getEngineeringTeamCurrentOperator(task.ownerTeamName)
+  startEngineeringTask({ masterOrderId: owner.masterOrderId, taskId, operatorId: operator.operatorId, operatorName: operator.operatorName })
+}
+async function submitInBrowser(taskId: string, input: Parameters<typeof submitEngineeringFirstSampleResult>[1]) {
+  if (!browserHydrated) {
+    await transactionPage.goto('http://127.0.0.1:5173/pcs/testing/orders')
+    await transactionPage.getByRole('heading', { name: '测款单', exact: true }).waitFor()
+    const snapshots = PCS_LEGACY_KEYS.map(key => [key, pcsRecordStore.getItem(key)]).filter(([,raw]) => raw !== null)
+    await transactionPage.evaluate(async ({ snapshots, nativeEntries }) => {
+      const rt = await import('/src/data/pcs-record-runtime.ts')
+      await rt.ensurePcsRecordState()
+      for (const [key, raw] of nativeEntries) localStorage.setItem(key, raw)
+      await rt.runPcsRecordCommand(() => { for (const [key, raw] of snapshots) rt.pcsRecordStore.setItem(key, raw) })
+    }, { snapshots, nativeEntries: [...storage].filter(([key]) => !(PCS_LEGACY_KEYS as readonly string[]).includes(key)) })
+    browserHydrated = true
+  }
+  const result = await transactionPage.evaluate(async ({ taskId, input }) => {
+    const db = await import('/src/data/pcs-record-db.ts')
+    const before = JSON.stringify((await db.readPcsRecords()).records)
+    try {
+      const result = await (await import('/src/pages/pcs-engineering-tasks/first-sample-task.ts')).submitEngineeringFirstSampleResult(taskId, input)
+      const saved = (await import('/src/data/pcs-engineering-master-repository.ts')).getEngineeringMasterOrderById(result.masterOrderId)!
+      if (saved.tasks.find(task => task.taskId === taskId)?.status !== result.status) throw new Error('提交结果未发布至持久工作副本')
+      const savedTask = saved.tasks.find(task => task.taskId === taskId)!
+      if (savedTask.resultQuantity !== result.resultQuantity || savedTask.sampleActuals?.length !== result.sampleActuals?.length || savedTask.resultSubmittedBy !== result.resultSubmittedBy) throw new Error('实际交付未完整保存')
+      return { result }
+    } catch (error) {
+      if (JSON.stringify((await db.readPcsRecords()).records) !== before) throw new Error('失败提交改写了已有记录: ' + String(error))
+      return { error: String(error) }
+    }
+  }, { taskId, input })
+  if (result.error) throw new Error(result.error)
+  updateEngineeringTaskRecord(result.result!.masterOrderId, taskId, task => Object.assign(task, result.result))
+  return result.result!
+}
 
 const storage = new Map<string, string>()
 Object.defineProperty(globalThis, 'localStorage', {
@@ -88,7 +136,7 @@ const master = confirmEngineeringMasterTaskPlan(draft.masterOrderId, {
 const sourcePatternVersion = `梭织基码纸样 ${baseCandidate.source.resultVersion}`
 
 const taskId = `${master.masterOrderId}-PRE_PRODUCTION_SAMPLE`
-startEngineeringTaskFromDetail(taskId)
+startTaskFixture(taskId)
 const sampleTask = master.tasks.find((task) => task.taskId === taskId)
 assert.ok(sampleTask)
 const requirements = sampleTask.sampleRequirements || []
@@ -106,25 +154,25 @@ const makeActuals = () => requirements.map((requirement, index) => ({
   imageFileIds: [imageUrl],
   submittedBy: '制作团队A',
 }))
-assert.throws(
-  () => submitEngineeringFirstSampleResult(taskId, {
+await assert.rejects(
+  () => submitInBrowser(taskId, {
     sampleActuals: makeActuals().map((line, index) => index === 0 ? { ...line, imageFileIds: [] } : line),
   }),
   /必须上传真实样衣图片/,
 )
-assert.throws(
-  () => submitEngineeringFirstSampleResult(taskId, {
+await assert.rejects(
+  () => submitInBrowser(taskId, {
     sampleActuals: makeActuals().map((line, index) => index === 0 ? { ...line, actualQuantity: 0 } : line),
   }),
   /实际数量必须为大于 0 的整数/,
 )
-assert.throws(
-  () => submitEngineeringFirstSampleResult(taskId, {
+await assert.rejects(
+  () => submitInBrowser(taskId, {
     sampleActuals: makeActuals().map((line, index) => index === 0 ? { ...line, submittedBy: '   ' } : line),
   }),
   /请填写首单样衣成果提交人/,
 )
-const submitted = submitEngineeringFirstSampleResult(taskId, {
+const submitted = await submitInBrowser(taskId, {
   sampleActuals: makeActuals(),
 })
 
@@ -145,4 +193,5 @@ assert.match(html, new RegExp(`要求 ${requirements.reduce((sum, line) => sum +
 assert.match(html, /样衣实际交付/)
 assert.doesNotMatch(html, /验收|待确认|确认人|首单复用|需改版/)
 
+await transactionBrowser.close()
 console.log('pcs-first-sample-engineering-result.spec.ts PASS')

@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { cloneWebbingSpecifications, WEBBING_CUT_PROCESS, WEBBING_TIP_PROCESS } from '../../data/fcs/webbing-specifications.ts'
 import { appStore } from '../../state/store.ts'
 import {
@@ -133,6 +134,7 @@ import {
   syncMaterialCostRows,
   syncProcessCostRows,
   syncTechPackToStore,
+  applyTechPackToStore,
   partitionBomItemsByType,
   replaceBomBoundCraftCode,
   removeGarmentBomReverseReferences,
@@ -439,10 +441,10 @@ function getTechniqueById(techId: string): TechniqueItem | null {
   return state.techniques.find((item) => item.id === techId) ?? null
 }
 
-function updateTechnique(techId: string, updater: (item: TechniqueItem) => TechniqueItem): void {
+async function updateTechnique(techId: string, updater: (item: TechniqueItem) => TechniqueItem): Promise<void> {
   state.techniques = state.techniques.map((item) => (item.id === techId ? updater(item) : item))
   syncProcessCostRows()
-  syncTechPackToStore()
+  ;(await syncTechPackToStore())
 }
 
 export type ProcessRouteDraftState = {
@@ -492,7 +494,7 @@ function getProcessRouteDraftSignature(draft: ProcessRouteDraftState): string {
   ].join('::')
 }
 
-function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
+async function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): Promise<void> {
   state.techniques = nextDraft.techniques
   state.processRouteStatus = nextDraft.processRouteStatus
   state.processRouteConfirmedBy = nextDraft.processRouteConfirmedBy
@@ -500,10 +502,10 @@ function saveProcessRouteDraft(nextDraft: ProcessRouteDraftState): void {
   state.processRouteUpdatedBy = nextDraft.processRouteUpdatedBy
   state.processRouteUpdatedAt = nextDraft.processRouteUpdatedAt
   syncProcessCostRows()
-  syncTechPackToStore()
+  ;(await syncTechPackToStore())
 }
 
-function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
+async function applyProcessRouteActionToState(action: ProcessRouteDraftAction): Promise<void> {
   const currentDraft = getProcessRouteDraftFromState()
   const nextDraft = applyProcessRouteDraftAction(
     currentDraft,
@@ -513,7 +515,7 @@ function applyProcessRouteActionToState(action: ProcessRouteDraftAction): void {
     (message) => window.alert(message),
   )
   if (getProcessRouteDraftSignature(nextDraft) === getProcessRouteDraftSignature(currentDraft)) return
-  saveProcessRouteDraft(nextDraft)
+  ;(await saveProcessRouteDraft(nextDraft))
 }
 
 function toRouteMaterialSkuIdentity(materialSkuId: string): {
@@ -711,9 +713,9 @@ export function applyProcessRouteDraftAction(
   }
 }
 
-function confirmProcessRoute(): void {
+async function confirmProcessRoute(): Promise<void> {
   materializeAllPreparationSkuLanes()
-  applyProcessRouteActionToState({ type: 'confirm' })
+  ;(await applyProcessRouteActionToState({ type: 'confirm' }))
 }
 
 function clearParsedPatternRows(): void {
@@ -1236,8 +1238,8 @@ function applyPatternFileError(message: string, input: HTMLInputElement): void {
 function openPatternFileInput(inputId: string): void {
   const input = document.getElementById(inputId)
   if (!(input instanceof HTMLInputElement)) return
-  input.onchange = () => {
-    handleTechPackField(input)
+  input.onchange = async () => {
+    ;(await handleTechPackField(input))
     requestTechPackRender()
     input.onchange = null
   }
@@ -1815,7 +1817,7 @@ function createPieceInstanceSpecialCraftAssignmentFromDraft(): TechPackPatternPi
   }
 }
 
-function savePatternFromTwoStep(finalStatus: typeof state.newPattern.maintainerStepStatus): boolean {
+async function savePatternFromTwoStep(finalStatus: typeof state.newPattern.maintainerStepStatus): Promise<boolean> {
   const nowId = state.editPatternItemId || `PAT-${Date.now()}`
   const nextPattern = buildPatternItemFromForm(nowId, finalStatus)
   if (state.patternFormPurpose === 'PACKAGE') {
@@ -1846,7 +1848,7 @@ function savePatternFromTwoStep(finalStatus: typeof state.newPattern.maintainerS
     state.patternItems = [...state.patternItems, { id: nowId, ...nextPattern }]
   }
   state.patternDuplicateWarning = null
-  syncTechPackToStore()
+  ;(await syncTechPackToStore())
   return true
 }
 
@@ -1897,15 +1899,15 @@ function getCurrentEngineeringBomRole(): EngineeringBomOperatorRole {
   return getTechPackReviewerById(currentUser.id)?.roles.includes('买手') ? '买手' : '管理员'
 }
 
-function updateCurrentBomPricingLine(
+async function updateCurrentBomPricingLine(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   patch: Parameters<typeof saveTechnicalDataVersionBomMaterialLine>[2],
-): void {
+): Promise<void> {
   const technicalVersionId = state.currentTechnicalVersionId
   const bomItemId = node.dataset.bomItemId
   if (!technicalVersionId || !bomItemId) return
   try {
-    const workspace = saveTechnicalDataVersionBomMaterialLine(technicalVersionId, bomItemId, patch, getCurrentEngineeringBomRole())
+    const workspace = await runPcsRecordCommand(() => saveTechnicalDataVersionBomMaterialLine(technicalVersionId, bomItemId, patch, getCurrentEngineeringBomRole()))
     state.bomItems = state.bomItems.map((item) => item.id === bomItemId
       ? {
           ...item,
@@ -1923,23 +1925,23 @@ function updateCurrentBomPricingLine(
   }
 }
 
-function updateCurrentBomCustomCost(
+async function updateCurrentBomCustomCost(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   index: number,
   patch: Partial<{ title: string; amountIdr: number }>,
-): void {
+): Promise<void> {
   const technicalVersionId = state.currentTechnicalVersionId
   if (!technicalVersionId) return
   const content = getTechnicalDataVersionContent(technicalVersionId)
   if (!content) return
   const customCosts = (content.bomCustomCosts ?? []).map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
   try {
-    const workspace = saveTechnicalDataVersionBomCustomCosts(
+    const workspace = await runPcsRecordCommand(() => saveTechnicalDataVersionBomCustomCosts(
       technicalVersionId,
       customCosts,
       getCurrentEngineeringBomRole(),
       content.bomCustomCostDecision,
-    )
+    ))
     const workspaceRoot = node.closest('[data-testid="bom-pricing-workspace"]')
     if (workspaceRoot) refreshBomPricingWorkspaceLocally({ root: workspaceRoot, workspace, technicalVersionId })
   } catch (error) {
@@ -1947,9 +1949,9 @@ function updateCurrentBomCustomCost(
   }
 }
 
-function handleTechPackField(
+async function handleTechPackField(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
-): boolean {
+): Promise<boolean> {
   const field = node.dataset.techField
   if (!field) return false
 
@@ -1991,11 +1993,11 @@ function handleTechPackField(
       value === 'A' || value === 'A+' || value === 'A++' || value === 'B' || value === 'C' || value === 'D'
         ? value
         : 'B'
-    saveTechnicalDataVersionRecordMeta(
-      state.currentTechnicalVersionId,
+    await runPcsRecordCommand(() => saveTechnicalDataVersionRecordMeta(
+      state.currentTechnicalVersionId!,
       { garmentDifficultyGrade: nextGrade },
       currentUser.name,
-    )
+    ))
     return true
   }
 
@@ -2032,7 +2034,7 @@ function handleTechPackField(
     } : item)
     materializePreparationSkuLane(technique.routeObjectKey)
     markProcessRouteUnconfirmed()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -2836,14 +2838,14 @@ function handleTechPackField(
     if (!bomId || !Number.isFinite(usage) || usage < 0) return true
     state.bomItems = state.bomItems.map((item) => item.id === bomId ? { ...item, usage } : item)
     syncMaterialCostRows()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-unit') {
     const bomId = node.dataset.bomId
     if (!bomId || !value.trim()) return true
     state.bomItems = state.bomItems.map((item) => item.id === bomId ? { ...item, unit: value.trim() } : item)
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-loss-rate') {
@@ -2851,7 +2853,7 @@ function handleTechPackField(
     const lossRate = Number.parseFloat(value)
     if (!bomId || !Number.isFinite(lossRate) || lossRate < 0) return true
     state.bomItems = state.bomItems.map((item) => item.id === bomId ? { ...item, lossRate } : item)
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-print') {
@@ -2875,7 +2877,7 @@ function handleTechPackField(
           }
         : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-dye') {
@@ -2885,7 +2887,7 @@ function handleTechPackField(
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, dyeRequirement: value } : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-water-soluble') {
@@ -2902,7 +2904,7 @@ function handleTechPackField(
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, waterSolubleRequirement: nextRequirement } : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-embroidery') {
@@ -2912,7 +2914,7 @@ function handleTechPackField(
     state.bomItems = state.bomItems.map((item) =>
       item.id === bomId ? { ...item, embroideryRequirement: value === '有' ? '有' : '无' } : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'bom-bound-craft') {
@@ -2923,46 +2925,46 @@ function handleTechPackField(
         ? { ...item, usageProcessCodes: replaceBomBoundCraftCode(item.usageProcessCodes, item.type, value) }
         : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (field === 'tech-difficulty') {
     const techId = node.dataset.techId
     if (!techId) return true
-    updateTechnique(techId, (item) => ({
+    ;(await updateTechnique(techId, (item) => ({
       ...item,
       difficulty: value as TechniqueItem['difficulty'],
-    }))
+    })))
     return true
   }
   if (field === 'tech-remark') {
     const techId = node.dataset.techId
     if (!techId) return true
-    updateTechnique(techId, (item) => ({ ...item, remark: value }))
+    ;(await updateTechnique(techId, (item) => ({ ...item, remark: value })))
     return true
   }
   if (field === 'bom-pricing-usage') {
-    updateCurrentBomPricingLine(node, { usage: Number.parseFloat(value) })
+    ;(await updateCurrentBomPricingLine(node, { usage: Number.parseFloat(value) }))
     return true
   }
   if (field === 'bom-pricing-sample-quantity') {
-    updateCurrentBomPricingLine(node, { sampleQuantity: Number.parseFloat(value) })
+    ;(await updateCurrentBomPricingLine(node, { sampleQuantity: Number.parseFloat(value) }))
     return true
   }
   if (field === 'bom-pricing-loss-rate') {
-    updateCurrentBomPricingLine(node, { lossRate: Number.parseFloat(value) / 100 })
+    ;(await updateCurrentBomPricingLine(node, { lossRate: Number.parseFloat(value) / 100 }))
     return true
   }
   if (field === 'bom-pricing-usage-unit') {
-    updateCurrentBomPricingLine(node, { usageUnit: value })
+    ;(await updateCurrentBomPricingLine(node, { usageUnit: value }))
     return true
   }
   if (field === 'bom-custom-cost-title') {
-    updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { title: value })
+    ;(await updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { title: value }))
     return true
   }
   if (field === 'bom-custom-cost-amount-idr') {
-    updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { amountIdr: Number.parseFloat(value) })
+    ;(await updateCurrentBomCustomCost(node, Number.parseInt(node.dataset.costIndex || '-1', 10), { amountIdr: Number.parseFloat(value) }))
     return true
   }
   if (field === 'bom-custom-cost-decision') {
@@ -2970,12 +2972,12 @@ function handleTechPackField(
     const content = technicalVersionId ? getTechnicalDataVersionContent(technicalVersionId) : null
     if (!technicalVersionId || !content) return true
     try {
-      saveTechnicalDataVersionBomCustomCosts(
+      await runPcsRecordCommand(() => saveTechnicalDataVersionBomCustomCosts(
         technicalVersionId,
         value === 'HAS_CUSTOM_COST' ? (content.bomCustomCosts ?? []) : [],
         getCurrentEngineeringBomRole(),
         value as EngineeringBomCustomCostDecision,
-      )
+      ))
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '保存本次费用情况失败。')
     }
@@ -2988,7 +2990,7 @@ function handleTechPackField(
     state.materialCostRows = state.materialCostRows.map((row) =>
       row.id === rowId ? { ...row, price: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'material-currency') {
@@ -2997,7 +2999,7 @@ function handleTechPackField(
     state.materialCostRows = state.materialCostRows.map((row) =>
       row.id === rowId ? { ...row, currency: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'material-unit') {
@@ -3006,7 +3008,7 @@ function handleTechPackField(
     state.materialCostRows = state.materialCostRows.map((row) =>
       row.id === rowId ? { ...row, unit: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -3016,7 +3018,7 @@ function handleTechPackField(
     state.processCostRows = state.processCostRows.map((row) =>
       row.id === rowId ? { ...row, price: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'process-currency') {
@@ -3025,7 +3027,7 @@ function handleTechPackField(
     state.processCostRows = state.processCostRows.map((row) =>
       row.id === rowId ? { ...row, currency: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'process-unit') {
@@ -3034,7 +3036,7 @@ function handleTechPackField(
     state.processCostRows = state.processCostRows.map((row) =>
       row.id === rowId ? { ...row, unit: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -3044,7 +3046,7 @@ function handleTechPackField(
     state.customCostRows = state.customCostRows.map((row) =>
       row.id === rowId ? { ...row, name: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'custom-cost-price') {
@@ -3053,7 +3055,7 @@ function handleTechPackField(
     state.customCostRows = state.customCostRows.map((row) =>
       row.id === rowId ? { ...row, price: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'custom-cost-currency') {
@@ -3062,7 +3064,7 @@ function handleTechPackField(
     state.customCostRows = state.customCostRows.map((row) =>
       row.id === rowId ? { ...row, currency: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'custom-cost-unit') {
@@ -3071,7 +3073,7 @@ function handleTechPackField(
     state.customCostRows = state.customCostRows.map((row) =>
       row.id === rowId ? { ...row, unit: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
   if (field === 'custom-cost-remark') {
@@ -3080,7 +3082,7 @@ function handleTechPackField(
     state.customCostRows = state.customCostRows.map((row) =>
       row.id === rowId ? { ...row, remark: value } : row,
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -3092,7 +3094,7 @@ function handleTechPackField(
       remark: value,
       ...(mapping.generatedMode === 'AUTO' ? { generatedMode: 'MANUAL', status: 'MANUAL_ADJUSTED' } : {}),
     }))
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -3125,19 +3127,19 @@ function handleTechPackField(
             ? [...selectedBom.applicableSkuCodes]
             : line.applicableSkuCodes,
       }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
     if (field === 'mapping-line-material-name') {
       updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, materialName: value }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
     if (field === 'mapping-line-material-code') {
       updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, materialCode: value }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
@@ -3150,7 +3152,7 @@ function handleTechPackField(
         pieceId: '',
         pieceName: '',
       }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
@@ -3170,7 +3172,7 @@ function handleTechPackField(
             ? [...piece.applicableSkuCodes]
             : line.applicableSkuCodes,
       }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
@@ -3179,13 +3181,13 @@ function handleTechPackField(
         ...line,
         pieceCountPerUnit: Number.parseFloat(value) || 0,
       }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
     if (field === 'mapping-line-unit') {
       updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, unit: value }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
@@ -3199,7 +3201,7 @@ function handleTechPackField(
             .filter((item) => item.length > 0),
         ),
       }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
@@ -3208,13 +3210,13 @@ function handleTechPackField(
         ...line,
         sourceMode: value === 'MANUAL' ? 'MANUAL' : 'AUTO',
       }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
 
     if (field === 'mapping-line-note') {
       updateColorMappingLine(mappingId, lineId, (line) => ({ ...line, note: value }))
-      syncTechPackToStore({ touch: false })
+      ;(await syncTechPackToStore({ touch: false }))
       return true
     }
   }
@@ -3267,9 +3269,9 @@ function handleTechPackField(
   return false
 }
 
-function performRelease(): void {
+async function performRelease(): Promise<void> {
   if (!state.techPack) return
-  syncTechPackToStore()
+  applyTechPackToStore({ touch: true, persist: false })
   const validation = validateTechPackForPublish(state.techPack)
   if (validation.length > 0) {
     state.compatibilityMessage = validation[0] || '请检查技术包'
@@ -3278,7 +3280,7 @@ function performRelease(): void {
   }
   if (state.currentTechnicalVersionId) {
     try {
-      const record = publishTechnicalDataVersion(state.currentTechnicalVersionId, currentUser.name)
+      const record = await runPcsRecordCommand(() => { applyTechPackToStore(); return publishTechnicalDataVersion(state.currentTechnicalVersionId!, currentUser.name) })
       state.techPack = {
         ...state.techPack,
         status: 'ENABLED',
@@ -3323,7 +3325,7 @@ function closeReviewDetailDrawer(): void {
   appStore.navigate(nextPathname, { historyMode: 'replace' })
 }
 
-export function handleTechPackEvent(target: HTMLElement): boolean {
+export async function handleTechPackEvent(target: HTMLElement): Promise<boolean> {
   const fieldNode = target.closest<HTMLElement>('[data-tech-field]')
   if (
     fieldNode instanceof HTMLInputElement ||
@@ -3331,7 +3333,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     fieldNode instanceof HTMLTextAreaElement
   ) {
     if (isTechPackFieldReadOnly(fieldNode.dataset.techField || '')) return true
-    return handleTechPackField(fieldNode)
+    return (await handleTechPackField(fieldNode))
   }
 
   const actionNode = target.closest<HTMLElement>('[data-tech-action]')
@@ -3470,7 +3472,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.compatibilityMessage = `物料“${invalidBom.materialName || invalidBom.materialCode || invalidBom.id}”存在水溶要求但缺少单位，不能提交审核。请先补充物料单位。`
       return true
     }
-    if (state.currentTechnicalVersionId) syncTechPackToStore()
+    if (state.currentTechnicalVersionId) (await syncTechPackToStore())
     state.reviewSubmitDialogOpen = true
     state.compatibilityMessage = ''
     return true
@@ -3487,7 +3489,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       state.compatibilityMessage = `物料“${invalidBom.materialName || invalidBom.materialCode || invalidBom.id}”存在水溶要求但缺少单位，不能提交审核。请先补充物料单位。`
       return true
     }
-    syncTechPackToStore()
+    applyTechPackToStore({ touch: true, persist: false })
     const designMessage = validateCurrentDesignRequirement('提交审核前请先补齐花型设计')
     if (designMessage) {
       state.compatibilityMessage = designMessage
@@ -3495,15 +3497,15 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
     const reviewers = getFixedTechPackReviewers({
       styleId: state.currentStyleId || '',
-      technicalVersionId: state.currentTechnicalVersionId,
+      technicalVersionId: state.currentTechnicalVersionId!,
     })
     try {
-      submitTechPackFirstStageReview(state.currentTechnicalVersionId, {
+      await runPcsRecordCommand(() => { applyTechPackToStore(); return submitTechPackFirstStageReview(state.currentTechnicalVersionId!, {
         buyerReviewerId: reviewers.buyerReviewer.reviewerId,
         patternMakerReviewerId: reviewers.patternMakerReviewer.reviewerId,
         merchandiserReviewerId: reviewers.merchandiserReviewer.reviewerId,
         operator: currentUser,
-      })
+      }); })
       state.reviewSubmitDialogOpen = false
       state.compatibilityMessage = ''
     } catch (error) {
@@ -3582,52 +3584,52 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!state.currentTechnicalVersionId || !state.reviewActionNodeKey || !state.reviewActionType) return true
     try {
       if (state.reviewActionType === 'start') {
-        startTechPackReview(state.currentTechnicalVersionId, state.reviewActionNodeKey, {
+        await runPcsRecordCommand(() => startTechPackReview(state.currentTechnicalVersionId!, state.reviewActionNodeKey!, {
           operator: currentUser,
           opinion: state.reviewActionOpinion,
-        })
+        }))
       } else if (state.reviewActionType === 'approve') {
         if (state.reviewActionNodeKey === 'MERCHANDISER') {
-          syncTechPackToStore()
+          applyTechPackToStore({ touch: true, persist: false })
           const designMessage = validateCurrentDesignRequirement('跟单无法审核通过')
           if (designMessage) {
             state.compatibilityMessage = designMessage
             return true
           }
         }
-        approveTechPackReview(
-          state.currentTechnicalVersionId,
-          state.reviewActionNodeKey,
+        await runPcsRecordCommand(() => { if (state.reviewActionNodeKey === 'MERCHANDISER') applyTechPackToStore(); return approveTechPackReview(
+          state.currentTechnicalVersionId!,
+          state.reviewActionNodeKey!,
           state.reviewActionOpinion,
           currentUser,
-        )
+        ); })
       } else if (state.reviewActionType === 'reject') {
-        rejectTechPackReview(
-          state.currentTechnicalVersionId,
-          state.reviewActionNodeKey,
+        await runPcsRecordCommand(() => rejectTechPackReview(
+          state.currentTechnicalVersionId!,
+          state.reviewActionNodeKey!,
           state.reviewActionOpinion,
           currentUser,
-        )
+        ))
       } else if (state.reviewActionType === 'return-modules') {
-        returnTechPackReviewByTargets(
-          state.currentTechnicalVersionId,
+        await runPcsRecordCommand(() => returnTechPackReviewByTargets(
+          state.currentTechnicalVersionId!,
           state.reviewReturnTargetIds,
           state.reviewActionOpinion,
           currentUser,
-        )
+        ))
       } else if (state.reviewActionType === 'reopen-role') {
-        reopenTechPackReviewForRoles(
-          state.currentTechnicalVersionId,
+        await runPcsRecordCommand(() => reopenTechPackReviewForRoles(
+          state.currentTechnicalVersionId!,
           state.reviewReopenNodeKeys,
           state.reviewActionOpinion,
           currentUser,
-        )
+        ))
       } else {
-        returnTechPackReviewToFirstStage(
-          state.currentTechnicalVersionId,
+        await runPcsRecordCommand(() => returnTechPackReviewToFirstStage(
+          state.currentTechnicalVersionId!,
           state.reviewActionOpinion,
           currentUser,
-        )
+        ))
       }
       state.reviewActionDialogOpen = false
       state.reviewActionNodeKey = null
@@ -3692,7 +3694,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'confirm-release') {
-    performRelease()
+    ;(await performRelease())
     return true
   }
 
@@ -3735,7 +3737,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     if (!patternId) return true
 
     state.patternItems = state.patternItems.filter((item) => item.id !== patternId)
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (action === 'switch-pattern-maintenance-step') {
@@ -3762,7 +3764,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
     state.newPattern.parseError = ''
     updatePatternMaintainerStatuses('已完成')
-    if (!savePatternFromTwoStep('已完成')) return true
+    if (!(await savePatternFromTwoStep('已完成'))) return true
     state.addPatternDialogOpen = false
     closePatternTemplateDialog(false)
     resetPatternForm()
@@ -3832,7 +3834,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.newPattern.duplicateConfirmed = true
     state.newPattern.duplicateWarningReasons = [...warning.warningReasons]
     state.patternDuplicateWarning = null
-    if (!savePatternFromTwoStep(warning.finalStatus)) return true
+    if (!(await savePatternFromTwoStep(warning.finalStatus))) return true
     state.addPatternDialogOpen = false
     closePatternTemplateDialog(false)
     resetPatternForm()
@@ -3852,7 +3854,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         ? '已解析待确认'
         : '待解析'
     updatePatternMaintainerStatuses(finalStatus)
-    if (!savePatternFromTwoStep(finalStatus)) return true
+    if (!(await savePatternFromTwoStep(finalStatus))) return true
     state.addPatternDialogOpen = false
     closePatternTemplateDialog(false)
     resetPatternForm()
@@ -3870,7 +3872,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         ? '已解析待确认'
         : '待解析'
     updatePatternMaintainerStatuses(finalStatus)
-    if (!savePatternFromTwoStep(finalStatus)) return true
+    if (!(await savePatternFromTwoStep(finalStatus))) return true
     state.addPatternDialogOpen = false
     closePatternTemplateDialog(false)
     resetPatternForm()
@@ -3883,7 +3885,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       return true
     }
     updatePatternMaintainerStatuses('待解析')
-    if (!savePatternFromTwoStep('待解析')) return true
+    if (!(await savePatternFromTwoStep('待解析'))) return true
     state.addPatternDialogOpen = false
     closePatternTemplateDialog(false)
     resetPatternForm()
@@ -4320,7 +4322,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       },
     ]
     syncMaterialCostRows()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (action === 'confirm-copy-bom-color') {
@@ -4347,7 +4349,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }))
     state.bomItems = [...state.bomItems, ...copies]
     syncMaterialCostRows()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     closeBomColorCopyModal()
     return true
   }
@@ -4493,7 +4495,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     }
 
     syncMaterialCostRows()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     state.addBomDialogOpen = false
     return true
   }
@@ -4503,7 +4505,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
     state.bomItems = state.bomItems.filter((item) => item.id !== bomId)
     syncMaterialCostRows()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (action === 'keep-bom-prep-process') {
@@ -4524,7 +4526,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         : item,
     )
     syncProcessCostRows()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (action === 'remove-bom-prep-process') {
@@ -4533,7 +4535,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     state.techniques = state.techniques.filter((item) => item.id !== techId)
     syncProcessCostRows()
     markProcessRouteUnconfirmed()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -4552,12 +4554,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const content = technicalVersionId ? getTechnicalDataVersionContent(technicalVersionId) : null
     if (!technicalVersionId || !content) return true
     try {
-      saveTechnicalDataVersionBomCustomCosts(
+      await runPcsRecordCommand(() => saveTechnicalDataVersionBomCustomCosts(
         technicalVersionId,
         [...(content.bomCustomCosts ?? []), { title: `自定义费用-${(content.bomCustomCosts?.length ?? 0) + 1}`, amountIdr: 0 }],
         getCurrentEngineeringBomRole(),
         'HAS_CUSTOM_COST',
-      )
+      ))
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '添加自定义费用失败。')
     }
@@ -4569,12 +4571,12 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const costIndex = Number.parseInt(actionNode.dataset.costIndex || '-1', 10)
     if (!technicalVersionId || !content || costIndex < 0) return true
     try {
-      saveTechnicalDataVersionBomCustomCosts(
+      await runPcsRecordCommand(() => saveTechnicalDataVersionBomCustomCosts(
         technicalVersionId,
         (content.bomCustomCosts ?? []).filter((_, index) => index !== costIndex),
         getCurrentEngineeringBomRole(),
         (content.bomCustomCosts ?? []).length === 1 ? 'UNDECIDED' : 'HAS_CUSTOM_COST',
-      )
+      ))
     } catch (error) {
       window.alert(error instanceof Error ? error.message : '删除自定义费用失败。')
     }
@@ -4593,7 +4595,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         remark: '',
       },
     ]
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -4601,7 +4603,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const rowId = actionNode.dataset.rowId
     if (!rowId) return true
     state.customCostRows = state.customCostRows.filter((row) => row.id !== rowId)
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -4621,7 +4623,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           }
         : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -4640,7 +4642,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
           }
         : item,
     )
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -4648,7 +4650,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const mappingId = actionNode.dataset.mappingId
     if (!mappingId) return true
     copySystemDraftToManual(mappingId)
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -4656,7 +4658,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const mappingId = actionNode.dataset.mappingId
     if (!mappingId) return true
     resetColorMappingToSystemSuggestion(mappingId)
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -4669,7 +4671,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         lines: [...mapping.lines, createEmptyMappingLine(mapping.id)],
       }),
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -4683,7 +4685,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
         lines: mapping.lines.filter((line) => line.id !== lineId),
       }),
     )
-    syncTechPackToStore({ touch: false })
+    ;(await syncTechPackToStore({ touch: false }))
     return true
   }
 
@@ -4731,7 +4733,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     return true
   }
   if (action === 'confirm-process-route') {
-    confirmProcessRoute()
+    ;(await confirmProcessRoute())
     return true
   }
   if (action === 'move-prep-route-entry') {
@@ -4747,9 +4749,9 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
     const targetIndex = direction === 'up' ? currentIndex - 1 : direction === 'down' ? currentIndex + 1 : -1
     if (currentIndex < 0 || targetIndex < 0 || targetIndex >= orderedEntryIds.length) return true
     ;[orderedEntryIds[currentIndex], orderedEntryIds[targetIndex]] = [orderedEntryIds[targetIndex], orderedEntryIds[currentIndex]]
-    applyProcessRouteActionToState({ type: 'reorder-prep-lane', orderedEntryIds })
+    ;(await applyProcessRouteActionToState({ type: 'reorder-prep-lane', orderedEntryIds }))
     materializePreparationSkuLane(current.routeObjectKey)
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
   if (action === 'save-technique') {
@@ -4916,7 +4918,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
 
     syncProcessCostRows()
     markProcessRouteUnconfirmed()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     state.addTechniqueDialogOpen = false
     resetTechniqueForm()
     return true
@@ -4935,7 +4937,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       }))
     syncProcessCostRows()
     markProcessRouteUnconfirmed()
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -4966,7 +4968,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       sizeTable: [...state.techPack.sizeTable, row],
     }
 
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     state.addSizeDialogOpen = false
     return true
   }
@@ -4979,7 +4981,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       sizeTable: state.techPack.sizeTable.filter((row) => row.id !== sizeId),
     }
 
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 
@@ -5075,7 +5077,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       ],
     }
 
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     state.addDesignDialogOpen = false
     resetDesignDraft()
     const fileInput = document.getElementById('tech-pack-design-file-input')
@@ -5100,7 +5102,7 @@ export function handleTechPackEvent(target: HTMLElement): boolean {
       patternDesigns: state.techPack.patternDesigns.filter((item) => item.id !== designId),
     }
 
-    syncTechPackToStore()
+    ;(await syncTechPackToStore())
     return true
   }
 

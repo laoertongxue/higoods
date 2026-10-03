@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { getProcessOrderReceivingFacts } from '../data/fcs/factory-receiving.ts'
 import { localProductFixtureImageUrl } from '../data/pcs-product-archive-fixtures.ts'
@@ -1174,7 +1175,7 @@ function renderCombinedDyeCurrentActionCard(task: TaskWithHandoverFields, order:
       ? isDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '完工')
       : onlineStatus === '染色中' || isDyeWorkOrderOnlineActionAllowed(order.dyeOrderId, '开工'))
   )
-  const actorAllowed = Boolean(action && onlineAllowed && session && !validateWaterSolublePdaActor(session, order.dyeFactoryId, action.role))
+  const actorAllowed = Boolean(action && onlineAllowed && session && !validateDyePdaActor(session, order.dyeFactoryId, action.role))
   const token = action?.action === 'dye-complete-dye'
     ? `${order.dyeOrderId}:COMPLETE_DYE:${++dyeCompletionActionSequence}`
     : `${order.dyeOrderId}:${order.status}:${order.updatedAt}`
@@ -1285,7 +1286,7 @@ function renderDyeingTaskCard(
   const canContinuePostProcess = onlineStatus === '染色中' || onlineStatus === '染色完成'
   const canSubmitHandover = isDyeWorkOrderOnlineActionAllowed(dyeOrder.dyeOrderId, '交出')
   const dyeQuantityNoun = getQtyUnitLabel(dyeOrder.qtyUnit) === 'Yard' ? '面料 Yard 数' : '面料米数'
-  const canManuallyComplete = dyeOrder.status === 'WAIT_MANUAL_COMPLETION' && Boolean(getPdaSession()) && !validateWaterSolublePdaActor(getPdaSession()!, dyeOrder.dyeFactoryId, 'OPERATE')
+  const canManuallyComplete = dyeOrder.status === 'WAIT_MANUAL_COMPLETION' && Boolean(getPdaSession()) && !validateDyePdaActor(getPdaSession()!, dyeOrder.dyeFactoryId, 'OPERATE')
   const designReceiving = dyeOrder.sourceType === 'DESIGN_REVISION'
     ? getProcessOrderReceivingFacts(dyeOrder.dyeOrderId, 'dye', dyeOrder.dyeFactoryId) : undefined
   const sourceAvailableQty = designReceiving?.sources.reduce((sum, source) => sum + source.lines
@@ -2545,6 +2546,7 @@ function getSpecialCraftPdaAllowedActions(input: {
 }
 
 function canCurrentPdaSessionExecuteGarmentWarehouseOutbound(task: ProcessTask, requestedWorkOrderId = ''): boolean {
+  if (getMobileTaskProcessType(task) !== 'SPECIAL_CRAFT') return false
   const session = getPdaSession()
   if (!session) return false
   const factory = getFactoryMasterRecordById(session.factoryId)
@@ -4255,9 +4257,13 @@ function buildDyeHandoverConfirmationKey(order: DyeWorkOrder): string {
   return `PDA-DYE-HANDOVER:${JSON.stringify([order.taskId, order.dyeOrderId, order.completedExecutionBatches?.length ?? 0, pack?.nodeRecordId || '', pack?.finishedAt || '', handover.recordCount, handover.submittedQty])}`
 }
 
+function validateDyePdaActor(...args: Parameters<typeof validateWaterSolublePdaActor>): string | null {
+  return validateWaterSolublePdaActor(...args)?.replaceAll('水溶', '染色') ?? null
+}
+
 function requireDyeNodeCompletionActor(order: DyeWorkOrder, expectedUserId?: string) {
   const session = getPdaSession()
-  const actorError = session ? validateWaterSolublePdaActor(session, order.dyeFactoryId, 'OPERATE') : '请先登录。'
+  const actorError = session ? validateDyePdaActor(session, order.dyeFactoryId, 'OPERATE') : '请先登录。'
   if (actorError) throw new Error(actorError)
   if (expectedUserId && session!.userId !== expectedUserId) throw new Error('登录人员已变化，请重新打开操作。')
   return session!
@@ -4746,7 +4752,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       return true
     }
     const roleAction: WaterSolublePdaRoleAction = action === 'dye-water-open-supervisor' || action === 'dye-water-resolve-pause' ? 'SUPERVISE' : 'OPERATE'
-    const actorError = validateWaterSolublePdaActor(session, order.dyeFactoryId, roleAction)
+    const actorError = validateDyePdaActor(session, order.dyeFactoryId, roleAction)
     if (actorError) {
       showPdaExecDetailToast(actorError)
       return true
@@ -4796,7 +4802,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       const oldText = button.textContent || '确认完成'
       button.disabled = true
       button.textContent = '处理中…'
-      const result = executeDyeWaterSolublePdaAction({ action: 'COMPLETE', dyeOrderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'WATER_SOLUBLE', outputQty, reason, actor: session })
+      const result = await runDesignRevisionFcsCommand({ action: 'COMPLETE', dyeOrderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'WATER_SOLUBLE', outputQty, reason, actor: session }, () => executeDyeWaterSolublePdaAction({ action: 'COMPLETE', dyeOrderId, taskId: order.taskId, expectedStatus: 'WATER_SOLUBLE_IN_PROGRESS', expectedNode: 'WATER_SOLUBLE', outputQty, reason, actor: session }))
       pendingDyeWaterActions.delete(key)
       showPdaExecDetailToast(result.ok ? '水溶完成已记录' : result.message)
       if (result.ok) {
@@ -4823,7 +4829,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       const oldText = button.textContent || '确认处理'
       button.disabled = true
       button.textContent = '处理中…'
-      const result = executeDyeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', dyeOrderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'WATER_SOLUBLE', decision, actor: session })
+      const result = await runDesignRevisionFcsCommand({ action: 'RESOLVE_PAUSE', dyeOrderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'WATER_SOLUBLE', decision, actor: session }, () => executeDyeWaterSolublePdaAction({ action: 'RESOLVE_PAUSE', dyeOrderId, taskId: order.taskId, expectedStatus: 'PRODUCTION_PAUSED', expectedNode: 'WATER_SOLUBLE', decision, actor: session }))
       pendingDyeWaterActions.delete(key)
       showPdaExecDetailToast(result.ok ? '主管处理已记录' : result.message)
       if (result.ok) {
@@ -4866,7 +4872,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         if (online.status !== '染色中') {
           assertDyeWorkOrderOnlineActionAllowed(dyeOrderId, '开工')
         }
-        startDyeing(dyeOrderId, { dyeVatNo, inputQty, operatorName: session.userName })
+        await runDesignRevisionFcsCommand(dyeOrderId, () => startDyeing(dyeOrderId, { dyeVatNo, inputQty, operatorName: session.userName }))
         if (online.status !== '染色中') {
           advanceDyeWorkOrderOnlineStatus(dyeOrderId, {
             action: '开工', operatorName: session.userName, operatedAt: nowTimestamp(), source: 'PDA',
@@ -4893,7 +4899,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
     const oldText = button.textContent || '开始水溶'
     button.disabled = true
     button.textContent = '处理中…'
-    const result = executeDyeWaterSolublePdaAction({ action: 'START', dyeOrderId, taskId: order.taskId, expectedStatus: order.status, expectedNode: 'WATER_SOLUBLE', actor: session })
+    const result = await runDesignRevisionFcsCommand({ action: 'START', dyeOrderId, taskId: order.taskId, expectedStatus: order.status, expectedNode: 'WATER_SOLUBLE', actor: session }, () => executeDyeWaterSolublePdaAction({ action: 'START', dyeOrderId, taskId: order.taskId, expectedStatus: order.status, expectedNode: 'WATER_SOLUBLE', actor: session }))
     pendingDyeWaterActions.delete(key)
     showPdaExecDetailToast(result.ok ? '水溶已开始' : result.message)
     if (result.ok) refreshCombinedDyeCurrentAction(dyeOrderId)
@@ -4988,7 +4994,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           showPdaExecDetailToast('印花加工单未关联')
           return true
         }
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'PRINT',
           sourceId: printOrder.printOrderId,
           taskId,
@@ -5002,7 +5008,21 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           qtyLabel,
           remark: '移动端发起交出',
           confirmationKey: `PDA-HANDOVER:${taskId}`,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'PRINT',
+          sourceId: printOrder.printOrderId,
+          taskId,
+          actionCode: 'PRINT_SUBMIT_HANDOVER',
+          operatorName: handoverSession.userName,
+          operatorFactoryId: handoverSession.factoryId,
+          operatedAt: nowTimestamp(),
+          objectType: printOrder.objectType || 'BOM原物料',
+          objectQty: submittedQty,
+          qtyUnit: printOrder.qtyUnit,
+          qtyLabel,
+          remark: '移动端发起交出',
+          confirmationKey: `PDA-HANDOVER:${taskId}`,
+        }))
       } else {
         const dyeOrder = getDyeWorkOrderByTaskId(taskId)
         if (!dyeOrder) {
@@ -5010,7 +5030,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           return true
         }
         if (buildDyeHandoverConfirmationKey(dyeOrder) !== dyeConfirmationKey) throw new Error('交出进度已变化，请重新打开本次交出。')
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId,
@@ -5024,7 +5044,21 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           qtyLabel,
           remark: '移动端发起交出',
           confirmationKey: dyeConfirmationKey,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId,
+          actionCode: 'DYE_SUBMIT_HANDOVER',
+          operatorName: handoverSession.userName,
+          operatorFactoryId: handoverSession.factoryId,
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: submittedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          qtyLabel,
+          remark: '移动端发起交出',
+          confirmationKey: dyeConfirmationKey,
+        }))
       }
       showPdaExecDetailToast('交出记录已生成，Web 端交出与仓库待收货记录已同步')
       if (dyeOrderForQty) refreshDyeingTaskCard(dyeOrderForQty.dyeOrderId)
@@ -5081,7 +5115,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         const operatorName = getPdaSession()?.userName || '印花工厂'
         if (action === 'print-complete-document') {
           if (!window.confirm('确认本单全部产出已接收且数量无差异，完成印花加工单？')) return true
-          completePrintWorkOrderDocument(printOrderId, { operatorName })
+          await runDesignRevisionFcsCommand(printOrderId, () => completePrintWorkOrderDocument(printOrderId, { operatorName }))
           showPdaExecDetailToast('印花加工单已完成')
           return true
         }
@@ -5102,26 +5136,30 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           if (usedRolls === null) return true
           const loss = inputNumber(`本批损耗（${printOrder.qtyUnit}，无损耗填 0）`, 0)
           if (loss === null) return true
-          completePrintingWorkOrder(printOrderId, {usedQty:view.actualInput.usedQty,usedRollCount:usedRolls,completedQty:qty,completedRollCount:rolls,lossQty:loss,printerNo:view.printerNo || '',operatorName,finishOrder:false})
+          await runDesignRevisionFcsCommand(printOrderId, () => completePrintingWorkOrder(printOrderId, {usedQty:view.actualInput.usedQty,usedRollCount:usedRolls,completedQty:qty,completedRollCount:rolls,lossQty:loss,printerNo:view.printerNo || '',operatorName,finishOrder:false}))
           showPdaExecDetailToast('产出已记录，请维护产出卷实测数量后交出')
           return true
         }
         if (action.includes('color-test')) throw new Error('花型信息由目标物料 SKU 带出，无需花型测试。')
         const stage = action.endsWith('transfer') ? 'TRANSFER' as const : 'PRINT' as const
         const stageAction = action.includes('-start-') ? 'START' as const : 'FINISH' as const
+        let inputQty: number | undefined
         if (stage === 'PRINT' && stageAction === 'START' && !facts.startedAt) {
           const qty = inputNumber(`本批实际领料数量（${printOrder.qtyUnit}）`, facts.availableInputQty)
           if (qty === null) return true
-          startPrintingProduction(printOrderId,{id:`PDA-USE-${Date.now()}`,qty,operatorName})
+          inputQty = qty
         }
         const qty = stageAction === 'FINISH' ? inputNumber(`累计完成数量（${printOrder.qtyUnit}）`, getPrintingWorkOrderById(printOrderId)!.actualInput.usedQty) : undefined
         if (qty === null) return true
-        recordPrintingProductionStage(printOrderId,{id:`PDA-STAGE-${Date.now()}`,stage,action:stageAction,qty,operatorName})
+        await runDesignRevisionFcsCommand(printOrderId, () => {
+          if (inputQty !== undefined) startPrintingProduction(printOrderId,{id:`PDA-USE-${Date.now()}`,qty:inputQty,operatorName})
+          recordPrintingProductionStage(printOrderId,{id:`PDA-STAGE-${Date.now()}`,stage,action:stageAction,qty,operatorName})
+        })
         showPdaExecDetailToast('加工记录已保存')
         return true
       }
       if (action === 'print-start-color-test') {
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'PRINT',
           sourceId: printOrder.printOrderId,
           taskId: printOrder.taskId,
@@ -5129,7 +5167,15 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           operatorName: '印花工厂',
           operatedAt: nowTimestamp(),
           remark: '移动端确认花型到位',
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'PRINT',
+          sourceId: printOrder.printOrderId,
+          taskId: printOrder.taskId,
+          actionCode: 'PRINT_PATTERN_READY',
+          operatorName: '印花工厂',
+          operatedAt: nowTimestamp(),
+          remark: '移动端确认花型到位',
+        }))
         showPdaExecDetailToast('花型测试已开始')
         return true
       }
@@ -5141,7 +5187,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           showPdaExecDetailToast('花型测试未通过，请在 Web 端按驳回流程处理')
           return true
         }
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'PRINT',
           sourceId: printOrder.printOrderId,
           taskId: printOrder.taskId,
@@ -5150,7 +5196,16 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           operatedAt: nowTimestamp(),
           remark,
           formData: { 调色结果: '通过' },
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'PRINT',
+          sourceId: printOrder.printOrderId,
+          taskId: printOrder.taskId,
+          actionCode: 'PRINT_COLOR_TEST_DONE',
+          operatorName: '印花工厂',
+          operatedAt: nowTimestamp(),
+          remark,
+          formData: { 调色结果: '通过' },
+        }))
         showPdaExecDetailToast(passed ? '花型测试已完成，已进入等打印' : '花型测试未通过，已回到待花型图')
         return true
       }
@@ -5162,7 +5217,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           showPdaExecDetailToast('请填写打印机编号')
           return true
         }
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'PRINT',
           sourceId: printOrder.printOrderId,
           taskId: printOrder.taskId,
@@ -5173,7 +5228,18 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: printOrder.plannedQty,
           qtyUnit: printOrder.qtyUnit,
           formData: { printerNo, 打印机编号: printerNo },
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'PRINT',
+          sourceId: printOrder.printOrderId,
+          taskId: printOrder.taskId,
+          actionCode: 'PRINT_START_PRINTING',
+          operatorName: '印花工厂',
+          operatedAt: nowTimestamp(),
+          objectType: printOrder.objectType || 'BOM原物料',
+          objectQty: printOrder.plannedQty,
+          qtyUnit: printOrder.qtyUnit,
+          formData: { printerNo, 打印机编号: printerNo },
+        }))
         showPdaExecDetailToast('打印开始已记录')
         return true
       }
@@ -5189,7 +5255,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         })
         const outputQtyText = window.prompt(`请输入${outputLabel}`, String(printOrder.plannedQty))?.trim() || ''
         const wasteQtyText = window.prompt(`请输入损耗${getPrintRawMaterialQtyNoun(printOrder)}（可选）`, '0')?.trim() || '0'
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'PRINT',
           sourceId: printOrder.printOrderId,
           taskId: printOrder.taskId,
@@ -5201,13 +5267,25 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           qtyUnit: printOrder.qtyUnit,
           qtyLabel: outputLabel,
           remark: `损耗${Number(wasteQtyText)} ${printOrder.qtyUnit}`,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'PRINT',
+          sourceId: printOrder.printOrderId,
+          taskId: printOrder.taskId,
+          actionCode: 'PRINT_FINISH_PRINTING',
+          operatorName: '印花工厂',
+          operatedAt: nowTimestamp(),
+          objectType: printOrder.objectType || 'BOM原物料',
+          objectQty: Number(outputQtyText),
+          qtyUnit: printOrder.qtyUnit,
+          qtyLabel: outputLabel,
+          remark: `损耗${Number(wasteQtyText)} ${printOrder.qtyUnit}`,
+        }))
         showPdaExecDetailToast('打印完成已记录')
         return true
       }
 
       if (action === 'print-start-transfer') {
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'PRINT',
           sourceId: printOrder.printOrderId,
           taskId: printOrder.taskId,
@@ -5217,7 +5295,17 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectType: printOrder.objectType || 'BOM原物料',
           objectQty: printOrder.plannedQty,
           qtyUnit: printOrder.qtyUnit,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'PRINT',
+          sourceId: printOrder.printOrderId,
+          taskId: printOrder.taskId,
+          actionCode: 'PRINT_START_TRANSFER',
+          operatorName: '印花工厂',
+          operatedAt: nowTimestamp(),
+          objectType: printOrder.objectType || 'BOM原物料',
+          objectQty: printOrder.plannedQty,
+          qtyUnit: printOrder.qtyUnit,
+        }))
         showPdaExecDetailToast('转印开始已记录')
         return true
       }
@@ -5239,7 +5327,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       const rollLengthText = isFabricMaterial
         ? window.prompt('请输入每卷长度（多卷可用逗号分隔）')?.trim() || ''
         : ''
-      executeMobileProcessAction({
+      await runDesignRevisionFcsCommand({
         sourceType: 'PRINT',
         sourceId: printOrder.printOrderId,
         taskId: printOrder.taskId,
@@ -5260,7 +5348,28 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
             : {}),
         },
         remark: `实际使用原料${Number(usedMaterialQtyText)} ${printOrder.qtyUnit}`,
-      })
+      }, () => executeMobileProcessAction({
+        sourceType: 'PRINT',
+        sourceId: printOrder.printOrderId,
+        taskId: printOrder.taskId,
+        actionCode: 'PRINT_FINISH_TRANSFER',
+        operatorName: '印花工厂',
+        operatedAt: nowTimestamp(),
+        objectType: printOrder.objectType || 'BOM原物料',
+        objectQty: Number(actualCompletedQtyText),
+        qtyUnit: printOrder.qtyUnit,
+        qtyLabel: transferLabel,
+        formData: {
+          [`实际使用${getPrintRawMaterialQtyNoun(printOrder)}`]: Number(usedMaterialQtyText),
+          ...(isFabricMaterial
+            ? {
+                转印完成卷数: Number(rollCountText),
+                每卷长度: rollLengthText,
+              }
+            : {}),
+        },
+        remark: `实际使用原料${Number(usedMaterialQtyText)} ${printOrder.qtyUnit}`,
+      }))
       showPdaExecDetailToast('转印完成，已进入待交出')
       return true
     } catch (error) {
@@ -5273,7 +5382,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
     const orderId = actionNode.dataset.dyeOrderId || ''
     const session = getPdaSession()
     const order = getDyeWorkOrderById(orderId)
-    if (!order || !session || order.taskId !== actionNode.dataset.taskId || validateWaterSolublePdaActor(session, order.dyeFactoryId, 'OPERATE')) {
+    if (!order || !session || order.taskId !== actionNode.dataset.taskId || validateDyePdaActor(session, order.dyeFactoryId, 'OPERATE')) {
       showPdaExecDetailToast('请由本工厂操作员打开原染色任务确认完单。')
       return true
     }
@@ -5281,8 +5390,8 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
     if (!window.confirm(`确认由 ${session.userName} 人工完成染色加工单 ${order.dyeOrderNo}？完成后不能继续加工。`)) return true
     try {
       const currentSession = getPdaSession()
-      if (!currentSession || currentSession.userId !== session.userId || validateWaterSolublePdaActor(currentSession, order.dyeFactoryId, 'OPERATE')) throw new Error('操作账号已变化，请重新打开原任务。')
-      completeDyeWorkOrderDocument(orderId, { completedBy: currentSession.userName })
+      if (!currentSession || currentSession.userId !== session.userId || validateDyePdaActor(currentSession, order.dyeFactoryId, 'OPERATE')) throw new Error('操作账号已变化，请重新打开原任务。')
+      await runDesignRevisionFcsCommand(orderId, () => completeDyeWorkOrderDocument(orderId, { completedBy: currentSession.userName }))
       refreshDyeingTaskCard(orderId)
       const statusNode = document.querySelector<HTMLElement>('[data-exec-task-status]')
       const tabNode = document.querySelector<HTMLElement>('[data-exec-task-tab]')
@@ -5299,11 +5408,11 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
     const orderId = actionNode.dataset.dyeOrderId || ''
     const order = getDyeWorkOrderById(orderId)
     const session = getPdaSession()
-    if (!order || !session || validateWaterSolublePdaActor(session, order.dyeFactoryId, 'OPERATE')) { showPdaExecDetailToast('当前账号不能接收该工厂原料'); return true }
+    if (!order || !session || validateDyePdaActor(session, order.dyeFactoryId, 'OPERATE')) { showPdaExecDetailToast('当前账号不能接收该工厂原料'); return true }
     const panel = actionNode.closest<HTMLElement>('[data-dye-material-receipt]')
     try {
-      if (action === 'dye-start-next-batch') startDyeing(orderId, { inputQty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-next-qty]')?.value), dyeVatNo: panel?.querySelector<HTMLInputElement>('[data-dye-next-vat]')?.value || '', operatorName: session.userName })
-      else receiveDyeMaterial(orderId, { qty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-material-qty]')?.value), receiptId: panel?.dataset.receiptId || '', upstreamRecordId: panel?.querySelector<HTMLSelectElement>('[data-dye-material-source]')?.value, operatorName: session.userName })
+      if (action === 'dye-start-next-batch') await runDesignRevisionFcsCommand(orderId, () => startDyeing(orderId, { inputQty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-next-qty]')?.value), dyeVatNo: panel?.querySelector<HTMLInputElement>('[data-dye-next-vat]')?.value || '', operatorName: session.userName }))
+      else await runDesignRevisionFcsCommand(orderId, () => receiveDyeMaterial(orderId, { qty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-material-qty]')?.value), receiptId: panel?.dataset.receiptId || '', upstreamRecordId: panel?.querySelector<HTMLSelectElement>('[data-dye-material-source]')?.value, operatorName: session.userName }))
       refreshDyeingTaskCard(orderId)
       showPdaExecDetailToast(action === 'dye-start-next-batch' ? '本批染色已开始' : '本次接收已保存，任务已开工')
     } catch (error) { showPdaExecDetailToast(error instanceof Error ? error.message : '接收失败，请重试') }
@@ -5355,7 +5464,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         showPdaExecDetailToast('当前操作已失效，请按最新页面操作。')
         return true
       }
-      const actorError = validateWaterSolublePdaActor(session, dyeOrder.dyeFactoryId, 'OPERATE')
+      const actorError = validateDyePdaActor(session, dyeOrder.dyeFactoryId, 'OPERATE')
       if (actorError) {
         showPdaExecDetailToast(actorError)
         return true
@@ -5391,7 +5500,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       button.disabled = true
       button.textContent = '处理中…'
       try {
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5402,7 +5511,18 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: outputQty,
           qtyUnit: dyeOrder.qtyUnit,
           actor: session,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_FINISH_DYEING',
+          operatorName: session.userName,
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: outputQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          actor: session,
+        }))
         dyeWaterPrimaryActionTokens.delete(dyeOrderId)
         showPdaExecDetailToast('染色完成，已进入脱水')
         refreshCombinedDyeCurrentAction(dyeOrderId)
@@ -5425,13 +5545,13 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           dyeOrder.sampleWaitType === 'WAIT_COLOR_CARD' ? '色样' : '样衣',
         )?.trim() || ''
         const waitType = waitTypeText.includes('色') ? 'WAIT_COLOR_CARD' : 'WAIT_SAMPLE_GARMENT'
-        startDyeSampleWaitWriteback(dyeOrder.taskId, { waitType, operatorName: '染色工厂' })
+        await runDesignRevisionFcsCommand(dyeOrder.taskId, () => startDyeSampleWaitWriteback(dyeOrder.taskId, { waitType, operatorName: '染色工厂' }))
         showPdaExecDetailToast('等样衣/色样已开始')
         return true
       }
 
       if (action === 'dye-complete-sample-wait') {
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5442,13 +5562,24 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: dyeOrder.plannedQty,
           qtyUnit: dyeOrder.qtyUnit,
           remark: '移动端确认样衣到位',
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_SAMPLE_RECEIVED',
+          operatorName: '染色工厂',
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: dyeOrder.plannedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          remark: '移动端确认样衣到位',
+        }))
         showPdaExecDetailToast('等样衣/色样已完成')
         return true
       }
 
       if (action === 'dye-start-sample-test') {
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5458,7 +5589,17 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectType: '面料',
           objectQty: dyeOrder.plannedQty,
           qtyUnit: dyeOrder.qtyUnit,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_START_SAMPLE',
+          operatorName: '染色工厂',
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: dyeOrder.plannedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+        }))
         showPdaExecDetailToast('打样开始已记录')
         return true
       }
@@ -5469,7 +5610,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           showPdaExecDetailToast('请填写色号')
           return true
         }
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5480,7 +5621,18 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: dyeOrder.plannedQty,
           qtyUnit: dyeOrder.qtyUnit,
           formData: { colorNo, 色号: colorNo, 打样结果: '通过' },
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_FINISH_SAMPLE',
+          operatorName: '染色工厂',
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: dyeOrder.plannedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          formData: { colorNo, 色号: colorNo, 打样结果: '通过' },
+        }))
         showPdaExecDetailToast('打样完成已记录')
         return true
       }
@@ -5492,7 +5644,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           showPdaExecDetailToast('请填写染缸编号')
           return true
         }
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5503,7 +5655,18 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: dyeOrder.plannedQty,
           qtyUnit: dyeOrder.qtyUnit,
           formData: { dyeVatNo, 染缸号: dyeVatNo },
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_SCHEDULE_VAT',
+          operatorName: '染色工厂',
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: dyeOrder.plannedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          formData: { dyeVatNo, 染缸号: dyeVatNo },
+        }))
         showPdaExecDetailToast('染缸已排入计划')
         refreshDyeingTaskCard(dyeOrderId)
         return true
@@ -5516,7 +5679,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           showPdaExecDetailToast('请填写染缸编号')
           return true
         }
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5527,7 +5690,18 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: dyeOrder.plannedQty,
           qtyUnit: dyeOrder.qtyUnit,
           formData: { dyeVatNo, 染缸号: dyeVatNo },
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_START_DYEING',
+          operatorName: '染色工厂',
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: dyeOrder.plannedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          formData: { dyeVatNo, 染缸号: dyeVatNo },
+        }))
         showPdaExecDetailToast('染色开始已记录')
         refreshDyeingTaskCard(dyeOrderId)
         return true
@@ -5536,7 +5710,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       if (action === 'dye-complete-dye') {
         const inputQtyText = window.prompt(`请输入投入面料数量（${dyeOrder.qtyUnit}）`, String(dyeOrder.plannedQty))?.trim() || ''
         const outputQtyText = window.prompt(`请输入染色完成面料数量（${dyeOrder.qtyUnit}）`, String(dyeOrder.plannedQty))?.trim() || ''
-        executeMobileProcessAction({
+        await runDesignRevisionFcsCommand({
           sourceType: 'DYE',
           sourceId: dyeOrder.dyeOrderId,
           taskId: dyeOrder.taskId,
@@ -5547,7 +5721,18 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
           objectQty: outputQtyText ? Number(outputQtyText) : dyeOrder.plannedQty,
           qtyUnit: dyeOrder.qtyUnit,
           remark: inputQtyText ? `投入面料米数${Number(inputQtyText)} ${dyeOrder.qtyUnit}` : undefined,
-        })
+        }, () => executeMobileProcessAction({
+          sourceType: 'DYE',
+          sourceId: dyeOrder.dyeOrderId,
+          taskId: dyeOrder.taskId,
+          actionCode: 'DYE_FINISH_DYEING',
+          operatorName: '染色工厂',
+          operatedAt: nowTimestamp(),
+          objectType: '面料',
+          objectQty: outputQtyText ? Number(outputQtyText) : dyeOrder.plannedQty,
+          qtyUnit: dyeOrder.qtyUnit,
+          remark: inputQtyText ? `投入面料米数${Number(inputQtyText)} ${dyeOrder.qtyUnit}` : undefined,
+        }))
         showPdaExecDetailToast('染色完成，已进入脱水')
         refreshDyeingTaskCard(dyeOrderId)
         return true
@@ -5566,13 +5751,13 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
 
       if (action === 'dye-start-node') {
         const session = getPdaSession()
-        const actorError = session ? validateWaterSolublePdaActor(session, dyeOrder.dyeFactoryId, 'OPERATE') : '请先登录。'
+        const actorError = session ? validateDyePdaActor(session, dyeOrder.dyeFactoryId, 'OPERATE') : '请先登录。'
         if (actorError) {
           showPdaExecDetailToast(actorError)
           return true
         }
         if (rejectOfflinePdaMutation()) return true
-        startDyeNodeWriteback(dyeOrder.taskId, nodeCode, { operatorName: session!.userName })
+        await runDesignRevisionFcsCommand(dyeOrder.taskId, () => startDyeNodeWriteback(dyeOrder.taskId, nodeCode, { operatorName: session!.userName }))
         showPdaExecDetailToast(`${nodeLabelMap[nodeCode]}已开始`)
         refreshDyeingTaskCard(dyeOrderId)
         return true
@@ -5602,7 +5787,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       }
       const currentCompletionSession = requireDyeNodeCompletionActor(dyeOrder, completionSession.userId)
       if (rejectOfflinePdaMutation()) return true
-      executeMobileProcessAction({
+      await runDesignRevisionFcsCommand({
         sourceType: 'DYE',
         sourceId: dyeOrder.dyeOrderId,
         taskId: dyeOrder.taskId,
@@ -5619,7 +5804,24 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
               每卷长度: packRollLengthText,
             }
           : undefined,
-      })
+      }, () => executeMobileProcessAction({
+        sourceType: 'DYE',
+        sourceId: dyeOrder.dyeOrderId,
+        taskId: dyeOrder.taskId,
+        actionCode: finishActionCodeMap[nodeCode],
+        operatorName: currentCompletionSession.userName,
+        operatorFactoryId: currentCompletionSession.factoryId,
+        operatedAt: nowTimestamp(),
+        objectType: '面料',
+        objectQty: Number.isFinite(outputQty) ? outputQty : 0,
+        qtyUnit: dyeOrder.qtyUnit,
+        formData: nodeCode === 'PACK'
+          ? {
+              包装卷数: Number(packRollCountText),
+              每卷长度: packRollLengthText,
+            }
+          : undefined,
+      }))
       showPdaExecDetailToast(nodeCode === 'PACK' ? '包装完成，已进入待交出' : `${nodeLabelMap[nodeCode]}完成已记录`)
       refreshDyeingTaskCard(dyeOrderId)
       return true
@@ -5937,7 +6139,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
       const scanEvidenceText = physicalScanLines.length
         ? `；实物码：${physicalScanLines.map((line) => line.code).join('、')}`
         : ''
-      const actionResult = executeMobileProcessAction({
+      const actionResult = await runDesignRevisionFcsCommand({
         sourceType: 'SPECIAL_CRAFT',
         sourceId,
         taskId: sourceTaskId,
@@ -5963,7 +6165,33 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         remark: `${action === 'special-submit-handover'
           ? detailState.specialCraftHandoverRemark.trim() || '移动端发起交出'
           : `移动端${actionLabelMap[action]}`}${scanEvidenceText}`,
-      })
+      }, () => executeMobileProcessAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId,
+        taskId: sourceTaskId,
+        actionCode: actionCodeMap[action],
+        confirmationKey,
+        ...actionAudit,
+        operatedAt,
+        objectType: isButtonLoop && action !== 'special-confirm-receive' ? '盘扣' : objectMeta.objectType,
+        objectQty: physicalScanQty ?? (objectMeta.objectType === '辅料' && action !== 'special-complete-order'
+          ? accessoryQty
+          : isButtonLoop && (action === 'special-process-report' || action === 'special-submit-handover')
+          ? buttonLoopQty
+          : action === 'special-submit-handover' && skuActionQty === undefined && feiActionQty === undefined
+            ? genericHandoverQty
+          : skuActionQty ?? feiActionQty ?? (action === 'special-process-report' ? finishQty || baseQty : baseQty)),
+        qtyUnit: physicalScanLines[0]?.unit || (objectMeta.objectType === '辅料'
+          ? action === 'special-confirm-receive' ? workOrder.inputUnit || '米' : workOrder.outputUnit || workOrder.unit || '条'
+          : isButtonLoop && action === 'special-confirm-receive' ? '张' : objectMeta.qtyUnit),
+        skuQtyBySkuCode,
+        feiQtyByTicketNo,
+        skuScrapQtyBySkuCode,
+        skuDamageQtyBySkuCode,
+        remark: `${action === 'special-submit-handover'
+          ? detailState.specialCraftHandoverRemark.trim() || '移动端发起交出'
+          : `移动端${actionLabelMap[action]}`}${scanEvidenceText}`,
+      }))
       const scanBatch = physicalScanContext
         ? commitPdaPhysicalScanBatch({
             ...physicalScanContext,
@@ -6258,7 +6486,7 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         : undefined
       const garmentCompletedQty = skuQtyBySkuCode ? Object.values(skuQtyBySkuCode).reduce((sum, qty) => sum + qty, 0) : undefined
       const actionAudit = getCurrentPdaProcessActionAudit()
-      executeMobileProcessAction({
+      await runDesignRevisionFcsCommand({
         sourceType: 'SPECIAL_CRAFT',
         sourceId: specialCraftWorkOrder.taskOrderId,
         taskId,
@@ -6272,7 +6500,21 @@ export async function handlePdaExecDetailEvent(target: HTMLElement, event?: Even
         skuScrapQtyBySkuCode,
         skuDamageQtyBySkuCode,
         remark: `移动端加工填报，完成${objectMeta.objectLabel}数量${garmentCompletedQty ?? Math.max(baseQty - scrapQty - damageQty, 0)}${objectMeta.qtyUnit}`,
-      })
+      }, () => executeMobileProcessAction({
+        sourceType: 'SPECIAL_CRAFT',
+        sourceId: specialCraftWorkOrder.taskOrderId,
+        taskId,
+        actionCode: 'SPECIAL_CRAFT_PROCESS_REPORT',
+        ...actionAudit,
+        operatedAt: nowTimestamp(),
+        objectType: objectMeta.objectType,
+        objectQty: garmentCompletedQty ?? Math.max(baseQty - scrapQty - damageQty, 0),
+        qtyUnit: objectMeta.qtyUnit,
+        skuQtyBySkuCode,
+        skuScrapQtyBySkuCode,
+        skuDamageQtyBySkuCode,
+        remark: `移动端加工填报，完成${objectMeta.objectLabel}数量${garmentCompletedQty ?? Math.max(baseQty - scrapQty - damageQty, 0)}${objectMeta.qtyUnit}`,
+      }))
       detailState.specialCraftScrapQty = '0'
       detailState.specialCraftDamageQty = '0'
       showPdaExecDetailToast('特殊工艺加工填报已同步，请继续发起交出或完成加工单')

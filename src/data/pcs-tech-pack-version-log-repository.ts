@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import type {
   TechPackVersionLogRecord,
   TechPackVersionLogStoreSnapshot,
@@ -10,10 +11,10 @@ let memorySnapshot: TechPackVersionLogStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
   return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
+    typeof pcsRecordStore !== 'undefined' &&
+    typeof pcsRecordStore.getItem === 'function' &&
+    typeof pcsRecordStore.setItem === 'function' &&
+    typeof pcsRecordStore.removeItem === 'function'
   )
 }
 
@@ -71,15 +72,15 @@ function hydrateSnapshot(snapshot: TechPackVersionLogStoreSnapshot): TechPackVer
 function loadSnapshot(): TechPackVersionLogStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (!canUseStorage()) {
-    memorySnapshot = createEmptySnapshot()
+    memorySnapshot = withPcsDemoData(() => createEmptySnapshot())
     return cloneSnapshot(memorySnapshot)
   }
 
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = pcsRecordStore.getItem(STORAGE_KEY)
     if (!raw) {
-      memorySnapshot = createEmptySnapshot()
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+      memorySnapshot = withPcsDemoData(() => createEmptySnapshot())
+
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<TechPackVersionLogStoreSnapshot>
@@ -87,12 +88,12 @@ function loadSnapshot(): TechPackVersionLogStoreSnapshot {
       version: STORE_VERSION,
       logs: Array.isArray(parsed.logs) ? (parsed.logs as TechPackVersionLogRecord[]) : [],
     })
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+
     return cloneSnapshot(memorySnapshot)
   } catch {
-    memorySnapshot = createEmptySnapshot()
+    memorySnapshot = withPcsDemoData(() => createEmptySnapshot())
     if (canUseStorage()) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+
     }
     return cloneSnapshot(memorySnapshot)
   }
@@ -101,7 +102,7 @@ function loadSnapshot(): TechPackVersionLogStoreSnapshot {
 function persistSnapshot(snapshot: TechPackVersionLogStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+    pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
   }
 }
 
@@ -149,10 +150,12 @@ export function replaceTechPackVersionLogStore(logs: TechPackVersionLogRecord[])
 }
 
 export function resetTechPackVersionLogRepository(): void {
-  const snapshot = createEmptySnapshot()
+  const snapshot = withPcsDemoData(() => createEmptySnapshot())
   persistSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+    pcsRecordStore.removeItem(STORAGE_KEY)
+    pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

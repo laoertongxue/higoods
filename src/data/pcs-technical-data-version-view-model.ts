@@ -1,3 +1,4 @@
+import { getEngineeringMasterOrderById } from './pcs-engineering-master-repository.ts'
 import { getProjectById } from './pcs-project-repository.ts'
 import {
   TECH_PACK_AGGREGATE_STATUS_RULES,
@@ -83,9 +84,10 @@ export function getTechnicalVersionStatusLabel(status: TechnicalVersionStatus): 
 }
 
 export function getTechnicalVersionBusinessStatusLabel(
-  record: Pick<TechnicalDataVersionRecord, 'versionStatus' | 'technicalVersionId'>,
+  record: Pick<TechnicalDataVersionRecord, 'versionStatus' | 'technicalVersionId'> & Partial<Pick<TechnicalDataVersionRecord, 'missingItemCodes'>>,
   currentVersionId: string,
 ): string {
+  if (record.versionStatus === 'PUBLISHED' && record.missingItemCodes?.length) return '已发布 · 资料待补齐'
   return TECH_PACK_AGGREGATE_STATUS_RULES[
     resolveTechPackVersionBusinessStatus(record, currentVersionId)
   ].label
@@ -146,9 +148,7 @@ export function buildTechnicalVersionListByStyle(styleId: string): TechnicalVers
       completenessScore: record.completenessScore,
       missingItemNames: [...record.missingItemNames],
       sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
-      sourceProjectText: record.sourceProjectCode
-        ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
-        : '未绑定商品项目',
+      sourceProjectText: getTechnicalVersionSourceText(record),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       publishedAt: record.publishedAt,
@@ -176,9 +176,7 @@ export function buildTechnicalVersionListByProject(projectId: string): Technical
       completenessScore: record.completenessScore,
       missingItemNames: [...record.missingItemNames],
       sourceTaskText: buildTechPackVersionSourceTaskSummary(record).taskChainText,
-      sourceProjectText: record.sourceProjectCode
-        ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
-        : '未绑定商品项目',
+      sourceProjectText: getTechnicalVersionSourceText(record),
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
       publishedAt: record.publishedAt,
@@ -204,9 +202,7 @@ export function buildTechnicalVersionDetailViewModel(
     record,
     content,
     styleName: record.styleName || getStyleArchiveById(record.styleId)?.styleName || record.styleCode,
-    sourceProjectText: record.sourceProjectCode
-      ? `${record.sourceProjectCode} · ${record.sourceProjectName}`
-      : '未绑定商品项目',
+    sourceProjectText: getTechnicalVersionSourceText(record),
     versionStatusLabel: getTechnicalVersionBusinessStatusLabel(
       record,
       getStyleArchiveById(record.styleId)?.currentTechPackVersionId || '',
@@ -258,4 +254,10 @@ export function buildTechnicalVersionSourceSummary(styleId: string): {
     projectCode: project?.projectCode || style.sourceProjectCode || '',
     projectName: project?.projectName || style.sourceProjectName || '',
   }
+}
+
+function getTechnicalVersionSourceText(record: TechnicalDataVersionRecord): string {
+  const master = getEngineeringMasterOrderById(record.sourceProjectId || record.createdFromTaskId || '')
+  if (master) return `生产准备单 ${master.masterOrderCode}`
+  return record.sourceProjectCode ? `${record.sourceProjectCode}（历史来源待确认）` : '未关联生产准备单'
 }

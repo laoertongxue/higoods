@@ -421,10 +421,10 @@ function installColumnDragEvents(): void {
   })
 }
 
-export function handleDyeWorkOrderListEvent(target: HTMLElement): boolean {
+export async function handleDyeWorkOrderListEvent(target: HTMLElement): Promise<boolean> {
   const root = target.closest<HTMLElement>('[data-dye-work-orders-root]')
   if (!root) return false
-  if (handleDyeOutputEvent(target)) {
+  if (await handleDyeOutputEvent(target)) {
     if (target.closest<HTMLElement>('[data-dye-output-action]')?.dataset.dyeOutputAction === 'confirm') { state.rowsSnapshot = null; refreshWorkspace() }
     return true
   }

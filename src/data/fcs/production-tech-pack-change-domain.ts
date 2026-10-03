@@ -1,3 +1,4 @@
+import { pcsRecordStore, registerPcsRepositoryReset } from '../pcs-record-runtime.ts'
 export type TechPackChangeModule =
   | 'BOM'
   | 'PATTERN'
@@ -2920,14 +2921,7 @@ function nowText(): string {
 const PUBLISH_EVALUATION_STORAGE_KEY = 'higood-fcs-production-tech-pack-publish-evaluations-v1'
 
 let publishEvaluationMemory: ProductionTechPackPublishEvaluationBatch[] | null = null
-
-function canUseStorage(): boolean {
-  return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function'
-  )
-}
+registerPcsRepositoryReset(() => { publishEvaluationMemory = null })
 
 function normalizeDiffModules(modules: TechPackChangeModule[] | undefined): TechPackChangeModule[] {
   const fallback: TechPackChangeModule[] = ['BOM', 'PATTERN', 'DESIGN']
@@ -2979,34 +2973,17 @@ function normalizePublishEvaluationBatch(
 
 function loadPublishEvaluationBatches(): ProductionTechPackPublishEvaluationBatch[] {
   if (publishEvaluationMemory) return clone(publishEvaluationMemory)
-  if (!canUseStorage()) {
-    publishEvaluationMemory = []
-    return []
-  }
-
-  try {
-    const raw = localStorage.getItem(PUBLISH_EVALUATION_STORAGE_KEY)
-    if (!raw) {
-      publishEvaluationMemory = []
-      return []
-    }
-    const parsed = JSON.parse(raw) as unknown
-    publishEvaluationMemory = Array.isArray(parsed)
-      ? parsed.map((item) => normalizePublishEvaluationBatch(item as Partial<ProductionTechPackPublishEvaluationBatch>))
-      : []
-    localStorage.setItem(PUBLISH_EVALUATION_STORAGE_KEY, JSON.stringify(publishEvaluationMemory))
-    return clone(publishEvaluationMemory)
-  } catch {
-    publishEvaluationMemory = []
-    return []
-  }
+  const raw = pcsRecordStore.getItem(PUBLISH_EVALUATION_STORAGE_KEY)
+  const parsed = raw === null ? [] : JSON.parse(raw)
+  if (!Array.isArray(parsed)) throw new Error('生产单版本评估资料格式错误，原数据已保留。')
+  publishEvaluationMemory = parsed.map(normalizePublishEvaluationBatch)
+  return clone(publishEvaluationMemory)
 }
 
 function persistPublishEvaluationBatches(batches: ProductionTechPackPublishEvaluationBatch[]): void {
-  publishEvaluationMemory = batches.map(normalizePublishEvaluationBatch)
-  if (canUseStorage()) {
-    localStorage.setItem(PUBLISH_EVALUATION_STORAGE_KEY, JSON.stringify(publishEvaluationMemory))
-  }
+  const next = batches.map(normalizePublishEvaluationBatch)
+  pcsRecordStore.setItem(PUBLISH_EVALUATION_STORAGE_KEY, JSON.stringify(next))
+  publishEvaluationMemory = next
 }
 
 function nextSequence(prefix: string, items: Array<{ [key: string]: string }>, idKey: string): string {

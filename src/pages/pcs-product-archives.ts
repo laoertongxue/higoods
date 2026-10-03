@@ -1,3 +1,5 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
+import { listTestingOrders } from '../data/pcs-testing-order-repository.ts'
 import { renderProductInformation, handleProductInformationEvent } from './pcs-product-information.ts'
 import { appStore } from '../state/store.ts'
 import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
@@ -163,7 +165,7 @@ interface StyleArchiveListItemViewModel {
   channelCount: number
   onSaleCount: number
   legacyMappingText: string
-  originProjectText: string
+  originBusinessText: string
 }
 
 interface ProductArchiveListContext {
@@ -206,7 +208,6 @@ const MAPPING_META: Record<SkuArchiveMappingHealth, { label: string; className: 
 const LEGACY_SYSTEM_OPTIONS = ['ERP-A', 'ERP-B', 'OMS-旧档', '外部表格导入']
 const FALLBACK_SKU_COLOR_OPTIONS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Khaki']
 const FALLBACK_SKU_SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'One Size']
-const SKU_ARCHIVE_STORAGE_KEY = 'higood-pcs-sku-archive-store-v1'
 let productArchiveDataReady = false
 
 function listConfiguredSkuColors(): string[] {
@@ -537,29 +538,9 @@ function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pi
   }
 }
 
-function hasPersistedSkuArchiveStore(): boolean {
-  return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    Boolean(localStorage.getItem(SKU_ARCHIVE_STORAGE_KEY))
-  )
-}
-
 function buildSkuSummariesByStyleId(
   styles: StyleArchiveShellRecord[],
 ): Map<string, { count: number; mappingHealth: SkuArchiveMappingHealth }> {
-  if (!hasPersistedSkuArchiveStore()) {
-    return new Map(
-      styles.map((style) => [
-        style.styleId,
-        {
-          count: style.specificationCount || 0,
-          mappingHealth: style.specificationCount > 0 ? 'OK' : 'MISSING',
-        },
-      ]),
-    )
-  }
-
   const grouped = groupByStyleId(listSkuArchives())
   return new Map(
     styles.map((style) => {
@@ -596,11 +577,10 @@ function listStyleChannelProducts(
   const records = context
     ? [
         ...(context.channelProductsByStyleId.get(style.styleId) || []),
-        ...(style.sourceProjectId ? context.channelProductsByProjectId.get(style.sourceProjectId) || [] : []),
       ]
     : listProjectChannelProductsSnapshot()
   const matchedRecords = records.filter(
-    (item) => item.styleId === style.styleId || (!!style.sourceProjectId && item.projectId === style.sourceProjectId),
+    (item) => item.styleId === style.styleId,
   )
   const uniqueRecords = new Map(matchedRecords.map((item) => [item.channelProductId, item]))
   return Array.from(uniqueRecords.values())
@@ -634,7 +614,7 @@ function buildStyleListItems(context = buildProductArchiveListContext()): StyleA
       channelCount: styleChannels.length || style.channelProductCount,
       onSaleCount: countOnSaleChannelProducts(styleChannels),
       legacyMappingText: style.legacyOriginProject ? `历史项目：${style.legacyOriginProject}` : `款号：${style.styleNumber || style.styleCode}`,
-      originProjectText: style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目',
+      originBusinessText: getStyleOriginText(style.styleId),
     }
   })
 }
@@ -648,7 +628,7 @@ function filterStyleItems(items: StyleArchiveListItemViewModel[]): StyleArchiveL
         item.style.styleName,
         item.style.styleNumber,
         item.legacyMappingText,
-        item.originProjectText,
+        item.originBusinessText,
       ]
         .join(' ')
         .toLowerCase()
@@ -993,7 +973,7 @@ function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
           <td class="px-4 py-3">
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.style.styleName)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.styleNameEn || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.originProjectText)}</div>
+            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.originBusinessText)}</div>
           </td>
           <td class="px-4 py-3 text-sm text-slate-700">
             <div>${escapeHtml(item.style.categoryName || '-')}</div>
@@ -1165,7 +1145,7 @@ function renderStyleCreateDrawer(): string {
     <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
     <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="submit-style-create">创建款式</button>
   `
-  return renderDrawerShell('新建款式', '直接创建款式档案，无需先生成商品项目。', body, footer)
+  return renderDrawerShell('新建款式', '直接创建 SPU 档案，后续测款单关联此档案。', body, footer)
 }
 
 function renderStyleCompletionDrawer(): string {
@@ -1301,7 +1281,7 @@ function renderStyleCompletionDrawer(): string {
   return renderDrawerShell('完善款式资料', '补齐款式档案基础资料后，才可以从草稿进入正式建档。', body, footer)
 }
 
-function submitStyleCompletion(): void {
+async function submitStyleCompletion(): Promise<void> {
   if (!state.styleCompletion.styleId) {
     state.notice = '未找到待补齐的款式档案。'
     return
@@ -1311,7 +1291,7 @@ function submitStyleCompletion(): void {
   const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
   const imageUrls = getStyleCompletionImageUrls()
   const designRevisionTaskId = state.styleCompletion.designRevisionTaskId
-  const updated = updateStyleArchive(state.styleCompletion.styleId, {
+  const updated = await runPcsRecordCommand(() => updateStyleArchive(state.styleCompletion.styleId, {
     ...(alreadyFormalized
       ? {}
       : {
@@ -1339,7 +1319,7 @@ function submitStyleCompletion(): void {
     remark: state.styleCompletion.remark.trim(),
     updatedAt: nowText(),
     updatedBy: '当前用户',
-  })
+  }))
 
   if (!updated) {
     state.notice = '保存款式资料失败。'
@@ -1348,11 +1328,11 @@ function submitStyleCompletion(): void {
 
   if (designRevisionTaskId) {
     try {
-      linkCompletedTemporarySpuToStyleArchive({
+      await runPcsRecordCommand(() => linkCompletedTemporarySpuToStyleArchive({
         samplingTaskId: designRevisionTaskId,
         styleId: updated.styleId,
         actor: { userId: 'PRODUCT-ARCHIVE-CURRENT', userName: '当前用户' },
-      })
+      }))
     } catch (error) {
       state.notice = error instanceof Error ? error.message : '承接线下设计改款资料失败。'
       return
@@ -1611,7 +1591,7 @@ function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
               <div><div class="text-xs text-slate-500">款式编码 / 款号</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleCode)} / ${escapeHtml(style.styleNumber || '-')}</div></div>
               <div><div class="text-xs text-slate-500">年份 / 季节</div><div class="mt-1 text-sm text-slate-700">${escapeHtml([style.yearTag, style.seasonTags.join('/')].filter(Boolean).join(' / ') || '-')}</div></div>
               <div><div class="text-xs text-slate-500">价格带</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">来源项目</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定商品项目')}</div></div>
+              <div><div class="text-xs text-slate-500">关联测款单</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(getStyleOriginText(style.styleId))}</div></div>
               <div><div class="text-xs text-slate-500">图片来源</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.imageSource || '-')}</div></div>
               <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '未建立当前生效技术包')}</div></div>
               <div>
@@ -1667,7 +1647,7 @@ function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
             <div class="text-sm font-medium text-slate-900">${escapeHtml(item.versionLabel)}</div>
             <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.technicalVersionCode)}</div>
           </td>
-          <td class="px-4 py-3">${renderBadge(item.versionStatusLabel, item.isCurrentTechPackVersion ? 'border-blue-200 bg-blue-50 text-blue-700' : item.versionStatus === 'PUBLISHED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600')}</td>
+          <td class="px-4 py-3">${renderBadge(item.versionStatus === 'PUBLISHED' && item.completenessScore < 100 ? '已发布 · 资料待补齐' : item.versionStatusLabel, item.isCurrentTechPackVersion ? 'border-blue-200 bg-blue-50 text-blue-700' : item.versionStatus === 'PUBLISHED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600')}</td>
           <td class="px-4 py-3">
             <div>${renderBadge(item.reviewStatusText, resolveReviewBadgeClass(item.reviewStage as TechnicalReviewStage, item.reviewStatusText))}</div>
             <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.pendingReviewerText)}</div>
@@ -1790,7 +1770,7 @@ function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
       <div class="rounded-lg border bg-white p-5 shadow-sm">
         <div class="text-sm font-medium text-slate-900">来源与继承</div>
         <div class="mt-4 space-y-3 text-sm text-slate-700">
-          <div><span class="text-slate-500">来源商品项目：</span>${escapeHtml(style.sourceProjectCode ? `${style.sourceProjectCode} · ${style.sourceProjectName}` : '未绑定')}</div>
+          <div><span class="text-slate-500">关联测款单：</span>${escapeHtml(getStyleOriginText(style.styleId))}</div>
           <div><span class="text-slate-500">老系统来源：</span>${escapeHtml(style.legacyOriginProject || '无')}</div>
           <div><span class="text-slate-500">生成人：</span>${escapeHtml(style.generatedBy || '-')}</div>
         </div>
@@ -2390,7 +2370,7 @@ function buildSkuRecord(input: {
   }
 }
 
-function submitSkuCreate(): void {
+async function submitSkuCreate(): Promise<void> {
   const style = state.skuCreate.styleId ? getStyleArchiveById(state.skuCreate.styleId) : null
   if (!style) {
     state.notice = '请先选择所属款式档案。'
@@ -2417,7 +2397,7 @@ function submitSkuCreate(): void {
   }
 
   try {
-    const created = createSkuArchive(
+    const created = await runPcsRecordCommand(() => createSkuArchive(
       buildSkuRecord({
         style,
         color: state.skuCreate.color,
@@ -2429,7 +2409,7 @@ function submitSkuCreate(): void {
         legacyCode: state.skuCreate.mode === 'import' ? state.skuCreate.legacyCode : '',
         mappingHealth: state.skuCreate.mode === 'import' ? 'OK' : undefined,
       }),
-    )
+    ))
     resetSkuCreateState()
     state.notice = `已创建规格档案 ${created.skuCode}。`
   } catch (error) {
@@ -2437,7 +2417,7 @@ function submitSkuCreate(): void {
   }
 }
 
-function submitSkuBatchCreate(): void {
+async function submitSkuBatchCreate(): Promise<void> {
   const style = state.skuCreate.styleId ? getStyleArchiveById(state.skuCreate.styleId) : null
   if (!style) {
     state.notice = '请先选择所属款式档案。'
@@ -2470,7 +2450,7 @@ function submitSkuBatchCreate(): void {
     return
   }
 
-  createSkuArchiveBatch(records)
+  await runPcsRecordCommand(() => createSkuArchiveBatch(records))
   resetSkuCreateState()
   state.notice = `已批量生成 ${records.length} 条规格档案。`
 }
@@ -2676,7 +2656,7 @@ export function handlePcsProductArchiveInput(target: Element): boolean {
   }
 }
 
-export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
+export async function handlePcsProductArchiveEvent(target: HTMLElement): Promise<boolean> {
   if (handleProductInformationEvent(target)) return true
   const actionNode = resolveClosestNode(target, '[data-pcs-product-archive-action]')
   if (!actionNode) return false
@@ -2738,12 +2718,12 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         return true
       }
       try {
-        const created = createStyleArchiveDirect({
+        const created = await runPcsRecordCommand(() => createStyleArchiveDirect({
           styleName,
           styleNumber: state.styleCreate.styleNumber.trim(),
           productType: state.styleCreate.productType.trim(),
           categoryName: state.styleCreate.categoryName.trim(),
-        })
+        }))
         state.styleCreate.open = false
         state.notice = `已创建款式档案 ${created.styleCode}，可继续补齐资料后正式建档。`
       } catch (error) {
@@ -2762,7 +2742,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       return true
     }
     case 'submit-style-completion':
-      submitStyleCompletion()
+      ;(await submitStyleCompletion())
       return true
     case 'formalize-style-archive': {
       const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
@@ -2778,7 +2758,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         return true
       }
       try {
-        activateTechPackVersionForStyle(styleId, technicalVersionId, '当前用户')
+        await runPcsRecordCommand(() => activateTechPackVersionForStyle(styleId, technicalVersionId, '当前用户'))
         state.notice = '已启用当前生效技术包版本。'
       } catch (error) {
         state.notice = error instanceof Error ? error.message : '启用当前生效技术包版本失败。'
@@ -2792,7 +2772,7 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         return true
       }
       try {
-        const record = publishTechnicalDataVersion(technicalVersionId, '当前用户')
+        const record = await runPcsRecordCommand(() => publishTechnicalDataVersion(technicalVersionId, '当前用户'))
         state.notice = openProductionChangeEvaluationFromProductArchive(record)
       } catch (error) {
         state.notice = error instanceof Error ? error.message : '发布技术包新版本失败。'
@@ -2806,10 +2786,10 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
       state.skuCreate.styleId = actionNode.dataset.styleId || state.skuCreate.styleId
       return true
     case 'submit-sku-create':
-      submitSkuCreate()
+      ;(await submitSkuCreate())
       return true
     case 'submit-sku-batch-create':
-      submitSkuBatchCreate()
+      ;(await submitSkuBatchCreate())
       return true
     case 'style-quick-filter': {
       const filter = actionNode.dataset.filter || 'reset'
@@ -2849,11 +2829,11 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         return true
       }
       const nextStatus = style.archiveStatus === 'ARCHIVED' ? (style.currentTechPackVersionId ? 'ACTIVE' : 'DRAFT') : 'ARCHIVED'
-      const restored = updateStyleArchive(style.styleId, {
+      const restored = await runPcsRecordCommand(() => updateStyleArchive(style.styleId, {
         archiveStatus: nextStatus,
         updatedAt: nowText(),
         updatedBy: '系统演示',
-      })
+      }))
       const restoredStatus = restored ? STYLE_ARCHIVE_STATUS_RULES[resolveStyleArchiveBusinessStatus(restored)].label : '待完善'
       state.notice = nextStatus === 'ARCHIVED' ? `已归档 ${style.styleCode}。` : `已恢复 ${style.styleCode}，当前状态为${restoredStatus}。`
       return true
@@ -2866,11 +2846,11 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         return true
       }
       const nextStatus: SkuArchiveStatusCode = sku.archiveStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
-      updateSkuArchive(sku.skuId, {
+      await runPcsRecordCommand(() => updateSkuArchive(sku.skuId, {
         archiveStatus: nextStatus,
         updatedAt: nowText(),
         updatedBy: '系统演示',
-      })
+      }))
       state.notice = nextStatus === 'ACTIVE' ? `已启用 ${sku.skuCode}。` : `已停用 ${sku.skuCode}。`
       return true
     }
@@ -2887,12 +2867,12 @@ export function handlePcsProductArchiveEvent(target: HTMLElement): boolean {
         state.notice = '未找到对应规格档案。'
         return true
       }
-      updateSkuArchive(sku.skuId, {
+      await runPcsRecordCommand(() => updateSkuArchive(sku.skuId, {
         mappingHealth: 'MISSING',
         listedChannelCount: 0,
         updatedAt: nowText(),
         updatedBy: '系统演示',
-      })
+      }))
       state.notice = `已结束 ${sku.skuCode} 的当前渠道映射。`
       return true
     }
@@ -2918,4 +2898,9 @@ export function isPcsProductArchiveDialogOpen(): boolean {
     state.styleCreate.open ||
     state.versionLogDialog.open
   )
+}
+
+function getStyleOriginText(styleId: string): string {
+  const orders = listTestingOrders().filter(order => order.styleId === styleId)
+  return orders.length ? orders.map(order => order.orderCode).join('、') : '直接建档，暂无测款单'
 }

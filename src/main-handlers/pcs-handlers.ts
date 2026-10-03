@@ -277,7 +277,7 @@ function getActiveHandlerSpec(pathname = getCurrentPathname()): PcsHandlerSpec |
   return PCS_HANDLER_SPECS.find((spec) => spec.matches(pathname)) ?? null
 }
 
-function invokeBooleanExport<TArg>(module: HandlerModule, exportName: string | undefined, arg: TArg): boolean {
+async function invokeBooleanExport<TArg>(module: HandlerModule, exportName: string | undefined, arg: TArg): Promise<boolean> {
   if (!exportName) {
     return false
   }
@@ -287,7 +287,7 @@ function invokeBooleanExport<TArg>(module: HandlerModule, exportName: string | u
     return false
   }
 
-  return Boolean((handler as (value: TArg) => unknown)(arg))
+  return Boolean(await (handler as (value: TArg) => unknown)(arg))
 }
 
 function invokeDialogStateExport(module: HandlerModule, exportName: string | undefined): boolean {
@@ -329,7 +329,13 @@ export async function dispatchPcsPageEvent(target: HTMLElement, event?: Event): 
   if (typeof handler !== 'function') {
     return false
   }
-  return Boolean((handler as (target: HTMLElement, event?: Event) => unknown)(target, event))
+  try {
+    return Boolean(await (handler as (target: HTMLElement, event?: Event) => unknown)(target, event))
+  } catch (error) {
+    target.dataset.skipPageRerender = 'true'
+    window.dispatchEvent(new CustomEvent('pcs-storage-status', { detail: error instanceof Error ? error.message : '本次操作未完成，请保留输入后重试。' }))
+    return true
+  }
 }
 
 export async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
@@ -339,7 +345,12 @@ export async function dispatchPcsInputEvent(target: Element): Promise<boolean> {
   }
 
   const module = await loadHandlerModule(spec)
-  return invokeBooleanExport(module, spec.inputExport, target)
+  try { return await invokeBooleanExport(module, spec.inputExport, target) }
+  catch (error) {
+    if (target instanceof HTMLElement) target.dataset.skipPageRerender = 'true'
+    window.dispatchEvent(new CustomEvent('pcs-storage-status', { detail: error instanceof Error ? error.message : '本次输入未保存，请重试。' }))
+    return true
+  }
 }
 
 export async function closePcsDialogsOnEscape(): Promise<boolean> {
@@ -356,7 +367,7 @@ export async function closePcsDialogsOnEscape(): Promise<boolean> {
   for (const closeAction of spec.closeActions) {
     const fakeButton = document.createElement('button')
     fakeButton.dataset[closeAction.datasetKey] = closeAction.value
-    invokeBooleanExport(module, spec.eventExport, fakeButton)
+    await invokeBooleanExport(module, spec.eventExport, fakeButton)
   }
 
   return true

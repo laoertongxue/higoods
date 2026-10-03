@@ -1,14 +1,15 @@
+import { pcsRecordStore } from '../../src/data/pcs-record-runtime.ts'
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-test('BOM failed persistence preserves saved and in-memory state; retry persists', async () => {
+test('BOM working-copy write failure preserves prior state; retry succeeds', async () => {
   const values = new Map<string,string>()
   let blocked = false
-  Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{
+  Object.assign(pcsRecordStore, {
     getItem:(key:string)=>values.get(key)??null,
     setItem:(key:string,value:string)=>{if(blocked)throw new DOMException('quota','QuotaExceededError');values.set(key,value)},
     removeItem:(key:string)=>values.delete(key),
-  }})
+  })
   const bom = await import('../../src/data/pcs-engineering-bom-repository.ts')
   const before = bom.captureEngineeringBomRepositoryState()
   const next = {...before, plans: [{ownerId:'test',customCosts:[]} as any]}
@@ -27,7 +28,7 @@ test('existing production preparation data does not trigger demo writes on entry
   vm.ensureEngineeringMasterDemoData(1)
   const before=repo.listEngineeringMasterOrders()
   assert.ok(before.length)
-  const storage=globalThis.localStorage
+  const storage=pcsRecordStore
   const previous=storage.setItem
   let writes=0
   storage.setItem=()=>{writes++;throw new DOMException('quota','QuotaExceededError')}
@@ -41,11 +42,11 @@ test('existing production preparation data does not trigger demo writes on entry
 test('rollback of an unchanged saved BOM does not perform another failing write',async()=>{
  const bom=await import('../../src/data/pcs-engineering-bom-repository.ts')
  const before=bom.captureEngineeringBomRepositoryState()
- const previous=localStorage.setItem
- localStorage.setItem=()=>{throw new DOMException('quota','QuotaExceededError')}
+ const previous=pcsRecordStore.setItem
+ pcsRecordStore.setItem=()=>{throw new DOMException('quota','QuotaExceededError')}
  try {
   assert.throws(()=>bom.restoreEngineeringBomRepositoryState({...before,plans:[...before.plans,{ownerId:'blocked',customCosts:[]} as any]}),/quota/)
   assert.doesNotThrow(()=>bom.restoreEngineeringBomRepositoryState(before))
   assert.deepEqual(bom.captureEngineeringBomRepositoryState(),before)
- }finally{localStorage.setItem=previous}
+ }finally{pcsRecordStore.setItem=previous}
 })

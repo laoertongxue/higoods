@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../data/fcs/design-revision-pcs-command.ts'
 import {saveProductionSourceUiAction} from '../data/fcs/production-context-actions.ts'
 import { appStore } from '../state/store'
 import { escapeCssSelectorValue, escapeHtml, toClassName } from '../utils'
@@ -1586,7 +1587,7 @@ export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<bo
     try {
       const taskId=state.rejectingTaskId,reason=state.rejectReason.trim()
       const reject=()=>rejectPdaTaskWithRuntimeFallback(taskId,factoryId,reason,formatOperationLocalWallClock(),factoryName)
-      if(getRuntimeTaskById(taskId)) await saveProductionSourceUiAction(JSON.stringify({action:'reject-runtime',taskId,factoryId,reason}),reject);else reject()
+      if(getRuntimeTaskById(taskId)) await saveProductionSourceUiAction(JSON.stringify({action:'reject-runtime',taskId,factoryId,reason}),reject);else await runDesignRevisionFcsCommand(taskId, reject)
       closeRejectDialog()
       showTaskReceiveToast('已拒绝接单')
     } catch (error) {
@@ -1619,9 +1620,8 @@ export async function handlePdaTaskReceiveEvent(target: HTMLElement): Promise<bo
         const runtime = getPdaRuntimeContext()
         const acceptedAt = state.acceptDialogAcceptedAt
         assertDyeWorkOrderPdaAcceptanceAllowed(taskId)
-        const accept=()=>acceptPdaTaskWithRuntimeFallback(taskId,factoryId,factoryName,acceptedAt)
-        if(getRuntimeTaskById(taskId)) await saveProductionSourceUiAction(JSON.stringify({action:'accept-runtime',taskId,factoryId,acceptedAt}),accept);else accept()
-        recordDyeWorkOrderPdaAcceptance(taskId, runtime?.userName || factoryName, acceptedAt)
+        const accept=()=>{ acceptPdaTaskWithRuntimeFallback(taskId,factoryId,factoryName,acceptedAt); recordDyeWorkOrderPdaAcceptance(taskId, runtime?.userName || factoryName, acceptedAt) }
+        if(getRuntimeTaskById(taskId)) await saveProductionSourceUiAction(JSON.stringify({action:'accept-runtime',taskId,factoryId,acceptedAt}),accept);else await runDesignRevisionFcsCommand(taskId, accept)
         state.acceptDialogTaskId = ''
         state.acceptDialogAcceptedAt = ''
         showTaskReceiveToast('接单成功')

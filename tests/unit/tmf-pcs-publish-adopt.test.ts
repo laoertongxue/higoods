@@ -151,7 +151,7 @@ function preparePublishedVersion(styleCode: string, specsOverride?: (versionId: 
     updatedAt: FIXED, updatedBy: MERCHANDISER.name, note: '', legacySpuCode: '', legacyVersionLabel: '',
   }, {
     technicalVersionId: versionId,
-    patternFiles: template.patternFiles.map((file, index) => ({ ...structuredClone(file), id: `${versionId}-PATTERN-${index + 1}` })),
+    patternFiles: template.patternFiles.map((file, index) => ({ ...structuredClone(file), id: `${versionId}-PATTERN-${index + 1}`, fileUrl: "data:application/dxf;base64,MApTRUNUSU9OCjIKRU5USVRJRVMKMApFTkRTRUMKMApFT0YK" })),
     patternDesc: 'TMF链测试纸样结构',
     processEntries: [buildCutEntry(webbingMaterial.skuId)],
     processRouteSchemaVersion: CURRENT_PROCESS_ROUTE_SCHEMA_VERSION,

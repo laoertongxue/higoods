@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { executeProcessWebAction, type ProcessWebSourceType } from '../../../data/fcs/process-web-status-actions.ts'
 import { escapeHtml, localDateTimeText } from '../../../utils'
 
@@ -193,7 +194,7 @@ export function collectProcessWebStatusActionFields(
   return fields
 }
 
-export function confirmProcessWebStatusAction(callbacks: ProcessWebStatusActionDialogCallbacks): boolean {
+function confirmProcessWebStatusActionWith(callbacks: ProcessWebStatusActionDialogCallbacks, execute: (input: Parameters<typeof executeProcessWebAction>[0]) => ReturnType<typeof executeProcessWebAction> | Promise<ReturnType<typeof executeProcessWebAction>>): boolean | Promise<boolean> {
   const dialog = typeof document === 'undefined' ? null : document.getElementById(DIALOG_ID)
   if (!dialog) return false
 
@@ -223,7 +224,7 @@ export function confirmProcessWebStatusAction(callbacks: ProcessWebStatusActionD
   const qtyUnit = fields['单位'] || dialog.dataset.qtyUnit || undefined
 
   try {
-    const result = executeProcessWebAction({
+    const result = execute({
       sourceType: (dialog.dataset.sourceType || 'PRINT_WORK_ORDER') as ProcessWebSourceType,
       sourceId: dialog.dataset.sourceId || '',
       actionCode: dialog.dataset.actionCode || '',
@@ -235,10 +236,11 @@ export function confirmProcessWebStatusAction(callbacks: ProcessWebStatusActionD
       fields,
       remark: fields['备注'] || '工艺工厂 Web 端状态操作',
     })
-    closeProcessWebStatusActionDialog()
-    callbacks.toast(result.message)
-    callbacks.refresh()
-    return true
+    const complete = (saved: ReturnType<typeof executeProcessWebAction>) => {
+      closeProcessWebStatusActionDialog(); callbacks.toast(saved.message); callbacks.refresh(); return true
+    }
+    if (result instanceof Promise) return result.then(complete).catch(error => { callbacks.toast(error instanceof Error ? error.message : '状态操作未保存'); return false })
+    return complete(result)
   } catch (error) {
     callbacks.toast(error instanceof Error ? error.message : '状态操作失败')
     return false
@@ -260,4 +262,14 @@ export function handleProcessWebStatusActionDialogEvent(
     return confirmProcessWebStatusAction(callbacks)
   }
   return null
+}
+
+export function confirmProcessWebStatusAction(callbacks: ProcessWebStatusActionDialogCallbacks): boolean {
+  return confirmProcessWebStatusActionWith(callbacks, executeProcessWebAction) as boolean
+}
+export async function handlePersistedProcessWebStatusActionDialogEvent(target: HTMLElement, callbacks: ProcessWebStatusActionDialogCallbacks): Promise<boolean | null> {
+  if (target.closest<HTMLElement>('[data-process-web-status-action]')?.dataset.processWebStatusAction === 'confirm') {
+    return confirmProcessWebStatusActionWith(callbacks, input => runDesignRevisionFcsCommand(input, () => executeProcessWebAction(input)))
+  }
+  return handleProcessWebStatusActionDialogEvent(target, callbacks)
 }

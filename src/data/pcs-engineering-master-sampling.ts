@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './fcs/post-finishing-production-source-fixtures.ts'
 import { localDateTimeText } from '../utils.ts'
 import {
@@ -115,7 +116,7 @@ function cloneSampleRequirement(line: EngineeringSampleRequirementLine): Enginee
 }
 
 function canUseStorage(): boolean {
-  return typeof localStorage !== 'undefined' && typeof localStorage.getItem === 'function'
+  return typeof pcsRecordStore !== 'undefined' && typeof pcsRecordStore.getItem === 'function'
 }
 
 function cloneResult(result: EngineeringIndependentProfessionalResult): EngineeringIndependentProfessionalResult {
@@ -512,17 +513,15 @@ function seedRecords(): EngineeringIndependentSamplingRecord[] {
 
 function readRecords(): EngineeringIndependentSamplingRecord[] {
   if (memoryRecords) return memoryRecords.map(cloneRecord)
-  if (canUseStorage()) {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as EngineeringIndependentSamplingRecord[]
-      if (Array.isArray(parsed) && parsed.length) {
-        memoryRecords = parsed.map(normalizeEngineeringDesignRevisionRecord)
-        return memoryRecords.map(cloneRecord)
-      }
-    } catch { /* 使用演示种子 */ }
+  const raw = pcsRecordStore.getItem(STORAGE_KEY)
+  if (raw !== null) {
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) throw new Error('设计改款记录格式不完整，原数据已保留。')
+    memoryRecords = parsed.map(normalizeEngineeringDesignRevisionRecord)
+    return memoryRecords!.map(cloneRecord)
   }
-  memoryRecords = seedRecords()
-  writeRecords(memoryRecords)
+  memoryRecords = withPcsDemoData(() => seedRecords())
+
   return memoryRecords.map(cloneRecord)
 }
 
@@ -530,7 +529,7 @@ function writeRecords(records: EngineeringIndependentSamplingRecord[]): void {
   const nextRecords = records.map(normalizeEngineeringDesignRevisionRecord)
   if (canUseStorage()) {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(createPersistedRecords(nextRecords)))
+      pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(createPersistedRecords(nextRecords)))
     } catch {
       throw new Error('浏览器存储空间不足，本次操作未保存。请删除不需要的草稿文件后重试。')
     }
@@ -2102,5 +2101,7 @@ export function restoreEngineeringIndependentSamplingRepositoryState(state: Engi
 }
 
 export function resetEngineeringIndependentSamplingRepository(seed = true): void {
-  writeRecords(seed ? seedRecords() : [])
+  writeRecords(seed ? withPcsDemoData(() => seedRecords()) : [])
 }
+
+registerPcsRepositoryReset(() => { memoryRecords = null })

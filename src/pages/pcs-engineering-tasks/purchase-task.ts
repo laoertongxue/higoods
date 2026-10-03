@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
 // 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
@@ -11,7 +12,6 @@ import {
   type AccessoryPurchaseTaskLinkage,
   bindAccessoryPurchaseOrder,
   computeAccessoryPurchaseTaskLinkage,
-  reconcileAccessoryPurchaseTaskLinkage,
   unbindAccessoryPurchaseOrder,
 } from '../../data/pcs-engineering-purchase-linkage.ts'
 import { escapeHtml } from '../../utils.ts'
@@ -96,8 +96,11 @@ function renderPurchaseLinkageRegion(masterOrderId: string, taskId: string, link
   return `<section class="rounded-lg border border-slate-200 bg-white" data-purchase-linkage-region>${renderPurchaseLinkageContent(masterOrderId, taskId, linkage)}</section>`
 }
 
-export function reconcileAndRefreshPurchaseTaskRegions(masterOrderId: string, taskId: string): AccessoryPurchaseTaskLinkage {
-  const linkage = reconcileAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
+export function refreshPurchaseTaskRegions(masterOrderId: string, taskId: string): AccessoryPurchaseTaskLinkage {
+  const linkage = computeAccessoryPurchaseTaskLinkage(masterOrderId, taskId)
+  const detail = getEngineeringTaskDetail(taskId)
+  const workbench = document.querySelector<HTMLElement>('[data-engineering-task-workbench]')
+  if (workbench && detail) workbench.outerHTML = renderTaskWorkbenchHeader(linkage.task, detail.master, 'purchase', PURCHASE_LIST_PATH)
   const summaryHost = document.querySelector<HTMLElement>('[data-purchase-summary-region]')
   const linkageHost = document.querySelector<HTMLElement>('[data-purchase-linkage-region]')
   if (summaryHost) summaryHost.innerHTML = renderPurchaseSummaryContent(linkage)
@@ -105,7 +108,7 @@ export function reconcileAndRefreshPurchaseTaskRegions(masterOrderId: string, ta
   return linkage
 }
 
-export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boolean {
+export async function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): Promise<boolean> {
   const node = target.closest<HTMLElement>('[data-purchase-action]')
   if (!node) return false
   const action = node.dataset.purchaseAction || ''
@@ -118,8 +121,8 @@ export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boo
     if (action === 'bind-order') {
       const input = document.querySelector<HTMLInputElement>('[data-purchase-order-input]')
       const orderNo = input?.value.trim() || ''
-      bindAccessoryPurchaseOrder(masterOrderId, taskId, orderNo)
-      reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
+      await runPcsRecordCommand(() => bindAccessoryPurchaseOrder(masterOrderId, taskId, orderNo))
+      refreshPurchaseTaskRegions(masterOrderId, taskId)
       const currentFeedback = feedback()
       if (currentFeedback) currentFeedback.textContent = `已绑定采购单 ${orderNo}`
       return true
@@ -129,20 +132,20 @@ export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boo
       if (!window.confirm(`确认解除采购单 ${purchaseOrderNo} 的绑定？解除后将重新计算物料覆盖和任务状态。`)) return true
       const reason = window.prompt('请输入解除绑定原因')?.trim() || ''
       if (!reason) throw new Error('请填写解除绑定原因。')
-      unbindAccessoryPurchaseOrder({
+      await runPcsRecordCommand(() => unbindAccessoryPurchaseOrder({
         masterOrderId,
         taskId,
         purchaseOrderNo,
         ...CURRENT_PURCHASE_OPERATOR,
         reason,
-      })
-      reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
+      }))
+      refreshPurchaseTaskRegions(masterOrderId, taskId)
       return true
     }
     if (action === 'purchase-prev-page' || action === 'purchase-next-page') {
       const current = purchaseDetailPages.get(taskId) || 1
       purchaseDetailPages.set(taskId, action === 'purchase-prev-page' ? Math.max(1, current - 1) : current + 1)
-      reconcileAndRefreshPurchaseTaskRegions(masterOrderId, taskId)
+      refreshPurchaseTaskRegions(masterOrderId, taskId)
       return true
     }
   } catch (error) {
@@ -156,10 +159,11 @@ export function handlePurchaseTaskEvent(target: HTMLElement, event?: Event): boo
 function renderPurchaseDetailPage(taskId: string): string {
   const initialDetail = getEngineeringTaskDetail(taskId)
   if (!initialDetail) return renderEmptyDetail('辅料下单任务', PURCHASE_LIST_PATH)
-  const linkage = reconcileAccessoryPurchaseTaskLinkage(initialDetail.master.masterOrderId, initialDetail.task.taskId)
+  const linkage = computeAccessoryPurchaseTaskLinkage(initialDetail.master.masterOrderId, initialDetail.task.taskId)
   const detail = getEngineeringTaskDetail(taskId)
   if (!detail) return renderEmptyDetail('辅料下单任务', PURCHASE_LIST_PATH)
-  const { task, master } = detail
+  const { master } = detail
+  const task = linkage.task
   return `
     <div class="space-y-5 p-4" data-engineering-task-detail="purchase:${escapeHtml(task.taskId)}">
       ${renderTaskWorkbenchHeader(task, master, 'purchase', PURCHASE_LIST_PATH)}

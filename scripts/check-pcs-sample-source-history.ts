@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict'
+import { PCS_SAMPLE_RECORDS, associatePcsSampleTestingOrder, getPcsSampleSource, listPcsSampleRecords, listPcsSampleReturnCases, getPcsSampleSourceReadError } from '../src/data/pcs-sample-management.ts'
+const sample = PCS_SAMPLE_RECORDS[0]
+const original = JSON.stringify(sample)
+const order = { testingOrderId: 'test-source', orderCode: 'TO-SOURCE', styleName: sample.name, sampleInboundAt: '2026-10-03', labeledSkuCode: sample.sampleCode }
+assert.equal(getPcsSampleSource(sample).kind, 'historical')
+assert.equal(getPcsSampleSource(sample).note, '历史来源待确认')
+assert.equal(associatePcsSampleTestingOrder(sample, [order]).source?.code, 'TO-SOURCE')
+assert.equal(associatePcsSampleTestingOrder(sample, [order]).source?.href, '/pcs/testing/orders/test-source')
+assert.equal(associatePcsSampleTestingOrder(sample, [{ ...order, sampleInboundAt: '' }]), sample)
+assert.equal(associatePcsSampleTestingOrder(sample, [order, {...order, testingOrderId:'another'}]), sample)
+assert.equal(associatePcsSampleTestingOrder(sample, [{ ...order, labeledSkuCode: 'different' }]), sample)
+assert.equal(JSON.stringify(sample), original)
+const storage = new Map<string, string>()
+let writes = 0
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => storage.get(key) || null, setItem: () => { writes++ }, removeItem: () => { throw new Error('must not delete') } } })
+assert.equal(listPcsSampleRecords().length, PCS_SAMPLE_RECORDS.length)
+assert.equal(writes, 0)
+storage.set('higood-pcs-project-inline-node-records-v2', JSON.stringify({ records: [{ recordId: 'retained', recordCode: 'IN-HISTORY', stepCode: 'SAMPLE_INBOUND_CHECK', projectCode: 'PRJ-HISTORY', projectName: '存量实物', payload: { generatedSampleCodes: ['HISTORY-SAMPLE'], qualityCheckResult: '通过' }, detailSnapshot: {}, updatedAt: '2026-10-03' }] }))
+assert(listPcsSampleRecords().some(item => item.sampleCode === 'HISTORY-SAMPLE'))
+assert.equal(writes, 0)
+storage.set('higood-pcs-project-inline-node-records-v2', '{invalid')
+listPcsSampleReturnCases()
+assert.match(getPcsSampleSourceReadError(), /不可读取/)
+assert.equal(storage.get('higood-pcs-project-inline-node-records-v2'), '{invalid')
+assert.equal(writes, 0)
+Object.defineProperty(globalThis, 'localStorage', { configurable: true, get: () => { throw new Error('blocked') } })
+assert.doesNotThrow(() => listPcsSampleReturnCases())
+assert.match(getPcsSampleSourceReadError(), /不可读取/)
+console.log('PASS: sample source/history contracts; no legacy bootstrap, writes, deletion or guessed association')

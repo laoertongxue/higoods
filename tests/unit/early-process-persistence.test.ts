@@ -17,7 +17,11 @@ test('MIG-007: early dye/print creation and cancellation survive reload', () => 
     const early=await import('./src/data/fcs/production-demand-early-process-work-orders.ts');
     const dye=await import('./src/data/fcs/dyeing-task-domain.ts');
     const print=await import('./src/data/fcs/printing-task-domain.ts');
+    dye.listDyeWorkOrders();print.listPrintWorkOrders();
+    const executionKeys=['higoods.formal-dye-execution.v1','higoods.formal-print-execution.v1'];
+    const beforeDemo=executionKeys.map(key=>storage.get(key));
     early.ensureProductionDemandEarlyProcessAcceptanceData();
+    assert.deepEqual(executionKeys.map(key=>storage.get(key)),beforeDemo,'reading acceptance demos must not persist execution snapshots');
     for(const code of ['DYE','PRINT']) {
       const sku='MIG-PERSIST-'+code;
       if(stage===1){

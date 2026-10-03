@@ -10,7 +10,16 @@ import {
   updateEngineeringTaskRecord,
 } from '../src/data/pcs-engineering-master-repository.ts'
 import { renderPcsPlateMakingTaskDetailPage } from '../src/pages/pcs-engineering-tasks/plate-making-task.ts'
-import { startEngineeringTaskFromDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
+import { getEngineeringTaskDetail } from '../src/pages/pcs-engineering-tasks/master-task-common.ts'
+import { startEngineeringTask, getEngineeringMasterOrderStoreSnapshot } from '../src/data/pcs-engineering-master-repository.ts'
+import { getEngineeringTeamCurrentOperator } from '../src/data/pcs-engineering-team-directory.ts'
+// Domain fixture setup; browser transaction coverage lives in the real-page integration tests.
+function startTaskFixture(taskId: string): void {
+  const owner = getEngineeringMasterOrderStoreSnapshot().records.find(item => item.tasks.some(task => task.taskId === taskId))!
+  const detail = { master: owner, task: owner.tasks.find(task => task.taskId === taskId)! }
+  const operator = getEngineeringTeamCurrentOperator(detail.task.ownerTeamName)
+  startEngineeringTask({ masterOrderId: detail.master.masterOrderId, taskId, operatorId: operator.operatorId, operatorName: operator.operatorName })
+}
 import {
   listEngineeringIndependentSamplingRecords,
   resetEngineeringIndependentSamplingRepository,
@@ -79,7 +88,7 @@ assert.throws(
 updateEngineeringTaskRecord(master.masterOrderId, plateTask.taskId, (_task, storedMaster) => {
   storedMaster.preparationType = ''
 })
-startEngineeringTaskFromDetail(plateTask.taskId)
+startTaskFixture(plateTask.taskId)
 const startedTask = getEngineeringMasterOrderById(master.masterOrderId)?.tasks.find((task) => task.taskId === plateTask.taskId)
 assert.equal(startedTask?.status, '进行中')
 assert.equal(startedTask?.ownerTeamName, '版师', '任务开始后仍须保留当前负责团队')

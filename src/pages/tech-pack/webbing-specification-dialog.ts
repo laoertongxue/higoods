@@ -99,7 +99,7 @@ export function openWebbingSpecificationDialog(bomId: string): void {
     message.textContent = '物料图片加载失败，请核对图片地址'
     event.target.replaceWith(message)
   }, { capture: true, signal: controller.signal })
-  host.addEventListener('click', (event) => {
+  host.addEventListener('click', async (event) => {
     const action = (event.target as HTMLElement).closest<HTMLElement>('[data-webbing-action]')?.dataset.webbingAction
     if (!action) return
     event.stopPropagation()
@@ -118,7 +118,7 @@ export function openWebbingSpecificationDialog(bomId: string): void {
         const previous = state.techniques
         state.techniques = next
         markProcessRouteUnconfirmed()
-        if (!syncTechPackToStore()) { state.techniques = previous; throw new Error('加工规格未保存，请检查技术包状态后重试。') }
+        if (!(await syncTechPackToStore())) { state.techniques = previous; throw new Error('加工规格未保存，请检查技术包状态后重试。') }
         const panel = document.querySelector<HTMLElement>('[data-testid="tech-pack-process-tab"]')
         if (panel) {
           panel.outerHTML = renderProcessTab()

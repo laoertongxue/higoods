@@ -1,3 +1,4 @@
+import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks } from './design-revision-pcs-storage.ts'
 import { getHandoverOrderById, getPdaHandoverRecordsByHead } from './pda-handover-events.ts'
 import { latestDyeEventTime } from './dye-work-order-times.ts'
 import {
@@ -102,7 +103,7 @@ let logSequence = 0
 
 const REMARK_KEY = 'higood:dye-work-order:remark:'
 function readSavedRemark(order: DyeWorkOrder): string {
-  try { return typeof window === 'undefined' ? order.remark || '' : window.localStorage.getItem(REMARK_KEY + order.dyeOrderId) ?? order.remark ?? '' }
+  try { return typeof window === 'undefined' ? order.remark || '' : getDesignRevisionFcsStorage().getItem(REMARK_KEY + order.dyeOrderId) ?? order.remark ?? '' }
   catch { return order.remark || '' }
 }
 
@@ -361,7 +362,7 @@ export function updateDyeWorkOrderFromPfos(
     })
   }
   if (input.remark !== before.remark && typeof window !== 'undefined') {
-    try { window.localStorage.setItem(REMARK_KEY + dyeOrderId, input.remark) }
+    try { getDesignRevisionFcsStorage().setItem(REMARK_KEY + dyeOrderId, input.remark) }
     catch { throw new Error('备注未保存，请检查浏览器存储后重试；填写内容已保留。') }
   }
   Object.assign(record, {
@@ -528,3 +529,5 @@ registerDyeReceiptOnlineStatusListener({
     })
   },
 })
+
+registerDesignRevisionFcsCacheHooks('dye-online', { capture() { return structuredClone({records:[...records],logs:[...logs]}) }, restore(value) { records.clear(); logs.clear(); value.records.forEach(([id,row]:[string,DyeWorkOrderOnlineRecord])=>records.set(id,row)); value.logs.forEach(([id,row]:[string,DyeWorkOrderOnlineLog[]])=>logs.set(id,row)) }, hydrate() { records.clear(); logs.clear() } })

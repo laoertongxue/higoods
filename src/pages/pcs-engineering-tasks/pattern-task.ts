@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../../data/pcs-record-runtime.ts'
 import { renderProfessionalBusinessList } from './business-list.ts'
 // @page-pattern: list
 // 标准列表由 business-list 复用 renderStandardListPage、renderStandardListTable、renderTablePagination。
@@ -119,11 +120,11 @@ export function handlePatternTaskInput(target: Element): boolean {
   return handleTaskUiInput(target, MODULE)
 }
 
-export function handlePatternTaskEvent(target: HTMLElement): boolean {
+export async function handlePatternTaskEvent(target: HTMLElement): Promise<boolean> {
   const uploadRemove = target.closest<HTMLElement>('[data-pattern-upload-remove]')
   if (uploadRemove) {
     const taskId = uploadRemove.dataset.taskId || ''
-    removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' })
+    await runPcsRecordCommand(() => removeEngineeringTaskUploadedFile({ taskId, itemId: uploadRemove.dataset.itemId || 'TASK', fileId: uploadRemove.dataset.fileId || '' }))
     refreshTaskUiRegion(MODULE, taskId, renderPcsPatternTaskDetailPage)
     return true
   }
@@ -136,6 +137,10 @@ export function handlePatternTaskEvent(target: HTMLElement): boolean {
     overlay.setAttribute('aria-modal', 'true')
     overlay.setAttribute('aria-label', `${uploadPreview.dataset.fileName || '花型'}大图`)
     overlay.innerHTML = `<button type="button" aria-label="关闭大图" class="absolute right-6 top-6 rounded-full bg-white px-3 py-2 text-slate-800" data-skip-page-rerender="true" data-pattern-preview-close>关闭</button><img src="${escapeHtml(uploadPreview.dataset.fileUrl || '')}" alt="${escapeHtml(uploadPreview.dataset.fileName || '花型大图')}" class="max-h-full max-w-full object-contain">`
+    // 大图位于应用事件根节点之外，关闭动作在浮层内处理。
+    overlay.addEventListener('click', event => {
+      if ((event.target as Element).closest('[data-pattern-preview-close]')) overlay.remove()
+    })
     document.body.appendChild(overlay)
     return true
   }
@@ -155,7 +160,7 @@ export function handlePatternTaskEvent(target: HTMLElement): boolean {
     if (action === 'submit-pattern') {
       const lines = task.materialLines.filter((line) => line.status === '正常' && line.reviewStatus !== '通过' && (task.status !== '返工中' || line.reviewStatus === '未通过'))
       const operator = getEngineeringTeamCurrentOperator(task.ownerTeamName)
-      submitEngineeringMaterialResults({
+      await runPcsRecordCommand(() => submitEngineeringMaterialResults({
         masterOrderId: task.masterOrderId,
         taskId,
         submittedBy: operator.operatorName,
@@ -164,14 +169,14 @@ export function handlePatternTaskEvent(target: HTMLElement): boolean {
           resultFileIds: (() => { const files = listEngineeringTaskUploadedFiles(taskId, `${line.materialLineId}-SOURCE`, 'PATTERN_ARTWORK'); assertEngineeringUploadedFilesReady(files, `${line.materialName}花型源文件`); return files.map((file) => file.dataUrl) })(),
           effectImageIds: (() => { const files = listEngineeringTaskUploadedFiles(taskId, `${line.materialLineId}-PREVIEW`, 'PATTERN_PREVIEW'); assertEngineeringUploadedFilesReady(files, `${line.materialName}花型预览图`); return files.map((file) => file.dataUrl) })(),
         })),
-      })
+      }))
       refreshTaskUiRegion(MODULE, taskId, renderPcsPatternTaskDetailPage)
       return true
     }
     if (action === 'review-pattern' || action === 'pass-all-pattern') {
       const pendingLines = task.materialLines.filter((line) => line.status === '正常' && line.reviewStatus === '待审核')
       const buyer = getEngineeringTeamCurrentOperator('买手')
-      reviewEngineeringMaterialResults({
+      await runPcsRecordCommand(() => reviewEngineeringMaterialResults({
         masterOrderId: task.masterOrderId,
         taskId,
         reviewerName: buyer.operatorName,
@@ -181,7 +186,7 @@ export function handlePatternTaskEvent(target: HTMLElement): boolean {
           decision: action === 'pass-all-pattern' ? '通过' : getTaskUiValue(MODULE, taskId, line.materialLineId, 'decision') as '通过' | '未通过',
           reason: action === 'pass-all-pattern' ? '' : getTaskUiValue(MODULE, taskId, line.materialLineId, 'reason'),
         })),
-      })
+      }))
       refreshTaskUiRegion(MODULE, taskId, renderPcsPatternTaskDetailPage)
       return true
     }

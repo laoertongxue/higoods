@@ -1,3 +1,4 @@
+import { getDesignRevisionFcsStorage, registerDesignRevisionFcsCacheHooks, isStoredDesignRevisionHandoverHead } from './design-revision-pcs-storage.ts'
 import { productionContextStorage, PRODUCTION_CONTEXT_KEYS, isProductionContextReady, onProductionContextChanged } from './production-context-records.ts'
 import { listSimpleCutPieceHandoverEvents, type SimpleCutPieceHandoverPayload } from './cutting/cutting-runtime-event-ledger.ts'
 import {registerFactoryReceivingSource,captureFactoryReceivingData,restoreFactoryReceivingData} from './factory-receiving.ts'
@@ -2459,10 +2460,10 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
     if (!head || head.taskId !== expectedSource.taskId || head.productionOrderNo !== expectedSource.productionOrderId || head.sourceDocId !== expectedSource.sourceDocId || head.sourceBusinessType !== expectedSource.sourceBusinessType || !expectedSource.sourceDocId.trim()) throw new Error('交接头与原加工单来源不一致，本次未保存。')
     if (!productionOrders.some(order => order.productionOrderId === expectedSource.productionOrderId && !initialProductionOrderIds.has(order.productionOrderId))) throw new Error('该接收来源不是本次正式生产单，不写入正式交接动作存储。')
   }
-  if (typeof localStorage === 'undefined') return
+  if ((typeof window === 'undefined' && typeof localStorage === 'undefined')) return
   const snapshot = capturePdaHandoverState()
   for (const [, head] of snapshot.handoverHeadAdditions) {
-    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
+    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
     if ((head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
       && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
       && (!head.sourceDocId?.trim() || !head.taskId?.trim())) throw new Error('原准备工艺交接头缺少明确加工单或任务来源，未保存，请核对原单。')
@@ -2471,7 +2472,7 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
     // 水溶原单已有本地执行存储，关联的交出和分次实收也必须一起保留。
     const water = head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
     const waterSourceMatches = Boolean(water && water.waterOrderId === head.sourceDocId && water.productionOrderId === head.productionOrderNo)
-    return waterSourceMatches || isPrototypePrintHandoutHead(head) || head.factoryCompletionRequired || isFormalIssuePickupHead(head) || isFormalKolHandoutHead(head) || (
+    return waterSourceMatches || isStoredDesignRevisionHandoverHead(head) || isPrototypePrintHandoutHead(head) || head.factoryCompletionRequired || isFormalIssuePickupHead(head) || isFormalKolHandoutHead(head) || (
     (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && Boolean(head.sourceDocId?.trim() && head.taskId?.trim())
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId))
@@ -2480,8 +2481,11 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
   const headIds = new Set(heads.map(([id]) => id))
   const records = snapshot.handoutRecordAdditions.filter(([id]) => headIds.has(id))
   const recordIds = new Set(records.flatMap(([, rows]) => rows.map(row => row.recordId)))
+  for (const [, head] of heads) if (isStoredDesignRevisionHandoverHead(head)) {
+    getPdaHandoverRecordsByHead(head.handoverId, head).forEach(record => recordIds.add(record.recordId))
+  }
   const taskIds = new Set(heads.map(([, head]) => head.taskId))
-  localStorage.setItem(FORMAL_HANDOUT_STORAGE_KEY, JSON.stringify({ version: 1, handoverHeadAdditions: heads,
+  getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, JSON.stringify({ version: 1, handoverHeadAdditions: heads,
     pickupRecordAdditions: snapshot.pickupRecordAdditions.filter(([id]) => headIds.has(id)),
     pickupRecordOverrides: snapshot.pickupRecordOverrides.filter(([, record]) => Boolean(record.handoverId && headIds.has(record.handoverId))), handoutRecordAdditions: records,
     handoutRecordOverrides: snapshot.handoutRecordOverrides.filter(([id]) => recordIds.has(id)),
@@ -2491,7 +2495,7 @@ export function persistPdaHandoverState(expectedSource?: { handoverId: string; t
 }
 let lastRestoredFormalHandoutRaw: string | null = null
 function readFormalHandoutActions(): void {
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY)
+  const raw = (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY)
   if (!raw) return
   // Many list rows read the same receipt. Rehydrate only when persisted data changed;
   // explicit state restoration below invalidates this cache (including rollbacks).
@@ -2499,7 +2503,7 @@ function readFormalHandoutActions(): void {
   const saved = JSON.parse(raw)
   if (saved?.version !== 1 || formalHandoutStateKeys.some(key => !Array.isArray(saved[key]) || saved[key].some((row: unknown) => !Array.isArray(row) || row.length !== 2 || typeof row[0] !== 'string' || !row[1] || typeof row[1] !== 'object'))) throw new Error('本机合并任务交出记录损坏，未用空记录覆盖，请联系负责人。')
   for (const [, head] of saved.handoverHeadAdditions as Array<[string, PdaHandoverHead]>) {
-    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('已保存的印花交接记录与冻结来源不一致，未覆盖原记录。')
+    if (head.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head)) throw new Error('已保存的印花交接记录与冻结来源不一致，未覆盖原记录。')
   }
   const snapshot = capturePdaHandoverState(false)
   for (const key of formalHandoutStateKeys) {
@@ -2537,18 +2541,18 @@ function isFormalPrintHandoutHead(head: PdaHandoverHead): boolean {
 }
 
 function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: () => T): T {
-  if (head?.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
+  if (head?.sourceBusinessType === 'PRINT_WORK_ORDER' && !isFormalPrintHandoutHead(head) && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head)) throw new Error('原印花交接头与冻结加工单来源不一致，本次未保存。')
   const formalPreparation = Boolean(head && (head.sourceBusinessType === 'DYE_WORK_ORDER' || head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' || head.sourceBusinessType === 'PRINT_WORK_ORDER')
     && productionOrders.some(order => order.productionOrderId === head.productionOrderNo && !initialProductionOrderIds.has(order.productionOrderId)))
   const isWater = head?.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER'
-  if (!head || (!head.factoryCompletionRequired && !formalPreparation && !isFormalIssuePickupHead(head) && !isWater && !isPrototypePrintHandoutHead(head))) return action()
+  if (!head || (!head.factoryCompletionRequired && !formalPreparation && !isFormalIssuePickupHead(head) && !isWater && !isPrototypePrintHandoutHead(head) && !isStoredDesignRevisionHandoverHead(head))) return action()
   if (formalPreparation && (!head.sourceDocId?.trim() || !head.taskId?.trim())) throw new Error('原准备工艺交接头缺少明确加工单或任务来源，本次未保存。')
   const waterBefore = isWater ? getWaterSolubleWorkOrderByTaskId(head.taskId) : null
   if (formalPreparation && head.sourceBusinessType === 'WATER_SOLUBLE_WORK_ORDER' && (!waterBefore || waterBefore.waterOrderId !== head.sourceDocId || waterBefore.productionOrderId !== head.productionOrderNo)) throw new Error('水溶交接头与原加工单来源不一致，本次未保存。')
   const waterMutationBefore = waterBefore ? captureWaterSolubleOrderMutation(waterBefore) : null
   const before = capturePdaHandoverState()
   const receivingBefore = isWater ? captureFactoryReceivingData() : null
-  const raw = typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY)
+  const raw = (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY)
   try {
     return runRuntimeTaskAction(() => {
       const result = action()
@@ -2560,9 +2564,9 @@ function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: ()
     if (receivingBefore) restoreFactoryReceivingData(receivingBefore)
     if (waterMutationBefore) restoreWaterSolubleOrderMutation(waterMutationBefore.order, waterMutationBefore.persistedRaw)
     restorePdaHandoverState(before)
-    if (typeof localStorage !== 'undefined' && localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY) !== raw) {
-      if (raw === null) localStorage.removeItem(FORMAL_HANDOUT_STORAGE_KEY)
-      else localStorage.setItem(FORMAL_HANDOUT_STORAGE_KEY, raw)
+    if ((typeof window !== 'undefined' || typeof localStorage !== 'undefined') && getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY) !== raw) {
+      if (raw === null) getDesignRevisionFcsStorage().removeItem(FORMAL_HANDOUT_STORAGE_KEY)
+      else getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, raw)
     }
     throw new Error('交出或接收未保存，原动作已撤回，请检查本机存储后重试。' + (error instanceof Error ? error.message : String(error)))
   }
@@ -2571,7 +2575,7 @@ function runFormalHandoutAction<T>(head: PdaHandoverHead | undefined, action: ()
 export function capturePdaHandoverState(readPersisted = true): PdaHandoverStateSnapshot {
   if (readPersisted) readFormalHandoutActions()
   return structuredClone({
-    persistedActionsRaw: typeof localStorage === 'undefined' ? null : localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY),
+    persistedActionsRaw: (typeof window === 'undefined' && typeof localStorage === 'undefined') ? null : getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY),
     handoverHeadAdditions: Array.from(handoverHeadAdditions.entries()),
     pickupRecordAdditions: Array.from(pickupRecordAdditions.entries()),
     handoutRecordAdditions: Array.from(handoutRecordAdditions.entries()),
@@ -2605,9 +2609,9 @@ export function restorePdaHandoverState(state: PdaHandoverStateSnapshot): void {
   cachedBuiltHeads = restored.cachedBuiltHeads
   cachedPostFinishingBuiltHeads = restored.cachedPostFinishingBuiltHeads
   cachedWarehouseExecutionDocsById = null
-  if (Object.prototype.hasOwnProperty.call(restored, 'persistedActionsRaw') && typeof localStorage !== 'undefined' && localStorage.getItem(FORMAL_HANDOUT_STORAGE_KEY) !== restored.persistedActionsRaw) {
-    if (restored.persistedActionsRaw == null) localStorage.removeItem(FORMAL_HANDOUT_STORAGE_KEY)
-    else localStorage.setItem(FORMAL_HANDOUT_STORAGE_KEY, restored.persistedActionsRaw)
+  if (Object.prototype.hasOwnProperty.call(restored, 'persistedActionsRaw') && (typeof window !== 'undefined' || typeof localStorage !== 'undefined') && getDesignRevisionFcsStorage().getItem(FORMAL_HANDOUT_STORAGE_KEY) !== restored.persistedActionsRaw) {
+    if (restored.persistedActionsRaw == null) getDesignRevisionFcsStorage().removeItem(FORMAL_HANDOUT_STORAGE_KEY)
+    else getDesignRevisionFcsStorage().setItem(FORMAL_HANDOUT_STORAGE_KEY, restored.persistedActionsRaw)
   }
 }
 
@@ -3693,21 +3697,25 @@ function recomputeHeadsInternal(): PdaHandoverHead[] {
   const pickupHeads = warehouseSnapshot.issueOrders
     .filter((doc) => doc.targetType === 'EXTERNAL_FACTORY')
     .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
-    .map((doc) => refreshPickupHeadSummary(buildPickupHeadFromIssue(doc)))
+    .map((doc) => buildPickupHeadFromIssue(doc))
+    .filter((head) => head.processBusinessCode !== 'WOOL')
+    .map((head) => refreshPickupHeadSummary(head))
 
   const handoutHeads = warehouseSnapshot.returnOrders
     .filter((doc) => shouldIncludePdaDoc(doc, getRuntimeTaskById(doc.runtimeTaskId)))
-    .map((doc) => refreshHandoutHeadSummary(buildHandoutHeadFromReturn(doc)))
+    .map((doc) => buildHandoutHeadFromReturn(doc))
+    .filter((head) => head.processBusinessCode !== 'WOOL')
+    .map((head) => refreshHandoutHeadSummary(head))
 
-  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().map((head) => refreshHandoutHeadSummary(head))
+  const postFinishingHandoutHeads = buildPostFinishingHandoutHeads().filter((head) => head.processBusinessCode !== 'WOOL').map((head) => refreshHandoutHeadSummary(head))
 
-  const mockHeads = PDA_MOCK_HANDOVER_HEADS.map((head) =>
+  const mockHeads = PDA_MOCK_HANDOVER_HEADS.filter((head) => head.processBusinessCode !== 'WOOL').map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
       : refreshHandoutHeadSummary(cloneHead(head)),
   )
 
-  const addedHeads = [...persistedStartedHandoverHeads(), ...handoverHeadAdditions.values()].map((head) =>
+  const addedHeads = [...persistedStartedHandoverHeads(), ...handoverHeadAdditions.values()].filter((head) => head.processBusinessCode !== 'WOOL').map((head) =>
     head.headType === 'PICKUP'
       ? refreshPickupHeadSummary(cloneHead(head))
       : refreshHandoutHeadSummary(cloneHead(head)),
@@ -4310,6 +4318,7 @@ export function canCompletePdaHandoutHead(handoverId: string): { ok: boolean; me
 }
 
 export function listHandoverOrdersByTaskId(taskId: string, options: { includeWool?: boolean } = {}): PdaHandoverHead[] {
+  readFormalHandoutActions()
   const matches = [
     ...buildNonWoolHeadsInternal()
       .filter((head) => head.headType === 'HANDOUT' && head.taskId === taskId),
@@ -4333,13 +4342,15 @@ const disposeCompleteHandoutReaders = installCompleteHandoutReaders(
 )
 import.meta.hot?.dispose(disposeCompleteHandoutReaders)
 
-export function getHandoverOrderById(handoverOrderId: string): PdaHandoverHead | undefined {
+export function getHandoverOrderById(handoverOrderId: string, options: { includeWool?: boolean } = {}): PdaHandoverHead | undefined {
+  readFormalHandoutActions()
   const matchHead = (head: PdaHandoverHead) =>
     head.headType === 'HANDOUT' && (head.handoverOrderId || head.handoverId) === handoverOrderId
   const added = Array.from(handoverHeadAdditions.values()).find(matchHead)
   if (added && added.processBusinessCode !== 'WOOL') return cloneHead(refreshHandoutHeadSummary(cloneHead(added)))
   const nonWoolHead = buildNonWoolHeadsInternal().find(matchHead)
   if (nonWoolHead) return cloneHead(nonWoolHead)
+  if (options.includeWool === false) return undefined
   const woolHead = listWoolFactHandoverHeads().find(matchHead)
   return woolHead ? cloneHead(woolHead) : undefined
 }
@@ -4845,8 +4856,12 @@ export function upsertPdaPickupRecordMock(record: PdaPickupRecord): PdaPickupRec
   return findPdaPickupRecord(record.recordId) ?? clonePickupRecord(record)
 }
 
-export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord): PdaHandoverRecord {
+export function upsertPdaHandoutRecordMock(record: PdaHandoverRecord, preserveExisting = false): PdaHandoverRecord {
+  // Execution bundles provide the original handout. Later shared receipt facts
+  // must remain authoritative when restoring that original after a cold load.
+  if (preserveExisting) readFormalHandoutActions()
   const exists = findRecord(record.recordId, record.handoverId)
+  if (preserveExisting && exists) return cloneRecord(exists)
   const head = findHead(record.handoverId)
   if (!exists && head?.completionStatus === 'COMPLETED') {
     throw new Error('交出单已完成，不允许新增交出记录')
@@ -5498,3 +5513,5 @@ export function buildSimpleCutPieceFactoryReceipts(): { heads: PdaHandoverHead[]
 
 registerTmfPreparationHandoverReader(readCurrentPreparationHandoverRecord)
 import { registerTmfPreparationHandoverReader } from './tmf-source-readers.ts'
+
+registerDesignRevisionFcsCacheHooks('handover', { capture: capturePdaHandoverState, restore(value) { const snapshot = structuredClone(value); delete snapshot.persistedActionsRaw; restorePdaHandoverState(snapshot) }, hydrate() { lastRestoredFormalHandoutRaw = null; readFormalHandoutActions() } })

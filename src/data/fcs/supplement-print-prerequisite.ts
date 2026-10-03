@@ -1,3 +1,4 @@
+import { registerDesignRevisionFcsCacheHooks, getStoredDesignRevisionPrintOrder } from './design-revision-pcs-storage.ts'
 import {
   getDyeReviewRecordByOrderId,
   getDyeWorkOrderById,
@@ -51,7 +52,15 @@ export function removeSupplementPrintPrerequisites(supplementOrderId: string): v
   }
 }
 
+function ensureDesignRevisionPrerequisite(id: string): void {
+  if (prerequisites.has(id)) return
+  const order = getStoredDesignRevisionPrintOrder(id), source = order?.sourceSnapshot
+  if (source?.sourceType !== 'DESIGN_REVISION' || !source.upstreamWorkOrderId) return
+  registerSupplementPrintPrerequisite({ supplementOrderId: `DESIGN_REVISION:${source.designRevisionTaskId}`, printWorkOrderId: id, materialSku: order.materialSku || source.inputMaterialSkuCode, expectedInputQty: order.plannedQty, unit: order.qtyUnit, dyeWorkOrderIds: [source.upstreamWorkOrderId] })
+}
+
 export function getPrintExecutionBlockReason(printWorkOrderId: string): string {
+  ensureDesignRevisionPrerequisite(printWorkOrderId)
   const prerequisite = prerequisites.get(printWorkOrderId)
   if (!prerequisite) return ''
   const state = buildResolutionState(prerequisite)
@@ -100,3 +109,5 @@ export function getSupplementPrintActualInputs(printWorkOrderId: string): Supple
 export function resetSupplementPrintPrerequisitesForTesting(): void {
   prerequisites.clear()
 }
+
+registerDesignRevisionFcsCacheHooks('prerequisite', { capture() { return structuredClone([...prerequisites]) }, restore(value) { prerequisites.clear(); value.forEach(([id, record]: [string, SupplementPrintPrerequisite]) => prerequisites.set(id, record)) } })

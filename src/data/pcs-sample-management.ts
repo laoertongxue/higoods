@@ -1,4 +1,5 @@
-import { listProjectInlineNodeRecordsByStepType } from './pcs-project-inline-node-record-repository.ts'
+import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-record-types.ts'
+import { listTestingOrders, type TestingOrderRecord } from './pcs-testing-order-repository.ts'
 import type { PcsSampleLocationId, PcsSampleLocationType, PcsSampleType, PcsSampleTypeConversionLog } from './pcs-sample-location-master.ts'
 import {
   PCS_SAMPLE_LOCATIONS,
@@ -35,6 +36,52 @@ export interface PcsSampleAnomalyInfo {
   note: string
 }
 
+/** Current references are explicit; legacy project metadata stays intact for traceability. */
+export interface PcsSampleSource {
+  kind: 'testing-order' | 'historical'
+  code: string
+  name: string
+  href: string
+  note: string
+}
+
+export function getPcsSampleSource(record: { projectCode: string; projectName?: string; source?: PcsSampleSource }): PcsSampleSource {
+  return record.source || {
+    kind: 'historical',
+    code: record.projectCode,
+    name: record.projectName || '',
+    href: '',
+    note: '历史来源待确认',
+  }
+}
+
+let historicalSourceError = ''
+let historicalRaw: string | null | undefined
+let historicalRecords: PcsProjectInlineNodeRecord[] = []
+
+/** Read existing history only. Never import the retired repository, bootstrap or rewrite its data. */
+function listHistoricalSampleRecords(stepCode: 'SAMPLE_INBOUND_CHECK' | 'SAMPLE_RETURN_HANDLE'): PcsProjectInlineNodeRecord[] {
+  try {
+    if (typeof localStorage === 'undefined') return []
+    const raw = localStorage.getItem('higood-pcs-project-inline-node-records-v2')
+    if (raw !== historicalRaw) {
+      const snapshot = raw ? JSON.parse(raw) : { records: [] }
+      if (!snapshot || !Array.isArray(snapshot.records)) throw new Error('历史样衣格式异常')
+      historicalRecords = snapshot.records.filter((record: PcsProjectInlineNodeRecord) =>
+        record && typeof record.recordId === 'string' && typeof record.projectCode === 'string'
+        && record.payload && typeof record.payload === 'object')
+      historicalRaw = raw
+    }
+    historicalSourceError = ''
+    return historicalRecords.filter((record) => record.stepCode === stepCode)
+  } catch {
+    historicalSourceError = '历史样衣数据暂不可读取，当前仅展示可读取的记录；请恢复浏览器存储访问后重试。'
+    return []
+  }
+}
+
+export function getPcsSampleSourceReadError(): string { return historicalSourceError }
+
 export interface PcsSampleRecord {
   sampleId: string
   sampleCode: string
@@ -45,6 +92,7 @@ export interface PcsSampleRecord {
   color: string
   material: string
   templateType: string
+  source?: PcsSampleSource
   projectId: string
   projectCode: string
   projectName: string
@@ -207,16 +255,16 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   {
     sampleId: 'smp-001',
     sampleCode: 'SKU-DRESS-RED-M',
-    name: '印尼碎花连衣裙-P1A1',
+    name: '深蓝纯色连衣裙-P1A1',
     imageUrl: '/dress-sample-1.jpg',
     category: '裙装',
     size: 'M',
-    color: '红色碎花',
+    color: '深蓝色',
     material: '雪纺',
     templateType: '基础款',
     projectId: 'pcs-project-first-sample-complete',
     projectCode: 'PRJ-202604-001',
-    projectName: '印度尼西亚碎花连衣裙',
+    projectName: '深蓝纯色连衣裙',
     sourceStepName: '直播测款拍摄',
     status: '在库可用',
     availability: '可申请',
@@ -281,7 +329,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
     projectId: 'pcs-project-first-order-created',
     projectCode: 'PRJ-202604-003',
     projectName: '腰围放量牛仔短裤',
-    sourceStepName: '首单样衣打样',
+    sourceStepName: '历史首单打样记录',
     status: '借出占用',
     availability: '需审批',
     sampleType: 'production',
@@ -487,7 +535,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     responsibleSite: '深圳样衣间',
     sampleIds: ['smp-001', 'smp-002'],
     projectCode: 'PRJ-202604-001',
-    projectName: '印度尼西亚碎花连衣裙',
+    projectName: '深蓝纯色连衣裙',
     sourceStepName: '直播测款拍摄',
     purpose: '拍摄主图与直播讲解素材',
     applicant: '张丽',
@@ -765,7 +813,7 @@ export const PCS_SAMPLE_STOCKTAKE_DIFFS: PcsSampleStocktakeDiff[] = [
     stocktakeCode: 'ST-202604-002',
     sampleId: 'smp-001',
     sampleCode: 'SKU-DRESS-RED-M',
-    sampleName: '印尼碎花连衣裙-P1A1',
+    sampleName: '深蓝纯色连衣裙-P1A1',
     site: '深圳样衣间',
     systemQty: 1,
     countedQty: 2,
@@ -797,9 +845,9 @@ function getSampleAssetText(asset: unknown, key: string): string {
 }
 
 function buildGeneratedSampleRecords(): PcsSampleRecord[] {
-  return listProjectInlineNodeRecordsByStepType('SAMPLE_INBOUND_CHECK').flatMap((record) => {
+  return listHistoricalSampleRecords('SAMPLE_INBOUND_CHECK').flatMap((record) => {
     const payload = record.payload as unknown as Record<string, unknown>
-    const detailSnapshot = record.detailSnapshot as unknown as Record<string, unknown>
+    const detailSnapshot = (record.detailSnapshot || {}) as unknown as Record<string, unknown>
     const generatedCodes = asStringArray(payload.generatedSampleCodes).length > 0
       ? asStringArray(payload.generatedSampleCodes)
       : asStringArray(detailSnapshot.sampleIds)
@@ -822,11 +870,11 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         sampleCode,
         name: `${record.projectName} · ${specText}`,
         imageUrl,
-        category: '项目样衣',
+        category: '历史样衣',
         size: sizeName,
         color: colorName,
         material: '待补充',
-        templateType: '商品项目到样',
+        templateType: '历史到样记录',
         projectId: record.projectId,
         projectCode: record.projectCode,
         projectName: record.projectName,
@@ -838,7 +886,7 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         taggedAt: isCompleteInbound ? record.updatedAt || record.businessDate : null,
         responsibleSite: '深圳样衣间',
         currentLocation: String(detailSnapshot.warehouseLocation || '深圳样衣间'),
-        locationDetail: `由${record.projectCode}样衣结果核对生成`,
+        locationDetail: `历史到样记录 ${record.recordCode} · 来源关系待确认`,
         occupancyType: '无',
         occupiedBy: '',
         occupiedFor: '',
@@ -854,7 +902,7 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
   })
 }
 
-function getReturnHandlePayload(record: ReturnType<typeof listProjectInlineNodeRecordsByStepType>[number]): Record<string, unknown> {
+function getReturnHandlePayload(record: ReturnType<typeof listHistoricalSampleRecords>[number]): Record<string, unknown> {
   return {
     ...((record.detailSnapshot || {}) as Record<string, unknown>),
     ...((record.payload || {}) as unknown as Record<string, unknown>),
@@ -898,8 +946,8 @@ function listBasePcsSampleRecords(): PcsSampleRecord[] {
 }
 
 function applyReturnHandleStatusToSamples(samples: PcsSampleRecord[]): PcsSampleRecord[] {
-  const latestBySampleCode = new Map<string, ReturnType<typeof listProjectInlineNodeRecordsByStepType>[number]>()
-  listProjectInlineNodeRecordsByStepType('SAMPLE_RETURN_HANDLE').forEach((record) => {
+  const latestBySampleCode = new Map<string, ReturnType<typeof listHistoricalSampleRecords>[number]>()
+  listHistoricalSampleRecords('SAMPLE_RETURN_HANDLE').forEach((record) => {
     const payload = getReturnHandlePayload(record)
     const sampleCode = String(payload.sampleCode || '').trim()
     if (!sampleCode) return
@@ -950,7 +998,7 @@ function findBaseSampleByCode(sampleCode: string): PcsSampleRecord | null {
 }
 
 function buildGeneratedSampleReturnCases(): PcsSampleReturnCase[] {
-  return listProjectInlineNodeRecordsByStepType('SAMPLE_RETURN_HANDLE').map((record) => {
+  return listHistoricalSampleRecords('SAMPLE_RETURN_HANDLE').map((record) => {
     const payload = getReturnHandlePayload(record)
     const handleType = String(payload.handleType || '').trim()
     const sampleCode = String(payload.sampleCode || '').trim()
@@ -978,7 +1026,7 @@ function buildGeneratedSampleReturnCases(): PcsSampleReturnCase[] {
       sampleImageUrl: sample?.imageUrl || `https://placehold.co/96x128?text=${encodeURIComponent(sampleCode || record.projectCode)}`,
       inventoryStatusSnapshot: getReturnHandledSampleStatus(record.recordStatus, handleType, sample?.status || '待处置'),
       reasonCategory: handleType || '退回处理',
-      reasonText: returnResult || `项目 ${record.projectName} 收尾阶段登记样衣退回或处置结果。`,
+      reasonText: returnResult || `历史记录 ${record.recordCode} 登记的样衣退回或处置结果。`,
       projectCode: record.projectCode,
       initiatedBy: record.createdBy || record.ownerName,
       acceptedBy: operator || record.ownerName,
@@ -1001,7 +1049,7 @@ function buildGeneratedSampleReturnCases(): PcsSampleReturnCase[] {
 }
 
 function buildGeneratedSampleLedgerEvents(): PcsSampleLedgerEvent[] {
-  return listProjectInlineNodeRecordsByStepType('SAMPLE_RETURN_HANDLE')
+  return listHistoricalSampleRecords('SAMPLE_RETURN_HANDLE')
     .filter((record) => isCompletedReturnHandleStatus(record.recordStatus))
     .map((record) => {
       const payload = getReturnHandlePayload(record)
@@ -1021,7 +1069,7 @@ function buildGeneratedSampleLedgerEvents(): PcsSampleLedgerEvent[] {
         sampleName: sample?.name || record.projectName,
         eventType,
         summary: `${handleType || '样衣退回处理'}：${String(payload.returnResult || '已完成处理')}`,
-        fromLocation: sample?.currentLocation || '商品项目样衣',
+        fromLocation: sample?.currentLocation || '历史样衣记录',
         toLocation: destination || (eventType === '退货' ? '退回目标' : eventType === '入库' ? '样衣库存' : '处置完成'),
         holder: String(payload.returnRecipient || operator || destination || '-'),
         sourceDoc,
@@ -1037,8 +1085,27 @@ function buildGeneratedSampleLedgerEvents(): PcsSampleLedgerEvent[] {
     })
 }
 
+export function associatePcsSampleTestingOrder(
+  sample: PcsSampleRecord,
+  orders: Array<Pick<TestingOrderRecord, 'testingOrderId' | 'orderCode' | 'styleName' | 'sampleInboundAt' | 'labeledSkuCode'>>,
+): PcsSampleRecord {
+  // SKU association is not proof of physical origin; do not relabel historical inventory.
+  const matches = orders.filter((order) => order.sampleInboundAt && order.labeledSkuCode === sample.sampleCode)
+  if (matches.length !== 1) return sample
+  const order = matches[0]
+  return { ...sample, source: {
+    kind: 'testing-order',
+    code: order.orderCode,
+    name: order.styleName,
+    href: `/pcs/testing/orders/${encodeURIComponent(order.testingOrderId)}`,
+    note: '测款单 SKU 关联；实物来源仍以原始入库记录为准',
+  } }
+}
+
 export function listPcsSampleRecords(): PcsSampleRecord[] {
+  const orders = listTestingOrders()
   return applyReturnHandleStatusToSamples(listBasePcsSampleRecords())
+    .map((sample) => associatePcsSampleTestingOrder(sample, orders))
 }
 
 export function getPcsSampleById(sampleId: string): PcsSampleRecord | null {

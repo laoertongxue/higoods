@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { chromium } from '@playwright/test'
+import { mkdir, writeFile } from 'node:fs/promises'
 
 import {
   createEngineeringMasterOrder,
@@ -20,8 +22,6 @@ import {
   updateEngineeringPurchaseOrderFact,
 } from '../src/data/pcs-engineering-purchase-linkage.ts'
 import {
-  handlePurchaseTaskEvent,
-  reconcileAndRefreshPurchaseTaskRegions,
   renderPcsPurchaseTaskDetailPage,
 } from '../src/pages/pcs-engineering-tasks/purchase-task.ts'
 import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
@@ -221,64 +221,97 @@ assert.match(html, /实际下单时间/)
 assert.match(html, /每页条数|第 1 页/)
 assert.doesNotMatch(html, /新增采购单|编辑采购单|审核采购单|取消采购单/)
 
-let preventDefaultCalled = false
-const input = { value: 'PO-B' }
-const host = { innerHTML: '' }
-const summaryHost = { innerHTML: '' }
-const feedback = { textContent: '' }
-const originalDocument = globalThis.document
-const originalWindow = globalThis.window
-Object.defineProperty(globalThis, 'document', {
-  configurable: true,
-  value: {
-    querySelector(selector: string) {
-      if (selector === '[data-purchase-order-input]') return input
-      if (selector === '[data-purchase-linkage-region]') return host
-      if (selector === '[data-purchase-summary-region]') return summaryHost
-      if (selector === '[data-purchase-feedback]') return feedback
-      return null
-    },
-  },
-})
-Object.defineProperty(globalThis, 'window', {
-  configurable: true,
-  value: { confirm: () => true, prompt: () => '重新选择采购单' },
-})
-const handled = handlePurchaseTaskEvent({
-  closest(selector: string) {
-    if (selector !== '[data-purchase-action]') return null
-    return { dataset: { purchaseAction: 'bind-order', masterOrderId: master.masterOrderId, taskId } }
-  },
-} as unknown as HTMLElement, { preventDefault() { preventDefaultCalled = true } } as unknown as Event)
-assert.equal(handled, true)
-assert.equal(preventDefaultCalled, true)
-assert.match(host.innerHTML, /PO-B/)
-assert.match(feedback.textContent, /已绑定/)
-assert.match(summaryHost.innerHTML, /已完成/)
-assert.match(summaryHost.innerHTML, /2026-08-02 16:30:00/)
-
-updateEngineeringPurchaseOrderFact('PO-B', { status: '已作废' })
-reconcileAndRefreshPurchaseTaskRegions(master.masterOrderId, taskId)
-assert.match(summaryHost.innerHTML, /进行中/)
-assert.doesNotMatch(summaryHost.innerHTML, /2026-08-02 16:30:00/)
-assert.match(host.innerHTML, /已作废/)
-
-updateEngineeringPurchaseOrderFact('PO-B', { status: '已下单' })
-reconcileAndRefreshPurchaseTaskRegions(master.masterOrderId, taskId)
-assert.match(summaryHost.innerHTML, /已完成/)
-handlePurchaseTaskEvent({
-  closest(selector: string) {
-    if (selector !== '[data-purchase-action]') return null
-    return { dataset: { purchaseAction: 'unbind-order', masterOrderId: master.masterOrderId, taskId, purchaseOrderNo: 'PO-B' } }
-  },
-} as unknown as HTMLElement, { preventDefault() {} } as unknown as Event)
-assert.match(summaryHost.innerHTML, /进行中/)
-assert.doesNotMatch(summaryHost.innerHTML, /2026-08-02 16:30:00/)
-
-const unboundAll = unbindAccessoryPurchaseOrder({ masterOrderId: master.masterOrderId, taskId, purchaseOrderNo: 'PO-A', operatorId: 'BUYER-1', operatorName: '采购员A', operatorRole: '采购人员', reason: '重新选择采购单' })
-assert.equal(unboundAll.task.status, '待开始')
-assert.equal(unboundAll.task.startedAt, '')
-Object.defineProperty(globalThis, 'document', { configurable: true, value: originalDocument })
-Object.defineProperty(globalThis, 'window', { configurable: true, value: originalWindow })
+// Real browser: the page handler must await the IndexedDB transaction and reads must not reconcile/write.
+const browserFixture = getEngineeringMasterOrderById(master.masterOrderId)!
+const browser = await chromium.launch({ headless: true })
+const evidence: Record<string, unknown> = {}
+try {
+  const page = await browser.newPage({ viewport: { width: 1366, height: 768 } })
+  await page.addInitScript('globalThis.__name = (value) => value')
+  await page.goto('http://127.0.0.1:5173/pcs/testing/orders')
+  await page.getByRole('heading', { name: '测款单', exact: true }).waitFor()
+  await page.evaluate(async ({ fixture, facts, styleCode }) => {
+    const rt = await import('/src/data/pcs-record-runtime.ts')
+    const repo = await import('/src/data/pcs-engineering-master-repository.ts')
+    const linkage = await import('/src/data/pcs-engineering-purchase-linkage.ts')
+    await rt.ensurePcsRecordState()
+    linkage.setEngineeringPurchaseOrderFacts(facts.map(fact => ({ ...fact, styleCode })))
+    await rt.runPcsRecordCommand(() => {
+      const snapshot = repo.getEngineeringMasterOrderStoreSnapshot()
+      snapshot.records = [...snapshot.records.filter(record => record.masterOrderId !== fixture.masterOrderId), fixture]
+      rt.pcsRecordStore.setItem('higood-pcs-engineering-master-store-v1', JSON.stringify(snapshot))
+    })
+  }, { fixture: browserFixture, facts, styleCode: style.styleCode })
+  const detailUrl = `http://127.0.0.1:5173/pcs/production-preparation/purchase/${encodeURIComponent(taskId)}`
+  await page.goto(detailUrl)
+  await page.locator('[data-purchase-order-input]').waitFor()
+  const result = await page.evaluate(async ({ masterId, taskId, facts, styleCode }) => {
+    const rt = await import('/src/data/pcs-record-runtime.ts')
+    const db = await import('/src/data/pcs-record-db.ts')
+    const repo = await import('/src/data/pcs-engineering-master-repository.ts')
+    const linkage = await import('/src/data/pcs-engineering-purchase-linkage.ts')
+    const view = await import('/src/pages/pcs-engineering-tasks/purchase-task.ts')
+    linkage.setEngineeringPurchaseOrderFacts(facts.map(fact => ({ ...fact, styleCode })))
+    const check = (condition: unknown, message: string) => { if (!condition) throw new Error(message) }
+    const records = async () => JSON.stringify((await db.readPcsRecords()).records)
+    const before = await records()
+    view.renderPcsPurchaseTaskDetailPage(taskId); view.refreshPurchaseTaskRegions(masterId, taskId)
+    check(await records() === before, 'render/refresh wrote business records')
+    const input = document.querySelector<HTMLInputElement>('[data-purchase-order-input]')!
+    input.value = 'PO-B'
+    const bind = document.querySelector<HTMLElement>('[data-purchase-action="bind-order"]')!
+    const event = new Event('click', { cancelable: true })
+    const originalPut = IDBObjectStore.prototype.put
+    IDBObjectStore.prototype.put = function (...args) { if (this.name === 'records') throw new DOMException('injected failure', 'QuotaExceededError'); return originalPut.apply(this, args) }
+    try { await view.handlePurchaseTaskEvent(bind, event) } finally { IDBObjectStore.prototype.put = originalPut }
+    check(await records() === before, 'failed bind partially saved')
+    check(input.value === 'PO-B', 'failed bind lost input')
+    check(!document.querySelector('[data-purchase-feedback]')!.textContent!.includes('已绑定'), 'failed bind showed success')
+    check(await view.handlePurchaseTaskEvent(bind, event), 'bind event unhandled')
+    check(event.defaultPrevented, 'submit default not prevented')
+    check(document.querySelector('[data-purchase-feedback]')!.textContent!.includes('已绑定'), 'bind success missing')
+    check(document.querySelector('[data-purchase-summary-region]')!.textContent!.includes('已完成'), 'completion missing')
+    check(document.querySelector('[data-engineering-task-workbench]')!.textContent!.includes('已完成'), 'bound header status stale')
+    check(document.querySelector('[data-purchase-summary-region]')!.textContent!.includes('2026-08-02 16:30:00'), 'completion time missing')
+    const completed = await records()
+    linkage.updateEngineeringPurchaseOrderFact('PO-B', { status: '已作废' })
+    view.refreshPurchaseTaskRegions(masterId, taskId)
+    check(document.querySelector('[data-purchase-summary-region]')!.textContent!.includes('进行中'), 'invalid purchase projection not updated')
+    check(!document.querySelector('[data-purchase-summary-region]')!.textContent!.includes('2026-08-02 16:30:00'), 'invalid projection retained completion time')
+    check(document.querySelector('[data-engineering-task-workbench]')!.textContent!.includes('进行中'), 'invalid header status stale')
+    check(document.querySelector('[data-purchase-linkage-region]')!.textContent!.includes('已作废'), 'invalid purchase detail missing')
+    check(await records() === completed, 'refresh reconciled invalid fact into persistence')
+    linkage.updateEngineeringPurchaseOrderFact('PO-B', { status: '已下单' })
+    view.refreshPurchaseTaskRegions(masterId, taskId)
+    check(document.querySelector('[data-purchase-summary-region]')!.textContent!.includes('已完成'), 'restored purchase projection missing')
+    return { readOnlyRender: true, failedBindAtomic: true, savedTask: repo.getEngineeringMasterOrderById(masterId)!.tasks.find(task => task.taskId === taskId) }
+  }, { masterId: master.masterOrderId, taskId, facts, styleCode: style.styleCode })
+  evidence.bind = result
+  await page.reload()
+  await page.locator('[data-purchase-order-input]').waitFor()
+  evidence.reloadAndUnbind = await page.evaluate(async ({ masterId, taskId, facts, styleCode }) => {
+    const repo = await import('/src/data/pcs-engineering-master-repository.ts')
+    const linkage = await import('/src/data/pcs-engineering-purchase-linkage.ts')
+    const view = await import('/src/pages/pcs-engineering-tasks/purchase-task.ts')
+    linkage.setEngineeringPurchaseOrderFacts(facts.map(fact => ({ ...fact, styleCode })))
+    if (repo.getEngineeringMasterOrderById(masterId)!.tasks.find(task => task.taskId === taskId)!.status !== '已完成') throw new Error('bound completion lost after reload')
+    view.refreshPurchaseTaskRegions(masterId, taskId)
+    window.confirm = () => true; window.prompt = () => '重新选择采购单'
+    await view.handlePurchaseTaskEvent(document.querySelector<HTMLElement>('[data-purchase-action="unbind-order"][data-purchase-order-no="PO-B"]')!, new Event('click', { cancelable: true }))
+    const summary = document.querySelector('[data-purchase-summary-region]')!.textContent!
+    if (!summary.includes('进行中') || summary.includes('2026-08-02 16:30:00')) throw new Error('unbind summary incorrect')
+    await view.handlePurchaseTaskEvent(document.querySelector<HTMLElement>('[data-purchase-action="unbind-order"][data-purchase-order-no="PO-A"]')!, new Event('click', { cancelable: true }))
+    const task = repo.getEngineeringMasterOrderById(masterId)!.tasks.find(task => task.taskId === taskId)!
+    if (task.status !== '待开始' || task.startedAt !== '') throw new Error('unbound-all task incorrect')
+    return { persistedBindAfterReload: true, status: task.status, startedAt: task.startedAt }
+  }, { masterId: master.masterOrderId, taskId, facts, styleCode: style.styleCode })
+  await page.reload(); await page.locator('[data-purchase-order-input]').waitFor()
+  assert.match(await page.locator('[data-purchase-summary-region]').innerText(), /待开始/)
+  assert.equal(await page.locator('[data-purchase-action="unbind-order"]').count(), 0)
+  evidence.unboundAfterReload = true
+  await mkdir('output/playwright/pcs-consistency/purchase-linkage', { recursive: true })
+  await page.screenshot({ path: 'output/playwright/pcs-consistency/purchase-linkage/unbound.png', fullPage: true })
+  await writeFile('output/playwright/pcs-consistency/purchase-linkage/result.json', JSON.stringify(evidence, null, 2))
+} finally { await browser.close() }
 
 console.log('pcs-engineering-purchase-linkage.spec.ts PASS')

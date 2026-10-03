@@ -1,3 +1,5 @@
+import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { cloneWebbingSpecifications } from './fcs/webbing-specifications.ts'
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
@@ -71,7 +73,7 @@ const CORE_MISSING_NAME_MAP: Record<string, string> = {
 
 function canUseStorage(): boolean {
   try {
-    const storage = typeof window !== 'undefined' ? window.localStorage : globalThis.localStorage
+    const storage = typeof window !== 'undefined' ? pcsRecordStore : pcsRecordStore
     return (
       typeof storage?.getItem === 'function' &&
       typeof storage.setItem === 'function' &&
@@ -626,6 +628,7 @@ export function buildTechnicalDataDerivedState(
 > {
   const bomItemCount = content.bomItems.length
   const patternFileCount = content.patternFiles.length
+  const patternFilesReady = hasTechnicalPatternOriginals(content.patternFiles)
   const processEntryCount = content.processEntries.length
   const gradingRuleCount = content.sizeTable.length
   const qualityRuleCount = content.qualityRules.length
@@ -649,7 +652,7 @@ export function buildTechnicalDataDerivedState(
 
   if (bomItemCount > 0) completenessScore += 20
   else missingItemCodes.push('BOM')
-  if (patternFileCount > 0) completenessScore += 20
+  if (patternFilesReady) completenessScore += 20
   else missingItemCodes.push('PATTERN')
   if (processDomainCount > 0) completenessScore += 20
   else missingItemCodes.push('PROCESS')
@@ -662,7 +665,7 @@ export function buildTechnicalDataDerivedState(
 
   return {
     bomStatus: getDomainStatus(bomItemCount, versionStatus),
-    patternStatus: getDomainStatus(patternFileCount, versionStatus),
+    patternStatus: getDomainStatus(patternFilesReady ? patternFileCount : 0, versionStatus),
     processStatus: getDomainStatus(processDomainCount, versionStatus),
     gradingStatus: getDomainStatus(gradingRuleCount, versionStatus),
     qualityStatus: getDomainStatus(qualityRuleCount, versionStatus),
@@ -829,7 +832,9 @@ function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): Technical
 }
 
 function mergeMissingSeedData(snapshot: TechnicalDataVersionStoreSnapshot): TechnicalDataVersionStoreSnapshot {
-  const seed = seedSnapshot()
+  if (hasPcsRecordSnapshot('higood-pcs-technical-data-version-store-v5')) return snapshot
+
+  const seed = withPcsDemoData(() => seedSnapshot())
   const existingIds = new Set(snapshot.records.map((item) => item.technicalVersionId))
   const existingPendingIds = new Set(snapshot.pendingItems.map((item) => item.pendingId))
   const merged = hydrateSnapshot({
@@ -856,20 +861,20 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
 
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
 
   // Reading must not consume quota or replace saved data when storage is full.
   try {
-    const raw = localStorage.getItem(TECHNICAL_VERSION_STORAGE_KEY)
+    const raw = pcsRecordStore.getItem(TECHNICAL_VERSION_STORAGE_KEY)
     if (!raw) {
-      memorySnapshot = seedSnapshot()
+      memorySnapshot = withPcsDemoData(() => seedSnapshot())
       return cloneSnapshot(memorySnapshot)
     }
     const parsed = JSON.parse(raw) as Partial<TechnicalDataVersionStoreSnapshot>
     if (!Array.isArray(parsed.records) || !Array.isArray(parsed.contents) || !Array.isArray(parsed.pendingItems)) {
-      memorySnapshot = seedSnapshot()
+      memorySnapshot = withPcsDemoData(() => seedSnapshot())
       return cloneSnapshot(memorySnapshot)
     }
 
@@ -883,7 +888,7 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
     )
     return cloneSnapshot(memorySnapshot)
   } catch {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
 }
@@ -891,7 +896,7 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
 function persistSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): void {
   const nextSnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(nextSnapshot))
+    pcsRecordStore.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(nextSnapshot))
   }
   memorySnapshot = nextSnapshot
 }
@@ -1006,6 +1011,7 @@ export function createTechnicalDataVersionDraft(
   assertCallerDidNotProvideEngineeringBomPricingSnapshot(record, content?.bomPricingSnapshot !== undefined)
   const snapshot = loadSnapshot()
   const normalizedContent = normalizeContent(content ?? createEmptyContent(record.technicalVersionId))
+  if (record.versionStatus === 'PUBLISHED') assertTechnicalDataReadyForPublish(normalizedContent)
   const normalizedRecord = normalizeRecord(record, new Map([[record.technicalVersionId, normalizedContent]]))
   persistSnapshot({
     version: TECHNICAL_VERSION_STORE_VERSION,
@@ -1039,6 +1045,7 @@ export function updateTechnicalDataVersionRecord(
     throw new Error('技术包来源身份字段禁止修改。')
   }
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ?? createEmptyContent(technicalVersionId)
+  if (patch.versionStatus === 'PUBLISHED' && snapshot.records[index].versionStatus !== 'PUBLISHED') assertTechnicalDataReadyForPublish(content)
   const nextRecord = normalizeRecord(
     {
       ...snapshot.records[index],
@@ -1224,6 +1231,19 @@ export function freezePublishedTechnicalDataVersionBomPricingSnapshot(
   return structuredClone(bomPricingSnapshot)
 }
 
+export function hasTechnicalPatternOriginals(files: readonly { recordKind?: string; fileUrl?: string; prjFile?: { dataUrl?: string } | null; dxfFile?: { dataUrl?: string } | null }[]): boolean {
+  const originalFileAvailable = (url?: string) => /^(data:|blob:|\/(?!\/))/.test(String(url || ''))
+  const originals = files.filter(file => file.recordKind !== 'MATERIAL_ASSOCIATION')
+  return originals.length > 0 && originals.every(file => originalFileAvailable(file.fileUrl) || originalFileAvailable(file.prjFile?.dataUrl) || originalFileAvailable(file.dxfFile?.dataUrl))
+}
+
+export function assertTechnicalDataReadyForPublish(content: TechnicalDataVersionContent): void {
+  const readiness = buildTechnicalDataDerivedState('DRAFT', content)
+  if (readiness.missingItemCodes.length) {
+    throw new Error(`技术包资料未齐备，不能发布：${readiness.missingItemNames.join('、')}。纸样须包含可读取的原文件。`)
+  }
+}
+
 export function publishTechnicalDataVersionRecord(
   technicalVersionId: string,
   publishedAt: string,
@@ -1235,6 +1255,7 @@ export function publishTechnicalDataVersionRecord(
   const content =
     snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ??
     createEmptyContent(technicalVersionId)
+  assertTechnicalDataReadyForPublish(content)
   if (isNewEngineeringTechnicalVersion(target) && content.bomPricingSnapshot) {
     throw new Error('新工程来源技术包存在预置正式 BOM/COST 快照，通用发布入口禁止发布。')
   }
@@ -1320,6 +1341,8 @@ export function runTechnicalDataVersionRepositoryTransaction<Operation extends (
 }
 
 export function resetTechnicalDataVersionRepository(): void {
-  const snapshot = seedSnapshot()
+  const snapshot = withPcsDemoData(() => seedSnapshot())
   persistSnapshot(snapshot)
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

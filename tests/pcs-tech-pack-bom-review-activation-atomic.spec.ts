@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import { captureEngineeringBomRepositoryState } from '../src/data/pcs-engineering-bom-repository.ts'
 
 import {
   createMaterialArchive,
@@ -210,22 +212,26 @@ function makeBomItem(id: string, materialSkuId: string, usageUnit: string): Tech
 }
 
 function makeContent(technicalVersionId: string, bomItems: TechnicalBomItem[]): TechnicalDataVersionContent {
+  const templateRecord = listTechnicalDataVersions().find(record => record.technicalVersionCode === 'TDV-20260407-018')!
+  const template = getTechnicalDataVersionContent(templateRecord.technicalVersionId)!
   return {
+    ...structuredClone(template),
     technicalVersionId,
-    patternFiles: [],
-    patternDesc: '',
-    processEntries: [],
+    patternFiles: template.patternFiles.map((file, index) => ({ ...structuredClone(file), id: `${technicalVersionId}-PATTERN-${index}`, fileUrl: 'data:application/dxf;base64,MApTRUNUSU9OCjIKRU5USVRJRVMKMApFTkRTRUMKMApFT0YK' })),
+    patternDesc: '原子性验证完整纸样',
+    processEntries: structuredClone(template.processEntries),
     processRouteStatus: 'CONFIRMED',
     processRouteConfirmedBy: '跟单甲',
     processRouteConfirmedAt: '2026-08-01 09:50',
     processRouteUpdatedBy: '跟单甲',
     processRouteUpdatedAt: '2026-08-01 09:50',
     processRouteChangeReason: '',
-    sizeTable: [],
+    sizeTable: structuredClone(template.sizeTable),
     bomItems,
     bomCustomCosts: [{ title: '车位费', amountIdr: 15000 }],
-    qualityRules: [],
-    colorMaterialMappings: [],
+    bomCustomCostDecision: 'HAS_CUSTOM_COST',
+    qualityRules: structuredClone(template.qualityRules),
+    colorMaterialMappings: structuredClone(template.colorMaterialMappings),
     patternDesigns: [],
     attachments: [],
     legacyCompatibleCostPayload: {},
@@ -340,25 +346,29 @@ assert.deepEqual(listTechPackVersionLogs(), prerequisiteLogsBefore)
 
 completeActivationPrerequisites()
 
-// 新工程来源技术包没有完整 BOM 定价字段时，正式启用必须失败且所有事实不变。
+// 空 BOM 在发布创建入口即被拦截，不能先生成不齐备的已发布记录。
 const missingSnapshotVersionId = `task7_activation_missing_snapshot_${Date.now()}`
-createTechnicalDataVersionDraft(
-  makeRecord({ id: missingSnapshotVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
-  makeContent(missingSnapshotVersionId, []),
-)
 const missingSnapshotTechnicalBefore = getTechnicalDataVersionStoreSnapshot()
 const missingSnapshotStyleBefore = getStyleArchiveById(style.styleId)
 const missingSnapshotEngineeringBefore = getEngineeringMasterOrderById(engineeringMaster.masterOrderId)
 assert.throws(
-  () => activateTechPackVersionForStyle(style.styleId, missingSnapshotVersionId, '跟单甲'),
-  /BOM.*正式快照|BOM.*定价字段|正式快照/,
+  () => createTechnicalDataVersionDraft(
+    makeRecord({ id: missingSnapshotVersionId, status: 'PUBLISHED', reviewStage: '已发布' }),
+    makeContent(missingSnapshotVersionId, []),
+  ),
+  /资料未齐备.*物料清单/,
 )
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), missingSnapshotTechnicalBefore)
 assert.deepEqual(getStyleArchiveById(style.styleId), missingSnapshotStyleBefore)
 assert.deepEqual(getEngineeringMasterOrderById(engineeringMaster.masterOrderId), missingSnapshotEngineeringBefore)
+// 草稿保留为空，用于后续外来 BOM 快照绑定防伪验证。
+createTechnicalDataVersionDraft(
+  makeRecord({ id: missingSnapshotVersionId, status: 'DRAFT', reviewStage: '未提交审核' }),
+  makeContent(missingSnapshotVersionId, []),
+)
 
-// 任一启用写步骤失败，都必须恢复技术包、款式、项目、关系、归档及启用日志六类事实源。
-const activationFailureSteps = ['PRICING_SNAPSHOT', 'ENGINEERING_TASK', 'STYLE', 'PROJECT', 'RELATION', 'ARCHIVE', 'LOG'] as const
+// 任一启用写步骤失败，都恢复技术包、BOM、主单、款式和日志；退休项目、关系及归档保持不变。
+const activationFailureSteps = ['PRICING_SNAPSHOT', 'BOM_VERSION', 'ENGINEERING_TASK', 'STYLE', 'LOG'] as const
 for (const failureStep of activationFailureSteps) {
   const versionId = `task7_activation_rollback_${failureStep}_${Date.now()}_${Math.random()}`
   createTechnicalDataVersionDraft(
@@ -366,6 +376,7 @@ for (const failureStep of activationFailureSteps) {
     makeContent(versionId, [makeBomItem(`BOM-ROLLBACK-${failureStep}`, validSku.materialSkuId, '米')]),
   )
   const technicalBefore = getTechnicalDataVersionStoreSnapshot()
+  const bomBefore = captureEngineeringBomRepositoryState()
   const projectBefore = getProjectById(productProjectId)
   const relationBefore = listProjectRelationsByProject(productProjectId)
   const masterRelationBefore = listProjectRelationsByProject(engineeringMaster.masterOrderId)
@@ -381,6 +392,7 @@ for (const failureStep of activationFailureSteps) {
   )
   setTechPackActivationFailureStepForTesting(null)
 
+  assert.deepEqual(captureEngineeringBomRepositoryState(), bomBefore, `${failureStep} 失败后 BOM 仓必须恢复`)
   assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalBefore, `${failureStep} 失败后技术包仓必须恢复`)
   assert.deepEqual(getStyleArchiveById(style.styleId), targetStyleBefore, `${failureStep} 失败后款式仓必须恢复`)
   assert.deepEqual(getProjectById(productProjectId), projectBefore, `${failureStep} 失败后项目仓必须恢复`)
@@ -419,6 +431,10 @@ createTechnicalDataVersionDraft(
   ]),
 )
 updateLatestPcsExchangeRate({ idrPerCny: 2250, updatedBy: '系统管理员' })
+const retiredProjectBefore = getProjectById(productProjectId)
+const retiredRelationsBefore = listProjectRelationsByProject(productProjectId).map(item => item.projectRelationId)
+const retiredRelationsRawBefore = pcsRecordStore.getItem('higood-pcs-project-relation-store-v2')
+const retiredArchiveBefore = getProjectArchiveFacts(productProjectId)
 activateTechPackVersionForStyle(style.styleId, successVersionId, '跟单甲')
 const successContent = getTechnicalDataVersionContent(successVersionId)
 assert.equal(successContent?.bomPricingSnapshot?.materialLines[0]?.standardUnitPriceCny, 8.7654)
@@ -445,11 +461,10 @@ const activatedConfirmationTask = activatedMaster?.tasks.find((task) => task.tas
 assert.equal(activatedConfirmationTask?.status, '已完成')
 assert.ok(activatedConfirmationTask?.effectiveCompletedAt, '正式启用后技术包确认任务必须记录当前有效完成时间')
 assert.equal(getStyleArchiveById(style.styleId)?.currentTechPackVersionId, successVersionId)
-assert.equal(getProjectById(productProjectId)?.linkedTechPackVersionId, successVersionId)
-assert.ok(
-  listProjectRelationsByProject(productProjectId).some((item) => item.sourceObjectId === successVersionId),
-  '正式技术包关系必须写入款式来源商品项目',
-)
+assert.deepEqual(getProjectById(productProjectId), retiredProjectBefore, '启用不再写入退休商品项目')
+assert.deepEqual(listProjectRelationsByProject(productProjectId).map(item => item.projectRelationId), retiredRelationsBefore, '启用不再增加退休商品项目关系')
+assert.equal(pcsRecordStore.getItem('higood-pcs-project-relation-store-v2'), retiredRelationsRawBefore, '款式状态投影变化不能重新写入退休关系仓')
+assert.deepEqual(getProjectArchiveFacts(productProjectId), retiredArchiveBefore, '启用不再写入退休项目归档')
 assert.equal(
   listProjectRelationsByProject(engineeringMaster.masterOrderId).some((item) => item.sourceObjectId === successVersionId),
   false,

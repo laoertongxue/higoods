@@ -1,5 +1,8 @@
+import { isPcsDemoData } from './pcs-record-runtime.ts'
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
+import { summarizeEngineeringTaskItems } from './pcs-engineering-task-item-progress.ts'
 import { hasPassedTestingOrder } from './pcs-testing-order-repository.ts'
-// 生产准备单 LocalStorage 仓库：主单及任务骨架的唯一事实源。
+// 生产准备单记录仓储：主单及任务骨架的唯一事实源，由 PCS 动作事务持久化。
 // 任务骨架在发布时一次性生成，依赖只从固定策略复制，不提供任何更新依赖的接口。
 
 import {
@@ -66,10 +69,10 @@ let repositoryTransactionDepth = 0
 
 function canUseStorage(): boolean {
   return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
+    typeof pcsRecordStore !== 'undefined' &&
+    typeof pcsRecordStore.getItem === 'function' &&
+    typeof pcsRecordStore.setItem === 'function' &&
+    typeof pcsRecordStore.removeItem === 'function'
   )
 }
 
@@ -131,11 +134,11 @@ function seedSnapshot(): EngineeringMasterOrderSnapshot {
 function readSnapshot(): EngineeringMasterOrderSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
   try {
-    const raw = localStorage.getItem(ENGINEERING_MASTER_STORAGE_KEY)
+    const raw = pcsRecordStore.getItem(ENGINEERING_MASTER_STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as EngineeringMasterOrderSnapshot
       if (parsed && Array.isArray(parsed.records)) {
@@ -146,10 +149,12 @@ function readSnapshot(): EngineeringMasterOrderSnapshot {
         return cloneSnapshot(memorySnapshot)
       }
     }
-  } catch {
-    // 存储损坏时回退到空种子
+    if (raw !== null) throw new Error('生产准备记录格式不完整，原数据已保留。')
+  } catch (error) {
+    memorySnapshot = null
+    throw error
   }
-  memorySnapshot = seedSnapshot()
+  memorySnapshot = withPcsDemoData(() => seedSnapshot())
   return cloneSnapshot(memorySnapshot)
 }
 
@@ -172,7 +177,7 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
     reason: '',
     uniqueTriggerKey: '',
   }
-  return cloneRecord({
+  const normalized = cloneRecord({
     ...record,
     sourceDesignRevisionTaskId: record.sourceDesignRevisionTaskId || '',
     sourceDesignRevisionTaskCode: record.sourceDesignRevisionTaskCode || '',
@@ -261,17 +266,25 @@ function normalizeRecord(record: EngineeringMasterOrderRecord): EngineeringMaste
       : [],
     priorResultReuseLines: Array.isArray(record.priorResultReuseLines) ? record.priorResultReuseLines : [],
   })
+  // 修正旧演示快捷终态的只读投影；不替真实业务补造审核或文件。
+  if (normalized.bulkProductionQualification.uniqueTriggerKey.startsWith('BULK-DEMO-')) {
+    let incomplete = false
+    for (const task of normalized.tasks) {
+      if (task.status !== '已完成' || !['PATTERN_ARTWORK', 'COLOR_YARN', 'COLOR_FABRIC'].includes(task.taskType)) continue
+      const progress = summarizeEngineeringTaskItems(task)
+      if (!progress.allCompleted) { task.status = progress.pendingReview ? '待审核' : '进行中'; task.completedAt = ''; task.effectiveCompletedAt = ''; incomplete = true }
+    }
+    if (incomplete && ['已关闭', '待关闭'].includes(normalized.status)) {
+      normalized.status = '进行中'; normalized.closedAt = ''; normalized.closedBy = ''
+    }
+  }
+  return normalized
 }
 
 function writeSnapshot(snapshot: EngineeringMasterOrderSnapshot): void {
-  memorySnapshot = cloneSnapshot(snapshot)
-  if (!canUseStorage()) return
-  try {
-    localStorage.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
-  } catch (error) {
-    if (repositoryTransactionDepth > 0) throw error
-    // 原型环境存储不可用时仅保留内存态
-  }
+  const next = cloneSnapshot(snapshot)
+  if (canUseStorage()) pcsRecordStore.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(next))
+  memorySnapshot = next
 }
 
 function nextMasterOrderCode(records: EngineeringMasterOrderRecord[]): string {
@@ -362,7 +375,7 @@ export function createEngineeringMasterOrder(input: CreateEngineeringMasterOrder
     throw new Error('该做大货资格已经创建过生产准备单，禁止重复使用。')
   }
 
-  const masterOrderId = `EM-${Date.now().toString(36)}-${String(snapshot.records.length + 1).padStart(3, '0')}`
+  const masterOrderId = isPcsDemoData() ? `EM-DEMO-${style.styleId}` : `EM-${crypto.randomUUID()}`
   const masterOrderCode = nextMasterOrderCode(snapshot.records)
   const reusableSampling = selectCompletedDesignRevisionSource(style.styleCode, input.bulkProductionQualification)
   const bomRepositoryState = captureEngineeringBomRepositoryState()
@@ -936,7 +949,7 @@ export function runEngineeringMasterRepositoryTransaction<Operation extends () =
     memorySnapshot = cloneSnapshot(snapshotBeforeOperation)
     if (canUseStorage()) {
       try {
-        localStorage.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
+        pcsRecordStore.setItem(ENGINEERING_MASTER_STORAGE_KEY, JSON.stringify(memorySnapshot))
       } catch {
         // 回滚时优先恢复内存事实；持久化仍不可用时不得覆盖原始事务异常。
       }
@@ -948,10 +961,10 @@ export function runEngineeringMasterRepositoryTransaction<Operation extends () =
 }
 
 export function resetEngineeringMasterRepository(): void {
-  memorySnapshot = seedSnapshot()
+  memorySnapshot = withPcsDemoData(() => seedSnapshot())
   if (!canUseStorage()) return
   try {
-    localStorage.removeItem(ENGINEERING_MASTER_STORAGE_KEY)
+    pcsRecordStore.removeItem(ENGINEERING_MASTER_STORAGE_KEY)
   } catch {
     // 忽略存储不可用
   }
@@ -969,39 +982,6 @@ export function setEngineeringMasterStatus(
   const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
   if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
   record.status = status
-  writeSnapshot(snapshot)
-  return cloneRecord(record)
-}
-
-// 仅供本地高保真原型种子构造“待关闭／已关闭”完整场景；真实业务仍必须走关闭领域入口。
-export function seedEngineeringMasterDemoLifecycleStatus(
-  masterOrderId: string,
-  status: '待关闭' | '已关闭',
-): EngineeringMasterOrderRecord {
-  const snapshot = readSnapshot()
-  const record = snapshot.records.find((item) => item.masterOrderId === masterOrderId)
-  if (!record) throw new Error(`生产准备单不存在：${masterOrderId}`)
-  if (!record.bulkProductionQualification.uniqueTriggerKey.startsWith('BULK-DEMO-')) {
-    throw new Error('只能设置本地演示生产准备单。')
-  }
-  const at = nowText()
-  for (const task of record.tasks) {
-    if (task.status === '未启用') continue
-    task.status = '已完成'
-    task.startedAt ||= at
-    task.submittedAt ||= at
-    task.firstCompletedAt ||= at
-    task.effectiveCompletedAt ||= at
-    task.completedAt ||= at
-    task.events.startedAt ||= task.startedAt
-    task.events.submittedAt ||= task.submittedAt
-    task.events.firstCompletedAt ||= task.firstCompletedAt
-    task.events.effectiveCompletedAt ||= task.effectiveCompletedAt
-  }
-  record.status = status
-  record.updatedAt = at
-  record.closedAt = status === '已关闭' ? at : ''
-  record.closedBy = status === '已关闭' ? record.merchandiserName : ''
   writeSnapshot(snapshot)
   return cloneRecord(record)
 }
@@ -1043,6 +1023,15 @@ export function assertEngineeringTaskCanComplete(
   assertFixedTaskDependenciesSatisfied(master, task)
 }
 
+export function assertEngineeringTaskDetailCompletion(task: EngineeringTaskRecord): void {
+  if (!['PATTERN_ARTWORK', 'COLOR_FABRIC', 'COLOR_YARN'].includes(task.taskType)) return
+  const progress = summarizeEngineeringTaskItems(task)
+  if (!progress.allCompleted) throw new Error(`${task.taskName}有效明细仅通过 ${progress.completed}/${progress.total}，不能标记完成或关闭生产准备单。`)
+  if (progress.lines.some(line => !(line.resultFileIds.length || line.effectImageIds.length) || !line.reviewedBy || !line.reviewedAt)) {
+    throw new Error(`${task.taskName}存在缺少成果或审核记录的明细，不能标记完成。`)
+  }
+}
+
 export function validateEngineeringMasterOrderClose(
   masterOrderId: string,
 ): EngineeringMasterOrderCloseValidation {
@@ -1058,6 +1047,7 @@ export function validateEngineeringMasterOrderClose(
   )
   for (const task of effectiveTasks) {
     if (task.status !== '已完成') throw new Error(`有效任务「${task.taskName}」未完成，不能关闭生产准备单。`)
+    assertEngineeringTaskDetailCompletion(task)
     assertFixedTaskDependenciesSatisfied(master, task)
   }
 
@@ -1116,6 +1106,7 @@ export function updateEngineeringTaskRecord(
   const task = master.tasks.find((item) => item.taskId === taskId)
   if (!task) throw new Error(`工程任务不存在：${taskId}`)
   update(task, master)
+  if (task.status === '已完成') assertEngineeringTaskDetailCompletion(task)
   refreshWaitingEngineeringTasks(master)
   writeSnapshot(snapshot)
   return { masterOrder: cloneRecord(master), task: cloneTask(task) }
@@ -1633,3 +1624,5 @@ export function submitEngineeringTaskResult(
   writeSnapshot(snapshot)
   return { masterOrder: cloneRecord(record), task: cloneTask(task) }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

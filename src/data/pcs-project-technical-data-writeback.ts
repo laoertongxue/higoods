@@ -1,3 +1,4 @@
+import { createProductionTechPackPublishEvaluationBatch } from './fcs/production-tech-pack-change-domain.ts'
 import {
   appendTechPackVersionLog,
 } from './pcs-tech-pack-version-log-repository.ts'
@@ -13,11 +14,8 @@ import {
   activateTechPackVersionForStyle,
 } from './pcs-tech-pack-version-activation.ts'
 import {
-  syncProjectFromTechPackVersion,
   syncStyleArchiveFromTechPackVersion,
-  writeProjectRelationFromTechPackVersion,
 } from './pcs-tech-pack-task-generation.ts'
-import { syncExistingProjectArchiveByProjectId } from './pcs-project-archive-sync.ts'
 import {
   getTechnicalDataVersionById,
   getTechnicalDataVersionContent,
@@ -29,7 +27,6 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
 } from './pcs-technical-data-version-types.ts'
-import { resolveTechnicalVersionProductProject } from './pcs-technical-data-version-project-source.ts'
 import { collectWebbingPublishIssues } from './fcs/webbing-specifications.ts'
 
 function nowText(): string {
@@ -84,11 +81,7 @@ export function saveTechnicalDataVersionContent(
   })
   if (!nextRecord) throw new Error('保存技术包版本失败。')
 
-  writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
-  syncProjectFromTechPackVersion(nextRecord)
-  const source = resolveTechnicalVersionProductProject(nextRecord)
-  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   return nextRecord
 }
 
@@ -108,11 +101,7 @@ export function saveTechnicalDataVersionRecordMeta(
   })
   if (!nextRecord) throw new Error('保存技术包版本失败。')
 
-  writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
-  syncProjectFromTechPackVersion(nextRecord)
-  const source = resolveTechnicalVersionProductProject(nextRecord)
-  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   return nextRecord
 }
 
@@ -152,11 +141,7 @@ export function publishTechnicalDataVersion(
   const nextRecord = publishTechnicalDataVersionRecord(technicalVersionId, publishedAt, operatorName)
   if (!nextRecord) throw new Error('发布技术包版本失败。')
 
-  writeProjectRelationFromTechPackVersion(nextRecord, operatorName)
   syncStyleArchiveFromTechPackVersion(nextRecord)
-  syncProjectFromTechPackVersion(nextRecord)
-  const source = resolveTechnicalVersionProductProject(nextRecord)
-  if (source) syncExistingProjectArchiveByProjectId(source.project.projectId, operatorName)
   appendTechPackVersionLog({
     logId: `tech_pack_log_publish_${nextRecord.technicalVersionId}_${publishedAt.replace(/[^0-9]/g, '')}`,
     technicalVersionId: nextRecord.technicalVersionId,
@@ -177,6 +162,11 @@ export function publishTechnicalDataVersion(
     afterVersionCode: nextRecord.technicalVersionCode,
     createdAt: publishedAt,
     createdBy: operatorName,
+  })
+  createProductionTechPackPublishEvaluationBatch({
+    technicalVersionId: nextRecord.technicalVersionId, technicalVersionCode: nextRecord.technicalVersionCode,
+    versionLabel: nextRecord.versionLabel, styleId: nextRecord.styleId, styleCode: nextRecord.styleCode,
+    styleName: nextRecord.styleName, publishedAt, publishedBy: operatorName, changeSummary: nextRecord.changeSummary,
   })
   return nextRecord
 }

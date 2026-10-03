@@ -1,3 +1,4 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 import { renderProfessionalBusinessList } from './pcs-engineering-tasks/business-list.ts'
 // @page-pattern: list
 import { getProjectById } from '../data/pcs-project-repository.ts'
@@ -195,10 +196,10 @@ function samplingStatusText(record: EngineeringIndependentSamplingRecord): strin
   if (record.status === 'IN_PROGRESS') return '进行中'
   return record.status === 'WAIT_CONFIRMATION' ? '历史待确认' : '草稿'
 }
-function feedbackHtml(): string { return ui.feedback ? `<p class="whitespace-pre-line rounded border px-3 py-2 text-sm ${ui.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(ui.feedback)}</p>` : '' }
+function feedbackHtml(): string { return `<div data-pcs-sampling-feedback>${ui.feedback ? `<p role="status" class="whitespace-pre-line rounded border px-3 py-2 text-sm ${ui.ok ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}">${escapeHtml(ui.feedback)}</p>` : ''}</div>` }
 function setFeedback(message: string, ok = true): void { ui.feedback = message; ui.ok = ok }
 function rerender(): void { if (typeof window !== 'undefined') window.dispatchEvent(new Event('higood:request-render')) }
-function run(action: () => void, success: string): void { try { action(); setFeedback(success) } catch (error) { setFeedback(error instanceof Error ? error.message : '操作失败。', false) } rerender() }
+async function run(action: () => void | Promise<void>, success: string): Promise<void> { try { await action(); setFeedback(success); rerender() } catch (error) { setFeedback(error instanceof Error ? error.message : '操作失败。', false); document.querySelectorAll('[data-pcs-sampling-feedback]').forEach(node => { node.outerHTML = feedbackHtml() }); } }
 function value(field: string, scope: ParentNode = document): string { return scope.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[data-${PREFIX}-field="${field}"]`)?.value.trim() || '' }
 function checkedTaskTypes(): EngineeringIndependentProfessionalTaskType[] { return [...document.querySelectorAll<HTMLInputElement>(`[data-${PREFIX}-field="planTaskType"]:checked`)].map((node) => node.value as EngineeringIndependentProfessionalTaskType) }
 
@@ -1021,7 +1022,7 @@ function readSampleRequirements(samplingTaskId: string): typeof ui.sampleRequire
   return ui.sampleRequirementDraftsByTask[samplingTaskId] || []
 }
 
-function saveDesignRevisionDraft(record: EngineeringIndependentSamplingRecord): void {
+function applyDesignRevisionDraft(record: EngineeringIndependentSamplingRecord): void {
   const samplingId = record.samplingTaskId
   syncBomLineDraftsFromDom()
   syncPricingPlanDraftFromDom(samplingId)
@@ -1033,6 +1034,10 @@ function saveDesignRevisionDraft(record: EngineeringIndependentSamplingRecord): 
   saveInlineBomDrafts(record)
   const costDraft = ensurePricingPlanDraft(record)
   saveEngineeringBomPricingPlan({ ownerStage: 'INDEPENDENT_SAMPLING', ownerId: samplingId, role: ADMINISTRATOR.role, userId: ADMINISTRATOR.userId, userName: ADMINISTRATOR.userName, customCostDecision: costDraft.customCostDecision, customCosts: costDraft.customCosts, updatedAt: nowText() })
+}
+
+async function saveDesignRevisionDraft(record: EngineeringIndependentSamplingRecord): Promise<void> {
+  await runPcsRecordCommand(() => applyDesignRevisionDraft(record))
 }
 
 function syncSampleResultsFromDom(task: EngineeringIndependentProfessionalTask): void {
@@ -1066,7 +1071,7 @@ function readDisplaySampleResults(task: EngineeringIndependentProfessionalTask) 
   }))
 }
 
-export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean {
+export async function handlePcsIndependentSamplingEvent(target: HTMLElement): Promise<boolean> {
   document.querySelectorAll<HTMLDetailsElement>('[data-design-style-picker][open]').forEach(picker => { if (!picker.contains(target)) picker.open = false })
   const styleTrigger = target.closest('[data-pcs-independent-sampling-action="focus-style-search"]')
   if (styleTrigger) {
@@ -1085,7 +1090,7 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   }
   if (target.closest(`[data-${PREFIX}-upload-preview-close]`)) { ui.preview = null; refreshDialogs(); return true }
   const remove = target.closest<HTMLElement>(`[data-${PREFIX}-upload-remove]`)
-  if (remove) { run(() => removeEngineeringTaskUploadedFile({ taskId: remove.dataset.taskId || '', itemId: remove.dataset.itemId, fileId: remove.dataset.fileId || '' }), '文件已删除。'); return true }
+  if (remove) { await run(async () => await runPcsRecordCommand(() => removeEngineeringTaskUploadedFile({ taskId: remove.dataset.taskId || '', itemId: remove.dataset.itemId, fileId: remove.dataset.fileId || '' })), '文件已删除。'); return true }
   const node = target.closest<HTMLElement>(`[data-${PREFIX}-action]`); if (!node) return false
   const action = node.dataset.pcsIndependentSamplingAction || ''
   const controller = currentListController()
@@ -1134,7 +1139,7 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   if (action === 'clear-selection') { ui.selectedTaskIds.clear(); rerender(); return true }
   if (action === 'copy-selected') {
     if (!ui.selectedTaskIds.size) { setFeedback('请先勾选要复制的设计改款任务。', false); rerender(); return true }
-    const results = copyEngineeringIndependentSamplingDrafts({ samplingTaskIds: [...ui.selectedTaskIds], actor: BUYER, createdAt: nowText() })
+    const results = await runPcsRecordCommand(() => copyEngineeringIndependentSamplingDrafts({ samplingTaskIds: [...ui.selectedTaskIds], actor: BUYER, createdAt: nowText() }))
     const failed = results.filter((item) => item.error)
     ui.selectedTaskIds = new Set(failed.map((item) => item.sourceTaskId))
     setFeedback(`${failed.length ? `已生成 ${results.length - failed.length} 张草稿，${failed.length} 张失败。` : '已批量生成独立的设计改款草稿。'}\n${results.map((item) => item.error ? `${item.sourceTaskId}：失败，${item.error}` : `${item.sourceTaskId}：成功，新草稿 ${item.draftTaskId}`).join('\n')}`, failed.length === 0)
@@ -1162,31 +1167,31 @@ export function handlePcsIndependentSamplingEvent(target: HTMLElement): boolean 
   if (action === 'add-sample-requirement') { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) return true; syncSampleRequirementsFromDom(samplingId); ensureSampleRequirementDrafts(record).push({ draftId: `${samplingId}-DISPLAY-REQ-DRAFT-${Date.now().toString(36)}`, targetColor: '', targetSize: '', requiredQuantity: 1, requirementNote: '' }); refreshBuyerFormSections(); return true }
   if (action === 'remove-sample-requirement') { const samplingId = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || ''); syncSampleRequirementsFromDom(samplingId); const index = Number(node.dataset.lineIndex); if (Number.isInteger(index) && ui.sampleRequirementDraftsByTask[samplingId]?.length > 1) ui.sampleRequirementDraftsByTask[samplingId].splice(index, 1); refreshBuyerFormSections(); return true }
   if ((action === 'save-draft' || action === 'confirm-scheme') && node.dataset.samplingId === NEW_TASK_ID) {
-    run(() => {
+    await run(async () => {
       syncBomLineDraftsFromDom(); syncPricingPlanDraftFromDom(NEW_TASK_ID); syncSampleRequirementsFromDom(NEW_TASK_ID)
       if (!ui.createDraft.targetStyleId) throw new Error('请选择新款式（SPU）。')
-      const created = createEngineeringIndependentSampling({ ...ui.createDraft, buyer: BUYER, createdAt: nowText(),
+      const created = await runPcsRecordCommand(() => createEngineeringIndependentSampling({ ...ui.createDraft, buyer: BUYER, createdAt: nowText(),
         creationSampleRequirements: readSampleRequirements(NEW_TASK_ID),
-        materialLines: ensureBomLineDrafts(NEW_BOM_ID), customCosts: ensurePricingPlanDraft(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!).customCosts })
+        materialLines: ensureBomLineDrafts(NEW_BOM_ID), customCosts: ensurePricingPlanDraft(getEngineeringIndependentSamplingRecord(NEW_TASK_ID)!).customCosts }))
       navigateDesignRevision(created.samplingTaskId)
       if (action === 'confirm-scheme') {
-        try { confirmEngineeringIndependentSamplingScheme({ samplingTaskId: created.samplingTaskId, actor: ADMINISTRATOR,
+        try { await runPcsRecordCommand(() => confirmEngineeringIndependentSamplingScheme({ samplingTaskId: created.samplingTaskId, actor: ADMINISTRATOR,
           selectedTaskTypes: suggestEngineeringIndependentTaskTypes(created), displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] },
-          sampleRequirements: (created.creationSampleRequirements || []).map((line, index) => ({ ...line, requirementLineId: `${created.samplingTaskId}-DISPLAY-REQ-${index + 1}` })) }) } catch (error) { throw new Error(`草稿已保存，尚未提交：${error instanceof Error ? error.message : '请核对方案后重试。'}`) }
+          sampleRequirements: (created.creationSampleRequirements || []).map((line, index) => ({ ...line, requirementLineId: `${created.samplingTaskId}-DISPLAY-REQ-${index + 1}` })) })) } catch (error) { throw new Error(`草稿已保存，尚未提交：${error instanceof Error ? error.message : '请核对方案后重试。'}`) }
         selectCurrentSamplingStep(created.samplingTaskId)
       }
       resetCreateDraft()
     }, action === 'save-draft' ? '设计改款草稿已保存。' : '任务已提交，已按需求生成工作。')
     return true
   }
-  if (action === 'save-draft') { const samplingId = node.dataset.samplingId || ''; run(() => { const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('任务不存在。'); saveDesignRevisionDraft(record) }, '设计改款草稿已保存。'); return true }
-  if (action === 'confirm-scheme') { const samplingId = node.dataset.samplingId || ''; run(() => { let record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('设计改款任务不存在。'); saveDesignRevisionDraft(record); record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('设计改款任务不存在。'); confirmEngineeringIndependentSamplingScheme({ samplingTaskId: samplingId, actor: ADMINISTRATOR, selectedTaskTypes: suggestEngineeringIndependentTaskTypes(record), displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] }, sampleRequirements: readSampleRequirements(samplingId).map((draft) => ({ requirementLineId: draft.draftId, targetColor: draft.targetColor, targetSize: draft.targetSize, requiredQuantity: draft.requiredQuantity, requirementNote: draft.requirementNote })) }); delete ui.pricingPlanDraftsByTask[samplingId]; selectCurrentSamplingStep(samplingId) }, '任务已提交，基码纸样和印染加工单已按需求生成。'); return true }
-  if (action === 'return-buyer-preparation') { const samplingId = node.dataset.samplingId || ''; run(() => { returnEngineeringIndependentBuyerPreparation({ samplingTaskId: samplingId, actor: ADMINISTRATOR, reason: ui.returnReasonByTask[samplingId] || value('buyerReturnReason') }); delete ui.pricingPlanDraftsByTask[samplingId]; ui.detailStepByTask[samplingId] = 0 }, '方案已重新打开。'); return true }
-  if (action === 'start-task') { const found = findProfessional(node.dataset.taskId || ''); run(() => { if (!found) throw new Error('任务不存在。'); startEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: ADMINISTRATOR }) }, '任务已开始。'); return true }
+  if (action === 'save-draft') { const samplingId = node.dataset.samplingId || ''; await run(async () => { const record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('任务不存在。'); (await saveDesignRevisionDraft(record)) }, '设计改款草稿已保存。'); return true }
+  if (action === 'confirm-scheme') { const samplingId = node.dataset.samplingId || ''; await run(async () => { let record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('设计改款任务不存在。'); await runPcsRecordCommand(() => { applyDesignRevisionDraft(record!); record = getEngineeringIndependentSamplingRecord(samplingId); if (!record) throw new Error('设计改款任务不存在。'); return confirmEngineeringIndependentSamplingScheme({ samplingTaskId: samplingId, actor: ADMINISTRATOR, selectedTaskTypes: suggestEngineeringIndependentTaskTypes(record), displaySampleAssignment: { ...DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0] }, sampleRequirements: readSampleRequirements(samplingId).map((draft) => ({ requirementLineId: draft.draftId, targetColor: draft.targetColor, targetSize: draft.targetSize, requiredQuantity: draft.requiredQuantity, requirementNote: draft.requirementNote })) }); }); delete ui.pricingPlanDraftsByTask[samplingId]; selectCurrentSamplingStep(samplingId) }, '任务已提交，基码纸样和印染加工单已按需求生成。'); return true }
+  if (action === 'return-buyer-preparation') { const samplingId = node.dataset.samplingId || ''; await run(async () => { await runPcsRecordCommand(() => returnEngineeringIndependentBuyerPreparation({ samplingTaskId: samplingId, actor: ADMINISTRATOR, reason: ui.returnReasonByTask[samplingId] || value('buyerReturnReason') })); delete ui.pricingPlanDraftsByTask[samplingId]; ui.detailStepByTask[samplingId] = 0 }, '方案已重新打开。'); return true }
+  if (action === 'start-task') { const found = findProfessional(node.dataset.taskId || ''); await run(async () => { if (!found) throw new Error('任务不存在。'); await runPcsRecordCommand(() => startEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: ADMINISTRATOR })) }, '任务已开始。'); return true }
   if (action === 'add-sample-result') { const found = findProfessional(node.dataset.taskId || ''); if (!found) return true; syncSampleResultsFromDom(found.task); const requirement = found.task.sampleRequirements?.[0]; if (!requirement) { setFeedback('尚未下达销售展示样衣制作要求。', false); rerender(); return true } (ui.sampleResultDraftsByTask[found.task.taskId] ||= []).push({ draftId: `${found.task.taskId}-DISPLAY-ACTUAL-DRAFT-${Date.now().toString(36)}`, requirementLineId: requirement.requirementLineId, title: `${requirement.targetColor} / ${requirement.targetSize} 销售展示样衣`, actualColor: requirement.targetColor, actualSize: requirement.targetSize, actualQuantity: 1, sourcePatternVersion: '', productionNote: '', differenceNote: '' }); rerender(); return true }
   if (action === 'remove-sample-result') { const found = findProfessional(node.dataset.taskId || ''); if (!found) return true; syncSampleResultsFromDom(found.task); ui.sampleResultDraftsByTask[found.task.taskId] = (ui.sampleResultDraftsByTask[found.task.taskId] || []).filter((draft) => draft.draftId !== node.dataset.draftId); rerender(); return true }
-  if (action === 'submit-task') { const found = findProfessional(node.dataset.taskId || ''); run(() => { if (!found) throw new Error('任务不存在。'); const results = found.task.taskType === 'DISPLAY_SAMPLE' ? readDisplaySampleResults(found.task) : [{ title: value('resultTitle'), version: value('resultVersion'), description: value('resultDescription'), applicablePartOrSize: value('applicablePartOrSize'), sampleQuantity: Number(value('sampleQuantity')) || 0, sampleColor: value('sampleColor'), sampleSize: value('sampleSize'), sourcePatternVersion: value('sourcePatternVersion'), files: professionalFiles(found.task) }]; submitEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: ADMINISTRATOR, results, dyeColorCode: value('dyeColorCode') }); delete ui.sampleResultDraftsByTask[found.task.taskId]; selectCurrentSamplingStep(found.record.samplingTaskId) }, '本次工作已提交。'); return true }
-  if (action === 'repair-process-orders') { const taskId = node.dataset.taskId || ''; run(() => repairEngineeringIndependentProfessionalTaskProcessOrders({ taskId, actor: ADMINISTRATOR }), '加工单关联已按当前方案重新生成。'); return true }
+  if (action === 'submit-task') { const found = findProfessional(node.dataset.taskId || ''); await run(async () => { if (!found) throw new Error('任务不存在。'); const results = found.task.taskType === 'DISPLAY_SAMPLE' ? readDisplaySampleResults(found.task) : [{ title: value('resultTitle'), version: value('resultVersion'), description: value('resultDescription'), applicablePartOrSize: value('applicablePartOrSize'), sampleQuantity: Number(value('sampleQuantity')) || 0, sampleColor: value('sampleColor'), sampleSize: value('sampleSize'), sourcePatternVersion: value('sourcePatternVersion'), files: professionalFiles(found.task) }]; await runPcsRecordCommand(() => submitEngineeringIndependentProfessionalTask({ taskId: found.task.taskId, actor: ADMINISTRATOR, results, dyeColorCode: value('dyeColorCode') })); delete ui.sampleResultDraftsByTask[found.task.taskId]; selectCurrentSamplingStep(found.record.samplingTaskId) }, '本次工作已提交。'); return true }
+  if (action === 'repair-process-orders') { const taskId = node.dataset.taskId || ''; await run(async () => { await runPcsRecordCommand(() => repairEngineeringIndependentProfessionalTaskProcessOrders({ taskId, actor: ADMINISTRATOR })) }, '加工单关联已按当前方案重新生成。'); return true }
   return false
 }
 
@@ -1212,7 +1217,7 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   if (createDesignUpload) {
     const files = Array.from(createDesignUpload.files || [])
     if (!files.length) return true
-    setFeedback('正在读取并保存设计稿…')
+    setFeedback('正在读取设计稿…')
     refreshDialogs()
     void captureEngineeringUploadedFiles({ files, purpose: 'DESIGN_IMAGE', actor: { userId: BUYER.userId, userName: BUYER.userName, teamName: '买手' } })
       .then((saved) => { ui.createDraft.designFiles.push(...saved); setFeedback('设计稿已读取，将随草稿或任务一起保存。'); refreshDialogs() })
@@ -1223,10 +1228,10 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
   if (createPatternUpload) {
     const files = Array.from(createPatternUpload.files || [])
     if (!files.length) return true
-    setFeedback('正在读取并保存基码纸样…')
+    setFeedback('正在读取基码纸样…')
     refreshDialogs()
     void captureEngineeringUploadedFiles({ files, purpose: 'PATTERN_SOURCE', actor: { userId: BUYER.userId, userName: BUYER.userName, teamName: '买手' } })
-      .then((saved) => { ui.createDraft.reusedPatternFiles.push(...saved); setFeedback('基码纸样已真实读取并保存。'); refreshDialogs() })
+      .then((saved) => { ui.createDraft.reusedPatternFiles.push(...saved); setFeedback('基码纸样已读取，将随草稿或任务一起保存。'); refreshDialogs() })
       .catch((error) => { setFeedback(error instanceof Error ? error.message : '基码纸样上传失败。', false); refreshDialogs() })
     return true
   }
@@ -1238,7 +1243,7 @@ export function handlePcsIndependentSamplingInput(target: HTMLInputElement | HTM
     setFeedback('正在读取并保存新的设计稿…')
     rerender()
     void captureEngineeringUploadedFiles({ files, purpose: 'DESIGN_IMAGE', actor: { userId: ADMINISTRATOR.userId, userName: ADMINISTRATOR.userName, teamName: '管理员' } })
-      .then((saved) => { replaceEngineeringIndependentDesignFiles({ samplingTaskId, designFiles: saved, actor: ADMINISTRATOR }); setFeedback('新设计稿已保存，历史版本继续保留。'); rerender() })
+      .then(async (saved) => { await runPcsRecordCommand(() => replaceEngineeringIndependentDesignFiles({ samplingTaskId, designFiles: saved, actor: ADMINISTRATOR })); setFeedback('新设计稿已保存，历史版本继续保留。'); rerender() })
       .catch((error) => { setFeedback(error instanceof Error ? error.message : '设计稿替换失败。', false); rerender() })
     return true
   }

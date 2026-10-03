@@ -1,3 +1,8 @@
+import { chromium } from '@playwright/test'
+import { PCS_LEGACY_KEYS, pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import { listEngineeringMasterPriorResultCandidates } from '../src/data/pcs-engineering-master-repository.ts'
+import { resetAndGetProductionPreparationStyle } from './helpers/pcs-engineering-design-revision-fixture.ts'
+import { createTestingOrder, updateTestingOrder } from '../src/data/pcs-testing-order-repository.ts'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
@@ -39,7 +44,7 @@ import type { TechnicalDataVersionContent } from '../src/data/pcs-technical-data
 resetStyleArchiveRepository()
 resetEngineeringMasterRepository()
 resetTechnicalDataVersionRepository()
-const style = listStyleArchives()[0]
+const style = resetAndGetProductionPreparationStyle()
 assert.ok(style)
 const master = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: style.styleId,
@@ -110,7 +115,21 @@ const bomRows = [{
   insidePatternDesignId: '',
   insidePatternDesignIds: [],
 }] satisfies BomItemRow[]
-const linked = applyEngineeringTaskLinkageFromBomForTechnicalVersion(linkedTechnicalVersionId, bomRows)
+const browser = await chromium.launch({ headless: true })
+let linked: Awaited<ReturnType<typeof applyEngineeringTaskLinkageFromBomForTechnicalVersion>>
+try {
+  const page = await browser.newPage()
+  await page.addInitScript('globalThis.__name = (value) => value')
+  await page.goto('http://127.0.0.1:5173/pcs/testing/orders')
+  await page.getByRole('heading', { name: '测款单', exact: true }).waitFor()
+  linked = await page.evaluate(async ({ snapshots, versionId, rows }) => {
+    const rt = await import('/src/data/pcs-record-runtime.ts')
+    await rt.ensurePcsRecordState()
+    await rt.runPcsRecordCommand(() => { for (const [key, raw] of snapshots) rt.pcsRecordStore.setItem(key, raw) })
+    return await (await import('/src/pages/tech-pack/context.ts')).applyEngineeringTaskLinkageFromBomForTechnicalVersion(versionId, rows)
+  }, { snapshots: PCS_LEGACY_KEYS.map(key => [key, pcsRecordStore.getItem(key)]).filter(([,raw]) => raw !== null), versionId: linkedTechnicalVersionId, rows: bomRows })
+} finally { await browser.close() }
+for (const task of linked!.masterOrder.tasks) updateEngineeringTaskRecord(master.masterOrderId, task.taskId, stored => Object.assign(stored, task))
 
 assert.equal(linked?.masterOrder.masterOrderId, master.masterOrderId)
 assert.equal(
@@ -127,7 +146,7 @@ const persistBlock = contextSource.slice(
 )
 assert.match(
   persistBlock,
-  /saveTechnicalDataVersionContentWithEngineeringLinkage\([\s\S]*state\.currentTechnicalVersionId,[\s\S]*state\.bomItems/,
+  /saveTechnicalDataVersionContentWithEngineeringLinkage\([\s\S]*state\.currentTechnicalVersionId!?,[\s\S]*state\.bomItems/,
   '真实技术包保存链必须通过跨仓原子联动入口',
 )
 assert.doesNotMatch(persistBlock, /applyEngineeringTaskLinkageFromBomForTechnicalVersion\(/, '页面保存链不得分别写两个仓库')
@@ -151,8 +170,11 @@ assert.throws(
   '无工程权威来源的技术包不得先写入再尝试联动',
 )
 
-const secondStyle = listStyleArchives().find((item) => item.styleId !== style.styleId)
+const secondStyle = listStyleArchives().find((item) => item.styleId !== style.styleId && listEngineeringMasterPriorResultCandidates(item.styleCode, 'PURE_WOVEN').some(candidate => candidate.engineeringTaskType === 'BASE_PATTERN_WOVEN'))
 assert.ok(secondStyle)
+const testingFixture = createTestingOrder({ styleId: secondStyle.styleId })
+assert.ok(testingFixture.ok)
+updateTestingOrder(testingFixture.order!.testingOrderId, { status: '已结束', bulkDecision: '是' }, '专项测试', '设置测试资格')
 const secondMaster = publishEngineeringMasterOrder(createEngineeringMasterOrder({
   styleId: secondStyle.styleId,
   styleCode: secondStyle.styleCode,
@@ -282,11 +304,11 @@ function captureAtomicStores() {
     technical: getTechnicalDataVersionStoreSnapshot(),
     engineering: getEngineeringMasterOrderStoreSnapshot(),
     relation: getProjectRelationStoreSnapshot(),
-    style: captureStyleArchiveRepositoryState(),
     project: getProjectStoreSnapshot(),
     archive: getProjectArchiveStoreSnapshot(),
     reviewLogs: listTechPackVersionLogs(),
     reviewNotifications: listTechPackReviewNotifications(),
+    style: captureStyleArchiveRepositoryState(),
   }
 }
 
@@ -370,6 +392,50 @@ saveTechnicalDataVersionContentWithEngineeringLinkage(
 )
 assert.equal(getTechnicalDataVersionById(genericNonBomVersionId)?.buyerReview?.status, '审核-已通过', '打样数量、用量单位同值及非 BOM 内容变化不得触发复审')
 
+async function assertBrowserAtomicFailure(versionId: string, rows: BomItemRow[], patch: Partial<TechnicalDataVersionContent>, mode: 'review' | 'technical' | 'engineering', expected: RegExp) {
+  const browser = await chromium.launch({ headless: true })
+  try {
+    const page = await browser.newPage()
+    await page.addInitScript('globalThis.__name = (value) => value')
+    await page.goto('http://127.0.0.1:5173/pcs/testing/orders')
+    await page.getByRole('heading', { name: '测款单', exact: true }).waitFor()
+    const error = await page.evaluate(async ({ snapshots, versionId, rows, patch, mode }) => {
+      const rt = await import('/src/data/pcs-record-runtime.ts'), db = await import('/src/data/pcs-record-db.ts')
+      const context = await import('/src/pages/tech-pack/context.ts')
+      const writeback = await import('/src/data/pcs-project-technical-data-writeback.ts')
+      const master = await import('/src/data/pcs-engineering-master-repository.ts')
+      const style = await import('/src/data/pcs-style-archive-repository.ts')
+      const review = await import('/src/data/pcs-tech-pack-bom-price-review-invalidation.ts')
+      await rt.ensurePcsRecordState()
+      await rt.runPcsRecordCommand(() => { for (const [key, raw] of snapshots) rt.pcsRecordStore.setItem(key, raw) })
+      const technical = await import('/src/data/pcs-technical-data-version-repository.ts')
+      const relation = await import('/src/data/pcs-project-relation-repository.ts')
+      const project = await import('/src/data/pcs-project-repository.ts')
+      const archive = await import('/src/data/pcs-project-archive-repository.ts')
+      const captureSix = () => JSON.stringify({ technical: technical.getTechnicalDataVersionStoreSnapshot(), engineering: master.getEngineeringMasterOrderStoreSnapshot(), relations: relation.getProjectRelationStoreSnapshot(), projects: project.getProjectStoreSnapshot(), archives: archive.getProjectArchiveStoreSnapshot(), styles: style.listStyleArchives() })
+      const beforeSix = captureSix()
+      const nativeBefore = JSON.stringify(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)]))
+      const before = JSON.stringify((await db.readPcsRecords()).records)
+      const beforeMaster = JSON.stringify(master.getEngineeringMasterOrderStoreSnapshot())
+      const beforeStyles = JSON.stringify(style.listStyleArchives())
+      if (mode === 'review') review.setBomPriceReviewInvalidationFailureForTesting(versionId)
+      const operations = mode === 'technical' ? { saveTechnicalContent: (id, patch, operator) => { writeback.saveTechnicalDataVersionContent(id, patch, operator); throw new Error('模拟技术包保存中途失败') } }
+        : mode === 'engineering' ? { applyEngineeringTasks: (id, rows) => { master.applyBomRequirementsToEngineeringTasks(id, rows); throw new Error('模拟工程同步失败') } } : {}
+      let failure = ''
+      try { await rt.runPcsRecordCommand(() => context.saveTechnicalDataVersionContentWithEngineeringLinkage(versionId, rows, patch, '买手A', operations)) }
+      catch (error) { failure = String(error) }
+      finally { review.setBomPriceReviewInvalidationFailureForTesting(null) }
+      if (JSON.stringify((await db.readPcsRecords()).records) !== before) throw new Error('跨仓失败后 IndexedDB 记录未完整回滚')
+      if (JSON.stringify(master.getEngineeringMasterOrderStoreSnapshot()) !== beforeMaster) throw new Error('跨仓失败后主单工作副本未回滚')
+      if (JSON.stringify(style.listStyleArchives()) !== beforeStyles) throw new Error('跨仓失败后款式投影未回滚')
+      if (captureSix() !== beforeSix) throw new Error('六类业务仓读取结果未完整回滚')
+      if (JSON.stringify(Object.keys(localStorage).sort().map(key => [key, localStorage.getItem(key)])) !== nativeBefore) throw new Error('失败动作写入了旧存储')
+      return failure
+    }, { snapshots: PCS_LEGACY_KEYS.map(key => [key, pcsRecordStore.getItem(key)]).filter(([, raw]) => raw !== null), versionId, rows, patch, mode })
+    assert.match(error, expected)
+  } finally { await browser.close() }
+}
+
 const genericInvalidationFailureVersionId = createSourceVersion('GENERIC-INVALIDATION-FAIL', master, style, {
   ...content,
   bomItems: initialTechnicalBomItems,
@@ -378,15 +444,11 @@ markTechnicalVersionApproved(genericInvalidationFailureVersionId)
 const allStoresBeforeInvalidationFailure = captureAtomicStores()
 setBomPriceReviewInvalidationFailureForTesting(genericInvalidationFailureVersionId)
 try {
-  assert.throws(
-    () => saveTechnicalDataVersionContentWithEngineeringLinkage(
-      genericInvalidationFailureVersionId,
-      bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 })),
-      { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, sampleQuantity: (item.sampleQuantity ?? 1) + 1 })) },
-      '买手A',
-    ),
-    /模拟 BOM 与价格审核失效写入失败/,
-    '审核失效写入失败必须中断整个通用保存事务',
+  await assertBrowserAtomicFailure(
+    genericInvalidationFailureVersionId,
+    bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 })),
+    { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, sampleQuantity: (item.sampleQuantity ?? 1) + 1 })) },
+    'review', /模拟 BOM 与价格审核失效写入失败/,
   )
 } finally {
   setBomPriceReviewInvalidationFailureForTesting(null)
@@ -413,21 +475,8 @@ assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringSnapshotBe
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalSnapshotBeforeSaveFailure, '技术包保存失败必须恢复技术版本仓')
 
 const allStoresBeforeTechnicalSideEffectFailure = captureAtomicStores()
-assert.throws(
-  () => saveTechnicalDataVersionContentWithEngineeringLinkage(
-    atomicVersionId,
-    bomRows,
-    { patternDesc: '技术包保存副作用不应残留' },
-    '买手A',
-    {
-      saveTechnicalContent: (technicalVersionId, patch, operatorName) => {
-        saveTechnicalDataVersionContent(technicalVersionId, patch, operatorName)
-        throw new Error('模拟技术包保存中途失败')
-      },
-    },
-  ),
-  /模拟技术包保存中途失败/,
-)
+await assertBrowserAtomicFailure(atomicVersionId, bomRows, { patternDesc: '技术包保存副作用不应残留' }, 'technical', /模拟技术包保存中途失败/)
+
 assertAtomicStoresEqual(allStoresBeforeTechnicalSideEffectFailure, '技术包保存中途失败必须恢复所有副作用仓')
 
 const applyFailureVersionId = createSourceVersion('APPLY-FAIL-AFTER-REVIEW', master, style, {
@@ -438,21 +487,13 @@ markTechnicalVersionApproved(applyFailureVersionId)
 const engineeringSnapshotBeforeApplyFailure = getEngineeringMasterOrderStoreSnapshot()
 const technicalSnapshotBeforeApplyFailure = getTechnicalDataVersionStoreSnapshot()
 const allStoresBeforeApplyFailure = captureAtomicStores()
-assert.throws(
-  () => saveTechnicalDataVersionContentWithEngineeringLinkage(
-    applyFailureVersionId,
-    bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 })),
-    { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, sampleQuantity: (item.sampleQuantity ?? 1) + 1 })) },
-    '买手A',
-    {
-      applyEngineeringTasks: (masterOrderId, rows) => {
-        applyBomRequirementsToEngineeringTasks(masterOrderId, rows)
-        throw new Error('模拟工程同步失败')
-      },
-    },
-  ),
-  /模拟工程同步失败/,
+await assertBrowserAtomicFailure(
+  applyFailureVersionId,
+  bomRows.map((row) => ({ ...row, sampleQuantity: (row.sampleQuantity ?? 1) + 1 })),
+  { bomItems: initialTechnicalBomItems.map((item) => ({ ...item, sampleQuantity: (item.sampleQuantity ?? 1) + 1 })) },
+  'engineering', /模拟工程同步失败/,
 )
+
 assert.deepEqual(getEngineeringMasterOrderStoreSnapshot(), engineeringSnapshotBeforeApplyFailure, '工程同步失败必须恢复工程仓')
 assert.deepEqual(getTechnicalDataVersionStoreSnapshot(), technicalSnapshotBeforeApplyFailure, '工程同步失败必须恢复技术版本仓')
 assertAtomicStoresEqual(allStoresBeforeApplyFailure, '技术保存成功后工程同步失败必须恢复所有副作用仓')

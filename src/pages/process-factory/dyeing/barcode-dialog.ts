@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { escapeHtml as e } from '../../../utils.ts'
 import { renderSecondaryButton } from '../../../components/ui/button.ts'
 import { renderCode128Barcode } from '../../../components/real-barcode.ts'
@@ -94,7 +95,7 @@ function preview(ids: string[]) {
 export function openDyeBarcodeDialog(id: string, snapshot?: DyeWorkOrderOnlineRow, onClose?: () => void) {
   document.querySelector('[data-dye-output-root]')?.remove(); root()?.remove()
   afterClose = onClose
-  orderId = id; currentRow = snapshot ?? listDyeWorkOrderOnlineRows().find(row => row.dyeOrderId === id); from = to = dateFrom = dateTo = keyword = ''; page = 1; selected.clear()
+  orderId = id; currentRow = snapshot ?? listDyeWorkOrderOnlineRows({workOrderId:id}).find(row => row.dyeOrderId === id); from = to = dateFrom = dateTo = keyword = ''; page = 1; selected.clear()
   if(currentRow?.isYarn){window.location.href=`/fcs/craft/dyeing/yarn-shipments?orderId=${encodeURIComponent(id)}`;return}
   const el = document.createElement('div'); el.dataset.dyeBarcodeRoot = ''; el.dataset.skipPageRerender = 'true'; el.className = 'fixed inset-0 z-[110] flex items-center justify-center bg-black/40 p-4'; el.tabIndex = -1
   el.innerHTML = `<section role="dialog" aria-modal="true" aria-label="打印条码" class="flex max-h-[94vh] w-full max-w-[1500px] flex-col overflow-hidden rounded-lg bg-white shadow-xl"><header class="flex items-center justify-between border-b p-3"><h2 class="font-semibold">打印条码 — ${e(rowInfo().workOrderNo)}</h2>${button('关闭','close')}</header><p role="alert" class="px-4 text-sm text-red-700" data-dye-barcode-error></p><main class="overflow-auto p-4" data-dye-barcode-body>${renderBody()}</main></section>`
@@ -103,7 +104,7 @@ export function openDyeBarcodeDialog(id: string, snapshot?: DyeWorkOrderOnlineRo
   el.addEventListener('input', event=>{const t=event.target as HTMLInputElement; if(t.dataset.dyeBarcodeField==='importText'){importRows=[];el.querySelector('[data-dye-barcode-import-preview]')!.innerHTML=''}; if(t.dataset.dyeBarcodeField && el.querySelector('[data-dye-barcode-editor]')) convert(t.dataset.dyeBarcodeField)})
   document.querySelector('[data-dye-work-orders-root], [data-dye-output-page]')?.appendChild(el); el.focus()
 }
-export function handleDyeBarcodeEvent(target: HTMLElement): boolean {
+export async function handleDyeBarcodeEvent(target: HTMLElement): Promise<boolean> {
   if (!target.closest('[data-dye-barcode-root]')) return false
   const checkbox = target.closest<HTMLInputElement>('[data-dye-barcode-select]')
   if (checkbox) { checkbox.checked ? selected.add(checkbox.dataset.dyeBarcodeSelect!) : selected.delete(checkbox.dataset.dyeBarcodeSelect!); const label=root()?.querySelector('[data-dye-barcode-selected]'); if(label) label.textContent=`已选 ${selected.size}`; const head=root()?.querySelector<HTMLInputElement>('[data-dye-barcode-action="select-page"]'); if(head){const visible=filtered().slice((page-1)*pageSize,page*pageSize);head.checked=visible.length>0&&visible.every(r=>selected.has(r.id));head.indeterminate=!head.checked&&visible.some(r=>selected.has(r.id))}; return true }
@@ -127,12 +128,12 @@ export function handleDyeBarcodeEvent(target: HTMLElement): boolean {
       for(const key of ['vatNo','remark'] as const)if(editorMode!=='batch'||value(key))patch[key]=value(key)
       if(!Object.keys(patch).length)throw new Error('请至少填写一个需要修改的字段。')
       const edits=(editorMode==='edit'||editorMode==='batch')?editorIds.map(id=>({id,...patch})):[patch]
-      saveDyeOutputRolls(orderId,edits);selected.clear();closeInner()
+      await runDesignRevisionFcsCommand(orderId, () => saveDyeOutputRolls(orderId,edits));selected.clear();closeInner()
     }
     if(action==='delete'||action==='stage'){const ids=requireSelection();modal(action==='delete'?'确认删除条码':'确认下架到待出库区',`<p>本次选择 ${ids.length} 卷。${action==='delete'?'仅允许删除未被交出单占用的卷。':'下架后显示待出库区，不表示接收方已入库。'}</p>`,button('确认',`confirm-${action}`)+button('取消','close-inner'));return true}
-    if(action==='confirm-delete'){deleteDyeOutputRolls(orderId,requireSelection());selected.clear();closeInner()}
-    if(action==='confirm-stage'){markDyeOutputRolls(orderId,requireSelection(),'stage');closeInner()}
-    if(action==='record-printed'){markDyeOutputRolls(orderId,printingIds,'print');closeInner()}
+    if(action==='confirm-delete'){await runDesignRevisionFcsCommand(orderId, () => deleteDyeOutputRolls(orderId,requireSelection()));selected.clear();closeInner()}
+    if(action==='confirm-stage'){await runDesignRevisionFcsCommand(orderId, () => markDyeOutputRolls(orderId,requireSelection(),'stage'));closeInner()}
+    if(action==='record-printed'){await runDesignRevisionFcsCommand(orderId, () => markDyeOutputRolls(orderId,printingIds,'print'));closeInner()}
     if(action==='print-one'||action==='print-selected'){preview(action==='print-one'?[id]:requireSelection());return true}
     if(action==='print'){const frame=root()?.querySelector<HTMLIFrameElement>('[data-dye-barcode-print]');if(!frame?.contentDocument?.querySelector('svg'))throw new Error('标签仍在加载，请稍后打印。');modalPrint(frame);return true}
     if(action==='import'){modal('导入细码',`<p class="mb-3 text-xs">粘贴 CSV / Excel 细码，每行：卷长,实称重量KG,克重,幅宽cm,缸号,备注。支持首行中文表头，最多 500 卷。所有行校验通过后才保存。</p><textarea data-dye-barcode-field="importText" class="min-h-48 w-full rounded border p-2" aria-label="细码内容" placeholder="23,4.10,130,150,G001,第一卷"></textarea><div data-dye-barcode-import-preview></div>`,button('校验预览','validate-import')+button('确认导入','commit-import')+button('取消','close-inner'));return true}
@@ -141,7 +142,7 @@ export function handleDyeBarcodeEvent(target: HTMLElement): boolean {
       const parsed=lines.map((line,i)=>{const cells=line.split(line.includes('\t')?'\t':',').map(v=>v.trim());if(cells.length<4||cells.slice(0,4).some(v=>v===''||!Number.isFinite(Number(v))||Number(v)<0)||Number(cells[0])<=0)throw new Error(`第 ${i+1} 行：请填写有效卷长、实称重量、克重、幅宽；卷长须大于 0。`);return{qty:Number(cells[0]),weightKg:Number(cells[1]),gsm:Number(cells[2]),widthCm:Number(cells[3]),vatNo:cells[4]||'',remark:cells.slice(5).join(',')}})
       importRows=parsed;root()!.querySelector('[data-dye-barcode-import-preview]')!.innerHTML=`<p class="my-2 text-sm text-green-700">校验通过 ${parsed.length} 卷，总长度 ${parsed.reduce((s,r)=>s+r.qty,0).toFixed(2)} ${e(rowInfo().qtyUnit)}</p>`+table(['卷长','实称重量','克重','幅宽','缸号'],parsed.slice(0,10).map(r=>[String(r.qty),String(r.weightKg),String(r.gsm),String(r.widthCm),e(r.vatNo)]));return true
     }
-    if(action==='commit-import'){if(!importRows.length)throw new Error('请先校验预览。');saveDyeOutputRolls(orderId,importRows);closeInner();selected.clear()}
+    if(action==='commit-import'){if(!importRows.length)throw new Error('请先校验预览。');await runDesignRevisionFcsCommand(orderId, () => saveDyeOutputRolls(orderId,importRows));closeInner();selected.clear()}
     refresh()
   }catch(error){showError(error instanceof Error?error.message:String(error))}
   return true

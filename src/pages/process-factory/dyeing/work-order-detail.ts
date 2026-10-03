@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { listDyeWorkOrderOnlineRows } from '../../../data/fcs/dye-work-order-online-view.ts'
 import { renderDyeWorkOrderTimes } from './work-order-times.ts'
 import {getDyeingQuantityFacts} from '../../../data/fcs/dyeing-quantity-facts.ts'
@@ -56,7 +57,7 @@ import { getProcessWorkOrderSourceDetailRows } from '../../process-work-orders/p
 import { renderProcessOrderTaskRelations } from '../../process-order-task-relations.ts'
 
 function renderTimeOverview(dyeOrderId: string): string {
-  const row = listDyeWorkOrderOnlineRows().find(item => item.dyeOrderId === dyeOrderId || item.workOrderNo === dyeOrderId)
+  const row = listDyeWorkOrderOnlineRows({ workOrderId: dyeOrderId })[0]
   if (!row) return ''
   return renderSection('业务时间', `<details data-skip-page-rerender="true"><summary class="cursor-pointer text-sm text-blue-700">查看四段时间及逐笔记录</summary><div class="mt-3 max-w-xl">${renderDyeWorkOrderTimes(row.timeSections, true)}</div></details>`)
 }
@@ -131,7 +132,7 @@ function renderDyeReceiptPanel(orderId: string): string {
     <a href="/fcs/craft/dyeing/pending-receipts?orderId=${encodeURIComponent(orderId)}" class="inline-block mt-3 rounded bg-primary px-3 py-2 text-primary-foreground">进入本厂待接收</a>${canNextBatch ? `<details class="mt-3"><summary>开始下一批染色</summary><label class="mt-2 block text-sm">本批投入（${escapeHtml(order.qtyUnit)}）<input data-dye-next-qty type="number" min="0" step="any" class="ml-2 h-9 rounded border px-2"></label><label class="mt-2 block text-sm">染缸编号<input data-dye-next-vat class="ml-2 h-9 rounded border px-2"></label><button data-dye-next-confirm class="mt-2 rounded border px-3 py-2">开始本批染色</button></details>` : ''}<p data-dye-receipt-feedback class="mt-2 text-sm" role="status"></p></section>`
 }
 
-export function handleDyeWorkOrderReceiptDetailEvent(target: HTMLElement): boolean {
+export async function handleDyeWorkOrderReceiptDetailEvent(target: HTMLElement): Promise<boolean> {
   if (target.closest('[data-dye-receipt-confirm], [data-dye-next-confirm]')) {
     const panel = target.closest<HTMLElement>('[data-dye-receipt-region]')
     const orderId = panel?.dataset.orderId || ''
@@ -142,8 +143,8 @@ export function handleDyeWorkOrderReceiptDetailEvent(target: HTMLElement): boole
       if (!order || !session) throw new Error('请先登录当前工厂操作账号。')
       const actorError = validateWaterSolublePdaActor(session, order.dyeFactoryId, 'OPERATE')
       if (actorError) throw new Error(actorError)
-      if (target.closest('[data-dye-next-confirm]')) startDyeing(orderId, { inputQty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-next-qty]')?.value), dyeVatNo: panel?.querySelector<HTMLInputElement>('[data-dye-next-vat]')?.value || '', operatorName: session.userName })
-      else receiveDyeMaterial(orderId, { qty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-receipt-qty]')?.value), receiptId: panel?.dataset.receiptId || '', upstreamRecordId: panel?.querySelector<HTMLSelectElement>('[data-dye-receipt-source]')?.value, operatorName: session.userName })
+      if (target.closest('[data-dye-next-confirm]')) await runDesignRevisionFcsCommand(orderId, () => startDyeing(orderId, { inputQty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-next-qty]')?.value), dyeVatNo: panel?.querySelector<HTMLInputElement>('[data-dye-next-vat]')?.value || '', operatorName: session.userName }))
+      else await runDesignRevisionFcsCommand(orderId, () => receiveDyeMaterial(orderId, { qty: Number(panel?.querySelector<HTMLInputElement>('[data-dye-receipt-qty]')?.value), receiptId: panel?.dataset.receiptId || '', upstreamRecordId: panel?.querySelector<HTMLSelectElement>('[data-dye-receipt-source]')?.value, operatorName: session.userName }))
       if (panel) { panel.outerHTML = renderDyeReceiptPanel(orderId); const next = document.querySelector<HTMLElement>('[data-dye-receipt-feedback]'); if(next) next.textContent = target.closest('[data-dye-next-confirm]') ? '本批染色已开始。' : '本次接收已保存，原料已入待加工仓。' }
     } catch (error) { if (feedback) feedback.textContent = error instanceof Error ? error.message : '接收失败，请重试。' }
     return true
@@ -399,7 +400,9 @@ function applyWebActionFromUrl(orderId: string): void {
   }
 }
 
-function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderId: string): string {
+type DifferenceRow = Pick<ProcessHandoverDifferenceRecord, 'differenceRecordId' | 'differenceRecordNo' | 'expectedObjectQty' | 'actualObjectQty' | 'diffObjectQty' | 'qtyUnit'> & { differenceType: string; status: string; handlingResult?: string; nextAction?: string }
+
+function renderDifferenceRows(records: DifferenceRow[], orderId: string, readOnly = false): string {
   const baseHref = `/fcs/craft/dyeing/work-orders/${encodeURIComponent(orderId)}?tab=exception`
   return records
     .map((record) => `
@@ -412,13 +415,13 @@ function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderI
         <td class="px-3 py-3 text-sm">${escapeHtml(record.status)}</td>
         <td class="px-3 py-3 text-sm">${escapeHtml(record.handlingResult || record.nextAction || '待平台处理')}</td>
         <td class="px-3 py-3">
-          <div class="flex flex-wrap gap-2">
+          ${readOnly ? '<span class="text-xs text-muted-foreground">依据交接实收记录核对</span>' : `<div class="flex flex-wrap gap-2">
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=confirm`)}">确认差异继续流转</button>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=rework`)}">要求重新交出</button>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=processing`)}">标记平台处理中</button>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(`${baseHref}&differenceId=${record.differenceRecordId}&differenceAction=close`)}">关闭记录</button>
             <button class="rounded-md border px-2 py-1 text-xs hover:bg-muted" data-nav="${escapeHtml(buildHandoverDifferenceRequestPrintLink(record.differenceRecordId))}">打印差异处理申请单</button>
-          </div>
+          </div>`}
         </td>
       </tr>
     `)
@@ -426,8 +429,7 @@ function renderDifferenceRows(records: ProcessHandoverDifferenceRecord[], orderI
 }
 
 export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string {
-  applyDifferenceActionFromUrl()
-  applyWebActionFromUrl(dyeOrderId)
+  if (getDyeWorkOrderById(dyeOrderId)?.sourceSnapshot?.sourceType !== 'DESIGN_REVISION') { applyDifferenceActionFromUrl(); applyWebActionFromUrl(dyeOrderId) }
   const order = getProcessWorkOrderById(dyeOrderId) || getProcessWorkOrderByNo(dyeOrderId)
   if (!order || order.processType !== 'DYE' || !order.dyePayload) {
     const domainOrder = getDyeWorkOrderById(dyeOrderId)
@@ -482,8 +484,23 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
   const quantityFact=getDyeingQuantityFacts().find(f=>f.order.dyeOrderId===order.workOrderId)
   const processHandoverRecords=(quantityFact?.records??[]).map(r=>({handoverRecordId:r.recordId,handoverRecordNo:r.handoverRecordNo,handoverAt:r.factorySubmittedAt,handoverObjectQty:r.submittedQty??0,receiveObjectQty:r.receiverWrittenQty,qtyUnit:order.plannedUnit,receiveAt:r.receiverWrittenAt,remark:r.receiverWrittenAt?'下游已登记实际接收':'等待下游登记实收',status:r.status}))
   const processReviewRecords=(quantityFact?.actual??[]).map(r=>({reviewStatus:Math.abs((r.receiverWrittenQty??0)-(r.submittedQty??0))>.000001?'HANDOVER_DIFFERENCE':'FULL_HANDOVER',expectedObjectQty:r.submittedQty??0,actualObjectQty:r.receiverWrittenQty??0,diffObjectQty:(r.receiverWrittenQty??0)-(r.submittedQty??0),qtyUnit:order.plannedUnit,reviewerName:r.receiverWrittenBy,reviewedAt:r.receiverWrittenAt,reason:r.receiverRemark,nextAction:'按实际接收记录核对'}))
-  const processDifferenceRecords = getDifferenceRecordsByWorkOrderId(order.workOrderId)
-  const dyeStatistics = getDyeingExecutionStatistics({ workOrderId: order.workOrderId })
+  const isDesignRevision = domainOrder?.sourceType === 'DESIGN_REVISION'
+  const actualDifferences = (quantityFact?.actual ?? []).filter(record => Math.abs((record.receiverWrittenQty ?? 0) - (record.submittedQty ?? 0)) > 0.000001)
+  // 改款交接的数量事实来自实际回传，不混用生产仓库的演示差异处理记录。
+  const processDifferenceRecords: DifferenceRow[] = isDesignRevision
+    ? actualDifferences.map(record => ({
+      differenceRecordId: record.recordId,
+      differenceRecordNo: record.handoverRecordNo || record.recordId,
+      expectedObjectQty: record.submittedQty ?? 0,
+      actualObjectQty: record.receiverWrittenQty ?? 0,
+      diffObjectQty: (record.receiverWrittenQty ?? 0) - (record.submittedQty ?? 0),
+      qtyUnit: order.plannedUnit,
+      differenceType: (record.receiverWrittenQty ?? 0) < (record.submittedQty ?? 0) ? '少收' : '多收',
+      status: '已登记实收',
+      handlingResult: record.receiverRemark || '请核对原交接记录',
+    }))
+    : getDifferenceRecordsByWorkOrderId(order.workOrderId)
+  const differenceHandoverCount = isDesignRevision ? actualDifferences.length : getDyeingExecutionStatistics({ workOrderId: order.workOrderId }).differenceHandoverCount
   const formulaRows = dye.formulaRecords
     .flatMap((formula) =>
       formula.lines.map((line) => `
@@ -689,7 +706,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
         <div class="mb-4 grid gap-3 md:grid-cols-3">
           <div class="rounded-xl border bg-slate-50/60 p-3">
             <div class="text-xs text-muted-foreground">有差异交出记录数</div>
-            <div class="mt-1 text-lg font-semibold">${dyeStatistics.differenceHandoverCount}</div>
+            <div class="mt-1 text-lg font-semibold">${differenceHandoverCount}</div>
           </div>
           <div class="rounded-xl border bg-slate-50/60 p-3">
             <div class="text-xs text-muted-foreground">${escapeHtml(dyeQuantityLabel(order, '已交出', 'DYE_SUBMIT_HANDOVER'))}</div>
@@ -733,7 +750,7 @@ export function renderCraftDyeingWorkOrderDetailPage(dyeOrderId: string): string
                 <th class="px-3 py-2 font-medium">操作</th>
               </tr>
             </thead>
-            <tbody>${renderDifferenceRows(processDifferenceRecords, order.workOrderId) || '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无数量差异记录</td></tr>'}</tbody>
+            <tbody>${renderDifferenceRows(processDifferenceRecords, order.workOrderId, isDesignRevision) || '<tr><td class="px-3 py-8 text-center text-sm text-muted-foreground" colspan="8">暂无数量差异记录</td></tr>'}</tbody>
           </table>
         </div>
       `,

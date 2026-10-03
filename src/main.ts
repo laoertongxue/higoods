@@ -865,6 +865,11 @@ function includeTmfStorageWarning(pageContent: string): string {
 let productionEntryHydration: Promise<void> | undefined
 let cuttingEntryHydration: Promise<void> | undefined
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
+  // 商品档案独立读取 PCS 记录；生产准备等依赖正式生产事实的页面仍走下面的初始化。
+  if (/^\/pcs\/products\/(styles|specifications)(\/|$)/.test(normalizedPathname)) {
+    previousRenderedPagePathname = normalizedPathname
+    return
+  }
   // 一次页面会话只初始化一次读视图；保存动作自行在同一快照上读回。
   // 局部输入导致的render不得再次抢占保存/迁移锁，也不得并发初始化。
   productionEntryHydration ??= (async () => {
@@ -940,6 +945,26 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
+    const pcsFirstScreenImages = normalizedPathname === '/pcs/production-preparation/design-revision'
+      ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
+      : normalizedPathname === '/pcs/products/styles' || normalizedPathname === '/pcs/products/specifications'
+        ? ['/materials/pcs-reviewed/shirt-black.jpg', ...(normalizedPathname.endsWith('/styles') ? ['/materials/pcs-reviewed/casual-dress-black.jpg'] : [])]
+        : []
+    for (const src of pcsFirstScreenImages) { const image = new Image(); image.src = src; void image.decode().catch(() => {}) }
+    // 改款加工、收货和 PDA 直达页须先读取同一份已提交资料。
+    if (/^\/pcs\/production-preparation\/(plate-making|artwork|color|display-sample|first-sample)\/[^/]+$/.test(normalizedPathname) || /^\/fcs\/craft\/(dyeing|printing)(\/|$)/.test(normalizedPathname)
+      || /^\/fcs\/production\/changes(\/|$)/.test(normalizedPathname)
+      || /^\/fcs\/pda\/(task-receive|exec|handover|factory-receipts)(\/|$)/.test(normalizedPathname)
+      || (normalizedPathname === '/fcs/print/preview' && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'PRINTING_ROLL_LABEL')) {
+      const [{ ensurePcsRecordState }, { mountPcsLocalData }] = await Promise.all([
+        import('./data/pcs-record-runtime.ts'), import('./pages/pcs-local-data.ts'),
+      ])
+      mountPcsLocalData()
+      try { await ensurePcsRecordState() } catch {
+        return '<div class="rounded border border-amber-300 bg-amber-50 p-6"><h1 class="text-xl font-semibold">本机资料暂时无法读取</h1><p>请通过右下角“本机数据”查看原因并重试。原有资料已保留。</p></div>'
+      }
+    }
     const woolExecution = normalizedPathname.match(/^\/fcs\/pda\/exec\/([^/]+)$/)
     const woolTaskId = woolExecution ? decodeURIComponent(woolExecution[1]) : ''
     const isWoolStageExecution = /:(KNITTING|LINKING)$/.test(woolTaskId)

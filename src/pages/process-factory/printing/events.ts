@@ -1,3 +1,4 @@
+import { runDesignRevisionFcsCommand } from '../../../data/fcs/design-revision-pcs-command.ts'
 import { startPrintingProduction, recordPrintingProductionStage } from '../../../data/fcs/printing-task-domain.ts'
 import { printingDemandFields, printingDocumentVersion, printingProductionStage, printingQuantityGroups, printingPresentationFacts } from './presentation.ts'
 import { printingWorkOrderTimeGroups } from './work-order-times.ts'
@@ -87,7 +88,7 @@ function updateBarcodeSelectionCount(): void {
   document.querySelectorAll<HTMLElement>('[data-printing-barcode-selected-count]').forEach((node) => { node.textContent = `已选 ${count}` })
 }
 
-function submitDialog(): void {
+async function submitDialog(): Promise<void> {
   const dialog = getPrintingDialogState()
   if (!dialog) return
   try {
@@ -99,50 +100,50 @@ function submitDialog(): void {
         if (original && Object.entries(values).every(([key, value]) => original[key as keyof typeof values] === value)) return original
         return { ...values, imageAlt:`${prefix === 'frontPattern' ? '正面' : '反面'}花型 ${values.patternNo}` }
       }
-      updatePrintingOrderInformation(dialog.workOrderId,{ printSide:(fieldValue('printSide') || record.requirement.printSide) as '单面'|'双面',frontPattern:readPattern('frontPattern'),insidePattern:(fieldValue('printSide') || record.requirement.printSide) === '双面' ? readPattern('insidePattern') : undefined,changeReason:fieldValue('changeReason'),craftName:fieldValue('craftName'),type:fieldValue('craftType'),shade:fieldValue('shade'),temperature:fieldValue('temperature'),printerNo:fieldValue('printerNo'),plannedFinishAt:fieldValue('plannedFinishAt'),remark:fieldValue('infoRemark'),operatorName:'印花跟单员'})
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => updatePrintingOrderInformation(dialog.workOrderId,{ printSide:(fieldValue('printSide') || record.requirement.printSide) as '单面'|'双面',frontPattern:readPattern('frontPattern'),insidePattern:(fieldValue('printSide') || record.requirement.printSide) === '双面' ? readPattern('insidePattern') : undefined,changeReason:fieldValue('changeReason'),craftName:fieldValue('craftName'),type:fieldValue('craftType'),shade:fieldValue('shade'),temperature:fieldValue('temperature'),printerNo:fieldValue('printerNo'),plannedFinishAt:fieldValue('plannedFinishAt'),remark:fieldValue('infoRemark'),operatorName:'印花跟单员'}))
       showPrintingToast('印花信息已保存，原打印单请核对重印')
     } else if (dialog.type === 'start-production') {
-      startPrintingProduction(dialog.workOrderId, {id:dialog.receiptId!,qty:numberValue('productionQty'),operatorName:fieldValue('productionOperator')})
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => startPrintingProduction(dialog.workOrderId, {id:dialog.receiptId!,qty:numberValue('productionQty'),operatorName:fieldValue('productionOperator')}))
       showPrintingToast('实际领用已保存，已开始本次生产')
     } else if (dialog.type === 'production-stage') {
       const [stage, action] = fieldValue('productionAction').split(':')
-      recordPrintingProductionStage(dialog.workOrderId, {id:dialog.receiptId!,stage:stage as 'ARTWORK'|'SAMPLE'|'PRINT'|'TRANSFER',action:action as 'START'|'FINISH',qty:fieldValue('productionQty') ? numberValue('productionQty') : undefined,operatorName:fieldValue('productionOperator')})
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => recordPrintingProductionStage(dialog.workOrderId, {id:dialog.receiptId!,stage:stage as 'ARTWORK'|'SAMPLE'|'PRINT'|'TRANSFER',action:action as 'START'|'FINISH',qty:fieldValue('productionQty') ? numberValue('productionQty') : undefined,operatorName:fieldValue('productionOperator')}))
       showPrintingToast('本工序记录已保存')
     } else if (dialog.type === 'assign') {
-      assignPrintingWorkOrder(dialog.workOrderId, { factoryId: fieldValue('factoryId'), operatorName: '生产计划员' })
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => assignPrintingWorkOrder(dialog.workOrderId, { factoryId: fieldValue('factoryId'), operatorName: '生产计划员' }))
       showPrintingToast('已分配加工厂，加工状态进入“待接收投入”')
     } else if (dialog.type === 'change-input') {
       const record = getPrintingWorkOrderById(dialog.workOrderId)
       if (!record) throw new Error('未找到印花加工单')
       const standardUsageText = fieldValue('newStandardUnitUsage')
       const orderUsageText = fieldValue('newOrderUnitUsage')
-      changePrintingInput(dialog.workOrderId, {
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => changePrintingInput(dialog.workOrderId, {
         newSku: fieldValue('newSku'), newMaterialName: fieldValue('newMaterialName'), newImageUrl: fieldValue('newImageUrl'),
         newGsm: numberValue('newGsm'), newWidthCm: numberValue('newWidthCm'),
         newStandardUnitUsage: standardUsageText ? Number(standardUsageText) : null,
         newOrderUnitUsage: orderUsageText ? Number(orderUsageText) : record.usage.calculationMode === 'DIRECT' ? null : undefined,
         newPlannedQty: numberValue('newPlannedQty'), reason: fieldValue('reason'), operatorName: '生产计划员',
-      })
+      }))
       showPrintingToast('加工投入已调整；产出 SKU 未改变，信息单和确认单已标记需重印')
     } else if (dialog.type === 'receive-input') {
       const historicalCorrection = getPrintingWorkOrderById(dialog.workOrderId)?.historicalInputQuantityUnknown
-      if (historicalCorrection) recordPrintingHistoricalInput(dialog.workOrderId, { receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), reason: fieldValue('historicalReason'), operatorName: fieldValue('receiverName'), historicalCompletedRollCount: fieldValue('historicalCompletedRollCount') ? numberValue('historicalCompletedRollCount') : undefined })
+      if (historicalCorrection) await runDesignRevisionFcsCommand(dialog.workOrderId, () => recordPrintingHistoricalInput(dialog.workOrderId, { receivedQty: numberValue('receivedQty'), receivedRollCount: numberValue('receivedRollCount'), reason: fieldValue('historicalReason'), operatorName: fieldValue('receiverName'), historicalCompletedRollCount: fieldValue('historicalCompletedRollCount') ? numberValue('historicalCompletedRollCount') : undefined }))
       else throw new Error('请在待接收中登记实收和库位')
       showPrintingToast(historicalCorrection ? '历史累计投入已补录，原交接记录保持不变' : '本厂实收已保存，等待实际开工')
     } else if (dialog.type === 'complete') {
-      completePrintingWorkOrder(dialog.workOrderId, { batchId:dialog.receiptId,lossQty:fieldValue('lossQty') ? numberValue('lossQty') : undefined,finishOrder:dialogPanel()?.querySelector<HTMLInputElement>('[data-printing-dialog-field="finishOrder"]')?.checked || false,usedQty: numberValue('usedQty'), usedRollCount: numberValue('usedRollCount'), completedQty: numberValue('completedQty'), completedRollCount: numberValue('completedRollCount'), printerNo: fieldValue('printerNo'), operatorName: '印花执行员' })
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => completePrintingWorkOrder(dialog.workOrderId, { batchId:dialog.receiptId,lossQty:fieldValue('lossQty') ? numberValue('lossQty') : undefined,finishOrder:dialogPanel()?.querySelector<HTMLInputElement>('[data-printing-dialog-field="finishOrder"]')?.checked || false,usedQty: numberValue('usedQty'), usedRollCount: numberValue('usedRollCount'), completedQty: numberValue('completedQty'), completedRollCount: numberValue('completedRollCount'), printerNo: fieldValue('printerNo'), operatorName: '印花执行员' }))
       showPrintingToast('本批产出已保存，请按实际逐卷维护数量后交出')
     } else if (dialog.type === 'receive-handover') {
-      receivePrintingHandover(dialog.workOrderId, { receivedQty: numberValue('receiveQty'), receiverName: fieldValue('outputReceiver'), objectionQty: numberValue('objectionQty'), differenceReason: fieldValue('differenceReason') })
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => receivePrintingHandover(dialog.workOrderId, { receivedQty: numberValue('receiveQty'), receiverName: fieldValue('outputReceiver'), objectionQty: numberValue('objectionQty'), differenceReason: fieldValue('differenceReason') }))
       showPrintingToast('下游接收事实已保存；单据仍需人工完成')
     } else if (dialog.type === 'complete-document') {
-      completePrintWorkOrderDocument(dialog.workOrderId, { operatorName: fieldValue('documentCompleter') })
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => completePrintWorkOrderDocument(dialog.workOrderId, { operatorName: fieldValue('documentCompleter') }))
       showPrintingToast('印花加工单已由现场负责人确认完成')
     } else if (dialog.type === 'cancel') {
-      cancelPrintingWorkOrder(dialog.workOrderId, { operatorName: '印花主管', reason: fieldValue('cancelReason') })
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => cancelPrintingWorkOrder(dialog.workOrderId, { operatorName: '印花主管', reason: fieldValue('cancelReason') }))
       showPrintingToast('印花加工单已取消')
     } else if (dialog.type === 'barcode-import') {
-      const count = importPrintingRollLengths(dialog.workOrderId, fieldValue('rollImport'))
+      const count = await runDesignRevisionFcsCommand(dialog.workOrderId, () => importPrintingRollLengths(dialog.workOrderId, fieldValue('rollImport')))
       showPrintingToast(`已导入 ${count} 卷细码`)
       replacePrintingDialog({type:'barcodes',workOrderId:dialog.workOrderId})
       refreshVisiblePage()
@@ -150,16 +151,16 @@ function submitDialog(): void {
     } else if (dialog.type === 'barcode-edit') {
       if (!dialog.barcodeId) throw new Error('未选择卷条码')
       const lengthY = numberValue('lengthY'); const meters = numberValue('meters'); const weightKg = numberValue('weightKg')
-      updatePrintingRollBarcode(dialog.workOrderId, dialog.barcodeId, {
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => updatePrintingRollBarcode(dialog.workOrderId, dialog.barcodeId!, {
         lengthY: lengthY > 0 ? lengthY : undefined, meters: meters > 0 ? meters : undefined, weightKg: weightKg > 0 ? weightKg : undefined,
         weightMeasured:dialogPanel()?.querySelector<HTMLInputElement>('[data-printing-dialog-field="weightMeasured"]')?.checked || false, gsm: numberValue('gsm'), widthCm: numberValue('widthCm'), vatNo: fieldValue('vatNo'), warehouseName: fieldValue('warehouseName'), remark: fieldValue('barcodeRemark'),
-      })
+      }))
       showPrintingToast('卷属性已保存，重量按 KG 三位小数记录')
       replacePrintingDialog({ type: 'barcodes', workOrderId: dialog.workOrderId })
       refreshVisiblePage()
       return
     } else if (dialog.type === 'barcode-batch-edit') {
-      batchUpdatePrintingRollBarcodes(dialog.workOrderId, dialog.selectedBarcodeIds || [], { gsm: numberValue('batchGsm'), widthCm: numberValue('batchWidthCm'), vatNo: fieldValue('batchVatNo'), warehouseName: fieldValue('batchWarehouseName') })
+      await runDesignRevisionFcsCommand(dialog.workOrderId, () => batchUpdatePrintingRollBarcodes(dialog.workOrderId, dialog.selectedBarcodeIds || [], { gsm: numberValue('batchGsm'), widthCm: numberValue('batchWidthCm'), vatNo: fieldValue('batchVatNo'), warehouseName: fieldValue('batchWarehouseName') }))
       showPrintingToast('选中卷属性已批量更新')
       replacePrintingDialog({ type: 'barcodes', workOrderId: dialog.workOrderId })
       refreshVisiblePage()
@@ -235,7 +236,7 @@ function exportCsv(kind: 'export'): void {
   showPrintingToast(`已导出 ${values.length} 条${name}`)
 }
 
-function handlePrintingAction(actionNode: HTMLElement, action: string): boolean {
+async function handlePrintingAction(actionNode: HTMLElement, action: string): Promise<boolean> {
   const workOrderId = actionNode.dataset.workOrderId || document.querySelector<HTMLElement>('[data-printing-work-order-detail-root]')?.dataset.workOrderId || getPrintingDialogState()?.workOrderId || ''
   if (action === 'open-dispatch-pending' || action === 'open-dispatch-documents') { appStore.navigate(`/fcs/craft/printing/${action === 'open-dispatch-pending' ? 'pending-handover' : 'handover-documents'}${workOrderId ? `?workOrderId=${encodeURIComponent(workOrderId)}` : ''}`); return true }
   if (action === 'receive-input' && !getPrintingWorkOrderById(workOrderId)?.historicalInputQuantityUnknown) { appStore.navigate(`/fcs/craft/printing/pending-receipts?workOrderId=${encodeURIComponent(workOrderId)}`); return true }
@@ -248,8 +249,8 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   if(action==='import-barcodes'){replacePrintingDialog({type:'barcode-import',workOrderId});return true}
   if(['copy-barcode','delete-barcodes','outbound-barcodes'].includes(action)) {
     try {
-      if(action==='copy-barcode')copyPrintingRollBarcode(workOrderId,actionNode.dataset.barcodeId || '')
-      else {const ids=selectedBarcodeIds();if(!ids.length)throw new Error('请先选择卷条码');if(!window.confirm(action==='delete-barcodes'?`确认删除所选 ${ids.length} 个卷条码？`:`确认将 ${ids.length} 卷下架到待出库区？`))return true;action==='delete-barcodes'?deletePrintingRollBarcodes(workOrderId,ids):movePrintingRollsToOutboundArea(workOrderId,ids)}
+      if(action==='copy-barcode')await runDesignRevisionFcsCommand(workOrderId, () => copyPrintingRollBarcode(workOrderId,actionNode.dataset.barcodeId || ''))
+      else {const ids=selectedBarcodeIds();if(!ids.length)throw new Error('请先选择卷条码');if(!window.confirm(action==='delete-barcodes'?`确认删除所选 ${ids.length} 个卷条码？`:`确认将 ${ids.length} 卷下架到待出库区？`))return true;action==='delete-barcodes'?await runDesignRevisionFcsCommand(workOrderId, () => deletePrintingRollBarcodes(workOrderId,ids)):await runDesignRevisionFcsCommand(workOrderId, () => movePrintingRollsToOutboundArea(workOrderId,ids))}
       replacePrintingDialog({type:'barcodes',workOrderId});refreshVisiblePage();showPrintingToast('卷条码操作已保存')
     }catch(error){showPrintingToast(error instanceof Error?error.message:'操作失败','error')}
     return true
@@ -257,7 +258,7 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   if (action === 'preview-image') { openImagePreview(actionNode.dataset.imageUrl || '', actionNode.dataset.imageAlt || '业务图片'); return true }
   if (action === 'close-image') { closeImagePreview(); return true }
   if (action === 'close-dialog') { closePrintingDialog(); return true }
-  if (action === 'submit-dialog') { submitDialog(); return true }
+  if (action === 'submit-dialog') { await submitDialog(); return true }
   if (['logs', 'remarks', 'start-production', 'production-stage', 'edit-info', 'assign', 'change-input', 'receive-input', 'complete', 'handover', 'receive-handover', 'complete-document', 'cancel'].includes(action)) {
     if (workOrderId) openPrintingDialog({ type: action as Parameters<typeof openPrintingDialog>[0]['type'], workOrderId })
     return true
@@ -266,7 +267,7 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   if (action === 'edit-barcode') { if (workOrderId) replacePrintingDialog({ type: 'barcode-edit', workOrderId, barcodeId: actionNode.dataset.barcodeId }); return true }
   if (action === 'add-barcode') {
     if (!workOrderId) return true
-    try { addPrintingRollBarcode(workOrderId); replacePrintingDialog({ type: 'barcodes', workOrderId }); refreshVisiblePage(); showPrintingToast('已补充一个草稿卷条码') } catch (error) { showPrintingToast(error instanceof Error ? error.message : '补充条码失败', 'error') }
+    try { await runDesignRevisionFcsCommand(workOrderId, () => addPrintingRollBarcode(workOrderId)); replacePrintingDialog({ type: 'barcodes', workOrderId }); refreshVisiblePage(); showPrintingToast('已补充一个草稿卷条码') } catch (error) { showPrintingToast(error instanceof Error ? error.message : '补充条码失败', 'error') }
     return true
   }
   if (action === 'open-barcode-batch-edit') {
@@ -276,7 +277,7 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   }
   if (action === 'batch-print-barcodes' || action === 'print-one-barcode') {
     const ids = action === 'print-one-barcode' ? [actionNode.dataset.barcodeId || ''] : selectedBarcodeIds()
-    try { markPrintingRollBarcodesPrinted(workOrderId, ids, 'Web 打印操作员'); navigatePrint('PRINTING_ROLL_LABEL', [workOrderId], ids) } catch (error) { showPrintingToast(error instanceof Error ? error.message : '条码打印失败', 'error') }
+    try { await runDesignRevisionFcsCommand(workOrderId, () => markPrintingRollBarcodesPrinted(workOrderId, ids, 'Web 打印操作员')); navigatePrint('PRINTING_ROLL_LABEL', [workOrderId], ids) } catch (error) { showPrintingToast(error instanceof Error ? error.message : '条码打印失败', 'error') }
     return true
   }
   if (action === 'open-print') {
@@ -295,10 +296,10 @@ function handlePrintingAction(actionNode: HTMLElement, action: string): boolean 
   return false
 }
 
-export function handleCraftPrintingEvent(target: HTMLElement): boolean {
+export async function handleCraftPrintingEvent(target: HTMLElement): Promise<boolean> {
   if (handlePrintingWarehouseEvent(target))return true
   if (handlePrintingStatisticsEvent(target) || handlePrintingDashboardsEvent(target)) return true
-  if (handlePrintingDispatchEvent(target)) { if(target.closest('[data-printing-dispatch="confirm"]'))refreshVisiblePage();return true }
+  if (await handlePrintingDispatchEvent(target)) { if(target.closest('[data-printing-dispatch="confirm"]'))refreshVisiblePage();return true }
   if(target.matches('[data-printing-roll-import-file]')) {
     const file=(target as HTMLInputElement).files?.[0]
     if(file) {if(file.size>100000){showPrintingToast('细码文件不能超过 100KB','error');return true}file.text().then(text=>{const input=dialogPanel()?.querySelector<HTMLTextAreaElement>('[data-printing-dialog-field="rollImport"]');if(input)input.value=text.replace(/^\uFEFF/,'')}).catch(()=>showPrintingToast('文件读取失败，请重新选择','error'))}
@@ -310,5 +311,5 @@ export function handleCraftPrintingEvent(target: HTMLElement): boolean {
   if (target.matches('[data-printing-barcode-select]')) { updateBarcodeSelectionCount(); return true }
   const actionNode = target.closest<HTMLElement>('[data-printing-action]')
   if (!actionNode) return false
-  return handlePrintingAction(actionNode, actionNode.dataset.printingAction || '')
+  return await handlePrintingAction(actionNode, actionNode.dataset.printingAction || '')
 }

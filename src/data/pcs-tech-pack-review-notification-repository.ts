@@ -1,3 +1,4 @@
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import type {
   TechnicalReviewNotificationRecord,
 } from './pcs-technical-data-version-types.ts'
@@ -14,10 +15,10 @@ let memorySnapshot: TechnicalReviewNotificationStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
   return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
+    typeof pcsRecordStore !== 'undefined' &&
+    typeof pcsRecordStore.getItem === 'function' &&
+    typeof pcsRecordStore.setItem === 'function' &&
+    typeof pcsRecordStore.removeItem === 'function'
   )
 }
 
@@ -56,24 +57,24 @@ function loadSnapshot(): TechnicalReviewNotificationStoreSnapshot {
     records: memorySnapshot.records.map(cloneRecord),
   }
   if (!canUseStorage()) {
-    memorySnapshot = createEmptySnapshot()
+    memorySnapshot = withPcsDemoData(() => createEmptySnapshot())
     return { version: memorySnapshot.version, records: memorySnapshot.records.map(cloneRecord) }
   }
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    memorySnapshot = raw ? hydrateSnapshot(JSON.parse(raw)) : createEmptySnapshot()
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+    const raw = pcsRecordStore.getItem(STORAGE_KEY)
+    memorySnapshot = raw ? hydrateSnapshot(JSON.parse(raw)) : withPcsDemoData(() => createEmptySnapshot())
+
     return { version: memorySnapshot.version, records: memorySnapshot.records.map(cloneRecord) }
   } catch {
-    memorySnapshot = createEmptySnapshot()
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+    memorySnapshot = withPcsDemoData(() => createEmptySnapshot())
+
     return { version: memorySnapshot.version, records: memorySnapshot.records.map(cloneRecord) }
   }
 }
 
 function persistSnapshot(snapshot: TechnicalReviewNotificationStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
-  if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
+  if (canUseStorage()) pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(memorySnapshot))
 }
 
 export function listTechPackReviewNotifications(): TechnicalReviewNotificationRecord[] {
@@ -123,10 +124,12 @@ export function replaceTechPackReviewNotificationStore(records: TechnicalReviewN
 }
 
 export function resetTechPackReviewNotificationRepository(): void {
-  const snapshot = createEmptySnapshot()
+  const snapshot = withPcsDemoData(() => createEmptySnapshot())
   persistSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.removeItem(STORAGE_KEY)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
+    pcsRecordStore.removeItem(STORAGE_KEY)
+    pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })

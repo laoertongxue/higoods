@@ -1,3 +1,5 @@
+import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
+import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { buildSkuFixture, migrateProductFixtureImage } from './pcs-product-archive-fixtures.ts'
 import { listProductionDemandTechPackSeeds } from './pcs-production-demand-tech-pack-seeds.ts'
@@ -18,10 +20,10 @@ let memorySnapshot: SkuArchiveStoreSnapshot | null = null
 
 function canUseStorage(): boolean {
   return (
-    typeof localStorage !== 'undefined' &&
-    typeof localStorage.getItem === 'function' &&
-    typeof localStorage.setItem === 'function' &&
-    typeof localStorage.removeItem === 'function'
+    typeof pcsRecordStore !== 'undefined' &&
+    typeof pcsRecordStore.getItem === 'function' &&
+    typeof pcsRecordStore.setItem === 'function' &&
+    typeof pcsRecordStore.removeItem === 'function'
   )
 }
 
@@ -321,6 +323,8 @@ function hydrateSnapshot(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStoreSnap
 }
 
 function mergeMissingSeedData(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStoreSnapshot {
+  if (hasPcsRecordSnapshot('higood-pcs-sku-archive-store-v1')) return snapshot
+
   const existingStyleIds = new Set(snapshot.records.map((item) => item.styleId).filter(Boolean))
   const missingStyles = listStyleArchives().filter((style) => !existingStyleIds.has(style.styleId))
   if (missingStyles.length === 0) {
@@ -343,14 +347,14 @@ function mergeMissingSeedData(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStor
 function loadSnapshot(): SkuArchiveStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (!canUseStorage()) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
   let raw: string | null
-  try { raw = localStorage.getItem(SKU_ARCHIVE_STORAGE_KEY) }
+  try { raw = pcsRecordStore.getItem(SKU_ARCHIVE_STORAGE_KEY) }
   catch { throw new Error('已保存 SKU 档案无法读取，请允许本机数据访问后重试；未使用空档案替换。') }
   if (raw === null) {
-    memorySnapshot = seedSnapshot()
+    memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
   let parsed: Partial<SkuArchiveStoreSnapshot>
@@ -364,7 +368,7 @@ function loadSnapshot(): SkuArchiveStoreSnapshot {
 function persistSnapshot(snapshot: SkuArchiveStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
+    pcsRecordStore.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
   }
 }
 
@@ -442,10 +446,12 @@ export function replaceSkuArchiveStore(snapshot: SkuArchiveStoreSnapshot): void 
 }
 
 export function resetSkuArchiveRepository(): void {
-  const snapshot = seedSnapshot()
+  const snapshot = withPcsDemoData(() => seedSnapshot())
   persistSnapshot(snapshot)
   if (canUseStorage()) {
-    localStorage.removeItem(SKU_ARCHIVE_STORAGE_KEY)
-    localStorage.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(snapshot))
+    pcsRecordStore.removeItem(SKU_ARCHIVE_STORAGE_KEY)
+    pcsRecordStore.setItem(SKU_ARCHIVE_STORAGE_KEY, JSON.stringify(snapshot))
   }
 }
+
+registerPcsRepositoryReset(() => { memorySnapshot = null })
