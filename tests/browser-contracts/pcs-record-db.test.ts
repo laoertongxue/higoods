@@ -14,8 +14,9 @@ test('PCS real IndexedDB: atomic writes, versions, retry, attachment references 
   })
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
   const address = server.address() as { port: number }
-  const browser = await chromium.launch({ headless: true })
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
   try {
+    browser = await chromium.launch({ headless: true })
     const page = await browser.newPage()
     await page.addInitScript('globalThis.__name = (value) => value')
     await page.goto(`http://127.0.0.1:${address.port}`)
@@ -71,7 +72,7 @@ test('PCS real IndexedDB: atomic writes, versions, retry, attachment references 
     await page.reload()
     assert.equal(await page.evaluate(async () => (await (await import('/storage.js')).readPcsRecords()).records[0].version), 3)
   } finally {
-    await browser.close()
+    await browser?.close()
     await new Promise<void>(resolve => server.close(() => resolve()))
   }
 })

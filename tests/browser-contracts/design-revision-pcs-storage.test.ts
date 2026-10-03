@@ -12,8 +12,9 @@ test('design revision FCS bridge: native isolation, IndexedDB atomicity and sele
   sources.set('/pcs-record-db.ts', ts.transpileModule(await readFile(new URL('../../src/data/pcs-record-db.ts', import.meta.url),'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText)
   const server=createServer((req,res)=>{res.setHeader('Content-Type',sources.has(req.url!)?'text/javascript':'text/html');res.end(sources.get(req.url!)??'<!doctype html><title>FCS transaction test</title>')})
   await new Promise<void>(resolve=>server.listen(0,'127.0.0.1',resolve))
-  const browser=await chromium.launch({headless:true})
+  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
   try {
+    browser=await chromium.launch({headless:true})
     const page=await browser.newPage();await page.addInitScript('globalThis.__name = (value) => value')
     await page.goto(`http://127.0.0.1:${(server.address() as {port:number}).port}`)
     const result=await page.evaluate(async()=>{
@@ -102,5 +103,5 @@ test('design revision FCS bridge: native isolation, IndexedDB atomicity and sele
     assert.equal(result,2)
     await page.reload()
     assert.equal(await page.evaluate(async()=> (await (await import('/pcs-record-db.ts')).readPcsRecords()).records.length),2)
-  } finally {await browser.close();await new Promise<void>(resolve=>server.close(()=>resolve()))}
+  } finally {await browser?.close();await new Promise<void>(resolve=>server.close(()=>resolve()))}
 })

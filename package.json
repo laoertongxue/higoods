@@ -338,7 +338,8 @@
     "test:production-order-change-final:e2e": "playwright test --config=playwright.production-order-change.config.ts",
     "test:supplement-management-list-template:e2e": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=$(node -e \"const net=require('node:net');const server=net.createServer();server.listen(0,'127.0.0.1',()=>{console.log(server.address().port);server.close()})\") playwright test tests/supplement-management-list-template.spec.ts",
     "test:production-preparation-timing:e2e": "PLAYWRIGHT_REUSE_EXISTING_SERVER=false CUTTING_E2E_PORT=$(node -e \"const net=require('node:net');const server=net.createServer();server.listen(0,'127.0.0.1',()=>{console.log(server.address().port);server.close()})\") playwright test tests/production-preparation-timing-filters.spec.ts",
-    "check:production-demand-early-process-work-orders": "node --import tsx --test tests/unit/production-demand-early-process-work-orders.test.ts"
+    "check:production-demand-early-process-work-orders": "node --import tsx --test tests/unit/production-demand-early-process-work-orders.test.ts",
+    "test:pcs-storage-browser": "node --import tsx --test tests/browser-contracts/*.test.ts"
   },
   "dependencies": {
     "lucide": "^0.468.0",

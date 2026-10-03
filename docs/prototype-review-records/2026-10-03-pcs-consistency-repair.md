@@ -267,3 +267,9 @@
 - 工作树仍为 `/Users/laoer/Documents/higoods`，main基线cf199e58；本地仅main，远程跟踪仅origin/main；没有创建分支/工作树、提交、推送或部署。局域网生产准备页 `http://192.168.5.2:5173/pcs/production-preparation/orders` 返回200。
 - 全量TypeScript的5项既有错误与全局菜单5条织带缺失没有吸收入本次范围。当前五类问题的实现与功能证据已具备，但四页加载仍不满足默认性能门禁，故总体保持“未完成”。
 - 全站禁用localStorage并不代表所有无关模块可用：本轮PCS记录可独立工作，但依赖原有正式生产来源初始化的入口仍可能因无法核查旧源而阻断；没有绕过该来源保护或宣称全站迁移完成。
+
+### 发布环境测试进程修正
+
+首次提交bc78992c的Vercel构建停在Node测试阶段。隔离复现表明：缺少Chromium时，新浏览器契约先启动HTTP服务再启动浏览器，启动失败未进入finally清理，测试进程不退出。两项真实浏览器契约移至tests/browser-contracts，通过`npm run test:pcs-storage-browser`独立执行；部署构建执行572项Node单测，完整本地发布验收仍执行572+2项，未删除或跳过浏览器存储断言。浏览器启动现在位于try/finally之内，缺少运行时立即报告失败并关闭HTTP服务。该修正只涉及测试组织与资源清理，业务源码未变化。
+
+发布修正验证：`npm run build` 通过（572 项 Node 单元测试）；`npm run test:pcs-storage-browser` 通过（2 项真实浏览器契约），总计仍为 574 项。指定不存在的浏览器目录后，独立契约在 1 秒内以退出码 1 正确结束，明确报告浏览器可执行文件缺失，未残留阻塞进程。日志：`/tmp/pcs-release-build.log`、`/tmp/pcs-release-browser-contracts.log`、`/tmp/pcs-release-missing-browser.log`。本次仅调整测试执行位置和失败清理，不改变业务页面与存储行为。
