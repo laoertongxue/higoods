@@ -1,4 +1,4 @@
-import { receiveTestingOrderSamples, labelTestingOrderSample, areTestingOrderSamplesTagged, isTestingOrderSampleTagged } from './pcs-sample-management.ts'
+import { receiveTestingOrderSamples, labelTestingOrderSample, areTestingOrderSamplesTagged, isTestingOrderSampleTagged, resolvePcsSampleLabelSku, buildPcsSampleTagCode } from './pcs-sample-management.ts'
 import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { createStyleArchiveDirect, getStyleArchiveById, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { applyArchiveWriteback } from './pcs-archive-writeback-contract.ts'
@@ -101,7 +101,7 @@ export const TESTING_ORDER_STEPS: Array<Pick<TestingOrderStep, 'key' | 'title' |
   { key: 'purchase-link', title: '②采购下单', description: '记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。' },
   { key: 'logistics', title: '③快递信息', description: '记录寄件快递、运单号与预计到达。' },
   { key: 'sample-inbound', title: '④样衣入库', description: '样衣模块确认样品入库成功后推进。' },
-  { key: 'label', title: '⑤打标', description: '已贴码且码值等于 SKU 编码后方可完成本步。' },
+  { key: 'label', title: '⑤打标', description: '已贴 HG 码且映射本单 SKU 后方可完成本步。' },
   { key: 'buyer-confirm', title: '⑥买手确认', description: '通过→⑦核价；淘汰→测款单结束并保留淘汰事实。' },
   { key: 'pricing', title: '⑦核价', description: '记录初步 BOM、用量、工艺成本与定价；淘汰则结束。' },
   { key: 'channel-listing', title: '⑧寄样+渠道上架', description: '寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。' },
@@ -421,8 +421,10 @@ export function completeLabelStep(
   if (!record.sampleInboundAt) {
     return { ok: false, message: '样衣尚未入库：请先完成④样衣入库。' }
   }
+  const scannedCode = skuCode.trim()
+  skuCode = resolvePcsSampleLabelSku(scannedCode) || ''
   if (!record.skuCodes.includes(skuCode)) {
-    return { ok: false, message: '码值必须等于本单 SKU 编码之一。' }
+    return { ok: false, message: 'HG 编号必须对应本单 SKU；请扫描正确样衣标签。' }
   }
   const current = TESTING_ORDER_STEPS.findIndex((step) => step.key === record.currentStepKey)
   const labelIndex = TESTING_ORDER_STEPS.findIndex((step) => step.key === 'label')
@@ -433,7 +435,7 @@ export function completeLabelStep(
   const allTagged = labelTestingOrderSample(record, skuCode, actor)
   record.labeledSkuCode = skuCode
   record.labeledAt = now()
-  record.history.unshift({ time: now(), action: `完成打标，码值 ${skuCode}`, actor })
+  record.history.unshift({ time: now(), action: `完成打标，HG ${buildPcsSampleTagCode(skuCode)}，SKU ${skuCode}`, actor })
   if (allTagged) record.currentStepKey = 'buyer-confirm'
   record.updatedAt = now()
   persistStore()

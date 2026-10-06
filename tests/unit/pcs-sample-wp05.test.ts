@@ -4,7 +4,7 @@ import { listStyleArchives } from '../../src/data/pcs-style-archive-repository.t
 import { listSkuArchives } from '../../src/data/pcs-sku-archive-repository.ts'
 import { createTestingOrder, updateTestingOrder, completeSampleInbound, completeLabelStep, advanceTestingOrder, getTestingOrderById, setBulkDecision, hasPassedTestingOrder, listTestingOrders } from '../../src/data/pcs-testing-order-repository.ts'
 import { pcsRecordStore } from '../../src/data/pcs-record-runtime.ts'
-import { PCS_SAMPLE_STORAGE_KEY, getPcsSampleById, listPcsSampleRecords, listPcsSampleTransfers, listPcsSampleLedgerEvents, listPcsSampleTypeConversionLogs, transferPcsSample, convertPcsSampleType, canCompletePcsSampleTagging } from '../../src/data/pcs-sample-management.ts'
+import { PCS_SAMPLE_STORAGE_KEY, buildPcsSampleTagCode, getPcsSampleById, listPcsSampleRecords, listPcsSampleTransfers, listPcsSampleLedgerEvents, listPcsSampleTypeConversionLogs, transferPcsSample, convertPcsSampleType, canCompletePcsSampleTagging } from '../../src/data/pcs-sample-management.ts'
 import { getPcsSampleLocationById } from '../../src/data/pcs-sample-location-master.ts'
 
 test('SAMP-001–013 Mock: receipt → all SKU tags → live/home → production/factory/department/warehouse → marketing, with adversarial gates', () => {
@@ -34,16 +34,17 @@ test('SAMP-001–013 Mock: receipt → all SKU tags → live/home → production
   assert.equal(completeSampleInbound(id, '重复').ok, false)
   assert.equal(advanceTestingOrder(id, 'buyer-confirm').ok, false, 'cannot skip tag')
   assert.equal(completeLabelStep(id, 'WRONG').ok, false)
+  assert.equal(completeLabelStep(id, skuCodes[0]).ok, false, 'raw SKU is not an HG barcode')
   const sampleId = `testing-${id}-${skuCodes[0]}`
   assert.equal(transferPcsSample(sampleId, 'loc-live-01', '管理员', '未贴码').ok, false)
-  assert.equal(completeLabelStep(id, skuCodes[0], '仓管').ok, true)
+  assert.equal(completeLabelStep(id, buildPcsSampleTagCode(skuCodes[0]), '仓管').ok, true)
   assert.equal(getTestingOrderById(id)!.currentStepKey, 'label', 'one of two is not completion')
   const taggedEvents = listPcsSampleLedgerEvents().filter(e => e.sampleId === sampleId && e.eventType === '打标').length
   const historyCount = getTestingOrderById(id)!.history.length
-  completeLabelStep(id, skuCodes[0], '仓管')
+  completeLabelStep(id, buildPcsSampleTagCode(skuCodes[0]), '仓管')
   assert.equal(getTestingOrderById(id)!.history.length, historyCount)
   assert.equal(listPcsSampleLedgerEvents().filter(e => e.sampleId === sampleId && e.eventType === '打标').length, taggedEvents, 'tag retry does not duplicate ledger')
-  assert.equal(completeLabelStep(id, skuCodes[1], '仓管').ok, true)
+  assert.equal(completeLabelStep(id, buildPcsSampleTagCode(skuCodes[1]), '仓管').ok, true)
   assert.equal(getTestingOrderById(id)!.currentStepKey, 'buyer-confirm')
   assert.equal(canCompletePcsSampleTagging(getPcsSampleById(sampleId)!), true)
   assert.equal(getPcsSampleById(sampleId)!.source!.code, created.order!.orderCode)

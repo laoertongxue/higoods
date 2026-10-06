@@ -47,7 +47,7 @@ for (let iteration = 1; iteration <= 5; iteration++) test(`SAMP browser Mock ful
         const before = JSON.stringify((await db.readPcsRecords()).records), state = JSON.stringify(testing.getTestingOrderById(orderId)), samples = JSON.stringify(sample.listPcsSampleRecords())
         const put = IDBObjectStore.prototype.put; let writes = 0; let failed = false
         IDBObjectStore.prototype.put = function (...args: any[]) { if (this.name === 'records' && ++writes === 2) throw new DOMException('injected halfway', 'AbortError'); return put.apply(this, args as any) }
-        try { await rt.runPcsRecordCommand(() => action === 'receipt' ? testing.completeSampleInbound(orderId, '中途故障到样') : testing.completeLabelStep(orderId, code)) } catch { failed = true } finally { IDBObjectStore.prototype.put = put }
+        try { await rt.runPcsRecordCommand(() => action === 'receipt' ? testing.completeSampleInbound(orderId, '中途故障到样') : testing.completeLabelStep(orderId, sample.buildPcsSampleTagCode(code))) } catch { failed = true } finally { IDBObjectStore.prototype.put = put }
         return { failed, writes, same: before === JSON.stringify((await db.readPcsRecords()).records) && state === JSON.stringify(testing.getTestingOrderById(orderId)) && samples === JSON.stringify(sample.listPcsSampleRecords()) }
       }, { action, orderId: data.id, code: data.codes[0] })
       check(result.failed && result.writes === 2 && result.same, action + ': midway failure rolls back order, sample, tag and ledger together')
@@ -57,8 +57,9 @@ for (let iteration = 1; iteration <= 5; iteration++) test(`SAMP browser Mock ful
     await page.locator('[data-pcs-testing-action="complete-sample-inbound"]').click()
     await page.waitForSelector('[data-pcs-testing-action="complete-label"]')
     await finishMeasure('④receipt-save')
+    const hgCodes = await page.evaluate(async codes => { const sample = await import('/src/data/pcs-sample-management.ts'); return codes.map(code => sample.buildPcsSampleTagCode(code)) }, data.codes)
     await failMidAction('label')
-    for (const invalidCode of ['', 'WRONG']) {
+    for (const invalidCode of ['', 'WRONG', data.codes[0]]) {
       await page.locator('[data-pcs-testing-field="label-sku"]').fill(invalidCode)
       await finishMeasure('⑤invalid-code-input-' + (invalidCode || 'empty'))
       await page.locator('[data-pcs-testing-action="complete-label"]').click()
@@ -66,19 +67,19 @@ for (let iteration = 1; iteration <= 5; iteration++) test(`SAMP browser Mock ful
       await finishMeasure('⑤invalid-code-confirm-' + (invalidCode || 'empty'))
       check(await page.locator('[data-pcs-testing-field="label-sku"]').inputValue() === invalidCode, 'invalid SKU stays editable with visible reason')
     }
-    await page.locator('[data-pcs-testing-field="label-sku"]').fill(data.codes[0])
+    await page.locator('[data-pcs-testing-field="label-sku"]').fill(hgCodes[0])
     await finishMeasure('⑤SKU-code-input')
     await page.evaluate(() => { (globalThis as any).__putBeforeFault = IDBObjectStore.prototype.put; IDBObjectStore.prototype.put = function (...args: any[]) { if (this.name === 'records') throw new DOMException('full', 'QuotaExceededError'); return (globalThis as any).__putBeforeFault.apply(this, args) } })
     await page.locator('[data-pcs-testing-action="complete-label"]').click()
     await page.waitForFunction(() => document.querySelector('[data-testing-action-feedback]')?.textContent?.includes('未保存'))
     await finishMeasure('⑤failed-save-feedback')
-    check(await page.locator('[data-pcs-testing-field="label-sku"]').inputValue() === data.codes[0], 'UI failed save preserves entered SKU for retry')
+    check(await page.locator('[data-pcs-testing-field="label-sku"]').inputValue() === hgCodes[0], 'UI failed save preserves entered SKU for retry')
     await page.evaluate(() => { IDBObjectStore.prototype.put = (globalThis as any).__putBeforeFault })
     await page.locator('[data-pcs-testing-action="complete-label"]').click()
-    await page.waitForFunction(code => document.querySelector('[data-pcs-testing-field="label-sku"]')?.getAttribute('value') !== code, data.codes[0])
+    await page.waitForFunction(code => document.querySelector('[data-pcs-testing-field="label-sku"]')?.getAttribute('value') !== code, hgCodes[0])
     await finishMeasure('⑤first-SKU-tag-save')
     check(await page.locator('[data-pcs-testing-action="complete-label"]').count() === 1, 'two SKU order remains at step ⑤ after first tag')
-    await page.locator('[data-pcs-testing-field="label-sku"]').fill(data.codes[1])
+    await page.locator('[data-pcs-testing-field="label-sku"]').fill(hgCodes[1])
     await page.locator('[data-pcs-testing-action="complete-label"]').click()
     await page.waitForSelector('[data-pcs-testing-action="buyer-kill"]')
     await finishMeasure('⑤last-SKU-tag-save')

@@ -1,3 +1,5 @@
+import { handlePcsSampleLabelInput, handlePcsSampleLabelAction } from './pcs-sample-label.ts'
+import { getPcsSampleLabelIdentity } from '../data/pcs-sample-management.ts'
 import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 import { ensureLosLiveRoomState, liveRoomTransferGuards } from '../data/los-live-room-master.ts'
 import { renderBadge } from '../components/ui/badge.ts'
@@ -308,6 +310,7 @@ function getFilteredSamples(): PcsSampleRecord[] {
     return matchesKeyword(
       [
         sample.sampleCode,
+        getPcsSampleLabelIdentity(sample.skuCode)?.hgCode,
         sample.name,
         sampleSourceText(sample),
         sample.projectName,
@@ -327,7 +330,7 @@ function renderSampleCell(sample: PcsSampleRecord): string {
         <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-14 w-14 object-cover" />
       </button>
       <div>
-        <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(sample.sampleCode)}</button>
+        <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || '编号待生成')}</button><p class="mt-1 break-all text-xs text-slate-500">${escapeHtml(sample.skuCode)}</p>
         <p class="mt-1 text-sm text-slate-700">${escapeHtml(sample.name)}</p>
         <div class="mt-1 flex flex-wrap gap-1 text-xs text-slate-500">
           <span>${escapeHtml(sample.category)}</span><span>·</span><span>${escapeHtml(sample.size)}</span><span>·</span><span>${escapeHtml(sample.color)}</span>
@@ -395,10 +398,11 @@ function renderSampleTable(samples: PcsSampleRecord[]): string {
     {
       key: 'sampleId',
       title: '操作',
-      width: '120px',
+      width: '220px',
       align: 'right',
       render: (sample) => `
         <div class="flex justify-end gap-2">
+          <a class="inline-flex h-8 items-center rounded-md border px-3 text-xs text-blue-700" href="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}" data-nav="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}">打印标签</a>
           <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-sample-action="select-sample" data-pcs-sample-id="${escapeHtml(sample.sampleId)}">快照</button>
           <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger">台账</button>
         </div>
@@ -455,7 +459,7 @@ function renderSampleDetailDrawer(): string {
               ${renderInfoItem('品类/尺码/颜色', `${sample.category} · ${sample.size} · ${sample.color}`)}
               ${renderInfoItem('面料/模板', `${sample.material} · ${sample.templateType}`)}
               ${renderInfoItem('样品类型', PCS_SAMPLE_TYPE_LABELS[sample.sampleType])}
-              ${renderInfoItem('打标码', sample.taggedAt ? `${sample.skuCode} · ${sample.taggedAt}` : '未贴码')}
+              ${renderInfoItem('贴码记录', sample.taggedAt ? `${getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || 'HG 编号待生成'} · SKU ${sample.skuCode} · ${sample.taggedAt}` : '未贴码')}
               ${renderInfoItem('责任站点', sample.responsibleSite)}
               ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
               ${renderInfoItem('关联来源', sampleSourceText(sample))}
@@ -979,8 +983,8 @@ function renderSampleCards(samples: PcsSampleRecord[]): string {
           </div>
           <div class="space-y-3 px-4 py-4">
             <div>
-              <button type="button" class="font-semibold text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(sample.sampleCode)}</button>
-              <p class="mt-1 line-clamp-2 text-sm text-slate-700">${escapeHtml(sample.name)}</p>
+              <button type="button" class="font-semibold text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || '编号待生成')}</button><p class="mt-1 break-all text-xs text-slate-500">${escapeHtml(sample.skuCode)}</p>
+              <p class="mt-1 line-clamp-2 text-sm text-slate-700">${escapeHtml(sample.name)}</p><a class="mt-2 inline-block text-sm text-blue-700" href="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}" data-nav="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}">打印标签</a>
             </div>
             <div class="flex flex-wrap gap-2">${renderStatusBadge(sample.status)}${renderAvailabilityBadge(sample.availability)}${sample.anomaly ? renderRiskBadge(sample.anomaly.type) : ''}</div>
             <div class="space-y-1 text-sm text-slate-500">
@@ -1059,6 +1063,7 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
       <button type="button" class="inline-flex h-9 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/inventory">
         <i data-lucide="arrow-left" class="h-4 w-4"></i>返回样衣库存
       </button>
+      <a class="ml-3 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white" href="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}" data-nav="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}">打印样衣标签</a>
       <div class="mt-4 grid gap-5 lg:grid-cols-[260px_1fr]">
             <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
               <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full object-contain" />
@@ -1069,7 +1074,9 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
           <div class="mt-4 grid gap-3 sm:grid-cols-2">
             ${renderInfoItem('基础属性', `${sample.category} · ${sample.size} · ${sample.color} · ${sample.material}`)}
             ${renderInfoItem('样品类型', PCS_SAMPLE_TYPE_LABELS[sample.sampleType])}
-            ${renderInfoItem('打标码', sample.taggedAt ? `${sample.skuCode} · ${sample.taggedAt}` : '未贴码')}
+            ${renderInfoItem('贴码记录', sample.taggedAt ? `${getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || 'HG 编号待生成'} · SKU ${sample.skuCode} · ${sample.taggedAt}` : '未贴码')}
+            ${renderInfoItem('HG 样衣编号', getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || '待生成')}
+            ${renderInfoItem('首次登记日期', getPcsSampleLabelIdentity(sample.skuCode)?.registeredAt.slice(0,10) || '待核对')}
             ${renderInfoItem('模板类型', sample.templateType)}
             ${renderInfoItem('责任站点', sample.responsibleSite)}
             ${renderInfoItem('当前位置', `${sample.currentLocation} · ${sample.locationDetail}`)}
@@ -1107,8 +1114,8 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
         ).join('')}
       </div>
       <button type="button" class="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm text-white" data-pcs-sample-action="open-flow" data-sample-id="${escapeHtml(sample.sampleId)}">确认流转签收</button>
-      <p class="mt-2 text-xs text-slate-500">营销样品与生产样品可任意互转；互转会记录操作人、时间与原因。打标码值须等于 SKU 编码。</p>
-      <div class="mt-3 text-sm text-slate-700">打标状态：${sample.taggedAt ? `已贴码 ${escapeHtml(sample.skuCode)}（${escapeHtml(sample.taggedAt)}）` : '未贴码，不能完成入库后打标/测款⑤'} · 码值=SKU：${sample.sampleCode === sample.skuCode ? '一致' : '不一致'}</div>
+      <p class="mt-2 text-xs text-slate-500">营销样品与生产样品可任意互转；互转会记录操作人、时间与原因。打标码值为 HG 样衣编号，扫码后核对对应 SKU。</p>
+      <div class="mt-3 text-sm text-slate-700">打标状态：${sample.taggedAt ? `已贴码 ${escapeHtml(getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || 'HG 编号待生成')}（${escapeHtml(sample.taggedAt)}）` : '未贴码，不能完成入库后打标/测款⑤'} · 对应 SKU：${escapeHtml(sample.skuCode)}</div>
     </section>
   `
   return renderPageShell('inventory', '样衣详情', '查看样衣的库存快照、申请关联、流转和台账事件。', body + renderFlowDialog())
@@ -1138,6 +1145,7 @@ function closeDrawers(): void {
 }
 
 export function handlePcsSampleManagementInput(target: Element): boolean {
+  if (target.closest('[data-pcs-sample-field^="label-"]')) return handlePcsSampleLabelInput(target)
   const fieldNode = target.closest<HTMLElement>('[data-pcs-sample-field]')
   if (!fieldNode) return false
   const field = fieldNode.dataset.pcsSampleField || ''
@@ -1163,6 +1171,7 @@ export async function handlePcsSampleManagementEvent(target: HTMLElement): Promi
   const actionNode = target.closest<HTMLElement>('[data-pcs-sample-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsSampleAction || ''
+  if (['print-label','register-label','reset-label-size'].includes(action)) { await handlePcsSampleLabelAction(action); return false }
 
   if (action === 'open-flow') { state.flowOpen = true; state.flowSampleId = actionNode.dataset.sampleId || ''; state.flowTarget = ''; state.flowReason = ''; return true }
   if (action === 'close-flow') { state.flowOpen = false; return true }

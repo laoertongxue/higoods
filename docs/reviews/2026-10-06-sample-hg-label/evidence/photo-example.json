@@ -1,0 +1,17 @@
+[
+  {
+    "width": 60,
+    "height": 40,
+    "bounds": true
+  },
+  {
+    "width": 30,
+    "height": 20,
+    "bounds": true
+  },
+  {
+    "width": 120,
+    "height": 100,
+    "bounds": true
+  }
+]

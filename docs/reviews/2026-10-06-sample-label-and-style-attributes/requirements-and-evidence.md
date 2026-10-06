@@ -35,9 +35,12 @@
 | STYLE-PHOTO-004 | CSV 分组属性独立字段，过滤全部结果，列偏好兼容 | WP-STYLE-PHOTO | exportList、preferences | CSV、隐藏 / 排序 / 冻结 / 旧偏好 | 已验证 |
 | PERF-ROOM-001 | 所有命名路由冷启动 / 刷新 / SPA 和修改交互各 5 次 ≤1000ms | WP-LOS-ROOM | 测量脚本 | room-performance.json | 已验证 |
 | PERF-STYLE-001 | 款式 / SKU 页面同一性能门禁 | WP-STYLE-PHOTO | 测量脚本 | attributes-and-performance.json | 已验证 |
-| SAMPLE-LABEL-001 | 样衣标签条码＋HG＋日期＋SKU，照片排版 | WP-SAMPLE-LABEL | 尚未绑定；等待编号 / 日期口径 | 不适用：尚未实施 | 已阻塞 |
-| SAMPLE-LABEL-002 | 明确 HG 来源、条码 payload、日期与尺寸 | WP-SAMPLE-LABEL | 用户问题已提出，尚未回复 | 待用户确认 | 已阻塞 |
-| SAMPLE-LABEL-003 | 标签打印不代表实际贴码，不改⑤口径 | WP-SAMPLE-LABEL | 现有贴码流程保持 | 尚未有新增打印证据 | 已阻塞 |
+| SAMPLE-LABEL-001 | 样衣标签条码＋HG＋首次登记日期＋完整 SKU，照片排版 | WP-SAMPLE-LABEL | pcs-sample-label；独立预览和打印 | 当前证据见 ../2026-10-06-sample-hg-label/implementation-and-evidence.md（HG-005～009） | 已验证 |
+| SAMPLE-LABEL-002 | HG=SKU 维度样衣编号；条码HG；日期SKU首次登记；尺寸可调试打 | WP-SAMPLE-LABEL | 编号映射 / 可调尺寸；默认60×40mm仅试打 | 用户本轮确认＋HG-001～006；实纸校准未纳入浏览器完成 | 已验证 |
+| SAMPLE-LABEL-003 | 打印不等于实际贴码；⑤扫码HG核对本单SKU | WP-SAMPLE-LABEL | completeLabelStep、sampleLabelDocument | HG-004/008；前后IndexedDB一致、错误HG与原SKU阻断 | 已验证 |
+| SAMPLE-LABEL-004 | 一个内部 SKU 一个 HG，同 SKU 多件共用，流转和重印复用 | WP-SAMPLE-LABEL | pcs-sample-management / identities、registerSampleIdentity | HG-001～003；旧入库与重复到样、刷新、失败和并发 | 已验证 |
+
+2026-10-06 追加确认（在 `55627178d7b3b6bd1742cdd539bbc34064522b83` 发布之后）：HG 就是样衣编号，按 SKU 维度生成，不是件级唯一码。以上仅更新业务基线、计划和追踪状态，不改变此前已保存的浏览器样衣数据，不宣称新增打印已经完成。条码 payload、日期含义和纸张尺寸仍待确认；HG 数字序列的起始值与长度未从照片推断。
 
 ## 审查与结果
 
@@ -59,3 +62,5 @@
 | adversarial-review.md | 独立只读审查及主代理反向/正向追踪，发现已关闭；最后历史钩子由主代理浏览器补验 |
 
 所有 1 秒门禁无例外。修复前的 1058.0999999642372ms 冷加载失败保留于 evidence/performance-failure-history.json；修复后全量重测。最终治理及 CodeGraph 状态以 output/playwright/sample-label-style/task-receipt.json 为准。
+
+2026-10-06 最终口径与实施补记：条码使用 HG，日期为该 SKU 样衣首次登记日期，纸张尺寸未知所以提供可调试打。前述“仍待确认/唯一待确认/尚未实施”均为本轮之前的历史状态，当前以 [HG 实施与证据](../2026-10-06-sample-hg-label/implementation-and-evidence.md) 为准。房间及款式历史证据未冒充 HG 标签验收。

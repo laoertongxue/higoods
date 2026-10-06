@@ -1,0 +1,19 @@
+✖ HG-002/003/007/009: legacy receipt explicit registration, quota recovery and missing-date block, five samples (31203.668ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31665.627417
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-hg-label.test.ts:1:10928
+✖ HG-002/003/007/009: legacy receipt explicit registration, quota recovery and missing-date block, five samples (31203.668ms)
+  page.waitForFunction: Timeout 30000ms exceeded.
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-hg-label.test.ts:79:81) {
+    name: 'TimeoutError',
+    log: []
+  }

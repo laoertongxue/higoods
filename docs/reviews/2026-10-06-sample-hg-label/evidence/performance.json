@@ -1,0 +1,690 @@
+{
+  "base": "http://127.0.0.1:4207",
+  "head": "55627178d7b3b6bd1742cdd539bbc34064522b83",
+  "viewport": "1366x768",
+  "browser": "149.0.7827.55",
+  "cache": "disabled in isolated contexts",
+  "samples": [
+    {
+      "name": "label:cold",
+      "ms": 266.69999998807907
+    },
+    {
+      "name": "label:reload",
+      "ms": 232.80000001192093
+    },
+    {
+      "name": "inventory:print-entry-SPA",
+      "ms": 110.80000001192093
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.299999952316284
+    },
+    {
+      "name": "view:print-entry-SPA",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.200000047683716
+    },
+    {
+      "name": "detail/smp-001:print-entry-SPA",
+      "ms": 50.69999998807907
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 66.20000004768372
+    },
+    {
+      "name": "label:width-55",
+      "ms": 29.69999998807907
+    },
+    {
+      "name": "label:width-0",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "label:blocked-print-width-0",
+      "ms": 32.39999997615814
+    },
+    {
+      "name": "label:width-120",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "label:width-60",
+      "ms": 31.799999952316284
+    },
+    {
+      "name": "label:height-35",
+      "ms": 30.900000035762787
+    },
+    {
+      "name": "label:height-NaN",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "label:blocked-print-height-NaN",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "label:height-100",
+      "ms": 31
+    },
+    {
+      "name": "label:height-40",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "label:copies-3",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "label:copies-0",
+      "ms": 31.899999976158142
+    },
+    {
+      "name": "label:blocked-print-copies-0",
+      "ms": 33.09999996423721
+    },
+    {
+      "name": "label:copies-1.5",
+      "ms": 25.5
+    },
+    {
+      "name": "label:blocked-print-copies-1.5",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-101",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "label:blocked-print-copies-101",
+      "ms": 32
+    },
+    {
+      "name": "label:copies-100",
+      "ms": 30.900000035762787
+    },
+    {
+      "name": "label:copies-1",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "label:reset",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-before-print-1",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "label:print-generation-1",
+      "ms": 100.10000002384186
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 33.5
+    },
+    {
+      "name": "label:copies-before-print-100",
+      "ms": 29.200000047683716
+    },
+    {
+      "name": "label:print-generation-100",
+      "ms": 100
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 32.5
+    },
+    {
+      "name": "label:cold",
+      "ms": 276.10000002384186
+    },
+    {
+      "name": "label:reload",
+      "ms": 232.80000001192093
+    },
+    {
+      "name": "inventory:print-entry-SPA",
+      "ms": 99.79999995231628
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.5
+    },
+    {
+      "name": "view:print-entry-SPA",
+      "ms": 49.80000001192093
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.10000002384186
+    },
+    {
+      "name": "detail/smp-001:print-entry-SPA",
+      "ms": 49.69999998807907
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.30000001192093
+    },
+    {
+      "name": "label:width-55",
+      "ms": 31
+    },
+    {
+      "name": "label:width-0",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "label:blocked-print-width-0",
+      "ms": 33
+    },
+    {
+      "name": "label:width-120",
+      "ms": 31.900000035762787
+    },
+    {
+      "name": "label:width-60",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "label:height-35",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "label:height-NaN",
+      "ms": 31.200000047683716
+    },
+    {
+      "name": "label:blocked-print-height-NaN",
+      "ms": 33.5
+    },
+    {
+      "name": "label:height-100",
+      "ms": 31
+    },
+    {
+      "name": "label:height-40",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "label:copies-3",
+      "ms": 31
+    },
+    {
+      "name": "label:copies-0",
+      "ms": 31.599999964237213
+    },
+    {
+      "name": "label:blocked-print-copies-0",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-1.5",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "label:blocked-print-copies-1.5",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "label:copies-101",
+      "ms": 30.899999976158142
+    },
+    {
+      "name": "label:blocked-print-copies-101",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "label:copies-100",
+      "ms": 30.900000035762787
+    },
+    {
+      "name": "label:copies-1",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:reset",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-before-print-1",
+      "ms": 31.299999952316284
+    },
+    {
+      "name": "label:print-generation-1",
+      "ms": 102.5
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 30.099999964237213
+    },
+    {
+      "name": "label:copies-before-print-100",
+      "ms": 29.69999998807907
+    },
+    {
+      "name": "label:print-generation-100",
+      "ms": 100.39999997615814
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 32.39999997615814
+    },
+    {
+      "name": "label:cold",
+      "ms": 281.0999999642372
+    },
+    {
+      "name": "label:reload",
+      "ms": 232.19999998807907
+    },
+    {
+      "name": "inventory:print-entry-SPA",
+      "ms": 115.80000001192093
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.30000001192093
+    },
+    {
+      "name": "view:print-entry-SPA",
+      "ms": 50.10000002384186
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 49.10000002384186
+    },
+    {
+      "name": "detail/smp-001:print-entry-SPA",
+      "ms": 49
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.60000002384186
+    },
+    {
+      "name": "label:width-55",
+      "ms": 30.19999998807907
+    },
+    {
+      "name": "label:width-0",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:blocked-print-width-0",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "label:width-120",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:width-60",
+      "ms": 30.900000035762787
+    },
+    {
+      "name": "label:height-35",
+      "ms": 31.700000047683716
+    },
+    {
+      "name": "label:height-NaN",
+      "ms": 31.5
+    },
+    {
+      "name": "label:blocked-print-height-NaN",
+      "ms": 33.60000002384186
+    },
+    {
+      "name": "label:height-100",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "label:height-40",
+      "ms": 25.899999976158142
+    },
+    {
+      "name": "label:copies-3",
+      "ms": 31.799999952316284
+    },
+    {
+      "name": "label:copies-0",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "label:blocked-print-copies-0",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "label:copies-1.5",
+      "ms": 30.799999952316284
+    },
+    {
+      "name": "label:blocked-print-copies-1.5",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "label:copies-101",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "label:blocked-print-copies-101",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-100",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "label:copies-1",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:reset",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "label:copies-before-print-1",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "label:print-generation-1",
+      "ms": 99.90000003576279
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 32.700000047683716
+    },
+    {
+      "name": "label:copies-before-print-100",
+      "ms": 30
+    },
+    {
+      "name": "label:print-generation-100",
+      "ms": 99.90000003576279
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "label:cold",
+      "ms": 280.30000001192093
+    },
+    {
+      "name": "label:reload",
+      "ms": 232.70000004768372
+    },
+    {
+      "name": "inventory:print-entry-SPA",
+      "ms": 115.89999997615814
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 49.799999952316284
+    },
+    {
+      "name": "view:print-entry-SPA",
+      "ms": 49.80000001192093
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 49.89999997615814
+    },
+    {
+      "name": "detail/smp-001:print-entry-SPA",
+      "ms": 66.30000001192093
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.30000001192093
+    },
+    {
+      "name": "label:width-55",
+      "ms": 39.19999998807907
+    },
+    {
+      "name": "label:width-0",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:blocked-print-width-0",
+      "ms": 33
+    },
+    {
+      "name": "label:width-120",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "label:width-60",
+      "ms": 31.69999998807907
+    },
+    {
+      "name": "label:height-35",
+      "ms": 30.799999952316284
+    },
+    {
+      "name": "label:height-NaN",
+      "ms": 43.30000001192093
+    },
+    {
+      "name": "label:blocked-print-height-NaN",
+      "ms": 42.19999998807907
+    },
+    {
+      "name": "label:height-100",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "label:height-40",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:copies-3",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "label:copies-0",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "label:blocked-print-copies-0",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "label:copies-1.5",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "label:blocked-print-copies-1.5",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "label:copies-101",
+      "ms": 31.5
+    },
+    {
+      "name": "label:blocked-print-copies-101",
+      "ms": 33
+    },
+    {
+      "name": "label:copies-100",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "label:copies-1",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "label:reset",
+      "ms": 33.80000001192093
+    },
+    {
+      "name": "label:copies-before-print-1",
+      "ms": 30
+    },
+    {
+      "name": "label:print-generation-1",
+      "ms": 101
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 31.69999998807907
+    },
+    {
+      "name": "label:copies-before-print-100",
+      "ms": 31
+    },
+    {
+      "name": "label:print-generation-100",
+      "ms": 99.39999997615814
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 33.89999997615814
+    },
+    {
+      "name": "label:cold",
+      "ms": 275.69999998807907
+    },
+    {
+      "name": "label:reload",
+      "ms": 232.89999997615814
+    },
+    {
+      "name": "inventory:print-entry-SPA",
+      "ms": 115.09999996423721
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.19999998807907
+    },
+    {
+      "name": "view:print-entry-SPA",
+      "ms": 50.10000002384186
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 50.5
+    },
+    {
+      "name": "detail/smp-001:print-entry-SPA",
+      "ms": 67.5
+    },
+    {
+      "name": "label:return-detail",
+      "ms": 49.700000047683716
+    },
+    {
+      "name": "label:width-55",
+      "ms": 31
+    },
+    {
+      "name": "label:width-0",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "label:blocked-print-width-0",
+      "ms": 31.899999976158142
+    },
+    {
+      "name": "label:width-120",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "label:width-60",
+      "ms": 32.299999952316284
+    },
+    {
+      "name": "label:height-35",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "label:height-NaN",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "label:blocked-print-height-NaN",
+      "ms": 33.5
+    },
+    {
+      "name": "label:height-100",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "label:height-40",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "label:copies-3",
+      "ms": 31
+    },
+    {
+      "name": "label:copies-0",
+      "ms": 31.599999964237213
+    },
+    {
+      "name": "label:blocked-print-copies-0",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-1.5",
+      "ms": 31
+    },
+    {
+      "name": "label:blocked-print-copies-1.5",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "label:copies-101",
+      "ms": 31
+    },
+    {
+      "name": "label:blocked-print-copies-101",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "label:copies-100",
+      "ms": 40.09999996423721
+    },
+    {
+      "name": "label:copies-1",
+      "ms": 29.799999952316284
+    },
+    {
+      "name": "label:reset",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "label:copies-before-print-1",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "label:print-generation-1",
+      "ms": 101.10000002384186
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "label:copies-before-print-100",
+      "ms": 43.5
+    },
+    {
+      "name": "label:print-generation-100",
+      "ms": 99.69999998807907
+    },
+    {
+      "name": "label:print-cancel",
+      "ms": 35.69999998807907
+    }
+  ],
+  "errors": []
+}

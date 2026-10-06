@@ -1,3 +1,4 @@
+import { PCS_SAMPLE_LABEL_SEEDS } from './pcs-sample-label-seeds.ts'
 import { listSkuArchives } from './pcs-sku-archive-repository.ts'
 import { pcsRecordStore } from './pcs-record-runtime.ts'
 import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-record-types.ts'
@@ -103,6 +104,8 @@ export interface PcsSampleRecord {
   availability: PcsSampleAvailability
   sampleType: PcsSampleType
   skuCode: string
+  /** Immutable receipt date; updates and transfers never replace it. */
+  registeredAt?: string
   taggedAt: string | null
   responsibleSite: '深圳样衣间' | '雅加达样衣间'
   currentLocation: string
@@ -497,7 +500,10 @@ export const PCS_SAMPLE_TYPE_CONVERSION_LOGS: PcsSampleTypeConversionLog[] = [
 ]
 
 export const PCS_SAMPLE_STORAGE_KEY = 'higood-pcs-sample-management-v1'
+export interface PcsSampleLabelIdentity { id: string; skuCode: string; hgCode: string; registeredAt: string }
 interface SampleChanges {
+  identities: PcsSampleLabelIdentity[]
+  lastHgNumber?: number
   records: PcsSampleRecord[]
   conversionLogs: PcsSampleTypeConversionLog[]
   transfers: PcsSampleTransferRecord[]
@@ -507,12 +513,60 @@ function readSampleChanges(): SampleChanges {
   const raw = pcsRecordStore.getItem(PCS_SAMPLE_STORAGE_KEY)
   const data = raw && raw !== '[]' ? JSON.parse(raw) : { records: [], conversionLogs: [], transfers: [], ledgerEvents: [] }
   if (!data || !['records', 'conversionLogs', 'transfers', 'ledgerEvents'].every(key => Array.isArray(data[key]))) throw new Error('样衣资料格式异常，原资料已保留，请重新读取。')
+  data.identities ??= []
+  if (!Array.isArray(data.identities)) throw new Error('样衣编号资料格式异常，请重新读取。')
   return data
 }
 function saveSampleChanges(data: SampleChanges): void { pcsRecordStore.setItem(PCS_SAMPLE_STORAGE_KEY, JSON.stringify(data)) }
 function saveChangedSample(data: SampleChanges, sample: PcsSampleRecord): void {
   data.records = [sample, ...data.records.filter(row => row.sampleId !== sample.sampleId)]
 }
+
+/** Fixed Mock identities are read-only seeds, never copied during ordinary reads. */
+function sampleLabelSeeds(): PcsSampleLabelIdentity[] {
+  return PCS_SAMPLE_LABEL_SEEDS.map(row => ({ ...row }))
+}
+export function getPcsSampleLabelIdentity(skuCode: string): PcsSampleLabelIdentity | null {
+  const row = readSampleChanges().identities.find(row => row.skuCode === skuCode) || sampleLabelSeeds().find(row => row.skuCode === skuCode)
+  return row ? { ...row } : null
+}
+export function resolvePcsSampleLabelSku(scannedCode: string): string | null {
+  const code = scannedCode.trim()
+  const row = [...readSampleChanges().identities, ...sampleLabelSeeds()].find(row => row.hgCode === code)
+  return row?.skuCode || null
+}
+function registerSampleIdentity(data: SampleChanges, skuCode: string, registeredAt: string): PcsSampleLabelIdentity {
+  const seeds = sampleLabelSeeds()
+  const old = data.identities.find(row => row.skuCode === skuCode) || seeds.find(row => row.skuCode === skuCode)
+  if (old) return old
+  if (!skuCode.trim() || !/^\d{4}-\d{2}-\d{2}/.test(registeredAt)) throw new Error('缺少 SKU 或首次登记日期，不能生成样衣编号。')
+  const max = Math.max(2000000, data.lastHgNumber || 0, ...[...seeds, ...data.identities].map(row => Number(row.hgCode.slice(2))))
+  if (!Number.isSafeInteger(max) || max >= Number.MAX_SAFE_INTEGER) throw new Error('样衣编号序列异常，未保存。')
+  const identity = { id: skuCode, skuCode, hgCode: `HG${max + 1}`, registeredAt }
+  data.identities.push(identity); data.lastHgNumber = max + 1
+  return identity
+}
+/** Registration is based on receipt facts, never update/print time. */
+function firstSampleRegistrationDate(skuCode: string, incomingDate = ''): string {
+  const dates = listPcsSampleRecords().filter(row => row.skuCode === skuCode).flatMap(row => row.registeredAt ? [row.registeredAt] : [])
+  dates.push(...listPcsSampleLedgerEvents().filter(row => row.eventType === '入库' && row.sampleCode === skuCode && !row.isVoided).map(row => row.time))
+  if (incomingDate) dates.push(incomingDate)
+  return dates.filter(date => /^\d{4}-\d{2}-\d{2}/.test(date)).sort()[0] || ''
+}
+/** Explicit action for pre-existing records: receipt evidence supplies the first date. */
+export function registerPcsSampleLabel(sampleId: string): PcsSampleLabelIdentity {
+  const sample = getPcsSampleById(sampleId)
+  if (!sample) throw new Error('未找到样衣，不能生成标签。')
+  const data = readSampleChanges()
+  const old = getPcsSampleLabelIdentity(sample.skuCode)
+  if (old) return old
+  const date = firstSampleRegistrationDate(sample.skuCode)
+  if (!date) throw new Error('该 SKU 缺少首次登记日期，不能用更新时间或打印日期代替，请先核对入库资料。')
+  const identity = registerSampleIdentity(data, sample.skuCode, date)
+  saveSampleChanges(data)
+  return { ...identity }
+}
+
 function sampleTime(): string { return new Date().toISOString().slice(0, 19).replace('T', ' ') }
 function ledgerFor(sample: PcsSampleRecord, eventType: PcsSampleLedgerEventType, actor: string, remark: string, from: string, to: string): PcsSampleLedgerEvent {
   return { eventId: crypto.randomUUID(), time: sample.updatedAt, site: sample.responsibleSite, sampleId: sample.sampleId,
@@ -569,7 +623,7 @@ function testingSample(order: TestingOrderRecord, sku: string, actor: string): P
       category: '测款样衣', size: spec?.sizeName || '-', color: spec?.colorName || '-', material: '-', templateType: '测款到样', projectId: '', projectCode: order.orderCode,
       projectName: order.styleName, sourceStepName: '④样衣入库', source: { kind: 'testing-order', code: order.orderCode, name: order.styleName,
         href: `/pcs/testing/orders/${encodeURIComponent(order.testingOrderId)}`, note: '测款单入库实物' },
-      status: '在库可用', availability: order.labeledAt && (order.testingOrderId.startsWith('to_seed_') || order.labeledSkuCode === sku) ? '可申请' : '不可申请', sampleType: 'marketing', taggedAt: order.labeledAt && (order.testingOrderId.startsWith('to_seed_') || order.labeledSkuCode === sku) ? order.labeledAt : null, responsibleSite: '深圳样衣间',
+      status: '在库可用', availability: order.labeledAt && (order.testingOrderId.startsWith('to_seed_') || order.labeledSkuCode === sku) ? '可申请' : '不可申请', sampleType: 'marketing', registeredAt: order.sampleInboundAt, taggedAt: order.labeledAt && (order.testingOrderId.startsWith('to_seed_') || order.labeledSkuCode === sku) ? order.labeledAt : null, responsibleSite: '深圳样衣间',
       currentLocationId: 'loc-wh-01', currentLocation: getPcsSampleLocationById('loc-wh-01')!.locationName, locationDetail: order.sampleInboundNote,
       occupancyType: '无', occupiedBy: '', occupiedFor: '', occupiedUntil: '', transit: null, anomaly: null,
       updatedAt: order.labeledAt || order.sampleInboundAt, updatedBy: actor }
@@ -578,9 +632,10 @@ export function receiveTestingOrderSamples(order: TestingOrderRecord, actor: str
   const data = readSampleChanges()
   for (const sku of order.skuCodes) {
     const record = testingSample(order, sku, actor)
+    registerSampleIdentity(data, sku, firstSampleRegistrationDate(sku, order.sampleInboundAt))
     if (data.records.some(row => row.sampleId === record.sampleId)) continue
     saveChangedSample(data, record)
-    data.ledgerEvents.unshift(ledgerFor(record, '入库', actor, '测款④入库；待贴SKU码', '-', record.currentLocation))
+    data.ledgerEvents.unshift({ ...ledgerFor(record, '入库', actor, '测款④入库；待贴样衣 HG 码', '-', record.currentLocation), time: order.sampleInboundAt })
   }
   saveSampleChanges(data)
 }
@@ -589,16 +644,18 @@ export function labelTestingOrderSample(order: TestingOrderRecord, sku: string, 
   let record = data.records.find(row => row.sampleId === `testing-${order.testingOrderId}-${sku}`)
   if (!record && order.sampleInboundAt && order.skuCodes.includes(sku)) { record = testingSample(order, sku, actor); saveChangedSample(data, record) }
   if (!record || !order.sampleInboundAt || record.skuCode !== sku) throw new Error('未找到本单入库样衣，不能完成贴码。')
+  const identity = getPcsSampleLabelIdentity(sku)
+  if (!identity) throw new Error('该 SKU 尚未生成 HG 样衣编号，请先生成标签。')
   if (!record.taggedAt) {
     record.taggedAt = sampleTime(); record.updatedAt = record.taggedAt; record.updatedBy = actor; record.availability = '可申请'
-    data.ledgerEvents.unshift(ledgerFor(record, '打标', actor, `⑤已贴码；码值=${sku}`, record.currentLocation, record.currentLocation))
+    data.ledgerEvents.unshift(ledgerFor(record, '打标', actor, `⑤已贴码；HG=${identity.hgCode}；SKU=${sku}`, record.currentLocation, record.currentLocation))
     saveSampleChanges(data)
   }
   return order.skuCodes.every(code => { const sample = data.records.find(row => row.sampleId === `testing-${order.testingOrderId}-${code}`) || (order.sampleInboundAt ? testingSample(order, code, actor) : null); return !!sample && canCompletePcsSampleTagging(sample) })
 }
 
 export function buildPcsSampleTagCode(skuCode: string): string {
-  return skuCode.trim()
+  return getPcsSampleLabelIdentity(skuCode.trim())?.hgCode || ''
 }
 
 export function canCompletePcsSampleTagging(sample: PcsSampleRecord): boolean {

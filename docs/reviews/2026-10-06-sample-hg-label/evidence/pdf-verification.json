@@ -1,0 +1,30 @@
+{
+  "pages": [
+    {
+      "page": 1,
+      "widthMm": 55.03333333333333,
+      "heightMm": 34.882665608333326,
+      "decodedBarcode": "HG2000002",
+      "checksumValid": true,
+      "text": "HG2000002\n2026-04-01\nSKU-DRESS-RED-M"
+    },
+    {
+      "page": 2,
+      "widthMm": 55.03333333333333,
+      "heightMm": 34.882665608333326,
+      "decodedBarcode": "HG2000002",
+      "checksumValid": true,
+      "text": "HG2000002\n2026-04-01\nSKU-DRESS-RED-M"
+    },
+    {
+      "page": 3,
+      "widthMm": 55.03333333333333,
+      "heightMm": 34.882665608333326,
+      "decodedBarcode": "HG2000002",
+      "checksumValid": true,
+      "text": "HG2000002\n2026-04-01\nSKU-DRESS-RED-M"
+    }
+  ],
+  "source": "actual PDF vector bars",
+  "physicalPrinterTested": false
+}

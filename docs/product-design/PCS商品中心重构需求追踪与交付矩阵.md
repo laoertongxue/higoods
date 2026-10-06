@@ -98,7 +98,7 @@
 | TEST-004 | 设计 §4.1、§11-4 | ①系统建档创建 SPU/SKU（预计用料）并写入档案 | WP-04 |实际：建档调用 `createStyleArchiveDirect`/SKU 写入（复用 ARCH API）|spec 档案出现新 SPU/SKU|建档完成回档案可见|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | TEST-005 | 设计 §3.1、§11-4 | 采购链接只存测款单，档案 SKU 不落该字段 | WP-04 |实际：测款单 `purchaseLinks`；SKU 类型无采购链接|spec 双端断言（详情有/SKU 无）|详情见链接、SKU 无字段|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | TEST-006 | 设计 §4.1 | ③快递/物流信息记录在测款单 | WP-04 |实际：`logisticsCarrier`/`logisticsTrackingNo`/`logisticsEta`|spec 字段契约|详情物流区可读|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| TEST-007 | 设计 §4.1 | ⑤打标完成条件=已贴码且码值等于 SKU 编码 | WP-04 |实际：`completeLabelStep` 码值=SKU；详情打标步骤|spec 码值相等断言（TEST-007/SAMP-009）|打标步骤显示 SKU 码|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
+| TEST-007 | 设计 §4.1、§7.3、§7.5.2 | ⑤本单每个 SKU 已贴 HG 码，HG 映射本单内部 SKU | WP-04/WP-SAMPLE-LABEL | completeLabelStep、labelTestingOrderSample | pcs-sample-wp05 / pcs-sample-hg-label 单元 | ⑤双SKU、原SKU/错HG/未到样阻断 | 已验证 | docs/reviews/2026-10-06-sample-hg-label/implementation-and-evidence.md HG-004 | 用户（2026-10-06 HG与日期确认） |
 | TEST-008 | 设计 §4.1 | ⑥买手确认淘汰→测款单结束且保留淘汰事实 | WP-04 |实际：`rejectBuyerConfirm` 状态机|spec 淘汰→已结束 + history|详情显示淘汰记录|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | TEST-009 | 设计 §4.1 | ⑦核价淘汰→测款单结束且保留淘汰事实 | WP-04 |实际：`rejectPricing` 状态机|spec 同 TEST-008|详情显示核价淘汰|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
 | TEST-010 | 设计 §4.1 | ⑦核价记录初步 BOM/用量/工艺成本/定价于测款单 | WP-04 |实际：`TestingOrderPricing`（BOM/用量/工艺成本/定价）|spec 字段契约|核价区可读|已验证|tests/pcs-testing-order.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
@@ -132,7 +132,7 @@
 | SAMP-005 | 设计 §7.2、§11-11 | 家播为独立类型且语义为主播/达人 | WP-05 |实际：位置主数据家播独立类型语义（主播/达人）|spec 类型≠直播间|家播列表展示达人名|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
 | SAMP-006 | 设计 §7.2 | 不存在摄影等营销位位置类型及文案残留 | WP-05 |实际：位置枚举无摄影位；文案扫描残留=0|rg 残留=0|页面无摄影位选项|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
 | SAMP-007 | 设计 §7.2 | 流转记录引用位置主数据 ID，禁止仅自由文本事实 | WP-05 |实际：流转记录 `fromLocationId`/`toLocationId`、样衣 `currentLocationId` 均引用位置主数据 ID|spec ID 引用契约|流转详情显示位置名|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
-| SAMP-008 | 设计 §7.3、§11-10 | 一 SKU 一码，打标码值=SKU 编码 | WP-05 |实际：`buildPcsSampleTagCode` / 打标码=SKU|spec 码值=SKU 断言|打标页显示 SKU 码|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-008 | 设计 §7.3、§11-10、§7.5.2 | 一个 SKU 一个 HG 样衣编号，打标码值为 HG | WP-05/WP-SAMPLE-LABEL | registerSampleIdentity、buildPcsSampleTagCode、resolvePcsSampleLabelSku | pcs-sample-hg-label / pcs-sample-management | 预览打印、重复到样、编号/日期刷新复用 | 已验证 | docs/reviews/2026-10-06-sample-hg-label/implementation-and-evidence.md HG-001～004 | 用户（2026-10-06 HG与日期确认） |
 | SAMP-009 | 设计 §7.3 | 样品必须贴码后方可完成入库后打标/测款⑤推进 | WP-05 |实际：`canCompletePcsSampleTagging` 未贴码阻断|spec 未贴码阻断 + 测款⑤推进阻断|未打标不可完成步骤|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
 | SAMP-010 | 设计 §7.3、§1.3 | 本期不实现无码流转旁路；无码能力不出现在页面承诺 | WP-05 |实际：无「可无码流转」文案；无无码入口|文案扫描=0|页面无无码入口|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
 | SAMP-011 | 设计 §7.2 | 营销样品可在直播间、家播间流转并保留历史 | WP-05 |实际：营销样品直播间/家播间流转 Mock+历史|spec 流转链测试|两位置流转可见|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
@@ -203,4 +203,4 @@
 
 ## 2026-10-06 现场标签、款式属性与直播房间增量
 
-总体设计 §7.5、WP-STYLE-PHOTO / WP-LOS-ROOM / WP-SAMPLE-LABEL 的全部原子条款登记于 [本轮需求与证据](../reviews/2026-10-06-sample-label-and-style-attributes/requirements-and-evidence.md)。ROOM-001～012、STYLE-PHOTO-001～004 及两项性能门禁必须独立核查；样衣 HG 标签三项仍待用户事实，不因房间门牌通过而关闭。旧 WP-05 的既有证据不替代本轮修改后的验证。
+总体设计 §7.5、WP-STYLE-PHOTO / WP-LOS-ROOM / WP-SAMPLE-LABEL 的全部原子条款登记于 [本轮需求与证据](../reviews/2026-10-06-sample-label-and-style-attributes/requirements-and-evidence.md)。ROOM-001～012、STYLE-PHOTO-001～004 及两项性能门禁必须独立核查；HG 来源已于 2026-10-06 确认为 SKU 维度的样衣编号，按 SAMPLE-LABEL-004 单独追踪；条码和日期已确认，纸张按可调尺寸实施；新增标签编号、扫码、原子存储、打印、页面及性能原子项见 [HG 标签实施追踪](../reviews/2026-10-06-sample-hg-label/implementation-and-evidence.md)，不因房间门牌通过而关闭。旧 WP-05 的既有证据不替代本轮修改后的验证。

@@ -1,0 +1,16 @@
+(node:32173) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ HG-001/002/004: SKU identity survives duplicate receipts, transfers and repeats; HG resolves SKU (304.841042ms)
+✔ HG-005/006/008: printed data and bounded settings; no truncation, images or state writes (2.375542ms)
+✔ HG-002/004 regression: older receipt without identities retains its first date; raw SKU is never HG (201.536458ms)
+(node:32174) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ SAMP-001–013 Mock: receipt → all SKU tags → live/home → production/factory/department/warehouse → marketing, with adversarial gates (1413.080042ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1752.350541

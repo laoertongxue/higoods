@@ -1,0 +1,186 @@
+{
+  "passed": true,
+  "iteration": 4,
+  "checks": [
+    "fresh reads never persist sample seeds",
+    "receipt: midway failure rolls back order, sample, tag and ledger together",
+    "label: midway failure rolls back order, sample, tag and ledger together",
+    "invalid SKU stays editable with visible reason",
+    "invalid SKU stays editable with visible reason",
+    "invalid SKU stays editable with visible reason",
+    "UI failed save preserves entered SKU for retry",
+    "two SKU order remains at step ⑤ after first tag",
+    "④⑤ executed using page controls; both SKU labels complete",
+    "blocked flow preserves selected destination for correction",
+    "UI flow saved: loc-live-01",
+    "UI flow saved: loc-home-01",
+    "UI flow saved: loc-factory-01",
+    "UI flow saved: loc-dept-01",
+    "UI flow saved: loc-wh-01",
+    "conversion logs survive refresh and direct detail navigation",
+    "real sample image preview opens",
+    "invalid destination blocked",
+    "empty reason blocked",
+    "duplicate receipt blocked",
+    "generic update cannot forge step facts",
+    "invalid operations do not persist anything",
+    "quota failure reported",
+    "failed type conversion rolls back memory",
+    "failed save preserves persistent sample and logs",
+    "no business Base64 or localStorage fallback",
+    "all persisted SKU labels match their SKU code",
+    "transaction version guard rejects stale tab even without broadcast notifications",
+    "reloaded stale tab reads winner and never overwrites it",
+    "home location filter resolves master name",
+    "no uncaught page errors"
+  ],
+  "errors": [],
+  "performanceSamples": [
+    {
+      "name": "④receipt-save",
+      "ms": 181.10000002384186
+    },
+    {
+      "name": "⑤invalid-code-input-empty",
+      "ms": 34.19999998807907
+    },
+    {
+      "name": "⑤invalid-code-confirm-empty",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "⑤invalid-code-input-WRONG",
+      "ms": 30.700000047683716
+    },
+    {
+      "name": "⑤invalid-code-confirm-WRONG",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "⑤invalid-code-input-SKU-GC-20001",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "⑤invalid-code-confirm-SKU-GC-20001",
+      "ms": 32.19999998807907
+    },
+    {
+      "name": "⑤SKU-code-input",
+      "ms": 29.80000001192093
+    },
+    {
+      "name": "⑤failed-save-feedback",
+      "ms": 80.40000003576279
+    },
+    {
+      "name": "⑤first-SKU-tag-save",
+      "ms": 182
+    },
+    {
+      "name": "⑤last-SKU-tag-save",
+      "ms": 166
+    },
+    {
+      "name": "flow-missing-target-block",
+      "ms": 65.90000003576279
+    },
+    {
+      "name": "flow-missing-reason-block",
+      "ms": 66.39999997615814
+    },
+    {
+      "name": "flow-cancel",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "flow-open",
+      "ms": 33.5
+    },
+    {
+      "name": "flow-target-input",
+      "ms": 29.30000001192093
+    },
+    {
+      "name": "flow-reason-input",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "flow-save-loc-live-01",
+      "ms": 98.90000003576279
+    },
+    {
+      "name": "flow-open",
+      "ms": 32.40000003576279
+    },
+    {
+      "name": "flow-target-input",
+      "ms": 29.399999976158142
+    },
+    {
+      "name": "flow-reason-input",
+      "ms": 29.80000001192093
+    },
+    {
+      "name": "flow-save-loc-home-01",
+      "ms": 99.60000002384186
+    },
+    {
+      "name": "convert-production",
+      "ms": 65.19999998807907
+    },
+    {
+      "name": "flow-open",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "flow-target-input",
+      "ms": 30.099999964237213
+    },
+    {
+      "name": "flow-reason-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "flow-save-loc-factory-01",
+      "ms": 99
+    },
+    {
+      "name": "flow-open",
+      "ms": 37.200000047683716
+    },
+    {
+      "name": "flow-target-input",
+      "ms": 25
+    },
+    {
+      "name": "flow-reason-input",
+      "ms": 30.899999976158142
+    },
+    {
+      "name": "flow-save-loc-dept-01",
+      "ms": 98.70000004768372
+    },
+    {
+      "name": "flow-open",
+      "ms": 35.40000003576279
+    },
+    {
+      "name": "flow-target-input",
+      "ms": 26.30000001192093
+    },
+    {
+      "name": "flow-reason-input",
+      "ms": 30.799999952316284
+    },
+    {
+      "name": "flow-save-loc-wh-01",
+      "ms": 63.299999952316284
+    },
+    {
+      "name": "convert-marketing",
+      "ms": 65.80000001192093
+    }
+  ],
+  "viewport": "1366x768",
+  "base": "http://127.0.0.1:4206"
+}

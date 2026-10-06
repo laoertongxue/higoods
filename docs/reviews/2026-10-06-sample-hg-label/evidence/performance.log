@@ -1,0 +1,10 @@
+PASS 170 samples, max 281.0999999642372
+✔ HG-009: affected label entries, preview, generation and all controls <=1000ms, five samples (16260.241833ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16606.102292

@@ -1,4 +1,4 @@
-import { getPcsSampleById } from '../data/pcs-sample-management.ts'
+import { getPcsSampleById, buildPcsSampleTagCode } from '../data/pcs-sample-management.ts'
 import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 import { getTestingOrderBuyerName } from '../data/pcs-testing-order-repository.ts'
 import { renderProductInformation } from './pcs-product-information.ts'
@@ -109,12 +109,12 @@ function renderActivePanel(order: TestingOrderRecord): string {
       <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="complete-sample-inbound">确认样衣入库并下一步</button>
     `,
     label: `
-      <p class="text-sm text-slate-600">打标完成条件：本单每个 SKU 均已贴码且码值等于 SKU 编码。本单 SKU：${escapeHtml(order.skuCodes.join('、') || '—')}</p>
-      <p class="mt-2 text-sm">${escapeHtml(order.skuCodes.map(sku => `${sku}：${getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)?.taggedAt ? '已贴码' : '待贴码'}`).join('；'))}</p>
-      <label class="mt-3 block text-sm">贴码 SKU 编码
-        <input value="${escapeHtml(order.skuCodes.find(sku => !getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)?.taggedAt) || order.skuCodes[0] || '')}" data-pcs-testing-field="label-sku" list="pcs-testing-sku-list" class="mt-1 h-9 w-full rounded-md border border-slate-200 px-3 text-sm" />
+      <p class="text-sm text-slate-600">打标完成条件：本单每个 SKU 均已贴 HG 码，扫码后对应本单内部 SKU。本单 SKU：${escapeHtml(order.skuCodes.join('、') || '—')}</p>
+      <p class="mt-2 text-sm">${escapeHtml(order.skuCodes.map(sku => `${buildPcsSampleTagCode(sku)} / ${sku}：${getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)?.taggedAt ? '已贴码' : '待贴码'}`).join('；'))}</p>
+      <label class="mt-3 block text-sm">扫描样衣 HG 编号
+        <input value="${escapeHtml(buildPcsSampleTagCode(order.skuCodes.find(sku => !getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)?.taggedAt) || order.skuCodes[0] || ''))}" data-pcs-testing-field="label-sku" list="pcs-testing-sku-list" class="mt-1 h-9 w-full rounded-md border border-slate-200 px-3 text-sm" />
       </label>
-      <datalist id="pcs-testing-sku-list">${order.skuCodes.map((code) => `<option value="${escapeHtml(code)}"></option>`).join('')}</datalist>
+      <datalist id="pcs-testing-sku-list">${order.skuCodes.map((code) => `<option value="${escapeHtml(buildPcsSampleTagCode(code))}" label="${escapeHtml(code)}"></option>`).join('')}</datalist>
       <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="complete-label">确认当前 SKU 已贴码</button>
     `,
     'buyer-confirm': `

@@ -147,6 +147,10 @@ export const routes: RouteRegistry = {
       render: (match) => renderers.renderPcsFirstOrderSampleTaskDetailPage(match[1]),
     },
     {
+      pattern: /^\/pcs\/samples\/label\/([^/]+)$/,
+      render: (match) => renderers.renderPcsSampleLabelPage(match[1]),
+    },
+    {
       pattern: /^\/pcs\/samples\/detail\/([^/]+)$/,
       render: (match) => renderers.renderPcsSampleDetailPage(match[1]),
     },

@@ -1,3 +1,4 @@
+import { buildPcsSampleTagCode } from '../src/data/pcs-sample-management.ts'
 import assert from 'node:assert/strict'
 
 import {
@@ -54,8 +55,8 @@ assert.ok(
   '档案回写不是独立步骤（A-01）',
 )
 assert.ok(
-  TESTING_ORDER_STEPS.some((step) => step.key === 'label' && step.description.includes('SKU 编码')),
-  '⑤打标完成条件=码值等于 SKU 编码（TEST-007）',
+  TESTING_ORDER_STEPS.some((step) => step.key === 'label' && step.description.includes('HG 码') && step.description.includes('SKU')),
+  '⑤打标完成条件=HG 码映射本单 SKU 编码（TEST-007）',
 )
 assert.ok(
   TESTING_ORDER_STEPS.some((step) => step.key === 'buyer-confirm' && step.description.includes('淘汰')),
@@ -66,8 +67,8 @@ assert.ok(
   '⑦核价记录 BOM/工艺成本/定价（TEST-009/010）',
 )
 assert.ok(
-  TESTING_ORDER_STEPS.some((step) => step.key === 'channel-listing' && step.description.includes('TikTok')),
-  '⑧渠道上架含 TikTok/Shopee（TEST-011）',
+  TESTING_ORDER_STEPS.some((step) => step.key === 'channel-listing' && step.description.includes('店铺')),
+  '⑧渠道上架按具体店铺完成（TEST-011）',
 )
 assert.ok(
   TESTING_ORDER_STEPS.some((step) => step.key === 'live-testing'),
@@ -162,9 +163,9 @@ const inbound = completeSampleInbound(labelTarget.testingOrderId, '样衣已入�
 assert.equal(inbound.ok, true, '确认样衣入库（F-01）')
 assert.equal(inbound.record!.currentStepKey, 'label', '入库后进入⑤打标（F-01）')
 const badLabel = completeLabelStep(labelTarget.testingOrderId, 'WRONG-SKU')
-assert.equal(badLabel.ok, false, '码值≠SKU 阻断（TEST-007/SAMP-009）')
-const goodLabel = completeLabelStep(labelTarget.testingOrderId, goodSku)
-assert.equal(goodLabel.ok, true, '码值=SKU 可完成打标（TEST-007）')
+assert.equal(badLabel.ok, false, 'HG 不属于本单 SKU 阻断（TEST-007/SAMP-009）')
+const goodLabel = completeLabelStep(labelTarget.testingOrderId, buildPcsSampleTagCode(goodSku))
+assert.equal(goodLabel.ok, true, 'HG 码映射 SKU 可完成打标（TEST-007）')
 assert.equal(goodLabel.record!.currentStepKey, 'buyer-confirm', '打标后进入⑥买手确认（TEST-003/F-01）')
 
 const killBuyer = listTestingOrders().find((item) => item.status === '进行中')

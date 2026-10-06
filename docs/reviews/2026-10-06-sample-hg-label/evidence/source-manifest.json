@@ -1,0 +1,15 @@
+{
+  "src/data/pcs-sample-management.ts": "d9dee5ecfb749fb1814a04a43cd56379168910b15271556c4ce410b1e4dca6c7",
+  "src/data/pcs-sample-label-seeds.ts": "b4af69e10e1eec90a99b25a64f1a510c6a84f4b2a31698283b9b2fad84d214e3",
+  "src/data/pcs-testing-order-repository.ts": "701e3021562a8973bd7a55c06d814957c9bbaed2fc4ca2baf2df58d6451f2f9d",
+  "src/pages/pcs-sample-management.ts": "f445107b2367a41ce0a7627826ad6193f4c064386f0f5d48d7ff63a2d9f8d6b4",
+  "src/pages/pcs-sample-label.ts": "a28a34b130c65d1472f320933b47e63e5678e1c055c62a251a2650e8adff1f58",
+  "src/pages/pcs-testing-order-detail.ts": "114bc4acf8c3950cf5248802e0984ec67d4d77b9693622f745470be06613029b",
+  "src/router/routes-pcs.ts": "b09cf1ad6d7aea4abbf0e439b72be28ca488dbc697550d3ef7b0d6f78b55e146",
+  "src/router/route-renderers.ts": "c1c42327f78c910a822cbbe21dd3c7fcb73df2201c9b01d720f99be0712537b2",
+  "tests/unit/pcs-sample-hg-label.test.ts": "f2ff8f227f798f996cfa46ca3e6cb114a7bb0e0c6c57512094c78bda1e478a93",
+  "tests/unit/pcs-sample-wp05.test.ts": "7a36db25e3e26c87c11a0ed82fbe641a80efa53d9d09a95f2a33cf844751f24a",
+  "tests/browser-contracts/pcs-sample-hg-label.test.ts": "bfd29b31eeb083ba1fdc754109e03deff1f50229fd3ec500a91b4fdfb73cf0ab",
+  "tests/browser-contracts/pcs-sample-hg-performance.test.ts": "ea309a063bcdd0767c1ce157a83d2b06e4644e5681aba74d585050b28a2185c1",
+  "tests/browser-contracts/pcs-sample-wp05.test.ts": "0ee328f64111bc294c13a38b68f406c1ad30c2efc53c63ca9ad90a1eff69c6e4"
+}

@@ -13,6 +13,7 @@ import {
   listPcsSampleTypeConversionLogs,
   canCompletePcsSampleTagging,
   buildPcsSampleTagCode,
+  resolvePcsSampleLabelSku,
 } from '../src/data/pcs-sample-management.ts'
 
 assert.deepEqual([...PCS_SAMPLE_TYPES], ['marketing', 'production'], '样品类型仅营销样品、生产样品两类（SAMP-001）')
@@ -62,8 +63,9 @@ assert.ok(
 
 const withTag = PCS_SAMPLE_RECORDS.find((item) => item.taggedAt)
 assert.ok(withTag, '存在已贴码样例（SAMP-013）')
-assert.equal(withTag!.sampleCode, withTag!.skuCode, '一 SKU 一码，码值=SKU 编码（SAMP-008）')
-assert.equal(buildPcsSampleTagCode(withTag!.skuCode), withTag!.skuCode, '打标码生成=SKU 编码（SAMP-008）')
+assert.equal(withTag!.sampleCode, withTag!.skuCode, '历史样衣记录保留内部 SKU 引用（SAMP-008）')
+assert.match(buildPcsSampleTagCode(withTag!.skuCode), /^HG\d+$/, '打标码生成=HG 编号（SAMP-008）')
+assert.equal(resolvePcsSampleLabelSku(buildPcsSampleTagCode(withTag!.skuCode)), withTag!.skuCode)
 assert.equal(canCompletePcsSampleTagging(withTag!), true, '已贴码且码值一致可完成（SAMP-009）')
 
 const untagged: typeof withTag = { ...withTag!, taggedAt: null, sampleCode: 'OTHER', skuCode: 'SKU-X' }

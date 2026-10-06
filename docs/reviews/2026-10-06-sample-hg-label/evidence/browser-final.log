@@ -1,0 +1,14 @@
+✔ HG-001–008: Mock receipt, SKU identity, HG scans, print, refresh, transaction failures and concurrency (3982.979292ms)
+✔ SAMP browser Mock full flow 1: refreshed persistence, rollback and conflict (7338.715333ms)
+✔ SAMP browser Mock full flow 2: refreshed persistence, rollback and conflict (6200.509875ms)
+✔ SAMP browser Mock full flow 3: refreshed persistence, rollback and conflict (6024.707208ms)
+✔ SAMP browser Mock full flow 4: refreshed persistence, rollback and conflict (6118.4545ms)
+✔ SAMP browser Mock full flow 5: refreshed persistence, rollback and conflict (6080.143ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32155.222667
