@@ -45,7 +45,6 @@ import {
 import type { PcsSampleType } from '../data/pcs-sample-location-master.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
 
-type SampleModuleKey = 'inventory' | 'application' | 'transfer' | 'return' | 'ledger' | 'stocktake' | 'view'
 type SampleViewMode = 'card' | 'table'
 
 interface SampleManagementState {
@@ -103,16 +102,6 @@ const state: SampleManagementState = {
   conversionReason: '',
   viewMode: 'card',
 }
-
-const SAMPLE_MODULE_TABS: Array<{ key: SampleModuleKey; label: string; href: string; icon: string }> = [
-  { key: 'inventory', label: '样衣库存', href: '/pcs/samples/inventory', icon: 'package' },
-  { key: 'application', label: '使用申请', href: '/pcs/samples/application', icon: 'clipboard-list' },
-  { key: 'transfer', label: '流转记录', href: '/pcs/samples/transfer', icon: 'truck' },
-  { key: 'return', label: '退货处理', href: '/pcs/samples/return', icon: 'rotate-ccw' },
-  { key: 'ledger', label: '样衣台账', href: '/pcs/samples/ledger', icon: 'book-open' },
-  { key: 'stocktake', label: '盘点差异', href: '/pcs/samples/ledger/stocktake', icon: 'scan-line' },
-  { key: 'view', label: '样衣视图', href: '/pcs/samples/view', icon: 'layout-grid' },
-]
 
 const SAMPLE_STATUS_TONE: Record<string, BadgeVariant> = {
   在库可用: 'success',
@@ -222,24 +211,7 @@ function renderRiskBadge(text: string): string {
   return renderBadge(text, text.includes('高') || text.includes('超时') ? 'danger' : 'warning', 'alert-triangle')
 }
 
-function renderModuleTabs(active: SampleModuleKey): string {
-  return `
-    <nav class="flex flex-wrap gap-2">
-      ${SAMPLE_MODULE_TABS.map((tab) => {
-        const activeClass = tab.key === active
-          ? 'border-blue-500 bg-blue-50 text-blue-700'
-          : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-        return `
-          <button type="button" class="${toClassName('inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium', activeClass)}" data-nav="${escapeHtml(tab.href)}">
-            <i data-lucide="${escapeHtml(tab.icon)}" class="h-4 w-4"></i>${escapeHtml(tab.label)}
-          </button>
-        `
-      }).join('')}
-    </nav>
-  `
-}
-
-function renderPageShell(active: SampleModuleKey, title: string, description: string, body: string, actions = ''): string {
+function renderPageShell(title: string, description: string, body: string, actions = ''): string {
   return `
     <div class="space-y-4 p-6" data-pcs-sample-page-root="true">
       ${renderNotice()}
@@ -261,7 +233,6 @@ function renderPageShell(active: SampleModuleKey, title: string, description: st
             ${actions}
           </div>
         </div>
-        <div class="mt-4">${renderModuleTabs(active)}</div>
       </section>
       ${body}
     </div>
@@ -555,7 +526,7 @@ export function renderPcsSampleInventoryPage(): string {
     </section>
     ${renderSampleDetailDrawer()}
   `
-  return renderPageShell('inventory', '样衣库存', '管理样衣资产状态、站点位置、占用预占、在途签收和异常风险。', body)
+  return renderPageShell('样衣库存', '管理样衣资产状态、站点位置、占用预占、在途签收和异常风险。', body)
 }
 
 function renderRequestTable(requests: PcsSampleUseRequest[]): string {
@@ -684,7 +655,7 @@ export function renderPcsSampleApplicationPage(): string {
     ${renderRequestDrawer()}
     ${renderCreateRequestDrawer()}
   `
-  return renderPageShell('application', '样衣使用申请', '管理借用申请流程，串联预占锁定、领用出库、归还入库。', body)
+  return renderPageShell('样衣使用申请', '管理借用申请流程，串联预占锁定、领用出库、归还入库。', body)
 }
 
 function renderTransferTable(records: PcsSampleTransferRecord[]): string {
@@ -748,7 +719,7 @@ export function renderPcsSampleTransferPage(): string {
     <section class="rounded-xl border bg-white shadow-sm">${renderTransferTable(records)}</section>
     ${renderTransferDrawer()}
   `
-  return renderPageShell('transfer', '样衣流转记录', '记录样衣出库、在途、签收、借出、归还等跨站点和人员流转事件。', body)
+  return renderPageShell('样衣流转记录', '记录样衣出库、在途、签收、借出、归还等跨站点和人员流转事件。', body)
 }
 
 function renderReturnCaseTable(records: PcsSampleReturnCase[]): string {
@@ -834,7 +805,7 @@ export function renderPcsSampleReturnPage(): string {
     <section class="rounded-xl border bg-white shadow-sm">${renderReturnCaseTable(records)}</section>
     ${renderReturnCaseDrawer()}
   `
-  return renderPageShell('return', '样衣退货与处理', '处理测款淘汰、质量异常、供应商退样、内部维修或处置等样衣闭环。', body)
+  return renderPageShell('样衣退货与处理', '处理测款淘汰、质量异常、供应商退样、内部维修或处置等样衣闭环。', body)
 }
 
 function renderLedgerTable(events: PcsSampleLedgerEvent[]): string {
@@ -904,7 +875,7 @@ export function renderPcsSampleLedgerPage(): string {
     </section>
     ${renderLedgerDrawer()}
   `
-  return renderPageShell('ledger', '样衣台账', '沉淀样衣入库、出库、预占、借出、归还、退货、处置和盘点调整事件。', body)
+  return renderPageShell('样衣台账', '沉淀样衣入库、出库、预占、借出、归还、退货、处置和盘点调整事件。', body)
 }
 
 function renderStocktakeTable(diffs: PcsSampleStocktakeDiff[]): string {
@@ -967,7 +938,7 @@ export function renderPcsSampleStocktakePage(): string {
     <section class="rounded-xl border bg-white shadow-sm">${renderStocktakeTable(diffs)}</section>
     ${renderStocktakeDrawer()}
   `
-  return renderPageShell('stocktake', '盘点差异追踪', '追踪样衣盘点短缺、盈余、原因确认、调整入账和关闭动作。', body)
+  return renderPageShell('盘点差异追踪', '追踪样衣盘点短缺、盈余、原因确认、调整入账和关闭动作。', body)
 }
 
 function renderSampleCards(samples: PcsSampleRecord[]): string {
@@ -1019,7 +990,7 @@ export function renderPcsSampleViewPage(): string {
     ${state.viewMode === 'card' ? renderSampleCards(samples) : `<section class="rounded-xl border bg-white shadow-sm">${renderSampleTable(samples)}</section>`}
     ${renderSampleDetailDrawer()}
   `
-  return renderPageShell('view', '样衣视图', '以卡片或表格查看样衣可用性、风险、责任站点和预计归还/ETA。', body)
+  return renderPageShell('样衣视图', '以卡片或表格查看样衣可用性、风险、责任站点和预计归还/ETA。', body)
 }
 
 function renderGenericDrawer(title: string, heading: string, items: Array<[string, string]>, risks: string[]): string {
@@ -1049,7 +1020,6 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
   const sample = getPcsSampleById(decodeURIComponent(sampleId))
   if (!sample) {
     return renderPageShell(
-      'inventory',
       '样衣详情',
       '当前样衣不存在或已被移除。',
       `<section class="rounded-xl border bg-white p-10 text-center text-slate-500">未找到样衣：${escapeHtml(sampleId)}</section>`,
@@ -1118,7 +1088,7 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
       <div class="mt-3 text-sm text-slate-700">打标状态：${sample.taggedAt ? `已贴码 ${escapeHtml(getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || 'HG 编号待生成')}（${escapeHtml(sample.taggedAt)}）` : '未贴码，不能完成入库后打标/测款⑤'} · 对应 SKU：${escapeHtml(sample.skuCode)}</div>
     </section>
   `
-  return renderPageShell('inventory', '样衣详情', '查看样衣的库存快照、申请关联、流转和台账事件。', body + renderFlowDialog())
+  return renderPageShell('样衣详情', '查看样衣的库存快照、申请关联、流转和台账事件。', body + renderFlowDialog())
 }
 
 function resetFilters(): void {
