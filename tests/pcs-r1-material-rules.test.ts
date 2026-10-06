@@ -219,6 +219,7 @@ test('MAT-012: formal processed SKU requires real pattern/version plus the proce
 
 test('MAT-013/CODE-005: execution-file corrections preserve prior versions and the output identity',()=>{
  const sku=repo.getMaterialSkuRecordById('material-r1-process-print')!,code=sku.materialSkuCode
+ const originalExecutionIds=repo.getMaterialProcessDefinition(sku.materialSkuId)!.executionAssetIds
  const first=repo.addMaterialAsset({materialId:sku.materialId,materialSkuId:sku.materialSkuId,role:'PRINT_FILE',name:'执行资料第一版',url:'/materials/fei-ticket/blue-white-print-cotton.png'})
  const next=repo.addMaterialAsset({materialId:sku.materialId,materialSkuId:sku.materialSkuId,role:'PRINT_FILE',name:'执行资料修正版',url:'/materials/fei-ticket/blue-white-print-cotton.png'})
  repo.reviseMaterialProcessAssets(sku.materialSkuId,[first.assetId],'v1')
@@ -227,7 +228,8 @@ test('MAT-013/CODE-005: execution-file corrections preserve prior versions and t
  const definition=repo.getMaterialProcessDefinition(sku.materialSkuId)!
  assert.equal(repo.getMaterialSkuRecordById(sku.materialSkuId)?.materialSkuCode,code)
  assert.equal(definition.processVersionId,'v2')
- assert.deepEqual(definition.documentHistory?.[0].executionAssetIds,[first.assetId])
+ assert.ok(definition.documentHistory?.some(version=>version.executionAssetIds.length===1&&version.executionAssetIds[0]===first.assetId))
+ assert.ok(definition.documentHistory?.some(version=>JSON.stringify(version.executionAssetIds)===JSON.stringify(originalExecutionIds)))
  assert.ok(repo.listMaterialAssets(sku.materialId).some(item=>item.assetId===first.assetId))
 })
 test('MAT-012: registered file previews pass image validation while temporary blobs do not',async()=>{

@@ -1,0 +1,47 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 196.39999997615817,
+    "end": 47233.89999997616,
+    "images": 5,
+    "label": "qr-final-0",
+    "start": 47037.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 194.20000004768372,
+    "end": 47867.30000001192,
+    "images": 5,
+    "label": "qr-final-1",
+    "start": 47673.09999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 194,
+    "end": 48483.89999997616,
+    "images": 5,
+    "label": "qr-final-2",
+    "start": 48289.89999997616,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 195.5999999642372,
+    "end": 49100.59999996424,
+    "images": 5,
+    "label": "qr-final-3",
+    "start": 48905,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 194.10000002384183,
+    "end": 49800.80000001192,
+    "images": 5,
+    "label": "qr-final-4",
+    "start": 49606.69999998808,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  }
+]

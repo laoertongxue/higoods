@@ -1,0 +1,52 @@
+[
+  {
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "durationMs": 859.5,
+    "images": 1,
+    "brokenImages": 0,
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "navigationType": "navigate"
+  },
+  {
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "durationMs": 780.1000000238419,
+    "images": 1,
+    "brokenImages": 0,
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "durationMs": 780.6999999880791,
+    "images": 1,
+    "brokenImages": 0,
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "durationMs": 728.8999999761581,
+    "images": 1,
+    "brokenImages": 0,
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "durationMs": 958.5,
+    "images": 1,
+    "brokenImages": 0,
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "navigationType": "reload"
+  }
+]

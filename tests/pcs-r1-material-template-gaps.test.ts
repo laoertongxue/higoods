@@ -27,6 +27,31 @@ function publish(template: config.MaterialTemplate): config.MaterialTemplate {
   return config.getMaterialTemplateByVersion(draft.templateId, draft.version)
 }
 
+test('TPL-012: disabling a category blocks new archives but preserves read-only legacy bindings', () => {
+  const saved = config.getMaterialConfigSnapshot()
+  saved.templates = saved.templates.map(item => ({ ...item, enabled: false }))
+  pcsRecordStore.setItem(config.PCS_MATERIAL_CONFIG_KEY, JSON.stringify(saved)); config.resetMaterialConfigCache()
+  const before = pcsRecordStore.getItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY)
+  repo.resetMaterialArchiveCache()
+  const records = repo.getMaterialArchiveStoreSnapshot().records
+  assert.equal(records.length, archiveBaseline.records.length)
+  assert.ok(records.every(item => item.templateId && item.templateVersion))
+  assert.equal(pcsRecordStore.getItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY), before)
+  assert.throws(() => root('纽扣'), /没有启用/)
+})
+
+test('ARCH-001/TPL-012: legacy packaging archives remain readable as consumables without changing stored source', () => {
+  const baseline = structuredClone(archiveBaseline)
+  const legacy = { ...baseline.records[0], materialId: 'legacy-hangtag', materialCode: 'PKG-HANGTAG-001', kind: 'packaging', categoryName: '吊牌', templateId: undefined, templateVersion: undefined }
+  baseline.records.push(legacy as unknown as typeof baseline.records[number])
+  pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(baseline)); repo.resetMaterialArchiveCache()
+  const before = pcsRecordStore.getItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY)
+  const restored = repo.getMaterialArchiveById('legacy-hangtag')!
+  assert.equal(restored.kind, 'consumable'); assert.equal(restored.categoryName, '吊牌')
+  assert.equal(restored.materialCode, legacy.materialCode)
+  assert.equal(pcsRecordStore.getItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY), before)
+})
+
 test('ATTR-012: zipper gauge uses a stable dictionary reference, rejects new unknown or disabled values, and preserves prior labels', () => {
   const template = config.getMaterialTemplate('accessory', '拉链')
   assert.equal(config.getMaterialTemplateByVersion(template.templateId, 2).fields.find(f => f.key === 'gauge')!.type, 'text')

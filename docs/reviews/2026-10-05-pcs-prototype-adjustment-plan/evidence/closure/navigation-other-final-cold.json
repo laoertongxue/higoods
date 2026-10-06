@@ -1,0 +1,212 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 1255.4000000357628,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 966.7999999523164,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 998.5,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 959.600000023842,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 911.100000023842,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 994.3000000119208,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-sku-detail"
+    ],
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-process-print",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 969,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-sku-detail"
+    ],
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-process-print",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 999.8000000119208,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-sku-detail"
+    ],
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-process-print",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 944.9000000357628,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-sku-detail"
+    ],
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-process-print",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 962,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-sku-detail"
+    ],
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-process-print",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 135,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page"
+    ],
+    "url": "/pcs/products/channel-products/channel-listing-wms-demo-1",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 116.5,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page"
+    ],
+    "url": "/pcs/products/channel-products/channel-listing-wms-demo-1",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page"
+    ],
+    "url": "/pcs/products/channel-products/channel-listing-wms-demo-1",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128.69999998807907,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page"
+    ],
+    "url": "/pcs/products/channel-products/channel-listing-wms-demo-1",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 127.10000002384186,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page"
+    ],
+    "url": "/pcs/products/channel-products/channel-listing-wms-demo-1",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/testing/orders/to_muw20xcv_6",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/testing/orders/to_muw20xcv_6",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/testing/orders/to_muw20xcv_6",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/testing/orders/to_muw20xcv_6",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/testing/orders/to_muw20xcv_6",
+    "round": 5,
+    "cache": "disabled"
+  }
+]

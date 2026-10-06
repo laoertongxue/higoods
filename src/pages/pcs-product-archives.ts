@@ -1,3 +1,4 @@
+import { confirmPcsAction, requestPcsActionReason } from './pcs-action-dialog.ts'
 // @page-pattern: list
 // R1 P01-P03 / PROD-001..012: separate lists, read-only details and dedicated editors.
 import { escapeHtml } from '../utils.ts'
@@ -191,7 +192,9 @@ function styleEditorBody(): string {
   const d = state.styleDraft, locked = d.approvalStatus === 'APPROVED'
   if (state.editorTab === 'attributes') {
     const singles: FlatDimensionId[] = ['brands', 'categoryNumbers', 'productPositioning']
-    return panel('分类与属性', `<div class="grid gap-5 md:grid-cols-2">${singles.map(dim => field(FLAT_DIMENSION_META.find(o => o.id === dim)!.name, select(`ref.${dim}`, d.productConfigRefs?.[dim]?.[0], configOptions(dim, d.productConfigRefs?.[dim]), '请选择'))).join('')}${field('正式类目', select('style.productCategoryId', d.productCategoryId, leafOptions()))}${field('材质类型', select('style.materialType', d.materialType, [['毛织', '毛织'], ['非毛织', '非毛织']]))}${field('年份', input('style.yearTag', d.yearTag, 'number'))}${field('季节', choices('season', [...new Set([...getProjectCreateCatalog().seasonTags, ...(d.seasonTags || [])])].map(name => [name, name]), d.seasonTags || []))}${field('买手 / 资料责任人', select('style.buyerId', d.buyerId, getProjectCreateCatalog().owners.map(o => [o.id, o.name]), d.buyerName && !d.buyerId ? `${d.buyerName}（原资料，未核实人员）` : '请选择人员'))}</div><div class="mt-6 grid gap-5 md:grid-cols-2">${(['categories', 'styles', 'trendElements', 'fabrics', 'specialCrafts', 'crowds', 'ages', 'crowdPositioning'] as FlatDimensionId[]).map(dim => field(FLAT_DIMENSION_META.find(o => o.id === dim)!.name, multiConfig(dim, d.productConfigRefs?.[dim] || []))).join('')}</div>`)
+    const buyers: Array<[string, string]> = getProjectCreateCatalog().owners.map(o => [o.id, o.name])
+    if (d.buyerId && !buyers.some(([id]) => id === d.buyerId)) buyers.push([d.buyerId, d.buyerName || d.buyerId])
+    return panel('分类与属性', `<div class="grid gap-5 md:grid-cols-2">${singles.map(dim => field(FLAT_DIMENSION_META.find(o => o.id === dim)!.name, select(`ref.${dim}`, d.productConfigRefs?.[dim]?.[0], configOptions(dim, d.productConfigRefs?.[dim]), '请选择'))).join('')}${field('正式类目', select('style.productCategoryId', d.productCategoryId, leafOptions()))}${field('材质类型', select('style.materialType', d.materialType, [['毛织', '毛织'], ['非毛织', '非毛织']]))}${field('年份', input('style.yearTag', d.yearTag, 'number'))}${field('季节', choices('season', [...new Set([...getProjectCreateCatalog().seasonTags, ...(d.seasonTags || [])])].map(name => [name, name]), d.seasonTags || []))}${field('买手 / 资料责任人', select('style.buyerId', d.buyerId, buyers, d.buyerName && !d.buyerId ? `${d.buyerName}（原资料，未核实人员）` : '请选择人员'))}</div><div class="mt-6 grid gap-5 md:grid-cols-2">${(['categories', 'styles', 'trendElements', 'fabrics', 'specialCrafts', 'crowds', 'ages', 'crowdPositioning'] as FlatDimensionId[]).map(dim => field(FLAT_DIMENSION_META.find(o => o.id === dim)!.name, multiConfig(dim, d.productConfigRefs?.[dim] || []))).join('')}</div>`)
   }
   if (state.editorTab === 'skus') return state.id ? panel('规格维护', `<p class="mb-4 text-sm text-slate-500">每条规格独立维护。后续新增规格独立提交审核。</p>${link('进入规格清单', `${SKU_PATH}?styleId=${state.id}`)}<span class="mx-3">·</span>${link('新增规格', `${SKU_PATH}/new?styleId=${state.id}`)}`) : generatePanel({ ...d, styleId: 'draft', styleCode: d.styleCode || '待生成SPU', mainImageUrl: d.mainImageUrl || '' } as StyleArchiveShellRecord)
   if (state.editorTab === 'sales') {
@@ -410,7 +413,7 @@ export async function handlePcsProductArchiveEvent(target: HTMLElement, event?: 
       await runPcsRecordCommand(() => createSkuArchiveBatch(previewProductSkus(getStyleArchiveById(state.skuDraft.styleId!)!, state.importRows)))
       state.notice = `已导入 ${state.importRows.length} 条草稿规格。`; state.error = false; state.importOpen = false
     } else if (action === 'cancel-edit') {
-      if (state.dirty && !window.confirm('修改尚未保存，确定离开并放弃本次输入？')) return true
+      if (state.dirty && !await confirmPcsAction('修改尚未保存，确定离开并放弃本次输入？')) return true
       state.pendingFileIds.forEach(releasePcsPendingFile); state.pendingFileIds = []; state.editorKey = ''; state.dirty = false
       go(state.id ? `${path()}/${state.id}` : path(), state.kind === 'style' ? '款式档案' : '规格档案'); return true
     } else if (action === 'copy') {
@@ -433,8 +436,8 @@ export async function handlePcsProductArchiveEvent(target: HTMLElement, event?: 
         rerender(); return true
       }
       let reason = ''
-      if (action === 'reject') { const entered = window.prompt('请填写驳回原因'); if (entered === null) return true; reason = entered }
-      if (['deactivate', 'archive'].includes(action) && !window.confirm(action === 'archive' ? '归档后不再用于新业务，已有记录保留。确定归档？' : '停用后不再用于新业务；已有关联渠道商品保留。确定停用？')) return true
+      if (action === 'reject') { const entered = await requestPcsActionReason('请填写驳回原因'); if (entered === null) return true; reason = entered }
+      if (['deactivate', 'archive'].includes(action) && !await confirmPcsAction(action === 'archive' ? '归档后不再用于新业务，已有记录保留。确定归档？' : '停用后不再用于新业务；已有关联渠道商品保留。确定停用？')) return true
       if (action === 'archive') {
         const { getProductExternalActiveReferences } = await import('../data/pcs-product-reference-check.ts')
         const references = await getProductExternalActiveReferences(state.kind, state.id)

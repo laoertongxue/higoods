@@ -170,3 +170,18 @@ test('CFG-009 usage carries the actual archive detail destination', () => {
  pcsRecordStore.setItem('higood-pcs-style-archive-store-v3', JSON.stringify({ records: [{ styleId: 'usage-id', styleCode: 'SPU-LINK', styleName: '跳转款式', productConfigRefs: { styles: [option.id] } }] }))
  assert.equal(getConfigOptionUsage('styles', option.id)[0].href, '/pcs/products/styles/usage-id')
 })
+
+test('CFG-015 unit reads isolate aliases and nested audit values, and observe later saves', () => {
+ const unit = listMaterialUnitDefinitions().find(row => row.code === 'M')!
+ const config = getMaterialConfigSnapshot()
+ config.units = config.units.map(row => row.id === unit.id ? { ...row, aliases: ['米长'], logs: [{ id: 'unit-audit', action: '核对', detail: '单位', operator: '验收', time: '2026-10-06', changes: [{ field: '名称', before: '米', after: '米长' }, { field: '别名', before: [], after: ['米长'] }] }] } : row)
+ pcsRecordStore.setItem('higood-pcs-material-config-v1', JSON.stringify(config)); resetMaterialConfigCache()
+ const read = listMaterialUnitDefinitions().find(row => row.id === unit.id)!
+ read.aliases![0] = '不得污染'; read.logs![0].changes![0].after = '不得污染'
+ ;(read.logs![0].changes![1].after as string[])[0] = '不得污染'
+ const next = listMaterialUnitDefinitions().find(row => row.id === unit.id)!
+ assert.equal(next.aliases![0], '米长'); assert.equal(next.logs![0].changes![0].after, '米长')
+ assert.deepEqual(next.logs![0].changes![1].after, ['米长'])
+ saveMaterialUnit({ ...next, enabled: false })
+ assert.equal(listMaterialUnitDefinitions().find(row => row.id === unit.id)!.enabled, false)
+})

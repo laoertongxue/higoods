@@ -208,7 +208,15 @@ function materialTemplateCategoryIdentity(template: MaterialTemplate): MaterialT
   const suffix = template.templateId.replace(/^material-template-/, '')
   return { ...projectTemplateFieldReferences(template), categoryNames: { zh: template.category, ...template.categoryNames }, categoryAliases: structuredClone(template.categoryAliases || {}), categoryId: template.categoryId || `material-category-${suffix}`, categoryCode: template.categoryCode || `MC-${suffix.toUpperCase()}` }
 }
-export function listMaterialUnitDefinitions(): MaterialUnitDefinition[] { return structuredClone(snapshot().units) }
+export function listMaterialUnitDefinitions(): MaterialUnitDefinition[] {
+  // Unit records contain scalars plus aliases and audit entries. Preserve
+  // caller isolation without invoking the generic serializer for every SKU in
+  // an import; configuration saves still replace the source snapshot.
+  return snapshot().units.map(unit => ({ ...unit,
+    ...(unit.aliases ? { aliases: [...unit.aliases] } : {}),
+    ...(unit.logs ? { logs: structuredClone(unit.logs) } : {}),
+  }))
+}
 export function listFixedMaterialConversions(): Array<{ fromUnit: string; toUnit: string; factor: number }> {
   return [{ fromUnit: 'Yard', toUnit: 'M', factor: 0.9144 }, { fromUnit: 'cm', toUnit: 'M', factor: 0.01 }, { fromUnit: 'mm', toUnit: 'M', factor: 0.001 }, { fromUnit: 'g', toUnit: 'KG', factor: 0.001 }]
 }

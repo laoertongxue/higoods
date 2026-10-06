@@ -1,6 +1,6 @@
 import { commitPcsRecords, commitPcsNewRecordGroups, readPcsRecords, readPcsFiles, pcsFileReferences, type PcsStoredRecord, type PcsMigrationReceipt } from './pcs-record-db.ts'
 import { assignPcsRecordPositions } from './pcs-record-position.ts'
-import { decodePcsRecordSnapshot as decode, encodePcsRecordSnapshot as encode, normalizePcsRecordSnapshot, equalPcsRecordValues, type PcsRecordEntry as Entry } from './pcs-record-codec.ts'
+import { decodePcsRecordSnapshot as decode, encodePcsRecordSnapshot as encode, normalizePcsRecordSnapshot, equalPcsRecordValues, assemblePcsRecordSnapshot, type PcsRecordEntry as Entry } from './pcs-record-codec.ts'
 import { isPcsNewStaticRecord } from './pcs-record-static-versions.ts'
 
 // 同步领域函数只修改本次动作的工作副本；持久提交在页面继续显示成功之前完成。
@@ -21,6 +21,43 @@ export const PCS_LEGACY_KEYS = [
 const keys = new Set<string>(PCS_LEGACY_KEYS)
 let fcsBridge: typeof import('./fcs/design-revision-pcs-storage.ts') | undefined
 const snapshots = new Map<string, string>()
+const materialKey = 'higood-pcs-material-archive-store-v2'
+// A cold list consumes validated objects directly. Serialize only when a command
+// or a legacy text reader actually needs the string; keep persisted rows private.
+let materialRead: { value: unknown } | null = null
+function setSnapshot(key: string, raw: string): void {
+  if (key === materialKey) materialRead = null
+  snapshots.set(key, raw)
+}
+/** Apply a read-only projection. The repository copies every field it normalizes
+ * and keeps nested values private; editing APIs still return independent trees. */
+export function readPcsMaterialSnapshot(): { token: object; project: <T>(prepare: (value: unknown) => T) => T } | null {
+  if (demoDepth) return null
+  assertPcsCollectionsReadable([materialKey])
+  if (!materialRead || staging) return null
+  if (scopedReadsStarted && !loadedCollections.has(materialKey) && !hydratingCollections.has(materialKey)) throw new Error('当前页面所需资料尚未读取，请重新读取后重试。')
+  const current = materialRead
+  return { token: current, project: prepare => prepare(current.value) }
+}
+// One decoded view per registered collection, keyed by the authoritative raw
+// value. No command can reuse a failed/stale snapshot after rollback or reload.
+const decodedViews = new Map<string, { raw: string; rows: ReturnType<typeof decode>; serialized: Map<string, string> }>()
+const decodedSeeds = new Map<string, { raw: string; rows: ReturnType<typeof decode> }>()
+function decodedView(key: string, raw: string) {
+  const previous = decodedViews.get(key)
+  if (previous?.raw === raw) return previous
+  const rows = decode(key, raw)
+  const prepared = { raw, rows, serialized: new Map(rows.map(row => [row.id, JSON.stringify(typeof (row.value as Partial<Entry>)?.position === 'number' ? (row.value as Entry).data : row.value)])) }
+  decodedViews.set(key, prepared)
+  return prepared
+}
+function decodedSeed(key: string, raw: string) {
+  const previous = decodedSeeds.get(key)
+  if (previous?.raw === raw) return previous.rows
+  const rows = decode(key, raw)
+  decodedSeeds.set(key, { raw, rows })
+  return rows
+}
 const baseline = new Map<string, string>()
 const resets = new Set<() => void>()
 const files = new Map<string, Blob>()
@@ -47,6 +84,23 @@ const clientId = typeof crypto !== 'undefined' ? crypto.randomUUID() : 'node'
 
 export function isPcsDemoData(): boolean { return demoDepth > 0 }
 export function hasPcsRecordSnapshot(key: string): boolean { return snapshots.has(key) }
+function isSuppliedDemoOmission(row: PcsStoredRecord): boolean {
+  if (!row.deleted) return false
+  const key = row.id.split('/')[0], receipt = migrationReceipts.get(key)
+  const exactOldSource = key === 'higood-pcs-technical-data-version-store-v5'
+    ? receipt?.sourceDigest === '05d0a7a093ba8cff7006d673107c188f0db15502b2d1575331418bea507971a6' && /\/(records|contents)\/tdv_demand_SPU_QC_00[123]$/.test(row.id)
+    : key === 'higood-pcs-style-archive-store-v3'
+      && receipt?.sourceDigest === 'f8c231ec11d8d9696f8607843b6e150ecc1be086f54c03d3d9a5b306f38ce3c1'
+      && /\/records\/style_demand_(ASYSA26060310|SPU_QC_00[123])$/.test(row.id)
+  return Boolean(row.deleted && exactOldSource && row.collection === 'deleted' && row.version === 1 && receipt && !receipt.recordIds.includes(row.id))
+}
+export function getPcsDeletedRecordIds(key: string): ReadonlySet<string> {
+  // This exact 22-row old demo predates the three new review examples. Its
+  // migration generated omission markers, not an edit of those new examples.
+  // Only this release's identified omission is projected; later deletes and
+  // all other tombstones remain authoritative. No persisted row is changed.
+  return new Set(stored.filter(row => row.id.startsWith(`${key}/`) && row.deleted && !isSuppliedDemoOmission(row)).map(row => row.id))
+}
 
 export function registerPcsRepositoryReset(reset: () => void): void { resets.add(reset) }
 export function withPcsDemoData<T>(recipe: () => T): T {
@@ -87,7 +141,9 @@ export function assertPcsCollectionsReadable(collections: readonly string[]): vo
 export function releasePcsPendingFile(id: string): boolean {
   if (persistedFileIds.has(id)) return false
   const known = new Set(files.keys())
-  const referenced = (value: unknown) => pcsFileReferences(value, known).has(id)
+  // Cancellation only checks references. Unrelated legacy inline images must
+  // not block discarding an upload; persistent commits still validate bytes.
+  const referenced = (value: unknown) => pcsFileReferences(value, known, false).has(id)
   if (stored.some(row => !row.deleted && referenced(row.value))) return false
   for (const raw of snapshots.values()) if (referenced(JSON.parse(raw)) || raw.includes(fileUrls.get(id) ?? '__no_file_url__')) return false
   const url = fileUrls.get(id)
@@ -101,26 +157,38 @@ export const pcsRecordStore = {
       assertPcsCollectionsReadable([key])
       if (scopedReadsStarted && !loadedCollections.has(key) && !hydratingCollections.has(key)) throw new Error('当前页面所需资料尚未读取，请重新读取后重试。', { cause: { collection: key } })
     }
+    if (!demoDepth && key === materialKey && materialRead && !snapshots.has(key)) snapshots.set(key, JSON.stringify(materialRead.value))
     return demoDepth ? baseline.get(key) ?? null : snapshots.get(key) ?? baseline.get(key) ?? null
   },
   setItem(key: string, raw: string): void {
     if (!keys.has(key)) throw new Error(`未登记的数据范围：${key}`)
     if (demoDepth > 0 || typeof window === 'undefined') {
       baseline.set(key, raw)
-      if (!staging) snapshots.set(key, raw)
+      if (!staging) setSnapshot(key, raw)
       return
     }
     if (!staging) throw new Error('本次修改尚未保存：请通过页面业务动作重试。')
-    const parsed = JSON.parse(raw)
-    const next = JSON.stringify(parsed, (_key, value) => {
-      if (value && typeof value === 'object' && value.fileId && value.status === '待保存') return { ...value, status: '已保存' }
-      return value
-    })
-    snapshots.set(key, next); dirty.add(key)
+    // Record decoding validates JSON before committing. Only pending attachment
+    // metadata needs a rewrite; ordinary commands retain the prepared string.
+    let next = raw
+    if (raw.includes('"待保存"') || raw.includes('\\u')) {
+      const value = JSON.parse(raw)
+      const markSaved = (item: unknown): void => {
+        if (!item || typeof item !== 'object') return
+        if (Array.isArray(item)) { for (const child of item) markSaved(child); return }
+        const record = item as Record<string, unknown>
+        if (record.fileId && record.status === '待保存') record.status = '已保存'
+        // Inspect objects only; the common scalar fields need no replacer call.
+        for (const child of Object.values(record)) if (child && typeof child === 'object') markSaved(child)
+      }
+      markSaved(value)
+      next = JSON.stringify(value)
+    }
+    setSnapshot(key, next); dirty.add(key)
   },
   removeItem(key: string): void {
     if (!staging && !demoDepth && typeof window !== 'undefined') throw new Error('清理数据必须通过已确认的业务动作。')
-    snapshots.set(key, emptySnapshot(snapshots.get(key) ?? baseline.get(key))); dirty.add(key)
+    setSnapshot(key, emptySnapshot(snapshots.get(key) ?? baseline.get(key))); dirty.add(key)
   },
 }
 
@@ -131,7 +199,7 @@ function emptySnapshot(raw?: string): string {
 }
 /** Validate and hydrate attachment references during assembly, without parsing the
  * entire assembled collection a second time. The persisted rows stay unchanged. */
-function hydrationSerializer(availableFiles: ReadonlySet<string>) {
+function hydrationVisitor(availableFiles: ReadonlySet<string>, referenceFreeValues?: WeakSet<object>) {
   const missing = () => { throw new Error('当前资料的附件文件缺失，原有记录已保留。请核对附件后重新读取。') }
   const visit = (value: unknown): unknown => {
     if (typeof value === 'string') {
@@ -144,6 +212,7 @@ function hydrationSerializer(availableFiles: ReadonlySet<string>) {
       return value
     }
     if (!value || typeof value !== 'object') return value
+    if (referenceFreeValues?.has(value)) return value
     if (value instanceof Blob) throw new Error('附件应保存在文件仓库中，原有资料已保留。')
     if (Array.isArray(value)) {
       let next: unknown[] | undefined
@@ -158,8 +227,7 @@ function hydrationSerializer(availableFiles: ReadonlySet<string>) {
     // Copy only branches containing hydrated URLs. The common no-attachment
     // case uses native serialization, avoiding a replacer call for every field.
     let next: Record<string, unknown> | null = null
-    for (const key in object) {
-      if (!Object.hasOwn(object, key)) continue
+    for (const key of Object.keys(object)) {
       const original = object[key]
       // Number/boolean/null fields have neither attachment bytes nor references.
       if (original === null || (typeof original !== 'object' && typeof original !== 'string')) continue
@@ -175,6 +243,10 @@ function hydrationSerializer(availableFiles: ReadonlySet<string>) {
     }
     return next ?? value
   }
+  return visit
+}
+function hydrationSerializer(availableFiles: ReadonlySet<string>, referenceFreeValues?: WeakSet<object>) {
+  const visit = hydrationVisitor(availableFiles, referenceFreeValues)
   return (data: unknown): string => JSON.stringify(visit(data))
 }
 function hydrateFileReferences(raw: string, availableFiles: ReadonlySet<string> = new Set(files.keys())): string {
@@ -235,6 +307,7 @@ function sourceValue(key: string): string | null {
   }
 }
 function collectionFailure(key: string, error: unknown): void {
+  if (key === materialKey) materialRead = null
   collectionFailures.set(key, error instanceof Error ? error.message : '当前资料无法读取，请重新读取。')
 }
 function collectLegacySources(collections: ReadonlySet<string>): LegacySource[] {
@@ -335,6 +408,7 @@ export async function upgradePcsLegacyRecords(collections: readonly string[]): P
 
 async function hydrate(collections: readonly string[], snapshot?: Awaited<ReturnType<typeof readPcsRecords>>): Promise<void> {
   const requested = new Set(collections)
+  if (requested.has(materialKey)) materialRead = null
   snapshot ??= await readPcsRecords(collections)
   stored = [...stored.filter(row => !requested.has(row.id.split('/')[0])), ...snapshot.records]
   for (const key of requested) { collectionFailures.delete(key); legacySources.delete(key); migrationReceipts.delete(key) }
@@ -343,12 +417,19 @@ async function hydrate(collections: readonly string[], snapshot?: Awaited<Return
   snapshot.files.forEach(file => files.set(file.id, file.blob))
   const availableFiles = new Set(snapshot.files.map(file => file.id))
   const grouped = new Map<string, PcsStoredRecord[]>()
-  for (const row of stored) { const key = row.id.split('/')[0]; const values = grouped.get(key) ?? []; values.push(row); grouped.set(key, values) }
+  for (const row of stored) { if (isSuppliedDemoOmission(row)) continue; const key = row.id.split('/')[0]; const values = grouped.get(key) ?? []; values.push(row); grouped.set(key, values) }
   for (const key of requested) {
     try {
       const rows = grouped.get(key) ?? []
-      const raw = rows.length ? encode(key, rows, baseline.get(key), undefined, hydrationSerializer(availableFiles)) : baseline.get(key) ?? '[]'
-      snapshots.set(key, raw !== null ? raw : emptySnapshot(baseline.get(key)))
+      if (key === materialKey && rows.length) {
+        const assembled = assemblePcsRecordSnapshot(key, rows, baseline.get(key))
+        const value = hydrationVisitor(availableFiles, snapshot.referenceFreeValues)(assembled ?? JSON.parse(emptySnapshot(baseline.get(key))))
+        materialRead = { value }
+        snapshots.delete(key)
+      } else {
+        const raw = rows.length ? encode(key, rows, baseline.get(key), undefined, hydrationSerializer(availableFiles, snapshot.referenceFreeValues)) : baseline.get(key) ?? '[]'
+        setSnapshot(key, raw !== null ? raw : emptySnapshot(baseline.get(key)))
+      }
     } catch (error) { collectionFailure(key, error); snapshots.delete(key) }
   }
   for (const source of collectLegacySources(requested)) {
@@ -374,7 +455,7 @@ async function hydrate(collections: readonly string[], snapshot?: Awaited<Return
       // The old source is complete only for its original static version. Add
       // explicitly registered new demo IDs; keep old omissions and IDB tombstones.
       const raw = encode(source.key, [...rows.map(row => ({ ...row, version: 0 })), ...previous], baseline.get(source.key), isPcsNewStaticRecord)
-      if (raw !== null) snapshots.set(source.key, hydrateFileReferences(raw, new Set([...availableFiles, ...convertedFiles])))
+      if (raw !== null) setSnapshot(source.key, hydrateFileReferences(raw, new Set([...availableFiles, ...convertedFiles])))
       collectionFailures.delete(source.key)
     } catch (error) { collectionFailure(source.key, error); snapshots.delete(source.key) }
   }
@@ -414,7 +495,7 @@ async function hydrateLegacyChannelCatalog(grouped: Map<string, PcsStoredRecord[
       const byId = new Map(rows.map(row => [row.id, row]))
       for (const row of previous) if (byId.has(row.id) && (row.deleted || JSON.stringify(row.value) !== JSON.stringify(byId.get(row.id)!.value))) throw new Error('历史渠道资料与当前渠道记录冲突，未覆盖任何已有记录。')
       const raw = encode(key, rows.map(row => ({ ...row, version: 0 })), baseline.get(key))
-      if (raw) snapshots.set(key, hydrateFileReferences(raw))
+      if (raw) setSnapshot(key, hydrateFileReferences(raw))
     }
   } catch (error) {
     collectionFailure(storeKey, error); collectionFailure(catalogKey, error)
@@ -509,7 +590,7 @@ export async function insertPcsRecordGroups<T>(key: string, prepare: () => PcsRe
     if (source) await assertLegacySourceCurrent(source)
     else if (sourceValue(key) !== null) throw new Error('旧版本页面写入了当前资料，本次未保存。请关闭旧页面后重新读取。')
     await upgradePcsLegacyRecords([key])
-    const currentRaw = snapshots.get(key) || baseline.get(key) || '{}'
+    const currentRaw = pcsRecordStore.getItem(key) || '{}'
     const currentRows = decode(key, currentRaw)
     const ids = new Set(currentRows.map(row => row.id))
     const minimum = new Map<string, number>()
@@ -542,6 +623,8 @@ export async function insertPcsRecordGroups<T>(key: string, prepare: () => PcsRe
       return { group, puts }
     })
     const committed = await commitPcsNewRecordGroups(prepared.map(({ group, puts }) => ({ puts, deletes: [], operationId: group.operationId, intent: JSON.stringify({ puts, deletes: [] }) })))
+    // Keep record versions fetched by another route while these groups saved.
+    for (const row of stored) saved.set(row.id, row)
     const outcomes = prepared.map(({ group, puts }, index) => {
       const outcome = committed[index]
       if (outcome.ok) {
@@ -554,9 +637,16 @@ export async function insertPcsRecordGroups<T>(key: string, prepare: () => PcsRe
     // Include the current visible records (including static omissions/overrides),
     // then overlay only transactions that actually completed.
     const merged = new Map(currentRows.map(row => [row.id, { ...row, version: saved.get(row.id)?.version ?? 0 }]))
-    prepared.forEach(({ puts }, index) => { if (outcomes[index].ok) puts.forEach(row => merged.set(row.id, saved.get(row.id)!)) })
-    const raw = encode(key, [...merged.values()], undefined, undefined, hydrationSerializer(new Set(files.keys())))
-    if (raw !== null) snapshots.set(key, raw)
+    // Existing visible rows are already hydrated and validated. Only newly
+    // committed imports need URL resolution; do not walk unrelated attachments
+    // and fields again when appending a new parent group.
+    const hydrateImported = hydrationVisitor(new Set(files.keys()))
+    prepared.forEach(({ puts }, index) => { if (outcomes[index].ok) puts.forEach(row => {
+      const committedRow = saved.get(row.id)!
+      merged.set(row.id, { ...committedRow, value: hydrateImported(committedRow.value) })
+    }) })
+    const raw = encode(key, [...merged.values()])
+    if (raw !== null) setSnapshot(key, raw)
     resets.forEach(reset => reset())
     if (outcomes.some(row => row.ok)) {
       try { const channel = new BroadcastChannel('higood-pcs-records'); channel.postMessage({ clientId, operationId: groups[0]?.operationId }); channel.close() } catch { /* Record versions remain authoritative. */ }
@@ -566,8 +656,8 @@ export async function insertPcsRecordGroups<T>(key: string, prepare: () => PcsRe
   } finally { saving = false }
 }
 
-export async function runPcsRecordCommand<T>(recipe: () => T, operationId: string = crypto.randomUUID()): Promise<T> {
-  await ensurePcsRecordState()
+export async function runPcsRecordCommand<T>(recipe: () => T, operationId: string = crypto.randomUUID(), collections: readonly string[] = []): Promise<T> {
+  await ensurePcsRecordState(collections)
   try {
   if (saving) throw new Error('上一笔操作尚未保存，请等待完成后再操作。')
   if (stale) throw new Error('其他标签页已更新资料，本次未保存。请重新读取后再操作。')
@@ -576,18 +666,34 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
     notify(failure)
     throw error
   }
+  if (materialRead && !snapshots.has(materialKey)) snapshots.set(materialKey, JSON.stringify(materialRead.value))
   const before = new Map(snapshots)
+  // Other routes may finish a read while this command awaits its transaction.
+  // Publish/restore only this command's changes, preserving those fresh reads.
+  const restoreChangedSnapshots = (source: ReadonlyMap<string, string>): void => {
+    for (const key of dirty) {
+      const raw = source.get(key)
+      if (raw === undefined) snapshots.delete(key)
+      else setSnapshot(key, raw)
+    }
+  }
   const fcsBefore = fcsBridge?.captureDesignRevisionFcsCaches()
+  // A material/configuration command does not own FCS caches. In particular,
+  // never resurrect their old staged documents after a concurrent fresh read.
+  // Keep legacy unscoped/FCS actions and rejected out-of-scope FCS writes able
+  // to restore their own pre-command caches.
+  const ownsFcsCaches = (): boolean => !collections.length || !!fcsBridge?.PCS_FCS_COLLECTIONS.some(key => collections.includes(key) || dirty.has(key))
   let versions = new Map(stored.map(row => [row.id, row]))
   saving = true; staging = true; dirty.clear()
   try {
     const result = recipe()
+    if (collections.length && [...dirty].some(key => !collections.includes(key))) throw new Error('本次操作修改了未登记的资料范围，未保存。')
     if (dirty.size && (result === false || (result && typeof result === 'object' && 'ok' in result && result.ok === false))) throw new Error((result && typeof result === 'object' && 'message' in result ? String(result.message) : '') || '操作条件不满足，本次修改未保存。')
     if (result && typeof (result as { then?: unknown }).then === 'function') throw new Error('请先读取文件，再执行保存动作。')
     const working = new Map(snapshots)
-    const fcsAfter = fcsBridge?.captureDesignRevisionFcsCaches()
+    const fcsAfter = ownsFcsCaches() ? fcsBridge?.captureDesignRevisionFcsCaches() : undefined
     staging = false
-    snapshots.clear(); before.forEach((raw, key) => snapshots.set(key, raw)); resets.forEach(reset => reset()); if (fcsBefore) fcsBridge?.restoreDesignRevisionFcsCaches(fcsBefore)
+    restoreChangedSnapshots(before); resets.forEach(reset => reset()); if (fcsBefore && ownsFcsCaches()) fcsBridge?.restoreDesignRevisionFcsCaches(fcsBefore)
     assertPcsCollectionsReadable([...dirty])
     for (const key of dirty) {
       const source = legacySources.get(key)
@@ -599,8 +705,9 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
     const puts: Array<Omit<PcsStoredRecord, 'version'> & { expectedVersion: number }> = []
     const deletes: Array<{ id: string; expectedVersion: number }> = []
     for (const key of dirty) {
-      const oldRows = new Map(decode(key, before.get(key) || baseline.get(key) || '[]').map(row => [row.id, row]))
-      const seedRows = new Map(decode(key, baseline.get(key) || '[]').map(row => [row.id, row]))
+      const oldView = decodedView(key, before.get(key) || baseline.get(key) || '[]')
+      const oldRows = new Map(oldView.rows.map(row => [row.id, { ...row }]))
+      const seedRows = new Map(decodedSeed(key, baseline.get(key) || '[]').map(row => [row.id, row]))
       // encode 后的数组下标不是持久排序值；已保存记录及静态基线才是位置来源。
       for (const row of oldRows.values()) {
         const value = row.value as Partial<Entry>
@@ -610,7 +717,8 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
         row.value = { ...value, position: persisted?.position ?? seed?.position ?? value.position }
       }
       const nextRaw = working.get(key)
-      const nextRows = nextRaw ? decode(key, nextRaw) : []
+      const nextView = nextRaw ? decodedView(key, nextRaw) : null
+      const nextRows = nextView ? nextView.rows.map(row => ({ ...row })) : []
       for (const collection of new Set(nextRows.filter(row => typeof (row.value as Partial<Entry>)?.position === 'number').map(row => row.collection))) {
         const items = nextRows.filter(row => row.collection === collection)
         const previous = new Map([...oldRows.values()].filter(row => row.collection === collection).map(row => [row.id, (row.value as Entry).position]))
@@ -619,7 +727,11 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
       }
       const nextIds = new Set(nextRows.map(row => row.id))
       for (const row of nextRows) {
-        if (JSON.stringify(oldRows.get(row.id)?.value) === JSON.stringify(row.value)) continue
+        const previous = oldRows.get(row.id)
+        const entry = row.value as Partial<Entry>
+        const samePosition = (previous?.value as Partial<Entry> | undefined)?.position === entry?.position
+        const nextJson = JSON.stringify(typeof entry?.position === 'number' ? entry.data : row.value)
+        if (samePosition && oldView.serialized.get(row.id) === nextJson) continue
         puts.push({ ...row, value: await transformFiles(row.value, false), expectedVersion: versions.get(row.id)?.version || 0 })
       }
       for (const row of oldRows.values()) if (!nextIds.has(row.id)) deletes.push({ id: row.id, expectedVersion: versions.get(row.id)?.version || 0 })
@@ -644,13 +756,13 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
       stored = [...nextStored.values()]
       try { if (typeof BroadcastChannel !== 'undefined') { const channel = new BroadcastChannel('higood-pcs-records'); channel.postMessage({ clientId, operationId }); channel.close() } } catch { /* 跨标签通知不可用时，事务内版本校验仍防止覆盖。 */ }
     }
-    snapshots.clear(); working.forEach((raw, key) => snapshots.set(key, raw))
+    restoreChangedSnapshots(working)
     failure = ''
     if (fcsAfter) { try { fcsBridge?.restoreDesignRevisionFcsCaches(fcsAfter) } catch { stale = true; failure = '数据已保存，但加工页面暂时无法更新，请重新读取。'; notify(failure) } }
     for (const reset of resets) { try { reset() } catch { stale = true; failure = '数据已保存，但页面暂时无法更新，请重新读取。'; notify(failure) } }
     return result
   } catch (error) {
-    snapshots.clear(); before.forEach((raw, key) => snapshots.set(key, raw)); resets.forEach(reset => reset()); if (fcsBefore) fcsBridge?.restoreDesignRevisionFcsCaches(fcsBefore)
+    restoreChangedSnapshots(before); resets.forEach(reset => reset()); if (fcsBefore && ownsFcsCaches()) fcsBridge?.restoreDesignRevisionFcsCaches(fcsBefore)
     failure = error instanceof Error ? error.message : '本次未保存，请重试。'; notify(failure); throw error
   } finally { staging = false; saving = false; dirty.clear() }
 }

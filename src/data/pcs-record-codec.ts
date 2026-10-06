@@ -25,7 +25,9 @@ export function normalizePcsRecordSnapshot(key: string, raw: string): unknown {
       if (child && typeof child === 'object') rename(child)
     }
   }
-  rename(value)
+  // Current snapshots already use categoryNumbers. Walking every nested field
+  // is only necessary when the old reference actually exists.
+  if (raw.includes('"styleCodes"') || raw.includes('\\u')) rename(value)
   const normalized = value as Record<string, unknown>
   if (key === 'higood-pcs-config-workspace-store-v1' && normalized?.flatOptions) {
     const old = normalized.flatOptions as Record<string, unknown[]>
@@ -81,7 +83,7 @@ export function decodePcsRecordSnapshot(key: string, raw: string): StoredInput[]
   return result
 }
 
-export function encodePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], seed?: string, seedIdFilter?: (id: string) => boolean, serialize: (value: unknown) => string = JSON.stringify): string | null {
+export function assemblePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], seed?: string, seedIdFilter?: (id: string) => boolean): unknown {
   const seedRows = seed ? decodePcsRecordSnapshot(key, seed).filter(row => !seedIdFilter || row.id === `${key}/meta` || seedIdFilter(row.id)) : []
   const relevant = rows.filter(row => row.id.startsWith(`${key}/`))
   const trigger = (row: StoredInput) => (row.value as { data?: { bulkProductionQualification?: { uniqueTriggerKey?: string } } } | null)?.data?.bulkProductionQualification?.uniqueTriggerKey
@@ -99,7 +101,13 @@ export function encodePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], se
   }
   const read = (group: string) => (grouped.get(`${key}/${group}`) ?? []).sort((a, b) => a.position - b.position).map(row => row.data)
   const groups = [...new Set([...(seedMeta?.groups ?? []), ...(metadata.groups ?? [])])]
-  const raw = serialize(metadata.array ? read('items') : { ...seedMeta?.fields, ...metadata.fields, ...Object.fromEntries(groups.map(group => [group, read(group)])) })
+  return metadata.array ? read('items') : { ...seedMeta?.fields, ...metadata.fields, ...Object.fromEntries(groups.map(group => [group, read(group)])) }
+}
+
+export function encodePcsRecordSnapshot(key: string, rows: PcsStoredRecord[], seed?: string, seedIdFilter?: (id: string) => boolean, serialize: (value: unknown) => string = JSON.stringify): string | null {
+  const value = assemblePcsRecordSnapshot(key, rows, seed, seedIdFilter)
+  if (value === null) return null
+  const raw = serialize(value)
   // The assembled current-format records are already normalized. Only a real
   // legacy field/format needs another parse; current large collections used to
   // be parsed, recursively copied and serialized twice on every refresh.

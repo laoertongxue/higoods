@@ -76,6 +76,73 @@ test('PCS runtime reads, per-record commits, retained legacy sources and scoped 
     assert.equal(recordReads, 1, 'an import only prepares its own collection, never unrelated project or channel data')
     assert.equal(calls.length, 0)
   })
+  await t.test('scoped command does not prepare unrelated collections and rejects out-of-scope writes atomically', async () => {
+    const reads = recordReads
+    assert.equal(await api.runPcsRecordCommand(() => 'no-change', 'scoped-read', [material]), 'no-change')
+    assert.equal(recordReads, reads)
+    await assert.rejects(api.runPcsRecordCommand(() => {
+      api.pcsRecordStore.setItem(other, JSON.stringify({ version: 1, stores: [{ id: 'store', name: 'Unexpected write' }] }))
+    }, 'scoped-outside', [material]), /未登记的资料范围/)
+    assert.equal(calls.length, 0)
+    assert.equal(saved.size, 0)
+    assert.equal(JSON.parse(api.pcsRecordStore.getItem(material)!).records[0].name, 'Static root')
+    assert.throws(() => api.pcsRecordStore.getItem(other), /尚未读取/)
+  })
+  for (const [index, shouldFail] of [false, true].entries()) {
+    await t.test(`scoped ${shouldFail ? 'rollback' : 'commit'} preserves another collection hydrated during the transaction`, async () => {
+      const concurrent = index === 0 ? 'higood-pcs-material-config-v1' : 'higood-pcs-exchange-rate-config-v1'
+      const persistedLabel = `Persisted concurrent ${index}`
+      const rows = decodePcsRecordSnapshot(concurrent, JSON.stringify({ version: 1, label: persistedLabel }))
+      rows.forEach(row => saved.set(row.id, { ...row, version: 1 }))
+      const callCount = calls.length
+      waitForCommit = new Promise(resolve => { finishCommit = resolve })
+      const pending = api.runPcsRecordCommand(() => {
+        const next = JSON.parse(api.pcsRecordStore.getItem(material)!)
+        next.records[0].name = `Scoped material ${index}`
+        api.pcsRecordStore.setItem(material, JSON.stringify(next))
+      }, `concurrent-hydration-${index}`, [material])
+      // Attach rejection handling before releasing the deliberately failing gate.
+      const outcome = pending.then(() => null, error => error as Error)
+      while (calls.length === callCount) await new Promise(resolve => setImmediate(resolve))
+      await api.ensurePcsRecordState([concurrent])
+      assert.equal(JSON.parse(api.pcsRecordStore.getItem(concurrent)!).label, persistedLabel)
+      failNext = shouldFail
+      finishCommit!()
+      const error = await outcome
+      waitForCommit = undefined
+      assert.equal(error?.message ?? null, shouldFail ? 'controlled commit failure' : null)
+      assert.equal(JSON.parse(api.pcsRecordStore.getItem(concurrent)!).label, persistedLabel)
+      const reads = recordReads
+      await api.ensurePcsRecordState([concurrent])
+      assert.equal(recordReads, reads)
+      assert.equal(JSON.parse(api.pcsRecordStore.getItem(concurrent)!).label, persistedLabel)
+      saved.clear(); calls.length = 0
+      await api.retryPcsRecordState()
+    })
+  }
+  await t.test('group import preserves versions hydrated by another route while groups commit', async () => {
+    const concurrent = 'higood-pcs-config-workspace-store-v1'
+    const rows = decodePcsRecordSnapshot(concurrent, JSON.stringify({ version: 1, label: 'Persisted version three' }))
+    rows.forEach(row => saved.set(row.id, { ...row, version: 3 }))
+    const callCount = calls.length
+    waitForCommit = new Promise(resolve => { finishCommit = resolve })
+    const importing = api.insertPcsRecordGroups(material, () => [{ operationId: 'import-concurrent', result: 'concurrent-root', snapshot: { version: 5, records: [{ materialId: 'concurrent-root', name: 'Concurrent root' }], skuRecords: [] } }])
+    while (calls.length === callCount) await new Promise(resolve => setImmediate(resolve))
+    await api.ensurePcsRecordState([concurrent])
+    finishCommit!()
+    assert.deepEqual(await importing, [{ ok: true, result: 'concurrent-root' }])
+    waitForCommit = undefined
+    await api.runPcsRecordCommand(() => {
+      const next = JSON.parse(api.pcsRecordStore.getItem(concurrent)!)
+      next.label = 'Edited after import'
+      api.pcsRecordStore.setItem(concurrent, JSON.stringify(next))
+    }, 'edit-after-concurrent-import', [concurrent])
+    assert.equal(calls.at(-1)!.puts[0].expectedVersion, 3)
+    assert.equal(saved.get(`${concurrent}/meta`)!.version, 4)
+    assert.equal(JSON.parse(api.pcsRecordStore.getItem(concurrent)!).label, 'Edited after import')
+    saved.clear(); calls.length = 0
+    await api.retryPcsRecordState()
+  })
   await t.test('initialization and repeated reads never copy static records', async () => {
     await api.ensurePcsRecordState(); await api.ensurePcsRecordState()
     assert.equal(readScopes[1]?.includes(material), false, 'full preparation incrementally loads the remaining collections')
@@ -164,10 +231,12 @@ test('PCS runtime reads, per-record commits, retained legacy sources and scoped 
   await t.test('a fileId-only attachment is persisted once and can be shared by another record', async () => {
     const file = api.registerPcsFile(new Blob(['shared bytes']), 'shared-file')
     await api.runPcsRecordCommand(() => {
-      const next = JSON.parse(api.pcsRecordStore.getItem(other)!); next.stores[0].attachment = { fileId: file.fileId }
-      api.pcsRecordStore.setItem(other, JSON.stringify(next))
+      const next = JSON.parse(api.pcsRecordStore.getItem(other)!); next.stores[0].attachment = { fileId: file.fileId, status: '待保存' }
+      // Spaced JSON must receive the same durable status as compact snapshots.
+      api.pcsRecordStore.setItem(other, JSON.stringify(next, null, 2))
     }, 'attach-file')
     assert.equal(blobs.size, 1)
+    assert.equal(JSON.parse(api.pcsRecordStore.getItem(other)!).stores[0].attachment.status, '已保存')
     await api.runPcsRecordCommand(() => {
       const next = JSON.parse(api.pcsRecordStore.getItem(other)!); next.stores.push({ id: 'copy', name: 'Copy', attachment: { fileId: file.fileId } })
       api.pcsRecordStore.setItem(other, JSON.stringify(next))
@@ -186,9 +255,14 @@ test('PCS runtime reads, per-record commits, retained legacy sources and scoped 
     assert.equal(calls.length, count)
   })
   await t.test('cancelled uploads stay out of persistent storage and release their URL', () => {
+    const original = api.pcsRecordStore.getItem(other)!
+    // A retained inline image elsewhere is not a reference to this pending file.
+    api.withPcsDemoData(() => api.pcsRecordStore.setItem(other, JSON.stringify({ stores: [{ id: 'legacy-image', image: 'data:image/png;base64,AABB' }] })))
     const file = api.registerPcsFile(new Blob(['cancelled']), 'cancelled')
     assert.ok(file.url.startsWith('blob:')); assert.equal(blobs.has('cancelled'), false)
     assert.equal(api.releasePcsPendingFile('cancelled'), true)
+    assert.throws(() => pcsFileReferences({ image: 'data:image/png;base64,AABB' }), /Base64/)
+    api.withPcsDemoData(() => api.pcsRecordStore.setItem(other, original))
   })
   await t.test('legacy-only file references load on demand; a later missing Blob cannot reuse stale memory', async () => {
     const uploads = 'higood-pcs-engineering-task-uploads-v1'

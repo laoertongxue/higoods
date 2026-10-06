@@ -1,0 +1,276 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "工厂生产协同系统" [level=2]
+  - paragraph: FCS
+  - button "收起菜单":
+  - button "平台运营系统":
+    - generic: 平台运营系统
+  - button "工作台":
+    - generic: 工作台
+  - button "工厂池管理":
+    - generic: 工厂池管理
+  - button "生产单管理":
+    - generic: 生产单管理
+  - button "任务编排与执行准备":
+    - generic: 任务编排与执行准备
+  - button "任务分配":
+    - generic: 任务分配
+  - button "任务进度与异常":
+    - generic: 任务进度与异常
+  - button "质量与扣款":
+    - generic: 质量与扣款
+  - button "对账与结算":
+    - generic: 对账与结算
+  - button "成本溯源管理":
+    - generic: 成本溯源管理
+  - button "车缝外发协同":
+    - generic: 车缝外发协同
+  - button "我的工作台":
+    - generic: 我的工作台
+  - button "生成单全流程耗时":
+    - generic: 生成单全流程耗时
+  - button "车缝任务":
+    - generic: 车缝任务
+  - button "交出与欠片":
+    - generic: 交出与欠片
+  - button "批版建议":
+    - generic: 批版建议
+  - button "回货跟进":
+    - generic: 回货跟进
+  - button "补料跟进":
+    - generic: 补料跟进
+  - button "裁片退仓":
+    - generic: 裁片退仓
+  - button "责任移交":
+    - generic: 责任移交
+  - button "配料管理":
+    - generic: 配料管理
+  - button "配料列表":
+    - generic: 配料列表
+  - button "染色配料":
+    - generic: 染色配料
+  - button "印花配料":
+    - generic: 印花配料
+  - button "裁片配料":
+    - generic: 裁片配料
+  - button "车缝配料":
+    - generic: 车缝配料
+  - button "其他配料":
+    - generic: 其他配料
+  - button "工厂入驻&登录":
+    - generic: 工厂入驻&登录
+  - button "登录":
+    - generic: 登录
+  - button "入驻":
+    - generic: 入驻
+  - button "工厂端移动应用":
+    - generic: 工厂端移动应用
+  - button "接单":
+    - generic: 接单
+  - button "执行":
+    - generic: 执行
+  - button "交接":
+    - generic: 交接
+  - button "仓管":
+    - generic: 仓管
+  - button "结算":
+    - generic: 结算
+- main:
+  - button "款式档案"
+  - button "款式详情"
+  - button "规格详情"
+  - button "面料档案"
+  - button "渠道店铺商品"
+  - button "基础配置"
+  - button "辅料档案"
+  - button "规格详情"
+  - button "规格档案"
+  - button "渠道店铺管理"
+  - button "纱线档案"
+  - button "耗材档案"
+  - button "配件档案"
+  - button "测款单"
+  - button "技术包"
+  - button:
+  - button "全部关闭"
+  - button "返回"
+  - heading "po-14671" [level=1]
+  - generic: 待分配
+  - paragraph: 关联需求：DEM-PO14671-SUPPLEMENT | 旧单号：PO14671
+  - paragraph: 生产确认单：未完成工厂分配
+  - button "拆解任务"
+  - button "查看物料检查"
+  - button "查看技术包快照"
+  - button "打印生产确认单"
+  - button "查看日志"
+  - paragraph: 技术包快照与当前生效版本不一致
+  - paragraph: 快照版本：V1.0 (已发布) | 当前版本：V1.0 (已发布)
+  - article:
+    - heading "主工厂" [level=3]
+    - paragraph: PT Mulia Cutting Center
+    - paragraph: ID-FAC-0004
+    - generic: 中央工厂
+    - generic: 裁床厂
+  - article:
+    - heading "拆解结果" [level=3]
+    - generic: 已拆解
+    - paragraph: 贝壳绣、布包扣、裁片
+    - paragraph: 任务明细行 28 条 · 按单位合计 16,955 件
+    - paragraph: 原始任务 15 · 执行任务 15
+    - paragraph: 拆分来源 0 · 拆分结果 0 · 拆分组 0
+    - paragraph: Black / ASYSA26060310-正式纸样.dxf / 面料 A · 净色 × 1041件；Black / ASYSA26060310-正式纸样.dxf / 面料 B · 白色条 × 1041件
+    - paragraph: 2026-06-03 07:30:00 by 系统
+  - article:
+    - heading "分配情况" [level=3]
+    - paragraph: "派单: 13"
+    - paragraph: "竞价: 2"
+    - paragraph: "总任务: 15"
+    - paragraph: "未分配: 5"
+  - article:
+    - heading "后道生产任务" [level=3]
+    - generic: 未生成
+    - paragraph: 生产单缺少后道生产任务
+  - article:
+    - heading "分配进度" [level=3]
+    - generic: 分配中
+    - paragraph: "已派单: 10"
+    - paragraph: "已发起竞价: 0"
+    - paragraph: "已中标: 0"
+  - article:
+    - heading "接收状态" [level=3]
+    - generic: 待确认
+    - paragraph: 草稿 2 / 待确认 2
+    - paragraph: 草稿 2 · 已确认 0
+    - button "去确认接收"
+  - button "概览"
+  - button "需求快照"
+  - button "技术包快照"
+  - button "分配概览"
+  - button "后道生产任务"
+  - button "交接链路"
+  - button "日志"
+  - heading "基本信息" [level=3]
+  - paragraph: 生产单号
+  - paragraph: po-14671
+  - paragraph: 需求编号
+  - paragraph: DEM-PO14671-SUPPLEMENT
+  - paragraph: 旧单号
+  - paragraph: PO14671
+  - paragraph: SPU编码
+  - paragraph: ASYSA26060310
+  - paragraph: SPU名称
+  - paragraph: 女式基础圆领短袖
+  - paragraph: 款式买手
+  - paragraph: 宋雨
+  - paragraph: 生产跟单
+  - paragraph: 林晓
+  - paragraph: 总数量
+  - paragraph: 3,391
+  - paragraph: 交付日期
+  - paragraph: 2026-06-30
+  - paragraph: 创建时间
+  - paragraph: 2026-06-03 07:30:00
+  - paragraph: 最后更新
+  - paragraph: 2026-06-03 07:30:00
+  - heading "货权与工厂" [level=3]
+  - paragraph: 货权主体
+  - paragraph: 主工厂
+  - paragraph: PT Mulia Cutting Center
+  - paragraph: 工厂名称
+  - paragraph: PT Mulia Cutting Center
+  - paragraph: 工厂编码
+  - paragraph: ID-FAC-0004
+  - paragraph: 层级
+  - paragraph: 中央工厂
+  - paragraph: 类型
+  - paragraph: 裁床厂
+  - paragraph: 位置
+  - paragraph: Semarang, Central Java
+  - paragraph: 状态
+  - paragraph:
+    - generic: ACTIVE
+  - heading "接收信息" [level=3]
+  - paragraph: 按任务查看接收草稿与确认创建情况
+  - button "去确认接收"
+  - article:
+    - paragraph: 接收状态
+    - generic: 待确认
+    - paragraph: 草稿 2 / 待确认 2
+  - article:
+    - paragraph: 草稿数
+    - paragraph: "2"
+  - article:
+    - paragraph: 已确认需求数
+    - paragraph: "0"
+  - article:
+    - paragraph: 待确认数
+    - paragraph: "2"
+  - article:
+    - paragraph: 不涉及数
+    - paragraph: "0"
+  - table:
+    - rowgroup:
+      - row "任务名称 任务类型 草稿状态 确认状态 接收方式 接收需求编号 最近操作时间":
+        - columnheader "任务名称"
+        - columnheader "任务类型"
+        - columnheader "草稿状态"
+        - columnheader "确认状态"
+        - columnheader "接收方式"
+        - columnheader "接收需求编号"
+        - columnheader "最近操作时间"
+    - rowgroup:
+      - row "裁片（整单） 裁片 待确认 待确认 - - 2026-06-03 07:30:00":
+        - cell "裁片（整单）"
+        - cell "裁片":
+          - generic: 裁片
+        - cell "待确认":
+          - generic: 待确认
+        - cell "待确认":
+          - generic: 待确认
+        - cell "-"
+        - cell "-"
+        - cell "2026-06-03 07:30:00"
+      - row "烫包（整单） 后道 待确认 待确认 - - 2026-06-03 07:30:00":
+        - cell "烫包（整单）"
+        - cell "后道":
+          - generic: 后道
+        - cell "待确认":
+          - generic: 待确认
+        - cell "待确认":
+          - generic: 待确认
+        - cell "-"
+        - cell "-"
+        - cell "2026-06-03 07:30:00"
+- button "查生产":

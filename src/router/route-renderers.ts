@@ -7,12 +7,6 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   let modulePromise: Promise<Record<string, unknown>> | null = null
 
   return async (...args: TArgs): Promise<string> => {
-    if (!modulePromise) {
-      modulePromise = importModule().catch((error) => {
-        modulePromise = null
-        throw error
-      })
-    }
     if (exportName.startsWith('renderPcs') || exportName.startsWith('renderFcsMaterialProcessPlan') || exportName === 'renderTechPackPage') {
       const { ensurePcsRecordState } = await import('../data/pcs-record-runtime.ts')
       const common = ['higood-pcs-config-workspace-store-v1']
@@ -21,8 +15,10 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       const channel = ['higood-pcs-channel-catalog-v1', 'higood-pcs-channel-store-v1']
       const productDetail = ['higood-pcs-engineering-bom-pricing-plan-store-v2', 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-material-archive-store-v2', 'higood-pcs-material-config-v1']
       const scope = /FcsMaterialProcessPlan/.test(exportName) ? [...material, 'higood-fcs-material-process-plans-v1']
+        : exportName === 'renderPcsTechnicalDataTechPackListPage' ? [...common, 'higood-pcs-material-config-v1', 'higood-pcs-style-archive-store-v3', 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1']
         : /StyleArchiveList|SpecificationList/.test(exportName) ? [...product, ...channel]
         : /StyleArchive|Specification/.test(exportName) ? [...product, ...channel, ...productDetail]
+        : /^renderPcs(Fabric|Accessory|Yarn|Consumable|Parts)ArchiveListPage$/.test(exportName) ? ['higood-pcs-material-archive-store-v2', 'higood-pcs-material-config-v1', 'higood-pcs-exchange-rate-config-v1', ...common]
         : /Material|FabricArchive|AccessoryArchive|YarnArchive|ConsumableArchive|PartsArchive/.test(exportName) ? [...material, 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-engineering-bom-pricing-plan-store-v2']
         : /Channel/.test(exportName) ? [...product, ...channel, 'higood-pcs-technical-data-version-store-v5']
         : /ConfigWorkspace/.test(exportName) ? [...material, ...product, ...channel]
@@ -31,6 +27,13 @@ function createAsyncRenderer<TArgs extends unknown[]>(
         const { renderPcsStorageError } = await import('../pages/pcs-storage-error.ts')
         return renderPcsStorageError(error)
       }
+    }
+
+    if (!modulePromise) {
+      modulePromise = importModule().catch((error) => {
+        modulePromise = null
+        throw error
+      })
     }
 
     const module = await modulePromise

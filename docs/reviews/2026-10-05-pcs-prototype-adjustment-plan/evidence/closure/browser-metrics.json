@@ -1,0 +1,1856 @@
+[
+  {
+    "label": "root-stop-confirm-0",
+    "start": 294597.39999997616,
+    "end": 294641.1999999881,
+    "durationMs": 43.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-0",
+    "start": 294930.8000000119,
+    "end": 295074.6999999881,
+    "durationMs": 143.89999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-enable-0",
+    "start": 295863.3000000119,
+    "end": 295924.5,
+    "durationMs": 61.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-confirm-1",
+    "start": 296279,
+    "end": 296324.5,
+    "durationMs": 45.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-1",
+    "start": 296645.8000000119,
+    "end": 296707.89999997616,
+    "durationMs": 62.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-enable-1",
+    "start": 297497.39999997616,
+    "end": 297557.89999997616,
+    "durationMs": 60.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-confirm-2",
+    "start": 297895.89999997616,
+    "end": 297941.3000000119,
+    "durationMs": 45.40000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-2",
+    "start": 298379.6999999881,
+    "end": 298441.60000002384,
+    "durationMs": 61.90000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-enable-2",
+    "start": 299312.60000002384,
+    "end": 299374.60000002384,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-confirm-3",
+    "start": 299728.6999999881,
+    "end": 299774.5,
+    "durationMs": 45.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-3",
+    "start": 300095.60000002384,
+    "end": 300158,
+    "durationMs": 62.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-enable-3",
+    "start": 300930.1999999881,
+    "end": 300991.3000000119,
+    "durationMs": 61.10000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-confirm-4",
+    "start": 301446,
+    "end": 301491.1999999881,
+    "durationMs": 45.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-stop-4",
+    "start": 301929.60000002384,
+    "end": 301991.3000000119,
+    "durationMs": 61.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "root-enable-4",
+    "start": 302816.1999999881,
+    "end": 302874.8000000119,
+    "durationMs": 58.60000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 95654.79999995232,
+    "durationMs": 95654.79999995232,
+    "url": "/pcs/settings/config-workspace",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "pantone-config-save-17-4030",
+    "start": 96474.19999998808,
+    "end": 96538.09999996424,
+    "durationMs": 63.89999997615814,
+    "url": "/pcs/settings/config-workspace",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "pantone-config-save-14-1311",
+    "start": 98091.89999997616,
+    "end": 98154.59999996424,
+    "durationMs": 62.69999998807907,
+    "url": "/pcs/settings/config-workspace",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "pantone-config-save-12-0104",
+    "start": 99611.29999995232,
+    "end": 99671.39999997616,
+    "durationMs": 60.10000002384186,
+    "url": "/pcs/settings/config-workspace",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "pantone-config-save-18-5621",
+    "start": 101224.69999998808,
+    "end": 101287.89999997616,
+    "durationMs": 63.19999998807907,
+    "url": "/pcs/settings/config-workspace",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 549.7999999523163,
+    "durationMs": 549.7999999523163,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 9243.799999952316,
+    "durationMs": 9243.799999952316,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_ff114f8e-ed2e-40fe-b15e-cf0bc3835c07",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-print-save",
+    "start": 53315.69999998808,
+    "end": 53377.09999996424,
+    "durationMs": 61.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2112ec93-75b6-4d7e-a47f-1d40408d7ce0",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-print-asset-save",
+    "start": 67098.5,
+    "end": 67160.5,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2112ec93-75b6-4d7e-a47f-1d40408d7ce0",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-embroidery-create",
+    "start": 96631.5,
+    "end": 96693.89999997616,
+    "durationMs": 62.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_f74f0947-a6ec-4ac8-b0c6-9288ddfe40a6",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-embroidery-asset",
+    "start": 143099.29999995232,
+    "end": 143160.5,
+    "durationMs": 61.200000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_f74f0947-a6ec-4ac8-b0c6-9288ddfe40a6",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-embroidery-submit",
+    "start": 143597.89999997616,
+    "end": 143660.5,
+    "durationMs": 62.60000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_f74f0947-a6ec-4ac8-b0c6-9288ddfe40a6",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-embroidery-approve",
+    "start": 144013.79999995232,
+    "end": 144077.09999996424,
+    "durationMs": 63.30000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_f74f0947-a6ec-4ac8-b0c6-9288ddfe40a6",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-heat-create",
+    "start": 147114.5,
+    "end": 147177.09999996424,
+    "durationMs": 62.59999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-heat-asset",
+    "start": 148465,
+    "end": 148526.19999998808,
+    "durationMs": 61.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-heat-submit",
+    "start": 148881.09999996424,
+    "end": 148942.79999995232,
+    "durationMs": 61.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-heat-approve",
+    "start": 149264.39999997616,
+    "end": 149327.19999998808,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-heat-enable",
+    "start": 173483.19999998808,
+    "end": 173543.89999997616,
+    "durationMs": 60.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 338,
+    "durationMs": 338,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-dye-create",
+    "start": 2058.800000011921,
+    "end": 2154.599999964237,
+    "durationMs": 95.79999995231628,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_55c9a5aa-9ced-4949-b60f-a7480d98baac",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-dye-submit",
+    "start": 2358.599999964237,
+    "end": 2421.300000011921,
+    "durationMs": 62.700000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_55c9a5aa-9ced-4949-b60f-a7480d98baac",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-dye-approve",
+    "start": 2707.5,
+    "end": 2771.300000011921,
+    "durationMs": 63.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_55c9a5aa-9ced-4949-b60f-a7480d98baac",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-dye-enable",
+    "start": 3643.800000011921,
+    "end": 3704.800000011921,
+    "durationMs": 61,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_55c9a5aa-9ced-4949-b60f-a7480d98baac",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-print-create",
+    "start": 7192.199999988079,
+    "end": 7254.599999964237,
+    "durationMs": 62.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_cbccb3b3-6744-415b-ab3b-f97876066a6b",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-print-asset",
+    "start": 8425.800000011921,
+    "end": 8488.099999964237,
+    "durationMs": 62.299999952316284,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_cbccb3b3-6744-415b-ab3b-f97876066a6b",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-print-submit",
+    "start": 8942,
+    "end": 9004.699999988079,
+    "durationMs": 62.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_cbccb3b3-6744-415b-ab3b-f97876066a6b",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-print-approve",
+    "start": 9441.199999988079,
+    "end": 9504.599999964237,
+    "durationMs": 63.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_cbccb3b3-6744-415b-ab3b-f97876066a6b",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-print-enable",
+    "start": 10443.199999988079,
+    "end": 10504.699999988079,
+    "durationMs": 61.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_cbccb3b3-6744-415b-ab3b-f97876066a6b",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-embroidery-create",
+    "start": 14093,
+    "end": 14154.599999964237,
+    "durationMs": 61.59999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_bf41a972-f3b2-479a-a793-0d658c1a63a4",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-embroidery-asset",
+    "start": 15510.399999976158,
+    "end": 15571.300000011921,
+    "durationMs": 60.90000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_bf41a972-f3b2-479a-a793-0d658c1a63a4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-embroidery-submit",
+    "start": 16008.800000011921,
+    "end": 16071.300000011921,
+    "durationMs": 62.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_bf41a972-f3b2-479a-a793-0d658c1a63a4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-embroidery-approve",
+    "start": 16507.599999964237,
+    "end": 16571.30000001192,
+    "durationMs": 63.700000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_bf41a972-f3b2-479a-a793-0d658c1a63a4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-embroidery-enable",
+    "start": 17510.399999976158,
+    "end": 17571.399999976158,
+    "durationMs": 61,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_bf41a972-f3b2-479a-a793-0d658c1a63a4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-heat-create",
+    "start": 21276,
+    "end": 21338,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2ad36f9f-a8fd-4d02-89e0-bdc9a39ac144",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-heat-asset",
+    "start": 22559.099999964237,
+    "end": 22621.30000001192,
+    "durationMs": 62.200000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2ad36f9f-a8fd-4d02-89e0-bdc9a39ac144",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-heat-submit",
+    "start": 22992.099999964237,
+    "end": 23054.599999964237,
+    "durationMs": 62.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2ad36f9f-a8fd-4d02-89e0-bdc9a39ac144",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-heat-approve",
+    "start": 23441.5,
+    "end": 23504.599999964237,
+    "durationMs": 63.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2ad36f9f-a8fd-4d02-89e0-bdc9a39ac144",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain2-heat-enable",
+    "start": 24294,
+    "end": 24371.399999976158,
+    "durationMs": 77.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2ad36f9f-a8fd-4d02-89e0-bdc9a39ac144",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 463.5,
+    "durationMs": 463.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-dye-create",
+    "start": 2417.5,
+    "end": 2513.599999964237,
+    "durationMs": 96.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_41c98049-90ab-43ac-b522-678aef18004c",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-dye-submit",
+    "start": 2734.399999976158,
+    "end": 2796.7999999523163,
+    "durationMs": 62.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_41c98049-90ab-43ac-b522-678aef18004c",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-dye-approve",
+    "start": 3099.699999988079,
+    "end": 3163.5,
+    "durationMs": 63.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_41c98049-90ab-43ac-b522-678aef18004c",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-dye-enable",
+    "start": 3918.7999999523163,
+    "end": 3980.199999988079,
+    "durationMs": 61.40000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_41c98049-90ab-43ac-b522-678aef18004c",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-print-create",
+    "start": 7484.899999976158,
+    "end": 7546.899999976158,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b2381359-8b3a-4f9a-9f51-9fe61b0f418c",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-print-asset",
+    "start": 8902.299999952316,
+    "end": 8964.5,
+    "durationMs": 62.200000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b2381359-8b3a-4f9a-9f51-9fe61b0f418c",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-print-submit",
+    "start": 9300.799999952316,
+    "end": 9363.399999976158,
+    "durationMs": 62.60000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b2381359-8b3a-4f9a-9f51-9fe61b0f418c",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-print-approve",
+    "start": 9817.699999988079,
+    "end": 9880.099999964237,
+    "durationMs": 62.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b2381359-8b3a-4f9a-9f51-9fe61b0f418c",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-print-enable",
+    "start": 10702.099999964237,
+    "end": 10763.5,
+    "durationMs": 61.40000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b2381359-8b3a-4f9a-9f51-9fe61b0f418c",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-embroidery-create",
+    "start": 14134.699999988079,
+    "end": 14196.799999952316,
+    "durationMs": 62.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_886e29bd-ba1d-44dd-ab16-f29663cbc53f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-embroidery-asset",
+    "start": 15468.099999964237,
+    "end": 15530.099999964237,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_886e29bd-ba1d-44dd-ab16-f29663cbc53f",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-embroidery-submit",
+    "start": 15901.099999964237,
+    "end": 15963.5,
+    "durationMs": 62.40000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_886e29bd-ba1d-44dd-ab16-f29663cbc53f",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-embroidery-approve",
+    "start": 16283.199999988079,
+    "end": 16346.799999952316,
+    "durationMs": 63.59999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_886e29bd-ba1d-44dd-ab16-f29663cbc53f",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-embroidery-enable",
+    "start": 17268.799999952316,
+    "end": 17330.099999964237,
+    "durationMs": 61.30000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_886e29bd-ba1d-44dd-ab16-f29663cbc53f",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-heat-create",
+    "start": 20834.69999998808,
+    "end": 20896.799999952316,
+    "durationMs": 62.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_6a985b32-63be-480d-810c-bcd5ea74dce4",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-heat-asset",
+    "start": 22251.19999998808,
+    "end": 22313.399999976158,
+    "durationMs": 62.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_6a985b32-63be-480d-810c-bcd5ea74dce4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-heat-submit",
+    "start": 22767.899999976158,
+    "end": 22830.099999964237,
+    "durationMs": 62.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_6a985b32-63be-480d-810c-bcd5ea74dce4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-heat-approve",
+    "start": 23166.69999998808,
+    "end": 23230.19999998808,
+    "durationMs": 63.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_6a985b32-63be-480d-810c-bcd5ea74dce4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain3-heat-enable",
+    "start": 24219.5,
+    "end": 24280.099999964237,
+    "durationMs": 60.59999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_6a985b32-63be-480d-810c-bcd5ea74dce4",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 242.39999997615814,
+    "durationMs": 242.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-dye-create",
+    "start": 2046.699999988079,
+    "end": 2142.199999988079,
+    "durationMs": 95.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_05ca2fba-7772-49b1-82b7-b57a0e7f393f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-dye-submit",
+    "start": 2447.399999976158,
+    "end": 2509,
+    "durationMs": 61.60000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_05ca2fba-7772-49b1-82b7-b57a0e7f393f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-dye-approve",
+    "start": 2966.800000011921,
+    "end": 3025.599999964237,
+    "durationMs": 58.799999952316284,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_05ca2fba-7772-49b1-82b7-b57a0e7f393f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-dye-enable",
+    "start": 3731.199999988079,
+    "end": 3792.199999988079,
+    "durationMs": 61,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_05ca2fba-7772-49b1-82b7-b57a0e7f393f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-print-create",
+    "start": 7097.800000011921,
+    "end": 7158.899999976158,
+    "durationMs": 61.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_3deeb016-74b8-4bca-a2fe-54e2ae415469",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-print-asset",
+    "start": 8329.800000011921,
+    "end": 8392.300000011921,
+    "durationMs": 62.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_3deeb016-74b8-4bca-a2fe-54e2ae415469",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-print-submit",
+    "start": 8712.699999988079,
+    "end": 8775.5,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_3deeb016-74b8-4bca-a2fe-54e2ae415469",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-print-approve",
+    "start": 9245.599999964237,
+    "end": 9308.899999976158,
+    "durationMs": 63.30000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_3deeb016-74b8-4bca-a2fe-54e2ae415469",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-print-enable",
+    "start": 10130.599999964237,
+    "end": 10192.399999976158,
+    "durationMs": 61.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_3deeb016-74b8-4bca-a2fe-54e2ae415469",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-embroidery-create",
+    "start": 13579.399999976158,
+    "end": 13642.199999988079,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_70964523-50e3-435e-b21e-64c58eb6fb27",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-embroidery-asset",
+    "start": 14996.899999976158,
+    "end": 15058.899999976158,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_70964523-50e3-435e-b21e-64c58eb6fb27",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-embroidery-submit",
+    "start": 15513.599999964237,
+    "end": 15575.599999964237,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_70964523-50e3-435e-b21e-64c58eb6fb27",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-embroidery-approve",
+    "start": 15995.800000011921,
+    "end": 16058.899999976158,
+    "durationMs": 63.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_70964523-50e3-435e-b21e-64c58eb6fb27",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-embroidery-enable",
+    "start": 16881,
+    "end": 16942.30000001192,
+    "durationMs": 61.30000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_70964523-50e3-435e-b21e-64c58eb6fb27",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-heat-create",
+    "start": 20330.19999998808,
+    "end": 20392.19999998808,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b052e45a-afa3-4000-b871-123ef88e87e3",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-heat-asset",
+    "start": 21564.099999964237,
+    "end": 21626.5,
+    "durationMs": 62.40000003576279,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b052e45a-afa3-4000-b871-123ef88e87e3",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-heat-submit",
+    "start": 21964,
+    "end": 22025.69999998808,
+    "durationMs": 61.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b052e45a-afa3-4000-b871-123ef88e87e3",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-heat-approve",
+    "start": 22462.899999976158,
+    "end": 22525.599999964237,
+    "durationMs": 62.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b052e45a-afa3-4000-b871-123ef88e87e3",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain4-heat-enable",
+    "start": 23465.80000001192,
+    "end": 23525.599999964237,
+    "durationMs": 59.799999952316284,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_b052e45a-afa3-4000-b871-123ef88e87e3",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 259.5,
+    "durationMs": 259.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-dye-create",
+    "start": 2197.899999976158,
+    "end": 2293.2999999523163,
+    "durationMs": 95.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_17d86c9f-7ceb-4325-8b36-eb728496eb6f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-dye-submit",
+    "start": 2597.399999976158,
+    "end": 2659.899999976158,
+    "durationMs": 62.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_17d86c9f-7ceb-4325-8b36-eb728496eb6f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-dye-approve",
+    "start": 3113,
+    "end": 3176.599999964237,
+    "durationMs": 63.59999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_17d86c9f-7ceb-4325-8b36-eb728496eb6f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-dye-enable",
+    "start": 4098.799999952316,
+    "end": 4160,
+    "durationMs": 61.200000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_17d86c9f-7ceb-4325-8b36-eb728496eb6f",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-print-create",
+    "start": 7864.299999952316,
+    "end": 7926.5,
+    "durationMs": 62.200000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_25a0916a-78f9-4be7-9c0b-790b43cbba72",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-print-asset",
+    "start": 9281.199999988079,
+    "end": 9343.299999952316,
+    "durationMs": 62.09999996423721,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_25a0916a-78f9-4be7-9c0b-790b43cbba72",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-print-submit",
+    "start": 9797.5,
+    "end": 9860,
+    "durationMs": 62.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_25a0916a-78f9-4be7-9c0b-790b43cbba72",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-print-approve",
+    "start": 10196.599999964237,
+    "end": 10259.899999976158,
+    "durationMs": 63.30000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_25a0916a-78f9-4be7-9c0b-790b43cbba72",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-print-enable",
+    "start": 11081.399999976158,
+    "end": 11143.199999988079,
+    "durationMs": 61.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_25a0916a-78f9-4be7-9c0b-790b43cbba72",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-embroidery-create",
+    "start": 14663.799999952316,
+    "end": 14726.5,
+    "durationMs": 62.700000047683716,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_178c6271-ce16-4da0-b3aa-247bc79bdb29",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-embroidery-asset",
+    "start": 15965.199999988079,
+    "end": 16026.599999964237,
+    "durationMs": 61.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_178c6271-ce16-4da0-b3aa-247bc79bdb29",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-embroidery-submit",
+    "start": 16381,
+    "end": 16443.19999998808,
+    "durationMs": 62.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_178c6271-ce16-4da0-b3aa-247bc79bdb29",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-embroidery-approve",
+    "start": 16746.19999998808,
+    "end": 16809.899999976158,
+    "durationMs": 63.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_178c6271-ce16-4da0-b3aa-247bc79bdb29",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-embroidery-enable",
+    "start": 17698.69999998808,
+    "end": 17759.899999976158,
+    "durationMs": 61.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_178c6271-ce16-4da0-b3aa-247bc79bdb29",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-heat-create",
+    "start": 21197.299999952316,
+    "end": 21259.899999976158,
+    "durationMs": 62.60000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_118c54e0-8672-4407-a338-e15827e02dfe",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-heat-asset",
+    "start": 22414.899999976158,
+    "end": 22476.599999964237,
+    "durationMs": 61.69999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_118c54e0-8672-4407-a338-e15827e02dfe",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-heat-submit",
+    "start": 22730.899999976158,
+    "end": 22793.299999952316,
+    "durationMs": 62.39999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_118c54e0-8672-4407-a338-e15827e02dfe",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-heat-approve",
+    "start": 23112.899999976158,
+    "end": 23176.69999998808,
+    "durationMs": 63.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_118c54e0-8672-4407-a338-e15827e02dfe",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain5-heat-enable",
+    "start": 24098.299999952316,
+    "end": 24160.299999952316,
+    "durationMs": 62,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_118c54e0-8672-4407-a338-e15827e02dfe",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 263.5,
+    "durationMs": 263.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_118c54e0-8672-4407-a338-e15827e02dfe",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 580.4000000357628,
+    "durationMs": 580.4000000357628,
+    "url": "/fcs/process/material-plans/new",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "heat-plan-create-2",
+    "start": 650.2000000476837,
+    "end": 780,
+    "durationMs": 129.79999995231628,
+    "url": "/fcs/process/material-plans/fmp-7cfd4ad4-411e-44fa-9ffd-9f5202ecb47b",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 584,
+    "durationMs": 584,
+    "url": "/fcs/process/material-plans/new",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "heat-plan-create-3",
+    "start": 671.3000000119209,
+    "end": 784.5,
+    "durationMs": 113.19999998807907,
+    "url": "/fcs/process/material-plans/fmp-a5742495-7d66-432e-8a2b-f4beaca4ef10",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 600.8999999761581,
+    "durationMs": 600.8999999761581,
+    "url": "/fcs/process/material-plans/new",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "heat-plan-create-4",
+    "start": 675.1999999880791,
+    "end": 851,
+    "durationMs": 175.80000001192093,
+    "url": "/fcs/process/material-plans/fmp-a70726d4-2dd1-41ce-85e8-2a86c7ccf21d",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 505.5,
+    "durationMs": 505.5,
+    "url": "/fcs/process/material-plans/new",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "heat-plan-create-5",
+    "start": 622.6999999880791,
+    "end": 752.8000000119209,
+    "durationMs": 130.10000002384186,
+    "url": "/fcs/process/material-plans/fmp-e359eb1c-3aa2-4894-a0ac-66ef13900df5",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 574.6999999880791,
+    "durationMs": 574.6999999880791,
+    "url": "/fcs/process/material-plans/new",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "heat-plan-create-6",
+    "start": 693.1999999880791,
+    "end": 822.8000000119209,
+    "durationMs": 129.60000002384186,
+    "url": "/fcs/process/material-plans/fmp-ca33333e-051d-42fb-acff-c4ed541d1372",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 7423.300000011921,
+    "durationMs": 7423.300000011921,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_ff114f8e-ed2e-40fe-b15e-cf0bc3835c07",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-dye-enable",
+    "start": 7729.5,
+    "end": 7840,
+    "durationMs": 110.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_ff114f8e-ed2e-40fe-b15e-cf0bc3835c07",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 398.19999998807907,
+    "durationMs": 398.19999998807907,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-print-enable",
+    "start": 1619.0999999642372,
+    "end": 1731.199999988079,
+    "durationMs": 112.10000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_2112ec93-75b6-4d7e-a47f-1d40408d7ce0",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 612.3000000119209,
+    "durationMs": 612.3000000119209,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 2,
+    "brokenImages": 0
+  },
+  {
+    "label": "chain1-embroidery-enable",
+    "start": 1766.800000011921,
+    "end": 1878.699999988079,
+    "durationMs": 111.89999997615814,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_f74f0947-a6ec-4ac8-b0c6-9288ddfe40a6",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 244.10000002384186,
+    "durationMs": 244.10000002384186,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-listing-save-1",
+    "start": 9783.800000011921,
+    "end": 15360.900000035763,
+    "durationMs": 5577.100000023842,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-review-submit-1",
+    "start": 20483.900000035763,
+    "end": 20544.30000001192,
+    "durationMs": 60.39999997615814,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-first-publish-1",
+    "start": 39536.10000002384,
+    "end": 39610.40000003576,
+    "durationMs": 74.30000001192093,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-publish-receipt-1",
+    "start": 46652.200000047684,
+    "end": 46711.200000047684,
+    "durationMs": 59,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 28735,
+    "durationMs": 28735,
+    "url": "/pcs/products/channel-products/2fe0d35e-58e9-4075-8bc5-823754b0fe31/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-save-2",
+    "start": 29211.5,
+    "end": 29285,
+    "durationMs": 73.5,
+    "url": "/pcs/products/channel-products/2fe0d35e-58e9-4075-8bc5-823754b0fe31/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-submit-2",
+    "start": 30295.30000001192,
+    "end": 30351.5,
+    "durationMs": 56.19999998807907,
+    "url": "/pcs/products/channel-products/2fe0d35e-58e9-4075-8bc5-823754b0fe31",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-approve-2",
+    "start": 30738.700000047684,
+    "end": 30801.700000047684,
+    "durationMs": 63,
+    "url": "/pcs/products/channel-products/2fe0d35e-58e9-4075-8bc5-823754b0fe31",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-publish-2",
+    "start": 31257.30000001192,
+    "end": 31318.200000047684,
+    "durationMs": 60.90000003576279,
+    "url": "/pcs/products/channel-products/2fe0d35e-58e9-4075-8bc5-823754b0fe31",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-receipt-2",
+    "start": 31771.30000001192,
+    "end": 31834.900000035763,
+    "durationMs": 63.60000002384186,
+    "url": "/pcs/products/channel-products/2fe0d35e-58e9-4075-8bc5-823754b0fe31",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 8546.899999976158,
+    "durationMs": 8546.899999976158,
+    "url": "/pcs/products/channel-products/4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-save-3",
+    "start": 9134.899999976158,
+    "end": 9213.300000011921,
+    "durationMs": 78.40000003576279,
+    "url": "/pcs/products/channel-products/4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-submit-3",
+    "start": 10285.300000011921,
+    "end": 10345.899999976158,
+    "durationMs": 60.59999996423721,
+    "url": "/pcs/products/channel-products/4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-approve-3",
+    "start": 10683.599999964237,
+    "end": 10746.599999964237,
+    "durationMs": 63,
+    "url": "/pcs/products/channel-products/4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-publish-3",
+    "start": 11117.099999964237,
+    "end": 11179.899999976158,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/products/channel-products/4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-receipt-3",
+    "start": 11467.099999964237,
+    "end": 11529.899999976158,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/products/channel-products/4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 1013.7999999523163,
+    "durationMs": 1013.7999999523163,
+    "url": "/pcs/products/channel-products/232e5768-f3e7-4687-8f7f-cb1224853e54/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-save-4",
+    "start": 1568,
+    "end": 1629.5,
+    "durationMs": 61.5,
+    "url": "/pcs/products/channel-products/232e5768-f3e7-4687-8f7f-cb1224853e54/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-submit-4",
+    "start": 2618.2999999523163,
+    "end": 2680.2999999523163,
+    "durationMs": 62,
+    "url": "/pcs/products/channel-products/232e5768-f3e7-4687-8f7f-cb1224853e54",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-approve-4",
+    "start": 3151.099999964237,
+    "end": 3213.599999964237,
+    "durationMs": 62.5,
+    "url": "/pcs/products/channel-products/232e5768-f3e7-4687-8f7f-cb1224853e54",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-publish-4",
+    "start": 3650.7999999523163,
+    "end": 3713.5,
+    "durationMs": 62.700000047683716,
+    "url": "/pcs/products/channel-products/232e5768-f3e7-4687-8f7f-cb1224853e54",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-receipt-4",
+    "start": 4101.899999976158,
+    "end": 4163.799999952316,
+    "durationMs": 61.89999997615814,
+    "url": "/pcs/products/channel-products/232e5768-f3e7-4687-8f7f-cb1224853e54",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 985.3000000119209,
+    "durationMs": 985.3000000119209,
+    "url": "/pcs/products/channel-products/4b41290a-8f8f-4a62-8a63-404e57ca76bf/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-save-5",
+    "start": 1556.0999999642372,
+    "end": 1634.8999999761581,
+    "durationMs": 78.80000001192093,
+    "url": "/pcs/products/channel-products/4b41290a-8f8f-4a62-8a63-404e57ca76bf/edit",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-submit-5",
+    "start": 2590,
+    "end": 2651.599999964237,
+    "durationMs": 61.59999996423721,
+    "url": "/pcs/products/channel-products/4b41290a-8f8f-4a62-8a63-404e57ca76bf",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-approve-5",
+    "start": 3123.399999976158,
+    "end": 3185,
+    "durationMs": 61.60000002384186,
+    "url": "/pcs/products/channel-products/4b41290a-8f8f-4a62-8a63-404e57ca76bf",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-publish-5",
+    "start": 3623.300000011921,
+    "end": 3684.800000011921,
+    "durationMs": 61.5,
+    "url": "/pcs/products/channel-products/4b41290a-8f8f-4a62-8a63-404e57ca76bf",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "testing-receipt-5",
+    "start": 4139,
+    "end": 4201.699999988079,
+    "durationMs": 62.69999998807907,
+    "url": "/pcs/products/channel-products/4b41290a-8f8f-4a62-8a63-404e57ca76bf",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-1-preview",
+    "start": 40455.59999996424,
+    "end": 40518.39999997616,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-1-preview",
+    "start": 63055.69999998808,
+    "end": 63118.5,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-1-save",
+    "start": 63605.59999996424,
+    "end": 63703.89999997616,
+    "durationMs": 98.30000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-2-preview",
+    "start": 77489.29999995232,
+    "end": 77551.69999998808,
+    "durationMs": 62.40000003576279,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-2-save",
+    "start": 78088.89999997616,
+    "end": 78134.89999997616,
+    "durationMs": 46,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-3-preview",
+    "start": 80538.09999996424,
+    "end": 80602.89999997616,
+    "durationMs": 64.80000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-3-save",
+    "start": 81039.79999995232,
+    "end": 81085,
+    "durationMs": 45.200000047683716,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-4-preview",
+    "start": 83206.19999998808,
+    "end": 83268.39999997616,
+    "durationMs": 62.19999998807907,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-4-save",
+    "start": 83856.19999998808,
+    "end": 83901.59999996424,
+    "durationMs": 45.39999997615814,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-5-preview",
+    "start": 86289.5,
+    "end": 86351.79999995232,
+    "durationMs": 62.299999952316284,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-100-5-save",
+    "start": 86939.79999995232,
+    "end": 86985,
+    "durationMs": 45.200000047683716,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-1-preview",
+    "start": 89256.19999998808,
+    "end": 89335,
+    "durationMs": 78.80000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-1-save",
+    "start": 89889.09999996424,
+    "end": 90432.69999998808,
+    "durationMs": 543.6000000238419,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-2-preview",
+    "start": 99922.39999997616,
+    "end": 99985.09999996424,
+    "durationMs": 62.69999998807907,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-2-save",
+    "start": 100555.79999995232,
+    "end": 100812.89999997616,
+    "durationMs": 257.10000002384186,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-3-preview",
+    "start": 102773.19999998808,
+    "end": 102851.69999998808,
+    "durationMs": 78.5,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-3-save",
+    "start": 103389.39999997616,
+    "end": 103638.89999997616,
+    "durationMs": 249.5,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-4-preview",
+    "start": 105655.69999998808,
+    "end": 105735,
+    "durationMs": 79.30000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-4-save",
+    "start": 106289,
+    "end": 106542,
+    "durationMs": 253,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-5-preview",
+    "start": 108588.79999995232,
+    "end": 108668.39999997616,
+    "durationMs": 79.60000002384186,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "csv-1000-5-save",
+    "start": 109222.39999997616,
+    "end": 109489.59999996424,
+    "durationMs": 267.19999998807907,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 41590.30000001192,
+    "durationMs": 41590.30000001192,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 274086.10000002384,
+    "durationMs": 274086.10000002384,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 7243.099999964237,
+    "durationMs": 7243.099999964237,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-9-preview",
+    "start": 8384,
+    "end": 8443.5,
+    "durationMs": 59.5,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-9-save",
+    "start": 8915.300000011921,
+    "end": 9612.099999964237,
+    "durationMs": 696.7999999523163,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-10-preview",
+    "start": 19013.599999964237,
+    "end": 19076.399999976158,
+    "durationMs": 62.80000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-10-save",
+    "start": 19547.80000001192,
+    "end": 19768.099999964237,
+    "durationMs": 220.29999995231628,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 9542.300000011921,
+    "durationMs": 9542.300000011921,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-11-preview",
+    "start": 10434.800000011921,
+    "end": 10513.400000035763,
+    "durationMs": 78.60000002384186,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-11-save",
+    "start": 10951.5,
+    "end": 11836.700000047684,
+    "durationMs": 885.2000000476837,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 8990.699999988079,
+    "durationMs": 8990.699999988079,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d/edit",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "attachment-replace-save-1",
+    "start": 9562,
+    "end": 10174.199999988079,
+    "durationMs": 612.1999999880791,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "attachment-replace-save-2",
+    "start": 24679.099999964237,
+    "end": 25174.099999964237,
+    "durationMs": 495,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "attachment-replace-save-3",
+    "start": 26178.19999998808,
+    "end": 26641,
+    "durationMs": 462.80000001192093,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "attachment-replace-save-4",
+    "start": 27494.799999952316,
+    "end": 27957.399999976158,
+    "durationMs": 462.60000002384186,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "attachment-replace-save-5",
+    "start": 28878.19999998808,
+    "end": 29340.799999952316,
+    "durationMs": 462.5999999642372,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-sku_97d78f14-429f-4b11-8dd4-da78eebd7a1d",
+    "images": 1,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-12-preview",
+    "start": 11455.300000011921,
+    "end": 11518.800000011921,
+    "durationMs": 63.5,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-12-save",
+    "start": 12022.300000011921,
+    "end": 12794.599999964237,
+    "durationMs": 772.2999999523163,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-13-preview",
+    "start": 8487.899999976158,
+    "end": 8550.5,
+    "durationMs": 62.60000002384186,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-13-save",
+    "start": 9037.399999976158,
+    "end": 9668.399999976158,
+    "durationMs": 631,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-14-preview",
+    "start": 7794.699999988079,
+    "end": 7893.5,
+    "durationMs": 98.80000001192093,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-14-save",
+    "start": 8360.5,
+    "end": 9040.5,
+    "durationMs": 680,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-15-preview",
+    "start": 9559.100000023842,
+    "end": 9661.100000023842,
+    "durationMs": 102,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-15-save",
+    "start": 10058.800000011921,
+    "end": 10797.600000023842,
+    "durationMs": 738.8000000119209,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-16-preview",
+    "start": 7013.699999988079,
+    "end": 7076.899999976158,
+    "durationMs": 63.19999998807907,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  },
+  {
+    "label": "final-1000-16-save",
+    "start": 7531.299999952316,
+    "end": 8342.299999952316,
+    "durationMs": 811,
+    "url": "/pcs/materials/fabric",
+    "images": 0,
+    "brokenImages": 0
+  }
+]

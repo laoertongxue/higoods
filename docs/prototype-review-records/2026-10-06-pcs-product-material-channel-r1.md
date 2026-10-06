@@ -1,71 +1,57 @@
-# PCS 商品、物料与渠道店铺商品 R1 当前原型审查
+# PCS R1 点名流程闭环与技术包调整审查
 
 ## 1. 基本信息
 
-| 项目 | 内容 |
-|---|---|
-| 记录日期 | 2026-10-06 |
-| 相关需求 / 任务 | 用户授权执行《PCS 商品、物料与渠道店铺商品原型调整方案 R1》；ARCH/CFG/PRODUCT/MAT/UOM/CODE/COST/CHAN/SYNC/BRIDGE/GOV 的158项原子需求 |
-| 记录模式 | 完整产品审查；实施与验收尚未关闭 |
-| 涉及系统 | PCS；直接关联 PMS、FCS、WLS 只读库存投影及既有毛织入口 |
-| 涉及页面路径 | 见第7节及原始测量文件 |
-| 端类型 | 管理端为主；既有毛织PDA/打印引用回归 |
-| 主要角色与任务 | 商品/物料维护与审核人员、采购/加工计划人员、店铺运营人员 |
-| 版本与服务 | main / 88324f65506f47c678b17d1b51879f8fd7c2488a 加未提交差异；5173开发预览与5178构建预览均来自 /Users/laoer/Documents/higoods |
+日期2026-10-06。当前main / 9bb4561e0241438d2de15a9b40913c747e92aaed加本轮差异；工作树/Users/laoer/Documents/higoods。5173/5178均为该工作树最终dist预览。管理端1366×768；涉及PCS及直接关联PMS/FCS。用户明确要求点名流程闭环，后补技术包26条/20正式完整/三面料五裁片和列表维护，以及AGENTS性能统一1秒无例外。
 
 ## 2. 影响判定
 
 - 用户可见影响：有
-- 判定依据：商品SPU/SKU、五类物料主档/阶段SKU、基础配置、计量单位、标准成本、店铺/PID/平台规格及关联业务入口发生变化；列表、详情、编辑、Tab、图片、规则、Mock和本地保存随之调整。PCS不显示供应商/库存编辑项，也没有浏览器资料维护工具。
-- 当前基线：AGENTS.md第4节现场产品设计、第5节UI与图片、第7节验证规则；用户R1实施授权及FCS染色加工单页面层次要求。
-- 原有AGENTS.md调整和维护工具删除属于此前本地差异，按其原记录承接，未宣称本轮新增。
+- 判定依据：技术包真实资料与工艺图、26条静态样本稳定来源、数字编号、跟单/版师、买手、生产单、日志、时间列；物料持续加工/审核确认、附件与批量导入、测款回传及页面读取性能。没有PCS浏览器资料维护工具；没有对线上数据库或平台写入。
 
 ## 3. 自查结论
 
-| 检查项 | 结论 | 说明 |
+依据AGENTS.md第4、5、7节。
+
+| 项目 | 结论 | 范围 |
 |---|---|---|
-| 角色、任务与页面模式 | 通过 | 命名列表/详情/编辑及66个Tab已有页面证据；未把长表单铺在列表中 |
-| 文案、状态、数量与单位 | 不通过 | 专项规则已覆盖单位/费用与身份；未测完全部状态动作，不能关闭此项 |
-| 扫码、真实图片与对象识别 | 不通过 | 静态实物图、缩略图、大图、标签预览已有证据；新增加工图片文件选择及实物扫码未闭环 |
-| 防错、危险确认与主管兜底 | 不通过 | 原生确认窗口无法由当前工具读取/处理，确认后的启用/停用/归档证据未齐；未绕过确认 |
-| 交接、跨端事实与异常追溯 | 不通过 | 标准成本下游、渠道逐项重试和现有毛织引用已测；完整加工链及测款回写仍有缺口 |
-| 低分辨率、PDA、弱网与上传恢复 | 不通过 | 1280×720、1366×768和390×844限定场景有证据；上传许可与部分故障页面未闭环 |
-| 命名路由、交互、图片大图与打印 | 不通过 | 已测范围见测量汇总；导入曾超时，未补足5轮，整体性能门禁未通过 |
+| 本轮技术包内容、列表、工艺与性能 | 通过 | 17项专项追踪与最终回执 |
+| 完整R1全部158条 | 不通过 | 未逐条现场验收范围继续保留 |
+
+本轮技术包范围通过；连续加工、审核启停、测款上架回传、附件和100/1000组导入均已有实际保存、刷新与重复测量证据。最终物料15506主档/15522SKU冷热读取、技术包列表详情、Tab、人员保存和二维码均符合≤1000ms。全文原始样本见最终回执，旧失败样本仍保留。不存在性能例外。
+
+原完整R1矩阵仍有未逐项现场验收条目，不能据上述范围宣称全部158项已验收。实物扫码/设备打印等仍按原矩阵单独追踪。
 
 ## 4. 问题标签
 
-- 字段过载：已按列表/详情/编辑及业务Tab重组，保留页面证据。
-- 追溯不足：仍需补连续加工、测款回写和跨系统操作证据。
-- 选不对：已修正新加工/采购选用遗漏主档及SKU审核/启用状态的校验。
-- 点错风险：原生确认后的结果仍需验收，不能按未操作过的路径判通过。
+- 资料不一致：正式包实际补齐七项资料，缺原文件的反例仍会降完整度；没有硬改100%标签。
+- 路线错误：五主面料裁片承接正确裁剪节点，已确认图读取不重新改ID；三款顺序准备加工、五片顺序额外工艺。
+- 来源不稳：静态样本不随live FCS缓存改变；精确旧种子遗漏只读补正，不恢复真实用户删除。
+- 性能超时：去掉物料JSON往返/重复复制，列表不提前加载二维码React代码；附件引用及成本图完整校验仍保留。
 
 ## 5. 主要问题与处理
 
-| 问题 | 标签 | 影响角色 | 处理方式 | 是否仍有风险 |
-|---|---|---|---|---|
-| 已审核物料仅改名称被技术身份比较阻断 | 选不对 | 物料维护人员 | 保留精确原技术值；保存5轮及受影响路由120次回归 | 相邻状态动作待验 |
-| 旧品类编号引用与新配置ID不同 | 追溯不足 | 商品维护人员 | 精确ID优先并保留别名；343项静态来源核对 | 浏览器旧配置转换待验 |
-| 从渠道返回测款保留旧校验提示 | 读不懂 | 店铺运营人员 | 返回时清除旧提示，保留各次来源；5轮绑定回归 | 完整上架回执仍仅1轮 |
-| BOM缺损结构被缓存为空资料 | 追溯不足 | 技术资料人员 | 失败可重新读取、零写入；保留修复前最小失败和回归 | 全页面故障验收未齐 |
-| 未审核/停用物料或停用主档可新建加工/采购 | 选不对 | 加工计划、采购人员 | 候选项/入口/保存共同校验；已有计划、草稿保持快照 | 专项19项通过，最新页面动作待验 |
-| BOM加入物料遗漏主档审核/启用检查；技术BOM的既有停用行反而不能维护 | 选不对 | 买手、技术资料人员 | 新选用和保存同时校验；以已保存行ID和SKU判定原有使用，允许维护用量；候选项隐藏不可新选物料 | BOM专项11项通过，其中新增3项；修复后页面待验 |
-| 批量导入性能与文件操作证据不足 | 追溯不足 | 资料维护人员 | 保留慢样本，申请本机测试CSV选择许可后重测 | 是 |
-| 原生确认窗口导致后续点击未生效 | 点错风险 | 本机验收 | 已请求手动取消；保留状态，不跳过确认 | 是 |
+页内危险确认保留取消与原因校验，文件实际选择及Blob保存、复制引用、100/1000组全保存已完成；此前许可和原生确认阻断已解除，不能继续标记为待用户许可。人员维护写入失败保留持久状态，重试/恢复有五次证据。共享读取按本次所需集合，命令保持原子事务、CAS与未完成不报成功。完整高风险diff审查检查只读投影、用户删除保护、附件、命令范围及旧FCS缓存恢复。
 
 ## 6. 最终结论
 
-结论：不通过
+结论：通过（仅本轮技术包范围）。完整PCS R1总体：未关闭，不能把测试、构建或几个完整流程当整体产品验收。
 
-此结论表示 **R1总体交付未完成**，不否定已经取得直接证据的局部需求。当前矩阵29项已验证、127项已实现待验证、2项已阻塞；没有用户授权的性能例外。248项专项测试和构建通过，不能代替尚缺的页面、性能、附件与连续场景。未提交、推送、部署或取得产品接受回执。
+最终267项专项契约通过，构建内582项检查通过；全项目类型检查仍有3个无关旧错误，修改范围0错误。原始日志、源码/资源指纹、页面截图、全部计时见docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/closure/final-verification.md。技术包17项追踪见docs/reviews/2026-10-06-tech-pack-completion/traceability.md。GitHub及Vercel交付结果由独立发布回执核验，不由本审查文档推定。
 
 ## 7. 变更覆盖与验证
 
+以下保留此前R1覆盖位置供治理联查，后续清单列本轮实际变更。此前路径不代表本轮再次修改或验收整个模块。
+
 ### 受管文件
 
-以下按当前任务工作树实际差异列出，包括保留的此前维护工具删除；源文件清单和指纹见证据目录source-manifest.json。该清单是覆盖范围，不表示所有文件均完成业务验收。
-
+- `src/components/real-qr-placeholder.ts`
+- `src/components/real-qr.ts`
 - `src/data/fcs/material-process-plans.ts`
+- `src/data/fcs/production-demands.ts`
+- `src/data/fcs/production-order-change-workflow.ts`
 - `src/data/generated/pcs-record-baseline.json`
+- `src/data/pcs-archive-writeback-contract.ts`
 - `src/data/pcs-channel-catalog-types.ts`
 - `src/data/pcs-channel-catalog.ts`
 - `src/data/pcs-channel-commands.ts`
@@ -111,6 +97,7 @@
 - `src/data/pcs-product-lifecycle-governance.ts`
 - `src/data/pcs-product-packaging.ts`
 - `src/data/pcs-product-reference-check.ts`
+- `src/data/pcs-production-demand-tech-pack-seeds.ts`
 - `src/data/pcs-project-bootstrap.ts`
 - `src/data/pcs-project-config-workspace-adapter.ts`
 - `src/data/pcs-project-data-consistency.ts`
@@ -132,6 +119,10 @@
 - `src/data/pcs-style-archive-repository.ts`
 - `src/data/pcs-style-archive-types.ts`
 - `src/data/pcs-style-product-information.ts`
+- `src/data/pcs-tech-pack-version-log-types.ts`
+- `src/data/pcs-technical-data-demo-completion.ts`
+- `src/data/pcs-technical-data-demo-projection.ts`
+- `src/data/pcs-technical-data-version-bootstrap.ts`
 - `src/data/pcs-technical-data-version-repository.ts`
 - `src/data/pcs-technical-data-version-types.ts`
 - `src/data/pcs-testing-order-repository.ts`
@@ -140,6 +131,7 @@
 - `src/data/pms/material-purchase-references.ts`
 - `src/data/pms/reconciliations.ts`
 - `src/main-handlers/pcs-handlers.ts`
+- `src/pages/pcs-action-dialog.ts`
 - `src/pages/pcs-channel-payouts.ts`
 - `src/pages/pcs-channel-products.ts`
 - `src/pages/pcs-channel-stores.ts`
@@ -153,6 +145,7 @@
 - `src/pages/pcs-product-archives.ts`
 - `src/pages/pcs-product-information.ts`
 - `src/pages/pcs-storage-error.ts`
+- `src/pages/pcs-technical-data-tech-pack-list.ts`
 - `src/pages/pcs-technical-data.ts`
 - `src/pages/pcs-testing-order-detail.ts`
 - `src/pages/pms/material-purchase-orders.ts`
@@ -161,7 +154,9 @@
 - `src/pages/process-print-orders.ts`
 - `src/pages/process-work-orders/early-process-management.ts`
 - `src/pages/process-work-orders/material-process-plans.ts`
+- `src/pages/tech-pack/context.ts`
 - `src/pages/tech-pack/cost-domain.ts`
+- `src/pages/tech-pack/process-domain.ts`
 - `src/pages/wls/finished/stock-realtime.ts`
 - `src/router/route-renderers-fcs.ts`
 - `src/router/route-renderers.ts`
@@ -170,61 +165,30 @@
 
 ### 页面路由
 
-下面是原始路由测量中记录的实际页面；五轮冷启动/刷新、站内切换、Tab和保存分别保留，不相互替代。最新物料选用校验变更后，新加工/采购相关入口仍需重测；此前证据只能证明当时相应范围。
-
-- `/pcs/channels/stores`
-- `/pcs/channels/stores/ST-001`
-- `/pcs/channels/stores/ST-001/edit`
-- `/pcs/channels/stores/new`
-- `/pcs/channels/stores/sync`
-- `/pcs/materials/accessory`
-- `/pcs/materials/consumable`
+- `/pcs/technical-data/tech-packs`
+- `/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310`
 - `/pcs/materials/fabric`
 - `/pcs/materials/fabric/material-r1-MAT-FB-00000001`
-- `/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit`
-- `/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01`
-- `/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit`
-- `/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process`
-- `/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/new`
-- `/pcs/materials/fabric/new`
-- `/pcs/materials/parts`
-- `/pcs/materials/yarn`
+- `/pcs/testing/orders/to_muw20xcv_6`
 - `/pcs/products/channel-products`
-- `/pcs/products/channel-products/channel-listing-demo-1`
-- `/pcs/products/channel-products/channel-listing-demo-1/edit`
-- `/pcs/products/channel-products/new`
-- `/pcs/products/specifications`
-- `/pcs/products/specifications/new`
-- `/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c`
-- `/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit`
-- `/pcs/products/styles`
-- `/pcs/products/styles/new`
-- `/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485`
-- `/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit`
-- `/pcs/settings/config-workspace`
+- `/pcs/channels/stores`
+- `/fcs/process/material-plans`
+- `/fcs/production/orders/po-14671`
 
-- `/pcs/testing/orders/to_muvl1of8_7`：5轮来源绑定，完整发布未闭环。
-- `/fcs/process/material-plans` 与新建/详情/编辑入口：规则通过，最新选用校验后的页面操作待验。
-- 既有毛织打印/PDA的精确URL见 `wool-print-release.json`、`wool-pda-release.json`，不将其扩展为全域PDA验收。
+其他点名精确路由见ui-snapshots.json与ui-measurements.json，不扩展为全站验收。
 
 ### 验证命令
 
-- `node --import tsx --experimental-test-module-mocks --test tests/pcs-r1-*.test.ts tests/unit/pcs-design-revision-current-flow.test.ts tests/unit/fcs-design-revision-result-readiness.test.ts`：通过，248/248；原始日志见证据目录。
-- `npm run build`：通过，工程检查573/573，Vite构建成功。
-- `npm run typecheck`：失败，3条基准HEAD也可重现的既有错误；没有忽略失败或改写为通过。
-- `python3 docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/validate_documents.py --implementation`：通过，158项需求、337项字段、64项决策、403项旧字段、69组线上信息的引用与实施状态结构完整；不是业务验收通过。
-- `npm run check:prototype-design-governance -- --all`：通过，103个用户可见受管文件关联2份审查记录。首次运行因历史记录格式失败，规范化后重跑通过；此脚本只验证审查记录覆盖，R1整体结论仍不通过。
-- `git diff --check`：通过，未发现补丁空白错误。
-- `workflow:verify`完整任务收据：未运行；当前整体性能及业务门禁未通过，不以收据替代交付。
+- `node --import tsx --experimental-test-module-mocks --test tests/pcs-r1-*.test.ts tests/unit/pcs-design-revision-current-flow.test.ts tests/unit/fcs-design-revision-result-readiness.test.ts tests/unit/technical-pack-demo-completion.test.ts`：通过，最终专项267/267，具体入口以final-contracts.log为准。
+- `npm run build`：通过，582项内置检查，Vite成功。
+- `npm run typecheck`：失败，3个无关既有错误，本轮范围0错误。
+- `git diff --check`：通过。
+- `npm run workflow:verify`：失败，菜单检查存在main基准已有的5条织带精确路由缺口；当前构建、列表治理及原型审查通过，收据保持implemented，不把该技术收据写成verified。该遗留路由未受本轮改动，不扩展修改无关模块。
 
 ### 真实图片验证
 
-- 来源为仓库随应用发布的真实服装/面辅料静态图片及当前已有附件引用；没有把上传占位、空白或data URL作为完成证据。
-- 商品/物料识别列组合缩略图、业务编码和名称；大图、失败态、物料标签预览按各原始截图/测量范围检查。
-- 5次款式大图、5次物料标签预览已有证据；新增加工阶段自身图片选择尚未完成。没有进行实物打印或设备扫码。
-- 当前款式列表截图：`docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/styles-current-preview.png`；此截图不是新的详情导航或性能通过证据。
+真实静态DXF/RUL与纸样预览文件、面料/染印绣阶段自身图片及实际选择的原始Blob。最终列表与详情必要图片损坏0；二维码8张实际SVG全部生成。图片预览/复制/刷新取证见闭环证据。共用原型纸样不是对应款式真实生产文件。
 
 ### 例外
 
-- 无。未完成项没有被作为例外豁免，详见 [未闭环验收清单](../reviews/2026-10-05-pcs-prototype-adjustment-plan/remaining-validation.md)。
-- 完整测量、失败及环境见 [证据说明](../reviews/2026-10-05-pcs-prototype-adjustment-plan/evidence/README.md)，逐条状态见 [实施记录](../reviews/2026-10-05-pcs-prototype-adjustment-plan/implementation-progress.md)。
+- 无。性能统一≤1000ms，不允许例外。完整R1剩余范围没有作为例外关闭。

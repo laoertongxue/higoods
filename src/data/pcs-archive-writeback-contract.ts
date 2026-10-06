@@ -90,9 +90,9 @@ export interface ArchiveWritebackResult {
 
 function nowText(): string {
   const now = new Date()
-  const pad = (value: number) => String(now.getHours()).padStart(2, '0')
+  const hour = String(now.getHours()).padStart(2, '0')
   const pad2 = (value: number) => String(value).padStart(2, '0')
-  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${pad}:${pad2(now.getMinutes())}`
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${hour}:${pad2(now.getMinutes())}`
 }
 
 function isAllowedWritebackField(fieldKey: string): boolean {

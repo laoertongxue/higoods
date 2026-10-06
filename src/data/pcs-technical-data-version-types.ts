@@ -9,8 +9,9 @@ import type {
 export type TechnicalVersionStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
 export type TechnicalDomainStatus = 'EMPTY' | 'DRAFT' | 'COMPLETE'
 export type TechPackSourceTaskType = 'ENGINEERING_MASTER'
-export type StoredTechPackSourceTaskType = TechPackSourceTaskType
-export type TechPackVersionChangeScope = '生产准备单生成'
+// Old sources remain readable; creation accepts only TechPackSourceTaskType.
+export type StoredTechPackSourceTaskType = TechPackSourceTaskType | 'PLATE' | 'REVISION' | 'ARTWORK' | 'PATTERN' | ''
+export type TechPackVersionChangeScope = '生产准备单生成' | '制版生成' | '改款生成' | '设计改款' | '花型生成' | '纸样生成'
 export type TechnicalGarmentDifficultyGrade = 'A' | 'A+' | 'A++' | 'B' | 'C' | 'D'
 export const TECHNICAL_GARMENT_DIFFICULTY_GRADES: TechnicalGarmentDifficultyGrade[] = ['A', 'A+', 'A++', 'B', 'C', 'D']
 
@@ -572,6 +573,10 @@ export interface TechnicalDataVersionRecord {
   changeScope: TechPackVersionChangeScope
   changeSummary: string
   garmentDifficultyGrade: TechnicalGarmentDifficultyGrade
+  merchandiserId?: string
+  merchandiserName?: string
+  patternMakerId?: string
+  patternMakerName?: string
   linkedPartTemplateIds: string[]
   linkedPatternLibraryVersionIds: string[]
   linkedPatternAssetIds?: string[]

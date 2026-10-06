@@ -19,6 +19,19 @@ function createAsyncRenderer<TArgs extends unknown[]>(
   let modulePromise: Promise<Record<string, unknown>> | null = null
 
   return async (...args: TArgs): Promise<string> => {
+    // Production details read their bound PCS technical version and material specification.
+    // Load that scope before importing the page: its context reads PCS records at import time.
+    if (exportName === 'renderProductionOrderDetailPage') {
+      const { ensurePcsRecordState } = await import('../data/pcs-record-runtime.ts')
+      await ensurePcsRecordState([
+        'higood-fcs-production-tech-pack-publish-evaluations-v1',
+        'higood-pcs-config-workspace-store-v1',
+        'higood-pcs-material-config-v1',
+        'higood-pcs-style-archive-store-v3',
+        'higood-pcs-sku-archive-store-v1',
+        'higood-pcs-technical-data-version-store-v5',
+      ])
+    }
     if (!modulePromise) {
       modulePromise = importModule().catch((error) => {
         modulePromise = null
@@ -131,7 +144,7 @@ export const renderProductionDemandInboxPage = createAsyncRenderer(
   'renderProductionDemandInboxPage',
 )
 export const renderProductionOrderDetailPage = createAsyncRenderer(
-  () => import('../pages/production'),
+  () => import('../pages/production/detail-domain.ts'),
   'renderProductionOrderDetailPage',
 )
 export const renderProductionOrdersPage = createAsyncRenderer(() => import('../pages/production/orders-domain'), 'renderProductionOrdersPage')

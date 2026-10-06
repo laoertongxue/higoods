@@ -1,4 +1,4 @@
-import { productionDemands, type ProductionDemand } from './fcs/production-demands.ts'
+import { listProductionDemandDemoSeeds, type ProductionDemand } from './fcs/production-demands.ts'
 import { POST_FINISHING_PRODUCTION_SOURCE_FIXTURES } from './fcs/post-finishing-production-source-fixtures.ts'
 
 export interface ProductionDemandTechPackSeed {
@@ -29,7 +29,7 @@ export function buildDemandTechnicalVersionCode(spuCode: string): string {
 export function listProductionDemandTechPackSeeds(): ProductionDemandTechPackSeed[] {
   const postFinishingSpus = new Set<string>(POST_FINISHING_PRODUCTION_SOURCE_FIXTURES.map((source) => source.spuCode))
   const bySpu = new Map<string, ProductionDemand>()
-  productionDemands
+  listProductionDemandDemoSeeds()
     .filter((demand) => demand.techPackStatus === 'RELEASED' && Boolean(demand.techPackVersionLabel))
     .forEach((demand) => {
       const current = bySpu.get(demand.spuCode)

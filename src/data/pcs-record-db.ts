@@ -87,21 +87,35 @@ async function transaction<T>(mode: IDBTransactionMode, action: (tx: IDBTransact
 function nonempty(value: unknown): value is string { return typeof value === 'string' && value.trim().length > 0 }
 function checkVersion(value: number) { if (!Number.isSafeInteger(value) || value < 0) throw new Error('PCS 记录版本无效。') }
 /** Explicit references must resolve; bare IDs are also recognized for deletion protection. */
-export function pcsFileReferences(value: unknown, knownIds: Set<string> = new Set()): Set<string> {
+export function pcsFileReferences(value: unknown, knownIds: Set<string> = new Set(), validateFileBytes = true): Set<string> {
   const references = new Set<string>(); const visited = new Set<object>()
-  function walk(item: unknown, key?: string) {
+  const recognizeBareIds = knownIds.size > 0
+  function walk(item: unknown) {
     if (typeof item === 'string') {
-      if (/^data:.*;base64,/i.test(item)) throw new Error('PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。')
-      if (item.startsWith('pcs-file:')) references.add(item.slice(9))
-      else if (key === 'fileId' && item) references.add(item)
-      else if (knownIds.has(item)) references.add(item)
+      const first = item.charCodeAt(0)
+      if (validateFileBytes && (first === 100 || first === 68) && /^data:.*;base64,/i.test(item)) throw new Error('PCS 附件必须以原始 Blob 保存，不能保存 Base64 文件。')
+      if (first === 112 && item.startsWith('pcs-file:')) references.add(item.slice(9))
+      else if (recognizeBareIds && knownIds.has(item)) references.add(item)
     } else if (item && typeof item === 'object' && !visited.has(item)) {
       visited.add(item)
-      if (item instanceof Blob) throw new Error('请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。')
-      for (const [childKey, child] of Object.entries(item)) {
-        const staticFile = (item as Record<string, unknown>).fileStorage === 'static' && typeof (item as Record<string, unknown>).dataUrl === 'string' && String((item as Record<string, unknown>).dataUrl).startsWith('/')
+      if (item instanceof Blob) { if (validateFileBytes) throw new Error('请将 PCS 附件保存到文件仓库，业务记录只保留文件引用。'); return }
+      const record = item as Record<string, unknown>
+      const staticFile = record.fileStorage === 'static' && typeof record.dataUrl === 'string' && record.dataUrl.startsWith('/')
+      if (!staticFile && Object.hasOwn(record, 'fileId') && typeof record.fileId === 'string' && record.fileId) references.add(record.fileId)
+      if (Array.isArray(item)) {
+        for (const child of item) if (typeof child === 'string' || (child && typeof child === 'object')) walk(child)
+        return
+      }
+      // Avoid allocating an entries array and repeating static metadata checks
+      // for each field of every imported row. The reference/byte rules are unchanged.
+      for (const childKey in record) {
+        if (!Object.hasOwn(record, childKey)) continue
         if (childKey === 'fileId' && staticFile) continue
-        walk(child, childKey)
+        const child = record[childKey]
+        if (typeof child === 'string') {
+          const first = child.charCodeAt(0)
+          if (recognizeBareIds || first === 112 || (validateFileBytes && (first === 100 || first === 68))) walk(child)
+        } else if (child && typeof child === 'object') walk(child)
       }
     }
   }
@@ -114,7 +128,7 @@ function checkFiles(files: PcsStoredFile[]) {
     ids.add(file.id)
   }
 }
-export async function readPcsRecords(collections?: readonly string[]): Promise<{ records: PcsStoredRecord[]; files: PcsStoredFile[]; migrations: PcsMigrationReceipt[] }> {
+export async function readPcsRecords(collections?: readonly string[]): Promise<{ records: PcsStoredRecord[]; files: PcsStoredFile[]; migrations: PcsMigrationReceipt[]; referenceFreeValues?: WeakSet<object> }> {
   return transaction('readonly', async tx => {
     const recordStore = tx.objectStore('records'), fileStore = tx.objectStore('files')
     // IDs are namespaced by the registered collection. The existing primary-key
@@ -123,16 +137,28 @@ export async function readPcsRecords(collections?: readonly string[]): Promise<{
     const rows = selected
       ? Promise.all(selected.map(key => result(recordStore.getAll(IDBKeyRange.bound(`${key}/`, `${key}0`, false, true))))).then(groups => groups.flat())
       : result(recordStore.getAll())
-    const [records, metadata, fileKeys] = await Promise.all([rows as Promise<PcsStoredRecord[]>, result(tx.objectStore('meta').getAll()), selected ? result(fileStore.getAllKeys()) : Promise.resolve([])])
+    const [records, metadata] = await Promise.all([rows as Promise<PcsStoredRecord[]>, result(tx.objectStore('meta').getAll())])
     const references = new Set<string>()
-    if (selected && fileKeys.length) for (const row of records) if (!row.deleted) {
-      try { for (const id of pcsFileReferences(row.value)) references.add(id) }
+    const referenceFreeValues = new WeakSet<object>()
+    if (selected) for (const row of records) if (!row.deleted) {
+      try {
+        const ids = pcsFileReferences(row.value)
+        for (const id of ids) references.add(id)
+        // This exact, read-only object tree has already passed byte/reference
+        // validation. Hydration may reuse it when there are no file references;
+        // no persisted marker or unchecked tree is trusted.
+        if (!ids.size && row.value && typeof row.value === 'object') {
+          referenceFreeValues.add(row.value)
+          const data = (row.value as { data?: unknown }).data
+          if (data && typeof data === 'object') referenceFreeValues.add(data)
+        }
+      }
       catch { /* Record validation remains scoped to its collection during hydration. */ }
     }
     const files: PcsStoredFile[] = selected
       ? (await Promise.all([...references].map(id => result(fileStore.get(id)) as Promise<PcsStoredFile | undefined>))).filter((file): file is PcsStoredFile => file !== undefined)
       : await result(fileStore.getAll())
-    return { records, files, migrations: metadata.filter(item => item.kind === 'legacy-verified').map(item => item.value) }
+    return { records, files, migrations: metadata.filter(item => item.kind === 'legacy-verified').map(item => item.value), referenceFreeValues }
   })
 }
 /** Saving a few references must not deserialize every unrelated business record. */

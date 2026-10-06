@@ -84,3 +84,14 @@ test('PERF: 100 and 1000 rows validate completely and cost change reaches 100 de
  assert.equal(result.length,101);assert.ok(result.every(row=>row.after===row.before!+1));assert.equal(JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),before)
  t.diagnostic(`100 cost descendants pure preview ${elapsed.toFixed(2)} ms`)
 })
+
+
+test('GOV-008: CSV preview rejects unresolved dictionary identity before offering save',()=>{
+ const row={...sample(),'物料编码':'CSV-BAD-COLOR','SKU颜色':'不存在的颜色','SKU颜色编码':'unknown-color'}
+ const before=JSON.stringify(repo.getMaterialArchiveStoreSnapshot())
+ const preview=previewMaterialBusinessImport('fabric','archives',csv('archives',[row]))
+ assert.equal(preview.validGroups,0)
+ assert.equal(preview.failedRows,1)
+ assert.match(preview.rows[0].errors.join('；'),/颜色/)
+ assert.equal(JSON.stringify(repo.getMaterialArchiveStoreSnapshot()),before)
+})

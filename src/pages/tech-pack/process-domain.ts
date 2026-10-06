@@ -52,7 +52,7 @@ function getPatternRouteLanes(entries: TechniqueItem[]): PatternRouteLane[] {
         })
       })
     })
-  return [...lanes.values()]
+  return [...lanes.values()].filter(lane => lane.items.length > 0)
 }
 
 function renderRouteNode(
@@ -220,7 +220,7 @@ function renderThreeStageRouteOverview(readonly: boolean): string {
   const prepLanes = materialBomItems.map((bom) => ({
     bom,
     items: entries.filter((item) => item.stageCode === 'PREP' && item.linkedBomItemIds?.includes(bom.id)),
-  }))
+  })).filter(lane => lane.items.length > 0)
   const patternLanes = getPatternRouteLanes(entries)
   const cutEntries = entries.filter((item) => item.stageCode === 'PROD' && item.processCode === 'CUT_PANEL')
   const boundMaterialLanes = materialBomItems
@@ -238,7 +238,7 @@ function renderThreeStageRouteOverview(readonly: boolean): string {
   return `
     <section class="space-y-3" data-testid="tech-pack-three-stage-route">
       <article class="overflow-hidden rounded-lg border bg-card" data-route-stage="PREP">
-        ${renderStageHeading(1, '准备阶段', `${materialBomItems.length} 条 BOM 物料并行`, 'blue')}
+        ${renderStageHeading(1, '准备阶段', `${prepLanes.length} 款面料/物料需要准备加工`, 'blue')}
         <div class="divide-y">
           ${prepLanes.length === 0
             ? '<div class="px-4 py-5 text-sm text-muted-foreground">当前 BOM 没有需要进入准备加工的面辅料。</div>'
@@ -271,7 +271,7 @@ function renderThreeStageRouteOverview(readonly: boolean): string {
                 <div class="flex justify-center text-slate-400"><i data-lucide="arrow-down" class="h-5 w-5 lg:hidden"></i><i data-lucide="arrow-right" class="hidden h-5 w-5 lg:block"></i></div>
                 <div class="space-y-2">
                   ${patternLanes.length === 0
-                    ? '<div class="rounded border bg-white px-3 py-3 text-sm text-muted-foreground">纸样包尚未形成裁片明细。</div>'
+                    ? '<div class="rounded border bg-white px-3 py-3 text-sm text-muted-foreground">当前没有需要额外工序工艺的裁片。</div>'
                     : patternLanes.map((lane) => `
                         <div class="grid gap-2 rounded-md border bg-white px-3 py-2 lg:grid-cols-[210px_minmax(0,1fr)]">
                           <div>

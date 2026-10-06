@@ -1,0 +1,47 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 235,
+    "end": 33805.799999952316,
+    "images": 3,
+    "label": "technical-pattern-clean-1",
+    "start": 33570.799999952316,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 112,
+    "end": 34056.59999996424,
+    "images": 3,
+    "label": "technical-pattern-clean-2",
+    "start": 33944.59999996424,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 105.60000002384186,
+    "end": 34352.89999997616,
+    "images": 3,
+    "label": "technical-pattern-clean-3",
+    "start": 34247.299999952316,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 102.69999998807909,
+    "end": 34561.19999998808,
+    "images": 3,
+    "label": "technical-pattern-clean-4",
+    "start": 34458.5,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 109,
+    "end": 34864.69999998808,
+    "images": 3,
+    "label": "technical-pattern-clean-5",
+    "start": 34755.69999998808,
+    "url": "/pcs/technical-data/tech-packs"
+  }
+]

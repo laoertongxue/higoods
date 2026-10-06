@@ -1,4 +1,5 @@
-import { listStyleArchives } from './pcs-style-archive-repository.ts'
+import { completeTechnicalPackDemoContent, applyTechnicalPackDemoReview } from './pcs-technical-data-demo-completion.ts'
+import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
 import { listProductionDemandTechPackSeeds, type ProductionDemandTechPackSeed } from './pcs-production-demand-tech-pack-seeds.ts'
 import type {
   TechnicalDataVersionContent,
@@ -1190,7 +1191,8 @@ function buildProject018Content(technicalVersionId: string): TechnicalDataVersio
 export function createTechnicalDataVersionBootstrapSnapshot(
   version: number,
 ): TechnicalDataVersionStoreSnapshot {
-  const styles = listStyleArchives()
+  // Static identities and numeric sequence cannot depend on saved style overlays.
+  const styles = createStyleArchiveBootstrapSnapshot(3, false).records
   const styleByCode = new Map(styles.map((style) => [style.styleCode, style]))
   const records: TechnicalDataVersionRecord[] = []
   const contents: TechnicalDataVersionContent[] = []
@@ -1383,10 +1385,12 @@ export function createTechnicalDataVersionBootstrapSnapshot(
     contents.push(draftContent)
   }
 
+  const reviewedRecords = records.map(applyTechnicalPackDemoReview)
+  const numericCodes = new Map(reviewedRecords.map(record => [record.technicalVersionId, record.technicalVersionCode]))
   return {
     version,
-    records,
-    contents,
+    records: reviewedRecords.map(record => ({ ...record, baseTechnicalVersionCode: record.baseTechnicalVersionId ? numericCodes.get(record.baseTechnicalVersionId) || record.baseTechnicalVersionCode : record.baseTechnicalVersionCode })),
+    contents: contents.map(completeTechnicalPackDemoContent),
     pendingItems,
   }
 }

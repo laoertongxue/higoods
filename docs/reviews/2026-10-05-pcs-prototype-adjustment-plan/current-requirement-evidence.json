@@ -1,9 +1,9 @@
 {
   "date": "2026-10-06",
   "branch": "main",
-  "base_head": "88324f65506f47c678b17d1b51879f8fd7c2488a",
+  "base_head": "9bb4561e0241438d2de15a9b40913c747e92aaed",
   "uncommitted": true,
-  "overall_status": "未完成",
+  "overall_status": "未完成（完整R1矩阵仍含未覆盖项；本轮按closure-plan限定场景补证）",
   "evidence_policy": "旧索引保留为当时的代码核对；本索引仅引用本轮实际结果，精确测试名称对应断言，浏览器证据范围单独限定。",
   "requirements": [
     {
@@ -1249,9 +1249,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "五条完整染→印→绣→烫链均提交、审核、启用；各阶段独立识别图和执行文件。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -1357,9 +1359,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "五条连续链产出独立SKU，直接前驱与累计标准成本刷新一致；复制修订R03..R07。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -1519,9 +1523,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "五次在无库存前置要求下保存FCS物料加工计划，数量11..15Yard，刷新仍在。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -1573,9 +1579,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "实际创建AB双面印SKU，正反面执行资料、AB编码与成本12一致。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -1594,9 +1602,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "实际创建AB-ST渗透印SKU，AB/ST均入码并保留前驱。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -1615,9 +1625,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "五条链烫画编码TH及物料前驱可读；每条产出有独立审核。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -1663,9 +1675,11 @@
         "material-routes-after-save-fix.json",
         "tabs-release.json",
         "material-label-release.json",
-        "material-review-partial.json"
+        "material-review-partial.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "五次实际复制加工规格后维护交付修订R03..R07，保存成新SKU，未增加文件字节。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -3465,9 +3479,11 @@
         "wool-print-release.json",
         "wool-stages.log",
         "testing-channel-regression-current.json",
-        "testing-channel-flow-partial-current.json"
+        "testing-channel-flow-partial-current.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 测款上架与生产准备门槛专项通过；两入口的连续页面五轮待补齐。",
+      "limits": "TO0006五店发布回执回写在售一致，并保留测款流程后续门槛；未调用真实平台。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -3558,9 +3574,11 @@
         "routes-release.json",
         "saves-release.json",
         "idb-browser-cohort256-final.json",
-        "list-extra-release.json"
+        "list-extra-release.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 相关列表/详情/Tab及基础保存已有证据；本条完整正常/边界动作须逐入口补齐五轮浏览器结果，不能由契约测试替代。",
+      "limits": "新加服装SKU S/L/XL/2XL/3XL均独立提交、审核、启用。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -3718,7 +3736,7 @@
     },
     {
       "requirement_id": "GOV-008",
-      "status": "已阻塞",
+      "status": "已实现待验证",
       "implementation": "src/data/pcs-material-transfer.ts:previewMaterialBusinessImport；src/data/pcs-material-transfer.ts:runMaterialBusinessImportBatch；src/data/pcs-material-transfer.ts:applyMaterialBusinessImportGroup；src/pages/pcs-material-archives.ts:confirmMaterialTransfer；src/pages/pcs-material-archives.ts:renderMaterialImportResults；src/data/pcs-material-archive-repository.ts:withMaterialArchiveMutationBatch；src/pages/pcs-product-archives.ts:importPreview（逐行导入预览）；src/pages/pcs-product-archives.ts:handlePcsProductArchiveEvent（按主对象提交）；src/data/pcs-record-runtime.ts:runPcsRecordCommand（对象级动作事务）",
       "current_automated_tests": [
         {
@@ -3786,9 +3804,11 @@
         "routes-release.json",
         "saves-release.json",
         "idb-browser-cohort256-final.json",
-        "list-extra-release.json"
+        "list-extra-release.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 浏览器选择1000行合成CSV文件时返回用户拒绝许可；未重试或绕过。100/1000行各5轮导入未闭环。",
+      "limits": "文件选择入口已恢复，100和1000条物料组分别五次完整预览、保存、刷新；当前15505组。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -3924,9 +3944,11 @@
         "routes-release.json",
         "saves-release.json",
         "idb-browser-cohort256-final.json",
-        "list-extra-release.json"
+        "list-extra-release.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 31项真实浏览器IDB契约通过；文件选择受限，新增附件端到端页面操作未全部验证。",
+      "limits": "附件替换五次原始Blob保存与刷新；当前66文件均为Blob，业务Base64=0。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -4045,9 +4067,11 @@
         "routes-release.json",
         "saves-release.json",
         "idb-browser-cohort256-final.json",
-        "list-extra-release.json"
+        "list-extra-release.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 真实IDB引用/删除/复制契约通过；页面附件选择受限，不能代替用户上传流程验收。",
+      "limits": "加工SKU复制五次复用文件引用；待存附件取消不会误删其他已用文件。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -4285,7 +4309,7 @@
     },
     {
       "requirement_id": "GOV-023",
-      "status": "已阻塞",
+      "status": "已实现待验证",
       "implementation": "src/data/pcs-material-archive-repository.ts:setMaterialUseStatus；src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent；src/pages/pcs-product-archives.ts:handlePcsProductArchiveEvent（停用/归档确认）；src/data/pcs-product-archive-commands.ts:setProductLifecycle（活动引用防错）",
       "current_automated_tests": [
         {
@@ -4299,9 +4323,11 @@
         "routes-release.json",
         "saves-release.json",
         "idb-browser-cohort256-final.json",
-        "list-extra-release.json"
+        "list-extra-release.json",
+        "evidence/closure/ui-snapshots.json",
+        "evidence/closure/ui-measurements.json"
       ],
-      "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 IAB原生确认窗口无法由当前工具读取/处理；启用、停用、归档确认后五轮未完成，未绕过确认。",
+      "limits": "页内原因/确认对话框已替换阻断自动验收的原生窗口，驳回原因必填、取消不改状态；物料归档、规格及店铺启停已重放。 本轮结果仅覆盖点名场景，其余动作仍逐项验收。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     },
     {
@@ -4466,5 +4492,10 @@
       "limits": "已采集的页面及动作见 evidence/measurement-summary.json；按原始文件分组，不能推及未测动作。 业务范围专项通过；真实业务CSV文件操作仍受上述文件许可限制。",
       "product_acceptance": "未取得产品验收；用户授权的是按R1实施"
     }
-  ]
+  ],
+  "performance_rule": "2026-10-06用户确认≤1000ms，无例外",
+  "status_counts": {
+    "已实现待验证": 129,
+    "已验证": 29
+  }
 }

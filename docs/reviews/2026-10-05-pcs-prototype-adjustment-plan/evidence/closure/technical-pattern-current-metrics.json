@@ -1,0 +1,20 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 143.10000002384186,
+    "end": 50626.5,
+    "images": 3,
+    "label": "technical-pattern-save-4",
+    "start": 50483.39999997616,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 52.19999998807907,
+    "end": 50788.39999997616,
+    "images": 3,
+    "label": "technical-pattern-save-5",
+    "start": 50736.19999998808,
+    "url": "/pcs/technical-data/tech-packs"
+  }
+]

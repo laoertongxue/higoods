@@ -1,0 +1,52 @@
+[
+  {
+    "url": "/pcs/technical-data/tech-packs",
+    "durationMs": 506.69999998807907,
+    "images": 3,
+    "brokenImages": 0,
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/technical-data/tech-packs",
+    "durationMs": 228.30000001192093,
+    "images": 3,
+    "brokenImages": 0,
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/technical-data/tech-packs",
+    "durationMs": 229.79999995231628,
+    "images": 3,
+    "brokenImages": 0,
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/technical-data/tech-packs",
+    "durationMs": 213.0999999642372,
+    "images": 3,
+    "brokenImages": 0,
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "navigationType": "reload"
+  },
+  {
+    "url": "/pcs/technical-data/tech-packs",
+    "durationMs": 212.80000001192093,
+    "images": 3,
+    "brokenImages": 0,
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "navigationType": "reload"
+  }
+]

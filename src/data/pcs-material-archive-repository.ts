@@ -2,7 +2,7 @@ import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-v
 import { migrateMaterialMockGallery, migrateMaterialMockImage } from './pcs-reviewed-image-catalog.ts'
 import { tmfReferenceMaterials, tmfReferenceSkus, tmfReferenceMaterialLogs } from './pcs-tmf-material-reference-seeds.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
-import { pcsRecordStore, registerPcsRepositoryReset, getPcsDurableFileReference, runPcsRecordCommand } from './pcs-record-runtime.ts'
+import { pcsRecordStore, readPcsMaterialSnapshot, registerPcsRepositoryReset, getPcsDurableFileReference, runPcsRecordCommand } from './pcs-record-runtime.ts'
 import { buildProcessedMaterialCode, canonicalMaterialUnit, checkedMaterialCode, materialCodeSegment, fixedMaterialFactor, materialMoney, materialDecimalAdd, materialDecimalMultiply, materialPackageVolume, validateMaterialRelation, MATERIAL_CODE_RULE_VERSION, MATERIAL_PROCESS_NAMES } from './pcs-material-rules.ts'
 import { addMaterialR1Demonstration } from './pcs-material-r1-seeds.ts'
 import { getMaterialTemplate, getMaterialTemplateByVersion, listMaterialTemplates, listMaterialUnitDefinitions, listMaterialProcessConfigurations } from './pcs-material-config.ts'
@@ -81,6 +81,10 @@ const MATERIAL_UNIT_DEFAULTS: Record<MaterialArchiveKind, { mainUnit: string; au
 }
 
 let memorySnapshot: MaterialArchiveStoreSnapshot | null = null
+// A successful command already normalized this exact immutable read view.
+// Runtime resets must still check the authoritative string and configuration,
+// but need not parse and normalize it again immediately after commit.
+let preparedRead: { raw: string | object; config: string | null; snapshot: MaterialArchiveStoreSnapshot } | null = null
 
 function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord { return structuredClone(record) }
 function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord { return structuredClone(record) }
@@ -133,26 +137,40 @@ function resolveAuxiliaryUnits(record: MaterialArchiveRecord, mainUnit: string):
 }
 
 function normalizeRecord(record: MaterialArchiveRecord, templates = new Map<string, ReturnType<typeof getMaterialTemplateByVersion>>(), owned = false): MaterialArchiveRecord {
+  // Older packaging archives are consumables in R1. Keep their code, category
+  // label and attributes; this is a read projection, not a storage migration.
+  const legacyPackaging = (record.kind as string) === 'packaging'
+  const kind = legacyPackaging ? 'consumable' : record.kind
+  const templateCategory = legacyPackaging ? '辅助耗材' : record.categoryName
   const mainUnit = resolveMainUnit(record)
   const templateKey = `${record.templateId || record.kind + ':' + record.categoryName}:${record.templateVersion || 1}`
   let template = templates.get(templateKey)
   if (!template) { template = record.templateId
     ? getMaterialTemplateByVersion(record.templateId, record.templateVersion || 1)
-    : getMaterialTemplateByVersion(getMaterialTemplate(record.kind, record.categoryName).templateId, 1); templates.set(templateKey, template) }
-  return {
-    ...(owned ? record : cloneRecord(record)),
+    : (() => {
+      // Legacy records predate explicit template binding. Resolve their original
+      // schema, even when that category is no longer selectable for new records.
+      const original = listMaterialTemplates().find(item => item.kind === kind && item.category === templateCategory && item.version === 1)
+      if (!original) throw new Error('档案引用的历史模板不存在，请核对资料。')
+      return getMaterialTemplateByVersion(original.templateId, 1)
+    })(); templates.set(templateKey, template) }
+  // Parsed records (and command-owned drafts) are already private. Normalize
+  // that object instead of allocating another dossier and copying its arrays.
+  const result = owned ? record : cloneRecord(record)
+  return Object.assign(result, {
+    kind,
     mainImageUrl: migrateMaterialMockImage(record.materialCode, record.mainImageUrl, 'material'),
     status: normalizeStatus(record.status),
     approvalStatus: record.approvalStatus || 'APPROVED',
     templateId: template.templateId,
     templateVersion: template.version,
-    categoryAttributes: { ...(record.categoryAttributes || {}) },
-    compositionItems: [...(record.compositionItems || [])],
-    equipmentCompatibility: [...(record.equipmentCompatibility || [])],
+    categoryAttributes: result.categoryAttributes || {},
+    compositionItems: result.compositionItems || [],
+    equipmentCompatibility: result.equipmentCompatibility || [],
     widthValueCm: record.widthValueCm ?? (/cm/i.test(record.widthText || '') ? Number.parseFloat(record.widthText) || null : null),
     gramWeightGsm: record.gramWeightGsm ?? parseMaterialGramWeightGsm(record.gramWeightText),
     materialNameEn: record.materialNameEn || record.materialName,
-    processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
+    processTags: Array.isArray(result.processTags) ? result.processTags : [],
     galleryImageUrls: migrateMaterialMockGallery(record.materialCode, record.galleryImageUrls || []),
     widthText: record.widthText || '-',
     gramWeightText: record.gramWeightText || '-',
@@ -169,7 +187,7 @@ function normalizeRecord(record: MaterialArchiveRecord, templates = new Map<stri
     createdBy: record.createdBy || '系统初始化',
     updatedAt: record.updatedAt || record.createdAt || nowText(),
     updatedBy: record.updatedBy || '系统初始化',
-  }
+  })
 }
 
 /** Old weight text is only a standard areal mass when its unit explicitly says so. */
@@ -179,15 +197,15 @@ export function parseMaterialGramWeightGsm(value: string | undefined): number | 
   return amount !== null && Number.isFinite(amount) && amount > 0 ? amount : null
 }
 
-function normalizedEffectiveSpecs(values: MaterialSpecValues = {}): MaterialSpecValues {
-  const result = { ...values }
+function normalizedEffectiveSpecs(values: MaterialSpecValues = {}, owned = false): MaterialSpecValues {
+  const result = owned ? values : { ...values }
   if (result.widthCm !== undefined) { result.width = result.widthCm; delete result.widthCm }
   if (result.gramWeightGsm !== undefined) { result.gramWeight = result.gramWeightGsm; delete result.gramWeightGsm }
   return result
 }
 function normalizeSkuRecord(record: MaterialSkuRecord, owned = false): MaterialSkuRecord {
-  return {
-    ...(owned ? record : cloneSkuRecord(record)),
+  const result = owned ? record : cloneSkuRecord(record)
+  return Object.assign(result, {
     skuImageUrl: migrateMaterialMockImage(record.materialSkuCode, record.skuImageUrl, 'sku'),
     status: normalizeStatus(record.status),
     approvalStatus: record.approvalStatus || 'APPROVED',
@@ -195,15 +213,15 @@ function normalizeSkuRecord(record: MaterialSkuRecord, owned = false): MaterialS
     mainUnit: canonicalMaterialUnit(record.mainUnit || record.pricingUnit || 'PCS'),
     mainUnitVersion: record.mainUnitVersion || 1,
     codeRuleVersionId: record.codeRuleVersionId || 'legacy-preserved',
-    identityValues: { ...(record.identityValues || {}) },
-    effectiveSpecValues: normalizedEffectiveSpecs(record.effectiveSpecValues),
-    barcodeAliases: [...(record.barcodeAliases || [])],
+    identityValues: result.identityValues || {},
+    effectiveSpecValues: normalizedEffectiveSpecs(result.effectiveSpecValues, true),
+    barcodeAliases: result.barcodeAliases || [],
     pantoneCode: record.pantoneCode || '',
     patternCode: record.patternCode || '',
     specName: record.specName || '-',
     sizeName: record.sizeName || '-',
     pricingUnit: record.pricingUnit || 'PCS',
-    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
+    unitConversions: Array.isArray(result.unitConversions) ? result.unitConversions : [],
     costPrice: Number.isFinite(record.costPrice) ? record.costPrice : 0,
     weightKg: Number.isFinite(record.weightKg) ? record.weightKg : 0,
     lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : 0,
@@ -213,7 +231,7 @@ function normalizeSkuRecord(record: MaterialSkuRecord, owned = false): MaterialS
     createdBy: record.createdBy || '系统初始化',
     updatedAt: record.updatedAt || record.createdAt || nowText(),
     updatedBy: record.updatedBy || '系统初始化',
-  }
+  })
 }
 
 function normalizeUsageRecord(record: MaterialUsageRecord): MaterialUsageRecord {
@@ -1003,20 +1021,24 @@ function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot, owned = false):
   const templates = new Map<string, ReturnType<typeof getMaterialTemplateByVersion>>()
   const records = snapshot.records.map(record => normalizeRecord(record, templates, owned))
   const roots = new Map(records.map(root => [root.materialId, root]))
+  const usedRoots = new Set(snapshot.usageRecords.map(row => row.materialId))
   const skus = snapshot.skuRecords.map(raw => {
     const root = roots.get(raw.materialId)
-    return normalizeSkuRecord({ ...raw, mainUnit: raw.mainUnit || root?.mainUnit || raw.pricingUnit,
-      effectiveSpecValues: raw.effectiveSpecValues || { widthCm: root?.widthValueCm ?? null, gramWeightGsm: root?.gramWeightGsm ?? null },
-      mainUnitUsed: raw.mainUnitUsed ?? snapshot.usageRecords.some(row => row.materialId === raw.materialId) }, owned)
+    const record = owned ? raw : cloneSkuRecord(raw)
+    record.mainUnit ||= root?.mainUnit || record.pricingUnit
+    record.effectiveSpecValues ||= { widthCm: root?.widthValueCm ?? null, gramWeightGsm: root?.gramWeightGsm ?? null }
+    record.mainUnitUsed ??= usedRoots.has(record.materialId)
+    return normalizeSkuRecord(record, true)
   })
   const processes = [...(snapshot.processDefinitions || [])]
+  const skuIds = new Set(skus.map(sku => sku.materialSkuId))
   // The old design-revision records already carry explicit predecessor IDs. Project
   // those references once in memory; never infer lineage by splitting a SKU code.
   for (const sku of skus) {
     if (sku.inputSkuId || !sku.designRevisionProcesses?.length) continue
     const last = sku.designRevisionProcesses.at(-1)!
     const inputId = last === 'PRINTING' && sku.designRevisionProcesses.includes('DYEING') ? sku.designRevisionDyedSkuId : sku.designRevisionRawSkuId
-    if (!inputId || !skus.some(item => item.materialSkuId === inputId)) continue
+    if (!inputId || !skuIds.has(inputId)) continue
     sku.inputSkuId = inputId; sku.stage = last; sku.processDefinitionId = `legacy-process-${sku.materialSkuId}`
     const pantone = (sku.pantoneCode || '').trim().split(/\s+/)
     if (last === 'DYEING') { sku.pantoneSystem = sku.pantoneSystem || pantone[1] || 'TCX'; sku.pantoneCode = pantone[0] }
@@ -1045,21 +1067,39 @@ function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot, owned = false):
 let materialMutationSnapshot: MaterialArchiveStoreSnapshot | null = null
 function ensureSnapshotLoaded(): void {
   if (memorySnapshot) return
-  const raw = pcsRecordStore.getItem(MATERIAL_ARCHIVE_STORAGE_KEY)
+  const prepared = readPcsMaterialSnapshot()
+  const raw = prepared?.token ?? pcsRecordStore.getItem(MATERIAL_ARCHIVE_STORAGE_KEY)
   if (!raw) { memorySnapshot = buildSeedSnapshot(); return }
-  const parsed = JSON.parse(raw) as MaterialArchiveStoreSnapshot
+  const config = pcsRecordStore.getItem('higood-pcs-material-config-v1')
+  if (preparedRead?.raw === raw && preparedRead.config === config) { memorySnapshot = preparedRead.snapshot; return }
+  const parsed = (prepared ? prepared.project(value => {
+    const source = value as MaterialArchiveStoreSnapshot
+    // Read normalization changes top-level dossier fields and effective specs.
+    // Copy exactly those branches; all other nested values remain private and
+    // read-only. Public getters and command drafts still deep-copy the view.
+    return { ...source,
+      records: source.records?.map(row => ({ ...row })),
+      skuRecords: source.skuRecords?.map(row => ({ ...row, effectiveSpecValues: row.effectiveSpecValues ? { ...row.effectiveSpecValues } : undefined })),
+    }
+  }) : JSON.parse(raw as string)) as MaterialArchiveStoreSnapshot
   if (!Array.isArray(parsed.records) || !Array.isArray(parsed.skuRecords)) throw new Error('物料档案格式不完整，已保留原数据，请重新读取。')
   memorySnapshot = hydrateSnapshot({ ...parsed, usageRecords: parsed.usageRecords || [], logRecords: parsed.logRecords || [] }, true)
+  preparedRead = { raw, config, snapshot: memorySnapshot }
 }
 function loadSnapshot(): MaterialArchiveStoreSnapshot {
   if (materialMutationSnapshot) return materialMutationSnapshot
   ensureSnapshotLoaded()
   return cloneSnapshot(memorySnapshot!)
 }
-function persistSnapshot(snapshot: MaterialArchiveStoreSnapshot): void {
+function persistSnapshot(snapshot: MaterialArchiveStoreSnapshot, normalized = false): void {
   if (materialMutationSnapshot) { materialMutationSnapshot = snapshot; return }
-  const next = hydrateSnapshot(snapshot)
-  pcsRecordStore.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(next))
+  // loadSnapshot supplied a private command tree, so normalization can own it
+  // instead of cloning each record again before serializing the same snapshot.
+  const next = normalized ? snapshot : hydrateSnapshot(snapshot, true)
+  const raw = JSON.stringify(next)
+  pcsRecordStore.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, raw)
+  preparedRead = pcsRecordStore.getItem(MATERIAL_ARCHIVE_STORAGE_KEY) === raw
+    ? { raw, config: pcsRecordStore.getItem('higood-pcs-material-config-v1'), snapshot: next } : null
   memorySnapshot = next
 }
 /** Prepare a business import in memory once; the caller owns the record transaction. */
@@ -1095,6 +1135,16 @@ function log(snapshot: MaterialArchiveStoreSnapshot, materialId: string, title: 
   snapshot.logRecords.unshift({ logId: nowId('material-log'), materialId, title, detail, operatorName, createdAt: nowText() })
 }
 function currentSnapshot(): MaterialArchiveStoreSnapshot { if (materialMutationSnapshot) return materialMutationSnapshot; ensureSnapshotLoaded(); return memorySnapshot! }
+/** Review/lifecycle only change scalar fields on the selected dossier and its
+ * own children. Copy those records; unrelated normalized dossiers stay read-only. */
+function reviewSnapshot(id: string): MaterialArchiveStoreSnapshot {
+  if (materialMutationSnapshot) return materialMutationSnapshot
+  const source = currentSnapshot()
+  return { ...source,
+    records: source.records.map(row => row.materialId === id ? cloneRecord(row) : row),
+    skuRecords: source.skuRecords.map(row => row.materialSkuId === id || row.materialId === id ? cloneSkuRecord(row) : row),
+    logRecords: [...source.logRecords] }
+}
 /** Import uniqueness checks only need identities, not copies of every dossier. */
 export function getMaterialArchiveIdentities(): { rootCodes: Set<string>; skuCodes: Set<string> } {
   const snapshot = currentSnapshot()
@@ -1177,10 +1227,12 @@ export type MaterialRootListRow = Pick<MaterialArchiveRecord, 'materialId' | 'ma
 export type MaterialSkuListRow = Pick<MaterialSkuRecord, 'materialId' | 'materialCode' | 'materialName' | 'materialSkuId' | 'materialSkuCode' | 'skuImageUrl' | 'colorName' | 'pantoneCode' | 'pantoneSystem' | 'patternCode' | 'stage' | 'inputSkuId' | 'mainUnit' | 'approvalStatus' | 'status' | 'updatedAt'>
 /** List/export selection is computed from one snapshot. Return scalar list
  * projections, not whole dossiers, execution files and version histories. */
-export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialListFilter) {
+export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialListFilter, options: { rows?: 'all' | 'current-view' } = {}) {
   const snapshot = currentSnapshot(), index = materialReadIndex(snapshot)
   const roots: MaterialRootListRow[] = [], skus: MaterialSkuListRow[] = []
-  let pending = 0, incompleteCost = 0
+  const projectRoots = options.rows !== 'current-view' || f.view === 'root'
+  const projectSkus = options.rows !== 'current-view' || f.view === 'sku'
+  let total = 0, skuCount = 0, pending = 0, incompleteCost = 0
   const search = f.search?.toLowerCase(), color = f.color?.toLowerCase()
   const matchesText = (parts: (string | undefined)[]) => !search || parts.join(' ').toLowerCase().includes(search)
   const hasProcess = (sku: MaterialSkuRecord) => {
@@ -1198,26 +1250,31 @@ export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialL
     const children = index.skusByRoot.get(root.materialId) || []
     let matched = 0
     for (const sku of children) {
-      if (!matchesText([sku.materialSkuCode, sku.materialName, root.materialCode, ...(root.legacyCodes || []), ...(sku.barcodeAliases || [])])
+      if (search && !matchesText([sku.materialSkuCode, sku.materialName, root.materialCode, ...(root.legacyCodes || []), ...(sku.barcodeAliases || [])])
         || f.stage && (sku.stage || 'BASE') !== f.stage || f.process && !hasProcess(sku)
         || color && !sku.colorName.toLowerCase().includes(color) || f.pantone && !sku.pantoneCode?.includes(f.pantone)
         || f.pattern && !sku.patternCode?.includes(f.pattern)
         || f.view === 'sku' && (f.approval && sku.approvalStatus !== f.approval || f.status && sku.status !== f.status)) continue
-      const missingCost = calculateCost(snapshot, sku.materialSkuId, index.calculatedCosts, new Set(), index).completeness.length > 0
+      const missingCost = materialCostIsIncomplete(snapshot, sku, index)
       if (f.cost && (f.cost === 'complete') === missingCost) continue
-      matched++; if (missingCost) incompleteCost++; if (sku.approvalStatus === 'PENDING') pending++
-      const { materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, pantoneSystem, patternCode, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt } = sku
-      skus.push({ materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, pantoneSystem, patternCode, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt })
+      matched++; skuCount++; if (missingCost) incompleteCost++; if (sku.approvalStatus === 'PENDING') pending++
+      if (projectSkus) {
+        const { materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, pantoneSystem, patternCode, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt } = sku
+        skus.push({ materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, patternCode, pantoneSystem, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt })
+      }
     }
     const emptyRootMatch = !children.length && f.view === 'root' && !f.stage && !f.process && !f.color && !f.pantone && !f.pattern && !f.cost && matchesText([root.materialCode, root.materialName, ...(root.legacyCodes || [])])
     if (!matched && !emptyRootMatch) continue
+    total++
     if (root.approvalStatus === 'PENDING') pending++
-    const { materialId, materialCode, materialName, categoryName, specSummary, mainImageUrl, approvalStatus, status, updatedAt } = root
-    roots.push({ materialId, materialCode, materialName, categoryName, specSummary, mainImageUrl, skuCount: children.length, approvalStatus, status, updatedAt })
+    if (projectRoots) {
+      const { materialId, materialCode, materialName, categoryName, specSummary, mainImageUrl, approvalStatus, status, updatedAt } = root
+      roots.push({ materialId, materialCode, materialName, categoryName, specSummary, mainImageUrl, skuCount: children.length, approvalStatus, status, updatedAt })
+    }
   }
   roots.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
   skus.sort((a, b) => (index.roots.get(b.materialId)?.updatedAt || '').localeCompare(index.roots.get(a.materialId)?.updatedAt || ''))
-  return { roots, skus, stats: { total: roots.length, skuCount: skus.length, pending, incompleteCost } }
+  return { roots, skus, stats: { total, skuCount, pending, incompleteCost } }
 }
 export function buildTmfSemiFinishedSkuCode(input: { spuCode: string; pantoneCode?: string; colorCode: string; patternCode?: string }): string {
   if (!input.spuCode.trim() || !input.colorCode.trim()) throw new Error('TMF 半成品 SKU 至少需要 SPU 和颜色编码。')
@@ -1344,10 +1401,20 @@ function validateTemplateRequired(root: MaterialArchiveRecord, sku?: MaterialSku
 function materialSkuReferences(root: MaterialArchiveRecord, input: MaterialSkuDraftInput, previous?: MaterialSkuRecord): MaterialSkuDraftInput {
   const template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
   validateMaterialTemplateValues(template, 'sku', { ...input.identityValues, color: input.colorName }, false)
-  const color = materialDictionaryReference('colors', input.colorName, previous?.colorId ? { id: previous.colorId, name: previous.colorName, code: previous.colorCode || '' } : undefined)
-  const pantone = input.pantoneSystem && input.pantoneCode ? materialDictionaryReference('pantone', `${input.pantoneSystem} ${input.pantoneCode}`) : undefined
+  const sameColor = !!previous && input.colorName === previous.colorName && input.colorCode === previous.colorCode
+  const previousColor = previous?.colorId ? { id: previous.colorId, name: previous.colorName, code: previous.colorCode || '' } : undefined
+  const color = materialDictionaryReference('colors', input.colorName, previousColor)
+    || (sameColor && input.colorCode ? materialDictionaryReference('colors', input.colorCode) : undefined)
+  const samePantone = !!previous && input.pantoneSystem === previous.pantoneSystem && input.pantoneCode === previous.pantoneCode
+  const pantone = input.pantoneSystem && input.pantoneCode ? materialDictionaryReference('pantone', `${input.pantoneSystem} ${input.pantoneCode}`, samePantone && previous.pantoneId ? { id: previous.pantoneId, name: `${input.pantoneSystem} ${input.pantoneCode}`, code: input.pantoneCode } : undefined) : undefined
+  // An unchanged historical label may differ from the dictionary display name.
+  // Retain it with the existing, explicitly matching code; never invent an ID.
+  const previousReferences = { ...previous?.identityReferences }
+  if (sameColor && color) previousReferences.color = [{ ...color, name: input.colorName }]
+  const values: MaterialSpecValues = { ...input.identityValues, color: input.colorName }
+  if (sameColor && !color) delete values.color
   return { ...input, colorId: color?.id || (input.colorName === previous?.colorName ? previous?.colorId : undefined), pantoneId: pantone?.id || (input.pantoneCode === previous?.pantoneCode && input.pantoneSystem === previous?.pantoneSystem ? previous?.pantoneId : undefined),
-    identityReferences: materialAttributeReferences(template, 'sku', { ...input.identityValues, color: input.colorName }, previous?.identityReferences) }
+    identityReferences: materialAttributeReferences(template, 'sku', values, previousReferences) }
 }
 function validateSkuAliases(snapshot: MaterialArchiveStoreSnapshot, aliases: string[] | undefined, materialSkuId = ''): void {
   if (!aliases) return
@@ -1484,7 +1551,7 @@ export function markMaterialSkuMainUnitUsed(skuIds: string[]): void {
   if (changed) persistSnapshot(snapshot)
 }
 export function setMaterialApproval(id: string, action: 'SUBMIT' | 'APPROVE' | 'REJECT', reason = ''): void {
-  const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
+  const snapshot = reviewSnapshot(id), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
   if (!record) throw new Error('档案不存在。')
   if (action === 'SUBMIT') {
     if (record.approvalStatus === 'APPROVED') throw new Error('该档案已审核通过，新增规格请单独提交审核。')
@@ -1527,7 +1594,7 @@ export function setMaterialApproval(id: string, action: 'SUBMIT' | 'APPROVE' | '
     if (root) snapshot.skuRecords.filter(item => item.materialId === id && item.approvalStatus === 'PENDING').forEach(item => item.approvalStatus = 'DRAFT')
   }
   log(snapshot, root?.materialId || sku!.materialId, action === 'SUBMIT' ? '提交审核' : action === 'APPROVE' ? '审核通过' : '驳回', reason || '身份审核不以标准成本完整为条件。')
-  persistSnapshot(snapshot)
+  persistSnapshot(snapshot, true)
 }
 export interface MaterialApprovalBatchResult {
   id: string
@@ -1564,12 +1631,12 @@ export async function runMaterialApprovalBatch(
   return results
 }
 export function setMaterialUseStatus(id: string, status: MaterialArchiveStatus): void {
-  const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
+  const snapshot = reviewSnapshot(id), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
   if (!record) throw new Error('档案不存在。')
   if (status === 'ACTIVE' && record.approvalStatus !== 'APPROVED') throw new Error('审核通过后才能启用。')
   const materialId = root?.materialId || sku!.materialId
   if (status === 'ARCHIVED' && (snapshot.usageRecords.some(item => item.materialId === materialId) || snapshot.skuRecords.some(item => item.inputSkuId && (root ? snapshot.skuRecords.some(s => s.materialId === materialId && s.materialSkuId === item.inputSkuId) : item.inputSkuId === id) && item.status !== 'ARCHIVED'))) throw new Error('尚有活动技术引用，不能归档。')
-  record.status = status; log(snapshot, materialId, '调整使用状态', status); persistSnapshot(snapshot)
+  record.status = status; log(snapshot, materialId, '调整使用状态', status); persistSnapshot(snapshot, true)
 }
 export function listMaterialUnitRelations(skuId: string, includeHistory = false): MaterialUnitRelation[] {
   return (currentSnapshot().unitRelations || []).filter(item => item.materialSkuId === skuId && (includeHistory || item.status === 'ACTIVE')).map(item => structuredClone(item))
@@ -1649,6 +1716,19 @@ export function saveMaterialPackageSpec(skuId: string, input: Omit<MaterialPacka
 export function listMaterialCostVersions(skuId: string): MaterialStandardCostVersion[] {
   return (currentSnapshot().costVersions || []).filter(item => item.materialSkuId === skuId).map(item => structuredClone(item))
 }
+function baseStandardCostAmounts(current: MaterialStandardCostVersion | undefined) {
+  return { purchase: current?.purchaseStandardCny ?? null, transport: current?.purchaseIncludesTransport ? 0 : current?.transportStandardCny ?? null }
+}
+function materialCostIsIncomplete(snapshot: MaterialArchiveStoreSnapshot, sku: MaterialSkuRecord, index: ReturnType<typeof buildMaterialReadIndex>): boolean {
+  if (!sku.inputSkuId) {
+    const { purchase, transport } = baseStandardCostAmounts(index.costs.get(sku.materialSkuId))
+    // A base SKU has no upstream or unit bridge. Its completeness is exactly
+    // these two entries; only detail/visible cost cells need amounts and lines.
+    // Unexpected legacy values still take the existing full calculation path.
+    if ([purchase, transport].every(amount => amount === null || Number.isFinite(amount))) return purchase === null || transport === null
+  }
+  return calculateCost(snapshot, sku.materialSkuId, index.calculatedCosts, new Set(), index).completeness.length > 0
+}
 function calculateCost(snapshot: MaterialArchiveStoreSnapshot, skuId: string, memo: Map<string, MaterialCostSnapshot>, visiting = new Set<string>(), index = materialReadIndex(snapshot)): MaterialCostSnapshot {
   const cached = memo.get(skuId); if (cached) return cached
   if (visiting.has(skuId)) throw new Error('成本依赖出现循环，请核对加工前驱。')
@@ -1681,7 +1761,7 @@ function calculateCost(snapshot: MaterialArchiveStoreSnapshot, skuId: string, me
     result.lines.push({ materialSkuId: skuId, costVersionId: current?.costVersionId || '', title: `${MATERIAL_PROCESS_NAMES[sku.stage as keyof typeof MATERIAL_PROCESS_NAMES] || '加工'}费（含辅材）`, amountCny: fee, pricingUnit: result.pricingUnit, kind: 'PROCESS' })
     if (!result.completeness.length && upstream.totalStandardCny !== null && factor !== null && fee !== null) result.totalStandardCny = materialDecimalAdd(materialDecimalMultiply(upstream.totalStandardCny, factor), fee)
   } else {
-    const purchase = current?.purchaseStandardCny ?? null, transport = current?.purchaseIncludesTransport ? 0 : current?.transportStandardCny ?? null
+    const { purchase, transport } = baseStandardCostAmounts(current)
     if (purchase === null) result.completeness.push('缺采购价')
     if (transport === null) result.completeness.push('缺基础运输')
     result.lines = [ { materialSkuId: skuId, costVersionId: current?.costVersionId || '', title: '人工标准采购成本', amountCny: purchase, pricingUnit: result.pricingUnit, kind: 'PURCHASE' },

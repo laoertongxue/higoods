@@ -1,4 +1,4 @@
-import { technicalListState as listState, technicalImagePreview, renderTechnicalImagePreview, renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
+import { technicalListState as listState, technicalLogModal, technicalAssignmentFeedback, technicalImagePreview, renderTechnicalImagePreview, renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
 export { renderPcsTechnicalDataTechPackListPage } from './pcs-technical-data-tech-pack-list.ts'
 import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 // @page-pattern: list
@@ -9,7 +9,7 @@ import { paginateStandardListRows } from '../components/ui/list-table-model.ts'
 import { renderTablePagination } from '../components/ui/pagination.ts'
 import { ensureEngineeringMasterDemoData } from '../data/pcs-engineering-master-view-model.ts'
 import { listSkuArchivesByStyleId } from '../data/pcs-sku-archive-repository.ts'
-import { getTechnicalDataVersionContent } from '../data/pcs-technical-data-version-repository.ts'
+import { assignTechnicalPackResponsible, getTechnicalDataVersionContent } from '../data/pcs-technical-data-version-repository.ts'
 import {
   getEngineeringBomPricingPlan,
   getEngineeringBomVersionById,
@@ -263,8 +263,19 @@ export async function handlePcsTechnicalDataEvent(target: HTMLElement, event?: E
   if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && technicalImagePreview.value) { technicalImagePreview.value = null; rerender(); return true }
   const node = target.closest<HTMLElement>('[data-tech-data-action], [data-tech-data-field]')
   const action = node?.dataset.techDataAction || ''
+  if (event?.type === 'keydown' && (event as KeyboardEvent).key === 'Escape' && technicalLogModal.versionId) { technicalLogModal.versionId = ''; rerender(); return true }
+  if (action === 'open-log') { technicalLogModal.versionId = node?.dataset.technicalVersionId || ''; rerender(); return true }
+  if (action === 'close-log') { technicalLogModal.versionId = ''; rerender(); return true }
+  if (action === 'assign-person') {
+    if (event?.type !== 'change') return false
+    try {
+      await runPcsRecordCommand(() => assignTechnicalPackResponsible(node?.dataset.technicalVersionId || '', node?.dataset.personRole as '跟单' | '版师', (node as HTMLSelectElement).value), crypto.randomUUID(), ['higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1'])
+      technicalAssignmentFeedback.message = '技术包负责人已保存。'; technicalAssignmentFeedback.ok = true
+    } catch (error) { technicalAssignmentFeedback.message = error instanceof Error ? error.message : '负责人未保存，请重试。'; technicalAssignmentFeedback.ok = false }
+    rerender(); return true
+  }
   if (action === 'open-image') { technicalImagePreview.value = { url: node?.dataset.imageUrl || '', title: node?.dataset.imageTitle || '款式图片' }; rerender(); return true }
-  if (action === 'close-image') { technicalImagePreview.value = null; rerender(); return true }
+  if (action === 'close-image') { technicalLogModal.versionId = ''; technicalImagePreview.value = null; rerender(); return true }
   if (action === 'search') { listState.currentPage = 1; rerender(); return true }
   const isBomList = window.location.pathname === '/pcs/technical-data/bom-pricing'
   if (action === 'prev-page') { if (isBomList) bomListState.currentPage = Math.max(1, bomListState.currentPage - 1); else listState.currentPage = Math.max(1, listState.currentPage - 1); rerender(); return true }
@@ -366,4 +377,4 @@ export async function handlePcsTechnicalDataEvent(target: HTMLElement, event?: E
   return false
 }
 
-export function isPcsTechnicalDataDialogOpen(): boolean { return technicalImagePreview.value !== null }
+export function isPcsTechnicalDataDialogOpen(): boolean { return technicalImagePreview.value !== null || Boolean(technicalLogModal.versionId) }

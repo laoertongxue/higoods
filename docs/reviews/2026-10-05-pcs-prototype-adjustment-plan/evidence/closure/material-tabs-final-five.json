@@ -1,0 +1,137 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 61.29999995231629,
+    "end": 74750.59999996424,
+    "images": 3,
+    "label": "material-tab-SKU-0",
+    "start": 74689.30000001192,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.19999998807907,
+    "end": 75050.5,
+    "images": 3,
+    "label": "material-tab-加工关系-0",
+    "start": 74987.30000001192,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.10000002384186,
+    "end": 75367.30000001192,
+    "images": 1,
+    "label": "material-tab-基本资料-0",
+    "start": 75304.19999998808,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.90000003576279,
+    "end": 75667.30000001192,
+    "images": 3,
+    "label": "material-tab-SKU-1",
+    "start": 75605.39999997616,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.60000002384186,
+    "end": 76017.19999998808,
+    "images": 3,
+    "label": "material-tab-加工关系-1",
+    "start": 75954.59999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.90000003576279,
+    "end": 76383.80000001192,
+    "images": 1,
+    "label": "material-tab-基本资料-1",
+    "start": 76321.89999997616,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.30000001192093,
+    "end": 76683.89999997616,
+    "images": 3,
+    "label": "material-tab-SKU-2",
+    "start": 76620.59999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62,
+    "end": 77083.89999997616,
+    "images": 3,
+    "label": "material-tab-加工关系-2",
+    "start": 77021.89999997616,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.40000003576279,
+    "end": 77500.5,
+    "images": 1,
+    "label": "material-tab-基本资料-2",
+    "start": 77439.09999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 77800.59999996424,
+    "images": 3,
+    "label": "material-tab-SKU-3",
+    "start": 77737.59999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 78200.59999996424,
+    "images": 3,
+    "label": "material-tab-加工关系-3",
+    "start": 78138.19999998808,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.89999997615814,
+    "end": 78600.59999996424,
+    "images": 1,
+    "label": "material-tab-基本资料-3",
+    "start": 78538.69999998808,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.19999998807907,
+    "end": 78900.59999996424,
+    "images": 3,
+    "label": "material-tab-SKU-4",
+    "start": 78837.39999997616,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.60000002384186,
+    "end": 79317.19999998808,
+    "images": 3,
+    "label": "material-tab-加工关系-4",
+    "start": 79255.59999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.60000002384186,
+    "end": 79717.19999998808,
+    "images": 1,
+    "label": "material-tab-基本资料-4",
+    "start": 79655.59999996424,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  }
+]

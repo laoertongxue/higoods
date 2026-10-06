@@ -1,0 +1,182 @@
+[
+  {
+    "label": "tech-pattern-1",
+    "start": 14057.300000011921,
+    "end": 14257.199999988079,
+    "durationMs": 199.89999997615814,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-pattern-2",
+    "start": 29994.80000001192,
+    "end": 30043.399999976158,
+    "durationMs": 48.59999996423721,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-pattern-3",
+    "start": 30133.19999998808,
+    "end": 30195.399999976158,
+    "durationMs": 62.19999998807907,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-pattern-4",
+    "start": 30297.599999964237,
+    "end": 30343.69999998808,
+    "durationMs": 46.10000002384186,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-pattern-5",
+    "start": 30409.099999964237,
+    "end": 30460.399999976158,
+    "durationMs": 51.30000001192093,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-merch-1",
+    "start": 30532.899999976158,
+    "end": 30578.69999998808,
+    "durationMs": 45.80000001192093,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-merch-2",
+    "start": 30646.5,
+    "end": 30695.19999998808,
+    "durationMs": 48.69999998807907,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-merch-3",
+    "start": 30758.099999964237,
+    "end": 30807,
+    "durationMs": 48.90000003576279,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-merch-4",
+    "start": 30909.80000001192,
+    "end": 30957.69999998808,
+    "durationMs": 47.89999997615814,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-merch-5",
+    "start": 31031.69999998808,
+    "end": 31076.5,
+    "durationMs": 44.80000001192093,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-visible-1",
+    "start": 79395.69999998808,
+    "end": 79443.19999998808,
+    "durationMs": 47.5,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 4,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-dismiss-1",
+    "start": 79726.09999996424,
+    "end": 79777.80000001192,
+    "durationMs": 51.700000047683716,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-visible-2",
+    "start": 80061.19999998808,
+    "end": 80108.89999997616,
+    "durationMs": 47.69999998807907,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 4,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-dismiss-2",
+    "start": 80477.09999996424,
+    "end": 80529.69999998808,
+    "durationMs": 52.60000002384186,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-visible-3",
+    "start": 80878.69999998808,
+    "end": 80925.30000001192,
+    "durationMs": 46.60000002384186,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 4,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-dismiss-3",
+    "start": 81293.30000001192,
+    "end": 81341.69999998808,
+    "durationMs": 48.39999997615814,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-visible-4",
+    "start": 81611.39999997616,
+    "end": 81660.89999997616,
+    "durationMs": 49.5,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 4,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-dismiss-4",
+    "start": 81942.59999996424,
+    "end": 81991,
+    "durationMs": 48.40000003576279,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-visible-5",
+    "start": 82294.39999997616,
+    "end": 82351.09999996424,
+    "durationMs": 56.69999998807907,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 4,
+    "brokenImages": 0
+  },
+  {
+    "label": "tech-log-dismiss-5",
+    "start": 82710.59999996424,
+    "end": 82773.59999996424,
+    "durationMs": 63,
+    "url": "/pcs/technical-data/tech-packs",
+    "images": 3,
+    "brokenImages": 0
+  }
+]

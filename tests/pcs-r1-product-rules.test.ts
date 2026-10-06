@@ -7,12 +7,21 @@ import { listConfigDimensionOptions, listProductCategoryNodes } from '../src/dat
 import { saveProductStyleDraft, previewProductSkus, saveProductSkuDraft, submitProductForApproval, reviewProductArchive, setProductLifecycle, productDraftCopy } from '../src/data/pcs-product-archive-commands.ts'
 import { assertProductSkuIdentity, assertProductStyleIdentity } from '../src/data/pcs-product-archive-rules.ts'
 import { resolveStyleArchiveBusinessStatus } from '../src/data/pcs-product-lifecycle-governance.ts'
+import { applyArchiveWriteback } from '../src/data/pcs-archive-writeback-contract.ts'
 import { renderPcsStyleArchiveListPage, renderPcsStyleArchiveDetailPage, renderPcsSpecificationDetailPage, resetPcsProductArchiveState } from '../src/pages/pcs-product-archives.ts'
 const styles = getStyleArchiveStoreSnapshot(), skus = { version: 1, records: listSkuArchives() }
 beforeEach(() => { pcsRecordStore.setItem('higood-pcs-style-archive-store-v3', JSON.stringify(styles)); pcsRecordStore.setItem('higood-pcs-sku-archive-store-v1', JSON.stringify(skus)); resetStyleArchiveRepository(); resetSkuArchiveRepository(); resetPcsProductArchiveState() })
 const colors = listConfigDimensionOptions('colors'), sizes = listConfigDimensionOptions('sizes')
 function draft() { return saveProductStyleDraft({ styleName: 'R1 单件验收', materialType: '非毛织', mainImageUrl: '/materials/pcs-reviewed/tee-black.jpg', productCategoryId: listProductCategoryNodes().find(n => !listProductCategoryNodes().some(c => c.parentId === n.id))!.id, productConfigRefs: { brands: [listConfigDimensionOptions('brands')[0].id] } }) }
 function firstSku(style = draft()) { return createSkuArchiveBatch(previewProductSkus(style, [{ colorId: colors[0].id, sizeId: sizes[0].id }]))[0] }
+
+test('GOV-016: archive backwrite publishes a readable minute timestamp, not formatter source', () => {
+ const style = draft()
+ const result = applyArchiveWriteback({ styleId: style.styleId, actor: '回传验收', lastTestingConclusion: '测款通过' })
+ assert.equal(result.ok, true)
+ assert.match(result.writtenAt, /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/)
+ assert.equal(getStyleArchiveById(style.styleId)?.updatedAt, result.writtenAt)
+})
 
 test('PROD-001 direct archive is a clean draft with no generated images or development gate', () => {
  const style = saveProductStyleDraft({ styleName: '自建空白款式' })

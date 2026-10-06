@@ -1465,6 +1465,8 @@ function ensurePatternStatusDemoCoverage(
   items: PatternItem[],
   bomItems: Array<{ id: string; name?: string; materialName?: string; materialCode?: string; type?: string }>,
 ): PatternItem[] {
+  // Stored package identities and completion facts are authoritative; demo coverage must not fabricate missing rows.
+  if (items.some(item => item.recordKind === 'PACKAGE')) return items
   const nextItems = [...items]
   patternMaintenanceStatuses.forEach((status) => {
     let count = nextItems.filter((item) => item.maintainerStepStatus === status).length
@@ -1715,6 +1717,8 @@ export function ensurePatternPoolDemoPackages(
     recordKind: item.recordKind ?? ('MATERIAL_ASSOCIATION' as const),
   }))
 
+  // Existing package/association IDs are referenced by routes and must never be replaced by PAT-LINK samples on read.
+  if (normalizedItems.some(item => item.recordKind === 'PACKAGE')) return normalizedItems
   const materialAssociations = normalizedItems.filter((item) => item.recordKind !== 'PACKAGE')
   const parsedWovenSources = materialAssociations.filter(
     (item) => item.patternMaterialType !== 'WOOL' && item.pieceRows.length > 0,
@@ -2535,14 +2539,12 @@ function applyTechPackState(
 
   state.bomItems = buildBomItemsFromTechPack(nextTechPack)
   state.patternItems = buildPatternItemsFromTechPack(nextTechPack)
-  state.techniques = syncPatternDrivenTechniques(
-    buildTechniquesFromTechPack(nextTechPack, state.bomItems),
-    state.patternItems,
-  )
+  const loadedTechniques = buildTechniquesFromTechPack(nextTechPack, state.bomItems)
+  state.techniques = state.processRouteStatus === 'CONFIRMED'
+    ? loadedTechniques
+    : syncPatternDrivenTechniques(loadedTechniques, state.patternItems)
   if (state.processRouteStatus === 'CONFIRMED' && (
-    getProcessRouteSignature((nextTechPack.processEntries ?? []).map(toTechniqueItemFromEntry))
-      !== getProcessRouteSignature(state.techniques)
-    || validateProcessRouteGraph(state.techniques, { requireComplete: true }).length > 0
+    validateProcessRouteGraph(state.techniques, { requireComplete: true }).length > 0
   )) {
     markProcessRouteUnconfirmed(false)
   }
@@ -4832,12 +4834,9 @@ function buildTechniquesFromTechPack(
     })
       ? normalizeProcessRouteEntries(processEntries)
       : processEntries
-    return syncBomDrivenPrepTechniques(
-      routeEntries.map((entry, index) =>
-        toTechniqueItemFromEntry(entry, index),
-      ),
-      bomItems,
-    )
+    const loadedTechniques = routeEntries.map((entry, index) => toTechniqueItemFromEntry(entry, index))
+    // Opening a confirmed version must read its explicit graph, not regenerate node IDs from requirements.
+    return state.processRouteStatus === 'CONFIRMED' ? loadedTechniques : syncBomDrivenPrepTechniques(loadedTechniques, bomItems)
   }
 
   if (techPack.processes.length === 0) {
@@ -5102,13 +5101,16 @@ function findBomItemMissingUnitForWaterSoluble<T extends BomUnitWaterSolubleCand
 function applyTechPackToStore(options: { touch: boolean; persist?: boolean } = { touch: true, persist: true }): boolean {
   if (!state.techPack) return false
 
-  const routeSignatureBefore = getProcessRouteSignature(state.techniques)
-  state.techniques = syncPatternDrivenTechniques(
-    syncBomDrivenPrepTechniques(state.techniques, state.bomItems),
-    state.patternItems,
-  )
-  const routeSignatureAfter = getProcessRouteSignature(state.techniques)
-  if (state.processRouteStatus === 'CONFIRMED' && routeSignatureBefore !== routeSignatureAfter) {
+  const syncGeneratedRoute = !(options.persist === false && state.processRouteStatus === 'CONFIRMED')
+  const routeSignatureBefore = syncGeneratedRoute ? getProcessRouteSignature(state.techniques) : ''
+  if (syncGeneratedRoute) {
+    state.techniques = syncPatternDrivenTechniques(
+      syncBomDrivenPrepTechniques(state.techniques, state.bomItems),
+      state.patternItems,
+    )
+  }
+  const routeSignatureAfter = syncGeneratedRoute ? getProcessRouteSignature(state.techniques) : ''
+  if (syncGeneratedRoute && state.processRouteStatus === 'CONFIRMED' && routeSignatureBefore !== routeSignatureAfter) {
     markProcessRouteUnconfirmed(options.touch)
   }
   syncProcessCostRows()

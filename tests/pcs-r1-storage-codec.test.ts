@@ -65,6 +65,10 @@ test('attachment reference validation rejects bytes in JSON and respects explici
   assert.deepEqual([...pcsFileReferences({ fileId: 'demo-file', fileStorage: 'static', dataUrl: '/demo/material.jpg' })], [])
   assert.throws(() => pcsFileReferences({ dataUrl: 'data:image/png;base64,AABB' }), /Base64/)
   assert.throws(() => pcsFileReferences({ file: new Blob(['bytes']) }), /文件仓库/)
+  const cyclic: Record<string, unknown> = { files: ['pcs-file:array-file'], nested: { fileId: 'nested-file' }, bare: 'protected-file' }
+  cyclic.self = cyclic
+  assert.deepEqual([...pcsFileReferences(cyclic, new Set(['protected-file']))].sort(), ['array-file', 'nested-file', 'protected-file'])
+  assert.deepEqual([...pcsFileReferences(Object.assign(Object.create({ fileId: 'inherited-file' }), { title: 'plain' }))], [])
 })
 
 
@@ -115,4 +119,21 @@ test('record assembly can hydrate files in one serialization without changing du
   const result = encode(key, rows, undefined, undefined, value => JSON.stringify(value, (_key, child) => child === 'pcs-file:image' ? 'blob:preview' : child))
   assert.equal(JSON.parse(result!).records[0].mainImageUrl, 'blob:preview')
   assert.equal(JSON.stringify(rows), before)
+})
+
+
+test('October 6 shared route materials survive old snapshots without resurrecting deletions or replacing edits', async () => {
+  const { isPcsNewStaticRecord } = await import('../src/data/pcs-record-static-versions.ts')
+  const key = 'higood-pcs-material-archive-store-v2'
+  const seed = JSON.stringify({ version: 2, records: [{ materialId: 'material-r1-MAT-FB-00000002' }], skuRecords: [{ materialSkuId: 'material-r1-MAT-FB-00000002-B01', colorName: 'White' }, { materialSkuId: 'material-r1-process-techpack-cn360-dye' }, { materialSkuId: 'old-omitted' }], processDefinitions: [{ processDefinitionId: 'process-material-r1-process-techpack-cn360-dye' }], assets: [{ assetId: 'material-r1-execution-techpack-cn360-dye-document' }], costVersions: [{ costVersionId: 'legacy-standard-material-r1-MAT-FB-00000002-B01' }] })
+  const old = decode(key, JSON.stringify({ version: 2, records: [], skuRecords: [], processDefinitions: [], assets: [], costVersions: [] })).map(row => ({ ...row, version: 1 }))
+  const assembled = JSON.parse(encode(key, old, seed, isPcsNewStaticRecord)!)
+  assert.equal(assembled.records.length, 1)
+  assert.equal(assembled.skuRecords.length, 2)
+  assert.equal(assembled.assets.length, 1)
+  const edited = decode(key, JSON.stringify({ version: 2, records: [], skuRecords: [{ materialSkuId: 'material-r1-MAT-FB-00000002-B01', colorName: 'User edited' }] })).map(row => ({ ...row, version: 1 }))
+  const restored = JSON.parse(encode(key, edited, seed, isPcsNewStaticRecord)!)
+  assert.equal(restored.skuRecords.find((row: any) => row.materialSkuId === 'material-r1-MAT-FB-00000002-B01').colorName, 'User edited')
+  const deleted = { id: `${key}/skuRecords/material-r1-MAT-FB-00000002-B01`, collection: `${key}/skuRecords`, value: null, deleted: true, version: 1 }
+  assert.equal(JSON.parse(encode(key, [...old, deleted], seed, isPcsNewStaticRecord)!).skuRecords.some((row: any) => row.materialSkuId === 'material-r1-MAT-FB-00000002-B01'), false)
 })

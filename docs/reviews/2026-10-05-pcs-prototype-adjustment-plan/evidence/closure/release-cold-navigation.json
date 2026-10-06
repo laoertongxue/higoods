@@ -1,0 +1,62 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 1523.699999988079,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 1,
+    "origin": "5178"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1348,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 2,
+    "origin": "5178"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1394.5,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 3,
+    "origin": "5178"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1396.9000000357628,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 4,
+    "origin": "5178"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1260.7999999523165,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-material-archive-page"
+    ],
+    "url": "/pcs/materials/fabric",
+    "round": 5,
+    "origin": "5178"
+  }
+]

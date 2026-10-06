@@ -93,9 +93,12 @@ function preparePublishedVersion(styleCode: string, specsOverride?: (versionId: 
     },
     creationReason: 'TMF发布采用链测试',
   })
-  const templateRecord = listTechnicalDataVersions().find((record) => record.technicalVersionCode === 'TDV-20260407-018')
+  // Business numbering is now numeric; immutable identity still selects the same template.
+  const templateRecord = listTechnicalDataVersions().find((record) => record.technicalVersionId === 'tdv_seed_project_018_base')
   assert.ok(templateRecord, '必须存在可复用的技术包纸样、尺码和质量结构演示数据')
   const template = getTechnicalDataVersionContent(templateRecord.technicalVersionId)!
+  assert.ok(template.patternFiles.some((file) => file.dxfFile && file.rulFile), '当前模板必须包含完整原始纸样')
+  assert.ok(template.sizeTable.length && template.qualityRules.length, '当前模板必须包含尺码和质量要求')
   const candidates = listEngineeringMasterPriorResultCandidates(styleCode, 'PURE_WOVEN')
   assert.ok(candidates.some((candidate) => candidate.engineeringTaskType === 'BASE_PATTERN_WOVEN'), '款式必须带可复用的基码纸样成果')
   confirmEngineeringMasterTaskPlan(master.masterOrderId, {

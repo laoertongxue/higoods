@@ -1,4 +1,5 @@
 import { listMaterialArchives } from '../pcs-material-archive-repository.ts'
+import { withPcsDemoData } from '../pcs-record-runtime.ts'
 import {
   getProductionOrderChangeCurrentFacts,
   listCurrentFormalVersionDemandCoverage,
@@ -1658,7 +1659,9 @@ function buildProductionChangeSeedRecords(): ProductionChangeRecord[] {
   ]
 }
 
-let productionChangeRecords = buildProductionChangeSeedRecords()
+// Fixed demonstration changes must not depend on a user's imported catalogue.
+// Actual change forms still resolve their candidates from the live archive.
+let productionChangeRecords = withPcsDemoData(buildProductionChangeSeedRecords)
 const reservedProductionChangeSequences = new Map<string, number>()
 let productionChangeDocumentTraceIndex = buildProductionChangeDocumentTraceIndex(productionChangeRecords)
 

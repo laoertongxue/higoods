@@ -1,0 +1,581 @@
+[
+  {
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167",
+    "phase": "超时",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      }
+    ]
+  },
+  {
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167",
+    "phase": "核实",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      }
+    ]
+  },
+  {
+    "n": 2,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83",
+    "phase": "超时",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      }
+    ],
+    "operation": "e5507a91-3e2b-47ce-b17f-db2fcbda50e0"
+  },
+  {
+    "n": 2,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83",
+    "phase": "核实",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      }
+    ],
+    "operation": "e5507a91-3e2b-47ce-b17f-db2fcbda50e0",
+    "pid": "demo-cb05b1f9-d1d5-414e-8042-a413f3c6dea5",
+    "consistent": true
+  },
+  {
+    "n": 3,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e",
+    "phase": "超时",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.60000002384186,
+        "end": 190057,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 189992.39999997616,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      }
+    ],
+    "operation": "36d585f2-25e3-4e83-8838-70be4d601bde"
+  },
+  {
+    "n": 3,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e",
+    "phase": "核实",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.60000002384186,
+        "end": 190057,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 189992.39999997616,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79.19999998807907,
+        "end": 190421.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 190342.59999996424,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      }
+    ],
+    "operation": "36d585f2-25e3-4e83-8838-70be4d601bde",
+    "pid": "demo-e1469243-2eea-46bd-b476-b903bffbe804",
+    "consistent": true
+  },
+  {
+    "n": 4,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815",
+    "phase": "超时",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.60000002384186,
+        "end": 190057,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 189992.39999997616,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79.19999998807907,
+        "end": 190421.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 190342.59999996424,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 65.39999997615814,
+        "end": 192490.39999997616,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 192425,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      }
+    ],
+    "operation": "385e8035-e79a-4d69-ac49-5473d3e8b2da"
+  },
+  {
+    "n": 4,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815",
+    "phase": "核实",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.60000002384186,
+        "end": 190057,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 189992.39999997616,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79.19999998807907,
+        "end": 190421.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 190342.59999996424,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 65.39999997615814,
+        "end": 192490.39999997616,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 192425,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79,
+        "end": 192921.89999997616,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 192842.89999997616,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      }
+    ],
+    "operation": "385e8035-e79a-4d69-ac49-5473d3e8b2da",
+    "pid": "demo-bd7f4462-b472-4f01-90bb-8d8380523028",
+    "consistent": true
+  },
+  {
+    "n": 5,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/9e3398e4-7727-4e49-b6a7-c6d0dc56bc29",
+    "phase": "超时",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.60000002384186,
+        "end": 190057,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 189992.39999997616,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79.19999998807907,
+        "end": 190421.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 190342.59999996424,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 65.39999997615814,
+        "end": 192490.39999997616,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 192425,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79,
+        "end": 192921.89999997616,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 192842.89999997616,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 67.60000002384186,
+        "end": 195027,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 194959.39999997616,
+        "url": "/pcs/products/channel-products/9e3398e4-7727-4e49-b6a7-c6d0dc56bc29"
+      }
+    ],
+    "operation": "65345b12-f511-46ec-a2ac-3d7fecc9397e"
+  },
+  {
+    "n": 5,
+    "url": "http://127.0.0.1:5173/pcs/products/channel-products/9e3398e4-7727-4e49-b6a7-c6d0dc56bc29",
+    "phase": "核实",
+    "metric": [
+      {
+        "brokenImages": 0,
+        "durationMs": 142.60000002384186,
+        "end": 152405.19999998808,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 152262.59999996424,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 80.39999997615814,
+        "end": 158274.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 158194.39999997616,
+        "url": "/pcs/products/channel-products/1a906b31-c9fc-4400-9d98-4c4ec8aaf167"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 120.39999997615814,
+        "end": 187471.89999997616,
+        "images": 1,
+        "label": "首次发布超时",
+        "start": 187351.5,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 76.60000002384186,
+        "end": 187837,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 187760.39999997616,
+        "url": "/pcs/products/channel-products/a0deff5f-28ac-4dbb-870e-5a68fcc75c83"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.60000002384186,
+        "end": 190057,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 189992.39999997616,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79.19999998807907,
+        "end": 190421.79999995232,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 190342.59999996424,
+        "url": "/pcs/products/channel-products/b818b3b0-6662-42c1-8902-38ad2713422e"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 65.39999997615814,
+        "end": 192490.39999997616,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 192425,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79,
+        "end": 192921.89999997616,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 192842.89999997616,
+        "url": "/pcs/products/channel-products/b4f1229a-a8dc-4178-b79d-cf7b9f6e8815"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 67.60000002384186,
+        "end": 195027,
+        "images": 0,
+        "label": "首次发布超时",
+        "start": 194959.39999997616,
+        "url": "/pcs/products/channel-products/9e3398e4-7727-4e49-b6a7-c6d0dc56bc29"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 79.5,
+        "end": 195355.09999996424,
+        "images": 0,
+        "label": "核实同次发布",
+        "start": 195275.59999996424,
+        "url": "/pcs/products/channel-products/9e3398e4-7727-4e49-b6a7-c6d0dc56bc29"
+      }
+    ],
+    "operation": "65345b12-f511-46ec-a2ac-3d7fecc9397e",
+    "pid": "demo-1d284710-c286-4c94-9a6b-65e959d04df9",
+    "consistent": true
+  }
+]

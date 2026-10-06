@@ -3,7 +3,7 @@
  * snapshots predate these IDs: their absence is not a user deletion. Existing
  * record overlays and explicit tombstones still take precedence.
  */
-export const PCS_STATIC_DEMO_VERSION = 'pcs-r1-2026-10-05'
+export const PCS_STATIC_DEMO_VERSION = 'pcs-r1-2026-10-06'
 
 const introducedIds = new Set<string>()
 const register = (key: string, group: string, ids: readonly string[]) => {
@@ -12,21 +12,26 @@ const register = (key: string, group: string, ids: readonly string[]) => {
 
 register('higood-pcs-style-archive-store-v3', 'records', [
   'style_r1_wms_tee', 'style_r1_physical_set', 'style_r1_virtual_bundle',
+  'style_demand_ASYSA26060310', 'style_demand_SPU_QC_001', 'style_demand_SPU_QC_002', 'style_demand_SPU_QC_003',
 ])
+const technicalKey = 'higood-pcs-technical-data-version-store-v5'
+const newTechnicalIds = ['tdv_demand_ASYSA26060310', 'tdv_demand_SPU_QC_001', 'tdv_demand_SPU_QC_002', 'tdv_demand_SPU_QC_003']
+register(technicalKey, 'records', newTechnicalIds)
+register(technicalKey, 'contents', newTechnicalIds)
 register('higood-pcs-sku-archive-store-v1', 'records', [
   'sku_r1_wms_tee_black_s', 'sku_r1_tee_white_m', 'sku_r1_physical_set_m', 'sku_r1_virtual_bundle_m',
 ])
 
 const materialKey = 'higood-pcs-material-archive-store-v2'
-const roots = ['MAT-FB-00000001', 'MAT-YN-00000001', 'MAT-YN-00000002', 'MAT-CS-00000001', 'MAT-CS-00000002', 'MAT-EP-00000001', 'MAT-EP-00000002'].map(code => `material-r1-${code}`)
-const bases = roots.flatMap((id, index) => index === 0 ? [`${id}-B01`] : [`${id}-B01`, `${id}-B02`])
-const phases = ['dye', 'print', 'double', 'penetration', 'embroidery', 'heat']
+const roots = ['MAT-FB-00000001', 'MAT-FB-00000002', 'MAT-YN-00000001', 'MAT-YN-00000002', 'MAT-CS-00000001', 'MAT-CS-00000002', 'MAT-EP-00000001', 'MAT-EP-00000002'].map(code => `material-r1-${code}`)
+const bases = roots.flatMap((id, index) => index <= 1 ? [`${id}-B01`] : [`${id}-B01`, `${id}-B02`])
+const phases = ['dye', 'print', 'double', 'penetration', 'embroidery', 'heat', 'techpack-cn360-dye', 'techpack-cn360-print', 'techpack-cotton-dye', 'techpack-cotton-print']
 const processed = phases.map(phase => `material-r1-process-${phase}`)
 register(materialKey, 'records', roots)
 register(materialKey, 'skuRecords', [...bases, ...processed])
 register(materialKey, 'processDefinitions', processed.map(id => `process-${id}`))
 register(materialKey, 'costVersions', [...bases.map(id => `legacy-standard-${id}`), ...processed.map(id => `cost-${id}`)])
-register(materialKey, 'assets', phases.map(phase => `material-r1-execution-${phase}`))
+register(materialKey, 'assets', [...phases.map(phase => `material-r1-execution-${phase}`), ...['dye', 'print', 'techpack-cn360-dye', 'techpack-cn360-print', 'techpack-cotton-dye', 'techpack-cotton-print'].map(phase => `material-r1-execution-${phase}-document`)])
 
 export function isPcsNewStaticRecord(id: string): boolean {
   if (introducedIds.has(id)) return true

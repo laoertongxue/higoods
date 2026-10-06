@@ -1,0 +1,347 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 1670.5999999642372,
+    "images": 3,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "url": "/pcs/technical-data/tech-packs",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1494.2999999523165,
+    "images": 3,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "url": "/pcs/technical-data/tech-packs",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1444.899999976158,
+    "images": 3,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "url": "/pcs/technical-data/tech-packs",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1478.199999988079,
+    "images": 3,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "url": "/pcs/technical-data/tech-packs",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1427,
+    "images": 3,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-technical-data-page"
+    ],
+    "url": "/pcs/technical-data/tech-packs",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1772.9000000357628,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1015.6999999880792,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 941.5,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 892,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 947.600000023842,
+    "images": 1,
+    "navigationType": "navigate",
+    "root": [
+      "data-tech-pack-page-root"
+    ],
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 121.30000001192091,
+    "images": 5,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-product-archive-root",
+      "data-skip-page-rerender"
+    ],
+    "url": "/pcs/products/styles",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 111.39999997615814,
+    "images": 5,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-product-archive-root",
+      "data-skip-page-rerender"
+    ],
+    "url": "/pcs/products/styles",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 111.80000001192091,
+    "images": 5,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-product-archive-root",
+      "data-skip-page-rerender"
+    ],
+    "url": "/pcs/products/styles",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128.10000002384186,
+    "images": 5,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-product-archive-root",
+      "data-skip-page-rerender"
+    ],
+    "url": "/pcs/products/styles",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128.5,
+    "images": 5,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-product-archive-root",
+      "data-skip-page-rerender"
+    ],
+    "url": "/pcs/products/styles",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/materials/fabrics",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/materials/fabrics",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/materials/fabrics",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/materials/fabrics",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "missing": true,
+    "url": "/pcs/materials/fabrics",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 158.10000002384186,
+    "images": 2,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page",
+      "data-pcs-channel-list"
+    ],
+    "url": "/pcs/products/channel-products",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 125.5999999642372,
+    "images": 2,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page",
+      "data-pcs-channel-list"
+    ],
+    "url": "/pcs/products/channel-products",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 127.4000000357628,
+    "images": 2,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page",
+      "data-pcs-channel-list"
+    ],
+    "url": "/pcs/products/channel-products",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128.5,
+    "images": 2,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page",
+      "data-pcs-channel-list"
+    ],
+    "url": "/pcs/products/channel-products",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128.69999998807907,
+    "images": 2,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-page",
+      "data-pcs-channel-list"
+    ],
+    "url": "/pcs/products/channel-products",
+    "round": 5,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 111.60000002384186,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-stores-page",
+      "data-pcs-channel-stores-list"
+    ],
+    "url": "/pcs/channels/stores",
+    "round": 1,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 111.60000002384186,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-stores-page",
+      "data-pcs-channel-stores-list"
+    ],
+    "url": "/pcs/channels/stores",
+    "round": 2,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 112.19999998807909,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-stores-page",
+      "data-pcs-channel-stores-list"
+    ],
+    "url": "/pcs/channels/stores",
+    "round": 3,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 109.4000000357628,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-stores-page",
+      "data-pcs-channel-stores-list"
+    ],
+    "url": "/pcs/channels/stores",
+    "round": 4,
+    "cache": "disabled"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 111.19999998807909,
+    "images": 0,
+    "navigationType": "navigate",
+    "root": [
+      "data-pcs-channel-stores-page",
+      "data-pcs-channel-stores-list"
+    ],
+    "url": "/pcs/channels/stores",
+    "round": 5,
+    "cache": "disabled"
+  }
+]

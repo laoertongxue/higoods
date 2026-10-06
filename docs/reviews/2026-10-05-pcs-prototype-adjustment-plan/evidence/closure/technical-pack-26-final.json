@@ -1,0 +1,872 @@
+[
+  {
+    "cells": [
+      "1",
+      "图片失败女式基础圆领短袖ASYSA26060310 · Asaya",
+      "已发布",
+      "V1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "张丽",
+      "po-14671",
+      "生产准备单 · EM-001",
+      "创建：2026-06-03 07:30:00更新：2026-10-06 12:42",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/po-14671",
+        "text": "po-14671"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 1 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 1 版师",
+        "value": "U001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "22",
+      "图片失败后道验收衬衫SPU-QC-001 · Asaya",
+      "草稿",
+      "V1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PF-ACCEPT-PO-1",
+      "生产准备单 · EM-022",
+      "创建：2026-08-24T09:00:00+07:00更新：2026-08-24T09:00:00+07:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PF-ACCEPT-PO-1",
+        "text": "PF-ACCEPT-PO-1"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 22 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 22 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "23",
+      "图片失败后道验收连衣裙SPU-QC-002 · Asaya",
+      "草稿",
+      "V1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PF-ACCEPT-PO-2",
+      "生产准备单 · EM-023",
+      "创建：2026-08-24T09:00:00+07:00更新：2026-08-24T09:00:00+07:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PF-ACCEPT-PO-2",
+        "text": "PF-ACCEPT-PO-2"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 23 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 23 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "24",
+      "图片失败后道验收外套SPU-QC-003 · Asaya",
+      "草稿",
+      "V1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PF-ACCEPT-PO-3",
+      "生产准备单 · EM-024",
+      "创建：2026-08-24T09:00:00+07:00更新：2026-08-24T09:00:00+07:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PF-ACCEPT-PO-3",
+        "text": "PF-ACCEPT-PO-3"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 24 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 24 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "26",
+      "图片失败设计款印花阔腿连体裤SPU-2026-018 · Asaya",
+      "草稿",
+      "V2.0",
+      "100%",
+      "A+",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "张丽",
+      "暂无关联生产单",
+      "生产准备单 · EM-018",
+      "创建：2026-06-11 10:00更新：2026-06-11 10:00",
+      "查看日志"
+    ],
+    "links": [],
+    "selects": [
+      {
+        "label": "技术包 26 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 26 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "25",
+      "图片失败设计款印花阔腿连体裤SPU-2026-018 · Asaya",
+      "草稿",
+      "V1.0",
+      "100%",
+      "A+",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "张丽",
+      "暂无关联生产单",
+      "生产准备单 · EM-018",
+      "创建：2026-04-07 17:20更新：2026-04-07 17:20",
+      "查看日志"
+    ],
+    "links": [],
+    "selects": [
+      {
+        "label": "技术包 25 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 25 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "2",
+      "图片失败春季休闲T恤SPU-2024-001 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0015",
+      "生产准备单 · EM-002",
+      "创建：2026-03-16 10:05:00更新：2026-03-16 10:05:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0015",
+        "text": "PO-202603-0015"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 2 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 2 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "19",
+      "图片失败商务修身长袖衬衫SPU-SHIRT-086 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-086",
+      "生产准备单 · EM-019",
+      "创建：2026-03-13 08:35:00更新：2026-03-13 08:35:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-086",
+        "text": "PO-202603-086"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 19 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 19 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "18",
+      "图片失败户外轻量夹克SPU-JACKET-085 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-085",
+      "生产准备单 · EM-018",
+      "创建：2026-03-12 08:50:00更新：2026-03-12 08:50:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-085",
+        "text": "PO-202603-085"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 18 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 18 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "20",
+      "图片失败毛织撞色短袖上衣SPU-TEE-084 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "A++",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-084",
+      "生产准备单 · EM-020",
+      "创建：2026-03-11 09:00:00更新：2026-03-11 09:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-084",
+        "text": "PO-202603-084"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 20 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 20 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "16",
+      "图片失败春季定位印花连衣裙SPU-DRESS-083 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-083",
+      "生产准备单 · EM-016",
+      "创建：2026-03-10 09:10:00更新：2026-03-10 09:10:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-083",
+        "text": "PO-202603-083"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 16 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 16 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "17",
+      "图片失败连帽拉链卫衣SPU-HOODIE-082 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-082",
+      "生产准备单 · EM-017",
+      "创建：2026-03-09 09:00:00更新：2026-03-09 09:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-082",
+        "text": "PO-202603-082"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 17 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 17 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "21",
+      "图片失败春季休闲印花短袖 T 恤SPU-TSHIRT-081 · Asaya",
+      "草稿",
+      "v2.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-081PO-202603-087PO-202603-088",
+      "生产准备单 · EM-021",
+      "创建：2026-03-08 08:30:00更新：2026-03-08 08:30:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-081",
+        "text": "PO-202603-081"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202603-087",
+        "text": "PO-202603-087"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202603-088",
+        "text": "PO-202603-088"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 21 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 21 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "15",
+      "图片失败Celana Pendek PriaSPU-2024-017 · FADFAD",
+      "已发布",
+      "v2.2",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0014",
+      "生产准备单 · EM-015",
+      "创建：2026-03-06 09:00:00更新：2026-03-06 09:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0014",
+        "text": "PO-202603-0014"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 15 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 15 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "13",
+      "图片失败Kemeja Linen PriaSPU-2024-015 · FADFAD",
+      "已发布",
+      "v1.3",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0009",
+      "生产准备单 · EM-013",
+      "创建：2026-03-04 14:30:00更新：2026-03-04 14:30:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0009",
+        "text": "PO-202603-0009"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 13 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 13 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "6",
+      "图片失败Kemeja Flanel PriaSPU-2024-008 · FADFAD",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "暂无关联生产单",
+      "生产准备单 · EM-006",
+      "创建：2026-03-04 11:00:00更新：2026-03-04 11:00:00",
+      "查看日志"
+    ],
+    "links": [],
+    "selects": [
+      {
+        "label": "技术包 6 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 6 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "12",
+      "图片失败Rompi Pria CasualSPU-2024-014 · FADFAD",
+      "已发布",
+      "v1.0",
+      "100%",
+      "C",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0008",
+      "生产准备单 · EM-012",
+      "创建：2026-03-04 09:00:00更新：2026-03-04 09:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0008",
+        "text": "PO-202603-0008"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 12 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 12 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "5",
+      "图片失败Jaket Hoodie UnisexSPU-2024-005 · Asaya",
+      "已发布",
+      "v2.1",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0002PO-202610-9001PO-202610-9002PO-202610-9003PO-202610-9004",
+      "生产准备单 · EM-005",
+      "创建：2026-03-03 15:00:00更新：2026-03-03 15:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0002",
+        "text": "PO-202603-0002"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202610-9001",
+        "text": "PO-202610-9001"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202610-9002",
+        "text": "PO-202610-9002"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202610-9003",
+        "text": "PO-202610-9003"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202610-9004",
+        "text": "PO-202610-9004"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 5 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 5 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "11",
+      "图片失败Jas Pria FormalSPU-2024-013 · FADFAD",
+      "已发布",
+      "v1.5",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0007",
+      "生产准备单 · EM-011",
+      "创建：2026-03-03 11:00:00更新：2026-03-03 11:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0007",
+        "text": "PO-202603-0007"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 11 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 11 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "4",
+      "图片失败Kaos Polos PremiumSPU-2024-004 · FADFAD",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0001",
+      "生产准备单 · EM-004",
+      "创建：2026-03-02 16:00:00更新：2026-03-02 16:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0001",
+        "text": "PO-202603-0001"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 4 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 4 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "8",
+      "图片失败Celana Jogger PriaSPU-2024-010 · FADFAD",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0004PO-202603-0101PO-202603-0102",
+      "生产准备单 · EM-008",
+      "创建：2026-03-02 16:00:00更新：2026-03-02 16:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0004",
+        "text": "PO-202603-0004"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202603-0101",
+        "text": "PO-202603-0101"
+      },
+      {
+        "href": "/fcs/production/orders/PO-202603-0102",
+        "text": "PO-202603-0102"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 8 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 8 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "10",
+      "图片失败Cardigan WanitaSPU-2024-012 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "A+",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0006",
+      "生产准备单 · EM-010",
+      "创建：2026-03-02 15:00:00更新：2026-03-02 15:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0006",
+        "text": "PO-202603-0006"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 10 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 10 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "3",
+      "图片失败Celana Panjang FormalSPU-2024-003 · Asaya",
+      "已发布",
+      "v1.0",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "暂无关联生产单",
+      "生产准备单 · EM-003",
+      "创建：2026-03-02 14:00:00更新：2026-03-02 14:00:00",
+      "查看日志"
+    ],
+    "links": [],
+    "selects": [
+      {
+        "label": "技术包 3 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 3 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "14",
+      "图片失败Blus Wanita SatinSPU-2024-016 · Asaya",
+      "已发布",
+      "v1.1",
+      "100%",
+      "B",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0010",
+      "生产准备单 · EM-014",
+      "创建：2026-03-01 16:00:00更新：2026-03-01 16:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0010",
+        "text": "PO-202603-0010"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 14 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 14 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "9",
+      "图片失败Sweater Rajut WanitaSPU-2024-011 · Asaya",
+      "已发布",
+      "v1.1",
+      "100%",
+      "A+",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0005",
+      "生产准备单 · EM-009",
+      "创建：2026-03-01 14:00:00更新：2026-03-01 14:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0005",
+        "text": "PO-202603-0005"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 9 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 9 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  },
+  {
+    "cells": [
+      "7",
+      "图片失败Polo Shirt PiqueSPU-2024-009 · FADFAD",
+      "已发布",
+      "v1.2",
+      "100%",
+      "A",
+      "请选择Budi Santoso跟单C",
+      "请选择Budi Santoso版师B",
+      "陈买手",
+      "PO-202603-0003",
+      "生产准备单 · EM-007",
+      "创建：2026-03-01 10:00:00更新：2026-03-01 10:00:00",
+      "查看日志"
+    ],
+    "links": [
+      {
+        "href": "/fcs/production/orders/PO-202603-0003",
+        "text": "PO-202603-0003"
+      }
+    ],
+    "selects": [
+      {
+        "label": "技术包 7 跟单",
+        "value": "MERCH-001"
+      },
+      {
+        "label": "技术包 7 版师",
+        "value": "PATTERN-001"
+      }
+    ]
+  }
+]

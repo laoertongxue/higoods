@@ -1,0 +1,22 @@
+{
+  "allBlobs": true,
+  "base64Records": 0,
+  "channelRecords": 293,
+  "copyRecords": [
+    {
+      "id": "higood-pcs-material-archive-store-v2/logRecords/material-log_65455e65-9050-4831-81a8-8f9e6ea07434",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/processDefinitions/material-process_fec99d49-f80c-492a-a3a1-2e2b8d49ed93",
+      "version": 1
+    },
+    {
+      "id": "higood-pcs-material-archive-store-v2/skuRecords/material-sku_683cbb22-2374-4542-be44-f03451c2b454",
+      "version": 1
+    }
+  ],
+  "files": 66,
+  "materialRecords": 47842,
+  "origin": "http://127.0.0.1:5173"
+}

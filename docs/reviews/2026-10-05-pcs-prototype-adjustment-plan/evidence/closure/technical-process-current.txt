@@ -1,0 +1,281 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "商品中心系统" [level=2]
+  - paragraph: PCS
+  - button "收起菜单":
+  - button "商品中心系统":
+    - generic: 商品中心系统
+  - button "商品测款":
+    - generic: 商品测款
+  - button "生产准备管理":
+    - generic: 生产准备管理
+  - button "技术资料":
+    - generic: 技术资料
+  - button "样衣管理":
+    - generic: 样衣管理
+  - button "商品&物料档案":
+    - generic: 商品&物料档案
+  - button "系统设置":
+    - generic: 系统设置
+- main:
+  - button "款式档案"
+  - button "款式详情"
+  - button "规格详情"
+  - button "面料档案"
+  - button:
+  - button "渠道店铺商品"
+  - button "基础配置"
+  - button "辅料档案"
+  - button "规格详情"
+  - button "规格档案"
+  - button "渠道店铺管理"
+  - button "纱线档案"
+  - button "耗材档案"
+  - button "配件档案"
+  - button "测款单"
+  - button "技术包"
+  - button "全部关闭"
+  - button "返回":
+  - heading "技术包版本 - 1" [level=1]
+  - generic: 已启用
+  - generic: (V1.0)
+  - paragraph: 女式基础圆领短袖
+  - generic: 做货难度：B
+  - generic: 关联花型库资产：未关联
+  - generic: 当前花型图：3 张
+  - button "查看版本日志 1":
+    - text: 查看版本日志
+    - generic: "1"
+  - button "查看审核详情":
+    - text: 查看审核详情
+  - generic: "关键项检查:"
+  - generic: 做货难度
+  - generic: 已完成
+  - generic: 物料清单
+  - generic: 已完成
+  - generic: 纸样管理
+  - generic: 已完成
+  - generic: 工艺路线
+  - generic: 已完成
+  - generic: 放码规则
+  - generic: 已完成
+  - generic: 款色用料对应
+  - generic: 已完成
+  - generic: 花型设计
+  - generic: 已完成
+  - button "物料清单":
+    - text: 物料清单
+  - button "纸样管理":
+    - text: 纸样管理
+  - button "工艺路线" [active]:
+    - text: 工艺路线
+  - button "放码规则":
+    - text: 放码规则
+  - button "款色用料对应":
+    - text: 款色用料对应
+  - button "核价":
+    - text: 核价
+  - button "花型设计":
+    - text: 花型设计
+  - heading "工艺路线" [level=3]
+  - generic: 路线已确认
+  - paragraph: 确认人：原型样本整理 确认时间：2026-06-03 07:30:00
+  - article:
+    - generic: "1"
+    - heading "准备阶段" [level=4]
+    - generic: 3 款面料/物料需要准备加工
+    - generic: 棉涤梭织坯布 · MAT-FB-00000001 · Black / White / Navy / Red
+    - generic: 面料
+    - generic: 第 1 道
+    - generic: 染色
+    - button "MAT-FB-00000001-B01 棉涤梭织坯布":
+      - img "MAT-FB-00000001-B01 棉涤梭织坯布"
+    - generic: 加工投入
+    - generic "MAT-FB-00000001-B01 · 棉涤梭织坯布": MAT-FB-00000001-B01
+    - generic: 加工产出
+    - generic: 转为 MAT-FB-00000001-B01-black-19-4003PT
+    - button "MAT-FB-00000001-B01-black-19-4003PT 棉涤梭织坯布":
+      - img "MAT-FB-00000001-B01-black-19-4003PT 棉涤梭织坯布"
+    - generic: 加工产出
+    - generic "MAT-FB-00000001-B01-black-19-4003PT · 棉涤梭织坯布": MAT-FB-00000001-B01-black-19-4003PT
+    - generic: 第 2 道
+    - generic: 印花
+    - button "MAT-FB-00000001-B01-black-19-4003PT 棉涤梭织坯布":
+      - img "MAT-FB-00000001-B01-black-19-4003PT 棉涤梭织坯布"
+    - generic: 加工投入
+    - generic "MAT-FB-00000001-B01-black-19-4003PT · 棉涤梭织坯布": MAT-FB-00000001-B01-black-19-4003PT
+    - generic: 加工产出
+    - generic: 转为 MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH
+    - button "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH 棉涤梭织坯布":
+      - img "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH 棉涤梭织坯布"
+    - generic: 加工产出
+    - generic "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH · 棉涤梭织坯布": MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH
+    - generic: 第 3 道
+    - generic: 洗水
+    - button "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH 棉涤梭织坯布":
+      - img "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH 棉涤梭织坯布"
+    - generic: 加工投入
+    - generic "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH · 棉涤梭织坯布": MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH
+    - generic: 加工产出
+    - generic: 转为 MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH
+    - button "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH 棉涤梭织坯布":
+      - img "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH 棉涤梭织坯布"
+    - generic: 加工产出
+    - generic "MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH · 棉涤梭织坯布": MAT-FB-00000001-B01-black-19-4003PT-pl001197-AYH
+    - generic: 白底蓝花棉布坯布 · MAT-FB-00000002 · Black / White / Navy / Red
+    - generic: 面料
+    - generic: 第 1 道
+    - generic: 染色
+    - button "MAT-FB-00000002-B01 白底蓝花棉布坯布":
+      - img "MAT-FB-00000002-B01 白底蓝花棉布坯布"
+    - generic: 加工投入
+    - generic "MAT-FB-00000002-B01 · 白底蓝花棉布坯布": MAT-FB-00000002-B01
+    - generic: 加工产出
+    - generic: 转为 MAT-FB-00000002-B01-white-11-0601PT
+    - button "MAT-FB-00000002-B01-white-11-0601PT 白底蓝花棉布坯布":
+      - img "MAT-FB-00000002-B01-white-11-0601PT 白底蓝花棉布坯布"
+    - generic: 加工产出
+    - generic "MAT-FB-00000002-B01-white-11-0601PT · 白底蓝花棉布坯布": MAT-FB-00000002-B01-white-11-0601PT
+    - generic: 第 2 道
+    - generic: 印花
+    - button "MAT-FB-00000002-B01-white-11-0601PT 白底蓝花棉布坯布":
+      - img "MAT-FB-00000002-B01-white-11-0601PT 白底蓝花棉布坯布"
+    - generic: 加工投入
+    - generic "MAT-FB-00000002-B01-white-11-0601PT · 白底蓝花棉布坯布": MAT-FB-00000002-B01-white-11-0601PT
+    - generic: 加工产出
+    - generic: 转为 MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH
+    - button "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH 白底蓝花棉布坯布":
+      - img "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH 白底蓝花棉布坯布"
+    - generic: 加工产出
+    - generic "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH · 白底蓝花棉布坯布": MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH
+    - generic: 第 3 道
+    - generic: 洗水
+    - button "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH 白底蓝花棉布坯布":
+      - img "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH 白底蓝花棉布坯布"
+    - generic: 加工投入
+    - generic "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH · 白底蓝花棉布坯布": MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH
+    - generic: 加工产出
+    - generic: 转为 MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH
+    - button "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH 白底蓝花棉布坯布":
+      - img "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH 白底蓝花棉布坯布"
+    - generic: 加工产出
+    - generic "MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH · 白底蓝花棉布坯布": MAT-FB-00000002-B01-white-11-0601PT-pl001197-AYH
+    - generic: 经编8坑-C2813 · CNIDML360 · Black / White / Navy / Red
+    - generic: 面料
+    - generic: 第 1 道
+    - generic: 染色
+    - button "CNIDML360-white-1 经编8坑-C2813":
+      - img "CNIDML360-white-1 经编8坑-C2813"
+    - generic: 加工投入
+    - generic "CNIDML360-white-1 · 经编8坑-C2813": CNIDML360-white-1
+    - generic: 加工产出
+    - generic: 转为 CNIDML360-white-1-blue-19-4052PT
+    - button "CNIDML360-white-1-blue-19-4052PT 经编8坑-C2813":
+      - img "CNIDML360-white-1-blue-19-4052PT 经编8坑-C2813"
+    - generic: 加工产出
+    - generic "CNIDML360-white-1-blue-19-4052PT · 经编8坑-C2813": CNIDML360-white-1-blue-19-4052PT
+    - generic: 第 2 道
+    - generic: 印花
+    - button "CNIDML360-white-1-blue-19-4052PT 经编8坑-C2813":
+      - img "CNIDML360-white-1-blue-19-4052PT 经编8坑-C2813"
+    - generic: 加工投入
+    - generic "CNIDML360-white-1-blue-19-4052PT · 经编8坑-C2813": CNIDML360-white-1-blue-19-4052PT
+    - generic: 加工产出
+    - generic: 转为 CNIDML360-white-1-blue-19-4052PT-pl001197-AYH
+    - button "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH 经编8坑-C2813":
+      - img "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH 经编8坑-C2813"
+    - generic: 加工产出
+    - generic "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH · 经编8坑-C2813": CNIDML360-white-1-blue-19-4052PT-pl001197-AYH
+    - generic: 第 3 道
+    - generic: 洗水
+    - button "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH 经编8坑-C2813":
+      - img "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH 经编8坑-C2813"
+    - generic: 加工投入
+    - generic "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH · 经编8坑-C2813": CNIDML360-white-1-blue-19-4052PT-pl001197-AYH
+    - generic: 加工产出
+    - generic: 转为 CNIDML360-white-1-blue-19-4052PT-pl001197-AYH
+    - button "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH 经编8坑-C2813":
+      - img "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH 经编8坑-C2813"
+    - generic: 加工产出
+    - generic "CNIDML360-white-1-blue-19-4052PT-pl001197-AYH · 经编8坑-C2813": CNIDML360-white-1-blue-19-4052PT-pl001197-AYH
+  - article:
+    - generic: "2"
+    - heading "生产阶段" [level=4]
+    - generic: 裁剪、裁片工艺与面辅料加工并行，全部完成后进入车缝
+    - generic: 裁片路线
+    - generic: 裁剪
+    - generic: 3 条面料裁剪
+    - generic: 前片
+    - generic: ASYSA26060310 正式纸样
+    - generic: 第 1 道
+    - generic: 绣花
+    - generic: 第 2 道
+    - generic: 压褶
+    - generic: 后片
+    - generic: ASYSA26060310 正式纸样
+    - generic: 第 1 道
+    - generic: 绣花
+    - generic: 第 2 道
+    - generic: 压褶
+    - generic: 左袖片
+    - generic: ASYSA26060310 正式纸样
+    - generic: 第 1 道
+    - generic: 绣花
+    - generic: 第 2 道
+    - generic: 压褶
+    - generic: 右袖片
+    - generic: ASYSA26060310 正式纸样
+    - generic: 第 1 道
+    - generic: 绣花
+    - generic: 第 2 道
+    - generic: 压褶
+    - generic: 领片
+    - generic: ASYSA26060310 正式纸样
+    - generic: 第 1 道
+    - generic: 绣花
+    - generic: 第 2 道
+    - generic: 压褶
+    - generic: 车缝
+    - generic: 等待全部投入完成
+  - article:
+    - generic: "3"
+    - heading "后道阶段" [level=4]
+    - generic: 车缝回货后进入后道
+    - generic: 车缝回货
+    - generic: 到货 QC
+    - generic: 后道处理
+    - generic: 完成
+    - generic: 具体后道工序由本次外发范围和到货 QC 结果确定。
+- button "查生产":

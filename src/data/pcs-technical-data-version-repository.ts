@@ -1,3 +1,5 @@
+import { projectUneditedLegacyTechnicalDemo } from './pcs-technical-data-demo-projection.ts'
+import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
 import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
 import { pcsRecordStore, withPcsDemoData, isPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { cloneWebbingSpecifications } from './fcs/webbing-specifications.ts'
@@ -26,6 +28,7 @@ import {
   normalizeProcessRouteEntries,
 } from './tech-pack-process-route.ts'
 import {
+  appendTechPackVersionLog,
   getTechPackVersionLogStoreSnapshot,
   restoreTechPackVersionLogStoreSnapshot,
 } from './pcs-tech-pack-version-log-repository.ts'
@@ -64,6 +67,7 @@ const TECHNICAL_VERSION_STORAGE_KEY = 'higood-pcs-technical-data-version-store-v
 const TECHNICAL_VERSION_STORE_VERSION = 5
 
 let memorySnapshot: TechnicalDataVersionStoreSnapshot | null = null
+let readSourceSnapshot: TechnicalDataVersionStoreSnapshot | null = null
 
 const CORE_MISSING_NAME_MAP: Record<string, string> = {
   BOM: '物料清单',
@@ -353,10 +357,9 @@ function normalizeDomainStatus(value: string | null | undefined): TechnicalDomai
 function normalizeSourceTaskType(
   value: string | null | undefined,
 ): StoredTechPackSourceTaskType {
-  if (value !== 'ENGINEERING_MASTER') {
-    throw new Error('技术包版本必须来源于生产准备单。')
-  }
-  return value
+  // A read is not permission to create a new package from an old task kind.
+  if (value === 'ENGINEERING_MASTER' || value === 'PLATE' || value === 'REVISION' || value === 'ARTWORK' || value === 'PATTERN') return value
+  return ''
 }
 
 function validateTechnicalVersionCreationSource(record: TechnicalDataVersionRecord): void {
@@ -382,6 +385,7 @@ function validateTechnicalVersionCreationSource(record: TechnicalDataVersionReco
 }
 
 function normalizeChangeScope(value: string | null | undefined): TechPackVersionChangeScope {
+  if (value === '制版生成' || value === '改款生成' || value === '设计改款' || value === '花型生成' || value === '纸样生成') return value
   return '生产准备单生成'
 }
 
@@ -812,18 +816,12 @@ function hydrateSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): Technical
     contentMap.set(content.technicalVersionId, content)
   })
 
-  let records = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
-
-  const contentMapById = new Map<string, TechnicalDataVersionContent>()
-  contents.forEach((content) => {
-    contentMapById.set(content.technicalVersionId, content)
-  })
-  records = records.map((record) => normalizeRecord(record, contentMapById))
+  const records = Array.isArray(snapshot.records) ? snapshot.records.map((item) => normalizeRecord(item, contentMap)) : []
 
   records.forEach((record) => {
-    if (!contentMapById.has(record.technicalVersionId)) {
+    if (!contentMap.has(record.technicalVersionId)) {
       const content = createEmptyContent(record.technicalVersionId)
-      contentMapById.set(record.technicalVersionId, content)
+      contentMap.set(record.technicalVersionId, content)
       contents.push(content)
     }
   })
@@ -884,13 +882,14 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
       return cloneSnapshot(memorySnapshot)
     }
 
+    readSourceSnapshot = { version: TECHNICAL_VERSION_STORE_VERSION, records: parsed.records as TechnicalDataVersionRecord[], contents: parsed.contents as TechnicalDataVersionContent[], pendingItems: parsed.pendingItems as TechnicalDataVersionPendingItem[] }
     memorySnapshot = mergeMissingSeedData(
-      hydrateSnapshot({
+      hydrateSnapshot(projectUneditedLegacyTechnicalDemo({
         version: TECHNICAL_VERSION_STORE_VERSION,
         records: parsed.records as TechnicalDataVersionRecord[],
         contents: parsed.contents as TechnicalDataVersionContent[],
         pendingItems: parsed.pendingItems as TechnicalDataVersionPendingItem[],
-      }),
+      }, withPcsDemoData(() => seedSnapshot()))),
     )
     return cloneSnapshot(memorySnapshot)
   } catch (error) {
@@ -902,14 +901,25 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
 
 function persistSnapshot(snapshot: TechnicalDataVersionStoreSnapshot): void {
   const nextSnapshot = hydrateSnapshot(snapshot)
-  if (canUseStorage()) {
-    pcsRecordStore.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(nextSnapshot))
+  let storedSnapshot = nextSnapshot
+  if (readSourceSnapshot) {
+    // An ordinary edit must not turn every read-only static correction into a browser write.
+    const projectedBefore = memorySnapshot || hydrateSnapshot(projectUneditedLegacyTechnicalDemo(readSourceSnapshot, withPcsDemoData(() => seedSnapshot())))
+    const beforeRecords = new Map(projectedBefore.records.map(record => [record.technicalVersionId, record]))
+    const beforeContents = new Map(projectedBefore.contents.map(content => [content.technicalVersionId, content]))
+    const rawRecords = new Map(readSourceSnapshot.records.map(record => [record.technicalVersionId, record]))
+    const rawContents = new Map(readSourceSnapshot.contents.map(content => [content.technicalVersionId, content]))
+    const changedIds = new Set(nextSnapshot.records.filter(record => JSON.stringify(record) !== JSON.stringify(beforeRecords.get(record.technicalVersionId))).map(record => record.technicalVersionId))
+    nextSnapshot.contents.forEach(content => { if (JSON.stringify(content) !== JSON.stringify(beforeContents.get(content.technicalVersionId))) changedIds.add(content.technicalVersionId) })
+    // Save the edited record and its coherent content together. Keep exact untouched old sources for future projection.
+    storedSnapshot = { ...nextSnapshot,
+      records: nextSnapshot.records.flatMap(record => changedIds.has(record.technicalVersionId) ? [record] : rawRecords.has(record.technicalVersionId) ? [rawRecords.get(record.technicalVersionId)!] : []),
+      contents: nextSnapshot.contents.flatMap(content => changedIds.has(content.technicalVersionId) ? [content] : rawContents.has(content.technicalVersionId) ? [rawContents.get(content.technicalVersionId)!] : []),
+    }
   }
+  if (canUseStorage()) pcsRecordStore.setItem(TECHNICAL_VERSION_STORAGE_KEY, JSON.stringify(storedSnapshot))
+  readSourceSnapshot = storedSnapshot
   memorySnapshot = nextSnapshot
-}
-
-function nextDailySequence(dateKey: string): number {
-  return loadSnapshot().records.filter((item) => buildDateKey(item.createdAt || item.updatedAt) === dateKey).length + 1
 }
 
 export function buildTechnicalVersionId(dateKey: string, sequence: number): string {
@@ -917,13 +927,13 @@ export function buildTechnicalVersionId(dateKey: string, sequence: number): stri
 }
 
 export function buildTechnicalVersionCode(dateKey: string, sequence: number): string {
-  return `TDV-${dateKey}-${String(sequence).padStart(3, '0')}`
+  return String(sequence)
 }
 
 export function getNextTechnicalVersionIdentity() {
   const timestamp = nowText()
   const dateKey = buildDateKey(timestamp)
-  const sequence = nextDailySequence(dateKey)
+  const sequence = Math.max(0, ...loadSnapshot().records.map(record => Number(record.technicalVersionCode) || 0)) + 1
   return {
     timestamp,
     dateKey,
@@ -947,7 +957,8 @@ export function getTechnicalDataVersionStoreSnapshot(): TechnicalDataVersionStor
 }
 
 export function listTechnicalDataVersions(): TechnicalDataVersionRecord[] {
-  return loadSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  // List reads clone the requested records, not every paper file and process graph.
+  return (memorySnapshot ?? loadSnapshot()).records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export function getTechnicalDataVersionById(technicalVersionId: string): TechnicalDataVersionRecord | null {
@@ -982,7 +993,7 @@ export function listTechnicalDataVersionsByStyleId(styleId: string): TechnicalDa
 }
 
 export function listTechnicalDataVersionsByProjectId(projectId: string): TechnicalDataVersionRecord[] {
-  return loadSnapshot()
+  return (memorySnapshot ?? loadSnapshot())
     .records
     .filter((item) => item.sourceProjectId === projectId)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -1319,7 +1330,7 @@ export function archiveTechnicalDataVersionRecord(
 }
 
 export function listTechnicalDataVersionPendingItems(): TechnicalDataVersionPendingItem[] {
-  return loadSnapshot().pendingItems.map(clonePendingItem)
+  return (memorySnapshot ?? loadSnapshot()).pendingItems.map(clonePendingItem)
 }
 
 export function pushTechnicalDataVersionPendingItem(item: TechnicalDataVersionPendingItem): void {
@@ -1366,8 +1377,24 @@ export function runTechnicalDataVersionRepositoryTransaction<Operation extends (
 }
 
 export function resetTechnicalDataVersionRepository(): void {
+  readSourceSnapshot = null
   const snapshot = withPcsDemoData(() => seedSnapshot())
   persistSnapshot(snapshot)
 }
 
-registerPcsRepositoryReset(() => { memorySnapshot = null })
+registerPcsRepositoryReset(() => { memorySnapshot = null; readSourceSnapshot = null })
+
+/** Person assignment is maintained separately from immutable released technical content. */
+export function assignTechnicalPackResponsible(technicalVersionId: string, role: '跟单' | '版师', reviewerId: string, actor = '管理员'): TechnicalDataVersionRecord {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (!record) throw new Error('技术包不存在。')
+  const person = getTechPackReviewerById(reviewerId)
+  if (!person || !person.roles.includes(role)) throw new Error(`请选择有效的${role}。`)
+  const before = role === '跟单' ? record.merchandiserName || record.merchandiserReview?.assignedReviewerName || '' : record.patternMakerName || record.patternMakerReview?.assignedReviewerName || ''
+  const timestamp = nowText()
+  const patch = role === '跟单' ? { merchandiserId: person.reviewerId, merchandiserName: person.reviewerName } : { patternMakerId: person.reviewerId, patternMakerName: person.reviewerName }
+  const result = updateTechnicalDataVersionRecord(technicalVersionId, { ...patch, updatedAt: timestamp, updatedBy: actor })
+  if (!result) throw new Error('技术包负责人保存失败。')
+  appendTechPackVersionLog({ logId: `tech-pack-person-${technicalVersionId}-${crypto.randomUUID()}`, technicalVersionId, technicalVersionCode: record.technicalVersionCode, versionLabel: record.versionLabel, styleId: record.styleId, styleCode: record.styleCode, logType: '维护技术包负责人', sourceTaskType: record.createdFromTaskType === 'ENGINEERING_MASTER' ? record.createdFromTaskType : '', sourceTaskId: record.createdFromTaskId, sourceTaskCode: record.createdFromTaskCode, sourceTaskName: record.sourceProjectName, changeScope: '', changeText: `${role}：${before || '未设置'} → ${person.reviewerName}`, beforeVersionId: technicalVersionId, beforeVersionCode: record.technicalVersionCode, afterVersionId: technicalVersionId, afterVersionCode: record.technicalVersionCode, createdAt: timestamp, createdBy: actor })
+  return result
+}

@@ -617,6 +617,12 @@ export const productionDemands: ProductionDemand[] = [
   })),
 ].map(normalizeDemandSeed)
 
+// Catalog bootstrap must not depend on the live array replaced by FCS hydration.
+const productionDemandDemoSeeds = structuredClone(productionDemands)
+export function listProductionDemandDemoSeeds(): ProductionDemand[] {
+  return structuredClone(productionDemandDemoSeeds)
+}
+
 export const demandStatusConfig: Record<DemandStatus, { label: string; color: string }> = {
   PENDING_CONVERT: { label: '待转单', color: 'bg-blue-100 text-blue-700' },
   CONVERTED:       { label: '已转单', color: 'bg-green-100 text-green-700' },

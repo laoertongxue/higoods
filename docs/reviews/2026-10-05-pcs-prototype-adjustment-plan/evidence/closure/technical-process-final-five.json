@@ -1,0 +1,47 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 111.89999997615814,
+    "end": 11051.19999998808,
+    "images": 6,
+    "label": "process-final-0",
+    "start": 10939.30000001192,
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 59.29999995231629,
+    "end": 11701.19999998808,
+    "images": 6,
+    "label": "process-final-1",
+    "start": 11641.900000035765,
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 59.80000001192093,
+    "end": 12517.80000001192,
+    "images": 6,
+    "label": "process-final-2",
+    "start": 12458,
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 60.09999996423721,
+    "end": 13334.5,
+    "images": 6,
+    "label": "process-final-3",
+    "start": 13274.400000035765,
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 60.80000001192093,
+    "end": 14034.400000035765,
+    "images": 6,
+    "label": "process-final-4",
+    "start": 13973.600000023842,
+    "url": "/pcs/products/styles/style_demand_ASYSA26060310/technical-data/tdv_demand_ASYSA26060310"
+  }
+]

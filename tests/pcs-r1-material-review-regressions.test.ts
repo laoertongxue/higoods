@@ -10,6 +10,17 @@ beforeEach(() => {
   repo.resetMaterialArchiveCache()
 })
 
+test('GOV-005: a locked historical dye label can receive its own image without changing its identity', () => {
+  const source = repo.getMaterialSkuRecordById('material-r1-process-dye')!
+  const saved = repo.updateMaterialSkuRecord(source.materialSkuId, { ...source, skuImageUrl: '/materials/pcs-reviewed/cotton-black.jpg' })!
+  assert.equal(saved.colorName, source.colorName)
+  assert.equal(saved.colorCode, source.colorCode)
+  assert.equal(saved.materialSkuCode, source.materialSkuCode)
+  assert.equal(saved.skuImageUrl, '/materials/pcs-reviewed/cotton-black.jpg')
+  assert.ok(saved.colorId)
+  assert.throws(() => repo.updateMaterialSkuRecord(source.materialSkuId, { ...saved, colorName: '任意新颜色', colorCode: 'unknown' }), /有效的颜色|交付身份/)
+})
+
 test('GOV-005: editing an approved material name or remark preserves exact locked technical values', () => {
   const root = repo.getMaterialArchiveById('material-r1-MAT-FB-00000001')!
   assert.equal(root.approvalStatus, 'APPROVED')
@@ -167,4 +178,22 @@ test('GOV-019: material process filters use explicit predecessors and never infe
   for (const sku of query.skus) assert.ok(repo.listMaterialSkuLineage(sku.materialSkuId).some(row => row.stage === 'DYEING'))
   assert.equal(query.stats.skuCount, query.skus.length)
   assert.equal(query.stats.incompleteCost, query.skus.filter(sku => repo.getMaterialStandardCost(sku.materialSkuId).completeness.length).length)
+})
+
+test('GOV-024: scoped review preserves unrelated dossiers and raw rollback cannot reuse a failed result', () => {
+  const first = archive('REVIEW-CACHE-ONE'), other = archive('REVIEW-CACHE-TWO')
+  const unrelated = repo.getMaterialArchiveById(other.materialId)
+  const raw = pcsRecordStore.getItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY)!
+  repo.setMaterialApproval(first.materialId, 'SUBMIT')
+  assert.equal(repo.getMaterialArchiveById(first.materialId)?.approvalStatus, 'PENDING')
+  assert.deepEqual(repo.getMaterialArchiveById(other.materialId), unrelated)
+  // The runtime restores the published raw value when an IDB command aborts.
+  pcsRecordStore.setItem(repo.MATERIAL_ARCHIVE_STORAGE_KEY, raw)
+  repo.resetMaterialArchiveCache()
+  assert.equal(repo.getMaterialArchiveById(first.materialId)?.approvalStatus, 'DRAFT')
+  assert.deepEqual(repo.getMaterialArchiveById(other.materialId), unrelated)
+  const copy = repo.getMaterialArchiveStoreSnapshot()
+  copy.records[0].materialName = 'external mutation'
+  repo.resetMaterialArchiveCache()
+  assert.notEqual(repo.getMaterialArchiveStoreSnapshot().records[0].materialName, 'external mutation')
 })

@@ -1,0 +1,249 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "商品中心系统" [level=2]
+  - paragraph: PCS
+  - button "收起菜单":
+  - button "商品中心系统":
+    - generic: 商品中心系统
+  - button "商品测款":
+    - generic: 商品测款
+  - button "生产准备管理":
+    - generic: 生产准备管理
+  - button "技术资料":
+    - generic: 技术资料
+  - button "技术包":
+    - text: 技术包
+  - button "BOM 与价格":
+    - text: BOM 与价格
+  - button "花型库":
+    - text: 花型库
+  - button "部位模板库":
+    - text: 部位模板库
+  - button "样衣管理":
+    - generic: 样衣管理
+  - button "商品&物料档案":
+    - generic: 商品&物料档案
+  - button "系统设置":
+    - generic: 系统设置
+- main:
+  - button "样衣库存"
+  - button "样衣使用申请"
+  - button "样衣流转记录"
+  - button "样衣台账"
+  - button "盘点差异追踪"
+  - button "样衣视图"
+  - button "配件档案"
+  - button "渠道店铺管理"
+  - button "款式档案"
+  - button "基础配置"
+  - button "面料档案"
+  - button "渠道店铺商品"
+  - button "测款单"
+  - button "BOM 与价格"
+  - button "款式详情"
+  - button "规格详情"
+  - button "技术包"
+  - button:
+  - button "全部关闭"
+  - heading "技术包列表" [level=1]
+  - generic: 技术包仅由生产准备单生成
+  - textbox "技术包 ID / SPU / 生产准备单 / 生产单"
+  - combobox:
+    - option "全部状态" [selected]
+    - option "草稿"
+    - option "已发布"
+    - option "已归档"
+  - combobox:
+    - option "全部审核阶段"
+    - option "未提交审核"
+    - option "第一阶段并行审核" [selected]
+    - option "跟单复核"
+    - option "待发布"
+    - option "已发布"
+  - combobox:
+    - option "全部品牌" [selected]
+    - option "Asaya"
+    - option "FADFAD"
+  - combobox:
+    - option "全部完整度" [selected]
+    - option "100%"
+    - option "未完整"
+  - combobox:
+    - option "全部做货难度" [selected]
+    - option "A"
+    - option "A+"
+    - option "A++"
+    - option "B"
+    - option "C"
+    - option "D"
+  - combobox:
+    - option "全部跟单" [selected]
+    - option "跟单C"
+  - combobox:
+    - option "全部版师" [selected]
+    - option "版师B"
+  - textbox "创建开始日期"
+  - textbox "创建结束日期"
+  - checkbox "待我审核"
+  - text: 待我审核
+  - checkbox "SPU 去重"
+  - text: SPU 去重
+  - button "查询"
+  - generic: 技术包数量
+  - strong: "3"
+  - generic: SPU 数量
+  - strong: "2"
+  - generic: 待审核
+  - strong: "3"
+  - heading "技术包" [level=2]
+  - table:
+    - rowgroup:
+      - row "技术包 ID 商品信息 状态 版本 完整度 做货难度 跟单 版师 买手 关联生产单 来源 时间 操作":
+        - columnheader "技术包 ID"
+        - columnheader "商品信息"
+        - columnheader "状态"
+        - columnheader "版本"
+        - columnheader "完整度"
+        - columnheader "做货难度"
+        - columnheader "跟单"
+        - columnheader "版师"
+        - columnheader "买手"
+        - columnheader "关联生产单"
+        - columnheader "来源"
+        - columnheader "时间"
+        - columnheader "操作"
+    - rowgroup:
+      - row "24 查看后道验收外套大图 后道验收外套 SPU-QC-003 · Asaya 草稿 V1.0 100% B 跟单C 版师B 陈买手 PF-ACCEPT-PO-3 生产准备单 · EM-024 创建：2026-08-24T09:00:00+07:00 更新：2026-08-24T09:00:00+07:00 查看 日志":
+        - cell "24"
+        - cell "查看后道验收外套大图 后道验收外套 SPU-QC-003 · Asaya":
+          - button "查看后道验收外套大图":
+            - img "后道验收外套"
+          - paragraph: 后道验收外套
+          - paragraph: SPU-QC-003 · Asaya
+        - cell "草稿"
+        - cell "V1.0"
+        - cell "100%"
+        - cell "B"
+        - cell "跟单C":
+          - combobox "技术包 24 跟单":
+            - option "请选择"
+            - option "Budi Santoso"
+            - option "跟单C" [selected]
+        - cell "版师B":
+          - combobox "技术包 24 版师":
+            - option "请选择"
+            - option "Budi Santoso"
+            - option "版师B" [selected]
+        - cell "陈买手"
+        - cell "PF-ACCEPT-PO-3":
+          - link "PF-ACCEPT-PO-3":
+            - /url: /fcs/production/orders/PF-ACCEPT-PO-3
+        - cell "生产准备单 · EM-024"
+        - cell "创建：2026-08-24T09:00:00+07:00 更新：2026-08-24T09:00:00+07:00":
+          - paragraph: 创建：2026-08-24T09:00:00+07:00
+          - paragraph: 更新：2026-08-24T09:00:00+07:00
+        - cell "查看 日志":
+          - button "查看"
+          - button "日志"
+      - row "26 查看设计款印花阔腿连体裤大图 设计款印花阔腿连体裤 SPU-2026-018 · Asaya 草稿 V2.0 100% A+ 跟单C 版师B 张丽 暂无关联生产单 历史制版 · PT-20260611-018-V2 创建：2026-06-11 10:00 更新：2026-06-11 10:00 查看 日志":
+        - cell "26"
+        - cell "查看设计款印花阔腿连体裤大图 设计款印花阔腿连体裤 SPU-2026-018 · Asaya":
+          - button "查看设计款印花阔腿连体裤大图":
+            - img "设计款印花阔腿连体裤"
+          - paragraph: 设计款印花阔腿连体裤
+          - paragraph: SPU-2026-018 · Asaya
+        - cell "草稿"
+        - cell "V2.0"
+        - cell "100%"
+        - cell "A+"
+        - cell "跟单C":
+          - combobox "技术包 26 跟单":
+            - option "请选择"
+            - option "Budi Santoso"
+            - option "跟单C" [selected]
+        - cell "版师B":
+          - combobox "技术包 26 版师":
+            - option "请选择"
+            - option "Budi Santoso"
+            - option "版师B" [selected]
+        - cell "张丽"
+        - cell "暂无关联生产单"
+        - cell "历史制版 · PT-20260611-018-V2"
+        - cell "创建：2026-06-11 10:00 更新：2026-06-11 10:00":
+          - paragraph: 创建：2026-06-11 10:00
+          - paragraph: 更新：2026-06-11 10:00
+        - cell "查看 日志":
+          - button "查看"
+          - button "日志"
+      - row "25 查看设计款印花阔腿连体裤大图 设计款印花阔腿连体裤 SPU-2026-018 · Asaya 草稿 V1.0 100% A+ 跟单C 版师B 张丽 暂无关联生产单 历史制版 · PT-20260407-018 创建：2026-04-07 17:20 更新：2026-04-07 17:20 查看 日志":
+        - cell "25"
+        - cell "查看设计款印花阔腿连体裤大图 设计款印花阔腿连体裤 SPU-2026-018 · Asaya":
+          - button "查看设计款印花阔腿连体裤大图":
+            - img "设计款印花阔腿连体裤"
+          - paragraph: 设计款印花阔腿连体裤
+          - paragraph: SPU-2026-018 · Asaya
+        - cell "草稿"
+        - cell "V1.0"
+        - cell "100%"
+        - cell "A+"
+        - cell "跟单C":
+          - combobox "技术包 25 跟单":
+            - option "请选择"
+            - option "Budi Santoso"
+            - option "跟单C" [selected]
+        - cell "版师B":
+          - combobox "技术包 25 版师":
+            - option "请选择"
+            - option "Budi Santoso"
+            - option "版师B" [selected]
+        - cell "张丽"
+        - cell "暂无关联生产单"
+        - cell "历史制版 · PT-20260407-018"
+        - cell "创建：2026-04-07 17:20 更新：2026-04-07 17:20":
+          - paragraph: 创建：2026-04-07 17:20
+          - paragraph: 更新：2026-04-07 17:20
+        - cell "查看 日志":
+          - button "查看"
+          - button "日志"
+  - generic "技术包分页":
+    - paragraph: 共 3 条，当前 1-3
+    - combobox:
+      - option "10 条/页"
+      - option "20 条/页"
+      - option "50 条/页" [selected]
+    - button "上一页" [disabled]
+    - generic: 1 / 1
+    - button "下一页" [disabled]
+- button "查生产":

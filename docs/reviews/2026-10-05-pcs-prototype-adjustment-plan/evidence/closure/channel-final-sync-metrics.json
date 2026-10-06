@@ -1,0 +1,92 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 611.8999999761581,
+    "end": 13716.399999976158,
+    "images": 1,
+    "label": "channel-update-final-1",
+    "start": 13104.5,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 60.40000003576279,
+    "end": 28452,
+    "images": 0,
+    "label": "channel-receipt-final-1",
+    "start": 28391.599999964237,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 80.40000003576279,
+    "end": 28849.69999998808,
+    "images": 1,
+    "label": "channel-update-final-2",
+    "start": 28769.299999952316,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 86.09999996423721,
+    "end": 29256.299999952316,
+    "images": 0,
+    "label": "channel-receipt-final-2",
+    "start": 29170.19999998808,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 82.20000004768372,
+    "end": 29668.5,
+    "images": 1,
+    "label": "channel-update-final-3",
+    "start": 29586.299999952316,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 83.59999996423721,
+    "end": 30069.599999964237,
+    "images": 0,
+    "label": "channel-receipt-final-3",
+    "start": 29986,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 89.80000001192093,
+    "end": 30493,
+    "images": 1,
+    "label": "channel-update-final-4",
+    "start": 30403.19999998808,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 92.4000000357628,
+    "end": 30895.19999998808,
+    "images": 0,
+    "label": "channel-receipt-final-4",
+    "start": 30802.799999952316,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 92.89999997615814,
+    "end": 31295.599999964237,
+    "images": 1,
+    "label": "channel-update-final-5",
+    "start": 31202.69999998808,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 64.19999998807907,
+    "end": 31683.69999998808,
+    "images": 0,
+    "label": "channel-receipt-final-5",
+    "start": 31619.5,
+    "url": "/pcs/products/channel-products/12b91cc8-d0b7-462e-bf84-7888de62d160"
+  }
+]

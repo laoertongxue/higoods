@@ -1,0 +1,187 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "商品中心系统" [level=2]
+  - paragraph: PCS
+  - button "收起菜单":
+  - button "商品中心系统":
+    - generic: 商品中心系统
+  - button "商品测款":
+    - generic: 商品测款
+  - button "生产准备管理":
+    - generic: 生产准备管理
+  - button "技术资料":
+    - generic: 技术资料
+  - button "样衣管理":
+    - generic: 样衣管理
+  - button "商品&物料档案":
+    - generic: 商品&物料档案
+  - button "系统设置":
+    - generic: 系统设置
+- main:
+  - button "样衣库存"
+  - button "样衣使用申请"
+  - button "样衣流转记录"
+  - button "样衣台账"
+  - button "盘点差异追踪"
+  - button "样衣视图"
+  - button "配件档案"
+  - button "渠道店铺管理"
+  - button "款式档案"
+  - button "基础配置"
+  - button "面料档案"
+  - button "渠道店铺商品"
+  - button "测款单"
+  - button "BOM 与价格"
+  - button "款式详情"
+  - button "规格详情"
+  - button "技术包"
+  - button:
+  - button "全部关闭"
+  - button "返回列表":
+    - text: 返回列表
+  - heading "TO-0006" [level=1]
+  - generic: 进行中
+  - paragraph: SPU-GC-1001 · 基础T恤 A款
+  - button "查看基础T恤 A款大图":
+    - img "基础T恤 A款"
+  - generic: SPU SPU-GC-1001
+  - generic: SKU SKU-GC-20001、SPU-GC-1001-white-m
+  - generic: 买手 陈买手
+  - generic: 寄样 人头
+  - text: 当前步骤责任团队：
+  - strong: 买手
+  - list:
+    - generic: ①系统建档
+    - generic: 核对关联商品档案及本次测款 SKU。
+    - generic: ②采购下单
+    - generic: 记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。
+    - generic: ③快递信息
+    - generic: 记录寄件快递、运单号与预计到达。
+    - generic: ④样衣入库
+    - generic: 样衣模块确认样品入库成功后推进。
+    - generic: ⑤打标
+    - generic: 已贴码且码值等于 SKU 编码后方可完成本步。
+    - generic: ⑥买手确认
+    - generic: 通过→⑦核价；淘汰→测款单结束并保留淘汰事实。
+    - generic: ⑦核价
+    - generic: 记录初步 BOM、用量、工艺成本与定价；淘汰则结束。
+    - generic: ⑧寄样+渠道上架
+    - generic: 寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。
+    - generic: ⑨直播测款
+    - generic: 记录测款执行事实。
+    - generic: ⑩大货判断
+    - generic: 是/否/待定三态；待定保持进行中。
+  - text: 直播测款执行记录
+  - textbox "直播测款执行记录"
+  - button "保存并进入⑩大货判断"
+  - table:
+    - rowgroup:
+      - row "店铺 / 上架动作 平台 PID 平台状态 同步结果 操作":
+        - columnheader "店铺 / 上架动作"
+        - columnheader "平台 PID"
+        - columnheader "平台状态"
+        - columnheader "同步结果"
+        - columnheader "操作"
+    - rowgroup:
+      - row "TikTok 印尼主店 12b91cc8-d0b7-462e-bf84-7888de62d160 demo-afe9e909-795f-47ce-b044-7e7cea243161 在售 一致 查看渠道详情":
+        - cell "TikTok 印尼主店 12b91cc8-d0b7-462e-bf84-7888de62d160":
+          - text: TikTok 印尼主店
+          - generic: 12b91cc8-d0b7-462e-bf84-7888de62d160
+        - cell "demo-afe9e909-795f-47ce-b044-7e7cea243161"
+        - cell "在售"
+        - cell "一致"
+        - cell "查看渠道详情":
+          - button "查看渠道详情"
+      - row "TikTok 马来西亚店 2fe0d35e-58e9-4075-8bc5-823754b0fe31 demo-64fe7966-35b6-4197-823b-d903cd085e38 在售 一致 查看渠道详情":
+        - cell "TikTok 马来西亚店 2fe0d35e-58e9-4075-8bc5-823754b0fe31":
+          - text: TikTok 马来西亚店
+          - generic: 2fe0d35e-58e9-4075-8bc5-823754b0fe31
+        - cell "demo-64fe7966-35b6-4197-823b-d903cd085e38"
+        - cell "在售"
+        - cell "一致"
+        - cell "查看渠道详情":
+          - button "查看渠道详情"
+      - row "Shopify 印尼店 4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946 demo-84bfa0ba-5e1a-40a7-8bff-4a93ddfc0f66 在售 一致 查看渠道详情":
+        - cell "Shopify 印尼店 4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946":
+          - text: Shopify 印尼店
+          - generic: 4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946
+        - cell "demo-84bfa0ba-5e1a-40a7-8bff-4a93ddfc0f66"
+        - cell "在售"
+        - cell "一致"
+        - cell "查看渠道详情":
+          - button "查看渠道详情"
+      - row "Shopify 马来西亚店 232e5768-f3e7-4687-8f7f-cb1224853e54 demo-5c284f3e-da83-42ba-bbe1-a667915223bb 在售 一致 查看渠道详情":
+        - cell "Shopify 马来西亚店 232e5768-f3e7-4687-8f7f-cb1224853e54":
+          - text: Shopify 马来西亚店
+          - generic: 232e5768-f3e7-4687-8f7f-cb1224853e54
+        - cell "demo-5c284f3e-da83-42ba-bbe1-a667915223bb"
+        - cell "在售"
+        - cell "一致"
+        - cell "查看渠道详情":
+          - button "查看渠道详情"
+      - row "独立站演示店铺 · 印尼 4b41290a-8f8f-4a62-8a63-404e57ca76bf demo-e8dc10b1-62d6-4134-a177-a2dbfb389979 在售 一致 查看渠道详情":
+        - cell "独立站演示店铺 · 印尼 4b41290a-8f8f-4a62-8a63-404e57ca76bf":
+          - text: 独立站演示店铺 · 印尼
+          - generic: 4b41290a-8f8f-4a62-8a63-404e57ca76bf
+        - cell "demo-e8dc10b1-62d6-4134-a177-a2dbfb389979"
+        - cell "在售"
+        - cell "一致"
+        - cell "查看渠道详情":
+          - button "查看渠道详情"
+  - generic "商品信息（来自商品档案）"
+  - generic: 关键事实
+  - term: 采购链接
+  - definition: https://example.com/r1-sample
+  - term: 物流
+  - definition: R1演示快递 · R1-TO6 · 2026-10-06
+  - term: 打标
+  - definition: SKU-GC-20001 @ 2026-10-06 02:23
+  - term: 核价
+  - definition: BOM ¥12 · 工艺 ¥2 · 定价 ¥79000
+  - term: 渠道
+  - definition: tiktok、shopify、independent-site
+  - term: 大货判断
+  - definition: —
+  - generic: 操作历史
+  - list:
+    - listitem: 2026-10-06 02:27 · 推进到 ⑨直播测款 · 当前用户
+    - listitem: 2026-10-06 02:26 · 发起渠道上架 · 当前用户 · 独立站演示店铺 · 印尼；动作 4b41290a-8f8f-4a62-8a63-404e57ca76bf；渠道商品 4b41290a-8f8f-4a62-8a63-404e57ca76bf
+    - listitem: 2026-10-06 02:26 · 发起渠道上架 · 当前用户 · Shopify 马来西亚店；动作 232e5768-f3e7-4687-8f7f-cb1224853e54；渠道商品 232e5768-f3e7-4687-8f7f-cb1224853e54
+    - listitem: 2026-10-06 02:26 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946；渠道商品 4eb41d5b-7cfa-4bd1-8a6a-fd29d3fbf946
+    - listitem: 2026-10-06 02:25 · 发起渠道上架 · 当前用户 · TikTok 马来西亚店；动作 2fe0d35e-58e9-4075-8bc5-823754b0fe31；渠道商品 2fe0d35e-58e9-4075-8bc5-823754b0fe31
+    - listitem: 2026-10-06 02:24 · 发起渠道上架 · 当前用户 · TikTok 印尼主店；动作 12b91cc8-d0b7-462e-bf84-7888de62d160；渠道商品 12b91cc8-d0b7-462e-bf84-7888de62d160
+    - listitem: 2026-10-06 02:24 · 推进到 ⑧寄样+渠道上架 · 当前用户
+    - listitem: 2026-10-06 02:24 · 保存核价 · 当前用户
+- button "查生产":

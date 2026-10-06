@@ -10,7 +10,8 @@ import { renderPcsChannelStoreSyncPage } from '../src/pages/pcs-channel-stores.t
 import type { ChannelCatalogSnapshot } from '../src/data/pcs-channel-catalog-types.ts'
 
 // Node 计算与 HTML 字符串生成预算；不包含浏览器 DOM、布局、图片或 IndexedDB，不能替代页面性能验收。
-const limit = 500
+// 2026-10-06 用户确认统一为 1 秒，无例外；浏览器完整绘制另行验收。
+const limit = 1000
 const repeats = Math.max(1, Number(process.env.PCS_CHANNEL_PERF_REPEATS || 5))
 const baseline = catalog.getPcsChannelCatalogSnapshot()
 test('channel list projections retain price and mapping identities without sharing mutable catalog records', () => {
@@ -53,7 +54,7 @@ function measure(label: string, fn: () => unknown) {
   for (let index = 0; index < repeats; index++) { const start = performance.now(); fn(); values.push(performance.now() - start) }
   const sorted = values.slice().sort((a, b) => a - b), maximum = Math.max(...values), p95 = sorted[Math.ceil(sorted.length * .95) - 1]
   console.log(`PCS_CHANNEL_PERF ${JSON.stringify({ label, pid: 2000, variants: 10000, samples: repeats, valuesMs: values.map(v => +v.toFixed(2)), p95Ms: +p95.toFixed(2), maxMs: +maximum.toFixed(2), budgetMs: limit, scope: 'Node only' })}`)
-  assert.ok(maximum < limit, `${label} ${maximum.toFixed(2)} ms >= ${limit} ms（Node 预算）`)
+  assert.ok(maximum <= limit, `${label} ${maximum.toFixed(2)} ms > ${limit} ms（Node 预算）`)
 }
 
 test('PERF channel 2000 PID / 10000 platform variants: scoped reads and list rendering', async () => {

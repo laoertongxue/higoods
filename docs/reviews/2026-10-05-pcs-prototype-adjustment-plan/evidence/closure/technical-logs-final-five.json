@@ -1,0 +1,92 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 70.30000001192093,
+    "end": 236277.30000001192,
+    "images": 4,
+    "label": "logs-open-0",
+    "start": 236207,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.90000003576279,
+    "end": 236622.80000001192,
+    "images": 3,
+    "label": "logs-close-0",
+    "start": 236571.89999997616,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 237005.5,
+    "images": 4,
+    "label": "logs-open-1",
+    "start": 236956.10000002384,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 56.20000004768371,
+    "end": 237428.60000002384,
+    "images": 3,
+    "label": "logs-close-1",
+    "start": 237372.39999997616,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 74.70000004768372,
+    "end": 237865.10000002384,
+    "images": 4,
+    "label": "logs-open-2",
+    "start": 237790.39999997616,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 58.59999996423721,
+    "end": 238247.39999997616,
+    "images": 3,
+    "label": "logs-close-2",
+    "start": 238188.80000001192,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 71.5,
+    "end": 238661.39999997616,
+    "images": 4,
+    "label": "logs-open-3",
+    "start": 238589.89999997616,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 77.20000004768372,
+    "end": 239082.60000002384,
+    "images": 3,
+    "label": "logs-close-3",
+    "start": 239005.39999997616,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 79.19999998807907,
+    "end": 239502.89999997616,
+    "images": 4,
+    "label": "logs-open-4",
+    "start": 239423.69999998808,
+    "url": "/pcs/technical-data/tech-packs"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 239854,
+    "images": 3,
+    "label": "logs-close-4",
+    "start": 239804.60000002384,
+    "url": "/pcs/technical-data/tech-packs"
+  }
+]
