@@ -1,0 +1,11 @@
+✔ ROOM unique identity, maintenance, refreshed print, atomic guards and 1s gate (45577.607833ms)
+✔ ROOM initial read failure recovers both new and edit direct routes without losing draft (528.259666ms)
+✔ ROOM two tabs cannot create the same unique identity; browser back preserves unsaved room (860.509542ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47411.011125

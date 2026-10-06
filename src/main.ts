@@ -873,7 +873,7 @@ let cuttingEntryHydration: Promise<void> | undefined
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
   // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
   // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
-  if (/^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
+  if (/^\/los\/live-room(\/|$)/.test(normalizedPathname) || /^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
     previousRenderedPagePathname = normalizedPathname
     return
   }
@@ -2319,6 +2319,9 @@ document.addEventListener('keydown', async (event) => {
 })
 
 window.addEventListener('popstate', () => {
+  const leave = new Event('higood:before-history-navigation', { cancelable: true })
+  window.dispatchEvent(leave)
+  if (leave.defaultPrevented) return
   const pathname = `${window.location.pathname}${window.location.search}` || '/'
   appStore.syncFromBrowser(pathname)
 })

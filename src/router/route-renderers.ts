@@ -14,7 +14,8 @@ function createAsyncRenderer<TArgs extends unknown[]>(
       const material = ['higood-fcs-material-process-plans-v1', 'higood-pcs-material-archive-store-v2', 'higood-pcs-material-config-v1', 'higood-pcs-exchange-rate-config-v1', ...common]
       const channel = ['higood-pcs-channel-catalog-v1', 'higood-pcs-channel-store-v1']
       const productDetail = ['higood-pcs-engineering-bom-pricing-plan-store-v2', 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-material-archive-store-v2', 'higood-pcs-material-config-v1']
-      const scope = /FcsMaterialProcessPlan/.test(exportName) ? [...material, 'higood-fcs-material-process-plans-v1']
+      const scope = /^renderPcsSample(?:Inventory|Application|Transfer|Return|Ledger|Stocktake|View|Detail)|^renderPcsTestingOrder/.test(exportName) ? [...product, ...channel, 'higood-pcs-testing-orders-v1', 'higood-pcs-sample-management-v1']
+        : /FcsMaterialProcessPlan/.test(exportName) ? [...material, 'higood-fcs-material-process-plans-v1']
         : exportName === 'renderPcsTechnicalDataTechPackListPage' ? [...common, 'higood-pcs-material-config-v1', 'higood-pcs-style-archive-store-v3', 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-tech-pack-version-log-store-v1']
         : /StyleArchiveList|SpecificationList/.test(exportName) ? [...product, ...channel]
         : /StyleArchive|Specification/.test(exportName) ? [...product, ...channel, ...productDetail]
@@ -23,7 +24,7 @@ function createAsyncRenderer<TArgs extends unknown[]>(
         : /Channel/.test(exportName) ? [...product, ...channel, 'higood-pcs-technical-data-version-store-v5']
         : /ConfigWorkspace/.test(exportName) ? [...material, ...product, ...channel]
         : []
-      try { await ensurePcsRecordState(scope) } catch (error) {
+      try { await ensurePcsRecordState(scope); if (/^renderPcsSample/.test(exportName)) await (await import('../data/los-live-room-master.ts')).ensureLosLiveRoomState() } catch (error) {
         const { renderPcsStorageError } = await import('../pages/pcs-storage-error.ts')
         return renderPcsStorageError(error)
       }

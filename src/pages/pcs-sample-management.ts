@@ -1,3 +1,5 @@
+import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
+import { ensureLosLiveRoomState, liveRoomTransferGuards } from '../data/los-live-room-master.ts'
 import { renderBadge } from '../components/ui/badge.ts'
 import { renderButton } from '../components/ui/button.ts'
 import { renderTable } from '../components/ui/table.ts'
@@ -16,6 +18,8 @@ import {
   listPcsSampleTransfers,
   listPcsSampleTypeConversionLogs,
   convertPcsSampleType,
+  transferPcsSample,
+  PCS_SAMPLE_STORAGE_KEY,
 } from '../data/pcs-sample-management.ts'
 import type {
   PcsSampleLedgerEvent,
@@ -33,7 +37,8 @@ import {
   PCS_SAMPLE_TYPE_LABELS,
   PCS_SAMPLE_LOCATION_TYPES,
   PCS_SAMPLE_LOCATION_TYPE_LABELS,
-  PCS_SAMPLE_LOCATIONS,
+  listPcsSampleLocations,
+  getPcsSampleLocationById,
 } from '../data/pcs-sample-location-master.ts'
 import type { PcsSampleType } from '../data/pcs-sample-location-master.ts'
 import { escapeHtml, toClassName } from '../utils.ts'
@@ -49,6 +54,7 @@ interface SampleManagementState {
     site: string
     requestStatus: string
     transferCategory: string
+    locationType: string
     returnStatus: string
     ledgerType: string
     stocktakeStatus: string
@@ -60,6 +66,11 @@ interface SampleManagementState {
   selectedLedgerEventId: string | null
   selectedStocktakeDiffId: string | null
   createRequestOpen: boolean
+  flowOpen: boolean
+  flowSampleId: string
+  flowTarget: string
+  flowReason: string
+  conversionReason: string
   viewMode: SampleViewMode
 }
 
@@ -71,6 +82,7 @@ const state: SampleManagementState = {
     site: '全部',
     requestStatus: '全部',
     transferCategory: '全部',
+    locationType: '全部',
     returnStatus: '全部',
     ledgerType: '全部',
     stocktakeStatus: '全部',
@@ -82,6 +94,11 @@ const state: SampleManagementState = {
   selectedLedgerEventId: null,
   selectedStocktakeDiffId: null,
   createRequestOpen: false,
+  flowOpen: false,
+  flowSampleId: '',
+  flowTarget: '',
+  flowReason: '',
+  conversionReason: '',
   viewMode: 'card',
 }
 
@@ -287,6 +304,7 @@ function getFilteredSamples(): PcsSampleRecord[] {
   return listPcsSampleRecords().filter((sample) => {
     if (status !== '全部' && sample.status !== status) return false
     if (site !== '全部' && sample.responsibleSite !== site) return false
+    if (state.filters.locationType !== '全部' && PCS_SAMPLE_LOCATION_TYPE_LABELS[getPcsSampleLocationById(sample.currentLocationId || '')?.locationType!] !== state.filters.locationType) return false
     return matchesKeyword(
       [
         sample.sampleCode,
@@ -322,6 +340,7 @@ function renderSampleCell(sample: PcsSampleRecord): string {
 function renderSampleTable(samples: PcsSampleRecord[]): string {
   const columns: TableColumn<PcsSampleRecord>[] = [
     { key: 'sampleCode', title: '样衣编号/名称', minWidth: '260px', render: renderSampleCell },
+    { key: 'sampleType', title: '样品类型', width: '110px', render: sample => escapeHtml(PCS_SAMPLE_TYPE_LABELS[sample.sampleType]) },
     {
       key: 'projectCode',
       title: '关联来源 / 用途',
@@ -401,6 +420,7 @@ function renderInventoryFilters(): string {
         ${renderTextInput('search', state.filters.search, '搜索样衣编号/名称/关联来源/用途 / 原始环节/运单号')}
         ${renderSelect('status', state.filters.status, ['全部', '在库可用', '预占锁定', '借出占用', '在途待签收', '维修中', '待处置', '已退货'])}
         ${renderSelect('site', state.filters.site, ['全部', '深圳样衣间', '雅加达样衣间'])}
+        ${renderSelect('location-type', state.filters.locationType, ['全部', ...Object.values(PCS_SAMPLE_LOCATION_TYPE_LABELS)])}
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-sample-action="reset-filters">重置</button>
       </div>
     </section>
@@ -497,7 +517,7 @@ function renderMiniList(title: string, lines: string[], emptyText: string): stri
       <h3 class="text-sm font-semibold text-slate-900">${escapeHtml(title)}</h3>
       <div class="mt-3 space-y-2">
         ${lines.length > 0
-          ? lines.slice(0, 5).map((line) => `<div class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(line)}</div>`).join('')
+          ? lines.map((line) => `<div class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">${escapeHtml(line)}</div>`).join('')
           : `<div class="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-400">${escapeHtml(emptyText)}</div>`}
       </div>
     </section>
@@ -669,7 +689,7 @@ function renderTransferTable(records: PcsSampleTransferRecord[]): string {
     { key: 'sampleCode', title: '样衣', minWidth: '220px', render: (record) => `<button type="button" class="font-medium text-blue-700 hover:underline" data-pcs-sample-action="select-transfer" data-transfer-id="${escapeHtml(record.transferId)}">${escapeHtml(record.sampleCode)}</button><p class="mt-1 text-sm text-slate-500">${escapeHtml(record.sampleName)}</p>` },
     { key: 'transferCategory', title: '流转类型', width: '110px', render: (record) => renderBadge(record.transferCategory, 'outline') },
     { key: 'eventType', title: '事件类型', width: '100px', render: (record) => renderBadge(record.eventType, record.eventType === '签收' ? 'success' : 'info') },
-    { key: 'fromEntity', title: 'From → To', minWidth: '220px', render: (record) => `<span>${escapeHtml(record.fromEntity)}</span><span class="px-2 text-slate-400">→</span><span>${escapeHtml(record.toEntity)}</span>` },
+    { key: 'fromEntity', title: '起点 → 终点', minWidth: '220px', render: (record) => `<span>${escapeHtml(record.fromEntity)}</span><span class="px-2 text-slate-400">→</span><span>${escapeHtml(record.toEntity)}</span>` },
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
     { key: 'trackingNo', title: '运单', width: '150px', render: (record) => record.trackingNo ? `${escapeHtml(record.carrier)}<br><span class="text-xs text-slate-500">${escapeHtml(record.trackingNo)}</span>` : '<span class="text-slate-400">无</span>' },
     { key: 'projectCode', title: '关联来源', minWidth: '220px', render: (record) => escapeHtml(sampleSourceText(record)) },
@@ -703,6 +723,7 @@ function renderTransferDrawer(): string {
 export function renderPcsSampleTransferPage(): string {
   const records = listPcsSampleTransfers().filter((record) => {
     if (state.filters.transferCategory !== '全部' && record.transferCategory !== state.filters.transferCategory) return false
+    if (state.filters.locationType !== '全部' && ![record.fromLocationId, record.toLocationId].some(id => PCS_SAMPLE_LOCATION_TYPE_LABELS[getPcsSampleLocationById(id)?.locationType!] === state.filters.locationType)) return false
     return matchesKeyword([record.sampleCode, record.sampleName, record.projectCode, record.trackingNo, record.fromEntity, record.toEntity], state.filters.search)
   })
   const body = `
@@ -717,6 +738,7 @@ export function renderPcsSampleTransferPage(): string {
       <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px]">
         ${renderTextInput('search', state.filters.search, '搜索样衣/关联来源/运单/发出方/接收方')}
         ${renderSelect('transfer-category', state.filters.transferCategory, ['全部', '站点调拨', '借用流转', '归还入库', '退货流转', '维修流转'])}
+        ${renderSelect('location-type', state.filters.locationType, ['全部', ...Object.values(PCS_SAMPLE_LOCATION_TYPE_LABELS)])}
       </div>
     </section>
     <section class="rounded-xl border bg-white shadow-sm">${renderTransferTable(records)}</section>
@@ -865,7 +887,7 @@ export function renderPcsSampleLedgerPage(): string {
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
       <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto]">
         ${renderTextInput('search', state.filters.search, '搜索样衣/摘要/来源单据/关联来源/操作人')}
-        ${renderSelect('ledger-type', state.filters.ledgerType, ['全部', '入库', '出库', '在途', '签收', '借出', '归还', '预占', '释放', '退货', '处置', '盘点调整'])}
+        ${renderSelect('ledger-type', state.filters.ledgerType, ['全部', '入库', '出库', '在途', '签收', '借出', '归还', '预占', '释放', '退货', '处置', '盘点调整', '打标', '类型互转'])}
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger/stocktake">盘点差异追踪</button>
       </div>
     </section>
@@ -982,6 +1004,7 @@ export function renderPcsSampleViewPage(): string {
           ${renderTextInput('search', state.filters.search, '搜索样衣/关联来源/用途 / 原始环节/位置')}
           ${renderSelect('status', state.filters.status, ['全部', '在库可用', '预占锁定', '借出占用', '在途待签收', '维修中', '待处置', '已退货'])}
           ${renderSelect('site', state.filters.site, ['全部', '深圳样衣间', '雅加达样衣间'])}
+        ${renderSelect('location-type', state.filters.locationType, ['全部', ...Object.values(PCS_SAMPLE_LOCATION_TYPE_LABELS)])}
         </div>
         <div class="flex rounded-md border border-slate-200 bg-white p-1">
           <button type="button" class="${toClassName('inline-flex h-8 items-center gap-1 rounded px-3 text-sm', state.viewMode === 'card' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50')}" data-pcs-sample-action="set-view-mode" data-view-mode="card"><i data-lucide="layout-grid" class="h-4 w-4"></i>卡片</button>
@@ -1036,9 +1059,9 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
       <button type="button" class="inline-flex h-9 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/inventory">
         <i data-lucide="arrow-left" class="h-4 w-4"></i>返回样衣库存
       </button>
-      <div class="mt-4 grid gap-5 lg:grid-cols-[260px,1fr]">
+      <div class="mt-4 grid gap-5 lg:grid-cols-[260px_1fr]">
             <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
-              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full object-cover" />
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full object-contain" />
             </button>
         <div>
           <div class="flex flex-wrap gap-2">${renderStatusBadge(sample.status)}${renderAvailabilityBadge(sample.availability)}${sample.anomaly ? renderRiskBadge(sample.anomaly.type) : ''}</div>
@@ -1070,9 +1093,9 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
         '暂无类型互转记录',
       )}
       ${renderMiniList(
-        '流转位置主数据',
-        PCS_SAMPLE_LOCATIONS.map((loc) => `${PCS_SAMPLE_LOCATION_TYPE_LABELS[loc.locationType]} · ${loc.locationName}${loc.ownerName ? ` · ${loc.ownerName}` : ''}`),
-        '暂无位置主数据',
+        '流转记录',
+        listPcsSampleTransfers().filter(item => item.sampleId === sample.sampleId).map(item => `${item.time} · ${item.fromEntity} → ${item.toEntity} · ${item.operator} · ${item.remark}${item.riskFlags.includes('例外用途') ? ' · 例外用途' : ''}`),
+        '暂无流转记录',
       )}
     </section>
     <section class="rounded-lg border bg-white p-4 shadow-sm">
@@ -1083,11 +1106,12 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
             `<button type="button" class="inline-flex h-9 items-center rounded-md border px-4 text-sm ${type === sample.sampleType ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}" ${type === sample.sampleType ? 'disabled' : ''} data-pcs-sample-action="convert-type" data-sample-id="${escapeHtml(sample.sampleId)}" data-to-type="${type}">${escapeHtml(PCS_SAMPLE_TYPE_LABELS[type])}${type === sample.sampleType ? '（当前）' : ''}</button>`,
         ).join('')}
       </div>
+      <button type="button" class="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm text-white" data-pcs-sample-action="open-flow" data-sample-id="${escapeHtml(sample.sampleId)}">确认流转签收</button>
       <p class="mt-2 text-xs text-slate-500">营销样品与生产样品可任意互转；互转会记录操作人、时间与原因。打标码值须等于 SKU 编码。</p>
       <div class="mt-3 text-sm text-slate-700">打标状态：${sample.taggedAt ? `已贴码 ${escapeHtml(sample.skuCode)}（${escapeHtml(sample.taggedAt)}）` : '未贴码，不能完成入库后打标/测款⑤'} · 码值=SKU：${sample.sampleCode === sample.skuCode ? '一致' : '不一致'}</div>
     </section>
   `
-  return renderPageShell('inventory', '样衣详情', '查看单件样衣的库存快照、申请关联、流转和台账事件。', body)
+  return renderPageShell('inventory', '样衣详情', '查看样衣的库存快照、申请关联、流转和台账事件。', body + renderFlowDialog())
 }
 
 function resetFilters(): void {
@@ -1096,6 +1120,7 @@ function resetFilters(): void {
   state.filters.site = '全部'
   state.filters.requestStatus = '全部'
   state.filters.transferCategory = '全部'
+  state.filters.locationType = '全部'
   state.filters.returnStatus = '全部'
   state.filters.ledgerType = '全部'
   state.filters.stocktakeStatus = '全部'
@@ -1109,18 +1134,22 @@ function closeDrawers(): void {
   state.selectedLedgerEventId = null
   state.selectedStocktakeDiffId = null
   state.createRequestOpen = false
+  state.flowOpen = false
 }
 
 export function handlePcsSampleManagementInput(target: Element): boolean {
   const fieldNode = target.closest<HTMLElement>('[data-pcs-sample-field]')
   if (!fieldNode) return false
   const field = fieldNode.dataset.pcsSampleField || ''
-  const value = fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement ? fieldNode.value : ''
+  const value = fieldNode instanceof HTMLInputElement || fieldNode instanceof HTMLSelectElement || fieldNode instanceof HTMLTextAreaElement ? fieldNode.value : ''
 
   if (field === 'search') state.filters.search = value
   else if (field === 'status') state.filters.status = value || '全部'
   else if (field === 'site') state.filters.site = value || '全部'
   else if (field === 'request-status') state.filters.requestStatus = value || '全部'
+  else if (field === 'location-type') state.filters.locationType = value || '全部'
+  else if (field === 'flow-target') { state.flowTarget = value; return false }
+  else if (field === 'flow-reason') { state.flowReason = value; return false }
   else if (field === 'transfer-category') state.filters.transferCategory = value || '全部'
   else if (field === 'return-status') state.filters.returnStatus = value || '全部'
   else if (field === 'ledger-type') state.filters.ledgerType = value || '全部'
@@ -1130,11 +1159,23 @@ export function handlePcsSampleManagementInput(target: Element): boolean {
   return true
 }
 
-export function handlePcsSampleManagementEvent(target: HTMLElement): boolean {
+export async function handlePcsSampleManagementEvent(target: HTMLElement): Promise<boolean> {
   const actionNode = target.closest<HTMLElement>('[data-pcs-sample-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsSampleAction || ''
 
+  if (action === 'open-flow') { state.flowOpen = true; state.flowSampleId = actionNode.dataset.sampleId || ''; state.flowTarget = ''; state.flowReason = ''; return true }
+  if (action === 'close-flow') { state.flowOpen = false; return true }
+  if (action === 'save-flow') {
+    try {
+      await ensureLosLiveRoomState()
+      const guards = liveRoomTransferGuards(state.flowTarget)
+      const result = await runPcsRecordCommand(() => transferPcsSample(state.flowSampleId, state.flowTarget, '当前用户', state.flowReason), crypto.randomUUID(), [PCS_SAMPLE_STORAGE_KEY], guards)
+      if (!result.ok) { state.notice = result.message || '未保存'; return true }
+      state.flowOpen = false; state.notice = '流转签收已保存，当前位置与台账已更新。'
+    } catch (error) { state.notice = `未保存：${error instanceof Error ? error.message : '请重试'}` }
+    return true
+  }
   if (action === 'close-notice') {
     state.notice = null
     return true
@@ -1142,9 +1183,12 @@ export function handlePcsSampleManagementEvent(target: HTMLElement): boolean {
   if (action === 'convert-type') {
     const sampleId = actionNode.dataset.sampleId || ''
     const toType = (actionNode.dataset.toType || '') as PcsSampleType
-    const reason = window.prompt('请填写类型互转原因：', '业务调整')
+    const reason = window.prompt('请填写类型互转原因：', state.conversionReason || '业务调整')
     if (reason === null) return true
-    const result = convertPcsSampleType(sampleId, toType, '当前用户', reason)
+    state.conversionReason = reason
+    let result
+    try { result = await runPcsRecordCommand(() => convertPcsSampleType(sampleId, toType, '当前用户', reason), crypto.randomUUID(), [PCS_SAMPLE_STORAGE_KEY]) }
+    catch (error) { state.notice = `未保存：${error instanceof Error ? error.message : '请重试'}`; return true }
     state.notice = result.ok
       ? `已转为${PCS_SAMPLE_TYPE_LABELS[toType]}，并记录操作人与时间。`
       : result.message || '类型互转失败。'
@@ -1215,6 +1259,22 @@ export function isPcsSampleManagementDialogOpen(): boolean {
       state.selectedReturnCaseId ||
       state.selectedLedgerEventId ||
       state.selectedStocktakeDiffId ||
-      state.createRequestOpen,
+      state.createRequestOpen || state.flowOpen,
   )
+}
+
+function renderFlowDialog(): string {
+  if (!state.flowOpen) return ''
+  const sample = getPcsSampleById(state.flowSampleId)
+  if (!sample) return ''
+  return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-label="确认流转签收">
+    <section class="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
+      <h2 class="text-lg font-semibold">确认流转签收</h2>
+      ${state.notice?.includes('未保存') || state.notice?.includes('不存在') || state.notice?.includes('必须') ? `<p class="mt-2 text-sm text-rose-700" role="alert">${escapeHtml(state.notice)}</p>` : ''}
+      <p class="my-3 text-sm">${escapeHtml(sample.skuCode)} · ${escapeHtml(sample.currentLocation)} → 接收位置</p>
+      <label class="block text-sm">接收位置<select data-pcs-sample-field="flow-target" class="mt-2 w-full rounded border p-2"><option value="">请选择</option>${listPcsSampleLocations().filter(loc => loc.enabled !== false && loc.locationId !== sample.currentLocationId).map(loc => `<option value="${escapeHtml(loc.locationId)}" ${loc.locationId === state.flowTarget ? 'selected' : ''}>${escapeHtml(PCS_SAMPLE_LOCATION_TYPE_LABELS[loc.locationType])} · ${escapeHtml(loc.locationName)}${loc.ownerName ? ` · ${escapeHtml(loc.ownerName)}` : ''}</option>`).join('')}</select></label>
+      <label class="mt-3 block text-sm">流转原因<textarea data-pcs-sample-field="flow-reason" class="mt-2 w-full rounded border p-2" placeholder="说明用途；例外流转也必须填写原因">${escapeHtml(state.flowReason)}</textarea></label>
+      <p class="mt-2 text-xs text-slate-500">接收方已收到实物且SKU码核对一致后确认；不替代运输中签收。</p>
+      <div class="mt-4 flex justify-end gap-2"><button class="rounded border px-4 py-2" data-pcs-sample-action="close-flow">取消</button><button class="rounded bg-blue-600 px-4 py-2 text-white" data-pcs-sample-action="save-flow">确认签收并保存</button></div>
+    </section></div>`
 }

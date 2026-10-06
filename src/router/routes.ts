@@ -155,6 +155,7 @@ let pcsRoutesPromise: Promise<RouteRegistry> | null = null
 let pdaRoutesPromise: Promise<RouteRegistry> | null = null
 let pmsRoutesPromise: Promise<RouteRegistry> | null = null
 let wlsRoutesPromise: Promise<RouteRegistry> | null = null
+let losRoutesPromise: Promise<RouteRegistry> | null = null
 
 function getFcsRoutes(): Promise<RouteRegistry> {
   if (!fcsRoutesPromise) {
@@ -234,6 +235,11 @@ function getRoutesByPathname(normalizedPathname: string): Promise<RouteRegistry 
 
   if (normalizedPathname.startsWith('/fcs')) {
     return getFcsRoutes()
+  }
+
+  if (normalizedPathname.startsWith('/los/live-room')) {
+    if (!losRoutesPromise) losRoutesPromise = import('./routes-los').then(m => m.routes).catch(error => { losRoutesPromise = null; throw error })
+    return losRoutesPromise
   }
 
   if (normalizedPathname.startsWith('/pcs')) {

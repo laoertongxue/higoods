@@ -1,0 +1,369 @@
+{
+  "passed": true,
+  "rounds": 10,
+  "browser": "149.0.7827.55",
+  "base": "http://127.0.0.1:4207",
+  "errors": [],
+  "samples": [
+    {
+      "name": "product-expand",
+      "ms": 34.89999997615814
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.5
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.5
+    },
+    {
+      "name": "live-note",
+      "ms": 29
+    },
+    {
+      "name": "save-live",
+      "ms": 147.80000001192093
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 136.19999998807907
+    },
+    {
+      "name": "bulk-是",
+      "ms": 49.40000003576279
+    },
+    {
+      "name": "product-expand",
+      "ms": 35.69999998807907
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.799999952316284
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.59999996423721
+    },
+    {
+      "name": "live-note",
+      "ms": 29.5
+    },
+    {
+      "name": "save-live",
+      "ms": 131.5
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 137.39999997615814
+    },
+    {
+      "name": "bulk-是",
+      "ms": 49.60000002384186
+    },
+    {
+      "name": "product-expand",
+      "ms": 35.69999998807907
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.39999997615814
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "live-note",
+      "ms": 29.30000001192093
+    },
+    {
+      "name": "save-live",
+      "ms": 148.4000000357628
+    },
+    {
+      "name": "bulk-note",
+      "ms": 30
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 137.5
+    },
+    {
+      "name": "bulk-是",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "product-expand",
+      "ms": 35.39999997615814
+    },
+    {
+      "name": "product-image-open",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.09999996423721
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.40000003576279
+    },
+    {
+      "name": "live-note",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "save-live",
+      "ms": 132.89999997615814
+    },
+    {
+      "name": "bulk-note",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 140.29999995231628
+    },
+    {
+      "name": "bulk-是",
+      "ms": 49.5
+    },
+    {
+      "name": "product-expand",
+      "ms": 34.700000047683716
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.5
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "live-note",
+      "ms": 29.5
+    },
+    {
+      "name": "save-live",
+      "ms": 146.10000002384186
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 137.80000001192093
+    },
+    {
+      "name": "bulk-是",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "product-expand",
+      "ms": 36.200000047683716
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.09999996423721
+    },
+    {
+      "name": "live-note",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "save-live",
+      "ms": 146.0999999642372
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 139.80000001192093
+    },
+    {
+      "name": "bulk-否",
+      "ms": 49.59999996423721
+    },
+    {
+      "name": "product-expand",
+      "ms": 35.5
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.60000002384186
+    },
+    {
+      "name": "product-collapse",
+      "ms": 31.69999998807907
+    },
+    {
+      "name": "live-note",
+      "ms": 29.5
+    },
+    {
+      "name": "save-live",
+      "ms": 148.0999999642372
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 138.5
+    },
+    {
+      "name": "bulk-否",
+      "ms": 49.69999998807907
+    },
+    {
+      "name": "product-expand",
+      "ms": 36.80000001192093
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.799999952316284
+    },
+    {
+      "name": "product-image-close",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "product-collapse",
+      "ms": 25.30000001192093
+    },
+    {
+      "name": "live-note",
+      "ms": 29.80000001192093
+    },
+    {
+      "name": "save-live",
+      "ms": 148.39999997615814
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.69999998807907
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 137
+    },
+    {
+      "name": "bulk-否",
+      "ms": 49.60000002384186
+    },
+    {
+      "name": "product-expand",
+      "ms": 40.60000002384186
+    },
+    {
+      "name": "product-image-open",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.5
+    },
+    {
+      "name": "product-collapse",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "live-note",
+      "ms": 29.5
+    },
+    {
+      "name": "save-live",
+      "ms": 146.19999998807907
+    },
+    {
+      "name": "bulk-note",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 137.89999997615814
+    },
+    {
+      "name": "bulk-否",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "product-expand",
+      "ms": 35.700000047683716
+    },
+    {
+      "name": "product-image-open",
+      "ms": 33
+    },
+    {
+      "name": "product-image-close",
+      "ms": 32.59999996423721
+    },
+    {
+      "name": "product-collapse",
+      "ms": 46.40000003576279
+    },
+    {
+      "name": "live-note",
+      "ms": 37.90000003576279
+    },
+    {
+      "name": "save-live",
+      "ms": 132.19999998807907
+    },
+    {
+      "name": "bulk-note",
+      "ms": 31.5
+    },
+    {
+      "name": "bulk-pending",
+      "ms": 132.80000001192093
+    },
+    {
+      "name": "bulk-否",
+      "ms": 49.5
+    }
+  ]
+}

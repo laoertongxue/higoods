@@ -70,7 +70,7 @@ export function seedStyleProductInformation(style: StyleArchiveShellRecord, buye
   bind('ages', /商务|formal|batik/.test(name) ? '25~45' : '18~30')
   bind('crowdPositioning', dress || /长袖|batik/.test(name) ? '穆斯林友好' : '非穆斯林')
   bind('productPositioning', /设计|印花|batik|蕾丝/.test(name) ? '设计款' : '基础款')
-  const codeKeyword = dress ? '连衣裙' : skirt ? '裙' : pants ? '裤' : outer ? '外套' : knit ? '毛织上衣' : shirt ? /batik|印花/.test(name) ? '印花衬衫' : '休闲衬衫' : '短袖上衣'
+  const codeKeyword = dress ? '连衣裙' : skirt ? '裙' : pants ? '裤' : outer ? '外套' : knit ? '针织上衣' : shirt ? /batik|印花/.test(name) ? '印花衬衫' : '休闲衬衫' : '短袖上衣'
   const code = (context.options.categoryNumbers || []).find((item) => item.name_zh.includes(codeKeyword))
   if (code) refs.categoryNumbers = [code.id]
   return resolveStyleProductInformation({ ...style, productConfigRefs: refs, productCategoryId: leaf,

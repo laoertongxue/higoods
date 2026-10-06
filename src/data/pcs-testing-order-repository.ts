@@ -1,3 +1,4 @@
+import { receiveTestingOrderSamples, labelTestingOrderSample, areTestingOrderSamplesTagged, isTestingOrderSampleTagged } from './pcs-sample-management.ts'
 import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { createStyleArchiveDirect, getStyleArchiveById, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { applyArchiveWriteback } from './pcs-archive-writeback-contract.ts'
@@ -238,7 +239,7 @@ export function createTestingOrder(input: {
   if (!availableSkus.length) return { ok: false, message: '商品档案尚无 SKU，请先维护规格档案。' }
   seq += 1
   const orderCode = `TO-${String(seq).padStart(4, '0')}`
-  const skuCodes = input.skuCodes || listSkuArchives().filter((item) => item.styleId === style.styleId).map((item) => item.skuCode)
+  const skuCodes = [...new Set(input.skuCodes || listSkuArchives().filter((item) => item.styleId === style.styleId).map((item) => item.skuCode))]
   const record: TestingOrderRecord = {
     testingOrderId: `to_${Date.now().toString(36)}_${seq}`,
     orderCode,
@@ -275,7 +276,7 @@ export function createTestingOrder(input: {
     createdAt: now(),
     updatedAt: now(),
   }
-  store.set(record.testingOrderId, record)
+  store.set(record.testingOrderId, structuredClone(record))
   persistStore()
   applyArchiveWriteback({
     styleId: style.styleId,
@@ -283,7 +284,7 @@ export function createTestingOrder(input: {
     source: '测款单-建档',
     actor: '系统',
   })
-  return { ok: true, order: record }
+  return { ok: true, order: structuredClone(record) }
 }
 
 export function getTestingOrderBuyerName(order: Pick<TestingOrderRecord, 'styleId'>): string {
@@ -293,7 +294,7 @@ export function getTestingOrderBuyerName(order: Pick<TestingOrderRecord, 'styleI
 export function listTestingOrders(): TestingOrderRecord[] {
   ensureTestingOrders()
   const buyers = new Map(listStyleArchives().map((style) => [style.styleId, style.buyerName]))
-  return [...store.values()].map((order) => ({ ...order, buyerName: buyers.get(order.styleId) || '商品未绑定买手' })).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  return [...store.values()].map((order) => ({ ...structuredClone(order), buyerName: buyers.get(order.styleId) || '商品未绑定买手' })).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }
 
 /** 生产准备只接受已结束且最终大货判断通过的测款事实。 */
@@ -304,7 +305,8 @@ export function hasPassedTestingOrder(styleId: string): boolean {
 
 export function getTestingOrderById(testingOrderId: string): TestingOrderRecord | null {
   ensureTestingOrders()
-  return store.get(testingOrderId) || null
+  const record = store.get(testingOrderId)
+  return record ? structuredClone(record) : null
 }
 
 export function getTestingOrderByCode(orderCode: string): TestingOrderRecord | null {
@@ -320,10 +322,11 @@ export function updateTestingOrder(
   ensureTestingOrders()
   const record = store.get(testingOrderId)
   if (!record) return null
-  Object.assign(record, patch, { updatedAt: now() })
+  if (['currentStepKey', 'sampleInboundAt', 'labeledAt', 'labeledSkuCode', 'skuCodes', 'testingOrderId', 'styleId', 'status', 'history', 'bulkDecision', 'bulkDecisionNote', 'endedAt', 'endReason'].some(key => key in patch)) throw new Error('流程与入库贴码事实只能通过对应业务动作修改。')
+  Object.assign(record, structuredClone(patch), { updatedAt: now() })
   record.history.unshift({ time: now(), action: actionLabel, actor })
   persistStore()
-  return record
+  return structuredClone(record)
 }
 
 export function advanceTestingOrder(
@@ -337,6 +340,7 @@ export function advanceTestingOrder(
   if (record.status === '已结束') return { ok: false, message: '测款单已结束，不能继续推进。' }
   const order = TESTING_ORDER_STEPS.findIndex((step) => step.key === nextStep)
   const current = TESTING_ORDER_STEPS.findIndex((step) => step.key === record.currentStepKey)
+  if (order < 0) return { ok: false, message: '测款步骤不存在。' }
   if (order < current) return { ok: false, message: '不能回退到已完成步骤。' }
 
   const labelIndex = TESTING_ORDER_STEPS.findIndex((step) => step.key === 'label')
@@ -345,6 +349,7 @@ export function advanceTestingOrder(
       return { ok: false, message: '样衣尚未入库：请先完成④样衣入库。' }
     }
   }
+  if (order > labelIndex && !areTestingOrderSamplesTagged(record)) return { ok: false, message: '本单样衣尚未全部正确贴码，不能跳过⑤打标。' }
   if (nextStep === 'sample-inbound' && !record.logisticsTrackingNo && !record.logisticsCarrier) {
     return { ok: false, message: '请先填写快递信息再确认样衣入库。' }
   }
@@ -362,7 +367,7 @@ export function advanceTestingOrder(
       actor,
     })
   }
-  return { ok: true, record }
+  return { ok: true, record: structuredClone(record) }
 }
 
 export function setBulkDecision(
@@ -375,6 +380,7 @@ export function setBulkDecision(
   const record = store.get(testingOrderId)
   if (!record) return { ok: false, message: '测款单不存在。' }
   if (record.status === '已结束') return { ok: false, message: '测款单已结束。' }
+  if (record.currentStepKey !== 'bulk-decision' || !record.sampleInboundAt || !areTestingOrderSamplesTagged(record)) return { ok: false, message: '请先完成样衣入库、全部 SKU 贴码及测款步骤，再进行大货判断。' }
   if (decision === '待定') {
     record.bulkDecision = '待定'
     record.bulkDecisionNote = note
@@ -382,7 +388,7 @@ export function setBulkDecision(
     record.history.unshift({ time: now(), action: '大货判断：待定，保持进行中', actor, note })
     record.updatedAt = now()
     persistStore()
-    return { ok: true, record }
+    return { ok: true, record: structuredClone(record) }
   }
   record.bulkDecision = decision
   record.bulkDecisionNote = note
@@ -400,7 +406,7 @@ export function setBulkDecision(
       source: '测款单-大货判断',
       actor,
     })
-  return { ok: true, record }
+  return { ok: true, record: structuredClone(record) }
 }
 
 export function completeLabelStep(
@@ -420,16 +426,18 @@ export function completeLabelStep(
   }
   const current = TESTING_ORDER_STEPS.findIndex((step) => step.key === record.currentStepKey)
   const labelIndex = TESTING_ORDER_STEPS.findIndex((step) => step.key === 'label')
-  if (current > labelIndex) {
+  if (current !== labelIndex) {
     return { ok: false, message: '当前已超过⑤打标步骤。' }
   }
+  if (isTestingOrderSampleTagged(record, skuCode)) return { ok: true, record: structuredClone(record) }
+  const allTagged = labelTestingOrderSample(record, skuCode, actor)
   record.labeledSkuCode = skuCode
   record.labeledAt = now()
   record.history.unshift({ time: now(), action: `完成打标，码值 ${skuCode}`, actor })
-  record.currentStepKey = 'buyer-confirm'
+  if (allTagged) record.currentStepKey = 'buyer-confirm'
   record.updatedAt = now()
   persistStore()
-  return { ok: true, record }
+  return { ok: true, record: structuredClone(record) }
 }
 
 export function completeSampleInbound(
@@ -455,8 +463,9 @@ export function completeSampleInbound(
   record.currentStepKey = 'label'
   record.updatedAt = now()
   record.history.unshift({ time: now(), action: '完成 ④样衣入库', actor, note })
+  receiveTestingOrderSamples(record, actor)
   persistStore()
-  return { ok: true, record }
+  return { ok: true, record: structuredClone(record) }
 }
 
 export function rejectBuyerConfirm(
@@ -481,7 +490,7 @@ export function rejectBuyerConfirm(
     source: '测款单-买手淘汰',
     actor,
   })
-  return { ok: true, record }
+  return { ok: true, record: structuredClone(record) }
 }
 
 export function rejectPricing(
@@ -504,7 +513,7 @@ export function rejectPricing(
     source: '测款单-核价淘汰',
     actor,
   })
-  return { ok: true, record }
+  return { ok: true, record: structuredClone(record) }
 }
 
 /** 测款只保存上架来源；内容、规格、发布与回执以统一渠道目录为准。 */
@@ -633,8 +642,8 @@ function seed(
   if (record.history.length === 0) {
     record.history = [{ time: record.createdAt, action: '创建测款单', actor: '系统' }]
   }
-  store.set(record.testingOrderId, record)
-  return record
+  store.set(record.testingOrderId, structuredClone(record))
+  return structuredClone(record)
 }
 
 export function bootstrapTestingOrders(): void {

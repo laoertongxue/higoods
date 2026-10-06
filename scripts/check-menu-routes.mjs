@@ -9,7 +9,9 @@ const repoRoot = process.cwd()
 const appShellConfigPath = path.join(repoRoot, 'src/data/app-shell-config.ts')
 const routeModulePaths = [
   path.join(repoRoot, 'src/router/routes-fcs.ts'),
+  path.join(repoRoot, 'src/router/routes-tmf-webbing.ts'),
   path.join(repoRoot, 'src/router/routes-pcs.ts'),
+  path.join(repoRoot, 'src/router/routes-los.ts'),
   path.join(repoRoot, 'src/router/routes-pda.ts'),
   path.join(repoRoot, 'src/router/routes-pms.ts'),
 ]

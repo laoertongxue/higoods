@@ -5,7 +5,7 @@ import {
   PCS_SAMPLE_TYPE_LABELS,
   PCS_SAMPLE_LOCATION_TYPES,
   PCS_SAMPLE_LOCATION_TYPE_LABELS,
-  PCS_SAMPLE_LOCATIONS,
+  listPcsSampleLocations,
 } from '../src/data/pcs-sample-location-master.ts'
 import {
   PCS_SAMPLE_RECORDS,
@@ -53,10 +53,10 @@ assert.equal(PCS_SAMPLE_LOCATION_TYPE_LABELS.factory, '工厂', '工厂（SAMP-0
 assert.equal(PCS_SAMPLE_LOCATION_TYPE_LABELS.department, '部门', '部门（SAMP-004）')
 assert.equal(PCS_SAMPLE_LOCATION_TYPE_LABELS.warehouse, '仓库', '仓库（SAMP-004）')
 
-const homeStudios = PCS_SAMPLE_LOCATIONS.filter((item) => item.locationType === 'home-studio')
+const homeStudios = listPcsSampleLocations().filter((item) => item.locationType === 'home-studio')
 assert.ok(homeStudios.length > 0 && homeStudios.every((item) => item.ownerName), '家播独立类型且语义为主播/达人（SAMP-005）')
 assert.ok(
-  !PCS_SAMPLE_LOCATIONS.some((item) => item.locationType.includes('photo') || item.locationName.includes('摄影')),
+  !listPcsSampleLocations().some((item) => item.locationType.includes('photo') || item.locationName.includes('摄影')),
   '不存在摄影位位置类型（SAMP-006）',
 )
 
@@ -69,7 +69,7 @@ assert.equal(canCompletePcsSampleTagging(withTag!), true, '已贴码且码值一
 const untagged: typeof withTag = { ...withTag!, taggedAt: null, sampleCode: 'OTHER', skuCode: 'SKU-X' }
 assert.equal(canCompletePcsSampleTagging(untagged), false, '未贴码/码值不一致阻断（SAMP-009）')
 
-const source = JSON.stringify(PCS_SAMPLE_RECORDS) + JSON.stringify(PCS_SAMPLE_LOCATIONS)
+const source = JSON.stringify(PCS_SAMPLE_RECORDS) + JSON.stringify(listPcsSampleLocations())
 assert.ok(!source.includes('摄影棚'), '无摄影棚文案残留（SAMP-006）')
 
 console.log('pcs-sample-management.spec.ts PASS')

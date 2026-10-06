@@ -17,25 +17,21 @@ test('生产准备必须读取测款最终通过事实，保存时重新校验�
     creationReason: '资格校验测试',
   }
   try {
+    // Invalid facts may not be forged through the general editing entry point.
     for (const patch of [
-      { status: '进行中' as const, bulkDecision: '' as const, buyerDecision: '通过' as const },
-      { status: '进行中' as const, bulkDecision: '待定' as const },
+      { status: '进行中' as const, bulkDecision: '' as const },
+      { bulkDecision: '待定' as const },
       { status: '已结束' as const, bulkDecision: '否' as const },
-      { status: '进行中' as const, bulkDecision: '是' as const },
-    ]) {
-      updateTestingOrder(order.testingOrderId, patch)
-      assert.equal(hasPassedTestingOrder(order.styleId), false)
-      assert.throws(() => createEngineeringMasterOrder(input), /尚未测款通过/)
-      assert.equal(listEngineeringMasterOrders().length, 0)
-    }
+      { bulkDecision: '是' as const },
+    ]) assert.throws(() => updateTestingOrder(order.testingOrderId, patch), /对应业务动作/)
     assert.equal(hasPassedTestingOrder('no-testing-style'), false)
-    updateTestingOrder(order.testingOrderId, original)
+    const rejected = getTestingOrderById('to_seed_buyer_kill')!
+    assert.throws(() => createEngineeringMasterOrder({ ...input, styleId: rejected.styleId, styleCode: rejected.styleCode, qualificationFact: { ...input.qualificationFact, styleCode: rejected.styleCode }, bulkProductionQualification: { ...input.bulkProductionQualification, triggerBusinessObjectId: rejected.testingOrderId } }), /尚未测款通过/)
+    assert.equal(listEngineeringMasterOrders().length, 0)
     assert.equal(hasPassedTestingOrder(order.styleId), true)
+    assert.deepEqual(getTestingOrderById(order.testingOrderId), original)
     const created = createEngineeringMasterOrder(input)
     assert.equal(created.styleId, order.styleId)
     assert.equal(created.status, '草稿')
-  } finally {
-    updateTestingOrder(order.testingOrderId, original)
-    resetEngineeringMasterRepository()
-  }
+  } finally { resetEngineeringMasterRepository() }
 })

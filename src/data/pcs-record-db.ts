@@ -6,6 +6,7 @@ export interface PcsMigrationReceipt {
   recordIds: string[]; completedAt: string
 }
 export interface PcsCommitInput {
+  guards?: Array<{ id: string; expectedVersion: number }>
   puts: Array<Omit<PcsStoredRecord, 'version'> & { expectedVersion: number }>
   deletes: Array<{ id: string; expectedVersion: number }>
   files?: PcsStoredFile[]
@@ -173,6 +174,10 @@ export async function readPcsFiles(ids: readonly string[]): Promise<PcsStoredFil
 function validateCommit(input: PcsCommitInput): Set<string> {
   if (!nonempty(input.operationId) || !nonempty(input.intent)) throw new Error('PCS 保存缺少操作编号或操作说明。')
   const ids = new Set<string>()
+  for (const guard of input.guards ?? []) {
+    if (!nonempty(guard.id)) throw new Error('关联资料校验编号无效。')
+    checkVersion(guard.expectedVersion); ids.add(guard.id)
+  }
   for (const record of [...input.puts, ...input.deletes]) {
     if (!nonempty(record.id) || ids.has(record.id)) throw new Error('PCS 保存记录编号无效或重复。')
     ids.add(record.id); checkVersion(record.expectedVersion)
@@ -223,7 +228,7 @@ export async function commitPcsNewRecordGroups(inputs: PcsCommitInput[]): Promis
   const prepared = await Promise.all(inputs.map(async input => {
     try {
       validateCommit(input)
-      if (!input.puts.length || input.puts.some(row => row.expectedVersion !== 0) || input.deletes.length || input.files?.length || input.deleteFileIds?.length || input.migrationReceipts?.length) throw new Error('此导入操作只支持全新记录及已保存的文件引用。')
+      if (input.guards?.length || !input.puts.length || input.puts.some(row => row.expectedVersion !== 0) || input.deletes.length || input.files?.length || input.deleteFileIds?.length || input.migrationReceipts?.length) throw new Error('此导入操作只支持全新记录及已保存的文件引用。')
       return { input, intentHash: await hashIntent(input.intent), references: [...new Set(input.puts.flatMap(row => [...pcsFileReferences(row.value)]))] }
     } catch (error) { return { error: failure(error).message } }
   }))
@@ -315,6 +320,9 @@ export async function commitPcsRecords(input: PcsCommitInput): Promise<void> {
     // Versions only depend on the records in this command. A full record scan
     // is needed solely when deleting files, to protect every live/history ref.
     const final = new Map(records.map(record => [record.id, record]))
+    for (const guard of input.guards ?? []) {
+      if ((final.get(guard.id)?.version ?? 0) !== guard.expectedVersion || final.get(guard.id)?.deleted) throw new Error('关联房间或地点已被其他页面修改，本次未保存。请重新读取后再操作。')
+    }
     const knownFiles = new Set(fileKeys.map(String))
     for (const file of input.files ?? []) {
       if (knownFiles.has(file.id)) throw new Error('PCS 附件编号已存在，请复用引用或使用新编号，不能覆盖原文件。')

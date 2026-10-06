@@ -1,8 +1,10 @@
+import { listSkuArchives } from './pcs-sku-archive-repository.ts'
+import { pcsRecordStore } from './pcs-record-runtime.ts'
 import type { PcsProjectInlineNodeRecord } from './pcs-project-inline-node-record-types.ts'
 import { listTestingOrders, type TestingOrderRecord } from './pcs-testing-order-repository.ts'
 import type { PcsSampleLocationId, PcsSampleLocationType, PcsSampleType, PcsSampleTypeConversionLog } from './pcs-sample-location-master.ts'
 import {
-  PCS_SAMPLE_LOCATIONS,
+  listPcsSampleLocations,
   PCS_SAMPLE_TYPE_LABELS,
   getPcsSampleLocationById,
 } from './pcs-sample-location-master.ts'
@@ -157,6 +159,8 @@ export interface PcsSampleTransferRecord {
   sampleName: string
   transferCategory: PcsSampleTransferCategory
   eventType: PcsSampleTransferEventType
+  fromLocationId: PcsSampleLocationId
+  toLocationId: PcsSampleLocationId
   fromEntity: string
   toEntity: string
   responsibleSite: '深圳样衣间' | '雅加达样衣间'
@@ -210,6 +214,8 @@ export type PcsSampleLedgerEventType =
   | '退货'
   | '处置'
   | '盘点调整'
+  | '打标'
+  | '类型互转'
 
 export interface PcsSampleLedgerEvent {
   eventId: string
@@ -355,6 +361,7 @@ export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
   },
   {
     sampleId: 'smp-004',
+    currentLocationId: 'loc-wh-01',
     sampleCode: 'SKU-SHIRT-BLU-L',
     name: '办公室衬衫样衣-L',
     imageUrl: '/shirt-sample.jpg',
@@ -481,42 +488,113 @@ export const PCS_SAMPLE_TYPE_CONVERSION_LOGS: PcsSampleTypeConversionLog[] = [
   {
     conversionId: 'cv-002',
     sampleId: 'smp-003',
-    fromType: 'production',
+    fromType: 'marketing',
     toType: 'production',
     actor: '王芳',
-    reason: '保持生产样品，仅更新贴码备注。',
+    reason: '营销使用结束，转作生产跟版样品。',
     convertedAt: '2026-04-07 14:10',
   },
 ]
 
-export function convertPcsSampleType(
-  sampleId: string,
-  toType: PcsSampleType,
-  actor: string,
-  reason: string,
-): { ok: boolean; record?: PcsSampleRecord; message?: string } {
-  const record = PCS_SAMPLE_RECORDS.find((item) => item.sampleId === sampleId)
-  if (!record) return { ok: false, message: '未找到样衣记录。' }
-  if (!reason.trim()) return { ok: false, message: '类型互转必须填写原因。' }
-  const fromType = record.sampleType
-  if (fromType === toType) return { ok: false, message: '目标类型与当前类型相同，无需互转。' }
-  record.sampleType = toType
-  record.updatedAt = new Date().toISOString().slice(0, 16).replace('T', ' ')
-  record.updatedBy = actor
-  PCS_SAMPLE_TYPE_CONVERSION_LOGS.unshift({
-    conversionId: `cv-${Date.now().toString(36)}`,
-    sampleId,
-    fromType,
-    toType,
-    actor,
-    reason,
-    convertedAt: record.updatedAt,
-  })
+export const PCS_SAMPLE_STORAGE_KEY = 'higood-pcs-sample-management-v1'
+interface SampleChanges {
+  records: PcsSampleRecord[]
+  conversionLogs: PcsSampleTypeConversionLog[]
+  transfers: PcsSampleTransferRecord[]
+  ledgerEvents: PcsSampleLedgerEvent[]
+}
+function readSampleChanges(): SampleChanges {
+  const raw = pcsRecordStore.getItem(PCS_SAMPLE_STORAGE_KEY)
+  const data = raw && raw !== '[]' ? JSON.parse(raw) : { records: [], conversionLogs: [], transfers: [], ledgerEvents: [] }
+  if (!data || !['records', 'conversionLogs', 'transfers', 'ledgerEvents'].every(key => Array.isArray(data[key]))) throw new Error('样衣资料格式异常，原资料已保留，请重新读取。')
+  return data
+}
+function saveSampleChanges(data: SampleChanges): void { pcsRecordStore.setItem(PCS_SAMPLE_STORAGE_KEY, JSON.stringify(data)) }
+function saveChangedSample(data: SampleChanges, sample: PcsSampleRecord): void {
+  data.records = [sample, ...data.records.filter(row => row.sampleId !== sample.sampleId)]
+}
+function sampleTime(): string { return new Date().toISOString().slice(0, 19).replace('T', ' ') }
+function ledgerFor(sample: PcsSampleRecord, eventType: PcsSampleLedgerEventType, actor: string, remark: string, from: string, to: string): PcsSampleLedgerEvent {
+  return { eventId: crypto.randomUUID(), time: sample.updatedAt, site: sample.responsibleSite, sampleId: sample.sampleId,
+    sampleCode: sample.skuCode, sampleName: sample.name, eventType, summary: remark,
+    fromLocation: from, toLocation: to, holder: actor, sourceDoc: sample.source?.code || sample.projectCode,
+    projectCode: sample.projectCode, sourceStepName: sample.sourceStepName, operator: actor, isVoided: false, remark }
+}
+export function convertPcsSampleType(sampleId: string, toType: PcsSampleType, actor: string, reason: string): { ok: boolean; record?: PcsSampleRecord; message?: string } {
+  const original = getPcsSampleById(sampleId)
+  if (!original) return { ok: false, message: '未找到样衣记录。' }
+  if (!['marketing', 'production'].includes(toType)) return { ok: false, message: '样品类型不正确。' }
+  if (!reason.trim() || !actor.trim()) return { ok: false, message: '类型互转必须填写操作人与原因。' }
+  if (original.sampleType === toType) return { ok: false, message: '目标类型与当前类型相同，无需互转。' }
+  const record = { ...original, sampleType: toType, updatedAt: sampleTime(), updatedBy: actor.trim() }
+  const data = readSampleChanges()
+  saveChangedSample(data, record)
+  data.conversionLogs.unshift({ conversionId: crypto.randomUUID(), sampleId: record.sampleId, fromType: original.sampleType, toType,
+    actor: actor.trim(), reason: reason.trim(), convertedAt: record.updatedAt })
+  data.ledgerEvents.unshift(ledgerFor(record, '类型互转', actor, `类型互转：${PCS_SAMPLE_TYPE_LABELS[original.sampleType]}→${PCS_SAMPLE_TYPE_LABELS[toType]}；${reason.trim()}`, record.currentLocation, record.currentLocation))
+  saveSampleChanges(data)
   return { ok: true, record }
 }
-
 export function listPcsSampleTypeConversionLogs(sampleId?: string): PcsSampleTypeConversionLog[] {
-  return sampleId ? PCS_SAMPLE_TYPE_CONVERSION_LOGS.filter((item) => item.sampleId === sampleId) : [...PCS_SAMPLE_TYPE_CONVERSION_LOGS]
+  const rows = [...readSampleChanges().conversionLogs, ...PCS_SAMPLE_TYPE_CONVERSION_LOGS]
+  return sampleId ? rows.filter(row => row.sampleId === sampleId) : rows
+}
+/** A movement is confirmed only after the recipient has received the labelled sample. */
+export function transferPcsSample(sampleId: string, toLocationId: string, actor: string, reason: string): { ok: boolean; record?: PcsSampleRecord; message?: string } {
+  const original = getPcsSampleById(sampleId)
+  const to = getPcsSampleLocationById(toLocationId), from = getPcsSampleLocationById(original?.currentLocationId || '')
+  if (!original || !from || !to) return { ok: false, message: '样衣或起止位置不存在，请重新选择位置。' }
+  if (to.enabled === false) return { ok: false, message: '接收房间或所属地点已停用，请选择启用的位置。' }
+  if (!canCompletePcsSampleTagging(original)) return { ok: false, message: '样衣尚未正确贴码，不能流转。' }
+  if (from.locationId === to.locationId) return { ok: false, message: '起点与终点相同，无需流转。' }
+  if (!actor.trim() || !reason.trim()) return { ok: false, message: '流转必须填写操作人与原因；例外用途也须说明。' }
+  if (['已退货', '已处置', '在途待签收'].includes(original.status)) return { ok: false, message: '当前样衣已结束或在途，不能重复确认流转。' }
+  const record = { ...original, currentLocationId: to.locationId, currentLocation: to.locationName,
+    locationDetail: reason.trim(), updatedAt: sampleTime(), updatedBy: actor.trim(), transit: null }
+  const data = readSampleChanges()
+  saveChangedSample(data, record)
+  const expected = record.sampleType === 'marketing' ? ['live-room', 'home-studio', 'warehouse'] : ['factory', 'department', 'warehouse']
+  const exceptional = !expected.includes(to.locationType)
+  data.transfers.unshift({ transferId: crypto.randomUUID(), time: record.updatedAt, sampleId: record.sampleId, sampleCode: record.skuCode,
+    sampleName: record.name, transferCategory: '站点调拨', eventType: '签收', fromLocationId: from.locationId, toLocationId: to.locationId,
+    fromEntity: from.locationName, toEntity: to.locationName, responsibleSite: record.responsibleSite, trackingNo: '', carrier: '',
+    projectCode: record.projectCode, operator: actor.trim(), riskFlags: exceptional ? ['例外用途'] : [], remark: reason.trim() })
+  data.ledgerEvents.unshift(ledgerFor(record, '签收', actor, `${exceptional ? '例外流转：' : '流转签收：'}${reason.trim()}`, from.locationName, to.locationName))
+  saveSampleChanges(data)
+  return { ok: true, record }
+}
+function testingSample(order: TestingOrderRecord, sku: string, actor: string): PcsSampleRecord {
+  const spec = listSkuArchives().find(row => row.styleId === order.styleId && row.skuCode === sku)
+  return { sampleId: `testing-${order.testingOrderId}-${sku}`, sampleCode: sku, skuCode: sku, name: order.styleName, imageUrl: spec?.skuImageUrl || order.styleImageUrl,
+      category: '测款样衣', size: spec?.sizeName || '-', color: spec?.colorName || '-', material: '-', templateType: '测款到样', projectId: '', projectCode: order.orderCode,
+      projectName: order.styleName, sourceStepName: '④样衣入库', source: { kind: 'testing-order', code: order.orderCode, name: order.styleName,
+        href: `/pcs/testing/orders/${encodeURIComponent(order.testingOrderId)}`, note: '测款单入库实物' },
+      status: '在库可用', availability: order.labeledAt && (order.testingOrderId.startsWith('to_seed_') || order.labeledSkuCode === sku) ? '可申请' : '不可申请', sampleType: 'marketing', taggedAt: order.labeledAt && (order.testingOrderId.startsWith('to_seed_') || order.labeledSkuCode === sku) ? order.labeledAt : null, responsibleSite: '深圳样衣间',
+      currentLocationId: 'loc-wh-01', currentLocation: getPcsSampleLocationById('loc-wh-01')!.locationName, locationDetail: order.sampleInboundNote,
+      occupancyType: '无', occupiedBy: '', occupiedFor: '', occupiedUntil: '', transit: null, anomaly: null,
+      updatedAt: order.labeledAt || order.sampleInboundAt, updatedBy: actor }
+}
+export function receiveTestingOrderSamples(order: TestingOrderRecord, actor: string): void {
+  const data = readSampleChanges()
+  for (const sku of order.skuCodes) {
+    const record = testingSample(order, sku, actor)
+    if (data.records.some(row => row.sampleId === record.sampleId)) continue
+    saveChangedSample(data, record)
+    data.ledgerEvents.unshift(ledgerFor(record, '入库', actor, '测款④入库；待贴SKU码', '-', record.currentLocation))
+  }
+  saveSampleChanges(data)
+}
+export function labelTestingOrderSample(order: TestingOrderRecord, sku: string, actor: string): boolean {
+  const data = readSampleChanges()
+  let record = data.records.find(row => row.sampleId === `testing-${order.testingOrderId}-${sku}`)
+  if (!record && order.sampleInboundAt && order.skuCodes.includes(sku)) { record = testingSample(order, sku, actor); saveChangedSample(data, record) }
+  if (!record || !order.sampleInboundAt || record.skuCode !== sku) throw new Error('未找到本单入库样衣，不能完成贴码。')
+  if (!record.taggedAt) {
+    record.taggedAt = sampleTime(); record.updatedAt = record.taggedAt; record.updatedBy = actor; record.availability = '可申请'
+    data.ledgerEvents.unshift(ledgerFor(record, '打标', actor, `⑤已贴码；码值=${sku}`, record.currentLocation, record.currentLocation))
+    saveSampleChanges(data)
+  }
+  return order.skuCodes.every(code => { const sample = data.records.find(row => row.sampleId === `testing-${order.testingOrderId}-${code}`) || (order.sampleInboundAt ? testingSample(order, code, actor) : null); return !!sample && canCompletePcsSampleTagging(sample) })
 }
 
 export function buildPcsSampleTagCode(skuCode: string): string {
@@ -626,6 +704,8 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     sampleName: '办公室衬衫样衣-L',
     transferCategory: '站点调拨',
     eventType: '在途',
+    fromLocationId: 'loc-wh-01',
+    toLocationId: 'loc-live-02',
     fromEntity: '深圳仓',
     toEntity: '雅加达直播间',
     responsibleSite: '雅加达样衣间',
@@ -644,6 +724,8 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     sampleName: '蕾丝拼接连衣裙-S',
     transferCategory: '借用流转',
     eventType: '借出',
+    fromLocationId: 'loc-wh-02',
+    toLocationId: 'loc-live-02',
     fromEntity: '雅加达样衣间',
     toEntity: '林小红',
     responsibleSite: '雅加达样衣间',
@@ -662,6 +744,8 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     sampleName: '牛仔短裤工程样-S',
     transferCategory: '归还入库',
     eventType: '归还',
+    fromLocationId: 'loc-live-01',
+    toLocationId: 'loc-wh-01',
     fromEntity: '深圳直播间 A',
     toEntity: '深圳样衣间待验收',
     responsibleSite: '深圳样衣间',
@@ -680,6 +764,8 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     sampleName: '米色针织开衫-F',
     transferCategory: '维修流转',
     eventType: '出库',
+    fromLocationId: 'loc-wh-02',
+    toLocationId: 'loc-factory-01',
     fromEntity: '雅加达样衣间',
     toEntity: '维修篮 JKT-02',
     responsibleSite: '雅加达样衣间',
@@ -691,6 +777,23 @@ export const PCS_SAMPLE_TRANSFERS: PcsSampleTransferRecord[] = [
     remark: '袖口开线，转维修篮处理。',
   },
 ]
+
+// Fixed demonstration histories cover both intended routes; they are never seeded to IndexedDB.
+for (const [sampleId, route] of [
+  ['smp-001', ['loc-wh-01', 'loc-live-01', 'loc-home-01', 'loc-wh-01']],
+  ['smp-006', ['loc-wh-02', 'loc-factory-01', 'loc-dept-01', 'loc-factory-01']],
+] as const) {
+  const sample = PCS_SAMPLE_RECORDS.find(row => row.sampleId === sampleId)!
+  sample.updatedAt = '2026-04-12 10:00'; sample.updatedBy = '样衣管理员'
+  for (let i = 1; i < route.length; i++) {
+    const from = getPcsSampleLocationById(route[i - 1])!, to = getPcsSampleLocationById(route[i])!
+    PCS_SAMPLE_TRANSFERS.push({ transferId: `demo-${sampleId}-${i}`, time: `2026-04-${i + 9} 10:00`, sampleId,
+      sampleCode: sample.skuCode, sampleName: sample.name, transferCategory: '站点调拨', eventType: '签收',
+      fromLocationId: from.locationId, toLocationId: to.locationId, fromEntity: from.locationName, toEntity: to.locationName,
+      responsibleSite: sample.responsibleSite, trackingNo: '', carrier: '', projectCode: sample.projectCode,
+      operator: '样衣管理员', riskFlags: [], remark: `${PCS_SAMPLE_TYPE_LABELS[sample.sampleType]}用途；接收方核对SKU码后签收` })
+  }
+}
 
 export const PCS_SAMPLE_RETURN_CASES: PcsSampleReturnCase[] = []
 
@@ -863,6 +966,7 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
       const specText = getSampleAssetText(asset, 'specText') || sourceLine
       const colorName = getSampleAssetText(asset, 'colorName') || '-'
       const sizeName = getSampleAssetText(asset, 'sizeName') || '-'
+      const historicalLocation = getPcsSampleLocationById(String(detailSnapshot.currentLocationId || detailSnapshot.warehouseLocationId || '')) || listPcsSampleLocations().find(loc => loc.locationName === String(detailSnapshot.warehouseLocation || ''))
       const imageUrl = getSampleAssetText(asset, 'imageUrl') || `https://placehold.co/96x128?text=${encodeURIComponent(sampleCode)}`
 
       return {
@@ -885,7 +989,8 @@ function buildGeneratedSampleRecords(): PcsSampleRecord[] {
         skuCode: sampleCode,
         taggedAt: isCompleteInbound ? record.updatedAt || record.businessDate : null,
         responsibleSite: '深圳样衣间',
-        currentLocation: String(detailSnapshot.warehouseLocation || '深圳样衣间'),
+        currentLocationId: historicalLocation?.locationId,
+        currentLocation: historicalLocation?.locationName || String(detailSnapshot.warehouseLocation || '位置待确认'),
         locationDetail: `历史到样记录 ${record.recordCode} · 来源关系待确认`,
         occupancyType: '无',
         occupiedBy: '',
@@ -942,7 +1047,11 @@ function getReturnHandledAvailability(status: PcsSampleStatus): PcsSampleAvailab
 }
 
 function listBasePcsSampleRecords(): PcsSampleRecord[] {
-  return [...buildGeneratedSampleRecords(), ...PCS_SAMPLE_RECORDS]
+  const changes = readSampleChanges()
+  const testing = listTestingOrders().filter(order => order.sampleInboundAt).flatMap(order => order.skuCodes.map(sku => testingSample(order, sku, '仓管')))
+  const rows = new Map([...buildGeneratedSampleRecords(), ...testing, ...PCS_SAMPLE_RECORDS].map(row => [row.sampleId, row]))
+  for (const row of changes.records) rows.set(row.sampleId, row)
+  return [...rows.values()].map(row => ({ ...row, currentLocation: getPcsSampleLocationById(row.currentLocationId || '')?.locationName || row.currentLocation }))
 }
 
 function applyReturnHandleStatusToSamples(samples: PcsSampleRecord[]): PcsSampleRecord[] {
@@ -959,7 +1068,7 @@ function applyReturnHandleStatusToSamples(samples: PcsSampleRecord[]): PcsSample
 
   return samples.map((sample) => {
     const latestReturn = latestBySampleCode.get(sample.sampleCode)
-    if (!latestReturn) return sample
+    if (!latestReturn || (latestReturn.updatedAt || latestReturn.businessDate).localeCompare(sample.updatedAt) <= 0) return sample
     const payload = getReturnHandlePayload(latestReturn)
     const handleType = String(payload.handleType || '').trim()
     const destination = String(payload.destination || payload.returnAddress || payload.returnRecipient || '').trim()
@@ -970,13 +1079,14 @@ function applyReturnHandleStatusToSamples(samples: PcsSampleRecord[]): PcsSample
       ...sample,
       status: nextStatus,
       availability: getReturnHandledAvailability(nextStatus),
+      currentLocationId: nextStatus === '在库可用' ? (listPcsSampleLocations().find(loc => loc.locationName === destination)?.locationId || sample.currentLocationId) : undefined,
       currentLocation:
         nextStatus === '已退货'
           ? destination || '已退回'
           : nextStatus === '已处置'
             ? destination || '已处置'
             : nextStatus === '在库可用'
-              ? destination || sample.currentLocation
+              ? listPcsSampleLocations().find(loc => loc.locationName === destination)?.locationName || getPcsSampleLocationById(sample.currentLocationId || '')?.locationName || sample.currentLocation
               : '样衣退回处理待执行',
       locationDetail: `${latestReturn.recordCode} · ${handleType || '退回处理'}${returnResult ? ` · ${returnResult}` : ''}`,
       anomaly: completed
@@ -1117,7 +1227,7 @@ export function listPcsSampleRequests(): PcsSampleUseRequest[] {
 }
 
 export function listPcsSampleTransfers(): PcsSampleTransferRecord[] {
-  return [...PCS_SAMPLE_TRANSFERS]
+  return [...readSampleChanges().transfers, ...PCS_SAMPLE_TRANSFERS].map(row => ({ ...row, fromEntity: getPcsSampleLocationById(row.fromLocationId)?.locationName || '位置待确认', toEntity: getPcsSampleLocationById(row.toLocationId)?.locationName || '位置待确认' }))
 }
 
 export function listPcsSampleReturnCases(): PcsSampleReturnCase[] {
@@ -1125,7 +1235,7 @@ export function listPcsSampleReturnCases(): PcsSampleReturnCase[] {
 }
 
 export function listPcsSampleLedgerEvents(): PcsSampleLedgerEvent[] {
-  return [...buildGeneratedSampleLedgerEvents(), ...PCS_SAMPLE_LEDGER_EVENTS]
+  return [...readSampleChanges().ledgerEvents, ...buildGeneratedSampleLedgerEvents(), ...PCS_SAMPLE_LEDGER_EVENTS]
 }
 
 export function listPcsSampleStocktakeDiffs(): PcsSampleStocktakeDiff[] {
@@ -1138,4 +1248,14 @@ export function listPcsSampleLedgerEventsBySampleId(sampleId: string): PcsSample
 
 export function listPcsSampleRequestsBySampleId(sampleId: string): PcsSampleUseRequest[] {
   return PCS_SAMPLE_REQUESTS.filter((item) => item.sampleIds.includes(sampleId))
+}
+
+export function areTestingOrderSamplesTagged(order: TestingOrderRecord): boolean {
+  const data = readSampleChanges()
+  return order.skuCodes.length > 0 && order.skuCodes.every(sku => { const sample = data.records.find(row => row.sampleId === `testing-${order.testingOrderId}-${sku}`) || (order.sampleInboundAt ? testingSample(order, sku, '仓管') : null); return !!sample && canCompletePcsSampleTagging(sample) })
+}
+
+export function isTestingOrderSampleTagged(order: TestingOrderRecord, sku: string): boolean {
+  const sample = getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)
+  return !!sample && canCompletePcsSampleTagging(sample)
 }

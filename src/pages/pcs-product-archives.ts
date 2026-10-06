@@ -30,7 +30,7 @@ type Kind = 'style' | 'sku'
 type Row = StyleArchiveShellRecord | SkuArchiveRecord
 const PREFIX = 'pcs-product-archive'
 const STYLE_PATH = '/pcs/products/styles', SKU_PATH = '/pcs/products/specifications'
-let listContext: { styles: Map<string, StyleArchiveShellRecord>; skuCounts: Map<string, number>; channelCounts: Map<string, number> } | null = null
+let listContext: { styles: Map<string, StyleArchiveShellRecord>; skuCounts: Map<string, number>; channelCounts: Map<string, number>; categoryNumbers: Map<string, ReturnType<typeof listConfigDimensionOptions>[number]>; specialCrafts: Map<string, string> } | null = null
 const cls = 'h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm disabled:bg-slate-100 disabled:text-slate-500'
 const state = {
   kind: 'style' as Kind, view: 'list' as 'list' | 'detail' | 'edit', id: '', tab: 'basic', editorTab: 'identity', editorKey: '',
@@ -67,13 +67,27 @@ function grid(items: Array<[string, unknown]>): string { return `<dl class="grid
 function table(headers: string[], rows: string[][]): string { return `<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr>${headers.map(h => `<th class="whitespace-nowrap px-4 py-3 font-medium">${e(h)}</th>`).join('')}</tr></thead><tbody class="divide-y">${rows.length ? rows.map(row => `<tr>${row.map(cell => `<td class="px-4 py-3 align-middle">${cell}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}" class="p-10 text-center text-slate-500">暂无记录</td></tr>`}</tbody></table></div>` }
 function tabBar(tabs: Array<[string, string]>, value: string, action: string): string { return `<nav class="flex gap-6 overflow-x-auto border-b bg-white px-5" aria-label="资料视图">${tabs.map(([k, label]) => `<button type="button" class="shrink-0 border-b-2 px-1 py-3 text-sm ${value === k ? 'border-blue-600 font-semibold text-blue-600' : 'border-transparent text-slate-500 hover:text-blue-600'}" aria-selected="${value === k}" data-${PREFIX}-action="${action}" data-tab="${k}">${e(label)}</button>`).join('')}</nav>` }
 function wrap(html: string): string { return `<div data-pcs-product-archive-root data-skip-page-rerender="true">${html}${overlays()}</div>` }
+function categoryNumberLabel(r: StyleArchiveShellRecord): string {
+  const options = (r.productConfigRefs?.categoryNumbers || []).map(id => listContext?.categoryNumbers.get(id)).filter(Boolean)
+  return options.length ? options.map(option => [option!.code, option!.name_en, option!.name_zh].filter(Boolean).join(' · ')).join('、') : [r.categoryCode, r.categoryCodeName].filter(Boolean).join(' · ')
+}
+function styleAttributeLines(r: StyleArchiveShellRecord, group: 'designAttributes' | 'audienceAttributes'): Array<[string, string]> {
+  return group === 'designAttributes'
+    ? [['品类', (r.categoryTags || []).join('、')], ['风格', (r.styleTags || []).join('、')], ['面料', (r.fabricTags || []).join('、')], ['流行元素', (r.popularElementTags || []).join('、')], ['商品定位', r.productPosition || ''], ['特种工艺', (r.productConfigRefs?.specialCrafts || []).map(id => listContext?.specialCrafts.get(id) || '配置项已删除').join('、')]]
+    : [['人群', (r.targetAudienceTags || []).join('、')], ['年龄', (r.ageTags || []).join('、')], ['人群定位', (r.audiencePositionTags || []).join('、')]]
+}
+function attributeColumn(key: 'designAttributes' | 'audienceAttributes', title: string): StandardListColumn<Row> {
+  return { key, title, width: key === 'designAttributes' ? 220 : 165, sortable: true,
+    sortValue: r => styleAttributeLines(r as StyleArchiveShellRecord, key).map(([name, value]) => `${name}：${value || '—'}`).join('；'),
+    render: r => `<dl class="space-y-1 text-xs leading-5" data-style-attribute-group="${key}">${styleAttributeLines(r as StyleArchiveShellRecord, key).map(([name, value]) => `<div class="flex items-start gap-2"><dt class="shrink-0 text-slate-500">${e(name)}</dt><dd class="min-w-0 break-words text-slate-700">${e(value || '—')}</dd></div>`).join('')}</dl>` }
+}
 function columns(): StandardListColumn<Row>[] {
   const textCol = (key: string, title: string, value: (r: Row) => unknown, width = 130): StandardListColumn<Row> => ({ key, title, width, sortable: true, render: r => e(value(r) || '—'), sortValue: value })
   const list: StandardListColumn<Row>[] = [
     { key: 'select', title: '', width: 40, required: true, leadingControlColumn: true, renderHeader: rows => `<input type="checkbox" aria-label="选择本页" data-${PREFIX}-action="select-page" ${rows.length && rows.every(r => state.selected.has(idOf(r))) ? 'checked' : ''}>`, render: r => `<input type="checkbox" aria-label="选择 ${e(codeOf(r))}" data-${PREFIX}-action="select-row" data-id="${e(idOf(r))}" ${state.selected.has(idOf(r)) ? 'checked' : ''}>` },
-    { key: 'identity', title: state.kind === 'style' ? '款式' : '商品规格', width: 280, minWidth: 230, required: true, freezeable: true, sortable: true, sortValue: codeOf, render: r => `<div class="flex items-center gap-3">${photo(imageOf(r), nameOf(r))}<div class="min-w-0">${link(codeOf(r), `${path()}/${idOf(r)}`, 'font-medium break-all')}<div class="mt-1 line-clamp-2 text-xs text-slate-500">${e(nameOf(r))}</div></div></div>` },
+    { key: 'identity', title: state.kind === 'style' ? '款式' : '商品规格', width: state.kind === 'style' ? 240 : 280, minWidth: 230, required: true, freezeable: true, sortable: true, sortValue: codeOf, render: r => `<div class="flex items-center gap-3">${photo(imageOf(r), nameOf(r))}<div class="min-w-0">${link(codeOf(r), `${path()}/${idOf(r)}`, 'font-medium break-all')}<div class="mt-1 line-clamp-2 text-xs text-slate-500">${e(nameOf(r))}</div>${state.kind === 'style' ? `<div class="mt-2 flex flex-wrap gap-1">${statuses(r)}</div>` : ''}</div></div>` },
   ]
-  if (state.kind === 'style') list.push(textCol('brand', '品牌', r => (r as StyleArchiveShellRecord).brandName, 100), textCol('category', '正式类目', r => (r as StyleArchiveShellRecord).thirdCategoryName || (r as StyleArchiveShellRecord).categoryName, 150), textCol('categories', '品类', r => (r as StyleArchiveShellRecord).categoryTags?.join('、')), textCol('styles', '风格', r => (r as StyleArchiveShellRecord).styleTags?.join('、'), 100), textCol('categoryNumber', '品类编号', r => (r as StyleArchiveShellRecord).categoryCode, 100), textCol('skus', 'SKU 数', r => listContext?.skuCounts.get(r.styleId) || 0, 80))
+  if (state.kind === 'style') list.push(textCol('brand', '品牌', r => (r as StyleArchiveShellRecord).brandName, 100), textCol('category', '正式类目', r => (r as StyleArchiveShellRecord).thirdCategoryName || (r as StyleArchiveShellRecord).categoryName, 150), textCol('categories', '品类', r => (r as StyleArchiveShellRecord).categoryTags?.join('、')), textCol('styles', '风格', r => (r as StyleArchiveShellRecord).styleTags?.join('、'), 100), textCol('categoryNumber', '品类编号', r => categoryNumberLabel(r as StyleArchiveShellRecord), 200), attributeColumn('designAttributes', '款式属性'), attributeColumn('audienceAttributes', '适用人群'), textCol('productPosition', '商品定位', r => (r as StyleArchiveShellRecord).productPosition, 100), textCol('skus', 'SKU 数', r => listContext?.skuCounts.get(r.styleId) || 0, 80))
   else list.push({ key: 'style', title: '所属款式', width: 175, sortable: true, sortValue: r => r.styleCode, render: r => link(r.styleCode, `${STYLE_PATH}/${r.styleId}`) }, textCol('color', '颜色', r => (r as SkuArchiveRecord).colorName, 110), textCol('size', '尺码', r => (r as SkuArchiveRecord).sizeName, 80), textCol('unit', '主单位', r => (r as SkuArchiveRecord).pricingUnit, 80), textCol('channels', '平台规格数', r => listContext?.channelCounts.get(idOf(r)) || 0, 100))
   if (state.kind === 'style') list.push(textCol('technicalVersion', '当前技术包', r => (r as StyleArchiveShellRecord).currentTechPackVersionCode, 180), textCol('channelCount', '渠道商品数', r => listContext?.channelCounts.get(r.styleId) || 0, 100))
   list.push({ key: 'approval', title: '审核', width: 100, sortable: true, sortValue: r => r.approvalStatus, render: r => badge(approvalLabels[r.approvalStatus || 'DRAFT'], r.approvalStatus === 'APPROVED' ? 'green' : 'amber') }, { key: 'lifecycle', title: '使用状态', width: 100, sortable: true, sortValue: r => r.lifecycleStatus, render: r => badge(lifecycleLabels[r.lifecycleStatus || 'NOT_ENABLED'], r.lifecycleStatus === 'ACTIVE' ? 'green' : 'slate') }, textCol('updatedAt', '更新时间', r => r.updatedAt, 165), textCol('remark', '备注', r => r.remark, 180), { key: 'actions', title: '操作', width: 130, required: true, actionColumn: true, render: r => `<div class="flex gap-3">${link('详情', `${path()}/${idOf(r)}`)}${link('编辑', `${path()}/${idOf(r)}/edit`)}</div>` })
@@ -81,9 +95,18 @@ function columns(): StandardListColumn<Row>[] {
 }
 function preferences(): StandardListColumnPreferences {
   if (!state.preferences[state.kind]) {
-    const cols = columns(), defaults = { order: cols.map(c => c.key), visibleKeys: cols.filter(c => !['remark', 'technicalVersion', 'channelCount'].includes(c.key)).map(c => c.key), frozenKeys: ['identity'], pageSize: 20 }
+    const cols = columns(), defaults = { order: state.kind === 'style' ? ['select', 'identity', 'designAttributes', 'audienceAttributes', 'categoryNumber', ...cols.map(c => c.key).filter(key => !['select', 'identity', 'designAttributes', 'audienceAttributes', 'categoryNumber'].includes(key))] : cols.map(c => c.key), visibleKeys: state.kind === 'style' ? ['select', 'identity', 'designAttributes', 'audienceAttributes', 'categoryNumber', 'actions'] : cols.filter(c => !['remark', 'technicalVersion', 'channelCount'].includes(c.key)).map(c => c.key), frozenKeys: ['identity'], pageSize: 20 }
     let storage: Pick<Storage, 'getItem'> = { getItem: () => null }; try { storage = window.localStorage } catch { /* bounded optional preference */ }
-    state.preferences[state.kind] = loadListColumnPreferences(storage, `higood-pcs-${state.kind}-list-r1`, cols, defaults, [20, 50, 100])
+    // Old column preferences predate the added attributes. Show new columns once,
+    // without resetting existing order, hidden columns or subsequent user choices.
+    const compatibleStorage = { getItem: (key: string) => {
+      const raw = storage.getItem(key); if (!raw || state.kind !== 'style') return raw
+      try { const parsed = JSON.parse(raw); if (!Array.isArray(parsed.order) || !Array.isArray(parsed.visibleKeys)) return raw
+        const added = ['designAttributes', 'audienceAttributes', 'productPosition'].filter(key => !parsed.order.includes(key))
+        return JSON.stringify({ ...parsed, order: [...parsed.order, ...added], visibleKeys: [...parsed.visibleKeys, ...added] })
+      } catch { return raw }
+    } }
+    state.preferences[state.kind] = loadListColumnPreferences(compatibleStorage, `higood-pcs-${state.kind}-list-r1`, cols, defaults, [20, 50, 100])
   }
   return state.preferences[state.kind]!
 }
@@ -104,7 +127,7 @@ function configOptions(dim: FlatDimensionId, selected: string[] = []): Array<[st
 function leafOptions(): Array<[string, string]> { const all = listProductCategoryNodes(); return all.filter(n => !all.some(c => c.parentId === n.id)).map(n => [n.id, [all.find(p => p.id === all.find(p => p.id === n.parentId)?.parentId)?.name, all.find(p => p.id === n.parentId)?.name, n.name].filter(Boolean).join(' / ')]) }
 function renderList(kind: Kind): string {
   const styles = listStyleArchives(), skus = kind === 'sku' ? listSkuArchives() : [], channels = getChannelArchiveCounts()
-  listContext = { styles: new Map(styles.map(s => [s.styleId, s])), skuCounts: getSkuArchiveCountsByStyle(), channelCounts: kind === 'style' ? channels.byStyle : channels.bySku }
+  listContext = { styles: new Map(styles.map(s => [s.styleId, s])), skuCounts: getSkuArchiveCountsByStyle(), channelCounts: kind === 'style' ? channels.byStyle : channels.bySku, categoryNumbers: new Map(listConfigDimensionOptions('categoryNumbers').map(o => [o.id, o])), specialCrafts: new Map(listConfigDimensionOptions('specialCrafts').map(o => [o.id, o.name_zh])) }
   if (state.view !== 'list' || state.kind !== kind) { state.page = 1; state.sort = null; state.selected.clear(); state.filter = {}; state.query = {}; const parent = typeof location === 'undefined' ? '' : new URLSearchParams(location.search).get('styleId'); if (parent) state.query.styleId = state.filter.styleId = parent }
   state.kind = kind; state.view = 'list'; state.id = ''; state.dirty = false
   const cols = columns(), prefs = preferences(), all = kind === 'style' ? styles : skus
@@ -356,8 +379,11 @@ function importPreview(): void {
 }
 function exportList(): void {
   const cols = columns().filter(c => !c.actionColumn && !c.leadingControlColumn && preferences().visibleKeys.includes(c.key))
+  const fields = cols.flatMap(c => c.key === 'designAttributes' || c.key === 'audienceAttributes'
+    ? styleAttributeLines({} as StyleArchiveShellRecord, c.key).map(([title], index) => ({ title, value: (r: Row) => styleAttributeLines(r as StyleArchiveShellRecord, c.key as 'designAttributes' | 'audienceAttributes')[index][1] }))
+    : [{ title: c.title, value: (r: Row) => c.key === 'identity' ? `${codeOf(r)} ${nameOf(r)}` : c.key === 'approval' ? approvalLabels[r.approvalStatus || 'DRAFT'] : c.key === 'lifecycle' ? lifecycleLabels[r.lifecycleStatus || 'NOT_ENABLED'] : c.sortValue?.(r) ?? '' }]).filter((field, index, all) => all.findIndex(other => other.title === field.title) === index)
   const csv = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
-  const rows = filteredRows(), data = [cols.map(c => csv(c.title)).join(','), ...rows.map(r => cols.map(c => csv(c.key === 'identity' ? `${codeOf(r)} ${nameOf(r)}` : c.key === 'approval' ? approvalLabels[r.approvalStatus || 'DRAFT'] : c.key === 'lifecycle' ? lifecycleLabels[r.lifecycleStatus || 'NOT_ENABLED'] : c.sortValue?.(r) || '')).join(','))].join('\r\n')
+  const rows = filteredRows(), data = [fields.map(c => csv(c.title)).join(','), ...rows.map(r => fields.map(c => csv(c.value(r))).join(','))].join('\r\n')
   const url = URL.createObjectURL(new Blob(['\uFEFF', data], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a'); a.href = url; a.download = `${state.kind === 'style' ? '款式档案' : '规格档案'}.csv`; a.click(); URL.revokeObjectURL(url)
   state.notice = `已导出当前筛选的全部 ${rows.length} 条记录。`; state.error = false
 }

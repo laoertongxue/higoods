@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "requirements": 14,
+  "fullFlowRounds": 5,
+  "assertionsPerRound": 30,
+  "adjacentTestingRounds": 10,
+  "performanceGroups": 213,
+  "performanceSamples": 1340,
+  "maxMs": 352.4000000357628,
+  "limitMs": 1000,
+  "exceptions": 0,
+  "uncaughtPageErrors": 0,
+  "unitTests": 583,
+  "unitFailures": 0,
+  "scopedTypeErrors": 0,
+  "unrelatedExistingGlobalTypeErrors": 3,
+  "browser": "149.0.7827.55",
+  "startingHead": "eb1da8508f0ecda6c172b38df0b7b2d929f477b0",
+  "branch": "codex/sample-wp05-completion",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "exactPendingAndFinalDecisionAssertions": true,
+  "adjacentTestingPerformanceSamples": 90
+}

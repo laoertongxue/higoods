@@ -125,20 +125,20 @@
 
 | 需求编号 | 来源章节 | 原子需求 | 工作包 | 实现位置（目标/实际） | 自动化验证 | 页面/PDA/打印/性能 | 状态 | 证据 | 产品确认人 |
 |---|---|---|---|---|---|---|---|---|---|
-| SAMP-001 | 设计 §7.1、§11-19 | 样品类型仅营销样品、生产样品两类 | WP-05 |实际：`PCS_SAMPLE_TYPES = ['marketing','production']`（`pcs-sample-location-master.ts`）|spec deepEqual 双类型、无测款样品|列表类型文案正确|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-002 | 设计 §7.1、§11-9 | 营销样品与生产样品可任意互转 | WP-05 |实际：`convertPcsSampleType` + `pcs-sample-management.ts` 互转事件|spec 双向互转 PASS|互转按钮可用|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-003 | 设计 §7.1 | 类型互转记录操作人、时间、原因/备注 | WP-05 |实际：`listPcsSampleTypeConversionLogs` 操作人/时间/原因留痕|spec 留痕字段契约|详情可见互转记录|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-004 | 设计 §7.2 | 流转位置类型=直播间/家播/工厂/部门/仓库 | WP-05 |实际：`pcs-sample-location-master.ts` 五类位置枚举|spec 枚举契约|位置筛选五类|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-005 | 设计 §7.2、§11-11 | 家播为独立类型且语义为主播/达人 | WP-05 |实际：位置主数据家播独立类型语义（主播/达人）|spec 类型≠直播间|家播列表展示达人名|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-006 | 设计 §7.2 | 不存在摄影等营销位位置类型及文案残留 | WP-05 |实际：位置枚举无摄影位；文案扫描残留=0|rg 残留=0|页面无摄影位选项|已验证|rg 扫描证据；治理记录第 7 节| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-007 | 设计 §7.2 | 流转记录引用位置主数据 ID，禁止仅自由文本事实 | WP-05 |实际：流转记录引用 `currentLocationId`（位置主数据 ID）|spec ID 引用契约|流转详情显示位置名|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-008 | 设计 §7.3、§11-10 | 一 SKU 一码，打标码值=SKU 编码 | WP-05 |实际：`buildPcsSampleTagCode` / 打标码=SKU|spec 码值=SKU 断言|打标页显示 SKU 码|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-009 | 设计 §7.3 | 样品必须贴码后方可完成入库后打标/测款⑤推进 | WP-05 |实际：`canCompletePcsSampleTagging` 未贴码阻断|spec 未贴码阻断 + 测款⑤推进阻断|未打标不可完成步骤|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-010 | 设计 §7.3、§1.3 | 本期不实现无码流转旁路；无码能力不出现在页面承诺 | WP-05 |实际：无「可无码流转」文案；无无码入口|文案扫描=0|页面无无码入口|已验证|rg 扫描证据；治理记录第 7 节| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-011 | 设计 §7.2 | 营销样品可在直播间、家播间流转并保留历史 | WP-05 |实际：营销样品直播间/家播间流转 Mock+历史|spec 流转链测试|两位置流转可见|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-012 | 设计 §7.2 | 生产样品可在工厂、部门（及仓）流转并保留历史 | WP-05 |实际：生产样品工厂/部门（及仓）流转 Mock+历史|spec 同 SAMP-011|工厂/部门流转可见|已验证|tests/pcs-sample-management.spec.ts PASS| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-013 | 设计 §10.4 | 样衣 Mock：双类型并存、互转记录、位置分类、打标样例 | WP-05 |实际：`PCS_SAMPLE_RECORDS` 种子（双类型、互转、位置、打标）|spec 种子契约 PASS|台账/流转页可读+图片：`data-pda-image-preview-url` 大图 5 路径 PASS|已验证|tests/pcs-sample-management.spec.ts PASS；`/tmp/pcs-wp01/image-lightbox-acceptance.json`（SAMP-013-inventory PASS）| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
-| SAMP-014 | AGENTS §7.2、设计 §9 | 样衣命名页加载与交互 <500ms（≥5 样本/入口） | WP-05 |实际：浏览器测量（样衣命名页）|性能日志|≥5 样本/入口：冷加载 max 177ms、交互 max 94ms（`interaction-perf.json` 最新）|已验证|`/tmp/pcs-wp01/interaction-perf.json`（cold-samples-inventory max 177ms、ledger 139ms、interact-sample-* max ≤94ms，16/16 PASS）；治理记录第 6 节| 用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条） |
+| SAMP-001 | 设计 §7.1、§11-19 | 样品类型仅营销样品、生产样品两类 | WP-05 |实际：`PCS_SAMPLE_TYPES = ['marketing','production']`（`pcs-sample-location-master.ts`）|spec deepEqual 双类型、无测款样品|列表类型文案正确|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-002 | 设计 §7.1、§11-9 | 营销样品与生产样品可任意互转 | WP-05 |实际：`convertPcsSampleType` + `pcs-sample-management.ts` 互转事件|spec 双向互转 PASS|互转按钮可用|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-003 | 设计 §7.1 | 类型互转记录操作人、时间、原因/备注 | WP-05 |实际：`listPcsSampleTypeConversionLogs` 操作人/时间/原因留痕|spec 留痕字段契约|详情可见互转记录|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-004 | 设计 §7.2 | 流转位置类型=直播间/家播/工厂/部门/仓库 | WP-05 |实际：`pcs-sample-location-master.ts` 五类位置枚举|spec 枚举契约|位置筛选五类|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-005 | 设计 §7.2、§11-11 | 家播为独立类型且语义为主播/达人 | WP-05 |实际：位置主数据家播独立类型语义（主播/达人）|spec 类型≠直播间|家播列表展示达人名|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-006 | 设计 §7.2 | 不存在摄影等营销位位置类型及文案残留 | WP-05 |实际：位置枚举无摄影位；文案扫描残留=0|rg 残留=0|页面无摄影位选项|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-007 | 设计 §7.2 | 流转记录引用位置主数据 ID，禁止仅自由文本事实 | WP-05 |实际：流转记录 `fromLocationId`/`toLocationId`、样衣 `currentLocationId` 均引用位置主数据 ID|spec ID 引用契约|流转详情显示位置名|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-008 | 设计 §7.3、§11-10 | 一 SKU 一码，打标码值=SKU 编码 | WP-05 |实际：`buildPcsSampleTagCode` / 打标码=SKU|spec 码值=SKU 断言|打标页显示 SKU 码|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-009 | 设计 §7.3 | 样品必须贴码后方可完成入库后打标/测款⑤推进 | WP-05 |实际：`canCompletePcsSampleTagging` 未贴码阻断|spec 未贴码阻断 + 测款⑤推进阻断|未打标不可完成步骤|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-010 | 设计 §7.3、§1.3 | 本期不实现无码流转旁路；无码能力不出现在页面承诺 | WP-05 |实际：无「可无码流转」文案；无无码入口|文案扫描=0|页面无无码入口|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-011 | 设计 §7.2 | 营销样品可在直播间、家播间流转并保留历史 | WP-05 |实际：营销样品直播间/家播间流转 Mock+历史|spec 流转链测试|两位置流转可见|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-012 | 设计 §7.2 | 生产样品可在工厂、部门（及仓）流转并保留历史 | WP-05 |实际：生产样品工厂/部门（及仓）流转 Mock+历史|spec 同 SAMP-011|工厂/部门流转可见|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-013 | 设计 §10.4 | 样衣 Mock：双类型并存、互转记录、位置分类、打标样例 | WP-05 |实际：`PCS_SAMPLE_RECORDS` 种子（双类型、互转、位置、打标）|spec 种子契约 PASS|台账/流转页可读+图片：`data-pda-image-preview-url` 大图 5 路径 PASS|已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
+| SAMP-014 | AGENTS §7.2、设计 §9 | 样衣命名页加载与交互 ≤1000ms，≥5 次/入口，无例外 | WP-05 |实际：浏览器测量（样衣命名页）| 当前构建的 cold/reload/SPA 与动作原始样本 | 1366×768；最低1280×720；全部样本不超过1秒 |已验证| 本轮：docs/reviews/2026-10-06-sample-wp05-completion/implementation-and-evidence.md；旧证据仅保留历史 | 用户（2026-10-06 授权全部实施；本轮验收见证据） |
 
 ### 1.6 GATE — 总验收（WP-06）
 
@@ -200,3 +200,7 @@
 | 2026-09-23 | **产品确认**：用户确认总体设计 §12 A1–A5 全部假设，并确认本矩阵 82/82 条产品确认人（`待用户确认` → `用户（2026-09-23 确认 §12 A1–A5 + 本矩阵 82 条）`）；状态仍为 82 `已验证`；`accepted` 仍待远端版本接受回执 |
 | 2026-09-23 | 两轮审查修复回填：测款单对齐设计 §4.1 十步（补④样衣入库、删独立档案回写步、§4.5 团队展示）；新增原子行 TEST-025（②完成条件）、TEST-026（④完成条件）、TEST-027（§4.5 责任团队），总数 82→85、已验证 85；§3 覆盖补 §1/§12/§4.5/②；CLEAN-008/012 包材与残留口径限 PCS 域；CLEAN-004/005 记 live/video 存储键历史投影例外；GATE-001 覆盖补齐、GATE-005 性能 max 177ms、GATE-006 既有失败边界表述更正；交互重测 `interaction-perf.json` 16/16 PASS max 177ms（bulk 真实点击 38ms）；新增 3 行产品确认人=待用户确认 |
 | 2026-09-23 | **交付与接受**：详情输入重绘修复后功能提交 `f62108bd`，合并 `main` 为 `1fce47c2` 并推送 `origin/main`；TEST-025～027、GATE-001 产品确认人由「待用户确认」→「用户（2026-09-23 接受 1fce47c2）」，85/85 已确认；GitHub 接受回执 commit comment `1fce47c2` #commitcomment-201603472；交付状态 `delivered` + `accepted` |
+
+## 2026-10-06 现场标签、款式属性与直播房间增量
+
+总体设计 §7.5、WP-STYLE-PHOTO / WP-LOS-ROOM / WP-SAMPLE-LABEL 的全部原子条款登记于 [本轮需求与证据](../reviews/2026-10-06-sample-label-and-style-attributes/requirements-and-evidence.md)。ROOM-001～012、STYLE-PHOTO-001～004 及两项性能门禁必须独立核查；样衣 HG 标签三项仍待用户事实，不因房间门牌通过而关闭。旧 WP-05 的既有证据不替代本轮修改后的验证。

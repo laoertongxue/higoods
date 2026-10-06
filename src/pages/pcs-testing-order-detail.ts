@@ -1,3 +1,4 @@
+import { getPcsSampleById } from '../data/pcs-sample-management.ts'
 import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 import { getTestingOrderBuyerName } from '../data/pcs-testing-order-repository.ts'
 import { renderProductInformation } from './pcs-product-information.ts'
@@ -108,12 +109,13 @@ function renderActivePanel(order: TestingOrderRecord): string {
       <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="complete-sample-inbound">确认样衣入库并下一步</button>
     `,
     label: `
-      <p class="text-sm text-slate-600">打标完成条件：已贴码且码值等于 SKU 编码。本单 SKU：${escapeHtml(order.skuCodes.join('、') || '—')}</p>
+      <p class="text-sm text-slate-600">打标完成条件：本单每个 SKU 均已贴码且码值等于 SKU 编码。本单 SKU：${escapeHtml(order.skuCodes.join('、') || '—')}</p>
+      <p class="mt-2 text-sm">${escapeHtml(order.skuCodes.map(sku => `${sku}：${getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)?.taggedAt ? '已贴码' : '待贴码'}`).join('；'))}</p>
       <label class="mt-3 block text-sm">贴码 SKU 编码
-        <input value="${escapeHtml(order.labeledSkuCode || order.skuCodes[0] || '')}" data-pcs-testing-field="label-sku" list="pcs-testing-sku-list" class="mt-1 h-9 w-full rounded-md border border-slate-200 px-3 text-sm" />
+        <input value="${escapeHtml(order.skuCodes.find(sku => !getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)?.taggedAt) || order.skuCodes[0] || '')}" data-pcs-testing-field="label-sku" list="pcs-testing-sku-list" class="mt-1 h-9 w-full rounded-md border border-slate-200 px-3 text-sm" />
       </label>
       <datalist id="pcs-testing-sku-list">${order.skuCodes.map((code) => `<option value="${escapeHtml(code)}"></option>`).join('')}</datalist>
-      <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="complete-label">确认贴码并完成本步</button>
+      <button type="button" class="mt-3 h-9 rounded-md bg-slate-900 px-4 text-sm text-white" data-pcs-testing-action="complete-label">确认当前 SKU 已贴码</button>
     `,
     'buyer-confirm': `
       <p class="text-sm text-slate-600">买手确认淘汰 → 测款单结束并保留淘汰事实。</p>
@@ -204,6 +206,7 @@ export function renderPcsTestingOrderDetailPage(testingOrderId: string): string 
         </div>
       </section>
       ${renderSteps(order)}
+      <p data-testing-action-feedback role="alert" class="text-sm text-rose-700">${escapeHtml(actionNotice)}</p>
       ${renderActivePanel(order)}
       ${order.currentStepKey!=='channel-listing'&&order.channelListingActions?.length?renderTestingChannelResults(order):''}
       <details class="rounded-lg border bg-white"><summary class="cursor-pointer p-4 text-sm font-medium">商品信息（来自商品档案）</summary>${renderProductInformation(getStyleArchiveById(order.styleId))}</details>
@@ -272,8 +275,18 @@ export async function handlePcsTestingOrderEvent(target: HTMLElement): Promise<b
       return true
     }catch(error){actionNotice=(error as Error).message;const feedback=document.querySelector('[data-testing-channel-feedback]');if(feedback)feedback.textContent=actionNotice;return false}
   }
-  try { return await runPcsRecordCommand(() => applyTestingOrderAction(target)) }
-  catch { return false }
+  try {
+    actionNotice = ''
+    const result = await runPcsRecordCommand(() => applyTestingOrderAction(target))
+    const feedback = document.querySelector('[data-testing-action-feedback]')
+    if (feedback) feedback.textContent = actionNotice
+    return result
+  } catch (error) {
+    actionNotice = `未保存：${error instanceof Error ? error.message : '请重试'}`
+    const feedback = document.querySelector('[data-testing-action-feedback]')
+    if (feedback) feedback.textContent = actionNotice
+    return false
+  }
 }
 
 function applyTestingOrderAction(target: HTMLElement): boolean {
@@ -313,10 +326,14 @@ function applyTestingOrderAction(target: HTMLElement): boolean {
     return advanceTestingOrder(id, 'sample-inbound').ok
   }
   if (action === 'complete-sample-inbound') {
-    return completeSampleInbound(id, read('sample-note') || '样衣已入样衣仓').ok
+    const result = completeSampleInbound(id, read('sample-note') || '样衣已入样衣仓')
+    if (!result.ok) actionNotice = result.message || '入库未完成，请核对当前步骤。'
+    return result.ok
   }
   if (action === 'complete-label') {
-    return completeLabelStep(id, read('label-sku') || order.skuCodes[0] || '').ok
+    const result = completeLabelStep(id, read('label-sku'))
+    if (!result.ok) actionNotice = result.message || '贴码未完成，请核对本单 SKU 编码。'
+    return result.ok
   }
   if (action === 'buyer-kill') {
     return rejectBuyerConfirm(id, read('buyer-note') || '买手确认淘汰').ok

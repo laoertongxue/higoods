@@ -58,7 +58,7 @@ export function pcsRecordIdentity(key: string, group: string, value: unknown, po
   }
   if (text('resultVersionId')) return text('resultVersionId')!
   if ('itemId' in item && 'purpose' in item && 'taskId' in item) return `${item.taskId}:${item.itemId}:${item.purpose}`
-  for (const name of ['id', 'batchId', 'logId', 'notificationId', 'pendingRelationId', 'pendingItemId', 'pendingId', 'recordId', 'projectRelationId', 'relationId', 'pricingPlanId', 'planId', 'samplingTaskId', 'bomDraftVersionId', 'versionId', 'bomVersionId', 'testingOrderId', 'channelProductId', 'technicalVersionId', 'skuId', 'masterOrderId', 'styleId']) {
+  for (const name of ['conversionId', 'transferId', 'eventId', 'sampleId', 'id', 'batchId', 'logId', 'notificationId', 'pendingRelationId', 'pendingItemId', 'pendingId', 'recordId', 'projectRelationId', 'relationId', 'pricingPlanId', 'planId', 'samplingTaskId', 'bomDraftVersionId', 'versionId', 'bomVersionId', 'testingOrderId', 'channelProductId', 'technicalVersionId', 'skuId', 'masterOrderId', 'styleId']) {
     if (text(name)) return text(name)!
   }
   throw new Error(`业务记录缺少稳定编号，未保存（字段：${Object.keys(item).join(',')}）。`)

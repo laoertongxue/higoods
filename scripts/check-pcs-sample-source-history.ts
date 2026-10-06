@@ -14,7 +14,7 @@ assert.equal(JSON.stringify(sample), original)
 const storage = new Map<string, string>()
 let writes = 0
 Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => storage.get(key) || null, setItem: () => { writes++ }, removeItem: () => { throw new Error('must not delete') } } })
-assert.equal(listPcsSampleRecords().length, PCS_SAMPLE_RECORDS.length)
+assert.equal(listPcsSampleRecords().filter(item => !item.sampleId.startsWith('testing-')).length, PCS_SAMPLE_RECORDS.length)
 assert.equal(writes, 0)
 storage.set('higood-pcs-project-inline-node-records-v2', JSON.stringify({ records: [{ recordId: 'retained', recordCode: 'IN-HISTORY', stepCode: 'SAMPLE_INBOUND_CHECK', projectCode: 'PRJ-HISTORY', projectName: '存量实物', payload: { generatedSampleCodes: ['HISTORY-SAMPLE'], qualityCheckResult: '通过' }, detailSnapshot: {}, updatedAt: '2026-10-03' }] }))
 assert(listPcsSampleRecords().some(item => item.sampleCode === 'HISTORY-SAMPLE'))

@@ -1,3 +1,4 @@
+import { listLiveRooms, liveRoomAvailable, liveRoomLocationName } from './los-live-room-master.ts'
 export type PcsSampleType = 'marketing' | 'production'
 
 export type PcsSampleLocationType = 'live-room' | 'home-studio' | 'factory' | 'department' | 'warehouse'
@@ -10,6 +11,7 @@ export interface PcsSampleLocationRecord {
   locationName: string
   ownerName?: string
   remark?: string
+  enabled?: boolean
 }
 
 export interface PcsSampleTypeConversionLog {
@@ -45,20 +47,27 @@ export const PCS_SAMPLE_LOCATION_TYPE_LABELS: Record<PcsSampleLocationType, stri
   warehouse: '仓库',
 }
 
-export const PCS_SAMPLE_LOCATIONS: readonly PcsSampleLocationRecord[] = [
-  { locationId: 'loc-live-01', locationType: 'live-room', locationName: '深圳直播间 A', ownerName: '运营一组' },
-  { locationId: 'loc-live-02', locationType: 'live-room', locationName: '雅加达直播间 B', ownerName: '印尼直播组' },
+const PCS_OTHER_SAMPLE_LOCATIONS: readonly PcsSampleLocationRecord[] = [
   { locationId: 'loc-home-01', locationType: 'home-studio', locationName: '达人小美家播间', ownerName: '小美' },
   { locationId: 'loc-home-02', locationType: 'home-studio', locationName: '达人阿杰家播间', ownerName: '阿杰' },
   { locationId: 'loc-factory-01', locationType: 'factory', locationName: '雅加达一号厂', ownerName: '生产部' },
   { locationId: 'loc-dept-01', locationType: 'department', locationName: '商品部样衣组', ownerName: '商品部' },
+  { locationId: 'loc-wh-02', locationType: 'warehouse', locationName: '雅加达样衣仓', ownerName: 'Budi' },
   { locationId: 'loc-wh-01', locationType: 'warehouse', locationName: '深圳样衣仓', ownerName: '仓管' },
 ] as const
 
 export function getPcsSampleLocationById(locationId: PcsSampleLocationId): PcsSampleLocationRecord | null {
-  return PCS_SAMPLE_LOCATIONS.find((item) => item.locationId === locationId) || null
+  return listPcsSampleLocations().find((item) => item.locationId === locationId) || null
 }
 
 export function listPcsSampleLocationsByType(locationType: PcsSampleLocationType): PcsSampleLocationRecord[] {
-  return PCS_SAMPLE_LOCATIONS.filter((item) => item.locationType === locationType)
+  return listPcsSampleLocations().filter((item) => item.locationType === locationType)
+}
+
+/** PCS read model. Live rooms have one LOS source; historical disabled IDs remain resolvable. */
+export function listPcsSampleLocations(): PcsSampleLocationRecord[] {
+  return [...PCS_OTHER_SAMPLE_LOCATIONS.map(loc => ({ ...loc })), ...listLiveRooms().map(room => ({
+    locationId: room.roomId, locationType: 'live-room' as const, locationName: liveRoomLocationName(room),
+    ownerName: room.opm, enabled: liveRoomAvailable(room),
+  }))]
 }

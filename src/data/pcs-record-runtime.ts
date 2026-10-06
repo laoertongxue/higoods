@@ -6,7 +6,7 @@ import { isPcsNewStaticRecord } from './pcs-record-static-versions.ts'
 // 同步领域函数只修改本次动作的工作副本；持久提交在页面继续显示成功之前完成。
 export const PCS_LEGACY_KEYS = [
   'higood-fcs-production-tech-pack-publish-evaluations-v1',
-  'higood-pcs-testing-orders-v1', 'higood-pcs-engineering-master-store-v1',
+  'higood-pcs-testing-orders-v1', 'higood-pcs-sample-management-v1', 'higood-pcs-engineering-master-store-v1',
   'higood-pcs-design-revision-v1', 'higood-pcs-engineering-bom-pricing-plan-store-v2',
   'higood-pcs-style-archive-store-v3', 'higood-pcs-sku-archive-store-v1',
   'higood-pcs-project-channel-product-store-v2', 'higood-pcs-project-relation-store-v2',
@@ -656,7 +656,7 @@ export async function insertPcsRecordGroups<T>(key: string, prepare: () => PcsRe
   } finally { saving = false }
 }
 
-export async function runPcsRecordCommand<T>(recipe: () => T, operationId: string = crypto.randomUUID(), collections: readonly string[] = []): Promise<T> {
+export async function runPcsRecordCommand<T>(recipe: () => T, operationId: string = crypto.randomUUID(), collections: readonly string[] = [], guards: Array<{id:string;expectedVersion:number}> = []): Promise<T> {
   await ensurePcsRecordState(collections)
   try {
   if (saving) throw new Error('上一笔操作尚未保存，请等待完成后再操作。')
@@ -747,7 +747,7 @@ export async function runPcsRecordCommand<T>(recipe: () => T, operationId: strin
       const existingFiles = new Set(persistedFiles.map(file => file.id))
       const referencedFiles = [...files].filter(([id]) => !existingFiles.has(id) && requiredFiles.has(id)).map(([id, blob]) => ({ id, blob }))
       for (const key of dirty) { const source = legacySources.get(key); if (source) await assertLegacySourceCurrent(source) }
-      await commitPcsRecords({ puts, deletes, files: referencedFiles, operationId, intent: JSON.stringify({ puts, deletes }) })
+      await commitPcsRecords({ puts, deletes, guards, files: referencedFiles, operationId, intent: JSON.stringify({ puts, deletes, ...(guards.length ? {guards} : {}) }) })
       referencedFiles.forEach(file => persistedFileIds.add(file.id))
       // complete 已成功；不用后续读取故障把已提交动作报告为未保存。
       const nextStored = new Map(stored.map(row => [row.id, row]))

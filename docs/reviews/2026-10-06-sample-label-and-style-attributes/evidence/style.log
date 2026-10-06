@@ -1,0 +1,14 @@
+PASS style attributes round 1
+PASS style attributes round 2
+PASS style attributes round 3
+PASS style attributes round 4
+PASS style attributes round 5
+✔ PHOTO-STYLE structured archive values, preferences, CSV and 1s browser gate (41917.860333ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 42301.860625
