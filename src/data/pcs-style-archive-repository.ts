@@ -1,3 +1,4 @@
+import { archiveLog, PCS_DEMO_OPERATOR_ID, assertProductStyleIdentity, completeProductArchiveAudit } from './pcs-product-archive-rules.ts'
 import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
 import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { PRODUCT_CONFIG_FIELDS, createStyleProductInformationContext, resolveStyleProductInformation } from './pcs-style-product-information.ts'
@@ -38,6 +39,12 @@ function canUseStorage(): boolean {
 function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   return {
     ...record,
+    legacyValues: record.legacyValues ? structuredClone(record.legacyValues) : undefined,
+    styleNameTranslations: record.styleNameTranslations ? { ...record.styleNameTranslations } : undefined,
+    archiveLogs: record.archiveLogs ? structuredClone(record.archiveLogs) : undefined,
+    sameStyleIds: [...(record.sameStyleIds || [])],
+    substitutionRelations: record.substitutionRelations?.map(item => ({ ...item })),
+    salesContents: record.salesContents?.map(item => ({ ...item, imageUrls: [...item.imageUrls], videoUrls: [...item.videoUrls] })),
     productConfigRefs: record.productConfigRefs ? Object.fromEntries(Object.entries(record.productConfigRefs).map(([key, ids]) => [key, [...ids]])) : undefined,
     categoryTags: [...(record.categoryTags || [])],
     popularElementTags: [...(record.popularElementTags || [])],
@@ -49,6 +56,7 @@ function cloneRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
     styleTags: Array.isArray(record.styleTags) ? [...record.styleTags] : [],
     targetAudienceTags: Array.isArray(record.targetAudienceTags) ? [...record.targetAudienceTags] : [],
     targetChannelCodes: Array.isArray(record.targetChannelCodes) ? [...record.targetChannelCodes] : [],
+    galleryImagePurposes: record.galleryImagePurposes ? [...record.galleryImagePurposes] : undefined,
     galleryImageIds: Array.isArray(record.galleryImageIds) ? [...record.galleryImageIds] : [],
     galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
     linkedDesignRevisionTaskIds: Array.isArray(record.linkedDesignRevisionTaskIds) ? [...record.linkedDesignRevisionTaskIds] : [],
@@ -89,15 +97,24 @@ function normalizeBaseInfoStatus(status: string): string {
 
 function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const fixture = buildStyleFixture(record.styleCode || record.styleId, record.styleName || record.styleCode)
-  const mainImageUrl = migrateProductFixtureImage(record.styleCode, record.mainImageUrl || '')
-  const legacyGallery = (record.galleryImageUrls || []).some(isLegacyProductFixtureImage)
+  const manual = record.identitySource === 'MANUAL'
+  const mainImageUrl = manual ? record.mainImageUrl || '' : migrateProductFixtureImage(record.styleCode, record.mainImageUrl || '')
+  const legacyGallery = !manual && (record.galleryImageUrls || []).some(isLegacyProductFixtureImage)
   const galleryImageUrls = legacyGallery && fixture.mainImageUrl
     ? [...new Set([...fixture.galleryImageUrls, ...(record.galleryImageUrls || []).filter((url) => !isLegacyProductFixtureImage(url))])]
     : [...(record.galleryImageUrls || [])]
   return {
     ...cloneRecord(record),
+    approvalStatus: record.approvalStatus || (record.archiveStatus === 'DRAFT' ? 'DRAFT' : 'APPROVED'),
+    lifecycleStatus: record.lifecycleStatus || (record.archiveStatus === 'DRAFT' ? 'NOT_ENABLED' : record.archiveStatus),
+    deliveryMode: record.deliveryMode || 'SINGLE',
+    recordVersion: record.recordVersion || 1,
+    archiveLogs: structuredClone(record.archiveLogs || []),
+    sameStyleIds: [...(record.sameStyleIds || [])],
+    substitutionRelations: record.substitutionRelations?.map(item => ({ ...item })),
+    salesContents: (record.salesContents || [{ language: 'id', title: record.styleNameEn || record.styleName, description: record.detailDescription || '', sellingPoints: record.sellingPointText || '', imageUrls: record.galleryImageUrls || [], videoUrls: [], sizeChartUrl: '', version: 1 }]).map(item => ({ ...item, imageUrls: [...item.imageUrls], videoUrls: [...item.videoUrls] })),
     archiveStatus: record.archiveStatus === 'ACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'DRAFT',
-    styleNameEn: record.styleNameEn || fixture.styleNameEn,
+    styleNameEn: record.styleNameEn || (manual ? '' : fixture.styleNameEn),
     baseInfoStatus: normalizeBaseInfoStatus(record.baseInfoStatus),
     specificationStatus: record.specificationStatus || '未建立',
     techPackStatus: normalizeStyleTechPackStatusText(record.techPackStatus || '未建立'),
@@ -114,12 +131,13 @@ function normalizeRecord(record: StyleArchiveShellRecord): StyleArchiveShellReco
     currentTechPackVersionActivatedBy: record.currentTechPackVersionActivatedBy || '',
     mainImageId: record.mainImageId || '',
     mainImageUrl,
+    galleryImagePurposes: record.galleryImagePurposes ? [...record.galleryImagePurposes] : undefined,
     galleryImageIds: Array.isArray(record.galleryImageIds) ? [...record.galleryImageIds] : [],
     galleryImageUrls,
     imageSource: mainImageUrl !== record.mainImageUrl ? '原型实拍素材（来源见图片台账）' : record.imageSource || (record.mainImageUrl ? '历史图片' : ''),
-    sellingPointText: record.sellingPointText || fixture.sellingPointText,
-    detailDescription: record.detailDescription || fixture.detailDescription,
-    packagingInfo: record.packagingInfo || fixture.packagingInfo,
+    sellingPointText: record.sellingPointText || (manual ? '' : fixture.sellingPointText),
+    detailDescription: record.detailDescription || (manual ? '' : fixture.detailDescription),
+    packagingInfo: record.packagingInfo || (manual ? '' : fixture.packagingInfo),
     remark: record.remark || '',
     sourceProjectNodeId: record.sourceProjectNodeId || '',
     generatedAt: record.generatedAt || record.updatedAt || '',
@@ -187,7 +205,7 @@ function mergeMissingSeedData(snapshot: StyleArchiveStoreSnapshot): StyleArchive
         else delete refs[dimension]
       }
       const customCategory = ['categoryName', 'subCategoryName', 'thirdCategoryName'].some((key) => record[key as keyof StyleArchiveShellRecord] && record[key as keyof StyleArchiveShellRecord] !== legacyById.get(record.styleId)?.[key as keyof StyleArchiveShellRecord])
-      if (record.categoryCode && record.categoryCodeName) delete refs.styleCodes
+      if (record.categoryCode && record.categoryCodeName) delete refs.categoryNumbers
       Object.assign(record, next, { productConfigRefs: refs, productInformationVersion: 1,
         productCategoryId: record.productCategoryId || (customCategory ? undefined : seeded.productCategoryId),
         materialType: record.materialType || seeded.materialType,
@@ -376,6 +394,7 @@ export function hasStyleArchiveForProject(projectId: string): boolean {
 export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleArchiveShellRecord {
   const snapshot = loadSnapshot()
   const normalized = normalizeRecord(record)
+  assertProductStyleIdentity(normalized, snapshot.records)
   const hasProjectBinding = Boolean(normalized.sourceProjectId)
   if (
     hasProjectBinding &&
@@ -403,6 +422,7 @@ export function createStyleArchiveShell(record: StyleArchiveShellRecord): StyleA
 /** ARCH-001：无测款历史、无商品项目也可直接创建 SPU 草稿档案。 */
 export function createStyleArchiveDirect(input: {
   styleName: string
+  styleCode?: string
   styleNameEn?: string
   styleNumber?: string
   productType?: string
@@ -410,11 +430,15 @@ export function createStyleArchiveDirect(input: {
   operator?: string
 }): StyleArchiveShellRecord {
   const stamp = nowText()
-  const styleCode = `SPU-${Date.now().toString().slice(-8)}`
-  const styleId = `style_direct_${Date.now().toString(36)}`
+  const year = new Date().getFullYear()
+  const prefix = `SPU-${year}-`
+  const serial = Math.max(0, ...listStyleArchives().filter(item => item.styleCode.startsWith(prefix)).map(item => Number(item.styleCode.slice(prefix.length)) || 0)) + 1
+  const styleCode = input.styleCode?.trim() || `${prefix}${String(serial).padStart(6, '0')}`
+  const styleId = `style_${crypto.randomUUID()}`
   const base = normalizeRecord({
     styleId,
     styleCode,
+    identitySource: 'MANUAL', sourceSystem: 'PCS手工建档', sourceId: '', createdById: PCS_DEMO_OPERATOR_ID, updatedById: PCS_DEMO_OPERATOR_ID,
     styleName: input.styleName.trim() || '未命名款式',
     styleNameEn: (input.styleNameEn || '').trim(),
     styleNumber: (input.styleNumber || '').trim() || styleCode,
@@ -429,13 +453,15 @@ export function createStyleArchiveDirect(input: {
     subCategoryName: '',
     brandId: '',
     brandName: '',
-    yearTag: '2026',
-    seasonTags: ['春夏'],
+    yearTag: String(year),
+    seasonTags: [],
     styleTags: [],
     targetAudienceTags: [],
     targetChannelCodes: [],
     priceRangeLabel: '',
     archiveStatus: 'DRAFT',
+    approvalStatus: 'DRAFT', lifecycleStatus: 'NOT_ENABLED', deliveryMode: 'SINGLE', recordVersion: 1,
+    archiveLogs: [archiveLog('新建款式', styleCode, input.operator)], salesContents: [],
     baseInfoStatus: '待完善',
     specificationStatus: '未建立',
     techPackStatus: '未建立',
@@ -498,6 +524,9 @@ export function updateStyleArchive(styleId: string, patch: Partial<StyleArchiveS
   ) {
     throw new Error('当前商品项目已存在正式款式档案主关联。')
   }
+  assertProductStyleIdentity(nextRecord, snapshot.records, currentRecord)
+  completeProductArchiveAudit(currentRecord, nextRecord)
+  nextRecord.recordVersion = (currentRecord.recordVersion || 1) + 1
   const nextRecords = [...snapshot.records]
   nextRecords.splice(index, 1, nextRecord)
   persistSnapshot({

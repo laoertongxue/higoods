@@ -1,0 +1,51 @@
+{
+  "viewport": "1366x768",
+  "cache": "Network cache disabled; new document each sample; no app warm-up",
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 423.39999997615814,
+      "end": 423.39999997615814,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 396.0999999642372,
+      "end": 396.0999999642372,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 396.39999997615814,
+      "end": 396.39999997615814,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 399.199999988079,
+      "end": 399.199999988079,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 393.5999999642372,
+      "end": 393.5999999642372,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    }
+  ]
+}

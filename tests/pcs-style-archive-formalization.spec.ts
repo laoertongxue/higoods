@@ -28,14 +28,14 @@ const catalog = getProjectCreateCatalog()
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
-const styleCode = catalog.styleCodes[0] || catalog.styles[0]
+const styleCode = catalog.categoryNumbers[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
 const channel = catalog.channelOptions[0]
 
 assert.ok(category, '应存在一级分类')
 assert.ok(brand, '应存在品牌')
-assert.ok(styleCode, '应存在风格编号')
+assert.ok(styleCode, '应存在品类编号')
 assert.ok(owner, '应存在负责人')
 assert.ok(team, '应存在执行团队')
 assert.ok(channel, '应存在目标渠道')
@@ -52,8 +52,8 @@ const created = createProject(
     subCategoryName: subCategory?.name || '',
     brandId: brand!.id,
     brandName: brand!.name,
-    styleCodeId: styleCode!.id,
-    styleCodeName: styleCode!.name,
+    categoryNumberId: styleCode!.id,
+    categoryNumberName: styleCode!.name,
     styleType: '基础款',
     priceRangeLabel: '¥199-399',
     targetChannelCodes: [channel!.code],

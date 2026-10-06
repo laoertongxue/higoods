@@ -1,12 +1,12 @@
 import { listConfigDimensionOptions, listProductCategoryNodes, type ProductCategoryNode } from './pcs-config-workspace-repository.ts'
-import type { FlatDimensionId } from './pcs-config-dimensions.ts'
+import { resolveConfigOptionReference, type FlatDimensionId } from './pcs-config-dimensions.ts'
 import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
 
 export const PRODUCT_CONFIG_FIELDS = {
   brandName: 'brands', categoryTags: 'categories', styleTags: 'styles',
   popularElementTags: 'trendElements', fabricTags: 'fabrics', targetAudienceTags: 'crowds',
   ageTags: 'ages', audiencePositionTags: 'crowdPositioning', productPosition: 'productPositioning',
-  categoryCodeName: 'styleCodes',
+  categoryCodeName: 'categoryNumbers',
 } as const satisfies Record<string, FlatDimensionId>
 
 export function createStyleProductInformationContext() {
@@ -18,16 +18,17 @@ export function createStyleProductInformationContext() {
 
 /** 商品保存所选配置 ID；名称始终由基础配置解析，不把整个字典当作商品属性。 */
 export function resolveStyleProductInformation(style: StyleArchiveShellRecord, context = createStyleProductInformationContext()): StyleArchiveShellRecord {
-  const result = { ...style }
+  const result = { ...style, productConfigRefs: style.productConfigRefs ? { ...style.productConfigRefs } : undefined }
   for (const [field, dimension] of Object.entries(PRODUCT_CONFIG_FIELDS)) {
     const ids = style.productConfigRefs?.[dimension]
     if (!ids) continue
     const options = context.options[dimension] || []
-    const selected = ids.map((id) => options.find((option) => option.id === id))
+    const selected = ids.map((id) => resolveConfigOptionReference(dimension, id, options))
+    if (result.productConfigRefs) result.productConfigRefs[dimension] = ids.map((id, index) => selected[index]?.id || id)
     const names = selected.map((option) => option?.name_zh || '配置项已删除')
     Object.assign(result, { [field]: field.endsWith('Tags') ? names : names.join('、') })
     if (dimension === 'brands') result.brandId = ids[0] || ''
-    if (dimension === 'styleCodes') result.categoryCode = selected[0]?.code || ''
+    if (dimension === 'categoryNumbers') result.categoryCode = selected[0]?.code || ''
   }
   if (style.productCategoryId) {
     const nodes = context.categories
@@ -70,8 +71,8 @@ export function seedStyleProductInformation(style: StyleArchiveShellRecord, buye
   bind('crowdPositioning', dress || /长袖|batik/.test(name) ? '穆斯林友好' : '非穆斯林')
   bind('productPositioning', /设计|印花|batik|蕾丝/.test(name) ? '设计款' : '基础款')
   const codeKeyword = dress ? '连衣裙' : skirt ? '裙' : pants ? '裤' : outer ? '外套' : knit ? '毛织上衣' : shirt ? /batik|印花/.test(name) ? '印花衬衫' : '休闲衬衫' : '短袖上衣'
-  const code = (context.options.styleCodes || []).find((item) => item.name_zh.includes(codeKeyword))
-  if (code) refs.styleCodes = [code.id]
+  const code = (context.options.categoryNumbers || []).find((item) => item.name_zh.includes(codeKeyword))
+  if (code) refs.categoryNumbers = [code.id]
   return resolveStyleProductInformation({ ...style, productConfigRefs: refs, productCategoryId: leaf,
     productInformationVersion: 1, productType: style.productType || '成衣', materialType: knit ? '毛织' : '非毛织',
     buyerId: buyer?.id || 'buyer-mock-chen', buyerName: buyer?.name || '陈买手',

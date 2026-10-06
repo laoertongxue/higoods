@@ -1,0 +1,20 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 548.6000000238419,
+    "end": 17975.100000023842,
+    "images": 0,
+    "label": "import1000-preview-projection-17",
+    "start": 17426.5,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 1055.300000011921,
+    "end": 30129.10000002384,
+    "images": 0,
+    "label": "import1000-save-projection-17",
+    "start": 29073.80000001192,
+    "url": "/pcs/materials/fabric"
+  }
+]

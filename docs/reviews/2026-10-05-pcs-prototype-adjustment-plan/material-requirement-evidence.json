@@ -1,0 +1,4667 @@
+{
+  "schema_version": 1,
+  "title": "PCS R1 物料需求实现与现有证据索引",
+  "assembled_on": "2026-10-05",
+  "workspace": "/Users/laoer/Documents/higoods",
+  "branch": "main",
+  "head": "88324f65506f47c678b17d1b51879f8fd7c2488a",
+  "version_note": "以上HEAD为未提交工作区的基点；实现位于当前共享工作区，本文件不代表已提交、发布或验收。",
+  "source_matrix": {
+    "path": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv",
+    "sha256": "98b8ef37b911204f583e7d0a0a5a482539e9470cd09aea3e8df65077cb9a3297",
+    "requirement_count": 158,
+    "matrix_was_modified": false
+  },
+  "scope": {
+    "indexed_requirement_count": 96,
+    "included_domains": [
+      "物料身份与五类模板消费",
+      "加工SKU与编码",
+      "计量/包装",
+      "标准成本",
+      "物料图片与业务导入导出",
+      "物料相关页面治理",
+      "设计改款物料目标桥接"
+    ],
+    "shared_requirement_rule": "ARCH/CFG/GOV共享编号只登记本条物料侧证据，不能代替该编号其他领域的实现或验证。",
+    "excluded_implementation": [
+      "PMS采购接收页面/采购草稿实现",
+      "FCS加工计划及专业单据页面实现",
+      "技术包/BOM正式发布和草稿UI",
+      "公共配置维护页面",
+      "商品及渠道档案实现",
+      "共享runtime/水合/路由错误边界实现",
+      "裁片压褶/打揽、二次印花及毛织生产执行"
+    ],
+    "handoff_rule": "仅引用物料交接路径、稳定身份、直接前驱和版本契约；不将下游实际建单测试或页面当作本索引完成证据。"
+  },
+  "evidence_basis": {
+    "existing_evidence_document": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/material-implementation-evidence.md",
+    "existing_test_command": "node --import tsx --test tests/pcs-r1-material*.test.ts",
+    "last_recorded_suite_result": "51项通过，记录来自本轮索引整理前已完成的专项；本次未重跑。该数量包含FCS计划测试，当前索引只引用其物料handoff契约用例。",
+    "existing_command_log": "/tmp/r1-material-review-final.log",
+    "log_portability_note": "/tmp日志为当前会话临时证据，不是永久发布凭证；精确用例名称及文件在每条记录中登记。",
+    "browser_evidence_imported": false,
+    "limits": [
+      "快照清缓存重读不等于实际浏览器IndexedDB刷新。",
+      "注入事务seam不等于真实IndexedDB中止/容量故障。",
+      "图片引用校验不等于真实图片加载与打印验收。",
+      "Node纯准备耗时不等于完整浏览器动作500ms门禁。",
+      "未直接覆盖的场景已在各记录verification_gaps与browser_pending列出。"
+    ],
+    "assembly_validation": "仅检查JSON可解析、编号存在且唯一、实现文件/符号文本存在、现有测试精确名称与文件匹配；不执行或追加业务测试。",
+    "targeted_followups": [
+      {
+        "requirement_id": "GOV-008",
+        "command": "node --import tsx --test tests/pcs-r1-material-import-commit.test.ts tests/pcs-r1-material-transfer.test.ts",
+        "result": "13 passed, 0 failed",
+        "log": "/tmp/r1-material-import-commit.log",
+        "new_direct_cases": 4,
+        "browser_evidence": false,
+        "build_was_run": false
+      },
+      {
+        "requirement_id": "BRIDGE-005",
+        "command": "node --import tsx --test tests/unit/pcs-design-revision-current-flow.test.ts tests/unit/fcs-design-revision-result-readiness.test.ts tests/unit/tmf-material-references.test.ts",
+        "result": "18 passed, 0 failed",
+        "log": "/tmp/r1-material-legacy-alignment-final.log",
+        "note": "旧染印互斥断言按确认的连续链替换；标准费用由测试前置显式人工维护。TMF兼容尺寸解析同时修复歧义后缀被误接受的问题。",
+        "adjacent_regression_command": "node --import tsx --test tests/unit/tmf-material-references.test.ts tests/pcs-r1-material-review-regressions.test.ts",
+        "adjacent_regression_result": "10 passed, 0 failed",
+        "adjacent_regression_log": "/tmp/r1-material-legacy-dimensions.log",
+        "browser_evidence": false,
+        "build_was_run": false
+      }
+    ]
+  },
+  "records": [
+    {
+      "requirement_id": "ARCH-001",
+      "atomic_requirement": "保留五类物料身份并将服装纽扣拉链归辅料",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A01; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "A01",
+      "work_package": "WP01",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialArchiveKind",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialArchiveKind"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "getMaterialArchiveCategoryOptions",
+          "reference": "src/data/pcs-material-archive-repository.ts:getMaterialArchiveCategoryOptions"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        }
+      ],
+      "implemented_behavior": "五类物料共用主档/SKU模型；辅料分类提供纽扣、拉链，设备配件仍为独立类别。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "无覆盖全部五类及纽扣/拉链归属的专项断言。"
+      ],
+      "browser_pending": [
+        "五类列表和新建入口逐类确认名称、子类和属性模板。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-002",
+      "atomic_requirement": "基础及加工产出只使用一个物料SKU身份",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A02; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "A02",
+      "work_package": "WP01",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createMaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-repository.ts:createMaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-variant-repository.ts",
+          "symbol": "projection",
+          "reference": "src/data/pcs-material-variant-repository.ts:projection"
+        },
+        {
+          "file": "src/data/pcs-material-variant-repository.ts",
+          "symbol": "createMaterialVariant",
+          "reference": "src/data/pcs-material-variant-repository.ts:createMaterialVariant"
+        }
+      ],
+      "implemented_behavior": "基础与染印绣烫产出均保存为 materialSkuId；旧 Variant 读取投影到规范 SKU，独立创建函数拒绝新增。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "BRIDGE-005: one canonical target retains both dye and print with each direct predecessor",
+          "line": 124
+        }
+      ],
+      "test_coverage_scope": "r2 验证别名与规范身份/前驱，r12 验证改款链；不等同全仓旧入口删除审查。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有专项直接验证规范身份及链路；独立变种入口从全局路由删除的证据由主代理提供。"
+      ],
+      "browser_pending": [
+        "物料详情、技术选择器、设计改款选择同一 SKU；检查无第二套变种维护入口。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-003",
+      "atomic_requirement": "新根码可系统生成且迁入原码保留",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A03; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "A03",
+      "work_package": "WP01",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:createMaterialArchive"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "copyMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:copyMaterialArchive"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "resolveMaterialSkuIdentity",
+          "reference": "src/data/pcs-material-archive-repository.ts:resolveMaterialSkuIdentity"
+        }
+      ],
+      "implemented_behavior": "空根码按五类前缀生成，新建可保留人工指定原码；复制生成新根码；既有旧 SKU 码以原码或别名保留检索。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: copied archive reuses file references, resets approval and has no copied SKU or price history",
+          "line": 175
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        }
+      ],
+      "test_coverage_scope": "复制测试与别名测试仅覆盖各自路径，不证明全量历史导入。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "复制生成新码及旧别名有专项；首次空码建档、迁入原根码保留尚无独立端到端专项。"
+      ],
+      "browser_pending": [
+        "空码新建、人工指定旧根码、刷新后检索和复制新码。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-004",
+      "atomic_requirement": "人工指定编码限建档且唯一",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A03; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "A03",
+      "work_package": "WP01",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:createMaterialArchive"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "updateMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:updateMaterialArchive"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateRoot",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateRoot"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveEditPage"
+        }
+      ],
+      "implemented_behavior": "人工根码受唯一性校验，审核后锁定；草稿建档阶段允许改码并重生成后代展示码，稳定 ID 不变。R1 §7.3 明确审核后锁定，按正文解释矩阵简写“限建档”。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT/CODE: a draft root code change regenerates descendants without changing their IDs",
+          "line": 187
+        }
+      ],
+      "test_coverage_scope": "r18 仅证明草稿改码及后代 ID 保持。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有专项覆盖草稿改码，不直接覆盖重复根码阻断和已审核改码拒绝。"
+      ],
+      "browser_pending": [
+        "新建重复根码失败、草稿改码、审核后编码只读和提交端阻断。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-010",
+      "atomic_requirement": "采购来源地区和默认仓不在档案编辑",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A08; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "A08",
+      "work_package": "WP01",
+      "scope": "共享架构条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveEditPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "exportMaterialBusinessRows",
+          "reference": "src/data/pcs-material-transfer.ts:exportMaterialBusinessRows"
+        }
+      ],
+      "implemented_behavior": "物料表单不维护采购地区或默认仓；采购入口只带物料身份，由采购领域填写业务信息。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        }
+      ],
+      "test_coverage_scope": "t7 断言导出表头不含供应商、库存等；不直接断言所有页面 DOM。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出禁用字段有专项；页面无对应维护项需命名页面证据。"
+      ],
+      "browser_pending": [
+        "五类主档/SKU列表、详情、编辑页检查禁用字段；保留正常采购/加工入口。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-011",
+      "atomic_requirement": "商品物料档案不提供供应商字段或供应商Tab",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-010; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "USR-010",
+      "work_package": "WP01",
+      "scope": "共享架构条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveEditPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "exportMaterialBusinessRows",
+          "reference": "src/data/pcs-material-transfer.ts:exportMaterialBusinessRows"
+        }
+      ],
+      "implemented_behavior": "物料主档及 SKU 表单、详情无供应商字段或供应商 Tab。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        }
+      ],
+      "test_coverage_scope": "t7 断言导出表头不含供应商、库存等；不直接断言所有页面 DOM。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出禁用字段有专项；页面无对应维护项需命名页面证据。"
+      ],
+      "browser_pending": [
+        "五类主档/SKU列表、详情、编辑页检查禁用字段；保留正常采购/加工入口。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-012",
+      "atomic_requirement": "商品物料档案不提供库存输入或库存摘要",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-011; prototype-adjustment-proposal.md §2/§3",
+      "decision_refs": "USR-011",
+      "work_package": "WP01",
+      "scope": "共享架构条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveEditPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "exportMaterialBusinessRows",
+          "reference": "src/data/pcs-material-transfer.ts:exportMaterialBusinessRows"
+        }
+      ],
+      "implemented_behavior": "物料主档及 SKU 表单、详情无库存录入及库存摘要；加工/采购跳转不计算可用库存。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        }
+      ],
+      "test_coverage_scope": "t7 断言导出表头不含供应商、库存等；不直接断言所有页面 DOM。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出禁用字段有专项；页面无对应维护项需命名页面证据。"
+      ],
+      "browser_pending": [
+        "五类主档/SKU列表、详情、编辑页检查禁用字段；保留正常采购/加工入口。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "ARCH-014",
+      "atomic_requirement": "实际成本与历史异常治理不进入本期页面",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F06; prototype-adjustment-proposal.md §1/§15",
+      "decision_refs": "F06",
+      "work_package": "WP01",
+      "scope": "共享范围条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderTransfer",
+          "reference": "src/pages/pcs-material-archives.ts:renderTransfer"
+        }
+      ],
+      "implemented_behavior": "本期物料成本为标准成本；没有实际成本录入、历史坏数据治理或待匹配正式队列。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "专项验证标准成本公式；实际成本/治理入口的全站排除由主代理反向审查。"
+      ],
+      "browser_pending": [
+        "物料成本详情和编辑文案为标准口径；无异常治理入口。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-001",
+      "atomic_requirement": "面料根规格维护成分组织幅宽克重",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B01; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B01",
+      "work_package": "WP02",
+      "scope": "基础配置消费端；不包含配置维护页面",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialArchiveRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialArchiveRecord"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "compositionEditor",
+          "reference": "src/pages/pcs-material-archives.ts:compositionEditor"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "rootDraft",
+          "reference": "src/pages/pcs-material-archives.ts:rootDraft"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateRoot",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateRoot"
+        }
+      ],
+      "implemented_behavior": "面料根档保存结构化成分及 categoryAttributes，模板消费组织、幅宽和克重；SKU 有效规格可保存加工后变化。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-003/UOM: output width is one field and package edits retain previous contents",
+          "line": 238
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "r22 只直接覆盖幅宽归属与单字段；成分合计、组织、克重新建/审核需各自证据。"
+      ],
+      "browser_pending": [
+        "基础配置到面料新建属性候选联动；保存后根规格与产出有效规格分别显示。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-002",
+      "atomic_requirement": "辅料子类加载各自身份模板",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B02; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B02",
+      "work_package": "WP02",
+      "scope": "基础配置消费端；不包含模板发布维护",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "rootDraft",
+          "reference": "src/pages/pcs-material-archives.ts:rootDraft"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateRoot",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateRoot"
+        }
+      ],
+      "implemented_behavior": "辅料按已选子类和指定模板版本构建身份字段；绳子读取结构化 diameter，织带读取 width。3 + mm 合法，旧尺寸文本兼容且不能掩盖显式无效数字。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "MAT: rope diameter uses the structured 3 mm template field and survives rereading",
+          "line": 19
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "MAT: existing rope text dimensions remain editable without inventing a numeric diameter",
+          "line": 30
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "MAT: invalid explicit rope diameters cannot pass using an old width text value",
+          "line": 39
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "绳子正向、兼容、错误输入有直接专项；纽扣、拉链等其他子类仍需页面证据。"
+      ],
+      "browser_pending": [
+        "新绳子直径3 mm保存、刷新、编辑；切换辅料子类确认字段不串用。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-003",
+      "atomic_requirement": "纱支体系数值股数和捻度结构化保存",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B03; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B03",
+      "work_package": "WP02",
+      "scope": "基础配置消费端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialSpecValues",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialSpecValues"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateValues",
+          "reference": "src/pages/pcs-material-archives.ts:templateValues"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "rootDraft",
+          "reference": "src/pages/pcs-material-archives.ts:rootDraft"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateTemplateRequired",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateTemplateRequired"
+        }
+      ],
+      "implemented_behavior": "纱线按模板分别保存纱支体系、纱支数值、股数与捻度，表单使用独立字段。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无专门验证四项纱线结构字段持久重读的物料专项。"
+      ],
+      "browser_pending": [
+        "纱线新建/详情/编辑四项分别展示并读取当前字典候选。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-004",
+      "atomic_requirement": "耗材按包装袋胶带油剂等适用模板展示",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B04; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B04",
+      "work_package": "WP02",
+      "scope": "基础配置消费端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveEditPage"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateTemplateRequired",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateTemplateRequired"
+        }
+      ],
+      "implemented_behavior": "耗材入口按包装袋、胶带、油剂等分类加载对应版本模板；非适用字段不统一平铺。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无逐个耗材模板的直接专项。"
+      ],
+      "browser_pending": [
+        "逐项切换耗材子类，保存后详情与原子类字段一致。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-005",
+      "atomic_requirement": "设备适配为多值独立关系",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B05; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B05",
+      "work_package": "WP02",
+      "scope": "基础配置消费端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialArchiveRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialArchiveRecord"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "rootDraft",
+          "reference": "src/pages/pcs-material-archives.ts:rootDraft"
+        }
+      ],
+      "implemented_behavior": "设备配件以 equipmentCompatibility 数组和模板多选值保存多项设备适配，不用单一采购对象或单一型号替代。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无多适配设备存取与配置停用的专项；当前独立多值属性的表达须由主代理与“独立关系”口径一起核对。"
+      ],
+      "browser_pending": [
+        "设备配件同时选多种设备，保存/刷新后完整显示且不改其他身份字段。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-006",
+      "atomic_requirement": "空差从目标表单导入及计算中排除",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B06; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B06",
+      "work_package": "WP02",
+      "scope": "物料表单/业务导入消费端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "materialTransferHeaders",
+          "reference": "src/data/pcs-material-transfer.ts:materialTransferHeaders"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        }
+      ],
+      "implemented_behavior": "目标物料表单、业务CSV表头及标准成本公式没有空差字段。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出表头有直接排除断言；需主代理确认所有实际加载模板均未重新带入空差。"
+      ],
+      "browser_pending": [
+        "模板、新建/编辑、CSV模板与成本页无空差。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-007",
+      "atomic_requirement": "只维护一个语义为有效幅宽的字段",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B07; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B07",
+      "work_package": "WP02",
+      "scope": "基础配置消费端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "normalizedEffectiveSpecs",
+          "reference": "src/data/pcs-material-archive-repository.ts:normalizedEffectiveSpecs"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "materialSpecRows",
+          "reference": "src/pages/pcs-material-archives.ts:materialSpecRows"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "rootDraft",
+          "reference": "src/pages/pcs-material-archives.ts:rootDraft"
+        }
+      ],
+      "implemented_behavior": "使用 width 一个规格字段，语义为有效幅宽；旧 widthCm 在有效规格归一中转换，产出变更不改投入宽度。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-003/UOM: output width is one field and package edits retain previous contents",
+          "line": 238
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "Node 专项验证单字段/父子独立；页面标签与无额外计算需浏览器确认。"
+      ],
+      "browser_pending": [
+        "根150 cm/产出145 cm分别显示，编辑仅一个幅宽字段。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-008",
+      "atomic_requirement": "染色规格审核前必须有Pantone体系和号",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B08; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B08",
+      "work_package": "WP02",
+      "scope": "配置候选/染色SKU消费端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        }
+      ],
+      "implemented_behavior": "染色通过结构化 Pantone 体系与编号生成目标，缺失则阻断；审核再次验证必要身份资料。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "r1 直接断言缺 Pantone 体系被拒绝，其余审核链不是该测试覆盖。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "编码构造缺体系有直接断言；缺号、关闭后重读再审核需要页面证据。"
+      ],
+      "browser_pending": [
+        "染色无Pantone不可生成/提交；体系与编号完整时预览和保存一致。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-015",
+      "atomic_requirement": "已用模板变更生成新版本",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §5",
+      "decision_refs": "F04",
+      "work_package": "WP02",
+      "scope": "只登记模板版本消费契约；不覆盖配置维护实现",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialArchiveRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialArchiveRecord"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveEditPage"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateTemplateRequired",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateTemplateRequired"
+        }
+      ],
+      "implemented_behavior": "物料保存 templateId/templateVersion，既有档案通过 getMaterialTemplateByVersion 消费指定版本；新建消费当前模板。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "模板维护、发布新版本及旧版本保留由基础配置工作包提供证据，本物料专项未直接覆盖。"
+      ],
+      "browser_pending": [
+        "已用模板发布新版本后旧档案仍显示旧版本，新档案用新版。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CFG-016",
+      "atomic_requirement": "停用字典不供新选但保留历史显示",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §5",
+      "decision_refs": "F05",
+      "work_package": "WP02",
+      "scope": "仅物料候选/历史值消费端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "field",
+          "reference": "src/pages/pcs-material-archives.ts:field"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "templateFields",
+          "reference": "src/pages/pcs-material-archives.ts:templateFields"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "colorOptions",
+          "reference": "src/pages/pcs-material-archives.ts:colorOptions"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "units",
+          "reference": "src/pages/pcs-material-archives.ts:units"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateTemplateRequired",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateTemplateRequired"
+        }
+      ],
+      "implemented_behavior": "新选颜色/单位/模板候选过滤停用值；既有已选值以原值保留显示，历史模板字段仍使用其版本。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有专项未直接验证每个字典停用后的新选与历史显示；配置维护本身不在本索引。"
+      ],
+      "browser_pending": [
+        "停用颜色、单位和模板候选后，新建不能选，既有详情/编辑保留原值。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-001",
+      "atomic_requirement": "五类列表提供共用主档和SKU视图",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A02; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "A02",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveDetailPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        }
+      ],
+      "implemented_behavior": "五类列表共用主档和 SKU 两个视图；根、SKU 详情与编辑使用独立路由，详情按职责分 Tab。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无物料页面结构的浏览器证据收录；不以源码存在替代分层体验验收。"
+      ],
+      "browser_pending": [
+        "1366×768及1280×720：五类列表切视图、分页，独立详情/编辑直达和返回。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-002",
+      "atomic_requirement": "删除独立变种创建和维护入口",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A02; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "A02",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-variant-repository.ts",
+          "symbol": "projection",
+          "reference": "src/data/pcs-material-variant-repository.ts:projection"
+        },
+        {
+          "file": "src/data/pcs-material-variant-repository.ts",
+          "symbol": "createMaterialVariant",
+          "reference": "src/data/pcs-material-variant-repository.ts:createMaterialVariant"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveDetailPage"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "物料页仅创建基础/加工SKU；旧 Variant API 是规范 SKU 的读取投影，创建入口返回不支持独立新增。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        }
+      ],
+      "test_coverage_scope": "r2 只直接验证规范 SKU 与旧别名一致性。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "全局旧菜单/路由/关联入口退役证据由主代理汇总。"
+      ],
+      "browser_pending": [
+        "检查原变种入口与本页主档/SKU操作没有两套可写身份。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-003",
+      "atomic_requirement": "阶段技术变化保存在产出SKU有效规格",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B01; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "B01",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "normalizedEffectiveSpecs",
+          "reference": "src/data/pcs-material-archive-repository.ts:normalizedEffectiveSpecs"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "materialSpecRows",
+          "reference": "src/pages/pcs-material-archives.ts:materialSpecRows"
+        }
+      ],
+      "implemented_behavior": "加工目标 effectiveSpecValues 保存本阶段有效规格，继承投入的同时允许阶段技术变化；父SKU不被改写。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-003/UOM: output width is one field and package edits retain previous contents",
+          "line": 238
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "宽度变化有直接专项，其他模板技术字段的阶段覆盖需补页面场景。"
+      ],
+      "browser_pending": [
+        "投入/产出详情分别显示根规格、继承来源和阶段变化。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-004",
+      "atomic_requirement": "新审核SKU具备可识别资料",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F03; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "F03",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateRoot",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateRoot"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "imageEditor",
+          "reference": "src/pages/pcs-material-archives.ts:imageEditor"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        }
+      ],
+      "implemented_behavior": "审核要求身份完整及可用识别资料；加工产出按工艺要求具体花型版本和执行文件，不用临时Blob充当已保存资料。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: formal processed SKU requires real pattern/version plus the process-specific execution document",
+          "line": 198
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: registered file previews pass image validation while temporary blobs do not",
+          "line": 226
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "专项覆盖加工文件角色与已登记图像引用；真实图片可识别性由页面验收。"
+      ],
+      "browser_pending": [
+        "缺图/临时图片/缺执行文件审核失败；正确真实资料可提交审核。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-005",
+      "atomic_requirement": "复制主档只复制资料与允许属性",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "F07",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "copyMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:copyMaterialArchive"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        }
+      ],
+      "implemented_behavior": "复制根档重新生成根码/草稿状态，保留允许属性与图片文件引用，不复制SKU、成本历史及业务单据。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: copied archive reuses file references, resets approval and has no copied SKU or price history",
+          "line": 175
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "Node证明对象内容与引用复用；真实Blob字节是否未复制由共享存储工作包验证。"
+      ],
+      "browser_pending": [
+        "复制主档后查看草稿、新码、图片以及空SKU/无复制历史；刷新保持。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-006",
+      "atomic_requirement": "复制SKU必须有真实身份差异",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "F07",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialSkuIdentityFingerprint",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialSkuIdentityFingerprint"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createMaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-repository.ts:createMaterialSkuRecord"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuEditPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuEditPage"
+        }
+      ],
+      "implemented_behavior": "基础SKU使用真实身份字段去重，改显示名称或包装不能绕过；加工后目标不能直接改花型身份。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: copying a display name alone cannot bypass existing SKU identity",
+          "line": 149
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: processed siblings retain independent identities when only packaging information changes",
+          "line": 167
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有名称假差异/包装稳定专项；UI复制时原对象链接和真实差异流程需验收。"
+      ],
+      "browser_pending": [
+        "复制只改规格显示名称被拒绝；变更真实身份后生成新SKU。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-007",
+      "atomic_requirement": "条码打印使用SKU身份和真实图文",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "F07",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderOverlay",
+          "reference": "src/pages/pcs-material-archives.ts:renderOverlay"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "resolveMaterialSkuIdentity",
+          "reference": "src/data/pcs-material-archive-repository.ts:resolveMaterialSkuIdentity"
+        }
+      ],
+      "implemented_behavior": "物料标签使用 SKU 身份载荷、实际编码与图片；标签数量和模板在打印预览确认，别名可解析回规范身份。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        }
+      ],
+      "test_coverage_scope": "旧码解析测试不是标签打印或扫码设备验证。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "没有真实二维码解码、纸张尺寸和打印浏览器专项；r2仅证明解析目标。"
+      ],
+      "browser_pending": [
+        "选SKU打印预览、真实图文、关闭预览；实际二维码回读同一SKU。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-008",
+      "atomic_requirement": "染印绣烫物料加工产生新SKU",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C01; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C01",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        }
+      ],
+      "implemented_behavior": "染色、印花、绣花、烫画创建新的 MaterialSKU，保留直接前驱、工艺定义版本、有效规格与资料关系。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "BRIDGE-005: one canonical target retains both dye and print with each direct predecessor",
+          "line": 124
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "MAT/CODE: CSV stages use the preceding row actual generated SKU",
+          "line": 46
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "编码与链路有专项；四个UI表单生成/保存/刷新仍需验收。"
+      ],
+      "browser_pending": [
+        "依次从实际投入SKU新增加工；四工艺目标独立详情可打开。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-009",
+      "atomic_requirement": "裁片压褶打揽不产生物料SKU",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C01; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C01",
+      "work_package": "WP04",
+      "scope": "物料入口边界；不覆盖生产域执行页",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialProcessOrderIntent",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialProcessOrderIntent"
+        }
+      ],
+      "implemented_behavior": "物料新加工SKU限定作用对象为物料；裁片对象不走本创建入口，压褶/打揽不加入物料SKU工艺候选。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "r1 只验证物料构码拒绝裁片作用对象。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "专项直接拒绝CUT_PIECE对象；裁片生产域实际压褶/打揽流程不在本索引验收。"
+      ],
+      "browser_pending": [
+        "物料新增加工候选没有裁片压褶/打揽；不得从此入口造永久裁片SKU。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-010",
+      "atomic_requirement": "同目标返工不自动生成永久SKU",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C02; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C02",
+      "work_package": "WP04",
+      "scope": "物料身份防重边界",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialSkuIdentityFingerprint",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialSkuIdentityFingerprint"
+        }
+      ],
+      "implemented_behavior": "同物料对象不靠重复工艺或显示名变化建立重复永久目标；返工事实留给实际业务单据。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: copying a display name alone cannot bypass existing SKU identity",
+          "line": 149
+        }
+      ],
+      "test_coverage_scope": "现有测试覆盖同对象重复加工及相同身份防重，不覆盖返工单。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "没有实际返工单正向端到端场景，本包不宣称返工领域已实现。"
+      ],
+      "browser_pending": [
+        "同目标重复新建被阻断且已有SKU保持；实际返工入口由接收域验收。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-011",
+      "atomic_requirement": "对象变化后同工艺可再次出现",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C02; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C02",
+      "work_package": "WP04",
+      "scope": "只登记物料对象边界；生产域完整场景不在本索引",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialProcessOrderIntent",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialProcessOrderIntent"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        }
+      ],
+      "implemented_behavior": "当前物料入口区分物料对象并拒绝用裁片身份创建物料SKU；物料转裁片后可再次加工应由技术/生产对象承接。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        }
+      ],
+      "test_coverage_scope": "反向边界测试，不能替代需求的正向完整路径。",
+      "implementation_gaps": [
+        "本条跨对象再次加工的完整实现不由物料SKU入口承接；本索引只提供禁止混淆对象的局部证据。"
+      ],
+      "verification_gaps": [
+        "没有“面料印后裁成片再印”完整正向证据；该场景不能仅凭同对象重复工艺拒绝断言通过。"
+      ],
+      "browser_pending": [
+        "由主代理在既有裁片领域验证对象变化和再次加工，确认无新增永久裁片SKU。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-012",
+      "atomic_requirement": "花型ID与执行文件分用途关联",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C04; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C04",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-pattern.ts",
+          "symbol": "listMaterialPatternChoices",
+          "reference": "src/data/pcs-material-pattern.ts:listMaterialPatternChoices"
+        },
+        {
+          "file": "src/data/pcs-material-pattern.ts",
+          "symbol": "getMaterialPatternReference",
+          "reference": "src/data/pcs-material-pattern.ts:getMaterialPatternReference"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "reviseMaterialProcessAssets",
+          "reference": "src/data/pcs-material-archive-repository.ts:reviseMaterialProcessAssets"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderAssets",
+          "reference": "src/pages/pcs-material-archives.ts:renderAssets"
+        }
+      ],
+      "implemented_behavior": "花型身份/版本来自既有花型库，展示图、印花执行稿、绣花版、烫画执行稿以不同角色关联；当前与历史文件版本分别保留。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-pattern-read.test.ts",
+          "name": "MAT-012: pattern selection reads existing identity and versions without seeding browser business records",
+          "line": 6
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: formal processed SKU requires real pattern/version plus the process-specific execution document",
+          "line": 198
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: registered file previews pass image validation while temporary blobs do not",
+          "line": 226
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "Node验证来源只读与文件角色；真实执行文件浏览、上传后刷新与引用复用待浏览器。"
+      ],
+      "browser_pending": [
+        "花型选择器显示真实编号/版本；错误文件用途不能审核，正确文件可查看，图片可关闭。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-013",
+      "atomic_requirement": "资料小修与交付改变分开",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C06; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C06",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "reviseMaterialProcessAssets",
+          "reference": "src/data/pcs-material-archive-repository.ts:reviseMaterialProcessAssets"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "updateMaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-repository.ts:updateMaterialSkuRecord"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "saveForm",
+          "reference": "src/pages/pcs-material-archives.ts:saveForm"
+        }
+      ],
+      "implemented_behavior": "执行资料小修新增资料版本并保留SKU；实质花型/交付变化走新增目标及修订编码，不就地改已定身份。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-013/CODE-005: execution-file corrections preserve prior versions and the output identity",
+          "line": 213
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: processed siblings retain independent identities when only packaging information changes",
+          "line": 167
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "资料版本和身份锁定有专项；编辑页版本预览与实际文件历史仍待验收。"
+      ],
+      "browser_pending": [
+        "小修保留旧文件版本/同SKU；交付变化新目标保留旧引用。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-014",
+      "atomic_requirement": "加工建单不要求库存有量或接口成功",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C07; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C07",
+      "work_package": "WP04",
+      "scope": "交接契约；不包含PMS/FCS下游页面实现",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialProcessOrderIntent",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialProcessOrderIntent"
+        },
+        {
+          "file": "src/data/pcs-material-handoff.ts",
+          "symbol": "materialProcessHandoffPath",
+          "reference": "src/data/pcs-material-handoff.ts:materialProcessHandoffPath"
+        },
+        {
+          "file": "src/data/pcs-material-handoff.ts",
+          "symbol": "readPcsMaterialHandoff",
+          "reference": "src/data/pcs-material-handoff.ts:readPcsMaterialHandoff"
+        }
+      ],
+      "implemented_behavior": "物料端只带入直接投入、目标、工艺定义及版本到实际接收表单；不读取库存、不以库存有量为导航前置条件、不在跳转时建单。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: handoff uses existing routes, revalidates parent identity and never creates a document",
+          "line": 135
+        },
+        {
+          "file": "tests/pcs-r1-material-plans.test.ts",
+          "name": "MAT/FCS: handoff opens a versioned independent plan form for all four processes without creating a plan",
+          "line": 112
+        }
+      ],
+      "test_coverage_scope": "r13和f8只引用物料导航/身份重校验/跳转不建单契约；不把FCS计划实现算作本条完整闭合。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "实际FCS计划保存、工厂/数量填写、记录回执及库存不可用的端到端证据由主代理登记。"
+      ],
+      "browser_pending": [
+        "从无库存前置的物料SKU进入四工艺实际表单；返回查看实际计划引用由接收域验收。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "MAT-015",
+      "atomic_requirement": "多基础规格使用实际前驱完整码",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C08; prototype-adjustment-proposal.md §7/§9",
+      "decision_refs": "C08",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "listMaterialSkuLineage",
+          "reference": "src/data/pcs-material-archive-repository.ts:listMaterialSkuLineage"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        }
+      ],
+      "implemented_behavior": "加工目标编码继承实际直接前驱完整编码；CSV链和设计改款染后再印都按前一阶段真实SKU串接。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "BRIDGE-005: one canonical target retains both dye and print with each direct predecessor",
+          "line": 124
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "MAT/CODE: CSV stages use the preceding row actual generated SKU",
+          "line": 46
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有链路验证主要是单根基础到多阶段；多基础兄弟规格选择防串仍需UI证据。"
+      ],
+      "browser_pending": [
+        "同根两个基础规格分别加工，预览投入/产出完整码，确认不会统一回到根码。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-001",
+      "atomic_requirement": "单面A双面AB进入印花码",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C05; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "C05",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "印花结构字段 printSide 选择 A 或 AB，并进入生成编码。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "构码专项已直接覆盖对应编码结果；实际表单预览、保存、重读一致性待浏览器。"
+      ],
+      "browser_pending": [
+        "在对应工艺表单选择结构字段，核对完整码预览、保存结果和详情。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-002",
+      "atomic_requirement": "渗透印有独立入码段",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C05; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "C05",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "渗透印使用独立 ST 编码段，不靠展示备注识别。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "构码专项已直接覆盖对应编码结果；实际表单预览、保存、重读一致性待浏览器。"
+      ],
+      "browser_pending": [
+        "在对应工艺表单选择结构字段，核对完整码预览、保存结果和详情。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-003",
+      "atomic_requirement": "烫画具有明确工艺编码段",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C01; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "C01",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "烫画使用 TH 工艺段，独立于印花YH与绣花XH。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "构码专项已直接覆盖对应编码结果；实际表单预览、保存、重读一致性待浏览器。"
+      ],
+      "browser_pending": [
+        "在对应工艺表单选择结构字段，核对完整码预览、保存结果和详情。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-004",
+      "atomic_requirement": "不同花双面保留正反顺序",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C04; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "C04",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "双面不同花按 F/B 保留正反面花型顺序。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "构码专项已直接覆盖对应编码结果；实际表单预览、保存、重读一致性待浏览器。"
+      ],
+      "browser_pending": [
+        "在对应工艺表单选择结构字段，核对完整码预览、保存结果和详情。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-005",
+      "atomic_requirement": "同花号交付变化有修订段",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C06; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "C06",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderProcessEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderProcessEditor"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "同花型交付变化可带 revisionSegment，例如R02；执行资料小修只换资料版本。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-013/CODE-005: execution-file corrections preserve prior versions and the output identity",
+          "line": 213
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "构码专项已直接覆盖对应编码结果；实际表单预览、保存、重读一致性待浏览器。"
+      ],
+      "browser_pending": [
+        "在对应工艺表单选择结构字段，核对完整码预览、保存结果和详情。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-006",
+      "atomic_requirement": "编码使用结构字段生成并保留规则版本",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C08; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "C08",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "MATERIAL_CODE_RULE_VERSION",
+          "reference": "src/data/pcs-material-rules.ts:MATERIAL_CODE_RULE_VERSION"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialProcessDefinition",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialProcessDefinition"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "编码从结构字段生成，工艺定义保存 codeRuleVersion 与前驱关系；业务识别使用稳定ID，不反解析字串恢复工艺。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "BRIDGE-005: one canonical target retains both dye and print with each direct predecessor",
+          "line": 124
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "MAT/CODE: CSV stages use the preceding row actual generated SKU",
+          "line": 46
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "生成码/链路有专项；规则版本持久直达重读由浏览器确认。"
+      ],
+      "browser_pending": [
+        "加工详情显示工艺、结构字段与规则版本，刷新前后与编码一致。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-007",
+      "atomic_requirement": "旧码别名可查可扫码",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A03; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "A03",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "resolveMaterialSkuIdentity",
+          "reference": "src/data/pcs-material-archive-repository.ts:resolveMaterialSkuIdentity"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "filteredSkus",
+          "reference": "src/pages/pcs-material-archives.ts:filteredSkus"
+        }
+      ],
+      "implemented_behavior": "旧完整码和别名查找返回规范SKU，列表搜索包含别名；xPT旧码不作为后续工艺推断的唯一事实。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE/MAT: previous target IDs and aliases resolve to one canonical identity; no code parsing",
+          "line": 25
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "别名解析有直接测试；实体扫码、打印载荷与别名搜索结果导航尚无浏览器证据。"
+      ],
+      "browser_pending": [
+        "搜索旧xPT码并打开同一规范SKU；扫码旧码回到同一目标。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-008",
+      "atomic_requirement": "生成码超长时禁止静默截断",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A03; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "A03",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "checkedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:checkedMaterialCode"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        }
+      ],
+      "implemented_behavior": "完整生成码超过256字符直接报错，不裁短后保存。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "构码超长专项通过记录已有；表单错误和未保存状态未录入浏览器证据。"
+      ],
+      "browser_pending": [
+        "输入导致超长的结构字段，确认提示原因且没有新SKU。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "CODE-009",
+      "atomic_requirement": "不同Pantone体系同号不发生新编码冲突",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B08; prototype-adjustment-proposal.md §9.2",
+      "decision_refs": "B08",
+      "work_package": "WP04",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "buildProcessedMaterialCode",
+          "reference": "src/data/pcs-material-rules.ts:buildProcessedMaterialCode"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "默认TCX保持既定段，非默认Pantone体系入码，体系与色号同时保存在结构字段中。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "CODE: direct predecessor is preserved across dye, embroidery, A/AB and penetration",
+          "line": 13
+        }
+      ],
+      "test_coverage_scope": "r1为相邻构码路径证据，不能声称已覆盖本条唯一性场景。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有构码测试只有默认体系和缺体系断言，没有同号TCX/TPX等多体系不冲突的直接断言。"
+      ],
+      "browser_pending": [
+        "同号不同Pantone体系各创建目标，完整码和结构字段不同。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-001",
+      "atomic_requirement": "每物料SKU有且只有一个主单位",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B12; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B12",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "makeBaseSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:makeBaseSku"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "updateMaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-repository.ts:updateMaterialSkuRecord"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "skuDraft",
+          "reference": "src/pages/pcs-material-archives.ts:skuDraft"
+        }
+      ],
+      "implemented_behavior": "主单位归属单个SKU，基础及加工目标均有唯一 mainUnit；根档没有第二套可写主辅单位。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: fixed conversions cannot be altered; cross dimensions need basis and retain versions",
+          "line": 68
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: unchanged units and locally locked units do not query another domain",
+          "line": 7
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: purchase drafts or historical purchase references block changing the unit",
+          "line": 18
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "单位存在/锁定相关路径有专项；五类初建必填和旧根单位归一UI未完全覆盖。"
+      ],
+      "browser_pending": [
+        "五类SKU选择唯一主单位；根档不提供主单位独立修改。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-002",
+      "atomic_requirement": "SKU详情有独立计量单位Tab",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B12; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B12",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderUnits",
+          "reference": "src/pages/pcs-material-archives.ts:renderUnits"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderUnitEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderUnitEditor"
+        }
+      ],
+      "implemented_behavior": "SKU详情提供独立计量单位Tab，显示主单位、辅助关系、用途/默认项及历史版本；编辑在独立页。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无计量Tab DOM/交互的专门自动化证据。"
+      ],
+      "browser_pending": [
+        "Tab切换、辅助关系新增/编辑/历史、返回SKU详情完整可用。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-003",
+      "atomic_requirement": "辅助关系使用1辅=X主的固定方向",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B12; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B12",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialUnitRelation",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialUnitRelation"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "validateMaterialRelation",
+          "reference": "src/data/pcs-material-rules.ts:validateMaterialRelation"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialUnitRelation",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialUnitRelation"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderUnitEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderUnitEditor"
+        }
+      ],
+      "implemented_behavior": "唯一方向为1辅助单位=X主单位，系数必须正；不重复建立主单位自身辅助行，固定物理关系不能乱改。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: fixed conversions cannot be altered; cross dimensions need basis and retain versions",
+          "line": 68
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "UOM/COST: CSV rejects nonpositive relation and preserves an explicit zero cost",
+          "line": 54
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "纯规则和CSV验证已有；实际错误输入保留及提交持久化需页面证据。"
+      ],
+      "browser_pending": [
+        "输入0/负数拒绝、正确关系保存，表达式方向和用途显示一致。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-004",
+      "atomic_requirement": "跨量纲换算必须具备规格依据",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B13; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B13",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "materialUnitDimension",
+          "reference": "src/data/pcs-material-rules.ts:materialUnitDimension"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "validateMaterialRelation",
+          "reference": "src/data/pcs-material-rules.ts:validateMaterialRelation"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialUnitRelation",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialUnitRelation"
+        }
+      ],
+      "implemented_behavior": "按单位量纲验证，跨量纲关系必须具有规格依据；单位量纲优先读取当前配置。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: fixed conversions cannot be altered; cross dimensions need basis and retain versions",
+          "line": 68
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "跨量纲无依据阻断有测试；新配置单位加入后量纲消费尚无直接测试。"
+      ],
+      "browser_pending": [
+        "KG与长度跨量纲不自动推算，填写依据后关系和版本可追溯。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-005",
+      "atomic_requirement": "批次实测不覆盖标准换算",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B13; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B13",
+      "work_package": "WP05",
+      "scope": "标准关系边界；不覆盖批次测量实现",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialUnitRelation",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialUnitRelation"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialUnitRelation",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialUnitRelation"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialUnitFactorInSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialUnitFactorInSnapshot"
+        }
+      ],
+      "implemented_behavior": "标准关系调整生成新版本；历史采用系数保留。物料表单不提供批次实测覆盖标准关系的入口。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: fixed conversions cannot be altered; cross dimensions need basis and retain versions",
+          "line": 68
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST/UOM: new conversion version updates current descendants but preserves prior snapshots",
+          "line": 154
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "版本保留直接验证；实际批次/WMS写入不会覆盖标准属于跨域验收。"
+      ],
+      "browser_pending": [
+        "标准换算历史保留；批次实测路径由仓储/质检工作包验证。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-006",
+      "atomic_requirement": "包装含量和包装规格独立保存",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B14; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B14",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialPackageSpec",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialPackageSpec"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialPackageSpec",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialPackageSpec"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialUnitRelation",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialUnitRelation"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPackEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderPackEditor"
+        }
+      ],
+      "implemented_behavior": "包装规格独立packageSpecId；同SKU可同时有包100PCS和包600PCS，关系选择明确包装规格，修改留历史。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: two packages share SKU identity, have separate relations, unknown volume stays null",
+          "line": 80
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-003/UOM: output width is one field and package edits retain previous contents",
+          "line": 238
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "对象与关系区分有专项；列表/选择器多同名包装辨识需要浏览器。"
+      ],
+      "browser_pending": [
+        "两个“包”显示各自含量，历史编辑不串关系。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-007",
+      "atomic_requirement": "纯包装变化不自动新增永久SKU",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B14; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B14",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialPackageSpec",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialPackageSpec"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialSkuIdentityFingerprint",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialSkuIdentityFingerprint"
+        }
+      ],
+      "implemented_behavior": "包装数量、净重等物流信息变化不创建物料永久身份；同SKU关联多个包装规格。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: two packages share SKU identity, have separate relations, unknown volume stays null",
+          "line": 80
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: processed siblings retain independent identities when only packaging information changes",
+          "line": 167
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "Node身份不变已有；实际包装页编辑后SKU计数需浏览器确认。"
+      ],
+      "browser_pending": [
+        "修改/新增包装后SKU ID/数量不变，包装版本分别变化。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-008",
+      "atomic_requirement": "净重毛重与面料克重分属不同基准",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B15; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B15",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialPackageSpec",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialPackageSpec"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPack",
+          "reference": "src/pages/pcs-material-archives.ts:renderPack"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "materialSpecRows",
+          "reference": "src/pages/pcs-material-archives.ts:materialSpecRows"
+        }
+      ],
+      "implemented_behavior": "netWeightPerMainKg为每主单位净重，grossWeightKg归包装规格，gramWeight归面料技术规格。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-003/UOM: output width is one field and package edits retain previous contents",
+          "line": 238
+        }
+      ],
+      "test_coverage_scope": "相邻输入约束测试，不是三类重量字段完整语义测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "专项覆盖负净重、包装内容与有效宽度，不直接完整断言三类重量基准。"
+      ],
+      "browser_pending": [
+        "有效规格、每主单位净重、每包装毛重分别展示单位和基准。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-009",
+      "atomic_requirement": "体积来源明确且未知不默填零",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B15; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B15",
+      "work_package": "WP05",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "materialPackageVolume",
+          "reference": "src/data/pcs-material-rules.ts:materialPackageVolume"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialPackageSpec",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialPackageSpec"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPackEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderPackEditor"
+        }
+      ],
+      "implemented_behavior": "体积来源区分尺寸计算、确认体积及未知；未知保留null；确认体积需正值和测量基准。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: two packages share SKU identity, have separate relations, unknown volume stays null",
+          "line": 80
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尺寸计算与未知null有直接测试；确认体积表单错误和显示需浏览器。"
+      ],
+      "browser_pending": [
+        "留空显示未维护而非0；输入尺寸计算，确认体积显示依据。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "UOM-010",
+      "atomic_requirement": "使用过的主单位锁定",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §8",
+      "decision_refs": "F04",
+      "work_package": "WP05",
+      "scope": "物料修改门禁与PMS只读契约；不包含PMS页面实现",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "updateMaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-repository.ts:updateMaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "markMaterialSkuMainUnitUsed",
+          "reference": "src/data/pcs-material-archive-repository.ts:markMaterialSkuMainUnitUsed"
+        },
+        {
+          "file": "src/data/pcs-material-reference-check.ts",
+          "symbol": "assertMaterialMainUnitChangeAllowed",
+          "reference": "src/data/pcs-material-reference-check.ts:assertMaterialMainUnitChangeAllowed"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "saveForm",
+          "reference": "src/pages/pcs-material-archives.ts:saveForm"
+        }
+      ],
+      "implemented_behavior": "已审核/已用主单位锁定；单位确实变化时先只读查询采购引用，查询失败阻断PCS写入。跨库采购单保留自己的采用单位快照，不串写伪原子。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "UOM: fixed conversions cannot be altered; cross dimensions need basis and retain versions",
+          "line": 68
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: unchanged units and locally locked units do not query another domain",
+          "line": 7
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: purchase drafts or historical purchase references block changing the unit",
+          "line": 18
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: unused draft may change its unit only after the reference read completes",
+          "line": 26
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: failed reference reads preserve the input and block the PCS write",
+          "line": 39
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "引用检查专项使用注入只读查询，未替代实际PMS数据库和浏览器保存/失败验收。"
+      ],
+      "browser_pending": [
+        "已引用SKU编辑主单位阻断，未使用草稿可改，读取失败保留输入；原单数量口径不变。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-001",
+      "atomic_requirement": "印花染色取消Asaya分价",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D01; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D01",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialStandardCostVersion",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialStandardCostVersion"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        }
+      ],
+      "implemented_behavior": "每物料SKU使用同一标准成本方案，染印加工费不再分Asaya与其他品牌两组。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出无Asaya有断言；全部成本详情/编辑无品牌分栏需页面确认。"
+      ],
+      "browser_pending": [
+        "染色和印花成本页无品牌重复价格栏，统一含税加工费。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-002",
+      "atomic_requirement": "标准采购成本人工维护",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D02; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D02",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialStandardCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "saveForm",
+          "reference": "src/pages/pcs-material-archives.ts:saveForm"
+        }
+      ],
+      "implemented_behavior": "基础采购标准由人工维护，预览影响后确认保存；不从供应商报价或实际采购单自动回写。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: preview normalizes the original currency exactly like confirmed save",
+          "line": 108
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "人工更新与预览一致有测试；实际确认保存及刷新需浏览器。"
+      ],
+      "browser_pending": [
+        "更改P、查看后代影响、确认保存，当前下游自动采用。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-003",
+      "atomic_requirement": "默认人民币支持IDR和USD展示",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D03; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D03",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialStandardCostDisplay",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialStandardCostDisplay"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        }
+      ],
+      "implemented_behavior": "成本基准为CNY，默认显示人民币，按展示汇率查看IDR/USD，结果不产生新成本版本。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: zero is complete; null is missing; display rates do not produce versions",
+          "line": 49
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有专项直接覆盖IDR零值和USD缺汇率；非零USD/IDR显示金额需页面或补专项。"
+      ],
+      "browser_pending": [
+        "切换RMB、IDR、USD，显示货币、单位、来源/时间，切回基准不改变成本。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-004",
+      "atomic_requirement": "缺展示汇率有明确反馈",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D03; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D03",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialStandardCostDisplay",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialStandardCostDisplay"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        }
+      ],
+      "implemented_behavior": "缺展示汇率返回明确未配置提示，不用0或1凑值，人民币仍可读取。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: zero is complete; null is missing; display rates do not produce versions",
+          "line": 49
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "纯函数缺汇率反馈有证据；实际按钮/提示样式需浏览器。"
+      ],
+      "browser_pending": [
+        "无USD或IDR汇率时提示未配置汇率，人民币正常显示。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-005",
+      "atomic_requirement": "全部标准价统一含税",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D04; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D04",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialStandardCostVersion",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialStandardCostVersion"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "prepareMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:prepareMaterialStandardCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        }
+      ],
+      "implemented_behavior": "采购、初始运输、加工单价按含税标准保存；页面明确含税，不提供混用未税口径。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "公式测试间接使用含税固定口径；没有独立拒绝未税输入的专项。"
+      ],
+      "browser_pending": [
+        "成本编辑、预览、详情、导出均表达含税口径。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-006",
+      "atomic_requirement": "基础运输只累计一次",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D05; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D05",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "prepareMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:prepareMaterialStandardCost"
+        }
+      ],
+      "implemented_behavior": "根基础运输在累计链中只出现一次；采购已含基础运输时不重复累计。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "r3断言初始运输分项数；采购已含运输的开关场景缺独立直接断言。"
+      ],
+      "browser_pending": [
+        "基础P/T、采购含运输开关、两道后代累计数核对。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-007",
+      "atomic_requirement": "后段运输不进入公式",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D05; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D05",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "prepareMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:prepareMaterialStandardCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        }
+      ],
+      "implemented_behavior": "加工阶段不接受新增运输进入当前公式，表单只维护本道加工费。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有后段运输拒绝断言；表单无后段运输项和提示待页面。"
+      ],
+      "browser_pending": [
+        "加工SKU费用编辑只有本道F，后段运输不进入综合标准。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-008",
+      "atomic_requirement": "损耗缩率不进入本期物料公式",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D06; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D06",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        }
+      ],
+      "implemented_behavior": "综合标准仅P+初始T+逐道F，不增加损耗、缩率乘数。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "测试直接核对该公式结果；无独立向输入注入损耗/缩率的专项。"
+      ],
+      "browser_pending": [
+        "逐道成本展开与已确认标准公式一致。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-009",
+      "atomic_requirement": "加工费按产出单位表达",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D07; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D07",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "prepareMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:prepareMaterialStandardCost"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialUnitFactorInSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialUnitFactorInSnapshot"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        }
+      ],
+      "implemented_behavior": "档案中的加工单价以产出计价单位归一，原币金额/原单位/汇率/换算依据保留；当前单位关系调整重算依赖。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST/UOM: source currency and unit normalization retains quote precision",
+          "line": 61
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST/UOM: new conversion version updates current descendants but preserves prior snapshots",
+          "line": 154
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "原报价保留和跨单位版本影响有专项；多道不同单位组合仍需命名场景。"
+      ],
+      "browser_pending": [
+        "显示每产出单位的F、原报价与归一依据，单位变更预览前后成本。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-010",
+      "atomic_requirement": "辅材已含在加工费中",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D08; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D08",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-types.ts",
+          "symbol": "MaterialStandardCostVersion",
+          "reference": "src/data/pcs-material-archive-types.ts:MaterialStandardCostVersion"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        }
+      ],
+      "implemented_behavior": "加工费明确含染化料/绣花线等辅材，不再另行重复计入辅助用料。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "公式结果间接覆盖无重复项；无辅材清单等额外功能验收。"
+      ],
+      "browser_pending": [
+        "加工费字段和明细注明含辅材，合计无重复辅助成本。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-011",
+      "atomic_requirement": "不纳入一次性费和分摊",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D09; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D09",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "materialTransferHeaders",
+          "reference": "src/data/pcs-material-transfer.ts:materialTransferHeaders"
+        }
+      ],
+      "implemented_behavior": "不设置开版、制网、打样一次性费及其摊销组成。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "公式测试不含一次性费；所有导入/编辑入口排除需页面核对。"
+      ],
+      "browser_pending": [
+        "成本表单/CSV模板没有一次性费和摊销列。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-012",
+      "atomic_requirement": "未维护与真实零值不同",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D10; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D10",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "materialMoney",
+          "reference": "src/data/pcs-material-rules.ts:materialMoney"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "calculateCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:calculateCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "nullable",
+          "reference": "src/pages/pcs-material-archives.ts:nullable"
+        }
+      ],
+      "implemented_behavior": "null为未维护，0为真实已确认零值；缺失分项传播成本不完整状态，导入也保留显式0。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: zero is complete; null is missing; display rates do not produce versions",
+          "line": 49
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "UOM/COST: CSV rejects nonpositive relation and preserves an explicit zero cost",
+          "line": 54
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "函数和导入有直接覆盖；空值/0的页面文案及筛选需浏览器。"
+      ],
+      "browser_pending": [
+        "空值与0分别保存，完整性状态和合计显示不同。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-013",
+      "atomic_requirement": "来源精度保留且统一末次舍入",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D11; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D11",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "materialDecimalAdd",
+          "reference": "src/data/pcs-material-rules.ts:materialDecimalAdd"
+        },
+        {
+          "file": "src/data/pcs-material-rules.ts",
+          "symbol": "materialDecimalMultiply",
+          "reference": "src/data/pcs-material-rules.ts:materialDecimalMultiply"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "prepareMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:prepareMaterialStandardCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        }
+      ],
+      "implemented_behavior": "保留原报价金额字符串及归一依据；内部固定8位精度运算，界面单价4位。R1 §10.1允许8位中间精度，不能把当前实现描述成任意精度无中间舍入。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST/UOM: source currency and unit normalization retains quote precision",
+          "line": 61
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: preview normalizes the original currency exactly like confirmed save",
+          "line": 108
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: zero is complete; null is missing; display rates do not produce versions",
+          "line": 49
+        }
+      ],
+      "test_coverage_scope": "只能证明已测数值，不以简单样本声称所有精度边界已通过。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有测试覆盖0.18+0.05、原币归一和预览/保存一致；长链高精度临界四舍五入没有直接专项。"
+      ],
+      "browser_pending": [
+        "展开来源有效精度，详情/预览/导出一致；长链临界值由主代理补适用证据。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-014",
+      "atomic_requirement": "上游变化自动更新所有依赖分支",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D12; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D12",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "previewMaterialCostChangeInSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:previewMaterialCostChangeInSnapshot"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialStandardCost"
+        },
+        {
+          "file": "src/data/pcs-material-performance-fixtures.ts",
+          "symbol": "createMaterialCostValidationSnapshot",
+          "reference": "src/data/pcs-material-performance-fixtures.ts:createMaterialCostValidationSnapshot"
+        }
+      ],
+      "implemented_behavior": "上游标准更新后当前引用链动态采用最新依赖，所有分支及100后代预览均被更新，无下游复核版本等待。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: preview normalizes the original currency exactly like confirmed save",
+          "line": 108
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "PERF: 100 and 1000 rows validate completely and cost change reaches 100 descendants without publishing",
+          "line": 80
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "纯函数100后代结果和不发布预览有专项；浏览器实际保存到完整渲染的100后代耗时待验收。"
+      ],
+      "browser_pending": [
+        "改P后多分支当前成本更新、刷新一致，影响清单全量；测完整保存耗时。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-015",
+      "atomic_requirement": "展示汇率变化不触发成本重新生效",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D12; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D12",
+      "work_package": "WP06",
+      "scope": "物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "materialStandardCostDisplay",
+          "reference": "src/data/pcs-material-archive-repository.ts:materialStandardCostDisplay"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        }
+      ],
+      "implemented_behavior": "展示汇率只用于显示换算，不追加成本版本、不改变已采用的原币归一成本。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: zero is complete; null is missing; display rates do not produce versions",
+          "line": 49
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "不产生成本版本有直接断言；实际基础配置汇率修改联动由主代理验收。"
+      ],
+      "browser_pending": [
+        "修改展示汇率后切币种，CNY及成本历史版本数不变。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-016",
+      "atomic_requirement": "已确认已发布历史成本快照不被改写",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D13; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D13",
+      "work_package": "WP06",
+      "scope": "物料成本快照契约；不覆盖技术包/BOM发布页",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "freezeMaterialCostSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:freezeMaterialCostSnapshot"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "readMaterialCostReference",
+          "reference": "src/data/pcs-material-archive-repository.ts:readMaterialCostReference"
+        }
+      ],
+      "implemented_behavior": "对外提供冻结金额、来源成本版本、计量关系版本/系数的快照；后续上游P或换算调整不改旧快照。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST/UOM: new conversion version updates current descendants but preserves prior snapshots",
+          "line": 154
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "物料快照函数有测试；技术包/BOM实际发布保存和历史详情由主代理接入验收。"
+      ],
+      "browser_pending": [
+        "主代理验证已发布BOM/已确认业务仍显示原成本和原系数。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "COST-017",
+      "atomic_requirement": "未发布草稿读最新参考并显示变化",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D13; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D13",
+      "work_package": "WP06",
+      "scope": "物料实时参考契约；不覆盖技术包/BOM草稿页",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "readMaterialCostReference",
+          "reference": "src/data/pcs-material-archive-repository.ts:readMaterialCostReference"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "getMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:getMaterialStandardCost"
+        }
+      ],
+      "implemented_behavior": "未冻结引用返回最新标准并计算changed标识；普通读取不写入业务记录。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "read operations never persist or mutate business snapshots",
+          "line": 101
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "最新/冻结读取及只读行为有专项；技术包草稿变化提示和当前参考UI由主代理验证。"
+      ],
+      "browser_pending": [
+        "未发布草稿刷新后读最新成本并显示变更提示，不能借读取生成成本版本。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "BRIDGE-005",
+      "atomic_requirement": "设计改款可连续染色再印花",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C01; prototype-adjustment-proposal.md §9.3/§12.4",
+      "decision_refs": "C01",
+      "work_package": "WP09",
+      "scope": "设计改款物料目标桥接；不扩展技术任务其他职责",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-design-revision-material-sku.ts",
+          "symbol": "resolveDesignRevisionMaterialSku",
+          "reference": "src/data/pcs-design-revision-material-sku.ts:resolveDesignRevisionMaterialSku"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "createProcessedMaterialSku",
+          "reference": "src/data/pcs-material-archive-repository.ts:createProcessedMaterialSku"
+        }
+      ],
+      "implemented_behavior": "设计改款解析可先生成/选择染色目标，再以该目标为印花直接投入；目标选择不再染印互斥。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "BRIDGE-005: one canonical target retains both dye and print with each direct predecessor",
+          "line": 124
+        },
+        {
+          "file": "tests/unit/pcs-design-revision-current-flow.test.ts",
+          "name": "目标 SKU 的四种加工组合、前序实物和 BOM Q 均按已建档字段读取",
+          "line": 39
+        },
+        {
+          "file": "tests/unit/pcs-design-revision-current-flow.test.ts",
+          "name": "加工按物料行及实际阶段执行：纯染行与先染后印行独立串联",
+          "line": 366
+        },
+        {
+          "file": "tests/unit/fcs-design-revision-result-readiness.test.ts",
+          "name": "先染后印目标 SKU 创建两段加工单，印花只接收本行染后物料而不能跳过染色",
+          "line": 333
+        }
+      ],
+      "test_coverage_scope": "规范SKU链、整单数量不放大、同一任务多BOM行的实际前驱、复制后独立加工链及禁止印花跳过染色已有直接专项；这些证据不替代浏览器交互与实际IndexedDB持久化。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "规范链有直接专项；技术任务表单与选择器交互尚待浏览器。"
+      ],
+      "browser_pending": [
+        "设计改款同时开启染色与印花，保存后目标直接前驱为染后SKU。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-001",
+      "atomic_requirement": "同一操作人可以维护并审核",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F01; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F01",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        }
+      ],
+      "implemented_behavior": "物料维护人与审核人允许相同，不设置强制双人分离。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: identities approve without price; same operator; unrelated older SKU remains approved",
+          "line": 93
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "同人审核有规则证据；实际操作身份显示待页面。"
+      ],
+      "browser_pending": [
+        "同一原型操作人创建/提交/审核，日志记录一致。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-002",
+      "atomic_requirement": "主档和首批SKU可一并审核",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F02; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F02",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "runMaterialApprovalBatch",
+          "reference": "src/data/pcs-material-archive-repository.ts:runMaterialApprovalBatch"
+        }
+      ],
+      "implemented_behavior": "选中主档时，主档及其需处理子SKU作为同一个审批动作；其中一个不满足条件则本对象均不保存。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: each selected root and its child SKUs succeed or fail together",
+          "line": 101
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "事务seam验证父子同成同败；真实IDB完成/中止由主代理验收。"
+      ],
+      "browser_pending": [
+        "主档首批SKU一起提交/审核；一子项缺资料时整对象失败，不影响另一个选择项。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-003",
+      "atomic_requirement": "后加SKU独立审核",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F02; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F02",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        }
+      ],
+      "implemented_behavior": "后新增SKU按自身身份独立提交审核，不重置其他已审核SKU。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: identities approve without price; same operator; unrelated older SKU remains approved",
+          "line": 93
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "规则有直接测试；列表/详情状态重读待页面。"
+      ],
+      "browser_pending": [
+        "已审核根档新增SKU，只该SKU经历草稿/待审/通过。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-004",
+      "atomic_requirement": "身份资料完整性与成本完整性分开",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F03; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F03",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "getMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:getMaterialStandardCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        }
+      ],
+      "implemented_behavior": "身份审核与成本是否维护独立；合法身份可在成本未维护时通过，并继续显示缺价状态。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: identities approve without price; same operator; unrelated older SKU remains approved",
+          "line": 93
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: zero is complete; null is missing; display rates do not produce versions",
+          "line": 49
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "规则直接覆盖；审核通过/成本不完整两个状态UI需验收。"
+      ],
+      "browser_pending": [
+        "无标准价SKU通过身份审核，成本Tab仍提示未维护。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-005",
+      "atomic_requirement": "名称翻译修正留痕但不换身份",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F04",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "updateMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:updateMaterialArchive"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "updateMaterialSkuRecord",
+          "reference": "src/data/pcs-material-archive-repository.ts:updateMaterialSkuRecord"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "log",
+          "reference": "src/data/pcs-material-archive-repository.ts:log"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderLogs",
+          "reference": "src/pages/pcs-material-archives.ts:renderLogs"
+        }
+      ],
+      "implemented_behavior": "名称、翻译等可修订字段留操作日志；已定编码/父关系/真实身份不随文案修订变化。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "现有专项未直接断言名称/翻译修订日志及ID稳定。"
+      ],
+      "browser_pending": [
+        "已审核档案修改名称/翻译，ID不变且操作记录可查。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-006",
+      "atomic_requirement": "停用不自动终止在途或下架渠道",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F05",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialUseStatus",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialUseStatus"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        }
+      ],
+      "implemented_behavior": "物料使用状态在自身档案修改；不从该操作自动修改在途采购/加工单或平台上下架。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "没有直接测试停用后各下游单据保持；应由主代理跨域核对。"
+      ],
+      "browser_pending": [
+        "停用物料二次确认，既有引用仍可追溯且未发生其他领域状态跳转。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-007",
+      "atomic_requirement": "不建设历史坏数据治理或待匹配正式队列",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F06; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F06",
+      "work_package": "WP10",
+      "scope": "共享治理范围，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderTransfer",
+          "reference": "src/pages/pcs-material-archives.ts:renderTransfer"
+        }
+      ],
+      "implemented_behavior": "本期物料界面不增加历史坏码、缺前驱修复队列；新业务输入仍执行必要防错。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "此为范围排除，现有测试不能证明全局菜单没有治理队列。"
+      ],
+      "browser_pending": [
+        "物料菜单、导入和详情没有历史异常治理功能。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-008",
+      "atomic_requirement": "业务导入先预览再按主对象原子保存",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享导入条目，仅物料三类业务CSV",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "previewMaterialBusinessImport",
+          "reference": "src/data/pcs-material-transfer.ts:previewMaterialBusinessImport"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "runMaterialBusinessImportBatch",
+          "reference": "src/data/pcs-material-transfer.ts:runMaterialBusinessImportBatch"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "applyMaterialBusinessImportGroup",
+          "reference": "src/data/pcs-material-transfer.ts:applyMaterialBusinessImportGroup"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "confirmMaterialTransfer",
+          "reference": "src/pages/pcs-material-archives.ts:confirmMaterialTransfer"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderMaterialImportResults",
+          "reference": "src/pages/pcs-material-archives.ts:renderMaterialImportResults"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "withMaterialArchiveMutationBatch",
+          "reference": "src/data/pcs-material-archive-repository.ts:withMaterialArchiveMutationBatch"
+        }
+      ],
+      "implemented_behavior": "主档/SKU、单位关系、标准成本三类CSV先完成一次全量预检。确认保存复用已校验分组，每个通过组独立等待一次runPcsRecordCommand事务完成；同一主档及本组SKU保持原子。一个组失败不回滚此前成功组，也不阻断后续合法组。结果包含主档/SKU、源文件行号、成功/失败及具体原因；重试只提交未保存的通过组，成功组不重复提交。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-008: material CSV handles Unicode, quoted commas, quotes and newlines",
+          "line": 13
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-008: full root group previews without writes and commits once with every child",
+          "line": 18
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-008: one bad row blocks the whole parent while a different valid group remains eligible",
+          "line": 31
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-008: a save failure after preview publishes neither parent nor earlier children",
+          "line": 39
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "MAT/CODE: CSV stages use the preceding row actual generated SKU",
+          "line": 46
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "UOM/COST: CSV rejects nonpositive relation and preserves an explicit zero cost",
+          "line": 54
+        },
+        {
+          "file": "tests/pcs-r1-material-import-commit.test.ts",
+          "name": "GOV-008: a middle group persistence failure preserves other groups and retry skips saved roots",
+          "line": 35
+        },
+        {
+          "file": "tests/pcs-r1-material-import-commit.test.ts",
+          "name": "GOV-008: a late child failure rolls back its entire root and keeps the exact failed line",
+          "line": 62
+        },
+        {
+          "file": "tests/pcs-r1-material-import-commit.test.ts",
+          "name": "GOV-008: prepared groups commit without full preview replay and invalid rows stay visible",
+          "line": 76
+        },
+        {
+          "file": "tests/pcs-r1-material-import-commit.test.ts",
+          "name": "GOV-008: the next import group and success result wait for transaction completion",
+          "line": 89
+        }
+      ],
+      "test_coverage_scope": "原有CSV解析/预览/单组原子检查保留；新增四项直接验证逐组独立提交、中间组失败不影响其他组、同根晚到子项错误回滚、失败行号、只重试失败组、等待完成和不重扫全量预览。存储失败由可控提交seam模拟，并未宣称真实IDB故障场景已通过。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已使用可控提交seam验证逐组事务边界、父子回滚、等待完成、预校验错误保留与成功组跳过；这不是实际浏览器IndexedDB故障/刷新证据。",
+        "分组确认不再次调用全量previewMaterialBusinessImport；真实多组持久提交及完整渲染性能仍须与共享runtime最新实现一并验收。"
+      ],
+      "browser_pending": [
+        "三类业务CSV分别执行多组导入；中间组存储失败时前后合法组成功且刷新存在，失败组无半套主档/SKU。",
+        "结果显示失败源文件行号和原因；点击重试只处理未保存组，成功组不重复新增，所有组成功后不再提供重复确认。",
+        "真实导入100/1000行的分组事务complete及结果完整渲染时间，由主代理按同一运行版本测量。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。",
+      "latest_targeted_verification": {
+        "command": "node --import tsx --test tests/pcs-r1-material-import-commit.test.ts tests/pcs-r1-material-transfer.test.ts",
+        "result": "13 passed, 0 failed",
+        "log": "/tmp/r1-material-import-commit.log",
+        "new_direct_cases": 4,
+        "browser_evidence": false,
+        "build_was_run": false
+      }
+    },
+    {
+      "requirement_id": "GOV-009",
+      "atomic_requirement": "导出覆盖筛选的全部匹配记录",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享导出条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "filteredRoots",
+          "reference": "src/pages/pcs-material-archives.ts:filteredRoots"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "filteredSkus",
+          "reference": "src/pages/pcs-material-archives.ts:filteredSkus"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "exportMaterialBusinessRows",
+          "reference": "src/data/pcs-material-transfer.ts:exportMaterialBusinessRows"
+        }
+      ],
+      "implemented_behavior": "导出采用完整筛选结果ID，不使用当前分页行；根档视图保留尚无SKU的根记录。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: image columns reject bytes and temporary URLs, while empty root exports remain visible",
+          "line": 68
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出函数全ID/空根记录有测试；实际UI筛选到多页的参数传递尚需浏览器。"
+      ],
+      "browser_pending": [
+        "筛选结果跨页后导出，行数覆盖全部匹配记录而非仅当前20行。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-010",
+      "atomic_requirement": "真实图片可预览和打印",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享图片条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "image",
+          "reference": "src/pages/pcs-material-archives.ts:image"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderAssets",
+          "reference": "src/pages/pcs-material-archives.ts:renderAssets"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderOverlay",
+          "reference": "src/pages/pcs-material-archives.ts:renderOverlay"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "addMaterialAsset",
+          "reference": "src/data/pcs-material-archive-repository.ts:addMaterialAsset"
+        }
+      ],
+      "implemented_behavior": "列表、详情、图库及打印复用真实静态识别图或用户文件引用；大图可关闭，打印使用SKU图文。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: registered file previews pass image validation while temporary blobs do not",
+          "line": 226
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: image columns reject bytes and temporary URLs, while empty root exports remain visible",
+          "line": 68
+        }
+      ],
+      "test_coverage_scope": "r21/t8仅证明引用校验及拒绝临时字节地址，不是视觉证据。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "引用合法性测试不证明图片真实可识别或可打印；实际静态源加载、Blob刷新及大图关闭需要浏览器证据。"
+      ],
+      "browser_pending": [
+        "五类真实图显示，大图打开关闭；上传保存后刷新查看；标签真实图文打印。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-011",
+      "atomic_requirement": "全部PCS页面无浏览器资料维护工具",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-013; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "USR-013",
+      "work_package": "WP10",
+      "scope": "共享治理条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderTransfer",
+          "reference": "src/pages/pcs-material-archives.ts:renderTransfer"
+        }
+      ],
+      "implemented_behavior": "物料页面没有浏览器资料迁移、备份、恢复或空间清理工具；导入导出限定业务CSV。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出表头有排除断言；全PCS维护工具移除由主代理负责，不由此物料局部索引宣布。"
+      ],
+      "browser_pending": [
+        "物料全部路由和业务CSV窗口没有本地资料维护入口。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-012",
+      "atomic_requirement": "记录及文件使用现有IndexedDB轻量存储",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "物料存储接入契约；共享runtime由主代理/存储工作包验收",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "MATERIAL_ARCHIVE_STORAGE_KEY",
+          "reference": "src/data/pcs-material-archive-repository.ts:MATERIAL_ARCHIVE_STORAGE_KEY"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "getMaterialArchiveStoreSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:getMaterialArchiveStoreSnapshot"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "command",
+          "reference": "src/pages/pcs-material-archives.ts:command"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "saveForm",
+          "reference": "src/pages/pcs-material-archives.ts:saveForm"
+        }
+      ],
+      "implemented_behavior": "物料仓库使用已登记pcsRecordStore键，页面持久动作等待runPcsRecordCommand；文件采用通用Blob/引用事务链。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: reload restores SKU identity, unit versions and changed costs from record snapshot",
+          "line": 116
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: registered file previews pass image validation while temporary blobs do not",
+          "line": 226
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "r11是记录快照清缓存重读，并非浏览器IDB；实际按记录落盘、事务complete、容量/打开失败由共享存储证据闭合。"
+      ],
+      "browser_pending": [
+        "保存、刷新、深链和文件读取一致；首开无整包seed，失败无虚假成功。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-013",
+      "atomic_requirement": "普通读取和初始化不写业务数据",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "共享只读规则，仅物料及被调用花型读链",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "getMaterialArchiveStoreSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:getMaterialArchiveStoreSnapshot"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "listMaterialArchives",
+          "reference": "src/data/pcs-material-archive-repository.ts:listMaterialArchives"
+        },
+        {
+          "file": "src/data/pcs-material-pattern.ts",
+          "symbol": "listMaterialPatternChoices",
+          "reference": "src/data/pcs-material-pattern.ts:listMaterialPatternChoices"
+        }
+      ],
+      "implemented_behavior": "物料普通查询、成本/单位读取及花型候选读取不写业务数据，演示内容是静态读取来源。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "read operations never persist or mutate business snapshots",
+          "line": 101
+        },
+        {
+          "file": "tests/pcs-r1-material-pattern-read.test.ts",
+          "name": "MAT-012: pattern selection reads existing identity and versions without seeding browser business records",
+          "line": 6
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "物料/花型源write计数已有专项；真实浏览器冷启动及路由水合是否零写由主代理验收。"
+      ],
+      "browser_pending": [
+        "首次打开/刷新/直达物料页不批量写入种子或修改已有业务记录。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-014",
+      "atomic_requirement": "复制记录复用附件且有效引用不误删",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "物料文件引用接入；不覆盖共享清理实现",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "copyMaterialArchive",
+          "reference": "src/data/pcs-material-archive-repository.ts:copyMaterialArchive"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "reviseMaterialProcessAssets",
+          "reference": "src/data/pcs-material-archive-repository.ts:reviseMaterialProcessAssets"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "releasePendingFiles",
+          "reference": "src/pages/pcs-material-archives.ts:releasePendingFiles"
+        }
+      ],
+      "implemented_behavior": "复制复用文件实体引用，资料修订保留历史引用；未保存文件取消时释放挂起引用。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: copied archive reuses file references, resets approval and has no copied SKU or price history",
+          "line": 175
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-013/CODE-005: execution-file corrections preserve prior versions and the output identity",
+          "line": 213
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "复制引用及保留历史有测试；有效引用不误删/垃圾回收由共享存储实现，未在物料专项证明。"
+      ],
+      "browser_pending": [
+        "复制后Blob实体数量不重复；替换/取消保留其他引用文件，历史仍可打开。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-015",
+      "atomic_requirement": "多标签冲突及重复提交有记录级保护",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "物料命令接入；不覆盖共享并发实现",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "command",
+          "reference": "src/pages/pcs-material-archives.ts:command"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "saveForm",
+          "reference": "src/pages/pcs-material-archives.ts:saveForm"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "runMaterialApprovalBatch",
+          "reference": "src/data/pcs-material-archive-repository.ts:runMaterialApprovalBatch"
+        }
+      ],
+      "implemented_behavior": "页面生成稳定operationId并经记录命令保存；批量每对象等待独立命令结果，不在未完成时发布成功。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: next item and batch results wait for prior transaction completion",
+          "line": 114
+        }
+      ],
+      "test_coverage_scope": "仅异步完成顺序测试，不把它等同多标签冲突验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "g7证明等待seam完成，不是多标签版本冲突或实际事务去重；共享runtime和浏览器冲突证据待主代理。"
+      ],
+      "browser_pending": [
+        "双标签修改同记录冲突提示；重复提交无重复对象；刷新读持久结果。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-016",
+      "atomic_requirement": "失败保留输入与旧记录并可重试",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "共享错误恢复规则，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "command",
+          "reference": "src/pages/pcs-material-archives.ts:command"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "saveForm",
+          "reference": "src/pages/pcs-material-archives.ts:saveForm"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "confirmMaterialTransfer",
+          "reference": "src/pages/pcs-material-archives.ts:confirmMaterialTransfer"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "runMaterialApprovalBatch",
+          "reference": "src/data/pcs-material-archive-repository.ts:runMaterialApprovalBatch"
+        },
+        {
+          "file": "src/data/pcs-material-reference-check.ts",
+          "symbol": "assertMaterialMainUnitChangeAllowed",
+          "reference": "src/data/pcs-material-reference-check.ts:assertMaterialMainUnitChangeAllowed"
+        }
+      ],
+      "implemented_behavior": "保存错误保留编辑状态/失败选项和原因；失败完成不标记成功。主单位引用读取失败先阻断写入。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-008: a save failure after preview publishes neither parent nor earlier children",
+          "line": 39
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: a failed persistence completion is not a success and cannot undo other items",
+          "line": 88
+        },
+        {
+          "file": "tests/pcs-r1-material-reference-check.test.ts",
+          "name": "UOM/PMS: failed reference reads preserve the input and block the PCS write",
+          "line": 39
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "注入失败验证无半套对象/无假成功；真实IDB容量/事务中止及输入恢复需页面。"
+      ],
+      "browser_pending": [
+        "故障保存后原记录不变、当前输入保留，修复后可重试一次成功。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-017",
+      "atomic_requirement": "适用页面与动作完整结果严格小于500ms",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "物料性能测量入口；不宣告性能门禁通过",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-performance-fixtures.ts",
+          "symbol": "createMaterialImportValidationCsv",
+          "reference": "src/data/pcs-material-performance-fixtures.ts:createMaterialImportValidationCsv"
+        },
+        {
+          "file": "src/data/pcs-material-performance-fixtures.ts",
+          "symbol": "createMaterialCostValidationSnapshot",
+          "reference": "src/data/pcs-material-performance-fixtures.ts:createMaterialCostValidationSnapshot"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "previewMaterialBusinessImport",
+          "reference": "src/data/pcs-material-transfer.ts:previewMaterialBusinessImport"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "previewMaterialCostChangeInSnapshot",
+          "reference": "src/data/pcs-material-archive-repository.ts:previewMaterialCostChangeInSnapshot"
+        }
+      ],
+      "implemented_behavior": "提供100/1000行导入准备、100后代成本计算的可调用纯入口；测试记录本机CPU准备耗时。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "PERF: 100 and 1000 rows validate completely and cost change reaches 100 descendants without publishing",
+          "line": 80
+        }
+      ],
+      "test_coverage_scope": "t9无浏览器完整动作阈值断言，仅测试结果完整性和纯准备耗时。",
+      "implementation_gaps": [
+        "性能门禁处于待真实浏览器验证状态，不能以准备入口或Loading出现认定完成。"
+      ],
+      "verification_gaps": [
+        "没有本索引可用于完成判定的浏览器完整动作<500ms证据；Node纯计算数据不覆盖IDBcomplete与渲染。"
+      ],
+      "browser_pending": [
+        "按真实服务版本测五类列表、查询/分页、详情、保存、导入100/1000行及100后代更新的完整完成时间。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-019",
+      "atomic_requirement": "默认20行并支持筛选分页列配置",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享列表规范，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "listState",
+          "reference": "src/pages/pcs-material-archives.ts:listState"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "listColumns",
+          "reference": "src/pages/pcs-material-archives.ts:listColumns"
+        }
+      ],
+      "implemented_behavior": "默认20行，复用标准表格筛选、分页和列设置偏好；所有五类共用同一模式。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无物料列表分页/列设置的直接专项。"
+      ],
+      "browser_pending": [
+        "默认20行、页码切换、列设置、刷新偏好、窄屏操作均可用。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-020",
+      "atomic_requirement": "查询重置导出位于完整筛选卡",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享列表规范，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        }
+      ],
+      "implemented_behavior": "查询、重置、导出位于完整筛选卡；筛选草稿与已生效查询分开，查询后重置页码。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无物料筛选卡DOM和动作布局专项。"
+      ],
+      "browser_pending": [
+        "完整筛选卡的位置、查询/重置/导出以及多条件结果。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-021",
+      "atomic_requirement": "编码名称识别图归同一单元格",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享识别规范，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "identity",
+          "reference": "src/pages/pcs-material-archives.ts:identity"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "listColumns",
+          "reference": "src/pages/pcs-material-archives.ts:listColumns"
+        }
+      ],
+      "implemented_behavior": "图片、编码与名称在一个识别单元格，编码链接进入对应根档/SKU详情。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "纯视觉/导航需求尚无浏览器证据收录。"
+      ],
+      "browser_pending": [
+        "两种视图识别单元格、大图与编码详情链接清晰且不截断关键识别。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-022",
+      "atomic_requirement": "批量动作展示选中数和逐项结果",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F07",
+      "work_package": "WP10",
+      "scope": "共享批量条目，仅物料提交/审核",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "runMaterialApprovalBatch",
+          "reference": "src/data/pcs-material-archive-repository.ts:runMaterialApprovalBatch"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "runBatchApproval",
+          "reference": "src/pages/pcs-material-archives.ts:runBatchApproval"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderMaterialApprovalBatchResults",
+          "reference": "src/pages/pcs-material-archives.ts:renderMaterialApprovalBatchResults"
+        }
+      ],
+      "implemented_behavior": "批量提交/审核逐对象调用独立原子命令；显示选中数、保存成功数、失败数和每对象编码/名称/原因。失败保留选中，成功移除，可重新打开结果。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: first validation failure does not cancel later material approvals; each item has its own result",
+          "line": 70
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: a failed persistence completion is not a success and cannot undo other items",
+          "line": 88
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: each selected root and its child SKUs succeed or fail together",
+          "line": 101
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: next item and batch results wait for prior transaction completion",
+          "line": 114
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "专项覆盖首项错误继续、持久完成失败不标成功、父子原子、等待顺序和结果HTML；实际浏览器IDB事务失败及刷新待验收。"
+      ],
+      "browser_pending": [
+        "混合合法/非法主档和SKU批量提交/审核；逐项结果正确且成功持久、失败未写；关闭重开结果。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-023",
+      "atomic_requirement": "停用归档等影响动作二次确认",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F05",
+      "work_package": "WP10",
+      "scope": "共享影响动作条目，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialUseStatus",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialUseStatus"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        }
+      ],
+      "implemented_behavior": "物料停用、归档等影响动作在页面二次确认，再等待记录命令保存；取消不写入。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "没有物料确认/取消的独立专项；需实际页面证据。"
+      ],
+      "browser_pending": [
+        "分别取消/确认停用与归档，保存后状态/日志一致并可刷新。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-024",
+      "atomic_requirement": "审核动作有明确前置条件和结果",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F02; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F02",
+      "work_package": "WP10",
+      "scope": "共享审核规范，仅物料端",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "setMaterialApproval",
+          "reference": "src/data/pcs-material-archive-repository.ts:setMaterialApproval"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "validateRoot",
+          "reference": "src/data/pcs-material-archive-repository.ts:validateRoot"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "handlePcsMaterialArchiveEvent",
+          "reference": "src/pages/pcs-material-archives.ts:handlePcsMaterialArchiveEvent"
+        }
+      ],
+      "implemented_behavior": "提交和审核按当前状态及身份/资料完整性校验；已审/待审不能再次提交，父子失败有具体原因。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT: identities approve without price; same operator; unrelated older SKU remains approved",
+          "line": 93
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "MAT-012: formal processed SKU requires real pattern/version plus the process-specific execution document",
+          "line": 198
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: first validation failure does not cancel later material approvals; each item has its own result",
+          "line": 70
+        },
+        {
+          "file": "tests/pcs-r1-material-review-regressions.test.ts",
+          "name": "GOV-022: each selected root and its child SKUs succeed or fail together",
+          "line": 101
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "规则与批量错误已有专项；单项按钮状态、错误文案及页面结果待验收。"
+      ],
+      "browser_pending": [
+        "缺图/缺执行稿、合法审核、重复提交、后增SKU独立审核逐项观察。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-025",
+      "atomic_requirement": "标准成本维护使用独立职责",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F01; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F01",
+      "work_package": "WP10",
+      "scope": "共享职责条目，仅物料标准成本",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCost",
+          "reference": "src/pages/pcs-material-archives.ts:renderCost"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderCostEditor",
+          "reference": "src/pages/pcs-material-archives.ts:renderCostEditor"
+        },
+        {
+          "file": "src/data/pcs-material-archive-repository.ts",
+          "symbol": "saveMaterialStandardCost",
+          "reference": "src/data/pcs-material-archive-repository.ts:saveMaterialStandardCost"
+        }
+      ],
+      "implemented_behavior": "标准成本有独立Tab和修改标准动作，费用变更与身份审核分开，保存原因与成本版本。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: P + initial freight + every F; automatic descendants, immutable business snapshot",
+          "line": 34
+        },
+        {
+          "file": "tests/pcs-r1-material-rules.test.ts",
+          "name": "COST: preview normalizes the original currency exactly like confirmed save",
+          "line": 108
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "本原型不实现真实鉴权；职责区分由页面动作体现，具体角色UI和操作日志待主代理确认。"
+      ],
+      "browser_pending": [
+        "从成本Tab独立修改标准/查看影响与历史，不影响身份审批状态。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-026",
+      "atomic_requirement": "普通页面读取失败仅提示原因和重试",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "仅列物料接入页面；共享错误边界不在本索引实现范围",
+      "actual_implementation": [
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderListPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderListPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialArchiveDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialArchiveDetailPage"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderPcsMaterialSkuDetailPage",
+          "reference": "src/pages/pcs-material-archives.ts:renderPcsMaterialSkuDetailPage"
+        }
+      ],
+      "implemented_behavior": "物料页面不内置迁移/备份/恢复面板；读取不可用的原因与重读动作依赖公共PCS页面水合/错误边界。",
+      "existing_tests": [],
+      "test_coverage_scope": "现有物料专项未找到直接断言本条结果的独立测试。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "本物料文件不单独提供公共读取失败拦截；共享路由错误边界的实现与浏览器证据需主代理联查。"
+      ],
+      "browser_pending": [
+        "模拟读失败，在当前物料页显示原因及重新读取，不显示空数据成功态或维护工具。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    },
+    {
+      "requirement_id": "GOV-027",
+      "atomic_requirement": "业务导入导出不变成浏览器整库备份恢复",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "work_package": "WP10",
+      "scope": "共享业务传输条目，仅物料三类CSV",
+      "actual_implementation": [
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "materialTransferHeaders",
+          "reference": "src/data/pcs-material-transfer.ts:materialTransferHeaders"
+        },
+        {
+          "file": "src/data/pcs-material-transfer.ts",
+          "symbol": "exportMaterialBusinessRows",
+          "reference": "src/data/pcs-material-transfer.ts:exportMaterialBusinessRows"
+        },
+        {
+          "file": "src/pages/pcs-material-archives.ts",
+          "symbol": "renderTransfer",
+          "reference": "src/pages/pcs-material-archives.ts:renderTransfer"
+        }
+      ],
+      "implemented_behavior": "三类CSV仅含业务字段/结构引用，不导出浏览器全库、Blob字节或维护指令；拒绝dataURL、临时Blob及不存在的文件引用。",
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: business exports honor all selected identities without stock or supplier fields",
+          "line": 62
+        },
+        {
+          "file": "tests/pcs-r1-material-transfer.test.ts",
+          "name": "GOV-027: image columns reject bytes and temporary URLs, while empty root exports remain visible",
+          "line": 68
+        }
+      ],
+      "test_coverage_scope": "所列专项只作为本条所述业务结果的局部证据，不替代浏览器、实际持久化及完整需求验收。",
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "导出字段与引用校验有专项；真实文件ID导出/重导入及UI文案仍待浏览器。"
+      ],
+      "browser_pending": [
+        "业务模板/预览/导出不出现整库备份恢复；共享文件引用有效且无字节重复。"
+      ],
+      "completion_claim": "本索引不将该条标记为已验证；由主代理汇总同版本命名页面及适用存储、性能证据后判定。"
+    }
+  ],
+  "excluded_matrix_rows": [
+    {
+      "requirement_id": "ARCH-005",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "ARCH-006",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "ARCH-007",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "ARCH-008",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "ARCH-009",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "ARCH-013",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "ARCH-015",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CFG-009",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CFG-010",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CFG-011",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CFG-012",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CFG-013",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CFG-014",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-001",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-002",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-003",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-004",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-005",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-006",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-007",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-008",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-009",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-010",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-011",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "PROD-012",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-001",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-002",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-003",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-004",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-005",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-006",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-007",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-008",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-009",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-010",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-011",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-012",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-013",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-014",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-015",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-016",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-017",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-018",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "CHAN-019",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-001",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-002",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-003",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-004",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-005",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-006",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-007",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-008",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-009",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-010",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-011",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "SYNC-012",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "BRIDGE-001",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "BRIDGE-002",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "BRIDGE-003",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "BRIDGE-004",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "BRIDGE-006",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    },
+    {
+      "requirement_id": "GOV-018",
+      "reason": "商品、渠道、公共配置维护、生产/采购接收或其他主代理负责范围，不在本物料证据索引宣告完成。"
+    }
+  ],
+  "unclosed_cross_domain_scenarios": [
+    "MAT-011对象转裁片后再次印花的完整正向流程。",
+    "COST-016/017正式技术包历史快照与草稿实时成本显示。",
+    "物料交接后PMS/FCS实际保存、回执、刷新及详情反查。",
+    "共享配置版本/停用与物料表单消费的完整页面联动。",
+    "真实IndexedDB故障、多标签冲突、Blob生命周期、深链及完整动作性能。"
+  ]
+}

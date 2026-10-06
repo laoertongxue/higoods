@@ -1,37 +1,43 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import path from 'node:path'
+import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import * as catalog from '../src/data/pcs-channel-catalog.ts'
+import { submitChannelSync, receiveChannelReceipt, demoChannelReceipt } from '../src/data/pcs-channel-sync.ts'
+import { renderPcsChannelProductDetailPage, renderPcsChannelProductEditPage, discardPcsChannelChanges } from '../src/pages/pcs-channel-products.ts'
+import { renderChannelDescription } from '../src/pages/pcs-channel-ui.ts'
 
-const root = process.cwd()
-
-function read(relativePath: string): string {
-  return readFileSync(path.join(root, relativePath), 'utf8')
+// R1 媒体归渠道内容，使用图片角色和文件引用，不要求开发项目图片确认。
+const source = readFileSync('src/pages/pcs-channel-products.ts', 'utf8')
+const types = readFileSync('src/data/pcs-channel-catalog-types.ts', 'utf8')
+assert.match(types, /interface ChannelMedia[\s\S]*?fileId\?: string/)
+for (const marker of ['registerPcsFile', 'releasePcsPendingFile', 'runPcsRecordCommand']) assert.ok(source.includes(marker), `媒体保存边界缺少 ${marker}`)
+assert.ok(!/readAsDataURL|FileReader/.test(source), '不得以 Base64 替代文件仓库')
+const original = pcsRecordStore.getItem(catalog.PCS_CHANNEL_CATALOG_KEY)
+try {
+  const styleId = 'style_r1_wms_tee', internalSkuId = 'sku_r1_wms_tee_black_s'
+  const base = catalog.contentFromStyle(styleId).media[0]
+  const draft = catalog.createChannelListing({ storeId: 'ST-001', styleId, internalSkuIds: [internalSkuId], initialPrice: 149000, content: { media: [] } })
+  assert.throws(() => catalog.reviewChannelListing(draft.id, '提交审核'), /主图/)
+  assert.throws(() => catalog.saveChannelContent(draft.id, { ...draft.content, media: [{ ...base, url: 'data:image/png;base64,AAAA' }] }, draft.version), /文件内容/)
+  const saved = catalog.saveChannelContent(draft.id, { ...draft.content, media: [
+    { ...base, id: 'channel-detail', role: '详情图', sort: 2 },
+    { ...base, id: 'channel-main', role: '主图', sort: 1 },
+  ] }, draft.version)
+  catalog.reviewChannelListing(draft.id, '提交审核'); catalog.reviewChannelListing(draft.id, '审核通过')
+  const operation = submitChannelSync(draft.id, '发布')
+  assert.deepEqual(operation.items.find(item => item.field === 'media')?.submittedValue, saved.content.media, '上传保留明确的媒体角色及顺序')
+  receiveChannelReceipt(demoChannelReceipt(operation.id))
+  assert.equal(catalog.getChannelListing(draft.id)!.syncStatus, '一致')
+  const detail = renderPcsChannelProductDetailPage(draft.id), edit = renderPcsChannelProductEditPage(draft.id)
+  assert.ok(detail.includes(base.url), '渠道详情须展示实际图片源')
+  for (const label of ['刊登媒体', '添加图片 / 视频', '主图', '详情图', '尺码图', '视频']) assert.ok(edit.includes(label), `媒体编辑缺少 ${label}`)
+  assert.ok(!/导出完整备份|清理无引用附件|本机资料/.test(detail + edit), '业务页不得复活维护工具')
+  const html = renderChannelDescription('<table><tr><td>M</td></tr></table><img src="/materials/pcs-reviewed/tee-black.jpg" onerror="alert(1)"><script>alert(1)</script>')
+  assert.ok(html.includes('<table>') && html.includes('/materials/pcs-reviewed/tee-black.jpg'))
+  assert.ok(!html.includes('onerror') && !html.includes('<script'), '销售说明展示保留内容但不执行脚本')
+} finally {
+  discardPcsChannelChanges()
+  if (original === null) pcsRecordStore.removeItem(catalog.PCS_CHANNEL_CATALOG_KEY); else pcsRecordStore.setItem(catalog.PCS_CHANNEL_CATALOG_KEY, original)
+  catalog.resetPcsChannelCatalogCache()
 }
-
-const projectDomainContract = read('src/data/pcs-project-domain-contract.ts')
-const listingRepository = read('src/data/pcs-channel-product-project-repository.ts')
-const listingImageTypes = read('src/data/pcs-channel-listing-image-types.ts')
-const listingImageUtils = read('src/data/pcs-channel-listing-image-utils.ts')
-const projectImageTypes = read('src/data/pcs-project-image-types.ts')
-const channelProductsPage = read('src/pages/pcs-channel-products.ts')
-
-const listingFieldSection = projectDomainContract.match(/const channelListingFields = \[[\s\S]*?\n\]/)
-assert(listingFieldSection, '未找到商品上架字段定义')
-assert(/listingMainImageId/.test(listingFieldSection![0]), '商品上架字段定义缺少上架主图')
-assert(/listingImageIds/.test(listingFieldSection![0]), '商品上架字段定义缺少上架图片集合')
-assert(/listingImageSource/.test(listingFieldSection![0]), '商品上架字段定义缺少图片来源')
-assert(!/fieldKey: 'mainImageUrls'|fieldKey: 'detailImageUrls'/.test(listingFieldSection![0]), '商品上架字段定义仍把旧 URL 数组作为主输入')
-
-assert(/export interface ChannelListingImageRecord/.test(listingImageTypes), '缺少商品上架图片引用类型')
-assert(/'上架图'/.test(projectImageTypes), '项目图片资产类型中缺少上架图')
-assert(/'可用于上架'/.test(projectImageTypes), '项目图片资产状态中缺少可用于上架')
-
-assert(/validateChannelListingImagesForUpload/.test(listingRepository), '商品上架仓储缺少上传前图片校验')
-assert(/请先选择或上传上架图片。/.test(listingImageUtils), '商品上架图片工具缺少图片集合校验提示')
-assert(/请设置上架主图。/.test(listingImageUtils), '商品上架图片工具缺少主图校验提示')
-assert(/请确认图片可用于商品上架。/.test(listingImageUtils), '商品上架图片工具缺少图片用途校验提示')
-assert(/markProjectChannelProductListingCompleted/.test(listingRepository), '商品上架仓储缺少标记完成方法')
-
-assert(/上架主图/.test(channelProductsPage), '渠道商品页缺少上架主图展示')
-
-console.log('check-pcs-channel-listing-images.ts PASS')
+console.log('check-pcs-channel-listing-images.ts PASS (R1 channel media, review gate, receipt payload and safe preview)')

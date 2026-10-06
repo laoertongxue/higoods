@@ -15,7 +15,7 @@ function buildProjectDraft() {
   const category = catalog.categories[0]
   const subCategory = category.children[0]
   const brand = catalog.brands[0]
-  const styleCode = catalog.styleCodes[0]
+  const styleCode = catalog.categoryNumbers[0]
   const owner = catalog.owners[0]
   const team = catalog.teams[0]
 
@@ -27,8 +27,8 @@ function buildProjectDraft() {
   draft.subCategoryName = subCategory?.name || ''
   draft.brandId = brand.id
   draft.brandName = brand.name
-  draft.styleCodeId = styleCode.id
-  draft.styleCodeName = styleCode.name
+  draft.categoryNumberId = styleCode.id
+  draft.categoryNumberName = styleCode.name
   draft.styleNumber = styleCode.name
   draft.styleType = '基础款'
   draft.yearTag = catalog.yearTags[0]

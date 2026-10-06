@@ -1,0 +1,344 @@
+﻿dimension_id,dimension_name,id,code,name_zh,name_en,status,sortOrder
+brands,品牌,brands-1,1,Chicmore,Chicmore,ENABLED,1
+brands,品牌,brands-2,2,FADFAD,FADFAD,ENABLED,2
+brands,品牌,brands-3,3,Tendblank,Tendblank,ENABLED,3
+brands,品牌,brands-4,4,Asaya,Asaya,ENABLED,4
+brands,品牌,brands-5,5,LUXME,LUXME,ENABLED,5
+brands,品牌,brands-6,6,MODISH,MODISH,ENABLED,6
+brands,品牌,brands-7,7,PRIMA,PRIMA,ENABLED,7
+crowdPositioning,人群定位,crowdPositioning-1,1,穆斯林,,ENABLED,1
+crowdPositioning,人群定位,crowdPositioning-2,2,穆斯林友好,,ENABLED,2
+crowdPositioning,人群定位,crowdPositioning-3,3,非穆斯林,,ENABLED,3
+ages,年龄,ages-1,1,18~30,,ENABLED,1
+ages,年龄,ages-2,2,25~45,,ENABLED,2
+ages,年龄,ages-3,3,45~65,,ENABLED,3
+crowds,人群,crowds-1,1,年轻,,ENABLED,1
+crowds,人群,crowds-2,2,成熟,,ENABLED,2
+crowds,人群,crowds-3,3,中老年,,ENABLED,3
+productPositioning,商品定位,productPositioning-1,1,基础款,,ENABLED,1
+productPositioning,商品定位,productPositioning-2,2,设计款,,ENABLED,2
+productPositioning,商品定位,productPositioning-3,3,设计改款,,ENABLED,3
+productPositioning,商品定位,productPositioning-4,4,低价改款,,ENABLED,4
+productPositioning,商品定位,productPositioning-5,5,低价,,ENABLED,5
+specialCrafts,特殊工艺,specialCrafts-1,1,绣花,,ENABLED,1
+specialCrafts,特殊工艺,specialCrafts-2,2,烫画,,ENABLED,2
+specialCrafts,特殊工艺,specialCrafts-3,3,直喷,,ENABLED,3
+specialCrafts,特殊工艺,specialCrafts-4,4,贝壳绣,,ENABLED,4
+specialCrafts,特殊工艺,specialCrafts-5,5,四合扣,,ENABLED,5
+specialCrafts,特殊工艺,specialCrafts-6,6,打条,,ENABLED,6
+specialCrafts,特殊工艺,specialCrafts-7,7,打揽,,ENABLED,7
+specialCrafts,特殊工艺,specialCrafts-8,8,压褶,,ENABLED,8
+sizes,尺码,sizes-1,1,S,S,ENABLED,1
+sizes,尺码,sizes-2,2,M,M,ENABLED,2
+sizes,尺码,sizes-3,3,L,L,ENABLED,3
+sizes,尺码,sizes-4,4,XL,XL,ENABLED,4
+sizes,尺码,sizes-5,5,2XL,2XL,ENABLED,5
+sizes,尺码,sizes-6,6,3XL,3XL,ENABLED,6
+sizes,尺码,sizes-7,7,4XL,4XL,ENABLED,7
+sizes,尺码,sizes-8,8,5XL,5XL,ENABLED,8
+sizes,尺码,sizes-9,9,One Size,One Size,ENABLED,9
+trendElements,流行元素,trendElements-1,1,boho,boho,ENABLED,1
+trendElements,流行元素,trendElements-2,2,动物纹,,ENABLED,2
+trendElements,流行元素,trendElements-3,3,撞色,,ENABLED,3
+trendElements,流行元素,trendElements-4,4,扎染,,ENABLED,4
+trendElements,流行元素,trendElements-5,5,渐变,,ENABLED,5
+trendElements,流行元素,trendElements-6,6,拼接,,ENABLED,6
+trendElements,流行元素,trendElements-7,7,图腾,,ENABLED,7
+trendElements,流行元素,trendElements-8,8,刺绣,,ENABLED,8
+trendElements,流行元素,trendElements-9,9,料,,ENABLED,9
+trendElements,流行元素,trendElements-10,10,条纹,,ENABLED,10
+trendElements,流行元素,trendElements-11,11,蕾丝,,ENABLED,11
+trendElements,流行元素,trendElements-12,12,流苏,,ENABLED,12
+trendElements,流行元素,trendElements-13,13,棉麻,,ENABLED,13
+trendElements,流行元素,trendElements-14,14,牛仔,,ENABLED,14
+trendElements,流行元素,trendElements-15,15,缎面,,ENABLED,15
+trendElements,流行元素,trendElements-16,16,A字型,A字型,ENABLED,16
+trendElements,流行元素,trendElements-17,17,H型,H型,ENABLED,17
+trendElements,流行元素,trendElements-18,18,X型,X型,ENABLED,18
+trendElements,流行元素,trendElements-19,19,S型,S型,ENABLED,19
+trendElements,流行元素,trendElements-20,20,0型,,ENABLED,20
+trendElements,流行元素,trendElements-21,21,不对称,,ENABLED,21
+trendElements,流行元素,trendElements-22,22,两件套,,ENABLED,22
+trendElements,流行元素,trendElements-23,23,运动,,ENABLED,23
+trendElements,流行元素,trendElements-24,24,波点,,ENABLED,24
+trendElements,流行元素,trendElements-25,25,素色,,ENABLED,25
+trendElements,流行元素,trendElements-26,26,丝绒,,ENABLED,26
+trendElements,流行元素,trendElements-27,27,彩色,,ENABLED,27
+trendElements,流行元素,trendElements-28,28,字母,,ENABLED,28
+trendElements,流行元素,trendElements-29,29,不规则,,ENABLED,29
+trendElements,流行元素,trendElements-30,30,百褶,,ENABLED,30
+trendElements,流行元素,trendElements-31,31,泡泡袖,,ENABLED,31
+fabrics,面料,fabrics-1,1,混纺,,ENABLED,1
+fabrics,面料,fabrics-2,2,涤纶,,ENABLED,2
+fabrics,面料,fabrics-3,3,呢料,,ENABLED,3
+fabrics,面料,fabrics-4,4,棉麻,,ENABLED,4
+fabrics,面料,fabrics-5,5,毛织,,ENABLED,5
+fabrics,面料,fabrics-6,6,雪纺,,ENABLED,6
+fabrics,面料,fabrics-7,7,锻面,,ENABLED,7
+fabrics,面料,fabrics-8,8,棉,,ENABLED,8
+fabrics,面料,fabrics-9,9,仿牛仔,,ENABLED,9
+fabrics,面料,fabrics-10,10,蕾丝,,ENABLED,10
+fabrics,面料,fabrics-11,11,牛仔,,ENABLED,11
+fabrics,面料,fabrics-12,12,丝绒,,ENABLED,12
+fabrics,面料,fabrics-13,13,灯芯绒,,ENABLED,13
+fabrics,面料,fabrics-14,14,弹力布,,ENABLED,14
+fabrics,面料,fabrics-15,15,绒面,,ENABLED,15
+fabrics,面料,fabrics-16,16,鹿皮绒,,ENABLED,16
+fabrics,面料,fabrics-17,17,PU皮,PU皮,ENABLED,17
+fabrics,面料,fabrics-18,18,毛织,,ENABLED,18
+fabrics,面料,fabrics-19,19,皮草,,ENABLED,19
+fabrics,面料,fabrics-20,20,麂皮,,ENABLED,20
+fabrics,面料,fabrics-21,21,网纱,,ENABLED,21
+fabrics,面料,fabrics-22,22,羊羔毛,,ENABLED,22
+fabrics,面料,fabrics-23,23,法兰绒,,ENABLED,23
+fabrics,面料,fabrics-24,24,竹节麻,,ENABLED,24
+styles,风格,styles-1,1,休闲,,ENABLED,1
+styles,风格,styles-2,2,度假,,ENABLED,2
+styles,风格,styles-3,3,复古,,ENABLED,3
+styles,风格,styles-4,4,秀场,,ENABLED,4
+styles,风格,styles-5,5,礼服,,ENABLED,5
+styles,风格,styles-6,6,名媛,,ENABLED,6
+styles,风格,styles-7,7,通勤,,ENABLED,7
+styles,风格,styles-8,8,街头,,ENABLED,8
+styles,风格,styles-9,9,中式,,ENABLED,9
+styles,风格,styles-10,10,碎花,,ENABLED,10
+styles,风格,styles-11,11,性感,,ENABLED,11
+styles,风格,styles-12,12,优雅,,ENABLED,12
+styles,风格,styles-13,13,甜美,,ENABLED,13
+categories,品类,categories-1,1,上衣,,ENABLED,1
+categories,品类,categories-2,2,连衣裙,,ENABLED,2
+categories,品类,categories-3,3,半裙,,ENABLED,3
+categories,品类,categories-4,4,裤子,,ENABLED,4
+categories,品类,categories-5,5,套装,,ENABLED,5
+categories,品类,categories-6,6,开衫,,ENABLED,6
+categories,品类,categories-7,7,短裙,,ENABLED,7
+categories,品类,categories-8,8,中长裙,,ENABLED,8
+categories,品类,categories-9,9,长裙,,ENABLED,9
+categories,品类,categories-10,10,外套,,ENABLED,10
+categories,品类,categories-11,11,毛衣,,ENABLED,11
+categories,品类,categories-12,12,连体裤,,ENABLED,12
+categories,品类,categories-13,13,马甲,,ENABLED,13
+categories,品类,categories-14,14,卫衣,,ENABLED,14
+categories,品类,categories-15,15,饰品,,ENABLED,15
+categories,品类,categories-16,16,男装外套,,ENABLED,16
+categories,品类,categories-17,17,男装上衣,,ENABLED,17
+categories,品类,categories-18,18,男装裤子,,ENABLED,18
+categories,品类,categories-19,19,男装套装,,ENABLED,19
+categories,品类,categories-20,20,鞋子,,ENABLED,20
+categories,品类,categories-21,21,泳装,,ENABLED,21
+categories,品类,categories-22,22,男鞋,,ENABLED,22
+categories,品类,categories-23,23,女鞋,,ENABLED,23
+categories,品类,categories-24,24,居家,,ENABLED,24
+categories,品类,categories-25,25,童装,,ENABLED,25
+categories,品类,categories-26,26,童鞋,,ENABLED,26
+categories,品类,categories-27,27,玩具,,ENABLED,27
+categories,品类,categories-28,28,数码,,ENABLED,28
+categories,品类,categories-29,29,睡衣,,ENABLED,29
+categories,品类,categories-30,30,箱包,,ENABLED,30
+categories,品类,categories-31,31,美妆+工具,,ENABLED,31
+categories,品类,categories-32,32,内衣,,ENABLED,32
+categories,品类,categories-33,33,假发,,ENABLED,33
+categories,品类,categories-34,34,女性护理,,ENABLED,34
+categories,品类,categories-35,35,宠物用品,,ENABLED,35
+colors,颜色,colors-1,1,Rose,Rose,ENABLED,1
+colors,颜色,colors-2,2,Pink,Pink,ENABLED,2
+colors,颜色,colors-3,3,Yellow,Yellow,ENABLED,3
+colors,颜色,colors-4,4,Lemon Yellow,Lemon Yellow,ENABLED,4
+colors,颜色,colors-5,5,Orange,Orange,ENABLED,5
+colors,颜色,colors-6,6,Blue,Blue,ENABLED,6
+colors,颜色,colors-7,7,Green,Green,ENABLED,7
+colors,颜色,colors-8,8,Chartreuse,Chartreuse,ENABLED,8
+colors,颜色,colors-9,9,Purple,Purple,ENABLED,9
+colors,颜色,colors-10,10,Black,Black,ENABLED,10
+colors,颜色,colors-11,11,White,White,ENABLED,11
+colors,颜色,colors-12,12,Gold,Gold,ENABLED,12
+colors,颜色,colors-13,13,Silver,Silver,ENABLED,13
+colors,颜色,colors-14,14,Khaki,Khaki,ENABLED,14
+colors,颜色,colors-15,15,Apricot,Apricot,ENABLED,15
+colors,颜色,colors-16,16,Brown,Brown,ENABLED,16
+colors,颜色,colors-17,17,Gray,Gray,ENABLED,17
+colors,颜色,colors-18,18,Camouflage,Camouflage,ENABLED,18
+colors,颜色,colors-19,19,Multicolor,Multicolor,ENABLED,19
+colors,颜色,colors-20,20,Same As Photo,Same As Photo,ENABLED,20
+colors,颜色,colors-21,21,Leopard,Leopard,ENABLED,21
+colors,颜色,colors-22,22,Dark blue,Dark blue,ENABLED,22
+colors,颜色,colors-23,23,Light blue,Light blue,ENABLED,23
+colors,颜色,colors-24,24,Dark green,Dark green,ENABLED,24
+colors,颜色,colors-25,25,Light green,Light green,ENABLED,25
+colors,颜色,colors-26,26,Beige,Beige,ENABLED,26
+colors,颜色,colors-27,27,Wine red,Wine red,ENABLED,27
+colors,颜色,colors-28,28,Coffee,Coffee,ENABLED,28
+colors,颜色,colors-29,29,champagne,champagne,ENABLED,29
+colors,颜色,colors-30,30,Deep brown,Deep brown,ENABLED,30
+colors,颜色,colors-31,31,Camel,Camel,ENABLED,31
+colors,颜色,colors-32,32,Caramel,Caramel,ENABLED,32
+colors,颜色,colors-33,33,Dark gray,Dark gray,ENABLED,33
+colors,颜色,colors-34,34,Brick red,Brick red,ENABLED,34
+colors,颜色,colors-35,35,Light gray,Light gray,ENABLED,35
+colors,颜色,colors-36,36,Red,Red,ENABLED,36
+colors,颜色,colors-37,37,Navy blue,Navy blue,ENABLED,37
+colors,颜色,colors-38,38,ZTJ339-1#,ZTJ339-1#,ENABLED,38
+colors,颜色,colors-39,39,ZTJ339-3#,ZTJ339-3#,ENABLED,39
+colors,颜色,colors-40,40,ZTJ339-4#,ZTJ339-4#,ENABLED,40
+colors,颜色,colors-41,41,ZTJ339-2#,ZTJ339-2#,ENABLED,41
+colors,颜色,colors-42,42,Light Pink,Light Pink,ENABLED,42
+colors,颜色,colors-43,43,Slot peep,Slot peep,ENABLED,43
+colors,颜色,colors-44,44,Fine hole peep,Fine hole peep,ENABLED,44
+colors,颜色,colors-45,45,Rose gold,Rose gold,ENABLED,45
+colors,颜色,colors-46,46,White colorhair,White colorhair,ENABLED,46
+colors,颜色,colors-47,47,Green colorhair,Green colorhair,ENABLED,47
+colors,颜色,colors-48,48,Black colorhair,Black colorhair,ENABLED,48
+colors,颜色,colors-49,49,Brown colorhair,Brown colorhair,ENABLED,49
+colors,颜色,colors-50,50,Nude,Nude,ENABLED,50
+colors,颜色,colors-51,51,black step feet,black step feet,ENABLED,51
+colors,颜色,colors-52,52,nude step feet,nude step feet,ENABLED,52
+colors,颜色,colors-53,53,black tights,black tights,ENABLED,53
+colors,颜色,colors-54,54,nude tights,nude tights,ENABLED,54
+colors,颜色,colors-55,55,ArmyGreen,ArmyGreen,ENABLED,55
+colors,颜色,colors-56,56,Red Painting,Red Painting,ENABLED,56
+colors,颜色,colors-57,57,White Painting,White Painting,ENABLED,57
+colors,颜色,colors-58,58,Black Painting,Black Painting,ENABLED,58
+colors,颜色,colors-59,59,Right hand black,Right hand black,ENABLED,59
+colors,颜色,colors-60,60,Left hand black,Left hand black,ENABLED,60
+colors,颜色,colors-61,61,Light coffee,Light coffee,ENABLED,61
+colors,颜色,colors-62,62,Dark coffee,Dark coffee,ENABLED,62
+colors,颜色,colors-63,63,White & Black ShuangPin,White & Black ShuangPin,ENABLED,63
+colors,颜色,colors-64,64,Black & White Shuangpin,Black & White Shuangpin,ENABLED,64
+colors,颜色,colors-65,65,Fruit green,Fruit green,ENABLED,65
+colors,颜色,colors-66,66,Light purple,Light purple,ENABLED,66
+colors,颜色,colors-67,67,Brown short,Brown short,ENABLED,67
+colors,颜色,colors-68,68,Brown long,Brown long,ENABLED,68
+colors,颜色,colors-69,69,Black short,Black short,ENABLED,69
+colors,颜色,colors-70,70,Black long,Black long,ENABLED,70
+colors,颜色,colors-71,71,Grey short,Grey short,ENABLED,71
+colors,颜色,colors-72,72,Grey long,Grey long,ENABLED,72
+colors,颜色,colors-73,73,Grey stripes,Grey stripes,ENABLED,73
+colors,颜色,colors-74,74,Red stripes,Red stripes,ENABLED,74
+colors,颜色,colors-75,75,Grey Short Sleeve dress,Grey Short Sleeve dress,ENABLED,75
+colors,颜色,colors-76,76,Dark grey1,Dark grey1,ENABLED,76
+colors,颜色,colors-77,77,Dark grey2,Dark grey2,ENABLED,77
+colors,颜色,colors-78,78,Blue1,Blue1,ENABLED,78
+colors,颜色,colors-79,79,Blue2,Blue2,ENABLED,79
+colors,颜色,colors-80,80,Army green1,Army green1,ENABLED,80
+colors,颜色,colors-81,81,Army green2,Army green2,ENABLED,81
+colors,颜色,colors-82,82,green+purple,green+purple,ENABLED,82
+colors,颜色,colors-83,83,Black dress,Black dress,ENABLED,83
+colors,颜色,colors-84,84,Skirt （single piece）,Skirt （single piece）,ENABLED,84
+colors,颜色,colors-85,85,Cardigan + Print Top （2 pieces）,Cardigan + Print Top （2 pieces）,ENABLED,85
+colors,颜色,colors-86,86,winered,winered,ENABLED,86
+styleCodes,风格编号,styleCodes-1,1,1-Casul Shirt-18-30休闲衬衫,,ENABLED,1
+styleCodes,风格编号,styleCodes-2,2,2-prin shirt-18-30印花衬衫,,ENABLED,2
+styleCodes,风格编号,styleCodes-3,3,3-Sweet Blouse-18-30设计上衣,,ENABLED,3
+styleCodes,风格编号,styleCodes-4,4,4-Short Sleeve Top-18-35短袖上衣,,ENABLED,4
+styleCodes,风格编号,styleCodes-5,5,5-print top-25-45印花上衣,,ENABLED,5
+styleCodes,风格编号,styleCodes-6,6,6-long shirt-25-45长款衬衫,,ENABLED,6
+styleCodes,风格编号,styleCodes-7,7,7-Office Blouse-25-45通勤衬衫,,ENABLED,7
+styleCodes,风格编号,styleCodes-8,8,8-Classic Blouse-25-45印花衬衫,,ENABLED,8
+styleCodes,风格编号,styleCodes-9,9,9-Print Shirt-45-60长款衬衫,,ENABLED,9
+styleCodes,风格编号,styleCodes-10,10,10-print shirt-45-60印花衬衫,,ENABLED,10
+styleCodes,风格编号,styleCodes-11,11,11-wool top-18-30毛织上衣,,ENABLED,11
+styleCodes,风格编号,styleCodes-12,12,12-Casual Set-18-30休闲套装,,ENABLED,12
+styleCodes,风格编号,styleCodes-13,13,13-Preppy Dress-18-30学院风连衣裙,,ENABLED,13
+styleCodes,风格编号,styleCodes-14,14,14-muslim dress-18-30穆斯林连衣裙,,ENABLED,14
+styleCodes,风格编号,styleCodes-15,15,15-mini dress-18-30娃娃裙,,ENABLED,15
+styleCodes,风格编号,styleCodes-16,16,16-Preppy Dress-18-30简约连衣裙,,ENABLED,16
+styleCodes,风格编号,styleCodes-17,17,17-Classic Dress-18-30长袖连衣裙,,ENABLED,17
+styleCodes,风格编号,styleCodes-18,18,18-Classic Dress-18-30短袖连衣裙,,ENABLED,18
+styleCodes,风格编号,styleCodes-19,19,19-Asaya print dress-30-45 平价印花连衣裙,,ENABLED,19
+styleCodes,风格编号,styleCodes-20,20,20-Elegant Dress-30-45优雅连衣裙,,ENABLED,20
+styleCodes,风格编号,styleCodes-21,21,21-Elegant Dress-30-45短袖连衣裙,,ENABLED,21
+styleCodes,风格编号,styleCodes-22,22,22-Casual Dress-30-45休闲连衣裙,,ENABLED,22
+styleCodes,风格编号,styleCodes-23,23,23-sexy dress-30-45性感连衣裙,,ENABLED,23
+styleCodes,风格编号,styleCodes-24,24,24-short dress-30-45短款连衣裙,,ENABLED,24
+styleCodes,风格编号,styleCodes-25,25,25- OL dress-30-45通勤连衣裙,,ENABLED,25
+styleCodes,风格编号,styleCodes-26,26,26-Loose dress-40-60宽松连衣裙,,ENABLED,26
+styleCodes,风格编号,styleCodes-27,27,27-Casual Set-30-55休闲套装,,ENABLED,27
+styleCodes,风格编号,styleCodes-28,28,28-Office Set-30-45通勤套装&连体裤,,ENABLED,28
+styleCodes,风格编号,styleCodes-29,29,29-print set jumpsuit-30-45印花套装&连体裤,,ENABLED,29
+styleCodes,风格编号,styleCodes-30,30,30-Sweet Set-18-30搭配套装,,ENABLED,30
+styleCodes,风格编号,styleCodes-31,31,31-Sweet Set-18-30优雅套装,,ENABLED,31
+styleCodes,风格编号,styleCodes-32,32,32- fashion set-30-45时尚套装,,ENABLED,32
+styleCodes,风格编号,styleCodes-33,33,33- print set-45-60休闲套装,,ENABLED,33
+styleCodes,风格编号,styleCodes-34,34,34-Jeans-牛仔裤,,ENABLED,34
+styleCodes,风格编号,styleCodes-35,35,35-coat-外套,,ENABLED,35
+styleCodes,风格编号,styleCodes-36,36,36-basic clothing-基础打底,,ENABLED,36
+styleCodes,风格编号,styleCodes-37,37,37-lace top-蕾丝上衣,,ENABLED,37
+styleCodes,风格编号,styleCodes-38,38,38-senior dress-高级连衣裙,,ENABLED,38
+styleCodes,风格编号,styleCodes-39,39,39-denim Jacket-牛仔外套,,ENABLED,39
+styleCodes,风格编号,styleCodes-40,40,40-set-高价套装,,ENABLED,40
+styleCodes,风格编号,styleCodes-41,41,41-Basic top-女士基础上衣,,ENABLED,41
+styleCodes,风格编号,styleCodes-42,42,42-Women T-shirt-女士T恤,,ENABLED,42
+styleCodes,风格编号,styleCodes-43,43,43-Sweatshirt-女士卫衣,,ENABLED,43
+styleCodes,风格编号,styleCodes-44,44,45-Skirt-18-30-半裙,,ENABLED,44
+styleCodes,风格编号,styleCodes-45,45,46-穆斯林高价长袍,,ENABLED,45
+styleCodes,风格编号,styleCodes-46,46,47-Pajamas-睡衣,,ENABLED,46
+styleCodes,风格编号,styleCodes-47,47,48-Casul Shirt-30-45宽松衬衫,,ENABLED,47
+styleCodes,风格编号,styleCodes-48,48,49-Classic Top-18-30穆斯林设计上衣,,ENABLED,48
+styleCodes,风格编号,styleCodes-49,49,50-muslim OL shirt-25-45穆斯林通勤上衣,,ENABLED,49
+styleCodes,风格编号,styleCodes-50,50,51-muslim long shirt-45-60穆斯林长款衬衫,,ENABLED,50
+styleCodes,风格编号,styleCodes-51,51,52-muslim wool top-18-30穆斯林毛织上衣,,ENABLED,51
+styleCodes,风格编号,styleCodes-52,52,53-muslim wool cardigan-18-30穆斯林毛织开衫,,ENABLED,52
+styleCodes,风格编号,styleCodes-53,53,54-wool cardigan-18-30毛织开衫,,ENABLED,53
+styleCodes,风格编号,styleCodes-54,54,55-Casual Dress-18-30休闲连衣裙,,ENABLED,54
+styleCodes,风格编号,styleCodes-55,55,56-muslim casual set-30-55穆斯林休闲套装,,ENABLED,55
+styleCodes,风格编号,styleCodes-56,56,57-muslim OL-30-55穆斯林通勤服饰,,ENABLED,56
+styleCodes,风格编号,styleCodes-57,57,58-muslim casual shirt-18-30穆斯林休闲衬衫,,ENABLED,57
+styleCodes,风格编号,styleCodes-58,58,59-muslim abaya-30-45高价穆斯林传统服饰,,ENABLED,58
+styleCodes,风格编号,styleCodes-59,59,60-Men's basic T-shirt-男装基础T恤,,ENABLED,59
+styleCodes,风格编号,styleCodes-60,60,61-design shirt-25-45设计衬衫,,ENABLED,60
+styleCodes,风格编号,styleCodes-61,61,62-elegant top-25-45设计上衣,,ENABLED,61
+styleCodes,风格编号,styleCodes-62,62,63-Short Sleeve Lace Top-25-45短袖蕾丝上衣,,ENABLED,62
+styleCodes,风格编号,styleCodes-63,63,65-Short Sleeve Top-25-45短袖上衣,,ENABLED,63
+styleCodes,风格编号,styleCodes-64,64,66-Casual Shirt-25-45休闲衬衫,,ENABLED,64
+styleCodes,风格编号,styleCodes-65,65,67-Traditional Muslim top-18-30-传统穆斯林上衣,,ENABLED,65
+styleCodes,风格编号,styleCodes-66,66,68-Traditional Muslim Dress-25-35-传统穆斯林连衣裙,,ENABLED,66
+styleCodes,风格编号,styleCodes-67,67,69-Traditional Muslim Tunic-30-55-传统穆斯林上衣,,ENABLED,67
+styleCodes,风格编号,styleCodes-68,68,70-Traditional Muslim Abaya-25-45,,ENABLED,68
+styleCodes,风格编号,styleCodes-69,69,71-Business Men's Wear-轻商务男装,,ENABLED,69
+styleCodes,风格编号,styleCodes-70,70,72- Classic Top-18-35纯色上衣,,ENABLED,70
+styleCodes,风格编号,styleCodes-71,71,73- Plain-colored Top-35-55-纯色上衣,,ENABLED,71
+styleCodes,风格编号,styleCodes-72,72,74-Casual Skirt-18-35休闲半裙,,ENABLED,72
+styleCodes,风格编号,styleCodes-73,73,75-casual skirt-35-55休闲半裙,,ENABLED,73
+styleCodes,风格编号,styleCodes-74,74,76-simple pants-18-35简约裤子,,ENABLED,74
+styleCodes,风格编号,styleCodes-75,75,77-casual pants-35-55简约裤子,,ENABLED,75
+styleCodes,风格编号,styleCodes-76,76,78-simple T-shirt-18-35简约T恤,,ENABLED,76
+styleCodes,风格编号,styleCodes-77,77,79-loose T-shirt-35-55宽松T恤,,ENABLED,77
+styleCodes,风格编号,styleCodes-78,78,80-Printed Blouse-35-55印花上衣,,ENABLED,78
+styleCodes,风格编号,styleCodes-79,79,81-print skirt-18-35印花半裙,,ENABLED,79
+styleCodes,风格编号,styleCodes-80,80,82-print skirt-35-55印花半裙,,ENABLED,80
+styleCodes,风格编号,styleCodes-81,81,83-Solid robe-18-35纯色长袍,,ENABLED,81
+styleCodes,风格编号,styleCodes-82,82,84-solid robe-35-55纯色长袍,,ENABLED,82
+styleCodes,风格编号,styleCodes-83,83,85-asaya pajamas-18-35-低价睡衣,,ENABLED,83
+styleCodes,风格编号,styleCodes-84,84,86-OL skirt-通勤半裙,,ENABLED,84
+styleCodes,风格编号,styleCodes-85,85,90-fadfad basic clothing-超级基础女装,,ENABLED,85
+styleCodes,风格编号,styleCodes-86,86,91-Casual Blouse-18-35休闲衬衫,,ENABLED,86
+styleCodes,风格编号,styleCodes-87,87,92-Printed Tunik-35-55印花长款上衣,,ENABLED,87
+styleCodes,风格编号,styleCodes-88,88,87-Casual Set-18-35休闲套装,,ENABLED,88
+styleCodes,风格编号,styleCodes-89,89,88-Sweet Set-18-35印花套装,,ENABLED,89
+styleCodes,风格编号,styleCodes-90,90,89-Printed Set-35-55印花套装,,ENABLED,90
+styleCodes,风格编号,styleCodes-91,91,93-Asaya shirt-20-45衬衫,,ENABLED,91
+styleCodes,风格编号,styleCodes-92,92,94-Casaul Dress-35-55休闲长裙,,ENABLED,92
+styleCodes,风格编号,styleCodes-93,93,95-Asaya dress-18-30-年轻印花长裙,,ENABLED,93
+styleCodes,风格编号,styleCodes-94,94,96-Asaya night dress-30-55睡衣,,ENABLED,94
+styleCodes,风格编号,styleCodes-95,95,97-Modern Gamis -25-35日常穆斯林长裙,,ENABLED,95
+styleCodes,风格编号,styleCodes-96,96,98-Sarimbit-30-45穆斯林家庭装,,ENABLED,96
+styleCodes,风格编号,styleCodes-97,97,99-casual pants-休闲裤子,,ENABLED,97
+styleCodes,风格编号,styleCodes-98,98,100-Basic NU裸感基础款,,ENABLED,98
+styleCodes,风格编号,styleCodes-99,99,101-Cloudsoft云感基础款,,ENABLED,99
+styleCodes,风格编号,styleCodes-100,100,102-Basic Nature户外基础款,,ENABLED,100
+styleCodes,风格编号,styleCodes-101,101,103-Men's polo-男装polo,,ENABLED,101
+styleCodes,风格编号,styleCodes-102,102,104-Men's basic & micro-design woolwear-男装毛织,,ENABLED,102
+styleCodes,风格编号,styleCodes-103,103,105-men's shirts-男装衬衫,,ENABLED,103
+styleCodes,风格编号,styleCodes-104,104,106-Men's hoodies-男装卫衣,,ENABLED,104
+styleCodes,风格编号,styleCodes-105,105,107-men's jacket&coat-男装外套,,ENABLED,105
+styleCodes,风格编号,styleCodes-106,106,108-Men's trousers-男装长裤,,ENABLED,106
+styleCodes,风格编号,styleCodes-107,107,109-Men's shorts-男装短裤,,ENABLED,107
+styleCodes,风格编号,styleCodes-108,108,110-Men's suits-男装套装,,ENABLED,108
+styleCodes,风格编号,styleCodes-109,109,111-couple outfit-25-35情侣装,,ENABLED,109
+styleCodes,风格编号,styleCodes-110,110,112-Printed short-sleeved shirt-30-55印花短袖衬衫,,ENABLED,110
+styleCodes,风格编号,styleCodes-111,111,113-Design T-shirts-25-45设计T恤,,ENABLED,111
+styleCodes,风格编号,styleCodes-112,112,118-Office Vest-25-35通勤马甲,,ENABLED,112
+styleCodes,风格编号,styleCodes-113,113,120-Casual Tshirt-18-30休闲t恤,,ENABLED,113
+styleCodes,风格编号,styleCodes-114,114,121-Casual Jacket-18-30休闲薄外套,,ENABLED,114
+styleCodes,风格编号,styleCodes-115,115,122-Sweet Skirt-18-30设计半裙,,ENABLED,115
+styleCodes,风格编号,styleCodes-116,116,123-Sweet Top-18-30设计毛织上衣,,ENABLED,116

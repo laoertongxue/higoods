@@ -1,0 +1,51 @@
+{
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 78.39999997615814,
+      "end": 57412.89999997616,
+      "images": 0,
+      "label": "unit-save-final-1",
+      "start": 57334.5,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 58.90000003576279,
+      "end": 57696.19999998808,
+      "images": 0,
+      "label": "unit-save-final-2",
+      "start": 57637.29999995232,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.10000002384186,
+      "end": 57996.19999998808,
+      "images": 0,
+      "label": "unit-save-final-3",
+      "start": 57934.09999996424,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.30000001192093,
+      "end": 58296.19999998808,
+      "images": 0,
+      "label": "unit-save-final-4",
+      "start": 58233.89999997616,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.19999998807907,
+      "end": 58596.09999996424,
+      "images": 0,
+      "label": "unit-save-final-5",
+      "start": 58533.89999997616,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    }
+  ],
+  "refreshConfirmed": true,
+  "unit": "1 M = 1.0936132983377078 Yard"
+}

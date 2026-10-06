@@ -29,7 +29,7 @@ export function assignPcsRecordPositions(ids: readonly string[], previous: Reado
     for (let offset = 0; offset < count; offset++) {
       const position = lower + step * (offset + 1)
       if (!Number.isFinite(position) || position <= (offset ? positions.get(ids[start + offset - 1])! : lower) || position >= upper) {
-        throw new Error('记录排序位置不足，本次未保存。请导出备份后联系负责人。')
+        throw new Error('记录排序位置不足，本次未保存。请保留当前输入并联系负责人。')
       }
       positions.set(ids[start + offset], position)
     }

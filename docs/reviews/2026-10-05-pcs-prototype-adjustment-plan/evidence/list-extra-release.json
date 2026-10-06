@@ -1,0 +1,426 @@
+{
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "notes": [
+    "首轮图片计时使用 complete 作启动条件，图片加载不触发 MutationObserver，计时未结束；已记录为仪器无效样本。后续以图片元素出现触发并等待 decode 及三帧绘制，未更改应用。",
+    "首轮排序恢复按钮定位名称错误，未触发业务动作；读取页面实际名称后继续，不计为性能样本。"
+  ],
+  "metrics": [
+    {
+      "brokenImages": 0,
+      "durationMs": 45,
+      "end": 260201.69999998808,
+      "images": 7,
+      "label": "styles-image-open-1",
+      "start": 260156.69999998808,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.09999996423721,
+      "end": 260501.69999998808,
+      "images": 6,
+      "label": "styles-image-close-1",
+      "start": 260457.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.59999996423721,
+      "end": 260801.69999998808,
+      "images": 7,
+      "label": "styles-image-open-2",
+      "start": 260758.10000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44,
+      "end": 261101.69999998808,
+      "images": 6,
+      "label": "styles-image-close-2",
+      "start": 261057.69999998808,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 42.60000002384186,
+      "end": 261401.90000003576,
+      "images": 7,
+      "label": "styles-image-open-3",
+      "start": 261359.30000001192,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.59999996423721,
+      "end": 261701.69999998808,
+      "images": 6,
+      "label": "styles-image-close-3",
+      "start": 261657.10000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.30000001192093,
+      "end": 262001.80000001192,
+      "images": 7,
+      "label": "styles-image-open-4",
+      "start": 261958.5,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.69999998807907,
+      "end": 262285,
+      "images": 6,
+      "label": "styles-image-close-4",
+      "start": 262240.3000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 42.40000003576279,
+      "end": 262585.10000002384,
+      "images": 7,
+      "label": "styles-image-open-5",
+      "start": 262542.6999999881,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.60000002384186,
+      "end": 262885.10000002384,
+      "images": 6,
+      "label": "styles-image-close-5",
+      "start": 262841.5,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.30000001192093,
+      "end": 282751.90000003576,
+      "images": 5,
+      "label": "styles-columns-close-initial",
+      "start": 282707.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 42.09999996423721,
+      "end": 283051.6999999881,
+      "images": 5,
+      "label": "styles-columns-open-1",
+      "start": 283009.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.69999998807907,
+      "end": 283351.6999999881,
+      "images": 5,
+      "label": "styles-columns-close-1",
+      "start": 283308,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 193,
+      "end": 283818.3000000119,
+      "images": 10,
+      "label": "styles-page-next-1",
+      "start": 283625.3000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.19999998807907,
+      "end": 283967.60000002384,
+      "images": 10,
+      "label": "styles-page-prev-1",
+      "start": 283924.40000003576,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.60000002384186,
+      "end": 284268.40000003576,
+      "images": 5,
+      "label": "styles-columns-open-2",
+      "start": 284223.8000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.59999996423721,
+      "end": 284551.6999999881,
+      "images": 5,
+      "label": "styles-columns-close-2",
+      "start": 284507.10000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 144,
+      "end": 284951.60000002384,
+      "images": 10,
+      "label": "styles-page-next-2",
+      "start": 284807.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.69999998807907,
+      "end": 285151.6999999881,
+      "images": 10,
+      "label": "styles-page-prev-2",
+      "start": 285108,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.80000001192093,
+      "end": 285452.60000002384,
+      "images": 5,
+      "label": "styles-columns-open-3",
+      "start": 285407.8000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.69999998807907,
+      "end": 285751.6999999881,
+      "images": 5,
+      "label": "styles-columns-close-3",
+      "start": 285708,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 144,
+      "end": 286151.60000002384,
+      "images": 10,
+      "label": "styles-page-next-3",
+      "start": 286007.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.69999998807907,
+      "end": 286335,
+      "images": 10,
+      "label": "styles-page-prev-3",
+      "start": 286290.3000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44,
+      "end": 286635,
+      "images": 5,
+      "label": "styles-columns-open-4",
+      "start": 286591,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45,
+      "end": 286918.40000003576,
+      "images": 5,
+      "label": "styles-columns-close-4",
+      "start": 286873.40000003576,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 77.60000002384186,
+      "end": 287251.60000002384,
+      "images": 10,
+      "label": "styles-page-next-4",
+      "start": 287174,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44,
+      "end": 287501.60000002384,
+      "images": 10,
+      "label": "styles-page-prev-4",
+      "start": 287457.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.5,
+      "end": 287801.6999999881,
+      "images": 5,
+      "label": "styles-columns-open-5",
+      "start": 287757.1999999881,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.60000002384186,
+      "end": 288101.60000002384,
+      "images": 5,
+      "label": "styles-columns-close-5",
+      "start": 288058,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 143.5,
+      "end": 288501.60000002384,
+      "images": 10,
+      "label": "styles-page-next-5",
+      "start": 288358.10000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.39999997615814,
+      "end": 288701.6999999881,
+      "images": 10,
+      "label": "styles-page-prev-5",
+      "start": 288658.3000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.40000003576279,
+      "end": 321434.90000003576,
+      "images": 5,
+      "label": "styles-sort-asc-1",
+      "start": 321373.5,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 96.60000002384186,
+      "end": 321751.40000003576,
+      "images": 5,
+      "label": "styles-sort-desc-1",
+      "start": 321654.8000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.69999998807907,
+      "end": 350134.8000000119,
+      "images": 5,
+      "label": "styles-sort-reset-1",
+      "start": 350089.10000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.60000002384186,
+      "end": 350451.60000002384,
+      "images": 5,
+      "label": "styles-sort-asc-2",
+      "start": 350391,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.89999997615814,
+      "end": 350718.1999999881,
+      "images": 5,
+      "label": "styles-sort-desc-2",
+      "start": 350672.3000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.5,
+      "end": 351018.1999999881,
+      "images": 5,
+      "label": "styles-sort-reset-2",
+      "start": 350972.6999999881,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.39999997615814,
+      "end": 351335,
+      "images": 5,
+      "label": "styles-sort-asc-3",
+      "start": 351272.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.89999997615814,
+      "end": 351601.5,
+      "images": 5,
+      "label": "styles-sort-desc-3",
+      "start": 351555.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.59999996423721,
+      "end": 351918.1999999881,
+      "images": 5,
+      "label": "styles-sort-reset-3",
+      "start": 351856.60000002384,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 63.40000003576279,
+      "end": 352201.60000002384,
+      "images": 5,
+      "label": "styles-sort-asc-4",
+      "start": 352138.1999999881,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.79999995231629,
+      "end": 352468.1999999881,
+      "images": 5,
+      "label": "styles-sort-desc-4",
+      "start": 352422.40000003576,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.29999995231629,
+      "end": 352768.1999999881,
+      "images": 5,
+      "label": "styles-sort-reset-4",
+      "start": 352722.90000003576,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.40000003576279,
+      "end": 353084.90000003576,
+      "images": 5,
+      "label": "styles-sort-asc-5",
+      "start": 353023.5,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 46.30000001192093,
+      "end": 353351.60000002384,
+      "images": 5,
+      "label": "styles-sort-desc-5",
+      "start": 353305.3000000119,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.5,
+      "end": 353668.1999999881,
+      "images": 5,
+      "label": "styles-sort-reset-5",
+      "start": 353605.6999999881,
+      "url": "/pcs/products/styles"
+    }
+  ]
+}

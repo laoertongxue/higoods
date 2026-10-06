@@ -1,0 +1,182 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 44.60000002384186,
+    "end": 54066,
+    "images": 1,
+    "label": "商品查询统计一致",
+    "start": 54021.39999997616,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.09999996423721,
+    "end": 54382.69999998808,
+    "images": 5,
+    "label": "商品重置统计一致",
+    "start": 54321.60000002384,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 45.39999997615814,
+    "end": 54666,
+    "images": 1,
+    "label": "商品查询统计一致",
+    "start": 54620.60000002384,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 43.60000002384186,
+    "end": 54966.10000002384,
+    "images": 5,
+    "label": "商品重置统计一致",
+    "start": 54922.5,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 44.5,
+    "end": 55282.69999998808,
+    "images": 1,
+    "label": "商品查询统计一致",
+    "start": 55238.19999998808,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 45.19999998807907,
+    "end": 55582.69999998808,
+    "images": 5,
+    "label": "商品重置统计一致",
+    "start": 55537.5,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 44.59999996423721,
+    "end": 55899.39999997616,
+    "images": 1,
+    "label": "商品查询统计一致",
+    "start": 55854.80000001192,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 43.69999998807907,
+    "end": 56199.39999997616,
+    "images": 5,
+    "label": "商品重置统计一致",
+    "start": 56155.69999998808,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 46.39999997615814,
+    "end": 56517.5,
+    "images": 1,
+    "label": "商品查询统计一致",
+    "start": 56471.10000002384,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 44.40000003576279,
+    "end": 56816.10000002384,
+    "images": 5,
+    "label": "商品重置统计一致",
+    "start": 56771.69999998808,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 126.19999998807909,
+    "end": 551535.5,
+    "images": 1,
+    "label": "渠道规模查询统计一致",
+    "start": 551409.3000000119,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 145.5999999642372,
+    "end": 551885.5999999642,
+    "images": 3,
+    "label": "渠道规模重置统计一致",
+    "start": 551740,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 105.89999997615814,
+    "end": 552211.3999999762,
+    "images": 1,
+    "label": "渠道规模查询统计一致",
+    "start": 552105.5,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 146.0999999642372,
+    "end": 552535.5999999642,
+    "images": 3,
+    "label": "渠道规模重置统计一致",
+    "start": 552389.5,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 106.60000002384186,
+    "end": 552863.1999999881,
+    "images": 1,
+    "label": "渠道规模查询统计一致",
+    "start": 552756.5999999642,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 141.80000001192093,
+    "end": 553168.8999999762,
+    "images": 3,
+    "label": "渠道规模重置统计一致",
+    "start": 553027.0999999642,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 109.5,
+    "end": 553498.3000000119,
+    "images": 1,
+    "label": "渠道规模查询统计一致",
+    "start": 553388.8000000119,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 129.29999995231628,
+    "end": 553802.0999999642,
+    "images": 3,
+    "label": "渠道规模重置统计一致",
+    "start": 553672.8000000119,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 107.5,
+    "end": 554146.3999999762,
+    "images": 1,
+    "label": "渠道规模查询统计一致",
+    "start": 554038.8999999762,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 130.5,
+    "end": 554453.5,
+    "images": 3,
+    "label": "渠道规模重置统计一致",
+    "start": 554323,
+    "url": "/pcs/products/channel-products"
+  }
+]

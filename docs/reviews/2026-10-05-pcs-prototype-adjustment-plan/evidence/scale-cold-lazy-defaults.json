@@ -1,0 +1,50 @@
+{
+  "cache": "disabled per tab; existing scale records preserved",
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 466.800000011921,
+      "end": 466.800000011921,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 429.10000002384186,
+      "end": 429.10000002384186,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 431.300000011921,
+      "end": 431.300000011921,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 425.60000002384186,
+      "end": 425.60000002384186,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 429.5,
+      "end": 429.5,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    }
+  ]
+}

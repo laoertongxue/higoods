@@ -1,0 +1,210 @@
+{
+  "viewport": "1366x768",
+  "origin": "http://127.0.0.1:59743",
+  "measurements": [
+    {
+      "path": "/pcs/products/channel-products",
+      "mode": "cold",
+      "samples": [
+        {
+          "brokenImages": 0,
+          "durationMs": 614,
+          "end": 614,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 450.4000000357628,
+          "end": 450.4000000357628,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 450.7999999523163,
+          "end": 450.7999999523163,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 438.60000002384186,
+          "end": 438.60000002384186,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 434.10000002384186,
+          "end": 434.10000002384186,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        }
+      ]
+    },
+    {
+      "path": "/pcs/products/channel-products",
+      "mode": "refresh",
+      "samples": [
+        {
+          "brokenImages": 0,
+          "durationMs": 454.10000002384186,
+          "end": 454.10000002384186,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 426.5999999642372,
+          "end": 426.5999999642372,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 456.699999988079,
+          "end": 456.699999988079,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 431.5,
+          "end": 431.5,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 491.699999988079,
+          "end": 491.699999988079,
+          "images": 3,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/channel-products"
+        }
+      ]
+    },
+    {
+      "path": "/pcs/products/styles",
+      "mode": "cold",
+      "samples": [
+        {
+          "brokenImages": 0,
+          "durationMs": 389.199999988079,
+          "end": 389.199999988079,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 395.39999997615814,
+          "end": 395.39999997615814,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 385.5999999642372,
+          "end": 385.5999999642372,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 388.699999988079,
+          "end": 388.699999988079,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 386.60000002384186,
+          "end": 386.60000002384186,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        }
+      ]
+    },
+    {
+      "path": "/pcs/products/styles",
+      "mode": "refresh",
+      "samples": [
+        {
+          "brokenImages": 0,
+          "durationMs": 384.10000002384186,
+          "end": 384.10000002384186,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 387,
+          "end": 387,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 385.39999997615814,
+          "end": 385.39999997615814,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 378,
+          "end": 378,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        },
+        {
+          "brokenImages": 0,
+          "durationMs": 385.0999999642372,
+          "end": 385.0999999642372,
+          "images": 5,
+          "label": "navigation",
+          "start": 0,
+          "url": "/pcs/products/styles"
+        }
+      ]
+    }
+  ]
+}

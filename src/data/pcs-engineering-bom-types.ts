@@ -1,4 +1,5 @@
 import type { DesignRevisionMaterialSkuSnapshot } from './pcs-design-revision-material-sku.ts'
+import type { MaterialCostSnapshot } from './pcs-material-archive-types.ts'
 
 export type EngineeringBomOperatorRole = '买手' | '跟单' | '版师' | '管理员'
 
@@ -50,6 +51,11 @@ export interface EngineeringBomMaterialLineDraft {
   linkedPatternResultIds?: string[]
   processCode?: string
   remark?: string
+  /** 草稿保存时记录参考基线；确认/发布后固定为当时采用值。 */
+  materialCostReference?: MaterialCostSnapshot
+  costReferenceMode?: 'CURRENT' | 'FROZEN'
+  unitConversionReference?: { fromUnit: string; toUnit: string; factor: number; relationIds: string[] }
+  legacyIntentSourceId?: string
 }
 
 export interface EngineeringBomCustomCostDraft {
@@ -155,6 +161,7 @@ export interface EngineeringBomPricingPlanRecord {
   completedConfirmedAt?: string
   completedConfirmedBy?: string
   publishedSnapshotId?: string
+  confirmedPricing?: EngineeringBomResolvedDraft
 }
 
 export interface EngineeringBomVersionStoreSnapshot {
@@ -198,6 +205,8 @@ export interface EngineeringBomResolvedMaterialLine extends EngineeringBomMateri
   materialCostCny: number | null
   totalRequirementQuantity: number
   technicalProcessSequence: Array<'水溶' | '染色'>
+  standardCostChanged?: boolean
+  standardCostMessage?: string
 }
 
 export interface EngineeringBomCostResult {
@@ -233,7 +242,7 @@ export interface EngineeringBomPricingSnapshot {
   materialLines: Array<EngineeringBomResolvedMaterialLine & { standardUnitPriceCny: number; materialCostCny: number }>
   customCosts: Array<EngineeringBomCustomCostDraft & { currency: 'IDR' }>
   cost: EngineeringBomCostResult
-  // 正式启用时固化技术包本身、物料档案价格和关联部件模板，后续档案变化不回写。
+  // 正式发布时固化技术包本身、物料档案价格和关联部件模板，后续档案变化不回写。
   bomItems: TechnicalBomItem[]
   materialPriceSnapshots: Array<EngineeringBomResolvedMaterialLine & {
     bomItemId: string

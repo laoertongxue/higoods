@@ -1,0 +1,12 @@
+PASS A01 整件100件四类事实同量且最终交出仍人工
+PASS A01/02 无外加工按件自动衔接且幂等
+PASS A10 无料阻断及150%上限
+PASS A12 合法横机修正同步四类事实
+PASS A12 最终交出后不能反向修正自动链
+PASS A05/08 横机片按首厂独立交出及分批实收
+PASS A03/04/06 回货取最短板且末工艺才进缝盘
+PASS A09 未派工不能外发/误走自动链
+PASS A11/14 阶段完成独立且缝盘不能关联设备
+9 two-stage contracts passed
+(node:14507) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

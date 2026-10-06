@@ -1,7 +1,9 @@
 import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { createStyleArchiveDirect, getStyleArchiveById, listStyleArchives, updateStyleArchive } from './pcs-style-archive-repository.ts'
 import { applyArchiveWriteback } from './pcs-archive-writeback-contract.ts'
-import { createTestingOrderChannelProducts, listProjectChannelProducts } from './pcs-channel-product-project-repository.ts'
+import { createChannelListing, bindChannelListingToTesting, listChannelListingsByStyleId, listChannelVariants, isChannelSkuSelectable } from './pcs-channel-catalog.ts'
+import { getTestingChannelListingResults } from './pcs-channel-sync.ts'
+import { getChannelStore, isChannelStorePublishable } from './pcs-channel-store-repository.ts'
 import { PCS_CHANNEL_OPTIONS } from './pcs-channel-options.ts'
 import { createSkuArchive, listSkuArchives } from './pcs-sku-archive-repository.ts'
 import { getMaterialArchiveById, getMaterialSkuRecordById } from './pcs-material-archive-repository.ts'
@@ -67,6 +69,7 @@ export interface TestingOrderRecord {
   shipMethod: TestingSampleShipMethod
   channelCodes: string[]
   channelPrices?: Record<string, number>
+  channelListingActions?: Array<{ actionId: string; listingId: string; storeId: string; createdAt: string }>
   liveSessionNote: string
   bulkDecision: '' | TestingBulkDecision
   bulkDecisionNote: string
@@ -100,7 +103,7 @@ export const TESTING_ORDER_STEPS: Array<Pick<TestingOrderStep, 'key' | 'title' |
   { key: 'label', title: '⑤打标', description: '已贴码且码值等于 SKU 编码后方可完成本步。' },
   { key: 'buyer-confirm', title: '⑥买手确认', description: '通过→⑦核价；淘汰→测款单结束并保留淘汰事实。' },
   { key: 'pricing', title: '⑦核价', description: '记录初步 BOM、用量、工艺成本与定价；淘汰则结束。' },
-  { key: 'channel-listing', title: '⑧寄样+渠道上架', description: '寄样方式（人头/空运）记录；创建渠道商品并推送 TikTok/Shopee。' },
+  { key: 'channel-listing', title: '⑧寄样+渠道上架', description: '寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。' },
   { key: 'live-testing', title: '⑨直播测款', description: '记录测款执行事实。' },
   { key: 'bulk-decision', title: '⑩大货判断', description: '是/否/待定三态；待定保持进行中。' },
 ]
@@ -504,44 +507,47 @@ export function rejectPricing(
   return { ok: true, record }
 }
 
-export function pushChannelProducts(
-  testingOrderId: string,
-  actor = '当前用户',
-): { ok: boolean; message?: string; pushed?: string[] } {
+/** 测款只保存上架来源；内容、规格、发布与回执以统一渠道目录为准。 */
+export function prepareTestingOrderChannelListing(testingOrderId:string,input:{storeId:string;existingListingId?:string;actionId:string;shipMethod:TestingSampleShipMethod},actor='当前用户'):{listingId:string;actionId:string}{
   ensureTestingOrders()
-  const record = store.get(testingOrderId)
-  if (!record) return { ok: false, message: '测款单不存在。' }
-  if (record.status !== '进行中' || record.currentStepKey !== 'channel-listing' || !record.sampleInboundAt) {
-    return { ok: false, message: '请先完成前序步骤，再执行⑧渠道推送。' }
+  const record=store.get(testingOrderId)
+  if(!record)throw new Error('测款单不存在。')
+  if(record.status!=='进行中')throw new Error('已结束测款单不能新增上架动作。')
+  const targetStore=getChannelStore(input.storeId)
+  if(!targetStore||!isChannelStorePublishable(targetStore))throw new Error('请选择当前启用且允许刊登的具体店铺。')
+  if(!input.actionId)throw new Error('上架动作标识缺失，请重新打开测款单。')
+  const repeated=record.channelListingActions?.find(a=>a.actionId===input.actionId)
+  if(repeated)return{listingId:repeated.listingId,actionId:repeated.actionId}
+  const skus=listSkuArchives().filter(s=>s.styleId===record.styleId&&record.skuCodes.includes(s.skuCode))
+  if(!skus.length||skus.length!==new Set(record.skuCodes).size)throw new Error('本次测款 SKU 必须完整匹配内部款式。')
+  let listingId=input.existingListingId||''
+  if(listingId){
+    const listing=listChannelListingsByStyleId(record.styleId).find(l=>l.id===listingId&&l.storeId===targetStore.id)
+    if(!listing)throw new Error('既有 PID 必须属于选定店铺和本测款款式。')
+    const mapped=new Set(listChannelVariants(listingId).filter(v=>v.active).map(v=>v.internalSkuId))
+    if(skus.some(s=>!mapped.has(s.skuId)))throw new Error('既有 PID 尚未覆盖本次全部测款 SKU，请先在渠道商品中补齐映射。')
+    bindChannelListingToTesting({listingId,testingOrderId,testingListingActionId:input.actionId,styleId:record.styleId},actor)
+  }else{
+    if(skus.some(s=>!isChannelSkuSelectable(s)))throw new Error('新建渠道商品须使用已审核且启用的内部 SKU。')
+    listingId=createChannelListing({id:input.actionId,storeId:targetStore.id,styleId:record.styleId,internalSkuIds:skus.map(s=>s.skuId),sourceTestingOrderId:testingOrderId,testingListingActionId:input.actionId,actor}).id
   }
-  let products: ReturnType<typeof createTestingOrderChannelProducts>
-  try {
-    products = createTestingOrderChannelProducts({
-      testingOrderId, styleId: record.styleId, skuCodes: record.skuCodes,
-      channelCodes: record.channelCodes, channelPrices: record.channelPrices || {}, actor,
-    })
-  } catch (error) {
-    return { ok: false, message: error instanceof Error ? error.message : '渠道商品创建失败。' }
-  }
-  const ids = products.map((item) => item.channelProductId)
-  applyArchiveWriteback({
-    styleId: record.styleId,
-    stylePatch: { channelProductCount: listProjectChannelProducts().filter((item) => item.styleId === record.styleId).length },
-    source: '测款单-渠道推送',
-    actor,
-  })
-  record.history.unshift({
-    time: now(),
-    action: `推送测款渠道 ${record.channelCodes.join('、')}`,
-    actor,
-    note: `关联渠道商品 ${ids.length} 条`,
-  })
-  record.updatedAt = now()
-  record.currentStepKey = 'live-testing'
-  record.history.unshift({ time: now(), action: '推进到 ⑨直播测款', actor })
-  persistStore()
-  return { ok: true, pushed: ids, message: `原型模拟推送 ${ids.length} 条本单渠道商品，已回写档案。` }
+  record.channelListingActions=[...(record.channelListingActions||[]),{actionId:input.actionId,listingId,storeId:targetStore.id,createdAt:now()}]
+  record.channelCodes=[...new Set([...record.channelCodes,targetStore.channelCode])];record.shipMethod=input.shipMethod;record.updatedAt=now()
+  record.history.unshift({time:now(),action:'发起渠道上架',actor,note:`${targetStore.storeName}；动作 ${input.actionId}；渠道商品 ${listingId}`})
+  persistStore();return{listingId,actionId:input.actionId}
 }
+export function completeTestingOrderChannelListing(testingOrderId:string,actor='当前用户'):{ok:boolean;message?:string}{
+  ensureTestingOrders();const record=store.get(testingOrderId)
+  if(!record)return{ok:false,message:'测款单不存在。'}
+  if(record.currentStepKey!=='channel-listing'||record.status!=='进行中')return{ok:false,message:'当前不是渠道上架步骤。'}
+  const actions=record.channelListingActions||[]
+  if(!actions.length)return{ok:false,message:'请先选择店铺并发起渠道上架。'}
+  const complete=actions.every(a=>getTestingChannelListingResults(testingOrderId,a.actionId).some(l=>l.listingId===a.listingId&&!!l.platformProductId&&l.platformStatus==='在售'&&l.syncStatus==='一致'&&!!l.lastSuccessAt))
+  if(!complete)return{ok:false,message:'本测款单仍有渠道商品未获得完整在售回执，请先在渠道详情处理。'}
+  return advanceTestingOrder(testingOrderId,'live-testing',actor)
+}
+/** 旧的按渠道默认选店并自动上架入口已退役。 */
+export function pushChannelProducts(_testingOrderId:string,_actor='当前用户'):{ok:boolean;message?:string;pushed?:string[]}{return{ok:false,message:'请在测款单选择具体店铺与同款 PID，进入渠道编辑页发起上架。'}}
 
 export function resetTestingOrderRepository(): void {
   initialized = true

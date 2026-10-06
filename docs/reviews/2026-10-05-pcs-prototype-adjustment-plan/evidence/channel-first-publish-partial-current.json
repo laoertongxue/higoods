@@ -1,0 +1,66 @@
+{
+  "viewport": "1366x768",
+  "origin": "http://127.0.0.1:5178",
+  "samples": [
+    {
+      "step": "first-submit",
+      "run": 5,
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 144.69999998807907,
+        "end": 316606.90000003576,
+        "images": 1,
+        "label": "channel-first-submit-valid-5",
+        "start": 316462.2000000477,
+        "url": "/pcs/products/channel-products/b741d3ec-d26e-4d74-a5fe-2f414777686c"
+      }
+    },
+    {
+      "step": "unknown-receipt",
+      "run": 5,
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 145,
+        "end": 323256.90000003576,
+        "images": 1,
+        "label": "channel-first-unknown-5",
+        "start": 323111.90000003576,
+        "url": "/pcs/products/channel-products/b741d3ec-d26e-4d74-a5fe-2f414777686c"
+      }
+    },
+    {
+      "step": "verify-same-operation",
+      "run": 5,
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 145.39999997615814,
+        "end": 332140.3000000119,
+        "images": 1,
+        "label": "channel-first-verify-5",
+        "start": 331994.90000003576,
+        "url": "/pcs/products/channel-products/b741d3ec-d26e-4d74-a5fe-2f414777686c"
+      }
+    }
+  ],
+  "functionalRepeatBlock": {
+    "step": "unknown-repeat-block",
+    "run": 5,
+    "metric": {
+      "brokenImages": 0,
+      "durationMs": 93.60000002384186,
+      "end": 331737.90000003576,
+      "images": 1,
+      "label": "channel-first-repeat-block-5",
+      "start": 331644.3000000119,
+      "url": "/pcs/products/channel-products/b741d3ec-d26e-4d74-a5fe-2f414777686c"
+    }
+  },
+  "notes": [
+    "一次有效首次发布、超时回执、核实原操作结果。不是五轮通过。",
+    "重复提交已被页面阻断，但计时终点可能匹配旧状态，不纳入有效性能样本。",
+    "提交审核/审核通过/缺价/编辑保存期间三个计时条件与真实页面不符，无有效耗时；保留记录，不冒充通过。",
+    "另外四副本导航因相对地址无效被浏览器审批拒绝，暂停并请求完整本机地址许可。"
+  ],
+  "pid": "demo-f555a82b-7361-4f25-ae9e-43a5448b5d85",
+  "operationId": "ebc593d1-8018-4121-af1a-d8037b971570"
+}

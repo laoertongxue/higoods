@@ -1,0 +1,47 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 648.3000000119209,
+    "end": 648.3000000119209,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 472.199999988079,
+    "end": 472.199999988079,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 462.5999999642372,
+    "end": 462.5999999642372,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 522.8000000119209,
+    "end": 522.8000000119209,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 468.800000011921,
+    "end": 468.800000011921,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products"
+  }
+]

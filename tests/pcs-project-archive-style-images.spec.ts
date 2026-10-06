@@ -27,7 +27,7 @@ const catalog = getProjectCreateCatalog()
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
-const styleCode = catalog.styleCodes[0] || catalog.styles[0]
+const styleCode = catalog.categoryNumbers[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
 const channel = catalog.channelOptions[0]
@@ -46,8 +46,8 @@ const created = createProject(
     subCategoryName: subCategory?.name || '',
     brandId: brand.id,
     brandName: brand.name,
-    styleCodeId: styleCode.id,
-    styleCodeName: styleCode.name,
+    categoryNumberId: styleCode.id,
+    categoryNumberName: styleCode.name,
     styleType: '基础款',
     priceRangeLabel: '¥199-399',
     targetChannelCodes: [channel.code],

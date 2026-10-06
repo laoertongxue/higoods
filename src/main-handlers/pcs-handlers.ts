@@ -1,4 +1,3 @@
-import '../data/fcs/design-revision-process-work-order-adapter.ts'
 import { listEngineeringIndependentSamplingRecords } from '../data/pcs-engineering-master-sampling'
 
 type HandlerModule = Record<string, unknown>
@@ -122,7 +121,6 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
     matches: (pathname) =>
       isAnyExactOrNestedPath(pathname, [
         '/pcs/products/channel-products',
-        '/pcs/channels/products',
       ]),
     importModule: () => import('../pages/pcs-channel-products'),
     eventExport: 'handlePcsChannelProductListEvent',
@@ -152,7 +150,7 @@ const PCS_HANDLER_SPECS: PcsHandlerSpec[] = [
   },
   {
     cacheKey: 'pcs-material-archive-detail',
-    matches: (pathname) => /^\/pcs\/materials\/[^/]+\/[^/]+$/.test(pathname),
+    matches: (pathname) => /^\/pcs\/materials\/[^/]+\/[^/]+(?:\/.*)?$/.test(pathname),
     importModule: () => import('../pages/pcs-material-archive-detail'),
     eventExport: 'handlePcsMaterialArchiveDetailEvent',
     inputExport: 'handlePcsMaterialArchiveDetailInput',

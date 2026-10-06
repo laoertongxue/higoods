@@ -1438,7 +1438,7 @@ function buildDesignRevisionProcessEntries(input: {
       const snapshot = line.designRevisionSkuSnapshot || resolveDesignRevisionMaterialSku(line.materialSkuId, input.record.taskPlanConfirmedAt)
       if (snapshot.targetSkuId !== line.materialSkuId) throw new Error('BOM 目标 SKU 与加工快照不一致。')
       const processTypes: Array<'DYEING' | 'PRINTING'> = [
-        ...(snapshot.requiresDye && !snapshot.requiresPrint ? ['DYEING' as const] : []),
+        ...(snapshot.requiresDye ? ['DYEING' as const] : []),
         ...(snapshot.requiresPrint ? ['PRINTING' as const] : []),
       ]
       if (!processTypes.length) return []
@@ -1457,7 +1457,10 @@ function buildDesignRevisionProcessEntries(input: {
         }) * 10_000) / 10_000
       return processTypes.map((processType) => {
         const task = processTaskForLine(input.tasks, processType === 'PRINTING' ? 'PRINT' : 'DYE', line.materialSkuId)
-        const inputSkuId = snapshot.rawSkuId
+        const stage = (snapshot.processStages || resolveDesignRevisionMaterialSku(line.materialSkuId).processStages || []).find(item => item.processType === processType)
+        if (!stage) throw new Error('目标 SKU 缺少对应工序的直接投入／产出关系。')
+        const inputSkuId = stage.inputSkuId
+        const outputSku = getMaterialSkuRecordById(stage.outputSkuId)
         const inputSku = getMaterialSkuRecordById(inputSkuId)
         if (!inputSku || inputSku.status !== 'ACTIVE') throw new Error(`${snapshot.targetSkuCode} 的加工前序 SKU 不可用。`)
         const processQuantity = resolveDesignRevisionProcessQuantity({
@@ -1480,13 +1483,13 @@ function buildDesignRevisionProcessEntries(input: {
           materialId: archive.materialId,
           materialSkuId: inputSkuId,
           materialSkuCode: inputSku.materialSkuCode,
-          targetMaterialSkuId: snapshot.targetSkuId,
-          targetMaterialSkuCode: snapshot.targetSkuCode,
+          targetMaterialSkuId: stage.outputSkuId,
+          targetMaterialSkuCode: stage.outputSkuCode,
           rawMaterialSkuCode: snapshot.rawSkuCode,
           dyedMaterialSkuCode: snapshot.dyedSkuCode,
           dyedMaterialSkuId: snapshot.dyedSkuId,
           dyedMaterialImageUrl: snapshot.dyedSkuId ? getMaterialSkuRecordById(snapshot.dyedSkuId)?.skuImageUrl || '' : '',
-          targetMaterialImageUrl: snapshot.materialImageUrl,
+          targetMaterialImageUrl: outputSku?.skuImageUrl || snapshot.materialImageUrl,
           pantoneCode: snapshot.pantoneCode,
           patternCode: snapshot.patternCode,
           patternImageUrl: snapshot.patternImageUrl,

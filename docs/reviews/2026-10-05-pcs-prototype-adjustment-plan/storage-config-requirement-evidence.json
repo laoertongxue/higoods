@@ -1,0 +1,2665 @@
+{
+  "schema_version": 1,
+  "title": "PCS R1 配置、公共存储与技术 BOM 历史快照需求证据索引",
+  "generated_at": "2026-10-05T14:09:28+08:00",
+  "responsible_agent": "r1_storage",
+  "worktree": {
+    "path": "/Users/laoer/Documents/higoods",
+    "branch": "main",
+    "head": "88324f65506f47c678b17d1b51879f8fd7c2488a",
+    "includes_uncommitted_shared_changes": true,
+    "head_is_not_a_snapshot_of_these_uncommitted_files": true
+  },
+  "source_matrix": {
+    "file": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/requirement-traceability.csv",
+    "sha256": "98b8ef37b911204f583e7d0a0a5a482539e9470cd09aea3e8df65077cb9a3297",
+    "total_requirement_count": 158,
+    "indexed_requirement_count": 38,
+    "matrix_modified_by_this_task": false
+  },
+  "scope": {
+    "included": "WP02 配置、公共 PCS 记录/附件存储、BOM 当前标准/确认及发布冻结、相关单位与旧 SKU 意向承接。跨域条目只登记本工作包实际部分。",
+    "excluded": [
+      "不重新审查商品/物料/渠道的全部规则",
+      "不接入或读写线上数据库",
+      "不执行用户浏览器迁移、清理或备份恢复",
+      "不把所有 PMS/FCS 存储计为本次迁移",
+      "不修改总矩阵或代码",
+      "本次只写本证据索引文件"
+    ],
+    "required_evidence_pending": "主代理负责当前工作树的真实页面、尺寸、交互、持久刷新及性能证据，并更新总矩阵。",
+    "initial_index_scope_is_historical": true,
+    "subsequent_config_scope": "config_closeout 记录主代理随后授权的配置页面收尾与专项执行；上方 exclusions 仅描述最初只写索引任务。"
+  },
+  "verification_policy": {
+    "source_and_exact_test_names_inspected": true,
+    "tests_executed_in_this_index_task": false,
+    "test_result_policy": "existing_tests 是现有契约的精确索引和覆盖解释；本任务按要求不重跑。未为当前未提交树绑定执行日志，不能仅凭名称、数量或过去汇报标已验证。",
+    "browser_run_in_this_index_task": false,
+    "performance_measured_in_this_index_task": false,
+    "full_requirement_verified_count": 0,
+    "status_policy": "scoped_status 仅表示本负责范围；partial_requirement_coverage=true 不允许据此关闭整条跨域需求。所有 full_requirement_verified 均为 false。",
+    "document_validation_only": "写入后仅校验 JSON 结构、矩阵 ID、实现符号/文件、测试精确名称及哈希；不执行专项测试。",
+    "subsequent_config_closeout": "最初索引任务未重跑全部专项；随后配置收尾实际执行的命令与结果见 config_closeout，不据此关闭整条需求。"
+  },
+  "migration_state": {
+    "ordinary_read": "hydrate/ensurePcsRecordState 仅从静态基线、IDB 覆盖及未迁移旧源建立内存视图；普通读取不复制种子、不写迁移记录。",
+    "normalization": "旧 flatOptions/styleCodes、商品 productConfigRefs.styleCodes 及旧渠道快照使用纯转换；不以重命名为由丢弃 ID、旧语义或源资料。",
+    "actual_upgrade_trigger": "runPcsRecordCommand 保存受影响业务时，对涉及 legacy 集合调用 upgradePcsLegacyRecords；按记录批次转换并保存 Blob/引用，读回核验后写已验证源指纹。",
+    "idb_overlay_protection": "已验证源指纹防止旧整包快照重新盖掉后续记录级修改；若旧页面又写入变化源，相关集合报告冲突，无关集合继续读取。",
+    "static_version_policy": "pcs-r1-2026-10-05 显式新增 ID 清单可叠到历史整包快照；用户 IDB 覆盖/删除标记优先，旧遗漏记录不任意复活。",
+    "source_deletion_performed": false,
+    "source_retained_reason": "没有用户授权清理当前旧资料，也没有证据证明其他旧版本页均已关闭；保留源数据。",
+    "finalization_api": "src/data/pcs-record-runtime.ts:finalizePcsLegacyMigration 存在，但本轮没有调用或暴露在 PCS 页面；不能把 API 存在当作实际迁移完成。",
+    "missing_attachment_policy": "缺失真实附件不猜测补齐、不自动删除引用或源数据；仅受影响集合不可用并反馈原因。",
+    "completion_claim": "只读兼容及按需集合升级已具备实现/专项；旧源删除与全量迁移完成未被执行或验证。",
+    "user_facing_maintenance_controls": "PCS 全部页面禁止迁移/备份/恢复/空间管理/清理工具；业务错误仅原因与重新读取。"
+  },
+  "requirements": [
+    {
+      "requirement_id": "CFG-001",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B01; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B01",
+      "atomic_requirement": "面料根规格维护成分组织幅宽克重",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "物料配置定义、模板维护；物料根档案保存由物料工作包承接。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "面料模板包含 composition(%)、construction、width(cm)、gramWeight(g/m²)。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialTemplateVersion",
+          "line": 129,
+          "position": "src/data/pcs-material-config.ts:saveMaterialTemplateVersion",
+          "covers": "数字物性字段要求单位，模板按受控字段类型保存。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "detail",
+          "line": 211,
+          "position": "src/pages/pcs-config-workspace.ts:detail",
+          "covers": "模板详情/编辑的字段、引用、版本和日志分 Tab 展示。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "检查面料模板物性字段及唯一 width 字段。"
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "controlled fields and unit identities reject invalid configuration",
+          "line": 93,
+          "covers": "检查非法类型、字段重复和单位规则被拒绝。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "controlled material attribute dictionaries have distinct navigable maintenance lists",
+          "line": 89,
+          "covers": "结构材质、结构款式、拉链齿型、拉链开合、纱线用途进入各自配置列表。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "配置测试不代替根档案值写入、结构化成分百分比及实际取值表单验收。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-002",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B02; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B02",
+      "atomic_requirement": "辅料子类加载各自身份模板",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "辅料分类的独立模板及明确的未知分类拒绝。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "纽扣直径、拉链长度、织带/绳/松紧带/花边等各自字段，含流苏及刺绣花边模板。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "getMaterialTemplate",
+          "line": 103,
+          "position": "src/data/pcs-material-config.ts:getMaterialTemplate",
+          "covers": "只返回该 kind/category 最新已审核且启用的模板；无匹配时抛错。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "templateBody",
+          "line": 193,
+          "position": "src/pages/pcs-config-workspace.ts:templateBody",
+          "covers": "模板详情和编辑显式显示/维护 button-hole、reference 值结构、integer/minimum；保留分类稳定标识与业务编码。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "纽扣直径单位 mm、拉链长度单位 cm 分开，未知分类不借用其他模板。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "template detail and draft save preserve button conditions, zero minimum, shape and version conversions",
+          "line": 53,
+          "covers": "实际页面保存保留字段元数据及版本换算，0 最小值不丢失；错误系数阻断，新旧分类身份相同。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "controlled material attribute dictionaries have distinct navigable maintenance lists",
+          "line": 89,
+          "covers": "结构材质、结构款式、拉链齿型、拉链开合、纱线用途进入各自配置列表。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "各辅料新建/编辑页面是否按锁定版本显示并校验需物料工作包证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-003",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B03; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B03",
+      "atomic_requirement": "纱支体系数值股数和捻度结构化保存",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "纱线结构化物性模板。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "纱支体系、纱支值、股数、捻度和用途独立字段；模板不把筒重作为纱线身份。"
+        },
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "FLAT_DIMENSION_META",
+          "line": 56,
+          "position": "src/data/pcs-config-dimensions.ts:FLAT_DIMENSION_META",
+          "covers": "纱支体系为独立共享字典。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "确认 yarn 模板包含独立 countSystem 字段。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "controlled material attribute dictionaries have distinct navigable maintenance lists",
+          "line": 89,
+          "covers": "结构材质、结构款式、拉链齿型、拉链开合、纱线用途进入各自配置列表。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "现有配置专项未直接执行“改筒重而身份不变”；包装物流与身份保存需物料专项补齐。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-004",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B04; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B04",
+      "atomic_requirement": "耗材按包装袋胶带油剂等适用模板展示",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "耗材不同子类适用字段配置。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "包装袋、胶带、油剂和裁剪耗材有明确不同字段；包装袋模板不强制颜色。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "getMaterialTemplateByVersion",
+          "line": 110,
+          "position": "src/data/pcs-material-config.ts:getMaterialTemplateByVersion",
+          "covers": "档案按锁定版本取适用字段。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "templateBody",
+          "line": 193,
+          "position": "src/pages/pcs-config-workspace.ts:templateBody",
+          "covers": "模板详情和编辑显式显示/维护 button-hole、reference 值结构、integer/minimum；保留分类稳定标识与业务编码。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "包装袋模板不存在不适用的必填颜色，耗材与其他家族模板独立。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "template detail and draft save preserve button conditions, zero minimum, shape and version conversions",
+          "line": 53,
+          "covers": "实际页面保存保留字段元数据及版本换算，0 最小值不丢失；错误系数阻断，新旧分类身份相同。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "包装袋无颜色实际保存和不同耗材页面切换尚需消费端证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-005",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B05; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B05",
+      "atomic_requirement": "设备适配为多值独立关系",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "设备配件模板中的适配设备字段及共享设备字典。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "配件 v2 模板 equipment 使用 reference/equipmentCompatibility；dimensions 使用 reference/namedDimensions；历史 v1 保留。"
+        },
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "FLAT_DIMENSION_META",
+          "line": 56,
+          "position": "src/data/pcs-config-dimensions.ts:FLAT_DIMENSION_META",
+          "covers": "equipmentTypes 为独立配置维度。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "templateBody",
+          "line": 193,
+          "position": "src/pages/pcs-config-workspace.ts:templateBody",
+          "covers": "模板详情和编辑显式显示/维护 button-hole、reference 值结构、integer/minimum；保留分类稳定标识与业务编码。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "equipmentModelsBody",
+          "line": 178,
+          "position": "src/pages/pcs-config-workspace.ts:equipmentModelsBody",
+          "covers": "设备类型详情的型号 Tab 使用所属类型列表、详情及编辑；新增稳定 ID，已有编码/类型不可更改，名称和启停可维护。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "配件 equipment 字段类型为 multiSelect。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "template detail and draft save preserve button conditions, zero minimum, shape and version conversions",
+          "line": 53,
+          "covers": "实际页面保存保留字段元数据及版本换算，0 最小值不丢失；错误系数阻断，新旧分类身份相同。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "equipment type opens model list, failed save retains input, awaited save creates own ID and edit toggles same model",
+          "line": 98,
+          "covers": "失败保留型号输入、完成后显示保存结果、编辑保持同 ID；两个型号分别编码为 equipmentModels/{id} 记录。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "本配置专项不直接验证实际配件提交对象不会写 colorName；消费端需补证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-006",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B06; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B06",
+      "atomic_requirement": "空差从目标表单导入及计算中排除",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "模板层排除空差和额外扣减字段。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialTemplateVersion",
+          "line": 129,
+          "position": "src/data/pcs-material-config.ts:saveMaterialTemplateVersion",
+          "covers": "拒绝 emptyDifference、effectiveWidth、widthDeduction 等额外幅宽/扣减字段。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "正式模板无空差字段。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "面料模板只有一个 width 物性字段。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "现有测试没有扫描全部导入/计算入口；不得据此声称所有宽度计算均已检查。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-007",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B07; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B07",
+      "atomic_requirement": "只维护一个语义为有效幅宽的字段",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "单一幅宽的模板语义与字段结构。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "definitions",
+          "line": 29,
+          "position": "src/data/pcs-material-config.ts:definitions",
+          "covers": "width 标识幅宽且含义为有效幅宽，单位 cm，无额外扣减项。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialTemplateVersion",
+          "line": 129,
+          "position": "src/data/pcs-material-config.ts:saveMaterialTemplateVersion",
+          "covers": "不允许新增第二套有效幅宽或扣减字段。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "five material families have explicit field templates and unknown categories never use another template",
+          "line": 43,
+          "covers": "面料仅一个 width 相关字段，具有 cm 单位。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "150cm 在 BOM/用量端直接使用不扣减的实际案例仍需消费端验证。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-008",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B08; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B08",
+      "atomic_requirement": "染色规格审核前必须有Pantone体系和号",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "Pantone 共享字典、颜色引用计数及模板的条件必填描述。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "FLAT_DIMENSION_META",
+          "line": 56,
+          "position": "src/data/pcs-config-dimensions.ts:FLAT_DIMENSION_META",
+          "covers": "Pantone 单独维度，与普通颜色字典区分。"
+        },
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "getConfigOptionUsage",
+          "line": 550,
+          "position": "src/data/pcs-config-workspace-repository.ts:getConfigOptionUsage",
+          "covers": "按实际 SKU Pantone 体系与编号记录统计配置引用。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialTemplateVersion",
+          "line": 129,
+          "position": "src/data/pcs-material-config.ts:saveMaterialTemplateVersion",
+          "covers": "保留 requiredWhen 阶段条件描述。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "material configuration usage follows locked template fields and actual SKU attributes",
+          "line": 60,
+          "covers": "以实际 SKU Pantone 体系/编号识别配置被引用。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "染色审核缺 Pantone 的强制阻断在物料仓库，不属此索引负责实现；本测试并未覆盖“只有色样图审核失败”。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-009",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B09; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B09",
+      "atomic_requirement": "所有服装只用一套尺码字典",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "单一尺码字典及旧稳定 ID 保留。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "SIZES",
+          "line": 104,
+          "position": "src/data/pcs-config-dimensions.ts:SIZES",
+          "covers": "原 S/M/L/XL…One Size 位置及 ID 保持，XS 和数字尺码追加。"
+        },
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "createInitialConfigData",
+          "line": 512,
+          "position": "src/data/pcs-config-dimensions.ts:createInitialConfigData",
+          "covers": "只创建 sizes 这一套内部尺码字典。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "original size identities remain stable and category numbers keep formal codes and legacy labels",
+          "line": 9,
+          "covers": "sizes-1 为 S，sizes-9 为 One Size，XS 追加为 sizes-10。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "跨市场渠道规格沿用相同内部尺码 ID 需渠道/商品消费端验收。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-010",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B10; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B10",
+      "atomic_requirement": "品牌主分类和商品定位使用单选",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "提供品牌、商品主分类和商品定位三个独立候选来源；单选保存规则由商品表单/仓库承接。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "FLAT_DIMENSION_META",
+          "line": 56,
+          "position": "src/data/pcs-config-dimensions.ts:FLAT_DIMENSION_META",
+          "covers": "brands 与 productPositioning 独立维度。"
+        },
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "listProductCategoryNodes",
+          "line": 413,
+          "position": "src/data/pcs-config-workspace-repository.ts:listProductCategoryNodes",
+          "covers": "商品主分类使用独立节点候选。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "original size identities remain stable and category numbers keep formal codes and legacy labels",
+          "line": 9,
+          "covers": "检查商品定位候选保留，不验证表单单选基数。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "配置字典本身不限制商品保存为一个引用；完整单选防错不由此专项证明。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-011",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B10; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B10",
+      "atomic_requirement": "风格流行元素特殊工艺人群年龄定位分别多选",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "分离各多选属性候选字典；多选保存由商品工作包承接。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "FLAT_DIMENSION_META",
+          "line": 56,
+          "position": "src/data/pcs-config-dimensions.ts:FLAT_DIMENSION_META",
+          "covers": "styles、trendElements、specialCrafts、crowds、ages、crowdPositioning 独立维度。"
+        },
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "listConfigDimensionOptions",
+          "line": 330,
+          "position": "src/data/pcs-config-workspace-repository.ts:listConfigDimensionOptions",
+          "covers": "按 dimensionId 返回候选，不混用不同属性。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "pcsRecordIdentity",
+          "line": 42,
+          "position": "src/data/pcs-record-codec.ts:pcsRecordIdentity",
+          "covers": "配置记录标识包含 dimensionId，防止跨维度同 ID 覆盖。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "template version and dimension are part of configuration record identity",
+          "line": 22,
+          "covers": "同一个 option.id 在不同维度下形成不同记录。"
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "legacy custom configuration and stable IDs survive category-number field rename",
+          "line": 21,
+          "covers": "自定义特殊工艺不因品类编号迁移而丢失。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "同时选择多个值的保存结构和字段互不覆盖需商品工作包专项/页面证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-012",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B11; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B11",
+      "atomic_requirement": "品类风格品类编号是三个字典",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "品类、风格、品类编号三类配置独立。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "FLAT_DIMENSION_META",
+          "line": 56,
+          "position": "src/data/pcs-config-dimensions.ts:FLAT_DIMENSION_META",
+          "covers": "categories、styles、categoryNumbers 三个 dimensionId。"
+        },
+        {
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "splitCategoryNumberLabel",
+          "line": 479,
+          "position": "src/data/pcs-config-dimensions.ts:splitCategoryNumberLabel",
+          "covers": "品类编号区分正式编号、中英文名称与旧值别名。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "pcsRecordIdentity",
+          "line": 42,
+          "position": "src/data/pcs-record-codec.ts:pcsRecordIdentity",
+          "covers": "维度参与配置记录身份。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "managedList",
+          "line": 70,
+          "position": "src/pages/pcs-config-workspace.ts:managedList",
+          "covers": "配置列表实际使用标准列表/分页/列设置；查询统计同范围，CSV 导出全部匹配项且排除操作列；引用数按当前页或必要排序/导出求值。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "original size identities remain stable and category numbers keep formal codes and legacy labels",
+          "line": 9,
+          "covers": "套装与休闲候选 ID 不同，89 的正式编号/中英文名称/旧别名独立。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "template version and dimension are part of configuration record identity",
+          "line": 22,
+          "covers": "同名/同 ID 跨维度不会覆盖。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "standard list applies pagination, sorting, visibility, freezing, reset and whole-result CSV export",
+          "line": 27,
+          "covers": "分页、排序、显隐、冻结、空结果反馈及全查询结果 CSV。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "“套装、休闲、89 同时保存”商品端场景由主代理绑定。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-013",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B11; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B11",
+      "atomic_requirement": "风格编号相关键完整迁移为品类编号",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "旧 styleCodes 配置及 productConfigRefs.styleCodes 的纯兼容转换；当前写出 categoryNumbers。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "readSnapshot",
+          "line": 183,
+          "position": "src/data/pcs-config-workspace-repository.ts:readSnapshot",
+          "covers": "读取旧 flatOptions.styleCodes 为 categoryNumbers，并保留候选 ID。"
+        },
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "normalizeOption",
+          "line": 206,
+          "position": "src/data/pcs-config-workspace-repository.ts:normalizeOption",
+          "covers": "从历史品类编号标签恢复正式业务码并留别名，不使用数组序号替代业务码。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "normalizePcsRecordSnapshot",
+          "line": 9,
+          "position": "src/data/pcs-record-codec.ts:normalizePcsRecordSnapshot",
+          "covers": "配置和商品 productConfigRefs 旧键同步转换，保留引用 ID。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "legacy custom configuration and stable IDs survive category-number field rename",
+          "line": 21,
+          "covers": "旧 category number 自定义项的 ID、89 编号和旧标签保留。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "old category-number references and dictionaries retain their stable IDs",
+          "line": 31,
+          "covers": "旧字典和商品引用均转换并保留稳定 ID。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "普通读取仅转换内存；相关集合实际保存时才进入记录级升级，旧浏览器源未删除。",
+        "项目/测款等其他持久化来源的字段改名由主代理负责，此索引不声明全仓旧键已清零。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-014",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B11; prototype-adjustment-proposal.md §5",
+      "decision_refs": "B11",
+      "atomic_requirement": "原343项配置及浏览器当前新增项均保留语义和来源",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "旧新增配置保存、维度隔离及旧源/当前 IDB 的严格比较。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "readSnapshot",
+          "line": 183,
+          "position": "src/data/pcs-config-workspace-repository.ts:readSnapshot",
+          "covers": "兼容 options[]/flatOptions，保留配置维度和显式空维度。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "equalPcsRecordValues",
+          "line": 113,
+          "position": "src/data/pcs-record-codec.ts:equalPcsRecordValues",
+          "covers": "只容许可由相同候选推导的 configuredDimensions 元数据差异，业务值差异仍冲突。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "hydrate",
+          "line": 288,
+          "position": "src/data/pcs-record-runtime.ts:hydrate",
+          "covers": "旧源只读叠加，已校验源指纹防止旧快照覆盖后续 IDB 改动。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "pcsRecordIdentity",
+          "line": 42,
+          "position": "src/data/pcs-record-codec.ts:pcsRecordIdentity",
+          "covers": "dimensionId+id 保留跨维度的独立身份。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "managedList",
+          "line": 70,
+          "position": "src/pages/pcs-config-workspace.ts:managedList",
+          "covers": "配置列表实际使用标准列表/分页/列设置；查询统计同范围，CSV 导出全部匹配项且排除操作列；引用数按当前页或必要排序/导出求值。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "legacy custom configuration and stable IDs survive category-number field rename",
+          "line": 21,
+          "covers": "人工构造的历史自定义配置保留。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "template version and dimension are part of configuration record identity",
+          "line": 22,
+          "covers": "跨维度同 ID 不合并。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "legacy configured-dimension metadata is equivalent only when derivable from unchanged option records",
+          "line": 71,
+          "covers": "仅可推导元数据差异视为相等，实际配置值或空维度变化不得忽略。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "new writes from an old page do not overwrite IDB or block unrelated collections",
+          "line": 132,
+          "covers": "旧页改变源值后阻断相关集合，且不覆盖 IDB。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "standard list applies pagination, sorting, visibility, freezing, reset and whole-result CSV export",
+          "line": 27,
+          "covers": "分页、排序、显隐、冻结、空结果反馈及全查询结果 CSV。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "没有逐项核对实际浏览器原 343 项及所有新增项的完整清单/来源；不能用合成样本代替现场对账。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-015",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §5",
+      "decision_refs": "F04",
+      "atomic_requirement": "已用模板变更生成新版本",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "模板版本受控编辑、审核和锁定引用。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialTemplateVersion",
+          "line": 129,
+          "position": "src/data/pcs-material-config.ts:saveMaterialTemplateVersion",
+          "covers": "已审核版本改动创建新草稿版本，已有草稿仅更新自身；根身份不变。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "approveMaterialTemplate",
+          "line": 168,
+          "position": "src/data/pcs-material-config.ts:approveMaterialTemplate",
+          "covers": "审核指定版本而非替换旧版本。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "getMaterialTemplateByVersion",
+          "line": 110,
+          "position": "src/data/pcs-material-config.ts:getMaterialTemplateByVersion",
+          "covers": "旧根档案可取其锁定模板版本。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "getMaterialTemplateUsage",
+          "line": 208,
+          "position": "src/data/pcs-material-config.ts:getMaterialTemplateUsage",
+          "covers": "动态列出引用指定版本的根档案。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "templateBody",
+          "line": 193,
+          "position": "src/pages/pcs-config-workspace.ts:templateBody",
+          "covers": "模板详情和编辑显式显示/维护 button-hole、reference 值结构、integer/minimum；保留分类稳定标识与业务编码。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "conversionBody",
+          "line": 189,
+          "position": "src/pages/pcs-config-workspace.ts:conversionBody",
+          "covers": "版本换算依据独立 Tab 维护数值属性、原单位、新单位、正系数；普通读取和保存不自动转换旧值。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "template editing and approval preserve versions already referenced by material roots",
+          "line": 74,
+          "covers": "原版本字段不变，后续审核版本供新选，旧版本可读取。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "template detail and draft save preserve button conditions, zero minimum, shape and version conversions",
+          "line": 53,
+          "covers": "实际页面保存保留字段元数据及版本换算，0 最小值不丢失；错误系数阻断，新旧分类身份相同。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "已存在实际用户根档案刷新后仍按原版本渲染需浏览器证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "CFG-016",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §5",
+      "decision_refs": "F05",
+      "atomic_requirement": "停用字典不供新选但保留历史显示",
+      "work_package": "WP02",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "配置项停用保留、模板/单位停用和动态引用计数。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "saveConfigDimensionOption",
+          "line": 346,
+          "position": "src/data/pcs-config-workspace-repository.ts:saveConfigDimensionOption",
+          "covers": "停用保留稳定身份和日志；已使用项代码不能改。"
+        },
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "listConfigDimensionOptions",
+          "line": 330,
+          "position": "src/data/pcs-config-workspace-repository.ts:listConfigDimensionOptions",
+          "covers": "保留候选状态供消费端过滤。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "getMaterialTemplate",
+          "line": 103,
+          "position": "src/data/pcs-material-config.ts:getMaterialTemplate",
+          "covers": "新选仅允许启用的已审核版本。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "getMaterialTemplateByVersion",
+          "line": 110,
+          "position": "src/data/pcs-material-config.ts:getMaterialTemplateByVersion",
+          "covers": "历史锁定版本可继续读取。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialUnit",
+          "line": 176,
+          "position": "src/data/pcs-material-config.ts:saveMaterialUnit",
+          "covers": "单位停用不删除身份。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "configuration references are counted from current records and disabling retains history",
+          "line": 31,
+          "covers": "停用仍保留历史记录与使用计数。"
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "template editing and approval preserve versions already referenced by material roots",
+          "line": 74,
+          "covers": "新建拒绝停用模板但旧版本可读。"
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "controlled fields and unit identities reject invalid configuration",
+          "line": 93,
+          "covers": "单位停用保留且不允许改原单位量纲。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "每个商品/物料/技术资料候选下拉是否都过滤停用项需消费端验收。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "UOM-005",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B13; prototype-adjustment-proposal.md §8",
+      "decision_refs": "B13",
+      "atomic_requirement": "批次实测不覆盖标准换算",
+      "work_package": "WP05",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "历史技术 BOM 的单位换算引用快照；不含仓储批次实测规则。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "captureEngineeringBomMaterialReference",
+          "line": 54,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:captureEngineeringBomMaterialReference",
+          "covers": "确认/发布时记录单位换算系数及关系版本 ID。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "resolveEngineeringBomMaterialLine",
+          "line": 62,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:resolveEngineeringBomMaterialLine",
+          "covers": "FROZEN 使用保存的系数/版本，CURRENT 才取当前标准。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "UOM frozen usage conversion retains the selected unit relation version",
+          "line": 105,
+          "covers": "历史 KG/Yard 关系系数 5 保留，当前关系改 4 后只影响草稿。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "没有检查 WMS/质检批次数据；批次实测不能覆盖标准换算的完整业务需求由物料/仓储证据补齐。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "UOM-010",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §8",
+      "decision_refs": "F04",
+      "atomic_requirement": "使用过的主单位锁定",
+      "work_package": "WP05",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "单位身份配置不可变和 BOM 已发布换算版本保留；物料主单位引用锁由物料工作包承接。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialUnit",
+          "line": 176,
+          "position": "src/data/pcs-material-config.ts:saveMaterialUnit",
+          "covers": "现有计量单位代码及量纲禁止变化。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "captureEngineeringBomMaterialReference",
+          "line": 54,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:captureEngineeringBomMaterialReference",
+          "covers": "技术资料保存换算系数及 relationIds。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "resolveEngineeringBomMaterialLine",
+          "line": 62,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:resolveEngineeringBomMaterialLine",
+          "covers": "已冻结历史不采用新的辅助单位系数。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "controlled fields and unit identities reject invalid configuration",
+          "line": 93,
+          "covers": "单位量纲/身份及计件精度防错。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "UOM frozen usage conversion retains the selected unit relation version",
+          "line": 105,
+          "covers": "辅助换算变化后冻结材料成本仍使用原系数。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "主单位在采购/加工等外部引用发生后的编辑阻断不在本索引中复审；不能以单位字典不可改替代 SKU 主单位锁。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-003",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D03; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D03",
+      "atomic_requirement": "默认人民币支持IDR和USD展示",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "展示汇率配置和 BOM 历史金额不随展示设置改变。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-exchange-rate-config.ts",
+          "symbol": "updateLatestPcsExchangeRate",
+          "line": 32,
+          "position": "src/data/pcs-exchange-rate-config.ts:updateLatestPcsExchangeRate",
+          "covers": "人工维护正数 IDR/CNY、USD/CNY，并记录日志。"
+        },
+        {
+          "file": "src/data/pcs-exchange-rate-config.ts",
+          "symbol": "displayStandardCost",
+          "line": 43,
+          "position": "src/data/pcs-exchange-rate-config.ts:displayStandardCost",
+          "covers": "以 CNY 基数按展示币种换算，不改标准成本。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "exchangeRate",
+          "line": 224,
+          "position": "src/pages/pcs-config-workspace.ts:exchangeRate",
+          "covers": "展示汇率独立页面/日志视图。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-pricing.ts",
+          "symbol": "getTechnicalDataVersionBomWorkspace",
+          "line": 346,
+          "position": "src/data/pcs-engineering-bom-pricing.ts:getTechnicalDataVersionBomWorkspace",
+          "covers": "已发布资料读取冻结快照。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "display exchange rates preserve base costs and accept only positive rates",
+          "line": 109,
+          "covers": "CNY/IDR/USD 正常换算及正数维护。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes",
+          "line": 84,
+          "covers": "改展示汇率不改已发布 BOM 数值与引用。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "物料详情切换币种和原始标准版本数需物料页面证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。",
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。",
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-004",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D03; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D03",
+      "atomic_requirement": "缺展示汇率有明确反馈",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "缺失/非法已保存展示汇率保持未配置状态，CNY 正常；配置页明确提示。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-exchange-rate-config.ts",
+          "symbol": "getLatestPcsExchangeRate",
+          "line": 18,
+          "position": "src/data/pcs-exchange-rate-config.ts:getLatestPcsExchangeRate",
+          "covers": "已保存记录缺失/非法汇率返回未配置状态，不用演示值补齐。"
+        },
+        {
+          "file": "src/data/pcs-exchange-rate-config.ts",
+          "symbol": "displayStandardCost",
+          "line": 43,
+          "position": "src/data/pcs-exchange-rate-config.ts:displayStandardCost",
+          "covers": "没有有效展示汇率时返回 null；人民币金额仍可读取。"
+        },
+        {
+          "file": "src/data/pcs-exchange-rate-config.ts",
+          "symbol": "updateLatestPcsExchangeRate",
+          "line": 32,
+          "position": "src/data/pcs-exchange-rate-config.ts:updateLatestPcsExchangeRate",
+          "covers": "维护入口阻止非正数和非有限数值。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "display exchange rates preserve base costs and accept only positive rates",
+          "line": 109,
+          "covers": "仅覆盖正常展示及保存时拒绝非正数。",
+          "limitations": "不覆盖缺失字段、非法存量汇率的读取提示。"
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "COST-004 missing or invalid persisted display rates stay unavailable instead of taking seed values",
+          "line": 119,
+          "covers": "undefined/null/0/负数/字符串存量汇率不回填seed；IDR/USD返回null，CNY可用。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "缺失汇率已补函数负例；物料/配置页面真实浏览器提示仍由主代理验收。"
+      ],
+      "pending_browser": [
+        "P11/物料展示页：注入受控的缺失或非法展示汇率后确认有明确提示，CNY 原值可用且不展示误导性零值；禁止清用户数据。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-012",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D10; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D10",
+      "atomic_requirement": "未维护与真实零值不同",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "BOM 使用物料标准时区分真实零与缺失。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "resolveEngineeringBomMaterialLine",
+          "line": 62,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:resolveEngineeringBomMaterialLine",
+          "covers": "保留 0 为有效标准；null/缺失使行参考不可用，冻结历史缺失不以现价回填。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-pricing.ts",
+          "symbol": "buildEngineeringBomMaterialLine",
+          "line": 217,
+          "position": "src/data/pcs-engineering-bom-pricing.ts:buildEngineeringBomMaterialLine",
+          "covers": "缺价不形成完整核价行。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "publishTechnicalDataVersionRecord",
+          "line": 1265,
+          "position": "src/data/pcs-technical-data-version-repository.ts:publishTechnicalDataVersionRecord",
+          "covers": "发布前校验所有材料参考，缺失则阻断整次动作。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST actual zero remains valid; missing standard is blocked; calculations avoid per-line early rounding",
+          "line": 54,
+          "covers": "零采购/运输有效，缺失标准被拒绝。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST failed publishing cannot leave a published record or half-frozen cost references",
+          "line": 136,
+          "covers": "缺标准发布失败且不留下已发布记录或半冻结引用。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "物料递归成本链本体与每条工艺费用缺失提示由物料工作包提供。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-013",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D11; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D11",
+      "atomic_requirement": "来源精度保留且统一末次舍入",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "BOM 聚合计算保留原始单价精度。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "resolveEngineeringBomMaterialLine",
+          "line": 62,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:resolveEngineeringBomMaterialLine",
+          "covers": "接收递归标准原精度并用于当前行计算。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-pricing.ts",
+          "symbol": "calculateEngineeringBomCost",
+          "line": 240,
+          "position": "src/data/pcs-engineering-bom-pricing.ts:calculateEngineeringBomCost",
+          "covers": "累计原精度行值后再做末次显示舍入。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST actual zero remains valid; missing standard is blocked; calculations avoid per-line early rounding",
+          "line": 54,
+          "covers": "两个 0.0049 的行相加得到 0.01，避免逐行先舍入为零。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "该测试不证明物料加工链每层的精度；完整递归精度属于物料成本公式测试。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-014",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D12; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D12",
+      "atomic_requirement": "上游变化自动更新所有依赖分支",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "上游标准调整后技术草稿立即读取新标准，无待复核价格分支。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "resolveEngineeringBomMaterialLine",
+          "line": 62,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:resolveEngineeringBomMaterialLine",
+          "covers": "CURRENT 每次按物料引用读取当前标准并提示参考变化。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-pricing.ts",
+          "symbol": "getTechnicalDataVersionBomWorkspace",
+          "line": 346,
+          "position": "src/data/pcs-engineering-bom-pricing.ts:getTechnicalDataVersionBomWorkspace",
+          "covers": "未发布技术资料解析最新材料标准。"
+        },
+        {
+          "file": "src/pages/tech-pack/cost-domain.ts",
+          "symbol": "refreshBomPricingWorkspaceLocally",
+          "line": 43,
+          "position": "src/pages/tech-pack/cost-domain.ts:refreshBomPricingWorkspaceLocally",
+          "covers": "局部刷新真实 BOM 工作区，标记参考已更新。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST draft uses recursive composite standard cost and notes upstream reference changes",
+          "line": 42,
+          "covers": "采购标准从 5 改 6 后技术草稿综合标准由 8 变 9，读取不写持久数据。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes",
+          "line": 84,
+          "covers": "草稿刷新取新标准，已发布仍旧值。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "完整 7/7.8/9 示例、只更新依赖分支且不影响其他根物料的公式证据由物料工作包负责。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-015",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D12; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D12",
+      "atomic_requirement": "展示汇率变化不触发成本重新生效",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "展示汇率改变只作用于展示配置，不改变已确认/发布 BOM 的冻结金额或引用。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-exchange-rate-config.ts",
+          "symbol": "updateLatestPcsExchangeRate",
+          "line": 32,
+          "position": "src/data/pcs-exchange-rate-config.ts:updateLatestPcsExchangeRate",
+          "covers": "只写展示汇率集合与日志。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-pricing.ts",
+          "symbol": "getTechnicalDataVersionBomWorkspace",
+          "line": 346,
+          "position": "src/data/pcs-engineering-bom-pricing.ts:getTechnicalDataVersionBomWorkspace",
+          "covers": "历史工作区读取冻结快照而非当前展示汇率。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "freezePublishedTechnicalDataVersionBomPricingSnapshot",
+          "line": 1230,
+          "position": "src/data/pcs-technical-data-version-repository.ts:freezePublishedTechnicalDataVersionBomPricingSnapshot",
+          "covers": "已有合法冻结快照直接复用。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "display exchange rates preserve base costs and accept only positive rates",
+          "line": 109,
+          "covers": "汇率配置正常维护及刷新读取。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST confirmed plan keeps its cost and unit versions, while copied drafts use new standards",
+          "line": 66,
+          "covers": "修改标准与汇率后已确认核价计划快照不变。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes",
+          "line": 84,
+          "covers": "发布后汇率变化和启用都保留冻结金额、时间与引用版本。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "物料标准成本版本数量不变、所有旧复核入口均收口需物料/主代理证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。",
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。",
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-016",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D13; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D13",
+      "atomic_requirement": "已确认已发布历史成本快照不被改写",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "确认核价计划及发布技术版本的历史成本冻结。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-repository.ts",
+          "symbol": "confirmEngineeringBomPricingPlan",
+          "line": 897,
+          "position": "src/data/pcs-engineering-bom-repository.ts:confirmEngineeringBomPricingPlan",
+          "covers": "确认时保存已解析成本和单位引用。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-repository.ts",
+          "symbol": "resolveEngineeringBomPricingPlan",
+          "line": 890,
+          "position": "src/data/pcs-engineering-bom-repository.ts:resolveEngineeringBomPricingPlan",
+          "covers": "已确认按冻结快照读取。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "publishTechnicalDataVersionRecord",
+          "line": 1265,
+          "position": "src/data/pcs-technical-data-version-repository.ts:publishTechnicalDataVersionRecord",
+          "covers": "发布前校验并一次冻结成本引用、单位引用及核价快照。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "buildPublishedTechnicalDataVersionBomPricingSnapshot",
+          "line": 1135,
+          "position": "src/data/pcs-technical-data-version-repository.ts:buildPublishedTechnicalDataVersionBomPricingSnapshot",
+          "covers": "从已冻结材料引用构建已发布核价快照，不以最新标准回填历史。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "freezePublishedTechnicalDataVersionBomPricingSnapshot",
+          "line": 1230,
+          "position": "src/data/pcs-technical-data-version-repository.ts:freezePublishedTechnicalDataVersionBomPricingSnapshot",
+          "covers": "启用读取已有快照，不重新冻结当前价格。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST confirmed plan keeps its cost and unit versions, while copied drafts use new standards",
+          "line": 66,
+          "covers": "确认后 P/展示汇率变化不改快照；复制为草稿才取最新。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes",
+          "line": 84,
+          "covers": "真实工作区读取函数在发布/启用后继续返回冻结金额。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST failed publishing cannot leave a published record or half-frozen cost references",
+          "line": 136,
+          "covers": "发布失败不留下半套快照。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "实际浏览器发布后刷新、关闭重开及启用路径需要验证；函数测试不等于持久化页面已验收。",
+        "原没有可识别 materialSkuId 或冻结依据的历史内容保留；缺少冻结来源时不会猜测补当前价，需按可用历史资料展示。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "COST-017",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md D13; prototype-adjustment-proposal.md §10",
+      "decision_refs": "D13",
+      "atomic_requirement": "未发布草稿读最新参考并显示变化",
+      "work_package": "WP06",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "未发布草稿当前参考读取、差异提示和旧 SKU 物料意向的只读技术投影。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-pricing.ts",
+          "symbol": "getTechnicalDataVersionBomWorkspace",
+          "line": 346,
+          "position": "src/data/pcs-engineering-bom-pricing.ts:getTechnicalDataVersionBomWorkspace",
+          "covers": "草稿每次解析当前标准。"
+        },
+        {
+          "file": "src/data/pcs-engineering-bom-material-resolver.ts",
+          "symbol": "resolveEngineeringBomMaterialLine",
+          "line": 62,
+          "position": "src/data/pcs-engineering-bom-material-resolver.ts:resolveEngineeringBomMaterialLine",
+          "covers": "将当前来源版本与保存引用比较，输出 standardCostChanged。"
+        },
+        {
+          "file": "src/pages/pcs-technical-data.ts",
+          "symbol": "renderPcsTechnicalDataBomPricingPlanPage",
+          "line": 122,
+          "position": "src/pages/pcs-technical-data.ts:renderPcsTechnicalDataBomPricingPlanPage",
+          "covers": "列表工作区从解析结果展示当前成本。"
+        },
+        {
+          "file": "src/pages/pcs-technical-data.ts",
+          "symbol": "renderPcsTechnicalDataBomPricingDetailPage",
+          "line": 140,
+          "position": "src/pages/pcs-technical-data.ts:renderPcsTechnicalDataBomPricingDetailPage",
+          "covers": "技术详情沿同一工作区读取。"
+        },
+        {
+          "file": "src/pages/tech-pack/cost-domain.ts",
+          "symbol": "refreshBomPricingWorkspaceLocally",
+          "line": 43,
+          "position": "src/pages/tech-pack/cost-domain.ts:refreshBomPricingWorkspaceLocally",
+          "covers": "真实编辑工作区局部刷新当前参考与变化提示。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "getTechnicalDataVersionContent",
+          "line": 958,
+          "position": "src/data/pcs-technical-data-version-repository.ts:getTechnicalDataVersionContent",
+          "covers": "历史 SKU 物料意向只在草稿读取投影，普通读不保存。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST draft uses recursive composite standard cost and notes upstream reference changes",
+          "line": 42,
+          "covers": "标准变更后草稿自动取最新且存储原文未变。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes",
+          "line": 84,
+          "covers": "草稿工作区更新与发布后冻结的边界。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "BRIDGE multiple yarn intentions remain separate technical inputs, project once and preserve source SKU",
+          "line": 114,
+          "covers": "读取物料意向不写 SKU 或技术存储，显式保存后幂等。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "浏览器正在编辑数量/其他费用时更新标准是否保留全部未保存输入、刷新可见变化提示需主代理验证。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "BRIDGE-001",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C03; prototype-adjustment-proposal.md §9.3/§12.4",
+      "decision_refs": "C03",
+      "atomic_requirement": "多色纱线通过技术BOM保存多投入",
+      "work_package": "WP09",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "既有多色纱线/物料意向进入技术 BOM 的多投入表示，不另造 SKU 中重复事实。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-engineering-bom-legacy-intent.ts",
+          "symbol": "projectLegacySkuMaterialIntent",
+          "line": 6,
+          "position": "src/data/pcs-engineering-bom-legacy-intent.ts:projectLegacySkuMaterialIntent",
+          "covers": "每条意向独立来源 ID/材料 SKU/数量/单位；多种纱线不折叠成一个主前驱。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "getTechnicalDataVersionContent",
+          "line": 958,
+          "position": "src/data/pcs-technical-data-version-repository.ts:getTechnicalDataVersionContent",
+          "covers": "草稿只读投影尚未承接的 SKU 意向。"
+        },
+        {
+          "file": "src/data/pcs-project-technical-data-writeback.ts",
+          "symbol": "saveTechnicalDataVersionContent",
+          "line": 66,
+          "position": "src/data/pcs-project-technical-data-writeback.ts:saveTechnicalDataVersionContent",
+          "covers": "显式保存技术草稿时记承接来源 ID，不回写 SKU。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "BRIDGE multiple yarn intentions remain separate technical inputs, project once and preserve source SKU",
+          "line": 114,
+          "covers": "两种纱线 0.3/0.2 KG 保留独立投入；重复读/保存不重复，原 SKU 不变；无法解析的身份不猜测创建。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "本证据只覆盖技术 BOM 引用，不代表横机成片、缝盘生产执行或半成品仓储实现。",
+        "已存意向找不到规范材料 SKU 时保留原来源并返回 unresolvedSourceIds；旧 SKU 原字段未破坏性删除。"
+      ],
+      "pending_browser": [
+        "P17 技术 BOM：在 1366×768 和 1280×720 检查草稿当前标准、变化提示、确认/发布/启用和刷新后的历史快照。"
+      ],
+      "pending_performance": [
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-001",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F01; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F01",
+      "atomic_requirement": "同一操作人可以维护并审核",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "配置模板维护人与审核人可以相同。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "saveMaterialTemplateVersion",
+          "line": 129,
+          "position": "src/data/pcs-material-config.ts:saveMaterialTemplateVersion",
+          "covers": "记录实际操作者维护草稿。"
+        },
+        {
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "approveMaterialTemplate",
+          "line": 168,
+          "position": "src/data/pcs-material-config.ts:approveMaterialTemplate",
+          "covers": "审核指定草稿，不因操作者等于创建人阻断。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "handlePcsConfigWorkspaceEvent",
+          "line": 347,
+          "position": "src/pages/pcs-config-workspace.ts:handlePcsConfigWorkspaceEvent",
+          "covers": "维护和审核均走明确动作及原子存储命令。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "template editing and approval preserve versions already referenced by material roots",
+          "line": 74,
+          "covers": "同一维护人完成模板编辑和审核，旧版本不变。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "本条其余商品/物料/渠道操作权限不在配置专项内；免登录原型不等于真实鉴权。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-005",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "F04",
+      "atomic_requirement": "名称翻译修正留痕但不换身份",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "配置名称/翻译修改保留稳定 ID 与日志；技术成本历史值保留快照。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "saveConfigDimensionOption",
+          "line": 346,
+          "position": "src/data/pcs-config-workspace-repository.ts:saveConfigDimensionOption",
+          "covers": "更新名称、翻译等属性沿用 ID，记录变更日志；已引用代码不能改。"
+        },
+        {
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "normalizeOption",
+          "line": 206,
+          "position": "src/data/pcs-config-workspace-repository.ts:normalizeOption",
+          "covers": "历史编号标签分解但保留旧值别名。"
+        },
+        {
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "freezePublishedTechnicalDataVersionBomPricingSnapshot",
+          "line": 1230,
+          "position": "src/data/pcs-technical-data-version-repository.ts:freezePublishedTechnicalDataVersionBomPricingSnapshot",
+          "covers": "技术版本历史材料成本不随当前配置变化重建。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "configuration references are counted from current records and disabling retains history",
+          "line": 31,
+          "covers": "引用计数/停用保留记录、代码变更阻断。"
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "test_name": "legacy custom configuration and stable IDs survive category-number field rename",
+          "line": 21,
+          "covers": "历史名称/编号语义与稳定 ID 保留。"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes",
+          "line": 84,
+          "covers": "历史核价快照保持不变。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "现有配置专项未单独覆盖“仅改翻译并检查所有旧业务显示快照”的完整案例；商品和物料名称历史由各工作包补证据。"
+      ],
+      "pending_browser": [
+        "P11 基础配置：在 1366×768 和 1280×720 检查左分组、列表/详情/编辑及 Tab 层次；保存后刷新验证已保存值。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-011",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-013; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "USR-013",
+      "atomic_requirement": "全部PCS页面无浏览器资料维护工具",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "配置页正常/失败状态无浏览器资料维护工具；存储 API 不重新生成用户入口。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "renderPcsConfigWorkspacePage",
+          "line": 255,
+          "position": "src/pages/pcs-config-workspace.ts:renderPcsConfigWorkspacePage",
+          "covers": "页面只渲染业务配置、列表/详情/编辑或读取错误。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "handlePcsConfigWorkspaceEvent",
+          "line": 347,
+          "position": "src/pages/pcs-config-workspace.ts:handlePcsConfigWorkspaceEvent",
+          "covers": "错误恢复为重新读取，没有清空/备份/迁移/恢复动作。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "ensurePcsRecordState",
+          "line": 415,
+          "position": "src/data/pcs-record-runtime.ts:ensurePcsRecordState",
+          "covers": "只返回读取结果或当前集合错误，不渲染维护 UI。"
+        }
+      ],
+      "existing_tests": [],
+      "known_implementation_or_verification_gaps": [
+        "本索引不把“没有专项”写成通过；全 PCS 外壳、旧维护页面删除和各错误分支需主代理全域证据。",
+        "底层仍存在历史备份/清理/最终迁移 API；未从 PCS 用户页面暴露，不执行这些 API。"
+      ],
+      "pending_browser": [
+        "P11 正常、读取失败页面检查仅有业务操作/重新读取；全 PCS 页面工具清除由主代理验收。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-012",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "记录及文件使用现有IndexedDB轻量存储",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "公共 PCS 记录级 IndexedDB 保存、记录身份和附件原子提交。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "pcsRecordIdentity",
+          "line": 42,
+          "position": "src/data/pcs-record-codec.ts:pcsRecordIdentity",
+          "covers": "商品、物料、渠道、配置版本使用本记录 ID 而非父 ID。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "decodePcsRecordSnapshot",
+          "line": 65,
+          "position": "src/data/pcs-record-codec.ts:decodePcsRecordSnapshot",
+          "covers": "工作区输入拆分为独立业务记录和轻量结构元信息。"
+        },
+        {
+          "file": "src/data/pcs-record-position.ts",
+          "symbol": "assignPcsRecordPositions",
+          "line": 2,
+          "position": "src/data/pcs-record-position.ts:assignPcsRecordPositions",
+          "covers": "插入/排序只更新必要位置。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 427,
+          "position": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "covers": "暂存变更、事务前准备文件、按记录差异提交；complete 后才发布内存。"
+        },
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "transaction",
+          "line": 52,
+          "position": "src/data/pcs-record-db.ts:transaction",
+          "covers": "等待事务 complete；abort/error 拒绝。"
+        },
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "commitPcsRecords",
+          "line": 136,
+          "position": "src/data/pcs-record-db.ts:commitPcsRecords",
+          "covers": "同库记录、文件、关联及操作回执在一个事务提交。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "one changed record plus structure, with publication only after completion",
+          "line": 69,
+          "covers": "事务完成之前新状态不可见，单记录编辑只提交该记录与必要结构。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "same internal SKU under one PID retains several platform variant identities",
+          "line": 7,
+          "covers": "同 PID 多平台实例各有自己的记录身份。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "material processes, cost versions and unit relations use own identities",
+          "line": 15,
+          "covers": "加工、费用和单位版本用自身 ID。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "template version and dimension are part of configuration record identity",
+          "line": 22,
+          "covers": "模板版本与配置维度进入记录身份。"
+        },
+        {
+          "file": "tests/unit/pcs-record-position.test.ts",
+          "test_name": "PCS 前插多个新记录保留全部既有位置，重复保存不产生位置变化",
+          "line": 5,
+          "covers": "前插保留既有位置，不造成整集合位置改写。"
+        },
+        {
+          "file": "tests/browser-contracts/pcs-record-db.test.ts",
+          "test_name": "PCS real IndexedDB: atomic writes, versions, retry, attachment references and backup",
+          "line": 8,
+          "covers": "隔离浏览器 IndexedDB 契约包含原子回滚、版本与附件引用。",
+          "limitations": "此处仅登记现有专项源码；不是实际用户页面/当前未提交版本的执行报告。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "同库事务不扩展成 PCS/PMS 跨库事务；已接 PMS 局部草稿另有所属库事实源，不宣称全 PMS 已迁移。",
+        "实际每个消费者是否正确 await 命令成功后更新 UI 由主代理/各工作包验证。"
+      ],
+      "pending_browser": [
+        "真实 PCS 页面新建、编辑、复制、刷新及直达详情逐链路验收；数据不得在 complete 前提示已保存。"
+      ],
+      "pending_performance": [
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-013",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "普通读取和初始化不写业务数据",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "静态基线、只读 hydration、旧源承接和新版静态增量。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-bootstrap.ts",
+          "symbol": "initializePcsRecordBaseline",
+          "line": 8,
+          "position": "src/data/pcs-record-bootstrap.ts:initializePcsRecordBaseline",
+          "covers": "当前由主代理优化为读取随发布生成的静态 JSON，withPcsDemoData 仅注册内存基线。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "ensurePcsRecordState",
+          "line": 415,
+          "position": "src/data/pcs-record-runtime.ts:ensurePcsRecordState",
+          "covers": "普通读取加载持久覆盖，不执行升级写入。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "hydrate",
+          "line": 288,
+          "position": "src/data/pcs-record-runtime.ts:hydrate",
+          "covers": "只读承接 legacy + 记录覆盖；读取失败不是空数据种子。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "upgradePcsLegacyRecords",
+          "line": 224,
+          "position": "src/data/pcs-record-runtime.ts:upgradePcsLegacyRecords",
+          "covers": "仅显式保存涉及集合时升级；不是普通 hydration 副作用。"
+        },
+        {
+          "file": "src/data/pcs-record-codec.ts",
+          "symbol": "encodePcsRecordSnapshot",
+          "line": 84,
+          "position": "src/data/pcs-record-codec.ts:encodePcsRecordSnapshot",
+          "covers": "叠加覆盖和墓碑，新结构组保留。"
+        },
+        {
+          "file": "src/data/pcs-record-static-versions.ts",
+          "symbol": "isPcsNewStaticRecord",
+          "line": 31,
+          "position": "src/data/pcs-record-static-versions.ts:isPcsNewStaticRecord",
+          "covers": "显式 R1 新增 ID 清单；不让旧快照遗漏对象被误复活。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "initialization and repeated reads never copy static records",
+          "line": 63,
+          "covers": "初始化与反复读无持久化种子副本。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "legacy read is read-only; save upgrades only its collection and retains the source",
+          "line": 117,
+          "covers": "旧源读取不写，业务保存仅升级相关集合并保留源。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "new static version IDs appear over an old whole snapshot without resurrecting old omissions or saved deletions",
+          "line": 191,
+          "covers": "新增静态 ID 出现在历史快照上，旧遗漏和墓碑仍优先。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "legacy channel instances bridge to canonical records without copying unchanged demo rows",
+          "line": 226,
+          "covers": "旧渠道只读转换，无修改样本不复制。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "saved overlays and tombstones survive seed updates without duplicating snapshots",
+          "line": 40,
+          "covers": "用户覆盖和墓碑优先于静态种子。"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "new schema groups are not lost when old metadata already exists",
+          "line": 49,
+          "covers": "旧 meta 存在时不丢新 schema 集合。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "column drag order and page size persist as bounded preferences without business writes",
+          "line": 138,
+          "covers": "拖拽顺序和页大小只写有界 UI 偏好，读取列表零业务写入。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "本索引登记当前静态 bootstrap 的集成位置；主代理最新静态生成优化后的冷启动耗时和全页面存储写入观察尚需最终证据。",
+        "旧源保留不等于已经完成删除旧源的迁移流程。"
+      ],
+      "pending_browser": [
+        "新浏览器隔离源首次访问确认 IDB 没有整批演示记录；已有浏览器确认用户覆盖、删除标记与新版新增静态记录同时保留。"
+      ],
+      "pending_performance": [
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-014",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "复制记录复用附件且有效引用不误删",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "Blob、文件 ID、共享引用、取消选择及内部安全回收。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "registerPcsFile",
+          "line": 56,
+          "position": "src/data/pcs-record-runtime.ts:registerPcsFile",
+          "covers": "文件选择先注册内存 Blob 和临时 URL。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "releasePcsPendingFile",
+          "line": 87,
+          "position": "src/data/pcs-record-runtime.ts:releasePcsPendingFile",
+          "covers": "无关联待保存文件取消时释放 URL/内存。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 427,
+          "position": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "covers": "准备 Blob/元数据及引用，与记录在同库事务保存。"
+        },
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "pcsFileReferences",
+          "line": 79,
+          "position": "src/data/pcs-record-db.ts:pcsFileReferences",
+          "covers": "识别稳定 fileId/pcs-file 引用并拒绝业务 JSON 中文件字节。"
+        },
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "commitPcsRecords",
+          "line": 136,
+          "position": "src/data/pcs-record-db.ts:commitPcsRecords",
+          "covers": "保存和删除文件前核验有效引用，复用文件 ID。"
+        },
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "cleanupUnreferencedPcsFiles",
+          "line": 208,
+          "position": "src/data/pcs-record-db.ts:cleanupUnreferencedPcsFiles",
+          "covers": "内部事务内核验全引用后清理真正无引用 Blob；无 PCS 页面入口。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "a fileId-only attachment is persisted once and can be shared by another record",
+          "line": 148,
+          "covers": "两个记录共享一个文件 ID，字节只保存一次且有效引用不释放。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "cancelled uploads stay out of persistent storage and release their URL",
+          "line": 172,
+          "covers": "取消上传无持久副本且 URL 释放。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "attachment reference validation rejects bytes in JSON and respects explicit static files",
+          "line": 63,
+          "covers": "JSON 附件字节拒绝，明确静态文件按规则引用。"
+        },
+        {
+          "file": "tests/browser-contracts/pcs-record-db.test.ts",
+          "test_name": "PCS real IndexedDB: atomic writes, versions, retry, attachment references and backup",
+          "line": 8,
+          "covers": "隔离浏览器文件有效引用防删、无引用清理和缺文件拒绝。",
+          "limitations": "不代替各业务复制/替换/历史版本真实页面操作验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "实际业务复制与替换入口复用文件 ID 的完整链路需消费端浏览器验证。",
+        "只存在可执行内部回收函数，未自动对用户当前浏览器执行清理；不能声称已经释放用户空间。"
+      ],
+      "pending_browser": [
+        "选择后取消、保存后复制、替换、保留历史版本和删除等实际页面操作；确认引用正确、刷新可读、无重复文件字节。"
+      ],
+      "pending_performance": [
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-015",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "多标签冲突及重复提交有记录级保护",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "记录版本冲突、操作幂等和旧源新写入冲突。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "commitPcsRecords",
+          "line": 136,
+          "position": "src/data/pcs-record-db.ts:commitPcsRecords",
+          "covers": "同一事务核对 expectedVersion、稳定操作 ID/内容指纹；冲突不覆盖。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 427,
+          "position": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "covers": "基于读取版本提交，失败回滚暂存内存；接受调用方稳定操作 ID。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "hydrate",
+          "line": 288,
+          "position": "src/data/pcs-record-runtime.ts:hydrate",
+          "covers": "BroadcastChannel 标记缓存过期且读取旧源指纹，旧页写入不静默覆盖新 IDB。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "a stale write uses the loaded version and cannot silently overwrite another tab",
+          "line": 94,
+          "covers": "已加载旧版本的保存被拒绝，另一标签记录保留。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "new writes from an old page do not overwrite IDB or block unrelated collections",
+          "line": 132,
+          "covers": "旧页改源只阻断对应集合，不改新 IDB 或无关集合。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/browser-contracts/pcs-record-db.test.ts",
+          "test_name": "PCS real IndexedDB: atomic writes, versions, retry, attachment references and backup",
+          "line": 8,
+          "covers": "同操作重试不重复，同 ID 不同内容拒绝，两个并发保存只有一个成功，删除/重建版本防 ABA。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "幂等 API 默认可生成新操作 ID；各“可能建单”按钮必须跨重试复用自己的稳定 ID，不能仅凭底层 API 声称每个入口都幂等。",
+        "真实两标签界面冲突文案及输入保留仍需浏览器验收。"
+      ],
+      "pending_browser": [
+        "两个标签同时编辑同一记录、反复点击/网络式失败重试建单，核对记录数和冲突后的可恢复输入。"
+      ],
+      "pending_performance": [
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-016",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "失败保留输入与旧记录并可重试",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "公共命令失败回滚、只读错误隔离、配置草稿保存错误展示。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 427,
+          "position": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "covers": "写入失败不发布新内存、不回退 localStorage，保留旧持久记录。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "hydrate",
+          "line": 288,
+          "position": "src/data/pcs-record-runtime.ts:hydrate",
+          "covers": "真实缺附件仅阻断受影响集合，不冒充空列表。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "retryPcsRecordState",
+          "line": 419,
+          "position": "src/data/pcs-record-runtime.ts:retryPcsRecordState",
+          "covers": "明确重新读取以恢复读取失败。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "save",
+          "line": 299,
+          "position": "src/pages/pcs-config-workspace.ts:save",
+          "covers": "await 成功后结束编辑，失败保留编辑 draft 和原因。"
+        },
+        {
+          "file": "src/data/pcs-record-db.ts",
+          "symbol": "transaction",
+          "line": 52,
+          "position": "src/data/pcs-record-db.ts:transaction",
+          "covers": "事务中止或打开失败按错误返回。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "failure rolls memory back and preserves records for retry",
+          "line": 85,
+          "covers": "持久旧记录和内存回滚，允许重新发起保存。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "unavailable localStorage does not block IndexedDB record writes",
+          "line": 105,
+          "covers": "localStorage 不可用时 IDB 正常保存。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "missing attachment is scoped; untouched collection can still be read",
+          "line": 141,
+          "covers": "缺附件错误限定集合；无关集合仍可读。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-bom-cost.test.ts",
+          "test_name": "COST failed publishing cannot leave a published record or half-frozen cost references",
+          "line": 136,
+          "covers": "发布前校验失败无半发布状态。"
+        },
+        {
+          "file": "tests/browser-contracts/pcs-record-db.test.ts",
+          "test_name": "PCS real IndexedDB: atomic writes, versions, retry, attachment references and backup",
+          "line": 8,
+          "covers": "受控 QuotaExceededError/打开 SecurityError 场景旧数据不变且可重试。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "equipment type opens model list, failed save retains input, awaited save creates own ID and edit toggles same model",
+          "line": 98,
+          "covers": "型号表单等待命令完成才显示保存；失败保留输入。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "当前配置页面输入保留、浏览器异常文案以及其他消费者表单的错误恢复需真实页面验收。",
+        "legacy 缺附件不猜测补文件或自动清旧资料；对应集合保存仍应阻断。"
+      ],
+      "pending_browser": [
+        "配置编辑和技术 BOM 注入保存失败后保留原表单；重新读取/重试可用，无虚假成功或维护工具。"
+      ],
+      "pending_performance": [
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-017",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "适用页面与动作完整结果严格小于500ms",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "配置/存储/BOM 工作包的完整结果性能验收位置；本索引不含测量结果。",
+      "partial_requirement_coverage": false,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "renderPcsConfigWorkspacePage",
+          "line": 255,
+          "position": "src/pages/pcs-config-workspace.ts:renderPcsConfigWorkspacePage",
+          "covers": "基础配置首屏/层次切换的测量入口。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "save",
+          "line": 299,
+          "position": "src/pages/pcs-config-workspace.ts:save",
+          "covers": "配置保存从动作到结果完整可见的测量入口。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "ensurePcsRecordState",
+          "line": 415,
+          "position": "src/data/pcs-record-runtime.ts:ensurePcsRecordState",
+          "covers": "计入实际 hydration 完成，而非仅展示 loading。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 427,
+          "position": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "covers": "计入事务 complete 和下游渲染。"
+        },
+        {
+          "file": "src/pages/pcs-technical-data.ts",
+          "symbol": "renderPcsTechnicalDataBomPricingDetailPage",
+          "line": 140,
+          "position": "src/pages/pcs-technical-data.ts:renderPcsTechnicalDataBomPricingDetailPage",
+          "covers": "技术 BOM 详情当前/冻结参考解析及渲染。"
+        }
+      ],
+      "existing_tests": [],
+      "known_implementation_or_verification_gaps": [
+        "没有当前实际页面动作的耗时采样，不标记性能已验证。",
+        "readPcsRecords 仍一次读取 PCS 库 records/files/meta；异步读取并不自动保证达标。",
+        "静态 JSON bootstrap 属主代理最新优化；必须测最后修改后的冷/热路径，每个样本均 <500ms。",
+        "主代理随后报告：独立空来源 127.0.0.1:59743 装载 31,007 条/约 34MB 大样本后，款式页刷新完整 paint 为 772.4ms，超过 500ms。此为主代理交接事实，本索引未复测；需优化后绑定最终实测证据。"
+      ],
+      "pending_browser": [
+        "实际运行工作树/服务版本及两种管理端尺寸由主代理统一记录。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。",
+        "P17 读取、重算、发布/确认及启用后完整结果均需实际测量 <500ms；本索引没有耗时样本。",
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-026",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "普通页面读取失败仅提示原因和重试",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "配置页面受影响读取错误及重新读取，公共存储保持错误范围。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "ensurePcsRecordState",
+          "line": 415,
+          "position": "src/data/pcs-record-runtime.ts:ensurePcsRecordState",
+          "covers": "指定集合不可读抛出具体原因，其他可读集合不被全局错误阻断。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "retryPcsRecordState",
+          "line": 419,
+          "position": "src/data/pcs-record-runtime.ts:retryPcsRecordState",
+          "covers": "重建只读状态，不清空原资料。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "renderPcsConfigWorkspacePage",
+          "line": 255,
+          "position": "src/pages/pcs-config-workspace.ts:renderPcsConfigWorkspacePage",
+          "covers": "当前页面显示读取失败原因。"
+        },
+        {
+          "file": "src/pages/pcs-config-workspace.ts",
+          "symbol": "handlePcsConfigWorkspaceEvent",
+          "line": 347,
+          "position": "src/pages/pcs-config-workspace.ts:handlePcsConfigWorkspaceEvent",
+          "covers": "只提供重新读取恢复。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "missing attachment is scoped; untouched collection can still be read",
+          "line": 141,
+          "covers": "缺附件只影响有引用的集合。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "new writes from an old page do not overwrite IDB or block unrelated collections",
+          "line": 132,
+          "covers": "旧源冲突只影响对应集合。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "legacy configured-dimension metadata is equivalent only when derivable from unchanged option records",
+          "line": 71,
+          "covers": "可推导配置元信息差异不误判业务冲突。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "全 PCS 异常页的入口清理属于主代理统一验收；底层专项不是页面文案/控制台无异常证明。"
+      ],
+      "pending_browser": [
+        "配置页模拟缺附件或真实源冲突：原因清楚、仅重新读取，无清缓存/迁移/恢复入口；不破坏原数据。"
+      ],
+      "pending_performance": [
+        "P11 首次打开、切换分组/Tab、进入编辑及保存后完整结果均需实际测量 <500ms；本索引没有耗时样本。"
+      ],
+      "full_requirement_verified": false
+    },
+    {
+      "requirement_id": "GOV-027",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "decision_refs": "AGENTS",
+      "atomic_requirement": "业务导入导出不变成浏览器整库备份恢复",
+      "work_package": "WP10",
+      "matrix_status_at_read": "待实施",
+      "responsibility_scope": "物料业务 CSV 附件稳定引用的只读支持，避免以临时 blob URL 或整库恢复承接业务导入。",
+      "partial_requirement_coverage": true,
+      "scoped_status": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "getPcsDurableFileReference",
+          "line": 64,
+          "position": "src/data/pcs-record-runtime.ts:getPcsDurableFileReference",
+          "covers": "已注册上传图转换为 pcs-file:<id>；静态资源保持原样。"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "resolvePcsFileReference",
+          "line": 72,
+          "position": "src/data/pcs-record-runtime.ts:resolvePcsFileReference",
+          "covers": "导入稳定引用时核验文件存在并创建预览 URL；不写数据库。"
+        }
+      ],
+      "existing_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "test_name": "a fileId-only attachment is persisted once and can be shared by another record",
+          "line": 148,
+          "covers": "稳定引用可解析、同一文件被两个记录复用。",
+          "parent_test_name": "PCS runtime reads, per-record commits, retained legacy sources and scoped errors"
+        },
+        {
+          "file": "tests/pcs-r1-storage-codec.test.ts",
+          "test_name": "attachment reference validation rejects bytes in JSON and respects explicit static files",
+          "line": 63,
+          "covers": "禁止把文件字节塞到业务 JSON。"
+        },
+        {
+          "file": "tests/pcs-r1-config-page.test.ts",
+          "test_name": "standard list applies pagination, sorting, visibility, freezing, reset and whole-result CSV export",
+          "line": 27,
+          "covers": "配置导出只含当前查询业务字段，非浏览器资料维护/备份。",
+          "limitations": "页面使用实际 handler；runPcsRecordCommand 以受控 Promise 替身验证等待与错误输入保留，不替代真实 IDB/浏览器验收。"
+        }
+      ],
+      "known_implementation_or_verification_gaps": [
+        "业务 CSV 字段模板/导入操作由物料工作包负责，此处不复审整套导入导出。",
+        "pcs-file 引用仅在同浏览器同源且文件仍存在时可还原；业务 CSV 不是完整附件备份，不承诺跨浏览器文件恢复。",
+        "底层备份 API 及其隔离专项不是业务页面入口，不能将其作为本需求业务导入验收。"
+      ],
+      "pending_browser": [
+        "物料业务 CSV 导出/导入只涉及所选业务对象，已有文件引用可还原、缺文件明确失败，无整库备份恢复入口。"
+      ],
+      "pending_performance": [
+        "由主代理在实际同源浏览器测量依赖本链路的首次读取、保存、刷新和失败重试完整结果 <500ms；专项测试耗时不能替代页面结果耗时。"
+      ],
+      "full_requirement_verified": false
+    }
+  ],
+  "referenced_file_sha256_at_index_time": {
+    "src/data/pcs-config-dimensions.ts": "cabd8a5d4b7d40da30222aadc08565ba5243227647651d74a2f54e9a4613aa65",
+    "src/data/pcs-config-workspace-repository.ts": "8fd421e699784ff31b90f3316434c4c1c5f498c0f52b4e3aaec8d516e615da46",
+    "src/data/pcs-engineering-bom-legacy-intent.ts": "dd44f7d6c5281f315cd1ac8c97b1bb76fbad9b9fd975ccca4a751f135cc96a1b",
+    "src/data/pcs-engineering-bom-material-resolver.ts": "e41f8705ee173410f69a171280add7cc7227fb4b02f2a3d419a9f6d866ba8eab",
+    "src/data/pcs-engineering-bom-pricing.ts": "6d652048ca92dce732bba71fdb9e98fc59813d2d66f2acb8133e5f042b5676d7",
+    "src/data/pcs-engineering-bom-repository.ts": "b18a6d88fed79b37ffb07e64c16ce2e2e3e7574ba9b0fc9df7be18d54c33b623",
+    "src/data/pcs-exchange-rate-config.ts": "2d6c37ec8d78ee649e8ff0fae0a05092fefb0a05decc2a295742a3358bd05763",
+    "src/data/pcs-material-config.ts": "37a369f54df4f2e63f7528e5e8314d7de8231f7d29b1faab15af05fcc205fc89",
+    "src/data/pcs-project-technical-data-writeback.ts": "915204d9a262b18992707486f97baf6b18e6cf1d086dfbfdd678673eb55a650f",
+    "src/data/pcs-record-bootstrap.ts": "4a4b6ab9adb334ffb8ee8f3b186bc09a88bff312024921c6bf527dce28da413f",
+    "src/data/pcs-record-codec.ts": "e365d2136e72b34e2fd31cac475448109fce887c723b555f84378e661720cf34",
+    "src/data/pcs-record-db.ts": "86fade6e0fe9a39ceb7a02b65dcdd5192e3b727c3cfc3b6ba8d849dbd893b992",
+    "src/data/pcs-record-position.ts": "a7fe2d41bdc7562719f96ac2fdd57e4cb5c1e278d5a08cd4dcc995df04c38fd3",
+    "src/data/pcs-record-runtime.ts": "2d7869d20af723a99ed5e25124f615f022605a98ba0836b465859675ccf59544",
+    "src/data/pcs-record-static-versions.ts": "874bdd9a94d07f7fc1aa92e7d0773d52c2b24bd061b6b1efcbb6fb9062df0fa5",
+    "src/data/pcs-technical-data-version-repository.ts": "c9d2ffa4ecc39d53be5d7535750b8bbada4c8e1ffe6417abad13a70433caa629",
+    "src/pages/pcs-config-workspace.ts": "929339db56c3845846f21419e7cf8cf4bc7aa7f3aa63b1220ab342d978a5f3c3",
+    "src/pages/pcs-technical-data.ts": "4ae2325957605158718f26ecbc3d8d2e2f975a958396e13e65b88aaea4af9334",
+    "src/pages/tech-pack/cost-domain.ts": "7ff0f59bfe1b396d2d3ea3452f8bd648c4abe63b9ce8193cee7afd7c592c8f80",
+    "tests/browser-contracts/pcs-record-db.test.ts": "14aa94bad5be2b349486ee083151be4818a00e47602bfb0e68e66b445be6e424",
+    "tests/pcs-r1-bom-cost.test.ts": "ec9fd041bd06aa0801be9a3092106d78f5617e53218136890773ecf0634ee781",
+    "tests/pcs-r1-config.test.ts": "c5a0a1160cfda567b21ce8a17b773de0be5efe42fcfb6f0aa78fa67f12ff2b01",
+    "tests/pcs-r1-storage-codec.test.ts": "e3baf53e18fb2e0ddcbdc4b861fc3ae9b48f8f47ebaf038571cacd36bd206056",
+    "tests/pcs-r1-storage-runtime.test.ts": "9dcfdde8a552f32b4ab58374e19f4317020c0a559103bc3f411552152e3fcbd7",
+    "tests/unit/pcs-record-position.test.ts": "f1fd63fc5f82397f2c4b7d82bba755d7cd9bcc7e24172681b7bc6c651c94a4b8"
+  },
+  "handoff_notes": [
+    "CFG-014 仍需实际浏览器配置清单完整对账；合成样本不能代替原 343 项及当前新增项。",
+    "GOV-017 没有本工作包当前页面性能样本，不以单元专项总耗时或平均耗时替代。",
+    "本索引只有范围内 38 项，不等于 158 项总体需求已覆盖或完成。",
+    "2026-10-05 主代理大样本交接报告完整 paint 772.4ms；GOV-017 必须保持未验证，后续存储优化完成需更新受影响文件哈希和专项/页面证据。",
+    "配置收尾的后续实现/专项见 config_closeout；原始 referenced_file_sha256_at_index_time 保留早先索引时点，不冒充当前树哈希。"
+  ],
+  "config_closeout": {
+    "updated_at": "2026-10-05T15:12:56.870616+08:00",
+    "route": "/pcs/settings/config-workspace",
+    "scope": "配置列表标准化、模板元数据/版本换算、受控物料属性字典与设备型号维护；不改材料仓库/总矩阵。",
+    "tests_command": "node --import tsx --experimental-test-module-mocks --test tests/pcs-r1-config.test.ts tests/pcs-r1-config-page.test.ts",
+    "tests_result": {
+      "total": 16,
+      "passed": 16,
+      "failed": 0,
+      "log": "/tmp/pcs-config-closeout-tests.log",
+      "boundary": "真实配置 repository 和页面 handler；command 使用可控 Promise 替身验证等待与错误输入保留，不能替代真实 IDB 和浏览器验收。"
+    },
+    "governance": {
+      "static_list": "npm run check:list-page-governance:static：通过，扫描570页，baseline12。",
+      "full_aggregate": "此前完整聚合命令包含隐式 Chromium；因沙盒启动失败未通过，后续未重试。",
+      "prototype_review": "此前 check:prototype-design-governance 被审查记录影响判定格式阻断，本代理未改审查记录。",
+      "diff_check": "本次4个文件 git diff --check 通过。"
+    },
+    "typecheck": {
+      "command": "npx tsc --noEmit --pretty false",
+      "exit_code": 2,
+      "config_errors": 0,
+      "remaining_errors": [
+        "src/data/fcs/factory-receiving-source-sync.ts:20 TS2345 WarehouseExecutionDoc[] 不可作为 CentralTransferDocument[]",
+        "src/data/pms/tmf-material-purchases.ts:813 TS2722 可能 undefined 的函数调用",
+        "src/data/pms/tmf-material-purchases.ts:824 TS2722 可能 undefined 的函数调用"
+      ],
+      "log": "/tmp/pcs-config-closeout-tsc-all.log"
+    },
+    "browser_evidence": "本代理没有浏览器通过证据；聚合治理的隐式Chromium启动失败不能算验收。由主代理继续实际尺寸/持久刷新/性能验收。",
+    "full_requirement_verified": false,
+    "current_file_sha256": {
+      "src/pages/pcs-config-workspace.ts": "9bdffee4e3b190be18f19eaedca3d0ef706a13f8ce4cbda84f0c3a13cfb4c7b8",
+      "tests/pcs-r1-config-page.test.ts": "72ff107ad723ab3c771c0e2ea4291044bebcb6003a033b86ae849c696ff9199f",
+      "tests/pcs-r1-config.test.ts": "d027148d2ab617b9adf98ebca226db4eae34f3b876c870d3627a66bcfcaddf1c",
+      "src/data/pcs-material-config.ts": "6d4eecc7a650f23782d292bd424d0cc4153cec07639771925711abb80a1f293a",
+      "src/data/pcs-config-dimensions.ts": "492fae9a5b82846e844051b584632ac89bfad3dffef64cf9e929519b31b95a2c"
+    },
+    "field_contracts": {
+      "template_fields": [
+        "requiredWhen=button-hole",
+        "valueShape=namedDimensions/equipmentCompatibility",
+        "integer",
+        "minimum（保留0）",
+        "previousVersionConversions",
+        "categoryId/categoryCode（原版本保留，新分类编码可维护）"
+      ],
+      "controlled_dimensions": [
+        "materialConstructions",
+        "materialStructures",
+        "zipperTeeth",
+        "zipperOpenings",
+        "yarnUses"
+      ],
+      "equipment_models": "equipmentTypes 详情内设备型号列表/详情/编辑；新建稳定ID，已有类型和编码锁定，名称与启停可维护；异步命令成功后显示保存。",
+      "list_interactions": [
+        "查询/重置",
+        "整份筛选结果CSV",
+        "分页20/50/100",
+        "排序",
+        "列显隐",
+        "前两列冻结",
+        "列拖动顺序",
+        "有界偏好存储失败回退"
+      ]
+    },
+    "record_codec": "equipmentModels 顶层数组已由通用 codec 按 model.id 生成独立记录，专项检查两个设备型号各自记录ID；无需新增整包存储或 codec 分支。"
+  }
+}

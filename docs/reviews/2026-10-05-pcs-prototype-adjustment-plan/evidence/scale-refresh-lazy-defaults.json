@@ -1,0 +1,50 @@
+{
+  "firstLoadMs": 524.4000000357628,
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 479.60000002384186,
+      "end": 479.60000002384186,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 425.699999988079,
+      "end": 425.699999988079,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 420.699999988079,
+      "end": 420.699999988079,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 436.199999988079,
+      "end": 436.199999988079,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 430.2999999523163,
+      "end": 430.2999999523163,
+      "images": 5,
+      "label": "navigation",
+      "start": 0,
+      "url": "/pcs/products/styles"
+    }
+  ]
+}

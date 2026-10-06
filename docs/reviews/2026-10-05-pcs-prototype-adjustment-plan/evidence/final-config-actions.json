@@ -1,0 +1,2306 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 179.30000001192093,
+    "end": 179.30000001192093,
+    "images": 0,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 66.20000004768372,
+    "end": 37279.40000003576,
+    "images": 0,
+    "label": "配置分组:分类与属性模板",
+    "start": 37213.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 37546.19999998808,
+    "images": 0,
+    "label": "配置分组:分类与属性模板",
+    "start": 37496.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 37845.90000003576,
+    "images": 0,
+    "label": "配置分组:分类与属性模板",
+    "start": 37796.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 38162.60000002384,
+    "images": 0,
+    "label": "配置分组:分类与属性模板",
+    "start": 38113,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 38462.60000002384,
+    "images": 0,
+    "label": "配置分组:分类与属性模板",
+    "start": 38412.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 38762.60000002384,
+    "images": 0,
+    "label": "配置分组:颜色",
+    "start": 38713.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 39062.60000002384,
+    "images": 0,
+    "label": "配置分组:颜色",
+    "start": 39012.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 39379.30000001192,
+    "images": 0,
+    "label": "配置分组:颜色",
+    "start": 39329.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 39679.19999998808,
+    "images": 0,
+    "label": "配置分组:颜色",
+    "start": 39629.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 39979.30000001192,
+    "images": 0,
+    "label": "配置分组:颜色",
+    "start": 39929.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 40279.30000001192,
+    "images": 0,
+    "label": "配置分组:Pantone 色卡",
+    "start": 40229.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 40579.5,
+    "images": 0,
+    "label": "配置分组:Pantone 色卡",
+    "start": 40530,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 40879.30000001192,
+    "images": 0,
+    "label": "配置分组:Pantone 色卡",
+    "start": 40829.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 41179.40000003576,
+    "images": 0,
+    "label": "配置分组:Pantone 色卡",
+    "start": 41130,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.30000001192093,
+    "end": 41479.80000001192,
+    "images": 0,
+    "label": "配置分组:Pantone 色卡",
+    "start": 41429.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 48.5,
+    "end": 41778.30000001192,
+    "images": 0,
+    "label": "配置分组:成分",
+    "start": 41729.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 42079.5,
+    "images": 0,
+    "label": "配置分组:成分",
+    "start": 42029.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.39999997615814,
+    "end": 42379.30000001192,
+    "images": 0,
+    "label": "配置分组:成分",
+    "start": 42328.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.90000003576279,
+    "end": 42679.40000003576,
+    "images": 0,
+    "label": "配置分组:成分",
+    "start": 42629.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.10000002384186,
+    "end": 42979.60000002384,
+    "images": 0,
+    "label": "配置分组:成分",
+    "start": 42929.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 43279.5,
+    "images": 0,
+    "label": "配置分组:组织",
+    "start": 43229.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 43579.30000001192,
+    "images": 0,
+    "label": "配置分组:组织",
+    "start": 43529.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 43879.30000001192,
+    "images": 0,
+    "label": "配置分组:组织",
+    "start": 43829.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 44179.5,
+    "images": 0,
+    "label": "配置分组:组织",
+    "start": 44130,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 44479.30000001192,
+    "images": 0,
+    "label": "配置分组:组织",
+    "start": 44429.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 44779.60000002384,
+    "images": 0,
+    "label": "配置分组:结构材质",
+    "start": 44730.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.20000004768371,
+    "end": 45079.40000003576,
+    "images": 0,
+    "label": "配置分组:结构材质",
+    "start": 45030.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 45379.30000001192,
+    "images": 0,
+    "label": "配置分组:结构材质",
+    "start": 45329.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 48.80000001192093,
+    "end": 45678.30000001192,
+    "images": 0,
+    "label": "配置分组:结构材质",
+    "start": 45629.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 45979.30000001192,
+    "images": 0,
+    "label": "配置分组:结构材质",
+    "start": 45929.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 46279.30000001192,
+    "images": 0,
+    "label": "配置分组:结构款式",
+    "start": 46229.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 46579.30000001192,
+    "images": 0,
+    "label": "配置分组:结构款式",
+    "start": 46529.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 46879.30000001192,
+    "images": 0,
+    "label": "配置分组:结构款式",
+    "start": 46829.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 47179.30000001192,
+    "images": 0,
+    "label": "配置分组:结构款式",
+    "start": 47129.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 47479.30000001192,
+    "images": 0,
+    "label": "配置分组:结构款式",
+    "start": 47429.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 47779.30000001192,
+    "images": 0,
+    "label": "配置分组:拉链齿型",
+    "start": 47729.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 48079.30000001192,
+    "images": 0,
+    "label": "配置分组:拉链齿型",
+    "start": 48029.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.70000004768371,
+    "end": 48395.90000003576,
+    "images": 0,
+    "label": "配置分组:拉链齿型",
+    "start": 48346.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.90000003576279,
+    "end": 48696.10000002384,
+    "images": 0,
+    "label": "配置分组:拉链齿型",
+    "start": 48646.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 48996,
+    "images": 0,
+    "label": "配置分组:拉链齿型",
+    "start": 48946.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 49296,
+    "images": 0,
+    "label": "配置分组:拉链开合结构",
+    "start": 49246.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 49596,
+    "images": 0,
+    "label": "配置分组:拉链开合结构",
+    "start": 49546.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 49895.90000003576,
+    "images": 0,
+    "label": "配置分组:拉链开合结构",
+    "start": 49846.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 50196,
+    "images": 0,
+    "label": "配置分组:拉链开合结构",
+    "start": 50146.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 50496,
+    "images": 0,
+    "label": "配置分组:拉链开合结构",
+    "start": 50446.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 50795.90000003576,
+    "images": 0,
+    "label": "配置分组:拉链规格号",
+    "start": 50746.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 51096,
+    "images": 0,
+    "label": "配置分组:拉链规格号",
+    "start": 51046.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 51412.60000002384,
+    "images": 0,
+    "label": "配置分组:拉链规格号",
+    "start": 51363.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 51712.69999998808,
+    "images": 0,
+    "label": "配置分组:拉链规格号",
+    "start": 51662.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.90000003576279,
+    "end": 52012.60000002384,
+    "images": 0,
+    "label": "配置分组:拉链规格号",
+    "start": 51962.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 52312.69999998808,
+    "images": 0,
+    "label": "配置分组:纱支体系",
+    "start": 52263.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 52612.60000002384,
+    "images": 0,
+    "label": "配置分组:纱支体系",
+    "start": 52562.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 52929.19999998808,
+    "images": 0,
+    "label": "配置分组:纱支体系",
+    "start": 52880,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 53229.30000001192,
+    "images": 0,
+    "label": "配置分组:纱支体系",
+    "start": 53179.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 53529.30000001192,
+    "images": 0,
+    "label": "配置分组:纱支体系",
+    "start": 53479.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 53829.30000001192,
+    "images": 0,
+    "label": "配置分组:纱线用途",
+    "start": 53779.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 48.80000001192093,
+    "end": 54129.30000001192,
+    "images": 0,
+    "label": "配置分组:纱线用途",
+    "start": 54080.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 54445.90000003576,
+    "images": 0,
+    "label": "配置分组:纱线用途",
+    "start": 54396.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50,
+    "end": 54746.10000002384,
+    "images": 0,
+    "label": "配置分组:纱线用途",
+    "start": 54696.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 55046,
+    "images": 0,
+    "label": "配置分组:纱线用途",
+    "start": 54996.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 55346,
+    "images": 0,
+    "label": "配置分组:适配设备",
+    "start": 55296.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 55646,
+    "images": 0,
+    "label": "配置分组:适配设备",
+    "start": 55596.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 55962.60000002384,
+    "images": 0,
+    "label": "配置分组:适配设备",
+    "start": 55913.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.89999997615814,
+    "end": 56262.69999998808,
+    "images": 0,
+    "label": "配置分组:适配设备",
+    "start": 56212.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 56562.60000002384,
+    "images": 0,
+    "label": "配置分组:适配设备",
+    "start": 56512.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 56862.69999998808,
+    "images": 0,
+    "label": "配置分组:计量单位",
+    "start": 56813,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 57162.60000002384,
+    "images": 0,
+    "label": "配置分组:计量单位",
+    "start": 57112.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 57479.19999998808,
+    "images": 0,
+    "label": "配置分组:计量单位",
+    "start": 57429.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 57779.30000001192,
+    "images": 0,
+    "label": "配置分组:计量单位",
+    "start": 57729.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 58079.30000001192,
+    "images": 0,
+    "label": "配置分组:计量单位",
+    "start": 58029.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 48.69999998807907,
+    "end": 58379.30000001192,
+    "images": 0,
+    "label": "配置分组:固定单位换算",
+    "start": 58330.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.90000003576279,
+    "end": 58679.40000003576,
+    "images": 0,
+    "label": "配置分组:固定单位换算",
+    "start": 58629.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 58978.80000001192,
+    "images": 0,
+    "label": "配置分组:固定单位换算",
+    "start": 58929.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50,
+    "end": 59279.5,
+    "images": 0,
+    "label": "配置分组:固定单位换算",
+    "start": 59229.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 59579.30000001192,
+    "images": 0,
+    "label": "配置分组:固定单位换算",
+    "start": 59529.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.60000002384186,
+    "end": 59879.30000001192,
+    "images": 0,
+    "label": "配置分组:包装类型",
+    "start": 59828.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 60179.30000001192,
+    "images": 0,
+    "label": "配置分组:包装类型",
+    "start": 60129.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 60479.19999998808,
+    "images": 0,
+    "label": "配置分组:包装类型",
+    "start": 60429.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 60796,
+    "images": 0,
+    "label": "配置分组:包装类型",
+    "start": 60746.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 61095.90000003576,
+    "images": 0,
+    "label": "配置分组:包装类型",
+    "start": 61046.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 61396,
+    "images": 0,
+    "label": "配置分组:加工工艺",
+    "start": 61346.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 48.80000001192093,
+    "end": 61696,
+    "images": 0,
+    "label": "配置分组:加工工艺",
+    "start": 61647.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 62012.60000002384,
+    "images": 0,
+    "label": "配置分组:加工工艺",
+    "start": 61963.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.79999995231629,
+    "end": 62312.69999998808,
+    "images": 0,
+    "label": "配置分组:加工工艺",
+    "start": 62262.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 62595.90000003576,
+    "images": 0,
+    "label": "配置分组:加工工艺",
+    "start": 62546.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 62895.90000003576,
+    "images": 0,
+    "label": "配置分组:编码规则",
+    "start": 62846.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.70000004768371,
+    "end": 63195.90000003576,
+    "images": 0,
+    "label": "配置分组:编码规则",
+    "start": 63146.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 63495.90000003576,
+    "images": 0,
+    "label": "配置分组:编码规则",
+    "start": 63446.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 63795.90000003576,
+    "images": 0,
+    "label": "配置分组:编码规则",
+    "start": 63746.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 64095.90000003576,
+    "images": 0,
+    "label": "配置分组:编码规则",
+    "start": 64046.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 64395.90000003576,
+    "images": 0,
+    "label": "配置分组:渠道与市场",
+    "start": 64346.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 117595.90000003576,
+    "images": 0,
+    "label": "配置实际切换:分类与属性模板",
+    "start": 117546.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 118179.19999998808,
+    "images": 0,
+    "label": "配置实际切换:分类与属性模板",
+    "start": 118129.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 118745.90000003576,
+    "images": 0,
+    "label": "配置实际切换:分类与属性模板",
+    "start": 118696.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 119312.5,
+    "images": 0,
+    "label": "配置实际切换:分类与属性模板",
+    "start": 119263.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 119895.80000001192,
+    "images": 0,
+    "label": "配置实际切换:分类与属性模板",
+    "start": 119846.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 120479.19999998808,
+    "images": 0,
+    "label": "配置实际切换:颜色",
+    "start": 120429.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.09999996423721,
+    "end": 121062.5,
+    "images": 0,
+    "label": "配置实际切换:颜色",
+    "start": 121013.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 121629.30000001192,
+    "images": 0,
+    "label": "配置实际切换:颜色",
+    "start": 121579.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 122212.5,
+    "images": 0,
+    "label": "配置实际切换:颜色",
+    "start": 122163.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 122779.19999998808,
+    "images": 0,
+    "label": "配置实际切换:颜色",
+    "start": 122729.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 123362.5,
+    "images": 0,
+    "label": "配置实际切换:Pantone 色卡",
+    "start": 123313.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 123945.90000003576,
+    "images": 0,
+    "label": "配置实际切换:Pantone 色卡",
+    "start": 123896.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 124529.19999998808,
+    "images": 0,
+    "label": "配置实际切换:Pantone 色卡",
+    "start": 124479.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 125112.60000002384,
+    "images": 0,
+    "label": "配置实际切换:Pantone 色卡",
+    "start": 125063.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 125695.90000003576,
+    "images": 0,
+    "label": "配置实际切换:Pantone 色卡",
+    "start": 125646.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 126279.19999998808,
+    "images": 0,
+    "label": "配置实际切换:成分",
+    "start": 126229.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 126845.80000001192,
+    "images": 0,
+    "label": "配置实际切换:成分",
+    "start": 126796.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 127429.19999998808,
+    "images": 0,
+    "label": "配置实际切换:成分",
+    "start": 127379.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50,
+    "end": 127995.90000003576,
+    "images": 0,
+    "label": "配置实际切换:成分",
+    "start": 127945.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 128562.5,
+    "images": 0,
+    "label": "配置实际切换:成分",
+    "start": 128512.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 129145.90000003576,
+    "images": 0,
+    "label": "配置实际切换:组织",
+    "start": 129096.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 129712.5,
+    "images": 0,
+    "label": "配置实际切换:组织",
+    "start": 129663,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.19999998807907,
+    "end": 130279.19999998808,
+    "images": 0,
+    "label": "配置实际切换:组织",
+    "start": 130229,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 130845.90000003576,
+    "images": 0,
+    "label": "配置实际切换:组织",
+    "start": 130796.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 131412.5,
+    "images": 0,
+    "label": "配置实际切换:组织",
+    "start": 131363,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.5,
+    "end": 131996.80000001192,
+    "images": 0,
+    "label": "配置实际切换:结构材质",
+    "start": 131946.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 132579.19999998808,
+    "images": 0,
+    "label": "配置实际切换:结构材质",
+    "start": 132529.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 133145.80000001192,
+    "images": 0,
+    "label": "配置实际切换:结构材质",
+    "start": 133096.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.29999995231629,
+    "end": 133729.19999998808,
+    "images": 0,
+    "label": "配置实际切换:结构材质",
+    "start": 133679.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 134312.60000002384,
+    "images": 0,
+    "label": "配置实际切换:结构材质",
+    "start": 134263,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 134895.80000001192,
+    "images": 0,
+    "label": "配置实际切换:结构款式",
+    "start": 134846.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 135462.5,
+    "images": 0,
+    "label": "配置实际切换:结构款式",
+    "start": 135413,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.30000001192093,
+    "end": 136029.90000003576,
+    "images": 0,
+    "label": "配置实际切换:结构款式",
+    "start": 135979.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 136612.60000002384,
+    "images": 0,
+    "label": "配置实际切换:结构款式",
+    "start": 136563.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.5,
+    "end": 137180.19999998808,
+    "images": 0,
+    "label": "配置实际切换:结构款式",
+    "start": 137129.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 137762.5,
+    "images": 0,
+    "label": "配置实际切换:拉链齿型",
+    "start": 137713.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 138345.90000003576,
+    "images": 0,
+    "label": "配置实际切换:拉链齿型",
+    "start": 138296.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 138912.5,
+    "images": 0,
+    "label": "配置实际切换:拉链齿型",
+    "start": 138863.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 139479.19999998808,
+    "images": 0,
+    "label": "配置实际切换:拉链齿型",
+    "start": 139429.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 140062.60000002384,
+    "images": 0,
+    "label": "配置实际切换:拉链齿型",
+    "start": 140013,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 140629.19999998808,
+    "images": 0,
+    "label": "配置实际切换:拉链开合结构",
+    "start": 140579.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 141212.5,
+    "images": 0,
+    "label": "配置实际切换:拉链开合结构",
+    "start": 141163.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 141795.90000003576,
+    "images": 0,
+    "label": "配置实际切换:拉链开合结构",
+    "start": 141746.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 142379.30000001192,
+    "images": 0,
+    "label": "配置实际切换:拉链开合结构",
+    "start": 142329.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 142962.5,
+    "images": 0,
+    "label": "配置实际切换:拉链开合结构",
+    "start": 142913.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 143545.80000001192,
+    "images": 0,
+    "label": "配置实际切换:拉链规格号",
+    "start": 143496.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 144112.5,
+    "images": 0,
+    "label": "配置实际切换:拉链规格号",
+    "start": 144063.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 144695.90000003576,
+    "images": 0,
+    "label": "配置实际切换:拉链规格号",
+    "start": 144646.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 145262.5,
+    "images": 0,
+    "label": "配置实际切换:拉链规格号",
+    "start": 145212.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 145845.80000001192,
+    "images": 0,
+    "label": "配置实际切换:拉链规格号",
+    "start": 145796.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 146412.5,
+    "images": 0,
+    "label": "配置实际切换:纱支体系",
+    "start": 146363,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 146979.19999998808,
+    "images": 0,
+    "label": "配置实际切换:纱支体系",
+    "start": 146929.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 147562.60000002384,
+    "images": 0,
+    "label": "配置实际切换:纱支体系",
+    "start": 147513,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.39999997615814,
+    "end": 148146.80000001192,
+    "images": 0,
+    "label": "配置实际切换:纱支体系",
+    "start": 148096.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 148729.19999998808,
+    "images": 0,
+    "label": "配置实际切换:纱支体系",
+    "start": 148679.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 149312.5,
+    "images": 0,
+    "label": "配置实际切换:纱线用途",
+    "start": 149263,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 149895.90000003576,
+    "images": 0,
+    "label": "配置实际切换:纱线用途",
+    "start": 149846.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 150479.19999998808,
+    "images": 0,
+    "label": "配置实际切换:纱线用途",
+    "start": 150429.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 151062.5,
+    "images": 0,
+    "label": "配置实际切换:纱线用途",
+    "start": 151013.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 151645.80000001192,
+    "images": 0,
+    "label": "配置实际切换:纱线用途",
+    "start": 151596.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 152229.19999998808,
+    "images": 0,
+    "label": "配置实际切换:适配设备",
+    "start": 152179.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 152795.80000001192,
+    "images": 0,
+    "label": "配置实际切换:适配设备",
+    "start": 152746.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 153379.19999998808,
+    "images": 0,
+    "label": "配置实际切换:适配设备",
+    "start": 153329.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 153945.80000001192,
+    "images": 0,
+    "label": "配置实际切换:适配设备",
+    "start": 153896.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.5,
+    "end": 154529.19999998808,
+    "images": 0,
+    "label": "配置实际切换:适配设备",
+    "start": 154478.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 155112.5,
+    "images": 0,
+    "label": "配置实际切换:计量单位",
+    "start": 155063,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 155695.80000001192,
+    "images": 0,
+    "label": "配置实际切换:计量单位",
+    "start": 155646.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 156262.5,
+    "images": 0,
+    "label": "配置实际切换:计量单位",
+    "start": 156213,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 156829.10000002384,
+    "images": 0,
+    "label": "配置实际切换:计量单位",
+    "start": 156779.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 157412.5,
+    "images": 0,
+    "label": "配置实际切换:计量单位",
+    "start": 157362.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 157995.80000001192,
+    "images": 0,
+    "label": "配置实际切换:固定单位换算",
+    "start": 157946.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 158579.19999998808,
+    "images": 0,
+    "label": "配置实际切换:固定单位换算",
+    "start": 158529.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 159145.80000001192,
+    "images": 0,
+    "label": "配置实际切换:固定单位换算",
+    "start": 159096.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 159712.5,
+    "images": 0,
+    "label": "配置实际切换:固定单位换算",
+    "start": 159662.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 160295.90000003576,
+    "images": 0,
+    "label": "配置实际切换:固定单位换算",
+    "start": 160246.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 160879.19999998808,
+    "images": 0,
+    "label": "配置实际切换:包装类型",
+    "start": 160829.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 161445.80000001192,
+    "images": 0,
+    "label": "配置实际切换:包装类型",
+    "start": 161396.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 162029.19999998808,
+    "images": 0,
+    "label": "配置实际切换:包装类型",
+    "start": 161979.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 162595.80000001192,
+    "images": 0,
+    "label": "配置实际切换:包装类型",
+    "start": 162546.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 163179.19999998808,
+    "images": 0,
+    "label": "配置实际切换:包装类型",
+    "start": 163129.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 163745.90000003576,
+    "images": 0,
+    "label": "配置实际切换:加工工艺",
+    "start": 163696.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 164312.5,
+    "images": 0,
+    "label": "配置实际切换:加工工艺",
+    "start": 164262.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 164879.10000002384,
+    "images": 0,
+    "label": "配置实际切换:加工工艺",
+    "start": 164829.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 165445.80000001192,
+    "images": 0,
+    "label": "配置实际切换:加工工艺",
+    "start": 165396.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.09999996423721,
+    "end": 166012.5,
+    "images": 0,
+    "label": "配置实际切换:加工工艺",
+    "start": 165963.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.80000001192093,
+    "end": 166595.90000003576,
+    "images": 0,
+    "label": "配置实际切换:编码规则",
+    "start": 166546.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 167162.5,
+    "images": 0,
+    "label": "配置实际切换:编码规则",
+    "start": 167113,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.70000004768371,
+    "end": 167745.90000003576,
+    "images": 0,
+    "label": "配置实际切换:编码规则",
+    "start": 167696.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 168312.5,
+    "images": 0,
+    "label": "配置实际切换:编码规则",
+    "start": 168262.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 168879.19999998808,
+    "images": 0,
+    "label": "配置实际切换:编码规则",
+    "start": 168829.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 169462.5,
+    "images": 0,
+    "label": "配置实际切换:渠道与市场",
+    "start": 169412.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.5,
+    "end": 170030.10000002384,
+    "images": 0,
+    "label": "配置实际切换:渠道与市场",
+    "start": 169979.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 170595.80000001192,
+    "images": 0,
+    "label": "配置实际切换:渠道与市场",
+    "start": 170546.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 171162.5,
+    "images": 0,
+    "label": "配置实际切换:渠道与市场",
+    "start": 171112.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 171729.19999998808,
+    "images": 0,
+    "label": "配置实际切换:渠道与市场",
+    "start": 171679.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.5,
+    "end": 172313.40000003576,
+    "images": 0,
+    "label": "配置实际切换:标准成本展示汇率",
+    "start": 172262.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 172879.10000002384,
+    "images": 0,
+    "label": "配置实际切换:标准成本展示汇率",
+    "start": 172829.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 173462.40000003576,
+    "images": 0,
+    "label": "配置实际切换:标准成本展示汇率",
+    "start": 173412.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 174045.90000003576,
+    "images": 0,
+    "label": "配置实际切换:标准成本展示汇率",
+    "start": 173996.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 174612.5,
+    "images": 0,
+    "label": "配置实际切换:标准成本展示汇率",
+    "start": 174562.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.10000002384186,
+    "end": 175179.60000002384,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 175129.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 175779.19999998808,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 175729.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 176345.80000001192,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 176296.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 176912.40000003576,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 176862.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50,
+    "end": 226629.10000002384,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 226579.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 227212.40000003576,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 227162.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 227795.80000001192,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 227746.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 228362.40000003576,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 228312.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 228945.80000001192,
+    "images": 0,
+    "label": "配置实际切换:商品主分类",
+    "start": 228896.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 229545.69999998808,
+    "images": 0,
+    "label": "配置实际切换:品类",
+    "start": 229496.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.5,
+    "end": 230113.19999998808,
+    "images": 0,
+    "label": "配置实际切换:品类",
+    "start": 230062.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 51,
+    "end": 230696.60000002384,
+    "images": 0,
+    "label": "配置实际切换:品类",
+    "start": 230645.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50,
+    "end": 231279.5,
+    "images": 0,
+    "label": "配置实际切换:品类",
+    "start": 231229.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 231862.40000003576,
+    "images": 0,
+    "label": "配置实际切换:品类",
+    "start": 231812.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 232445.69999998808,
+    "images": 0,
+    "label": "配置实际切换:风格",
+    "start": 232396.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 48.80000001192093,
+    "end": 233028.40000003576,
+    "images": 0,
+    "label": "配置实际切换:风格",
+    "start": 232979.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.60000002384186,
+    "end": 233613.40000003576,
+    "images": 0,
+    "label": "配置实际切换:风格",
+    "start": 233562.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.69999998807907,
+    "end": 234195.80000001192,
+    "images": 0,
+    "label": "配置实际切换:风格",
+    "start": 234146.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 234779,
+    "images": 0,
+    "label": "配置实际切换:风格",
+    "start": 234729.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 235362.40000003576,
+    "images": 0,
+    "label": "配置实际切换:品类编号",
+    "start": 235312.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 235945.69999998808,
+    "images": 0,
+    "label": "配置实际切换:品类编号",
+    "start": 235896.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 236529,
+    "images": 0,
+    "label": "配置实际切换:品类编号",
+    "start": 236479.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 237112.30000001192,
+    "images": 0,
+    "label": "配置实际切换:品类编号",
+    "start": 237062.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 237695.69999998808,
+    "images": 0,
+    "label": "配置实际切换:品类编号",
+    "start": 237646.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 238279.10000002384,
+    "images": 0,
+    "label": "配置实际切换:商品定位",
+    "start": 238229.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 238862.40000003576,
+    "images": 0,
+    "label": "配置实际切换:商品定位",
+    "start": 238812.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 239462.30000001192,
+    "images": 0,
+    "label": "配置实际切换:商品定位",
+    "start": 239412.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.70000004768371,
+    "end": 240045.90000003576,
+    "images": 0,
+    "label": "配置实际切换:商品定位",
+    "start": 239996.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 240629,
+    "images": 0,
+    "label": "配置实际切换:商品定位",
+    "start": 240579.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.40000003576279,
+    "end": 241212.40000003576,
+    "images": 0,
+    "label": "配置实际切换:尺码",
+    "start": 241163,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.29999995231629,
+    "end": 241795.69999998808,
+    "images": 0,
+    "label": "配置实际切换:尺码",
+    "start": 241746.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 51.10000002384186,
+    "end": 242379.80000001192,
+    "images": 0,
+    "label": "配置实际切换:尺码",
+    "start": 242328.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 51.19999998807907,
+    "end": 242946.69999998808,
+    "images": 0,
+    "label": "配置实际切换:尺码",
+    "start": 242895.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 243529,
+    "images": 0,
+    "label": "配置实际切换:尺码",
+    "start": 243479.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 244112.40000003576,
+    "images": 0,
+    "label": "配置实际切换:流行元素",
+    "start": 244062.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 244695.69999998808,
+    "images": 0,
+    "label": "配置实际切换:流行元素",
+    "start": 244646.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 245279,
+    "images": 0,
+    "label": "配置实际切换:流行元素",
+    "start": 245229.69999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 245845.60000002384,
+    "images": 0,
+    "label": "配置实际切换:流行元素",
+    "start": 245796.30000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 246429.10000002384,
+    "images": 0,
+    "label": "配置实际切换:流行元素",
+    "start": 246379.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.29999995231629,
+    "end": 246995.69999998808,
+    "images": 0,
+    "label": "配置实际切换:特殊工艺",
+    "start": 246946.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 247562.40000003576,
+    "images": 0,
+    "label": "配置实际切换:特殊工艺",
+    "start": 247512.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 248145.69999998808,
+    "images": 0,
+    "label": "配置实际切换:特殊工艺",
+    "start": 248096.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 248729,
+    "images": 0,
+    "label": "配置实际切换:特殊工艺",
+    "start": 248679.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 249312.5,
+    "images": 0,
+    "label": "配置实际切换:特殊工艺",
+    "start": 249262.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 51.59999996423721,
+    "end": 249896.69999998808,
+    "images": 0,
+    "label": "配置实际切换:营销面料描述",
+    "start": 249845.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.59999996423721,
+    "end": 250480,
+    "images": 0,
+    "label": "配置实际切换:营销面料描述",
+    "start": 250429.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 251062.30000001192,
+    "images": 0,
+    "label": "配置实际切换:营销面料描述",
+    "start": 251012.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.79999995231629,
+    "end": 251645.69999998808,
+    "images": 0,
+    "label": "配置实际切换:营销面料描述",
+    "start": 251595.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 252229,
+    "images": 0,
+    "label": "配置实际切换:营销面料描述",
+    "start": 252179.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 252795.69999998808,
+    "images": 0,
+    "label": "配置实际切换:人群",
+    "start": 252746.19999998808,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.79999995231629,
+    "end": 253379.19999998808,
+    "images": 0,
+    "label": "配置实际切换:人群",
+    "start": 253328.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 253962.40000003576,
+    "images": 0,
+    "label": "配置实际切换:人群",
+    "start": 253912.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.29999995231629,
+    "end": 254545.69999998808,
+    "images": 0,
+    "label": "配置实际切换:人群",
+    "start": 254495.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 255129.10000002384,
+    "images": 0,
+    "label": "配置实际切换:人群",
+    "start": 255079.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.60000002384186,
+    "end": 255712.60000002384,
+    "images": 0,
+    "label": "配置实际切换:年龄",
+    "start": 255663,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 256295.69999998808,
+    "images": 0,
+    "label": "配置实际切换:年龄",
+    "start": 256246.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.39999997615814,
+    "end": 256879,
+    "images": 0,
+    "label": "配置实际切换:年龄",
+    "start": 256829.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 257462.30000001192,
+    "images": 0,
+    "label": "配置实际切换:年龄",
+    "start": 257413,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.59999996423721,
+    "end": 258045.69999998808,
+    "images": 0,
+    "label": "配置实际切换:年龄",
+    "start": 257996.10000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.30000001192093,
+    "end": 258628.90000003576,
+    "images": 0,
+    "label": "配置实际切换:人群定位",
+    "start": 258579.60000002384,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 50.60000002384186,
+    "end": 259213.40000003576,
+    "images": 0,
+    "label": "配置实际切换:人群定位",
+    "start": 259162.80000001192,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.19999998807907,
+    "end": 259795.60000002384,
+    "images": 0,
+    "label": "配置实际切换:人群定位",
+    "start": 259746.40000003576,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 260379,
+    "images": 0,
+    "label": "配置实际切换:人群定位",
+    "start": 260329.5,
+    "url": "/pcs/settings/config-workspace"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 49.5,
+    "end": 260962.40000003576,
+    "images": 0,
+    "label": "配置实际切换:人群定位",
+    "start": 260912.90000003576,
+    "url": "/pcs/settings/config-workspace"
+  }
+]

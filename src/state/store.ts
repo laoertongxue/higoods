@@ -641,6 +641,7 @@ class AppStore {
   }
 
   navigate(pathname: string, options: { historyMode?: NavigationHistoryMode } = {}): void {
+    if (!confirmPcsRouteLeave(this.state.pathname, pathname)) return
     if (this.state.pathname === pathname) {
       // A redirect can update the in-memory route while the initial browser URL is
       // still the legacy path. Keep the address bar canonical even when no render
@@ -660,6 +661,7 @@ class AppStore {
   syncFromBrowser(pathname: string): void {
     const nextPath = pathname || defaultPath
     if (this.state.pathname === nextPath) return
+    if (!confirmPcsRouteLeave(this.state.pathname, nextPath)) { this.syncBrowserHistory(this.state.pathname, 'push'); return }
 
     notifyPdaCuttingRouteLeave(this.state.pathname, nextPath)
     notifyPdaWoolRouteLeave(this.state.pathname, nextPath)
@@ -675,6 +677,7 @@ class AppStore {
   }
 
   openTab(tab: Tab): void {
+    if (!confirmPcsRouteLeave(this.state.pathname, tab.href)) return
     const systemId = getCurrentSystemId(tab.href)
     const systemTabs = this.state.allTabs[systemId] ?? {
       systemId,
@@ -707,6 +710,7 @@ class AppStore {
 
     const tab = systemTabs.tabs.find((item) => item.key === tabKey)
     if (!tab) return
+    if (!confirmPcsRouteLeave(this.state.pathname, tab.href)) return
 
     const nextAllTabs: AllSystemTabs = {
       ...this.state.allTabs,
@@ -756,6 +760,7 @@ class AppStore {
       },
     }
 
+    if (!confirmPcsRouteLeave(this.state.pathname, nextPath)) return
     this.state.allTabs = nextAllTabs
     saveTabs(nextAllTabs)
     this.syncBrowserHistory(nextPath, 'replace')
@@ -794,6 +799,7 @@ class AppStore {
 
     const nextPath = nextActiveTab?.href ?? system.defaultPage ?? defaultPath
     const nextActiveKey = nextActiveTab?.key ?? ''
+    if (!confirmPcsRouteLeave(this.state.pathname, nextPath)) return
 
     const nextAllTabs: AllSystemTabs = {
       ...this.state.allTabs,
@@ -868,3 +874,4 @@ export function getCurrentTabs(pathname: string, allTabs: AllSystemTabs): {
     activeKey: systemTabs?.activeKey ?? '',
   }
 }
+import { confirmPcsRouteLeave } from '../data/pcs-unsaved-changes.ts'

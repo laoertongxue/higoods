@@ -27,6 +27,8 @@ import type {
   TechnicalDataVersionContent,
   TechnicalDataVersionRecord,
 } from './pcs-technical-data-version-types.ts'
+import { captureEngineeringBomMaterialReference } from './pcs-engineering-bom-material-resolver.ts'
+import { technicalBomItemToEngineeringLine } from './pcs-engineering-bom-pricing.ts'
 import { collectWebbingPublishIssues } from './fcs/webbing-specifications.ts'
 
 function nowText(): string {
@@ -73,6 +75,12 @@ export function saveTechnicalDataVersionContent(
 
   updateTechnicalDataVersionContent(technicalVersionId, {
     ...contentPatch,
+    legacySkuIntentSourceIds: currentContent?.legacySkuIntentSourceIds || [],
+    bomItems: (contentPatch.bomItems || currentContent?.bomItems || []).map(item => {
+      if (!item.materialSkuId) return item
+      const reference = captureEngineeringBomMaterialReference(technicalBomItemToEngineeringLine(item))
+      return { ...item, materialCostReference: reference.materialCostReference, costReferenceMode: reference.costReferenceMode, unitConversionReference: reference.unitConversionReference }
+    }),
     legacyCompatibleCostPayload: mergeLegacyPayloadWithRouteGate(currentContent, contentPatch),
   })
   const nextRecord = updateTechnicalDataVersionRecord(technicalVersionId, {

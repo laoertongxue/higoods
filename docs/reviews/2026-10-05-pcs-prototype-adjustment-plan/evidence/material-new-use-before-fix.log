@@ -1,0 +1,79 @@
+✔ MAT/FCS: factory options use the actual name and code, not the short-name code fallback (4.063459ms)
+✔ MAT/FCS: four processes create actual plans without a production demand or warehouse facts (6.727875ms)
+✔ MAT/FCS: source identity and adopted process version are revalidated before every creation (1.65625ms)
+✖ GOV-006 new process selection, handoff and save reject unavailable input, target or parent archive (3.544125ms)
+✖ GOV-006 stopping material later preserves the saved plan and its adopted process version (3.273875ms)
+✔ MAT/FCS: draft accepts incomplete arrangements; confirmed plan requires positive quantities and eligible factory (3.400458ms)
+✔ MAT/FCS: duplicate saves do not duplicate plans; changed retries and stale drafts cannot overwrite (2.175375ms)
+✔ MAT/FCS: saved source image/file and process versions stay frozen across subsequent material revisions (5.934875ms)
+✔ MAT/FCS: first read is empty and write-free; two plans for one target retain their own record identities (3.30325ms)
+✔ MAT/FCS: handoff opens a versioned independent plan form for all four processes without creating a plan (1.290625ms)
+(node:44161) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44161) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+▶ R1 PCS material purchase draft is owned and atomically saved by PMS
+  ✔ reading choices and hydrating does not copy seeds or write business records (1.624083ms)
+  ✔ no success before transaction completion; source/units/prices/log are one atomic action (3.330625ms)
+  ✔ same operation is idempotent; changed payload and stale edits fail without overwrite (0.583ms)
+  ✔ transaction failure rolls back draft, log and receipt; retry preserves the intended action (0.328459ms)
+  ✔ refresh hydration restores draft and unit snapshot; current unit edits do not rewrite it (2.244042ms)
+  ✔ disabled localStorage is never a fallback; unavailable IDB is an explicit unsaved failure (0.263625ms)
+  ✔ required purchase conditions and purchase unit purpose are enforced without any inventory dependency (0.310083ms)
+  ✖ GOV-006 an inactive parent blocks a new purchase but keeps the existing purchase and unit snapshot usable (2.237708ms)
+✖ R1 PCS material purchase draft is owned and atomically saved by PMS (101.274667ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 15
+ℹ fail 4
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 456.457458
+
+✖ failing tests:
+
+test at tests/pcs-r1-material-plans.test.ts:1:4701
+✖ GOV-006 new process selection, handoff and save reject unavailable input, target or parent archive (3.544125ms)
+  AssertionError [ERR_ASSERTION]: input {"status":"INACTIVE"}
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-material-plans.test.ts:69:14)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at tests/pcs-r1-material-plans.test.ts:1:6006
+✖ GOV-006 stopping material later preserves the saved plan and its adopted process version (3.273875ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-material-plans.test.ts:85:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /审核并启用/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/pcs-r1-pms-purchase-draft.test.ts:1:11075
+✖ GOV-006 an inactive parent blocks a new purchase but keeps the existing purchase and unit snapshot usable (2.237708ms)
+  AssertionError [ERR_ASSERTION]: Missing expected rejection.
+      at async TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-pms-purchase-draft.test.ts:169:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-pms-purchase-draft.test.ts:164:3)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /审核并启用/,
+    operator: 'rejects',
+    diff: 'simple'
+  }

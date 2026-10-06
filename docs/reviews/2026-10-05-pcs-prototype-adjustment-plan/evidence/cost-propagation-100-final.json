@@ -1,0 +1,180 @@
+{
+  "actions": [
+    {
+      "brokenImages": 0,
+      "durationMs": 60.39999997615814,
+      "end": 30311.19999998808,
+      "images": 0,
+      "label": "100下游-成本预览-1",
+      "start": 30250.80000001192,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 82,
+      "end": 50464.90000003576,
+      "images": 0,
+      "label": "100下游-成本生效-1",
+      "start": 50382.90000003576,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.69999998807907,
+      "end": 104711.10000002384,
+      "images": 0,
+      "label": "100下游-成本预览-2",
+      "start": 104648.40000003576,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.09999996423721,
+      "end": 105011,
+      "images": 0,
+      "label": "100下游-成本生效-2",
+      "start": 104949.90000003576,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.90000003576279,
+      "end": 105311.10000002384,
+      "images": 0,
+      "label": "100下游-成本预览-3",
+      "start": 105249.19999998808,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.40000003576279,
+      "end": 105594.40000003576,
+      "images": 0,
+      "label": "100下游-成本生效-3",
+      "start": 105534,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62,
+      "end": 105894.5,
+      "images": 0,
+      "label": "100下游-成本预览-4",
+      "start": 105832.5,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.80000001192093,
+      "end": 106195,
+      "images": 0,
+      "label": "100下游-成本生效-4",
+      "start": 106134.19999998808,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62,
+      "end": 106494.5,
+      "images": 0,
+      "label": "100下游-成本预览-5",
+      "start": 106432.5,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.80000001192093,
+      "end": 106794.40000003576,
+      "images": 0,
+      "label": "100下游-成本生效-5",
+      "start": 106732.60000002384,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+    }
+  ],
+  "checks": [
+    {
+      "allIncreaseOne": true,
+      "count": 100,
+      "first": [
+        "MAT-FB-00000001-B01-load1-19-4003PT",
+        "7",
+        "8"
+      ],
+      "last": [
+        "MAT-FB-00000001-B01-load25-19-4003PT-pl001197-AYH-pl001197XH-pl001197TH",
+        "10",
+        "11"
+      ]
+    },
+    {
+      "allIncreaseOne": true,
+      "count": 100,
+      "first": [
+        "MAT-FB-00000001-B01-load1-19-4003PT",
+        "8",
+        "9"
+      ],
+      "last": [
+        "MAT-FB-00000001-B01-load25-19-4003PT-pl001197-AYH-pl001197XH-pl001197TH",
+        "11",
+        "12"
+      ]
+    },
+    {
+      "allIncreaseOne": true,
+      "count": 100,
+      "first": [
+        "MAT-FB-00000001-B01-load1-19-4003PT",
+        "9",
+        "10"
+      ],
+      "last": [
+        "MAT-FB-00000001-B01-load25-19-4003PT-pl001197-AYH-pl001197XH-pl001197TH",
+        "12",
+        "13"
+      ]
+    },
+    {
+      "allIncreaseOne": true,
+      "count": 100,
+      "first": [
+        "MAT-FB-00000001-B01-load1-19-4003PT",
+        "10",
+        "11"
+      ],
+      "last": [
+        "MAT-FB-00000001-B01-load25-19-4003PT-pl001197-AYH-pl001197XH-pl001197TH",
+        "13",
+        "14"
+      ]
+    },
+    {
+      "allIncreaseOne": true,
+      "count": 100,
+      "first": [
+        "MAT-FB-00000001-B01-load1-19-4003PT",
+        "11",
+        "12"
+      ],
+      "last": [
+        "MAT-FB-00000001-B01-load25-19-4003PT-pl001197-AYH-pl001197XH-pl001197TH",
+        "14",
+        "15"
+      ]
+    }
+  ],
+  "afterReload": {
+    "allCurrentCostsCorrect": true,
+    "count": 100,
+    "first": [
+      "MAT-FB-00000001-B01-load1-19-4003PT",
+      "12",
+      "13"
+    ],
+    "last": [
+      "MAT-FB-00000001-B01-load25-19-4003PT-pl001197-AYH-pl001197XH-pl001197TH",
+      "15",
+      "16"
+    ]
+  }
+}

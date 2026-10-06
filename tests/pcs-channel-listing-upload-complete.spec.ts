@@ -1,102 +1,68 @@
+import test, { beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import * as catalog from '../src/data/pcs-channel-catalog.ts'
+import * as sync from '../src/data/pcs-channel-sync.ts'
+import { createProjectChannelProductFromListingNode, completeProjectChannelListingNode, getProjectChannelProductById } from '../src/data/pcs-channel-product-project-repository.ts'
+import { getProjectById, getProjectNodeRecordByStepCode } from '../src/data/pcs-project-repository.ts'
 
-import {
-  createProjectChannelProductFromListingNode,
-  getProjectChannelProductById,
-  launchProjectChannelProductListing,
-  markProjectChannelProductListingCompleted,
-  resetProjectChannelProductRepository,
-} from '../src/data/pcs-channel-product-project-repository.ts'
-import {
-  createProjectImageAssetRecords,
-  resetProjectImageAssets,
-  upsertProjectImageAssets,
-} from '../src/data/pcs-project-image-repository.ts'
-import {
-  getProjectById,
-  getProjectNodeRecordByStepCode,
-  resetProjectRepository,
-} from '../src/data/pcs-project-repository.ts'
+// R1: 发布成功以同次平台回执为依据，不再人工完成项目节点。
+const baseline = catalog.getPcsChannelCatalogSnapshot()
+const styleId = 'style_r1_wms_tee', internalSkuId = 'sku_r1_wms_tee_black_s'
+beforeEach(() => { pcsRecordStore.setItem(catalog.PCS_CHANNEL_CATALOG_KEY, JSON.stringify(baseline)); catalog.resetPcsChannelCatalogCache() })
+function draft() { return catalog.createChannelListing({ storeId: 'ST-001', styleId, internalSkuIds: [internalSkuId, internalSkuId], initialPrice: 149000, content: { title: '回执驱动发布测试' } }) }
+function approve(id: string) { catalog.reviewChannelListing(id, '提交审核', '同一维护审核人'); catalog.reviewChannelListing(id, '审核通过', '同一维护审核人') }
 
-resetProjectRepository()
-resetProjectChannelProductRepository()
-resetProjectImageAssets()
+test('R1 upload completion requires a current approved version and an actual matching receipt', () => {
+  const listing = draft()
+  assert.throws(() => sync.submitChannelSync(listing.id, '发布'), /审核当前渠道内容版本/)
+  approve(listing.id)
+  const operation = sync.submitChannelSync(listing.id, '发布')
+  assert.equal(operation.demo, true, '此测试只验证原型回执规则')
+  assert.equal(operation.result, '提交中')
+  assert.equal(catalog.getChannelListing(listing.id)!.platformProductId, '')
+  assert.equal(catalog.getChannelListing(listing.id)!.platformStatus, '未发布')
+  const rows = catalog.listChannelVariants(listing.id)
+  assert.ok(rows.every(row => !row.platformVariantId))
+  assert.equal(sync.submitChannelSync(listing.id, '发布').id, operation.id, '重复提交复用同次操作')
+  const externalIds = new Map(rows.map((row, index) => [row.id, `099999999999999999990${index}`]))
+  const receipt: sync.ChannelReceipt = {
+    eventId: 'test-platform-publication-receipt', operationId: operation.id,
+    platformProductId: '08888888888888888888888', platformStatus: '在售', rawStatus: 'TEST_ACTIVE',
+    items: operation.items.map(item => ({ targetId: item.targetId, field: item.field, success: true, platformVariantId: externalIds.get(item.targetId) })),
+  }
+  assert.equal(sync.receiveChannelReceipt(receipt).result, '成功')
+  const saved = catalog.getChannelListing(listing.id)!
+  assert.equal(saved.platformProductId, receipt.platformProductId, '文本外部身份保留前导零和长数字')
+  assert.equal(saved.platformStatus, '在售'); assert.equal(saved.syncStatus, '一致'); assert.ok(saved.lastSuccessAt)
+  assert.deepEqual(catalog.listChannelVariants(listing.id).map(row => row.platformVariantId), [...externalIds.values()])
+  const projected = getProjectChannelProductById(listing.id)!
+  assert.equal(projected.upstreamProductId, receipt.platformProductId, '旧只读消费者显示同一事实')
+  assert.equal(projected.listingBatchStatus, '已完成')
+  const beforeRepeat = catalog.getPcsChannelCatalogSnapshot()
+  sync.receiveChannelReceipt(receipt)
+  assert.deepEqual(catalog.getPcsChannelCatalogSnapshot(), beforeRepeat, '重复回执不创建第二个 PID 或操作')
+})
 
-const project = getProjectById('PRJ-008')
-assert.ok(project, '应存在 PRJ-202603-008 演示项目')
+test('R1 changing approved sales content invalidates approval and does not publish stale content', () => {
+  const listing = draft(); approve(listing.id)
+  const approved = catalog.getChannelListing(listing.id)!
+  catalog.saveChannelContent(listing.id, { ...approved.content, title: '审核后改动的标题' }, approved.version)
+  assert.equal(catalog.getChannelListing(listing.id)!.reviewStatus, '草稿')
+  assert.throws(() => sync.submitChannelSync(listing.id, '发布'), /审核当前渠道内容版本/)
+  assert.equal(catalog.listChannelSyncOperations(listing.id).length, 0)
+  approve(listing.id)
+  const operation = sync.submitChannelSync(listing.id, '发布')
+  assert.equal(operation.items.find(item => item.field === 'title')?.submittedValue, '审核后改动的标题')
+})
 
-const [listingImage] = createProjectImageAssetRecords(
-  project!,
-  [
-    {
-      imageUrl: 'mock://listing-image/upload-complete',
-      imageName: '上传完成测试主图',
-      imageType: '上架图',
-      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
-      sourceRecordId: 'test-upload-complete',
-      sourceType: '商品上架',
-      usageScopes: ['商品上架', '项目资料归档'],
-      imageStatus: '可用于上架',
-      mainFlag: true,
-      sortNo: 1,
-    },
-  ],
-  '测试用户',
-  '2026-04-20T10:00:00.000Z',
-)
-upsertProjectImageAssets([listingImage])
-
-const createResult = createProjectChannelProductFromListingNode(
-  project!.projectId,
-  {
-    targetChannelCode: 'tiktok',
-    targetStoreId: 'store-tiktok-01',
-    listingTitle: '上传并确认完成的多规格批次',
-    defaultPriceAmount: 219,
-    currencyCode: 'IDR',
-    listingMainImageId: listingImage.imageId,
-    listingImageIds: [listingImage.imageId],
-    specLines: [
-      { productImageId: listingImage.imageId, colorName: '米白', sizeName: 'M', priceAmount: 219, currencyCode: 'IDR', stockQty: 10 },
-      { productImageId: listingImage.imageId, colorName: '米白', sizeName: 'L', priceAmount: 219, currencyCode: 'IDR', stockQty: 8 },
-    ],
-  },
-  '测试用户',
-)
-
-assert.equal(createResult.ok, true, `应能创建新的款式上架批次：${createResult.message}`)
-assert.ok(createResult.record, '创建成功后应返回批次记录')
-
-const completeBeforeUpload = markProjectChannelProductListingCompleted(createResult.record!.channelProductId, '测试用户')
-assert.equal(completeBeforeUpload.ok, false, '上传前不应允许直接标记完成')
-assert.match(completeBeforeUpload.message, /尚未成功上传到渠道/, '上传前应提示不能标记完成')
-
-const launchResult = launchProjectChannelProductListing(createResult.record!.channelProductId, '测试用户')
-assert.equal(launchResult.ok, true, '规格完整时应允许上传款式到渠道')
-assert.ok(launchResult.record?.upstreamProductId, '上传成功后应回填上游款式商品编号')
-assert.equal(
-  launchResult.record?.specLines.every((item) => Boolean(item.upstreamSkuId)),
-  true,
-  '上传成功后每条规格都应回填上游规格编号',
-)
-
-const listingNodeAfterUpload = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
-assert.equal(listingNodeAfterUpload?.currentStatus, '进行中', '上传成功后商品上架节点仍应保持进行中')
-
-const uploadedRecord = getProjectChannelProductById(createResult.record!.channelProductId)
-assert.equal(uploadedRecord?.listingBatchStatus, '已上传待确认', '上传成功后批次应进入已上传待确认')
-
-const completeResult = markProjectChannelProductListingCompleted(createResult.record!.channelProductId, '测试用户')
-assert.equal(completeResult.ok, true, '上传成功后应允许标记商品上架完成')
-
-const completedRecord = getProjectChannelProductById(createResult.record!.channelProductId)
-assert.equal(completedRecord?.listingBatchStatus, '已完成', '标记完成后批次状态应为已完成')
-assert.equal(completedRecord?.channelProductStatus, '已上架待测款', '标记完成后应进入已上架待测款状态')
-
-const listingNodeAfterComplete = getProjectNodeRecordByStepCode(project!.projectId, 'CHANNEL_PRODUCT_LISTING')
-assert.equal(listingNodeAfterComplete?.currentStatus, '已完成', '标记完成后商品上架节点应写为已完成')
-
-const projectAfterComplete = getProjectById(project!.projectId)
-assert.notEqual(projectAfterComplete?.nextStepName, '改版任务', '商品上架完成后不得进入已删除的专业项目节点')
-
-console.log('pcs-channel-listing-upload-complete.spec.ts PASS')
+test('R1 retired project publication and manual completion cannot mutate project or canonical listing', () => {
+  const project = getProjectById('PRJ-008'), node = getProjectNodeRecordByStepCode('PRJ-008', 'CHANNEL_PRODUCT_LISTING')
+  const before = catalog.getPcsChannelCatalogSnapshot()
+  const created = createProjectChannelProductFromListingNode('PRJ-008', { listingTitle: '不应新建项目商品' })
+  const completed = completeProjectChannelListingNode('PRJ-008')
+  for (const result of [created, completed]) { assert.equal(result.ok, false); assert.match(result.message, /项目式入口已停用/); assert.equal(result.record, null) }
+  assert.deepEqual(catalog.getPcsChannelCatalogSnapshot(), before)
+  assert.deepEqual(getProjectById('PRJ-008'), project)
+  assert.deepEqual(getProjectNodeRecordByStepCode('PRJ-008', 'CHANNEL_PRODUCT_LISTING'), node)
+})

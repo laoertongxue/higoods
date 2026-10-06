@@ -1,0 +1,195 @@
+{
+  "scope": "仅所列实际测量；不代表全部页面动作验收完成",
+  "series": [
+    {
+      "file": "routes-after-reference-fix.json",
+      "scope": "配置引用修复后30条PCS路由；各冷启动/刷新5次",
+      "viewport": "1366×768",
+      "samples": 300,
+      "max_ms": 229.69999998807907,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "eb3869f6b8cdc49bcef349b1692dc91557c8e70e69b3741398e941689d7d554d"
+    },
+    {
+      "file": "routes-release.json",
+      "scope": "30 条 PCS 命名路由；各冷启动/刷新 5 次",
+      "viewport": "1280×720",
+      "samples": 300,
+      "max_ms": 353,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "9348a5669d6526254c4d69353b60718f5a33e8b1c6e1c8c816a670062ea1c642"
+    },
+    {
+      "file": "material-routes-after-save-fix.json",
+      "scope": "物料编辑修复后受影响 12 条路由；各冷启动/刷新 5 次",
+      "viewport": "1366×768",
+      "samples": 120,
+      "max_ms": 174.60000002384186,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "eab43845d8cdeaeabfcac31160dee457cb221283ce7a48d7f61cd1b12e5076d3"
+    },
+    {
+      "file": "spa-release.json",
+      "scope": "站内路由切换；按原始 label 分组，不等于全部动作",
+      "viewport": "1280×720",
+      "samples": 123,
+      "max_ms": 96.5999999642372,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "a903769a32860d686b640dd12e48e3d91176a0c87db465b14751626500a61b85"
+    },
+    {
+      "file": "tabs-release.json",
+      "scope": "13 个页面、66 个 Tab，各 5 次",
+      "viewport": "1280×720",
+      "samples": 330,
+      "max_ms": 95.70000004768372,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "3a39c4b08b7d2b625886ff2ff09964bcb5b7cc653c971de7afb4738d94dc9f3b"
+    },
+    {
+      "file": "filters-release.json",
+      "scope": "款式/渠道查询与重置各 5 次",
+      "viewport": "1280×720",
+      "samples": 20,
+      "max_ms": 146.0999999642372,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "8cd35b9442b39c2fa50056817912b10a2bf9693e8ad3c24a5181b8928ef823bf"
+    },
+    {
+      "file": "scale-release.json",
+      "scope": "1000款式/5000SKU、1000物料、2000PID/10000外部规格；4列表冷/刷新各5次",
+      "viewport": "1280×720",
+      "samples": 40,
+      "max_ms": 464,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "340eaaf02500bb06bb76a5489c106e5bb281fdcfc69ecb88ffad97526a3a6411"
+    },
+    {
+      "file": "saves-release.json",
+      "scope": "款式、规格、渠道、店铺、物料保存，各5次并刷新读回",
+      "viewport": "1366×768",
+      "samples": 25,
+      "max_ms": 154,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "34ea715f3d3301739e989b9a9cb74a4c3bdcc35a2e9b65f5495a790940a46b35"
+    },
+    {
+      "file": "config-saves-release.json",
+      "scope": "配置保存5次并刷新读回",
+      "viewport": "1366×768",
+      "samples": 5,
+      "max_ms": 96.30000001192091,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "0af1e63d1d4d1c6873f28ed663495e28357515f12358d46c44a80706763965cd"
+    },
+    {
+      "file": "unit-save-current.json",
+      "scope": "计量单位保存5次并刷新读回",
+      "viewport": "1280×720",
+      "samples": 5,
+      "max_ms": 78.39999997615814,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "d5e4f8f6feb2447de68aed1c7cb96a79d0fca4e5b4e5272351b2b7d95f8f28c1"
+    },
+    {
+      "file": "cost-propagation-100-final.json",
+      "scope": "100个下游成本，5次预览、5次保存并刷新读回",
+      "viewport": "1280×720",
+      "samples": 10,
+      "max_ms": 82,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "718d9a8652dc58326496a20475ede069ff2c65634b7e477ce3fbd269a25a6f1f"
+    },
+    {
+      "file": "material-label-release.json",
+      "scope": "物料标签预览5次",
+      "viewport": "1366×768",
+      "samples": 5,
+      "max_ms": 177.5,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "204fb9398257ba41b6f6edff9d9d77d8c01c39c06c659684e6f7c4e4871003e6"
+    },
+    {
+      "file": "wool-print-release.json",
+      "scope": "毛织交片打印预览冷启动/刷新各5次；未实物打印",
+      "viewport": "1280×720",
+      "samples": 10,
+      "max_ms": 396.800000011921,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "193c912c3bc11c64b5e0c1f252eda0ac08956959af35d35aa725a2db54697e54"
+    },
+    {
+      "file": "wool-pda-release.json",
+      "scope": "PDA冷启动/刷新各5次，报工展开/取消各5次",
+      "viewport": "390×844",
+      "samples": 20,
+      "max_ms": 331.30000001192093,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "dc37471d51ad17dab4c54884fe7b07709abe0e07c3ab3e53d8dff7430f44dbe3"
+    },
+    {
+      "file": "list-extra-release.json",
+      "scope": "款式大图/列设置/前后分页/三态排序各5次，含额外1条关闭",
+      "viewport": "1366×768",
+      "samples": 46,
+      "max_ms": 193,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "ad13f8d23bed8ac8be40abd12c917d24ac21c422e10940ae301b710a6867a68a"
+    },
+    {
+      "file": "channel-sync-cycles-current.json",
+      "scope": "5轮更新提交→部分失败→仅失败项重试→成功回执",
+      "viewport": "1280×720",
+      "samples": 20,
+      "max_ms": 268.10000002384186,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "e18f3457340baac8cd8095ff10f9254c1602fd663b91ae7ef45e5fea2408f5cc"
+    },
+    {
+      "file": "channel-platform-prices-current.json",
+      "scope": "5次平台单规格改价及刷新读回；同内部SKU的其他实例价格不连带变化",
+      "viewport": "1280×720",
+      "samples": 5,
+      "max_ms": 172.60000002384186,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "e861189a713cedb7514190ab12e6c04a3a931dbc911c5cae507abe9020bff7b5"
+    },
+    {
+      "file": "channel-copy-current.json",
+      "scope": "5次复制到其他店铺；保留内部映射、清空平台身份；最终刷新读回",
+      "viewport": "1280×720",
+      "samples": 5,
+      "max_ms": 212.29999995231628,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "4cb690157d85ecebeb7e3935ce65e900c9ee39451361cf60123437c7fa2879a9"
+    },
+    {
+      "file": "testing-channel-regression-current.json",
+      "scope": "5轮缺店铺校验→正确选择→保存来源→返回测款；另有2次发布前置阻断；不是5轮完整发布",
+      "viewport": "1280×720",
+      "samples": 27,
+      "max_ms": 311.80000001192093,
+      "under_500": true,
+      "broken_images": 0,
+      "sha256": "8d694bb0175b538504fc1c5768390b465dfc352289a7f68de07203a1e0187f15"
+    }
+  ]
+}

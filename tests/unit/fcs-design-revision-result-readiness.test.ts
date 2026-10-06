@@ -1,7 +1,7 @@
 import { getDyeWorkOrderProgressView } from '../../src/data/fcs/process-order-three-axis-view.ts'
 import assert from 'node:assert/strict'
 import { listHandoverOrdersByTaskId } from '../../src/data/fcs/pda-handover-events.ts'
-import test from 'node:test'
+import test, { before } from 'node:test'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -86,6 +86,14 @@ import { getProjectArchiveByProjectId } from '../../src/data/pcs-project-archive
 import { getProjectById } from '../../src/data/pcs-project-repository.ts'
 import { listProjectRelationsBySourceObject } from '../../src/data/pcs-project-relation-repository.ts'
 import { getStyleArchiveById } from '../../src/data/pcs-style-archive-repository.ts'
+import { saveMaterialStandardCost } from '../../src/data/pcs-material-archive-repository.ts'
+
+before(() => {
+  saveMaterialStandardCost('dr_cotton_raw', { purchaseStandardCny: 5, transportStandardCny: 1, changeReason: '测试采购及首段运输标准' })
+  for (const materialSkuId of ['dr_cotton_dyed', 'dr_cotton_print', 'dr_cotton_dye_print']) {
+    saveMaterialStandardCost(materialSkuId, { processStandardCny: 2, changeReason: '测试本阶段加工标准' })
+  }
+})
 
 // Optional browser evidence fixtures are captured after real domain actions, never by editing statuses.
 function captureBrowserEvidenceStage(stage: string): void {
@@ -322,7 +330,52 @@ test('历史双工艺加工单仍可追溯原有染印交接', () => {
   assert.equal(getDesignRevisionMaterialTransferPlan('PRINTING', print.printOrderId)?.plannedQty, 20)
 })
 
-test('双工艺 SKU 仅生成印花单，仓库直接发印厂并完成样衣归档', () => {
+test('先染后印目标 SKU 创建两段加工单，印花只接收本行染后物料而不能跳过染色', () => {
+  const target = listEngineeringIndependentSamplingRecords().find(record => record.targetStyleCode === 'STYLE-PRJ-202603-012')!
+  const buyer = { role: '买手' as const, userId: target.buyerId, userName: target.buyerName }
+  const draft = createEngineeringIndependentSampling({
+    targetStyleId: target.targetStyleId, creationReason: '按已建档的染后印花链制样',
+    designFiles: target.designFiles, patternHandling: 'REMAKE', buyer,
+  })
+  saveEngineeringBomVersion({ versionId: draft.bomDraftVersionId, ...buyer, materialLines: [
+    { materialSkuId: 'dr_cotton_dye_print', usage: 20, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 1, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '是', printRequirement: '是' },
+  ] })
+  saveEngineeringBomPricingPlan({ ownerStage: 'INDEPENDENT_SAMPLING', ownerId: draft.samplingTaskId, ...buyer, customCostDecision: 'NO_CUSTOM_COST', customCosts: [] })
+  const active = confirmEngineeringIndependentSamplingScheme({
+    samplingTaskId: draft.samplingTaskId, actor: buyer,
+    displaySampleAssignment: DESIGN_REVISION_DISPLAY_SAMPLE_ASSIGNMENTS[0],
+    sampleRequirements: [{ targetColor: '整款', targetSize: 'M', requiredQuantity: 1, requirementNote: '' }],
+    selectedTaskTypes: ['BASE_PATTERN', 'DISPLAY_SAMPLE'],
+  })
+  const refs = active.professionalTasks.flatMap(task => task.processWorkOrderRefs)
+  assert.equal(refs.length, 2)
+  const dyeRef = refs.find(ref => ref.processType === 'DYEING')!
+  const printRef = refs.find(ref => ref.processType === 'PRINTING')!
+  const dye = getDyeWorkOrderById(dyeRef.processOrderId)!
+  const print = getPrintWorkOrderById(printRef.processOrderId)!
+  assert.equal(printRef.bomItemId, dyeRef.bomItemId)
+  assert.equal(printRef.prerequisiteProcessOrderId, dye.dyeOrderId)
+  assert.deepEqual([dye.plannedQty, print.plannedQty], [20, 20])
+  assert.equal(dye.sourceSnapshot?.inputMaterialSkuCode, 'DR-COTTON-001-RAW')
+  assert.equal(dye.outputMaterial?.sku, 'DR-COTTON-001-WHITE')
+  assert.equal(print.sourceSnapshot?.inputMaterialSkuCode, 'DR-COTTON-001-WHITE')
+  assert.equal(print.sourceSnapshot?.upstreamWorkOrderId, dye.dyeOrderId)
+  assert.equal(dye.sourceSnapshot?.downstreamWorkOrderId, print.printOrderId)
+  const plan = getDesignRevisionMaterialTransferPlan('PRINTING', print.printOrderId)!
+  assert.equal(plan.stage, 'DYE_FACTORY_TO_PRINT_FACTORY')
+  assert.equal(plan.status, 'WAIT_UPSTREAM')
+  assert.equal(plan.sentQty, 0)
+  const printFactory = listPrintingFactoryOptions().find(candidate => {
+    try { return Boolean(getDefaultFactoryReceiptPosition(candidate.id).locationId) } catch { return false }
+  })!
+  assignPrintingWorkOrder(print.printOrderId, { factoryId: printFactory.id, operatorName: 'PPIC' })
+  assert.throws(() => createDesignRevisionProcessMaterialTransfer({
+    processType: 'PRINTING', processOrderId: print.printOrderId, issuedBy: '系统', issuedAt: '2026-10-05 10:00:00',
+  }), /应接收前序染色交出物/)
+  assert.equal(getDesignRevisionMaterialTransferPlan('PRINTING', print.printOrderId)?.sentQty, 0)
+})
+
+test('单独印花 SKU 从仓库发印厂并完成样衣归档', () => {
   const seeded = listEngineeringIndependentSamplingRecords()
   const reference = seeded.find((record) => record.targetStyleCode === 'STYLE-PRJ-202603-011' && record.status === 'COMPLETED')!
   const target = seeded.find((record) => record.targetStyleCode === 'STYLE-PRJ-202603-012')!
@@ -332,13 +385,13 @@ test('双工艺 SKU 仅生成印花单，仓库直接发印厂并完成样衣归
   const buyer = { role: '买手' as const, userId: target.buyerId, userName: target.buyerName }
   const draft = createEngineeringIndependentSampling({
     sourceStyleId: reference.targetStyleId, targetStyleId: target.targetStyleId,
-    creationReason: '双工艺 SKU 仅印花，最后制作展示样衣', designFiles: target.designFiles,
+    creationReason: '坯布直接印花，最后制作展示样衣', designFiles: target.designFiles,
     patternHandling: 'REUSE', reusedPatternFiles: [pattern], buyer,
     createdAt: '2026-09-23 09:00:00',
   })
   saveEngineeringBomVersion({
     versionId: draft.bomDraftVersionId, ...buyer,
-    materialLines: [{ materialSkuId: 'dr_cotton_dye_print', usage: 20, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 1, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '是' }],
+    materialLines: [{ materialSkuId: 'dr_cotton_print', usage: 20, quantityBasis: 'ORDER_TOTAL', sampleQuantity: 1, usageUnit: 'Yard', lossRate: 0, dyeRequirement: '否', printRequirement: '是' }],
     updatedAt: '2026-09-23 09:01:00',
   })
   saveEngineeringBomPricingPlan({
@@ -411,7 +464,7 @@ test('双工艺 SKU 仅生成印花单，仓库直接发印厂并完成样衣归
   const centralSource = listFactoryReceivingSources(GOTO_GLOBAL_FACTORY_ID).find((item) =>
     item.type === 'HANDOUT' && item.workOrderNo === printOrder.printOrderNo && item.id.startsWith('PRINT-HANDOUT-'))
   assert.ok(centralSource)
-  assert.equal(centralSource.lines[0].material.sku, 'DR-COTTON-001-WHITE-BLUE-PRINT')
+  assert.equal(centralSource.lines[0].material.sku, 'DR-COTTON-001-BLUE-PRINT')
   assert.equal(centralSource.lines[0].sentQty, 20)
   assert.notEqual(readDesignRevisionProcessWorkOrderStatuses([printRef])[0].status, 'COMPLETED', '印厂交出不等于中央工厂确认接收')
   captureBrowserEvidenceStage('print-dispatched')

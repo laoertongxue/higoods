@@ -1,0 +1,3074 @@
+﻿dm1,dimension_name,id,name,code,id_code,brand_id
+1,颜色,20,Rose,Rose,,0
+1,颜色,21,Pink,Pink,,0
+1,颜色,22,Yellow,Yellow,,0
+1,颜色,24,Lemon Yellow,LemonYellow,,0
+1,颜色,25,Orange,Orange,,0
+1,颜色,26,Blue,Blue,,0
+1,颜色,27,Green,Green,,0
+1,颜色,28,Chartreuse,Chartreuse,,0
+1,颜色,29,Purple,Purple,,0
+1,颜色,30,Black,Black,,0
+1,颜色,31,White,White,,0
+1,颜色,32,Gold,Gold,,0
+1,颜色,33,Silver,Silver,,0
+1,颜色,34,Khaki,Khaki,,0
+1,颜色,35,Apricot,Apricot,,0
+1,颜色,36,Brown,Brown,,0
+1,颜色,37,Gray,Gray,,0
+1,颜色,38,Camouflage,Camouflage,,0
+1,颜色,40,Multicolor,Multicolor,,0
+1,颜色,43,Same As Photo,SameAsPhoto,,0
+1,颜色,44,Leopard,Leopard,,0
+1,颜色,45,Dark blue,Darkblue,,0
+1,颜色,46,Light blue,Lightblue,,0
+1,颜色,47,Dark green,DarkGreen,,0
+1,颜色,48,Light green,Lightgreen,,0
+1,颜色,49,Beige,Beige,,0
+1,颜色,50,Wine red,Winered,,0
+1,颜色,51,Coffee,Coffee,,0
+1,颜色,106,champagne,champagne,,0
+1,颜色,214,1,1,,0
+1,颜色,215,2,2,,0
+1,颜色,216,3,3,,0
+1,颜色,217,4,4,,0
+1,颜色,218,5,5,,0
+1,颜色,224,Deep brown,Deepbrown,,0
+1,颜色,225,Camel,Camel,,0
+1,颜色,226,Caramel,Caramel,,0
+1,颜色,227,Dark gray,Darkgray,,0
+1,颜色,228,6,6,,0
+1,颜色,229,7,7,,0
+1,颜色,230,8,8,,0
+1,颜色,231,9,9,,0
+1,颜色,232,10,10,,0
+1,颜色,259,Brick red,Brickred,,0
+1,颜色,260,Light gray,Lightgray,,0
+1,颜色,277,Red,Red,,0
+1,颜色,280,Navy blue,Navy blue,,0
+1,颜色,305,ZTJ339-1#,ZTJ339-1#,,0
+1,颜色,306,ZTJ339-3#,ZTJ339-3#,,0
+1,颜色,307,ZTJ339-4#,ZTJ339-4#,,0
+1,颜色,308,ZTJ339-2#,ZTJ339-2#,,0
+1,颜色,309,Light Pink,Light Pink,,0
+1,颜色,373,Slot peep,Slot peep,,0
+1,颜色,374,Fine hole peep,Fine hole peep,,0
+1,颜色,481,Rose gold,Rosegold,,0
+1,颜色,705,White colorhair,Whitecolorhair,,0
+1,颜色,706,Green colorhair,Greencolorhair,,0
+1,颜色,707,Black colorhair,Blackcolorhair,,0
+1,颜色,708,Brown colorhair,Browncolorhair,,0
+1,颜色,721,Nude,nude,,0
+1,颜色,722,black step feet,heisecaijiao,,0
+1,颜色,723,nude step feet,fusecaijiao,,0
+1,颜色,724,black tights,heiselianjiao,,0
+1,颜色,725,nude tights,fuselianjiao,,0
+1,颜色,726,ArmyGreen,ArmyGreen,,0
+1,颜色,729,Red Painting,RedPainting,,0
+1,颜色,730,White Painting,WhitePainting,,0
+1,颜色,731,Black Painting,BlackPainting,,0
+1,颜色,769,Right hand black,Right hand black,,0
+1,颜色,770,Left hand black,Left hand black,,0
+1,颜色,813,Light coffee,Lightcoffee,,0
+1,颜色,814,Dark coffee,Darkcoffee,,0
+1,颜色,845,White & Black ShuangPin,White & Black ShuangPin,,0
+1,颜色,846,Black & White Shuangpin,Black & White Shuangpin,,0
+1,颜色,1744,Fruit green,Fruit green,,0
+1,颜色,1895,Light purple,Lightpurple,,0
+1,颜色,1902,Brown short,Brown short,,0
+1,颜色,1903,Brown long,Brown long,,0
+1,颜色,1904,Black short,Black short,,0
+1,颜色,1905,Black long,Black long,,0
+1,颜色,1906,Grey short,Grey short,,0
+1,颜色,1907,Grey long,Grey long,,0
+1,颜色,1945,Grey stripes,Grey stripes,,0
+1,颜色,1946,Red stripes,Red stripes,,0
+1,颜色,1953,Grey Short Sleeve dress,Grey Short Sleeve dress,,0
+1,颜色,2166,Dark grey1,Dark grey1,,0
+1,颜色,2167,Dark grey2,Dark grey2,,0
+1,颜色,2169,Blue1,Blue1,,0
+1,颜色,2170,Blue2,Blue2,,0
+1,颜色,2171,Army green1,Army green1,,0
+1,颜色,2172,Army green2,Army green2,,0
+1,颜色,2226,green+purple,green+purple,,0
+1,颜色,2260,Black dress,Black dress,,0
+1,颜色,3311,Skirt (single piece),Skirt (single piece),,0
+1,颜色,3312,Cardigan + Print Top (2 pieces),Cardigan + Print Top (2 pieces,,0
+1,颜色,3506,16,16,,0
+1,颜色,3508,18,18,,0
+1,颜色,3509,19,19,,0
+1,颜色,3510,20,20,,0
+1,颜色,3511,21,21,,0
+1,颜色,3512,22,22,,0
+1,颜色,3513,23,23,,0
+1,颜色,3514,24,24,,0
+1,颜色,3515,15,15,,0
+1,颜色,3516,17,17,,0
+1,颜色,3520,winered,winered,,0
+2,尺码,10,S,S,,0
+2,尺码,11,M,M,,0
+2,尺码,12,L,L,,0
+2,尺码,13,XL,XL,,0
+2,尺码,15,2XL,2XL,,0
+2,尺码,17,3XL,3XL,,0
+2,尺码,18,4XL,4XL,,0
+2,尺码,19,5XL,5XL,,0
+2,尺码,41,One Size,OneSize,,0
+2,尺码,267,US 4.5,US4.5,,0
+2,尺码,268,US 5,US5,,0
+2,尺码,269,US 6,US6,,0
+2,尺码,270,US 7,US7,,0
+2,尺码,272,US 8,US8,,0
+2,尺码,273,US 9,US9,,0
+2,尺码,274,US 10,US10,,0
+2,尺码,275,US 11,US11,,0
+2,尺码,281,6XL,6XL,,0
+2,尺码,282,7XL,7XL,,0
+2,尺码,283,US 12,US12,,0
+2,尺码,284,US 13,US13,,0
+2,尺码,285,US 14,US14,,0
+2,尺码,286,US 15,US15,,0
+2,尺码,287,XS,XS,,0
+2,尺码,288,US 5.5,US5.5,,0
+2,尺码,289,US 6.5,US6.5,,0
+2,尺码,290,US 7.5,US7.5,,0
+2,尺码,291,US 8.5,US8.5,,0
+2,尺码,292,US 9.5,US9.5,,0
+2,尺码,293,US 10.5,US10.5,,0
+2,尺码,294,5cm*5m,5cm*5m,,0
+2,尺码,295,A,A,,0
+2,尺码,296,B,B,,0
+2,尺码,297,C,C,,0
+2,尺码,298,D,D,,0
+2,尺码,304,95,95,,0
+2,尺码,310,30cm,30cm,,0
+2,尺码,311,40cm,40cm,,0
+2,尺码,312,50cm,50cm,,0
+2,尺码,313,60cm,60cm,,0
+2,尺码,314,80cm,80cm,,0
+2,尺码,315,95cm,95cm,,0
+2,尺码,320,S-M,S-M,,0
+2,尺码,321,L-XL,L-XL,,0
+2,尺码,322,UK 2,UK2,,0
+2,尺码,323,UK 3,UK3,,0
+2,尺码,324,UK 4,UK4,,0
+2,尺码,325,UK 5,UK5,,0
+2,尺码,326,UK 6,UK6,,0
+2,尺码,327,UK 7,UK7,,0
+2,尺码,328,UK 8,UK8,,0
+2,尺码,329,UK 9,UK9,,0
+2,尺码,330,UK 10,UK10,,0
+2,尺码,331,UK 11,UK11,,0
+2,尺码,332,UK 12,UK12,,0
+2,尺码,371,1m,1m,,0
+2,尺码,372,2m,2m,,0
+2,尺码,391,UK 6.5,UK6.5,,0
+2,尺码,396,UK3-UK4,UK3UK4,,0
+2,尺码,397,UK5-UK6,UK5UK6,,0
+2,尺码,398,UK7-UK8,UK7UK8,,0
+2,尺码,399,UK4-UK5,UK4UK5,,0
+2,尺码,400,UK6-UK7,UK6UK7,,0
+2,尺码,401,UK8-UK9,UK8UK9,,0
+2,尺码,402,UK9-UK10,UK9UK10,,0
+2,尺码,403,UK10-UK11,UK10UK11,,0
+2,尺码,404,UK11-UK12,UK11UK12,,0
+2,尺码,405,UK2-UK3,UK2UK3,,0
+2,尺码,437,1M/Cigarette lighter socket,1M#Cigarette lighter socket,,0
+2,尺码,474,UK4.5,UK4.5,,0
+2,尺码,475,UK5.5,UK5.5,,0
+2,尺码,476,UK7.5,UK7.5,,0
+2,尺码,477,UK8.5,UK8.5,,0
+2,尺码,478,UK9.5,UK9.5,,0
+2,尺码,496,E,E,,0
+2,尺码,559,59 (1-3M),59,,0
+2,尺码,560,66 (3-6M),66,,0
+2,尺码,561,73 (6-9M),73,,0
+2,尺码,562,80 (9-12M),80,,0
+2,尺码,563,90 (1-2Y),90,,0
+2,尺码,564,100 (3-4Y),100,,0
+2,尺码,565,110 (4-5Y),110,,0
+2,尺码,566,120 (5-6Y),120,,0
+2,尺码,567,130 (7-8Y),130,,0
+2,尺码,568,140 (9-10Y),140,,0
+2,尺码,569,150 (11-12Y),150,,0
+2,尺码,572,160  (13-14Y),160,,0
+2,尺码,699,0.5m,0.5m,,0
+2,尺码,700,3m,3m,,0
+2,尺码,709,No. 8,No. 8,,0
+2,尺码,711,No. 9,No. 9,,0
+2,尺码,712,No. 10,No. 10,,0
+2,尺码,713,No. 11,No. 11,,0
+2,尺码,714,No. 12,No. 12,,0
+2,尺码,738,1.8M,1.8M,,0
+2,尺码,740,24-25,24-25,,0
+2,尺码,741,26-27,26-27,,0
+2,尺码,742,28-29,28-29,,0
+2,尺码,743,30-31,30-31,,0
+2,尺码,744,32-33,32-33,,0
+2,尺码,745,34-35,34-35,,0
+2,尺码,753,22-23,22-23,,0
+2,尺码,779,25,25,,0
+2,尺码,780,26,26,,0
+2,尺码,781,27,27,,0
+2,尺码,782,28,28,,0
+2,尺码,783,29,29,,0
+2,尺码,784,30,30,,0
+2,尺码,785,31,31,,0
+2,尺码,786,32,32,,0
+2,尺码,789,8XL,8XL,,0
+2,尺码,809,13.3 inch,13.3 inch,,0
+2,尺码,810,14.1-15.4 inch,14.1-15.4 inch,,0
+2,尺码,811,15.6 inch,15.6 inch,,0
+2,尺码,812,11.6-12.5 inch,11.6-12.5 inch,,0
+2,尺码,1457,70cm,70cm,,0
+2,尺码,1458,90cm,90cm,,0
+2,尺码,1459,100cm,100cm,,0
+2,尺码,1466,110cm,110cm,,0
+2,尺码,1467,120cm,120cm,,0
+2,尺码,1468,130cm,130cm,,0
+2,尺码,1577,21,21,,0
+2,尺码,1578,22,22,,0
+2,尺码,1579,23,23,,0
+2,尺码,1580,24,24,,0
+2,尺码,1629,15,15,,0
+2,尺码,1630,16,16,,0
+2,尺码,1631,17,17,,0
+2,尺码,1632,18,18,,0
+2,尺码,1633,19,19,,0
+2,尺码,1640,20,20,,0
+2,尺码,2057,44/45,44/45,,0
+2,尺码,2313,45kg-53kg,45kg-53kg,,0
+2,尺码,2314,53kg-60kg,53kg-60kg,,0
+2,尺码,2315,60kg-66kg,60kg-66kg,,0
+2,尺码,2316,66kg-72kg,66kg-72kg,,0
+2,尺码,3530,XXS,XXS,,0
+2,尺码,3574,coffee pants,coffee pants,,0
+3,品类,52,上衣,上衣,,0
+3,品类,53,连衣裙,连衣裙,,0
+3,品类,54,半裙,半裙,,0
+3,品类,55,裤子,裤子,,0
+3,品类,90,套装,套装,,0
+3,品类,100,开衫,kais,,0
+3,品类,102,短裙,mini,,0
+3,品类,103,中长裙,midi,,0
+3,品类,104,长裙,maxi,,0
+3,品类,107,外套,wait,,0
+3,品类,108,毛衣,maoy,,0
+3,品类,115,连体裤,lian,,0
+3,品类,171,马甲,maji,,0
+3,品类,179,卫衣,weiy,,0
+3,品类,212,饰品,ship,,0
+3,品类,233,男装外套,nanz,,0
+3,品类,234,男装上衣,nanz,,0
+3,品类,235,男装裤子,nanz,,0
+3,品类,236,男装套装,nanz,,0
+3,品类,252,鞋子,xiez,,0
+3,品类,255,泳装,yong,,0
+3,品类,333,男鞋,男鞋,,0
+3,品类,334,女鞋,女鞋,,0
+3,品类,747,居家,jujia,,0
+3,品类,748,童装,tongzhuang,,0
+3,品类,749,童鞋,tongxie,,0
+3,品类,750,玩具,wanju,,0
+3,品类,751,数码,shuma,,0
+3,品类,752,睡衣,shuiyi,,0
+3,品类,1471,箱包,xiangbao,,0
+3,品类,1472,美妆+工具,meizhuang,,0
+3,品类,1474,内衣,内衣,,0
+3,品类,1550,假发,jiafa,,0
+3,品类,1557,女性护理,女性护理,,0
+3,品类,1576,宠物用品,宠物用品,,0
+4,风格,56,休闲,xiux,,0
+4,风格,58,度假,duji,,0
+4,风格,59,复古,fugu,,0
+4,风格,61,秀场,xiuc,,0
+4,风格,62,礼服,lifu,,0
+4,风格,111,名媛,ming,,0
+4,风格,4357,通勤,tongqing,,0
+4,风格,4358,街头,jietou,,0
+4,风格,4359,中式,zhongshi,,0
+4,风格,4360,碎花,suihua,,0
+4,风格,4361,性感,xinggan,,0
+4,风格,4362,优雅,youya,,0
+4,风格,4363,甜美,tianmei,,0
+5,流行元素,63,boho,boho,,0
+5,流行元素,64,动物纹,dong,,0
+5,流行元素,65,撞色,zhua,,0
+5,流行元素,66,扎染,zhar,,0
+5,流行元素,67,渐变,jian,,0
+5,流行元素,68,拼接,pinj,,0
+5,流行元素,69,图腾,tute,,0
+5,流行元素,70,刺绣,cixi,,0
+5,流行元素,71,印花,yinh,,0
+5,流行元素,72,条纹,tiao,,0
+5,流行元素,73,格纹,gewe,,0
+5,流行元素,74,蕾丝,leis,,0
+5,流行元素,75,流苏,lius,,0
+5,流行元素,76,棉麻,mian,,0
+5,流行元素,77,牛仔,niuz,,0
+5,流行元素,78,缎面,duan,,0
+5,流行元素,79,A字型,azix,,0
+5,流行元素,80,H型,hxin,,0
+5,流行元素,81,X型,xxin,,0
+5,流行元素,82,S型,sxin,,0
+5,流行元素,83,O型,o型,,0
+5,流行元素,84,不对称,budu,,0
+5,流行元素,91,两件套,suit,,0
+5,流行元素,92,运动,yund,,0
+5,流行元素,96,波点,bodi,,0
+5,流行元素,99,素色,suse,,0
+5,流行元素,110,丝 绒,si r,,0
+5,流行元素,176,彩色,cais,,0
+5,流行元素,180,字母,zimu,,0
+5,流行元素,219,不规则,bugu,,0
+5,流行元素,253,百褶,baiz,,0
+5,流行元素,254,泡泡袖,paop,,0
+6,面料,85,混纺,hunf,,0
+6,面料,86,涤纶,dilu,,0
+6,面料,88,呢料,nili,,0
+6,面料,89,棉 麻,mian,,0
+6,面料,93,针织,knit,,0
+6,面料,94,雪纺,xuef,,0
+6,面料,95,锻面,duan,,0
+6,面料,97,棉,Cott,,0
+6,面料,98,仿牛仔,fang,,0
+6,面料,101,蕾 丝,lace,,0
+6,面料,105,牛 仔,niuz,,0
+6,面料,109,丝绒,siro,,0
+6,面料,112,灯芯绒,deng,,0
+6,面料,113,弹力布,tanl,,0
+6,面料,116,绒面,rong,,0
+6,面料,117,鹿皮绒,lupi,,0
+6,面料,170,PU皮,pu,,0
+6,面料,172,毛织,maoz,,0
+6,面料,178,皮草,pica,,0
+6,面料,210,麂皮,jipi,,0
+6,面料,222,网纱,wang,,0
+6,面料,223,羊羔毛,yang,,0
+6,面料,240,法兰绒,fala,,0
+6,面料,279,竹节麻,bamboo,,0
+13,Colour,937,Rose,Rose,,0
+13,Colour,938,Pink,Pink,,0
+13,Colour,939,Yellow,Yellow,,0
+13,Colour,940,Lemon Yellow,LemonYellow,,0
+13,Colour,941,Orange,Orange,,0
+13,Colour,942,Blue,Blue,,0
+13,Colour,943,Green,Green,,0
+13,Colour,944,Chartreuse,Chartreuse,,0
+13,Colour,945,Purple,Purple,,0
+13,Colour,946,Black,Black,,0
+13,Colour,947,White,White,,0
+13,Colour,948,Gold,Gold,,0
+13,Colour,949,Silver,Silver,,0
+13,Colour,950,Khaki,Khaki,,0
+13,Colour,951,Apricot,Apricot,,0
+13,Colour,952,Brown,Brown,,0
+13,Colour,953,Gray,Gray,,0
+13,Colour,954,Camouflage,Camouflage,,0
+13,Colour,955,Multicolor,Multicolor,,0
+13,Colour,956,Same As Photo,SameAsPhoto,,0
+13,Colour,957,Leopard,Leopard,,0
+13,Colour,958,Dark blue,Darkblue,,0
+13,Colour,959,Light blue,Lightblue,,0
+13,Colour,960,Dark green,DarkGreen,,0
+13,Colour,961,Light green,Lightgreen,,0
+13,Colour,962,Beige,Beige,,0
+13,Colour,963,Wine red,Winered,,0
+13,Colour,964,Coffee,Coffee,,0
+13,Colour,965,champagne,champagne,,0
+13,Colour,966,1,1,,0
+13,Colour,967,2,2,,0
+13,Colour,968,3,3,,0
+13,Colour,969,4,4,,0
+13,Colour,970,5,5,,0
+13,Colour,971,Deep brown,Deepbrown,,0
+13,Colour,972,Camel,Camel,,0
+13,Colour,973,Caramel,Caramel,,0
+13,Colour,974,Dark gray,Darkgray,,0
+13,Colour,975,6,6,,0
+13,Colour,976,7,7,,0
+13,Colour,977,8,8,,0
+13,Colour,978,9,9,,0
+13,Colour,979,10,10,,0
+13,Colour,980,Brick red,Brickred,,0
+13,Colour,981,Light gray,Lightgray,,0
+13,Colour,982,Red,Red,,0
+13,Colour,983,Navy blue,Navy blue,,0
+13,Colour,984,ZTJ339-1#,ZTJ339-1#,,0
+13,Colour,985,ZTJ339-3#,ZTJ339-3#,,0
+13,Colour,986,ZTJ339-4#,ZTJ339-4#,,0
+13,Colour,987,ZTJ339-2#,ZTJ339-2#,,0
+13,Colour,988,Light Pink,Light Pink,,0
+13,Colour,989,Slot peep,Slot peep,,0
+13,Colour,990,Fine hole peep,Fine hole peep,,0
+13,Colour,991,Rose gold,Rosegold,,0
+13,Colour,992,White colorhair,Whitecolorhair,,0
+13,Colour,993,Green colorhair,Greencolorhair,,0
+13,Colour,994,Black colorhair,Blackcolorhair,,0
+13,Colour,995,Brown colorhair,Browncolorhair,,0
+13,Colour,996,Nude,nude,,0
+13,Colour,1001,ArmyGreen,ArmyGreen,,0
+13,Colour,1002,Red Painting,RedPainting,,0
+13,Colour,1003,White Painting,WhitePainting,,0
+13,Colour,1004,Black Painting,BlackPainting,,0
+13,Colour,1005,Right hand black,Right hand black,,0
+13,Colour,1006,Left hand black,Left hand black,,0
+13,Colour,1007,Light coffee,Lightcoffee,,0
+13,Colour,1008,Dark coffee,Darkcoffee,,0
+13,Colour,1010,Black & White Shuangpin,Black & White Shuangpin,,0
+13,Colour,1364,White & Black ShuangPin,WhiteBlackShuangPin,,0
+13,Colour,1365,Reddish brow,Reddishbrow,,0
+13,Colour,1366,Gray brown,Graybrown,,0
+13,Colour,1367,Light brow,Lightbrow,,0
+13,Colour,1368,701,701,,0
+13,Colour,1369,702,702,,0
+13,Colour,1370,703,703,,0
+13,Colour,1371,704,704,,0
+13,Colour,1372,705,705,,0
+13,Colour,1373,706,706,,0
+13,Colour,1374,707,707,,0
+13,Colour,1375,708,708,,0
+13,Colour,1376,501,501,,0
+13,Colour,1377,502,502,,0
+13,Colour,1378,503,503,,0
+13,Colour,1379,504,504,,0
+13,Colour,1380,505,505,,0
+13,Colour,1381,506,506,,0
+13,Colour,1382,507,507,,0
+13,Colour,1383,508,508,,0
+13,Colour,1386,Bread series,breadseries,,0
+13,Colour,1387,Chocolate series,Chocolateseries,,0
+13,Colour,1388,Donut Series,DonutSeries,,0
+13,Colour,1389,Ice Cream Series,IceCreamSeries,,0
+13,Colour,1390,314,314,,0
+13,Colour,1391,318,318,,0
+13,Colour,1392,320,320,,0
+13,Colour,1393,PD-20046A,PD-20046A,,0
+13,Colour,1394,PD-20046B,PD-20046B,,0
+13,Colour,1395,PD-20046C,PD-20046C,,0
+13,Colour,1396,ROSE QUARTZ,ROSE-QUARTZ,,0
+13,Colour,1397,Dark brown,darkbrown,,0
+13,Colour,1398,NUDE SHIMMER,NUDE-SHIMMER,,0
+13,Colour,1399,CHILI MAUVE,CHILI-MAUVE,,0
+13,Colour,1400,LOVE BRONZE,LOVE-BRONZE,,0
+13,Colour,1401,MEIHUA RED,MEIHUA-RED,,0
+13,Colour,1402,NOBLE GREY,NOBLE-GREY,,0
+13,Colour,1403,ORANGE PINK,ORANGE-PINK,,0
+13,Colour,1404,CLARET,CLARET,,0
+13,Colour,1406,5 colors,5colors,,0
+13,Colour,1410,mixed colors,mixed-colors,,0
+13,Colour,1411,black step feet,black-step-feet,,0
+13,Colour,1412,nude step feet,nude-step-feet,,0
+13,Colour,1413,black tights,black-tights,,0
+13,Colour,1414,nude tights,nude-tights,,0
+13,Colour,1417,Gradient purple pink,Gradient-purple-pink,,0
+13,Colour,1423,blue bear,blue-bear,,0
+13,Colour,1424,white bear,white-bear,,0
+13,Colour,1425,black bear,black-bear,,0
+13,Colour,1437,White-short sleeve,White-short sleeve,,0
+13,Colour,1438,Apricot-short sleeve,Apricot-short sleeve,,0
+13,Colour,1450,purple coat,purple-coat,,0
+13,Colour,1451,white coat,white-coat,,0
+13,Colour,1452,suspender skirt,suspender-skirt,,0
+13,Colour,1453,14,14,,0
+13,Colour,1456,41,41,,0
+13,Colour,1469,8 colors,8 colors,,0
+13,Colour,1470,10 pairs,10 pairs,,0
+13,Colour,1473,13,13,,0
+13,Colour,1475,11,11,,0
+13,Colour,1476,12,12,,0
+13,Colour,1509,A,A,,0
+13,Colour,1510,B,B,,0
+13,Colour,1511,C,C,,0
+13,Colour,1512,D,D,,0
+13,Colour,1539,Crew Neck-Black,Crew Neck-Black,,0
+13,Colour,1540,Crew Neck - White,Crew Neck-White,,0
+13,Colour,1541,V-Neck - White,V-Neck-White,,0
+13,Colour,1542,V Neck-Black,V-Neck-Black,,0
+13,Colour,1544,Transparent bottle-1,Transparent-bottle-1,,0
+13,Colour,1545,Transparent bottle-2,Transparent-bottle-2,,0
+13,Colour,1546,Transparent bottle-3,Transparent-bottle-3,,0
+13,Colour,1547,Frosted bottle-1,Frosted-bottle-1,,0
+13,Colour,1548,Frosted bottle-2,Frosted-bottle-2,,0
+13,Colour,1549,Frosted bottle-3,Frosted-bottle-3,,0
+13,Colour,1566,2 Piece Set - Green,2-Piece-Set-Green,,0
+13,Colour,1567,3 Piece Set - Green,3-Piece-Set-Green,,0
+13,Colour,1568,4 Piece Set - Green,4-Piece-Set-Green,,0
+13,Colour,1569,2 Piece Set - Grey,2-Piece-Set-Grey,,0
+13,Colour,1571,3 Piece Set - Grey,3-Piece-Set-Grey,,0
+13,Colour,1572,4 Piece Set - Grey,4-Piece-Set-Grey,,0
+13,Colour,1573,2 Piece Set - Blue,2-Piece-Set-Blue,,0
+13,Colour,1574,3 Piece Set - Blue,3-Piece-Set-Blue,,0
+13,Colour,1575,4 Piece Set - Blue,4-Piece-Set-Blue,,0
+13,Colour,1591,Light purple,Light-purple,,0
+13,Colour,1593,15,15,,0
+13,Colour,1594,16,16,,0
+13,Colour,1595,17,17,,0
+13,Colour,1596,18,18,,0
+13,Colour,1597,19,19,,0
+13,Colour,1598,20,20,,0
+13,Colour,1599,21,21,,0
+13,Colour,1600,22,22,,0
+13,Colour,1601,23,23,,0
+13,Colour,1602,24,24,,0
+13,Colour,1603,25,25,,0
+13,Colour,1604,26,26,,0
+13,Colour,1605,27,27,,0
+13,Colour,1606,28,28,,0
+13,Colour,1607,29,29,,0
+13,Colour,1608,30,30,,0
+13,Colour,1609,31,31,,0
+13,Colour,1610,32,32,,0
+13,Colour,1611,33,33,,0
+13,Colour,1612,34,34,,0
+13,Colour,1613,35,35,,0
+13,Colour,1614,36,36,,0
+13,Colour,1615,37,37,,0
+13,Colour,1616,38,38,,0
+13,Colour,1617,39,39,,0
+13,Colour,1618,40,40,,0
+13,Colour,1657,short skirt,Short-Skirt,,0
+13,Colour,1658,Long skirts,Long-Skirts,,0
+13,Colour,1659,black strips,black-strips,,0
+13,Colour,1676,601,601,,0
+13,Colour,1677,602,602,,0
+13,Colour,1678,603,603,,0
+13,Colour,1679,604,604,,0
+13,Colour,1680,605,605,,0
+13,Colour,1681,606,606,,0
+13,Colour,1682,Three Set-A,Three-Set-A,,0
+13,Colour,1683,Three Set-B,Three-Set-B,,0
+13,Colour,1684,801,801,,0
+13,Colour,1685,802,802,,0
+13,Colour,1686,803,803,,0
+13,Colour,1687,804,804,,0
+13,Colour,1688,805,805,,0
+13,Colour,1689,806,806,,0
+13,Colour,1690,807,807,,0
+13,Colour,1691,808,808,,0
+13,Colour,1692,20 colors,20-colors,,0
+13,Colour,1694,C01,C01,,0
+13,Colour,1695,C02,C02,,0
+13,Colour,1696,C03,C03,,0
+13,Colour,1697,C04,C04,,0
+13,Colour,1698,C05,C05,,0
+13,Colour,1699,35 colors,35-colors,,0
+13,Colour,1700,51,51,,0
+13,Colour,1701,53,53,,0
+13,Colour,1702,54,54,,0
+13,Colour,1703,55,55,,0
+13,Colour,1704,58,58,,0
+13,Colour,1705,101,101,,0
+13,Colour,1706,102,102,,0
+13,Colour,1707,103,103,,0
+13,Colour,1708,104,104,,0
+13,Colour,1709,105,105,,0
+13,Colour,1710,106,106,,0
+13,Colour,1711,107,107,,0
+13,Colour,1712,108,108,,0
+13,Colour,1713,Half-Sleeves-Blue,Half-Sleeves-Blue,,0
+13,Colour,1714,Half-Sleeves-Red,Half-Sleeves-Red,,0
+13,Colour,1715,Half-Sleeves-Rose,Half-Sleeves-Rose,,0
+13,Colour,1716,Half-Sleeves-Dark-blue,Half-Sleeves-Dark-blue,,0
+13,Colour,1717,Half-Sleeves-Wine-red,Half-Sleeves-Wine-red,,0
+13,Colour,1718,Half-Sleeves-Green,Half-Sleeves-Green,,0
+13,Colour,1719,Long skirt,Long-skirt,,0
+13,Colour,1722,Long Sleeve - Blue,Long-Sleeve-Blue,,0
+13,Colour,1723,Short Sleeve - Blue,Short-Sleeve-Blue,,0
+13,Colour,1724,Long Sleeve - Purple,Long-Sleeve-Purple,,0
+13,Colour,1725,Short Sleeve - Purple,Short-Sleeve-Purple,,0
+13,Colour,1726,42,42,,0
+13,Colour,1727,43,43,,0
+13,Colour,1728,44,44,,0
+13,Colour,1729,45,45,,0
+13,Colour,1730,46,46,,0
+13,Colour,1733,Black-Long Dress,Black-Long Dress,,0
+13,Colour,1734,Black-Short Dress,Black-Short Dress,,0
+13,Colour,1735,Blue-Long Dress,Blue-Long Dress,,0
+13,Colour,1736,Blue-Short Dress,Blue-Short Dress,,0
+13,Colour,1737,Green-Long Dress,Green-Long Dress,,0
+13,Colour,1738,Green-Short Dress,Green-Short Dress,,0
+13,Colour,1745,Light grey blue,Light grey blue,,0
+13,Colour,1753,Dress,Dress,,0
+13,Colour,1754,Top,Top,,0
+13,Colour,1755,Shorts,Shorts,,0
+13,Colour,1756,Trousers,Trousers,,0
+13,Colour,1757,Dark pink,Dark pink,,0
+13,Colour,1760,Free size,Free size,,0
+13,Colour,1765,Dress - Black,Dress - Black,,0
+13,Colour,1766,Jacket - Black,Jacket - Black,,0
+13,Colour,1767,Jacket - Grey,Jacket - Grey,,0
+13,Colour,1784,Grey blue,Grey blue,,0
+13,Colour,1785,Apricot skirt,Apricot skirt,,0
+13,Colour,1786,Black skirt,Black skirt,,0
+13,Colour,1787,Apricot top,Apricot top,,0
+13,Colour,1788,Black top,Black top,,0
+13,Colour,1789,Pink and White,Pink and White,,0
+13,Colour,1790,Jacket - White,Jacket - White,,0
+13,Colour,1791,Apricot blouse,Apricot blouse,,0
+13,Colour,1792,Brown blouse,Brown blouse,,0
+13,Colour,1793,Brown skirt,Brown skirt,,0
+13,Colour,1800,mint green,mint green,,0
+13,Colour,1803,1 - Long Sleeve - White,1 - Long Sleeve - White,,0
+13,Colour,1804,2 - Long Sleeve - White,2 - Long Sleeve - White,,0
+13,Colour,1805,1 - Short Sleeve - White,1 - Short Sleeve - White,,0
+13,Colour,1806,2 - Short Sleeve - White,2 - Short Sleeve - White,,0
+13,Colour,1807,1-Short Sleeve-Beige,1-Short Sleeve-Beige,,0
+13,Colour,1808,1-Long Sleeve-Beige,1-Long Sleeve-Beige,,0
+13,Colour,1809,2-Long Sleeve-Beige,2-Long Sleeve-Beige,,0
+13,Colour,1810,2-Short Sleeve-Beige,2-Short Sleeve-Beige,,0
+13,Colour,1813,white blouse+black skirt,white blouse+black skirt,,0
+13,Colour,1814,black blouse+white skirt,black blouse+white skirt,,0
+13,Colour,1815,apricot blouse+coffee skirt,apricot blouse+coffee skirt,,0
+13,Colour,1819,Cardigan,Cardigan,,0
+13,Colour,1820,Dress+Cardigan,Dress+Cardigan,,0
+13,Colour,1822,Lucky green,Lucky green,,0
+13,Colour,1823,Dark purple,Dark purple,,0
+13,Colour,1824,Apricot top + black skirt,Apricot top + black skirt,,0
+13,Colour,1825,Apricot Top + Apricot Skirt,Apricot Top + Apricot Skirt,,0
+13,Colour,1826,top + dress,top + dress,,0
+13,Colour,1827,pink top,pink top,,0
+13,Colour,1828,black shorts,black shorts,,0
+13,Colour,1832,Black top + green slip dress,Black top + green slip dress,,0
+13,Colour,1833,White top + black slip dress,White top + black slip dress,,0
+13,Colour,1834,light green top,light green top,,0
+13,Colour,1835,grey shorts,grey shorts,,0
+13,Colour,1836,Apricot shirt,Apricot shirt,,0
+13,Colour,1837,Brown suspender dress,Brown suspender dress,,0
+13,Colour,1838,Shirt+Skirt,Shirt+Skirt,,0
+13,Colour,1839,Shirt+Suspender dress,Shirt+Suspender dress,,0
+13,Colour,1840,Dress - Apricot,Dress - Apricot,,0
+13,Colour,1841,Jacket - Apricot,Jacket - Apricot,,0
+13,Colour,1844,Jumpsuit,Jumpsuit,,0
+13,Colour,1849,Orange Dress,Orange Dress,,0
+13,Colour,1850,white blouse,white blouse,,0
+13,Colour,1851,black blouse,black blouse,,0
+13,Colour,1852,Rose Dress,Rose Dress,,0
+13,Colour,1853,Suspender Dress,Suspender Dress,,0
+13,Colour,1854,Short sleeve long dress,Short sleeve long dress,,0
+13,Colour,1855,light yellow,light yellow,,0
+13,Colour,1856,light red,light red,,0
+13,Colour,1857,maroon,maroon,,0
+13,Colour,1871,DIY-Apricot,DIY-Apricot,,0
+13,Colour,1872,DIY-Black,DIY-Black,,0
+13,Colour,1873,DIY-White,DIY-White,,0
+13,Colour,1874,DIY-Brown,DIY-Brown,,0
+13,Colour,1875,DIY-Green,DIY-Green,,0
+13,Colour,1876,Coffee+Apricot,Coffee+Apricot,,0
+13,Colour,1877,Gray+Brown,Gray+Brown,,0
+13,Colour,1878,Apricot+Orange,Apricot+Orange,,0
+13,Colour,1879,Brown+Black,Brown+Black,,0
+13,Colour,1880,Orange+Beige,Orange+Beige,,0
+13,Colour,1881,Yellow+Green,Yellow+Green,,0
+13,Colour,1882,Apricot Shorts,Apricot Shorts,,0
+13,Colour,1883,shirt + shorts,shirt + shorts,,0
+13,Colour,1884,Pink Flower,Pink Flower,,0
+13,Colour,1887,White top,White top,,0
+13,Colour,1888,Pants,Pants,,0
+13,Colour,1889,Apricot Cardigan+brown dress,Apricot Cardigan+brown dress,,0
+13,Colour,1890,Slip dress + black dress,Slip dress + black dress,,0
+13,Colour,1891,Slip dress,Slip dress,,0
+13,Colour,1892,black dress,black dress,,0
+13,Colour,1893,2 Piece Set-White,2 Piece Set-White,,0
+13,Colour,1894,2 Piece Set-Purple,2 Piece Set-Purple,,0
+13,Colour,1896,White top+white skirt,White top+white skirt,,0
+13,Colour,1897,White top+black skirt,White top+black skirt,,0
+13,Colour,1898,White top+blue skirt,White top+blue skirt,,0
+13,Colour,1899,Black top+white skirt,Black top+white skirt,,0
+13,Colour,1900,Black top+black skirt,Black top+black skirt,,0
+13,Colour,1901,Black top+blue skirt,Black top+blue skirt,,0
+13,Colour,1908,brown short,brown short,,0
+13,Colour,1909,grey short,grey short,,0
+13,Colour,1910,black short,black short,,0
+13,Colour,1911,brown long,brown long,,0
+13,Colour,1912,grey long,grey long,,0
+13,Colour,1913,black long,black long,,0
+13,Colour,1916,Coffee jacket + coffee dress,Coffee jacket + coffee dress,,0
+13,Colour,1917,black coat + dress,black coat + dress,,0
+13,Colour,1918,short sleeve,short sleeve,,0
+13,Colour,1919,sleeveless,sleeveless,,0
+13,Colour,1920,Khaki Vest + Short Skirt,Khaki Vest + Short Skirt,,0
+13,Colour,1921,Black Vest + Short Skirt,Black Vest + Short Skirt,,0
+13,Colour,1922,white shirt,white shirt,,0
+13,Colour,1923,black two piece set,black two piece set,,0
+13,Colour,1924,plaid two piece set,plaid two piece set,,0
+13,Colour,1925,Khaki two piece set,Khaki two piece set,,0
+13,Colour,1936,white skirt,white skirt,,0
+13,Colour,1937,pink dress,pink dress,,0
+13,Colour,1938,gray dress,gray dress,,0
+13,Colour,1939,pink cardigan,pink cardigan,,0
+13,Colour,1940,gray cardigan,gray cardigan,,0
+13,Colour,1941,brown top,brown top,,0
+13,Colour,1942,brown dress,brown dress,,0
+13,Colour,1943,Long Dress,Long Dress,,0
+13,Colour,1944,short dress,short dress,,0
+13,Colour,1947,Grey stripes,Grey stripes,,0
+13,Colour,1948,Red stripes,Red stripes,,0
+13,Colour,1950,black short sleeve dress,black short sleeve dress,,0
+13,Colour,1951,black slip dress,black slip dress,,0
+13,Colour,1952,grey slip dress,grey slip dress,,0
+13,Colour,1954,Grey Short Sleeve dress,Grey Short Sleeve dress,,0
+13,Colour,1956,Suits,Suits,,0
+13,Colour,1959,Black Fleece,Black Fleece,,0
+13,Colour,1960,White-black,White-black,,0
+13,Colour,1961,White-Multicolor,White-Multicolor,,0
+13,Colour,1962,White suit (short sleeve),White suit (short sleeve),,0
+13,Colour,1963,Black suit (short sleeve),Black suit (short sleeve),,0
+13,Colour,1964,Grey suit (short sleeve),Grey suit (short sleeve),,0
+13,Colour,1965,Red suit (short sleeve),Red suit (short sleeve),,0
+13,Colour,1966,Red suit (long sleeve),Red suit (long sleeve),,0
+13,Colour,1967,White suit (long sleeve),White suit (long sleeve),,0
+13,Colour,1968,Black suit (long sleeve),Black suit (long sleeve),,0
+13,Colour,1969,Grey Suit (Long Sleeves),Grey Suit (Long Sleeves),,0
+13,Colour,1972,purple top,purple top,,0
+13,Colour,1973,orange top,orange top,,0
+13,Colour,1974,yellow top,yellow top,,0
+13,Colour,1975,White shorts + belt,White shorts + belt,,0
+13,Colour,1976,Pink Shorts + Belt,Pink Shorts + Belt,,0
+13,Colour,1977,purple Shorts + Belt,purple Shorts + Belt,,0
+13,Colour,1978,orange shorts + belt,orange shorts + belt,,0
+13,Colour,1979,yellow  shorts + belt,yellow  shorts + belt,,0
+13,Colour,1980,plaid dress,plaid dress,,0
+13,Colour,1986,Black and White,Black and White,,0
+13,Colour,1987,Apricot and White,Apricot and White,,0
+13,Colour,1991,Khaki Long,Khaki Long,,0
+13,Colour,1992,Khaki Short,Khaki Short,,0
+13,Colour,1993,Gray top,Gray top,,0
+13,Colour,1995,khaki dress,khakidress,,0
+13,Colour,1996,Light Blue Top,Light Blue Top,,0
+13,Colour,1998,Light Blue Skirt,Light Blue Skirt,,0
+13,Colour,1999,black vest,black vest,,0
+13,Colour,2000,khaki vest,khaki vest,,0
+13,Colour,2001,Coffee Skirt,Coffee Skirt,,0
+13,Colour,2002,Coffee Top,Coffee Top,,0
+13,Colour,2012,green top,green top,,0
+13,Colour,2013,black pants,black pants,,0
+13,Colour,2014,green pants,green pants,,0
+13,Colour,2015,purple pants,purple pants,,0
+13,Colour,2016,grey pants,grey pants,,0
+13,Colour,2017,purple suit,purple suit,,0
+13,Colour,2018,grey suit,grey suit,,0
+13,Colour,2021,skirt,skirt,,0
+13,Colour,2022,suit,suit,,0
+13,Colour,2023,Black-1,Black-1,,0
+13,Colour,2024,Black-2,Black-2,,0
+13,Colour,2025,White-1,White-1,,0
+13,Colour,2026,White-2,White-2,,0
+13,Colour,2027,White-3,White-3,,0
+13,Colour,2028,White-4,White-4,,0
+13,Colour,2029,Black-3,Black-3,,0
+13,Colour,2030,Black-4,Black-4,,0
+13,Colour,2031,Red long,Red long,,0
+13,Colour,2032,Red short,Red short,,0
+13,Colour,2033,White long,White long,,0
+13,Colour,2034,White short,White short,,0
+13,Colour,2035,pink skirt,pink skirt,,0
+13,Colour,2036,green skirt,green skirt,,0
+13,Colour,2039,blue top,blue top,,0
+13,Colour,2040,blue skirt,blue skirt,,0
+13,Colour,2041,Long Sleeve White,Long Sleeve White,,0
+13,Colour,2042,Long Sleeve Grey,Long Sleeve Grey,,0
+13,Colour,2043,Long Sleeve Black,Long Sleeve Black,,0
+13,Colour,2044,Short Sleeve Black,Short Sleeve Black,,0
+13,Colour,2045,Short Sleeve White,Short Sleeve White,,0
+13,Colour,2046,Short Sleeve Grey,Short Sleeve Grey,,0
+13,Colour,2047,Long Sleeve Beige,Long Sleeve Beige,,0
+13,Colour,2048,brown cardigan,brown cardigan,,0
+13,Colour,2049,white cardigan,white cardigan,,0
+13,Colour,2050,brown vest,brown vest,,0
+13,Colour,2051,rose Red,rose Red,,0
+13,Colour,2053,Grey sweater + black skirt,Grey sweater + black skirt,,0
+13,Colour,2054,Black sweater + orange skirt,Black sweater + orange skirt,,0
+13,Colour,2055,Caramel Sweater + Black Skirt,Caramel Sweater + Black Skirt,,0
+13,Colour,2056,Apricot Sweater +Caramel Skirt,Apricot Sweater +Caramel Skirt,,0
+13,Colour,2058,Royal blue,Royal blue,,0
+13,Colour,2059,white suit,white suit,,0
+13,Colour,2060,white pants,white pants,,0
+13,Colour,2072,Black Suit,Black Suit,,0
+13,Colour,2081,Apricot Black Suit,Apricot Black Suit,,0
+13,Colour,2082,Apricot Suit,Apricot Suit,,0
+13,Colour,2083,Khaki Black Suit,Khaki Black Suit,,0
+13,Colour,2084,Khaki Suit,Khaki Suit,,0
+13,Colour,2085,white blazer,white blazer,,0
+13,Colour,2086,red blazer,red blazer,,0
+13,Colour,2087,red pants,red pants,,0
+13,Colour,2088,white vest,white vest,,0
+13,Colour,2089,red vest,red vest,,0
+13,Colour,2096,Red-Long Dress,Red-Long Dress,,0
+13,Colour,2097,Red-Short Dress,Red-Short Dress,,0
+13,Colour,2098,Coffee Short Dress,Coffee Short Dress,,0
+13,Colour,2099,Coffee Long Dress,Coffee Long Dress,,0
+13,Colour,2100,Black Long Dress,Black Long Dress,,0
+13,Colour,2101,Black Short Dress,Black Short Dress,,0
+13,Colour,2102,Gray green,Gray green,,0
+13,Colour,2103,Black PU,Black PU,,0
+13,Colour,2104,Pattern black,Pattern black,,0
+13,Colour,2105,Woven black,Woven black,,0
+13,Colour,2106,Black plaid,Black plaid,,0
+13,Colour,2107,Bright color,Bright color,,0
+13,Colour,2109,Checkered Pattern 1,Checkered Pattern 1,,0
+13,Colour,2110,Checkered Pattern 2,Checkered Pattern 2,,0
+13,Colour,2111,Oxford Cloth,Oxford Cloth,,0
+13,Colour,2112,Plaid,Plaid,,0
+13,Colour,2113,Black + Coffee,Black + Coffee,,0
+13,Colour,2114,Oval,Oval,,0
+13,Colour,2124,Coffee2,Coffee2,,0
+13,Colour,2125,Brown1,Brown1,,0
+13,Colour,2126,Brown2,Brown2,,0
+13,Colour,2127,brown green,brown green,,0
+13,Colour,2128,Red brown,Red brown,,0
+13,Colour,2129,Short Sleeve Silver,Short Sleeve Silver,,0
+13,Colour,2130,Long Sleeve Silver,Long Sleeve Silver,,0
+13,Colour,2131,Short Sleeve Champagne Gold,Short Sleeve Champagne Gold,,0
+13,Colour,2132,Long Sleeve Champagne Gold,Long Sleeve Champagne Gold,,0
+13,Colour,2133,Short Sleeve Green,Short Sleeve Green,,0
+13,Colour,2134,Long Sleeve Green,Long Sleeve Green,,0
+13,Colour,2135,Short Sleeve Gold,Short Sleeve Gold,,0
+13,Colour,2136,Long Sleeve Gold,Long Sleeve Gold,,0
+13,Colour,2137,Black(Regular Length),Black(Regular Length),,0
+13,Colour,2138,Black(Extended Length),Black(Extended Length),,0
+13,Colour,2139,Black(Extra Length),Black(Extra Length),,0
+13,Colour,2140,White(Regular Length),White(Regular Length),,0
+13,Colour,2141,White(Extended Length),White(Extended Length),,0
+13,Colour,2143,Coffee1,Coffee1,,0
+13,Colour,2144,Coffee3,Coffee3,,0
+13,Colour,2145,Coffee4,Coffee4,,0
+13,Colour,2146,Gray1,Gray1,,0
+13,Colour,2147,Gray2,Gray2,,0
+13,Colour,2148,Gray3,Gray3,,0
+13,Colour,2149,Printed Plaid,Printed Plaid,,0
+13,Colour,2150,Mocha,Mocha,,0
+13,Colour,2153,Red1,Red1,,0
+13,Colour,2154,Red2,Red2,,0
+13,Colour,2155,light brown,light brown,,0
+13,Colour,2156,Khaki2,Khaki2,,0
+13,Colour,2162,Beige-one piece,Beige-one piece,,0
+13,Colour,2163,Black-one piece,Black-one piece,,0
+13,Colour,2164,Beige Split,Beige Split,,0
+13,Colour,2165,Black Split,Black Split,,0
+13,Colour,2175,Blue1,Blue1,,0
+13,Colour,2176,Blue2,Blue2,,0
+13,Colour,2177,Army green1,Army green1,,0
+13,Colour,2178,Army green2,Army green2,,0
+13,Colour,2179,Dark greyk05,Dark greyk05,,0
+13,Colour,2180,Dark greyk98,Dark greyk98,,0
+13,Colour,2181,Light grey,Light grey,,0
+13,Colour,2182,Black cropped pants,Black cropped pants,,0
+13,Colour,2184,Blue cropped pants,Blue cropped pants,,0
+13,Colour,2188,Black trousers,Black trousers,,0
+13,Colour,2189,Blue trousers,Blue trousers,,0
+13,Colour,2192,Dark grey,Dark grey,,0
+13,Colour,2193,High Waist,High Waist,,0
+13,Colour,2194,Low Waist,Low Waist,,0
+13,Colour,2195,Low Waist + Coat,Low Waist + Coat,,0
+13,Colour,2196,High Waist + Coat,High Waist + Coat,,0
+13,Colour,2197,black1,black1,,0
+13,Colour,2198,black2,black2,,0
+13,Colour,2199,black3,black3,,0
+13,Colour,2200,white1,white1,,0
+13,Colour,2201,white2,white2,,0
+13,Colour,2202,white3,white3,,0
+13,Colour,2203,Blue3,Blue3,,0
+13,Colour,2204,Green 1,Green 1,,0
+13,Colour,2205,Green 2,Green 2,,0
+13,Colour,2206,Green 3,Green 3,,0
+13,Colour,2207,Dark grey1,Dark grey1,,0
+13,Colour,2208,Dark grey2,Dark grey2,,0
+13,Colour,2209,Dark grey3,Dark grey3,,0
+13,Colour,2210,Pink 1,Pink 1,,0
+13,Colour,2211,Pink 2,Pink 2,,0
+13,Colour,2212,Brown3,Brown3,,0
+13,Colour,2213,Brown4,Brown4,,0
+13,Colour,2214,Black 4,Black 4,,0
+13,Colour,2217,Canvas Khaki,Canvas Khaki,,0
+13,Colour,2218,PU Black,PU Black,,0
+13,Colour,2219,PU Khaki,PU Khaki,,0
+13,Colour,2220,PU Gray,PU Gray,,0
+13,Colour,2221,Pink Short Dress,Pink Short Dress,,0
+13,Colour,2222,Pink Long Dress,Pink Long Dress,,0
+13,Colour,2227,green+purple,green+purple,,0
+13,Colour,2228,purple + purple,purple + purple,,0
+13,Colour,2229,black+black,black+black,,0
+13,Colour,2230,green+black,green+black,,0
+13,Colour,2231,green+blue,green+blue,,0
+13,Colour,2232,purple+black,purple+black,,0
+13,Colour,2233,Coffee (without belt),Coffee (without belt),,0
+13,Colour,2234,Coffee (with belt),Coffee (with belt),,0
+13,Colour,2235,One Piece Black Jacket,One Piece Black Jacket,,0
+13,Colour,2236,One piece dress,One piece dress,,0
+13,Colour,2237,Coat + Dress,Coat + Dress,,0
+13,Colour,2238,Black + Wallet,Black + Wallet,,0
+13,Colour,2239,Brown + Wallet,Brown + Wallet,,0
+13,Colour,2240,Red-brown,Red-brown,,0
+13,Colour,2241,Red-brown  no accessories,Red-brown  no accessories,,0
+13,Colour,2242,Brown no accessories,Brown no accessories,,0
+13,Colour,2243,Black no accessories,Black no accessories,,0
+13,Colour,2244,Green no accessories,Green no accessories,,0
+13,Colour,2245,Light gold,Light gold,,0
+13,Colour,2246,Khaki (with pendant),Khaki (with pendant),,0
+13,Colour,2247,Khaki (no pendant),Khaki (no pendant),,0
+13,Colour,2248,Black (with pendant),Black (with pendant),,0
+13,Colour,2249,Blue (with pendant),Blue (with pendant),,0
+13,Colour,2250,Black (no pendant),Black (no pendant),,0
+13,Colour,2251,Blue (no pendant),Blue (no pendant),,0
+13,Colour,2252,Long Sleeve Apricot,Long Sleeve Apricot,,0
+13,Colour,2253,Short Sleeve Apricot,Short Sleeve Apricot,,0
+13,Colour,2256,Sage Green,Sage Green,,0
+13,Colour,2257,Green Lily,Green Lily,,0
+13,Colour,2258,Classic Green,Classic Green,,0
+13,Colour,2259,White (with pendant),White (with pendant),,0
+13,Colour,2264,gray coat,gray coat,,0
+13,Colour,2265,black coat,black coat,,0
+13,Colour,2266,Apricot coat,Apricot coat,,0
+13,Colour,2267,Light gray coat,Light gray coat,,0
+13,Colour,2270,red coffee color,red coffee color,,0
+13,Colour,2271,zebra,zebra,,0
+13,Colour,2272,jujube apricot,jujube apricot,,0
+13,Colour,2273,black apricot,black apricot,,0
+13,Colour,2274,camel apricot,camel apricot,,0
+13,Colour,2275,apple green,apple green,,0
+13,Colour,2276,Matcha green,Matcha green,,0
+13,Colour,2277,khaki  1,khaki  1,,0
+13,Colour,2278,khaki  2,khaki  2,,0
+13,Colour,2284,Apricot  2,Apricot  2,,0
+13,Colour,2287,shose,shose,,0
+13,Colour,2288,Khaki Top + Apricot Pants (With Belt),Khaki Top + Apricot Pants (Wit,,0
+13,Colour,2289,White Top + Black Pants (With Belt),White Top + Black Pants (With ,,0
+13,Colour,2292,Black Top + Khaki Pants (With Belt),Black Top + Khaki Pants (With ,,0
+13,Colour,2294,yellow-short,yellow-short,,0
+13,Colour,2295,yellow-long,yellow-long,,0
+13,Colour,2296,red-long,red-long,,0
+13,Colour,2297,red-short,red-short,,0
+13,Colour,2298,pink-short,pink-short,,0
+13,Colour,2299,pink-long,pink-long,,0
+13,Colour,2300,purple-short,purple-short,,0
+13,Colour,2301,purple-long,purple-long,,0
+13,Colour,2302,blue-long,blue-long,,0
+13,Colour,2303,blue-short,blue-short,,0
+13,Colour,2304,green-long,green-long,,0
+13,Colour,2305,orange-long,orange-long,,0
+13,Colour,2306,Black Top + Khaki Pants,Black Top + Khaki Pants,,0
+13,Colour,2307,White Top + Black Pants,White Top + Black Pants,,0
+13,Colour,2308,Black Top + White Pants,Black Top + White Pants,,0
+13,Colour,2309,nude pink,nude pink,,0
+13,Colour,2311,Blazer,Blazer,,0
+13,Colour,2312,Clothing Sets,Clothing Sets,,0
+13,Colour,2321,Apricot 1,Apricot 1,,0
+13,Colour,2392,2cm,2cm,,0
+13,Colour,2393,Three-piece set,Three-piece set,,0
+13,Colour,2394,Two-piece set,Two-piece set,,0
+13,Colour,2395,2-piece-set-apricot,2-piece-set-apricot,,0
+13,Colour,2396,3-piece-set-apricot,3-piece-set-apricot,,0
+13,Colour,3281,Same As Photo  1,Same As Photo  1,,0
+13,Colour,3282,Same As Photo 2,Same As Photo 2,,0
+13,Colour,3294,Turmeric,Turmeric,,0
+13,Colour,3296,Khaki1,Khaki1,,0
+13,Colour,3297,Grey1,Grey1,,0
+13,Colour,3303,rose pink,rose pink,,0
+13,Colour,3316,gray blue,gray blue,,0
+13,Colour,3317,Cardigan + Printed Top (2 sets),Cardigan + Printed Top (2 sets,,0
+13,Colour,3318,Knit cardigan,Knit cardigan,,0
+13,Colour,3319,Puff sleeve cardigan,Puff sleeve cardigan,,0
+13,Colour,3327,apricot long,apricot long,,0
+13,Colour,3328,apricot short,apricot short,,0
+13,Colour,3331,apricot pink,apricot pink,,0
+13,Colour,3427,Top (2 pieces),Top (2 pieces),,0
+13,Colour,3457,short sleeve dress,short sleeve dress,,0
+13,Colour,3458,long sleeved dress,long sleeved dress,,0
+13,Colour,3517,Rompers,Rompers,,0
+13,Colour,3571,gray purple,gray purple,,0
+13,Colour,3576,pink pants,pink pants,,0
+13,Colour,3577,coffee pants,coffee pants,,0
+13,Colour,3581,tanah,tanah,,0
+13,Colour,3593,Hazelnut,Hazelnut,,0
+13,Colour,4297,A,A,,0
+13,Colour,4298,B,B,,0
+13,Colour,4299,C,C,,0
+13,Colour,4300,D,D,,0
+13,Colour,4301,E,E,,0
+13,Colour,4302,F,F,,0
+13,Colour,4303,G,G,,0
+13,Colour,4304,H,H,,0
+13,Colour,4305,I,I,,0
+13,Colour,4306,J,J,,0
+13,Colour,4307,K,K,,0
+13,Colour,4308,L,L,,0
+13,Colour,4309,M,M,,0
+13,Colour,4310,N,N,,0
+13,Colour,4311,O,O,,0
+13,Colour,4312,P,P,,0
+13,Colour,4313,Q,Q,,0
+13,Colour,4314,R,R,,0
+13,Colour,4315,S,S,,0
+13,Colour,4316,T,T,,0
+13,Colour,4317,U,U,,0
+13,Colour,4318,V,V,,0
+13,Colour,4319,W,W,,0
+13,Colour,4320,X,X,,0
+13,Colour,4321,Y,Y,,0
+13,Colour,4322,Z,Z,,0
+14,Specification,1011,S,S,,0
+14,Specification,1012,M,M,,0
+14,Specification,1013,L,L,,0
+14,Specification,1014,XL,XL,,0
+14,Specification,1015,2XL,2XL,,0
+14,Specification,1016,3XL,3XL,,0
+14,Specification,1017,4XL,4XL,,0
+14,Specification,1018,5XL,5XL,,0
+14,Specification,1019,One Size,OneSize,,0
+14,Specification,1020,US 4.5,US4.5,,0
+14,Specification,1021,US 5,US5,,0
+14,Specification,1022,US 6,US6,,0
+14,Specification,1023,US 7,US7,,0
+14,Specification,1024,US 8,US8,,0
+14,Specification,1025,US 9,US9,,0
+14,Specification,1026,US 10,US10,,0
+14,Specification,1027,US 11,US11,,0
+14,Specification,1028,6XL,6XL,,0
+14,Specification,1029,7XL,7XL,,0
+14,Specification,1030,US 12,US12,,0
+14,Specification,1031,US 13,US13,,0
+14,Specification,1032,US 14,US14,,0
+14,Specification,1033,US 15,US15,,0
+14,Specification,1034,XS,XS,,0
+14,Specification,1035,US 5.5,US5.5,,0
+14,Specification,1036,US 6.5,US6.5,,0
+14,Specification,1037,US 7.5,US7.5,,0
+14,Specification,1038,US 8.5,US8.5,,0
+14,Specification,1039,US 9.5,US9.5,,0
+14,Specification,1040,US 10.5,US10.5,,0
+14,Specification,1041,5cm*5m,5cm*5m,,0
+14,Specification,1042,A,A,,0
+14,Specification,1043,B,B,,0
+14,Specification,1044,C,C,,0
+14,Specification,1045,D,D,,0
+14,Specification,1046,95,95,,0
+14,Specification,1047,30cm,30cm,,0
+14,Specification,1048,40cm,40cm,,0
+14,Specification,1049,50cm,50cm,,0
+14,Specification,1050,60cm,60cm,,0
+14,Specification,1051,80cm,80cm,,0
+14,Specification,1052,95cm,95cm,,0
+14,Specification,1053,S-M,S-M,,0
+14,Specification,1054,L-XL,L-XL,,0
+14,Specification,1055,UK 2,UK2,,0
+14,Specification,1056,UK 3,UK3,,0
+14,Specification,1057,UK 4,UK4,,0
+14,Specification,1058,UK 5,UK5,,0
+14,Specification,1059,UK 6,UK6,,0
+14,Specification,1060,UK 7,UK7,,0
+14,Specification,1061,UK 8,UK8,,0
+14,Specification,1062,UK 9,UK9,,0
+14,Specification,1063,UK 10,UK10,,0
+14,Specification,1064,UK 11,UK11,,0
+14,Specification,1065,UK 12,UK12,,0
+14,Specification,1066,1m,1m,,0
+14,Specification,1067,2m,2m,,0
+14,Specification,1068,UK 6.5,UK6.5,,0
+14,Specification,1069,UK3-UK4,UK3UK4,,0
+14,Specification,1070,UK5-UK6,UK5UK6,,0
+14,Specification,1071,UK7-UK8,UK7UK8,,0
+14,Specification,1072,UK4-UK5,UK4UK5,,0
+14,Specification,1073,UK6-UK7,UK6UK7,,0
+14,Specification,1074,UK8-UK9,UK8UK9,,0
+14,Specification,1075,UK9-UK10,UK9UK10,,0
+14,Specification,1076,UK10-UK11,UK10UK11,,0
+14,Specification,1077,UK11-UK12,UK11UK12,,0
+14,Specification,1078,UK2-UK3,UK2UK3,,0
+14,Specification,1079,1M/Cigarette lighter socket,1M#Cigarette lighter socket,,0
+14,Specification,1080,UK4.5,UK4.5,,0
+14,Specification,1081,UK5.5,UK5.5,,0
+14,Specification,1082,UK7.5,UK7.5,,0
+14,Specification,1083,UK8.5,UK8.5,,0
+14,Specification,1084,UK9.5,UK9.5,,0
+14,Specification,1085,E,E,,0
+14,Specification,1086,59 (1-3M),59,,0
+14,Specification,1087,66 (3-6M),66,,0
+14,Specification,1088,73 (6-9M),73,,0
+14,Specification,1089,80 (9-12M),80,,0
+14,Specification,1090,90 (1-2Y),90,,0
+14,Specification,1091,100 (3-4Y),100,,0
+14,Specification,1092,110 (4-5Y),110,,0
+14,Specification,1093,120 (5-6Y),120,,0
+14,Specification,1094,130 (7-8Y),130,,0
+14,Specification,1095,140 (9-10Y),140,,0
+14,Specification,1096,150 (11-12Y),150,,0
+14,Specification,1097,160  (13-14Y),160,,0
+14,Specification,1098,0.5m,0.5m,,0
+14,Specification,1099,3m,3m,,0
+14,Specification,1100,No. 8,No. 8,,0
+14,Specification,1101,No. 9,No. 9,,0
+14,Specification,1102,No. 10,No. 10,,0
+14,Specification,1103,No. 11,No. 11,,0
+14,Specification,1104,No. 12,No. 12,,0
+14,Specification,1105,1.8M,1.8M,,0
+14,Specification,1106,24-25,24-25,,0
+14,Specification,1107,26-27,26-27,,0
+14,Specification,1108,28-29,28-29,,0
+14,Specification,1109,30-31,30-31,,0
+14,Specification,1110,32-33,32-33,,0
+14,Specification,1111,34-35,34-35,,0
+14,Specification,1112,22-23,22-23,,0
+14,Specification,1113,25,25,,0
+14,Specification,1114,26,26,,0
+14,Specification,1115,27,27,,0
+14,Specification,1116,28,28,,0
+14,Specification,1117,29,29,,0
+14,Specification,1118,30,30,,0
+14,Specification,1119,31,31,,0
+14,Specification,1120,32,32,,0
+14,Specification,1121,8XL,8XL,,0
+14,Specification,1122,13.3 inch,13.3 inch,,0
+14,Specification,1123,14.1-15.4 inch,14.1-15.4 inch,,0
+14,Specification,1124,15.6 inch,15.6 inch,,0
+14,Specification,1125,11.6-12.5 inch,11.6-12.5 inch,,0
+14,Specification,1405,3,3,,0
+14,Specification,1407,350ML,350ML,,0
+14,Specification,1408,10,10,,0
+14,Specification,1409,12,12,,0
+14,Specification,1415,30*30cm,30cm*30cm,,0
+14,Specification,1416,190CM*80CM,190CM*80CM,,0
+14,Specification,1418,710ML,710ML,,0
+14,Specification,1419,3 piece set,3-piece-set,,0
+14,Specification,1421,40*105cm,40*105cm,,0
+14,Specification,1422,bear doll,bear-doll,,0
+14,Specification,1434,F,F,,0
+14,Specification,1435,G,G,,0
+14,Specification,1436,H,H,,0
+14,Specification,1443,single,single,,0
+14,Specification,1444,Double,Double,,0
+14,Specification,1445,King,King,,0
+14,Specification,1446,Super king,Super king,,0
+14,Specification,1477,I,I,,0
+14,Specification,1478,J,J,,0
+14,Specification,1479,K,K,,0
+14,Specification,1480,N,N,,0
+14,Specification,1481,O,O,,0
+14,Specification,1482,P,P,,0
+14,Specification,1483,Q,Q,,0
+14,Specification,1484,R,R,,0
+14,Specification,1485,T,T,,0
+14,Specification,1486,U,U,,0
+14,Specification,1487,V,V,,0
+14,Specification,1488,W,W,,0
+14,Specification,1489,X,X,,0
+14,Specification,1490,Y,Y,,0
+14,Specification,1491,Z,Z,,0
+14,Specification,1495,3 sets (36 pcs),3sets (36 pcs),,0
+14,Specification,1496,5 sets (60 pcs),5sets (60 pcs),,0
+14,Specification,1497,6 sets (72 pcs),6sets (72 pcs),,0
+14,Specification,1498,5pcs,5pcs,,0
+14,Specification,1513,3 colors,3-colors,,0
+14,Specification,1514,iPhone13promax,iPhone13promax,,0
+14,Specification,1515,iPhone13,iPhone13,,0
+14,Specification,1516,iPhone13Pro,iPhone13Pro,,0
+14,Specification,1517,iPhone13mini,iPhone13mini,,0
+14,Specification,1528,iPhone12promax,iPhone12promax,,0
+14,Specification,1529,iPhone12pro,iPhone 12pro,,0
+14,Specification,1530,iPhone12,iPhone12,,0
+14,Specification,1531,iPhone12mini,iPhone12mini,,0
+14,Specification,1532,iPhone11promax,iPhone11promax,,0
+14,Specification,1533,iPhone11,iPhone11,,0
+14,Specification,1534,iPhone11pro,iPhone11pro,,0
+14,Specification,1535,iPhone XSMAX,iPhoneXSMAX,,0
+14,Specification,1536,iPhone XR,iPhoneXR,,0
+14,Specification,1537,iPhone X/XS,iPhoneX/XS,,0
+14,Specification,1543,1000ML,1000ML,,0
+14,Specification,1554,S+L+Folding Cup+Cleaning Brush+Set Cloth Bag,S+L+Folding-Cup+Cleaning-Brush,,0
+14,Specification,1555,2*S+foldable cup+cleaning brush+suit cloth bag,2*S+foldable-cup+cleaning-brus,,0
+14,Specification,1556,2*L+folding cup+cleaning brush+suit cloth bag,2*L+folding-cup+cleaning-brush,,0
+14,Specification,1558,12 color set + 1 spoon,12color-set+1spoon,,0
+14,Specification,1559,8 color set + 1 spoon,8color-set+1spoon,,0
+14,Specification,1563,Three Piece Set,Three-Piece-Set,,0
+14,Specification,1564,Four-piece set,Four-piece-set,,0
+14,Specification,1565,Two-piece set,Two-piece-set,,0
+14,Specification,1585,UK 13-UK 14,UK13-UK14,,0
+14,Specification,1586,UK 15-UK 16,UK15-UK16,,0
+14,Specification,1592,80*120cm,80*120cm,,0
+14,Specification,1619,180*70CM,180*70CM,,0
+14,Specification,1620,70*180CM,70*180CM,,0
+14,Specification,1621,55*180CM,55*180CM,,0
+14,Specification,1622,70*175CM,70*175CM,,0
+14,Specification,1643,135-175CM,135-175CM,,0
+14,Specification,1644,90*90CM,90*90CM,,0
+14,Specification,1648,Child-2,Child-2,,0
+14,Specification,1649,Child-1 (3-5 years old),Child-1 (3-5 years old),,0
+14,Specification,1650,Child-2 (5-7 years old),Child-2 (5-7 years old),,0
+14,Specification,1651,Child-3 (7-10 years old),Child-3 (7-10 years old),,0
+14,Specification,1656,180*90CM,180*90CM,,0
+14,Specification,1666,Twin,Twin,,0
+14,Specification,1667,Queen,Queen,,0
+14,Specification,1668,601,601,,0
+14,Specification,1669,602,602,,0
+14,Specification,1670,603,603,,0
+14,Specification,1671,604,604,,0
+14,Specification,1672,605,605,,0
+14,Specification,1673,606,606,,0
+14,Specification,1674,Three Set-A,Three-Set-A,,0
+14,Specification,1675,Three Set-B,Three-Set-B,,0
+14,Specification,1693,7 sets,7-sets,,0
+14,Specification,1720,UK2-13,UK2-13,,0
+14,Specification,1721,UK12-13,uk12-13,,0
+14,Specification,1731,180*110CM,180*110CM,,0
+14,Specification,1732,170*60CM,170*60CM,,0
+14,Specification,1762,Jacket - Grey,Jacket - Grey,,0
+14,Specification,1763,Jacket - Black,Jacket - Black,,0
+14,Specification,1764,Dress - Black,Dress - Black,,0
+14,Specification,1858,44-45,44-45,,0
+14,Specification,1859,Coffee+Apricot,Coffee+Apricot,,0
+14,Specification,1860,Gray+Brown,Gray+Brown,,0
+14,Specification,1861,Apricot+Orange,Apricot+Orange,,0
+14,Specification,1862,Brown+Black,Brown+Black,,0
+14,Specification,1863,Orange+Beige,Orange+Beige,,0
+14,Specification,1864,Yellow+Green,Yellow+Green,,0
+14,Specification,1994,khaki dress,khakidress,,0
+14,Specification,2158,blue small,blue small,,0
+14,Specification,2159,black small,black small,,0
+14,Specification,2160,black large,black large,,0
+14,Specification,2161,blue large,blue large,,0
+14,Specification,2215,Large size,Large size,,0
+14,Specification,2216,small size,small size,,0
+14,Specification,2254,pattern-1,pattern-1,,0
+14,Specification,2255,pattern-2,pattern-2,,0
+14,Specification,2263,Medium Size,Medium Size,,0
+14,Specification,2285,random size,random size,,0
+14,Specification,2390,2cm,2cm,,0
+14,Specification,2391,2.5cm,2.5cm,,0
+14,Specification,2397,791,791,,0
+14,Specification,2398,499,499,,0
+14,Specification,2399,185,185,,0
+14,Specification,2400,1,1,,0
+14,Specification,2401,2,2,,0
+14,Specification,2402,4,4,,0
+14,Specification,2403,5,5,,0
+14,Specification,2404,6,6,,0
+14,Specification,2405,7,7,,0
+14,Specification,2406,8,8,,0
+14,Specification,2407,9,9,,0
+14,Specification,2408,11,11,,0
+14,Specification,2409,13,13,,0
+14,Specification,2410,14,14,,0
+14,Specification,2411,15,15,,0
+14,Specification,2412,16,16,,0
+14,Specification,2413,17,17,,0
+14,Specification,2414,18,18,,0
+14,Specification,2415,19,19,,0
+14,Specification,2416,20,20,,0
+14,Specification,2417,21,21,,0
+14,Specification,2418,22,22,,0
+14,Specification,2419,23,23,,0
+14,Specification,2420,24,24,,0
+14,Specification,2421,33,33,,0
+14,Specification,2422,34,34,,0
+14,Specification,2423,35,35,,0
+14,Specification,2424,36,36,,0
+14,Specification,2425,37,37,,0
+14,Specification,2426,38,38,,0
+14,Specification,2427,39,39,,0
+14,Specification,2428,40,40,,0
+14,Specification,2429,41,41,,0
+14,Specification,2430,42,42,,0
+14,Specification,2431,43,43,,0
+14,Specification,2432,44,44,,0
+14,Specification,2433,45,45,,0
+14,Specification,2434,46,46,,0
+14,Specification,2435,47,47,,0
+14,Specification,2436,48,48,,0
+14,Specification,2437,49,49,,0
+14,Specification,2438,50,50,,0
+14,Specification,2439,51,51,,0
+14,Specification,2440,52,52,,0
+14,Specification,2441,53,53,,0
+14,Specification,2442,54,54,,0
+14,Specification,2443,55,55,,0
+14,Specification,2444,56,56,,0
+14,Specification,2445,57,57,,0
+14,Specification,2446,58,58,,0
+14,Specification,2447,59,59,,0
+14,Specification,2448,60,60,,0
+14,Specification,2449,61,61,,0
+14,Specification,2450,62,62,,0
+14,Specification,2451,63,63,,0
+14,Specification,2452,64,64,,0
+14,Specification,2453,65,65,,0
+14,Specification,2454,66,66,,0
+14,Specification,2455,67,67,,0
+14,Specification,2456,68,68,,0
+14,Specification,2457,69,69,,0
+14,Specification,2458,70,70,,0
+14,Specification,2459,71,71,,0
+14,Specification,2460,72,72,,0
+14,Specification,2461,73,73,,0
+14,Specification,2462,74,74,,0
+14,Specification,2463,75,75,,0
+14,Specification,2464,76,76,,0
+14,Specification,2465,77,77,,0
+14,Specification,2466,78,78,,0
+14,Specification,2467,79,79,,0
+14,Specification,2468,80,80,,0
+14,Specification,2469,81,81,,0
+14,Specification,2470,82,82,,0
+14,Specification,2471,83,83,,0
+14,Specification,2472,84,84,,0
+14,Specification,2473,85,85,,0
+14,Specification,2474,86,86,,0
+14,Specification,2475,87,87,,0
+14,Specification,2476,88,88,,0
+14,Specification,2477,89,89,,0
+14,Specification,2478,90,90,,0
+14,Specification,2479,91,91,,0
+14,Specification,2480,92,92,,0
+14,Specification,2481,93,93,,0
+14,Specification,2482,94,94,,0
+14,Specification,2483,96,96,,0
+14,Specification,2484,97,97,,0
+14,Specification,2485,98,98,,0
+14,Specification,2486,99,99,,0
+14,Specification,2487,100,100,,0
+14,Specification,2488,101,101,,0
+14,Specification,2489,102,102,,0
+14,Specification,2490,103,103,,0
+14,Specification,2491,104,104,,0
+14,Specification,2492,105,105,,0
+14,Specification,2493,106,106,,0
+14,Specification,2494,107,107,,0
+14,Specification,2495,108,108,,0
+14,Specification,2496,109,109,,0
+14,Specification,2497,110,110,,0
+14,Specification,2498,111,111,,0
+14,Specification,2499,112,112,,0
+14,Specification,2500,113,113,,0
+14,Specification,2501,114,114,,0
+14,Specification,2502,115,115,,0
+14,Specification,2503,116,116,,0
+14,Specification,2504,117,117,,0
+14,Specification,2505,118,118,,0
+14,Specification,2506,119,119,,0
+14,Specification,2507,120,120,,0
+14,Specification,2508,121,121,,0
+14,Specification,2509,122,122,,0
+14,Specification,2510,123,123,,0
+14,Specification,2511,124,124,,0
+14,Specification,2512,125,125,,0
+14,Specification,2513,126,126,,0
+14,Specification,2514,127,127,,0
+14,Specification,2515,128,128,,0
+14,Specification,2516,129,129,,0
+14,Specification,2517,130,130,,0
+14,Specification,2518,131,131,,0
+14,Specification,2519,132,132,,0
+14,Specification,2520,133,133,,0
+14,Specification,2521,134,134,,0
+14,Specification,2522,135,135,,0
+14,Specification,2523,136,136,,0
+14,Specification,2524,137,137,,0
+14,Specification,2525,138,138,,0
+14,Specification,2526,139,139,,0
+14,Specification,2527,140,140,,0
+14,Specification,2528,141,141,,0
+14,Specification,2529,142,142,,0
+14,Specification,2530,143,143,,0
+14,Specification,2531,144,144,,0
+14,Specification,2532,145,145,,0
+14,Specification,2533,146,146,,0
+14,Specification,2534,147,147,,0
+14,Specification,2535,148,148,,0
+14,Specification,2536,149,149,,0
+14,Specification,2537,150,150,,0
+14,Specification,2538,151,151,,0
+14,Specification,2539,152,152,,0
+14,Specification,2540,153,153,,0
+14,Specification,2541,154,154,,0
+14,Specification,2542,155,155,,0
+14,Specification,2543,156,156,,0
+14,Specification,2544,157,157,,0
+14,Specification,2545,158,158,,0
+14,Specification,2546,159,159,,0
+14,Specification,2547,160,160,,0
+14,Specification,2548,161,161,,0
+14,Specification,2549,162,162,,0
+14,Specification,2550,163,163,,0
+14,Specification,2551,164,164,,0
+14,Specification,2552,165,165,,0
+14,Specification,2553,166,166,,0
+14,Specification,2554,167,167,,0
+14,Specification,2555,168,168,,0
+14,Specification,2556,169,169,,0
+14,Specification,2557,170,170,,0
+14,Specification,2558,171,171,,0
+14,Specification,2559,172,172,,0
+14,Specification,2560,173,173,,0
+14,Specification,2561,174,174,,0
+14,Specification,2562,175,175,,0
+14,Specification,2563,176,176,,0
+14,Specification,2564,177,177,,0
+14,Specification,2565,178,178,,0
+14,Specification,2566,179,179,,0
+14,Specification,2567,180,180,,0
+14,Specification,2568,181,181,,0
+14,Specification,2569,182,182,,0
+14,Specification,2570,183,183,,0
+14,Specification,2571,184,184,,0
+14,Specification,2572,186,186,,0
+14,Specification,2573,187,187,,0
+14,Specification,2574,188,188,,0
+14,Specification,2575,189,189,,0
+14,Specification,2576,190,190,,0
+14,Specification,2577,191,191,,0
+14,Specification,2578,192,192,,0
+14,Specification,2579,193,193,,0
+14,Specification,2580,194,194,,0
+14,Specification,2581,195,195,,0
+14,Specification,2582,196,196,,0
+14,Specification,2583,197,197,,0
+14,Specification,2584,198,198,,0
+14,Specification,2585,199,199,,0
+14,Specification,2586,200,200,,0
+14,Specification,2587,201,201,,0
+14,Specification,2588,202,202,,0
+14,Specification,2589,203,203,,0
+14,Specification,2590,204,204,,0
+14,Specification,2591,205,205,,0
+14,Specification,2592,206,206,,0
+14,Specification,2593,207,207,,0
+14,Specification,2594,208,208,,0
+14,Specification,2595,209,209,,0
+14,Specification,2596,210,210,,0
+14,Specification,2597,211,211,,0
+14,Specification,2598,212,212,,0
+14,Specification,2599,213,213,,0
+14,Specification,2600,214,214,,0
+14,Specification,2601,215,215,,0
+14,Specification,2602,216,216,,0
+14,Specification,2603,217,217,,0
+14,Specification,2604,218,218,,0
+14,Specification,2605,219,219,,0
+14,Specification,2606,220,220,,0
+14,Specification,2607,221,221,,0
+14,Specification,2608,222,222,,0
+14,Specification,2609,223,223,,0
+14,Specification,2610,224,224,,0
+14,Specification,2611,225,225,,0
+14,Specification,2612,226,226,,0
+14,Specification,2613,227,227,,0
+14,Specification,2614,228,228,,0
+14,Specification,2615,229,229,,0
+14,Specification,2616,230,230,,0
+14,Specification,2617,231,231,,0
+14,Specification,2618,232,232,,0
+14,Specification,2619,233,233,,0
+14,Specification,2620,234,234,,0
+14,Specification,2621,235,235,,0
+14,Specification,2622,236,236,,0
+14,Specification,2623,237,237,,0
+14,Specification,2624,238,238,,0
+14,Specification,2625,239,239,,0
+14,Specification,2626,240,240,,0
+14,Specification,2627,241,241,,0
+14,Specification,2628,242,242,,0
+14,Specification,2629,243,243,,0
+14,Specification,2630,244,244,,0
+14,Specification,2631,245,245,,0
+14,Specification,2632,246,246,,0
+14,Specification,2633,247,247,,0
+14,Specification,2634,248,248,,0
+14,Specification,2635,249,249,,0
+14,Specification,2636,250,250,,0
+14,Specification,2637,251,251,,0
+14,Specification,2638,252,252,,0
+14,Specification,2639,253,253,,0
+14,Specification,2640,254,254,,0
+14,Specification,2641,255,255,,0
+14,Specification,2642,256,256,,0
+14,Specification,2643,257,257,,0
+14,Specification,2644,258,258,,0
+14,Specification,2645,259,259,,0
+14,Specification,2646,260,260,,0
+14,Specification,2647,261,261,,0
+14,Specification,2648,262,262,,0
+14,Specification,2649,263,263,,0
+14,Specification,2650,264,264,,0
+14,Specification,2651,265,265,,0
+14,Specification,2652,266,266,,0
+14,Specification,2653,267,267,,0
+14,Specification,2654,268,268,,0
+14,Specification,2655,269,269,,0
+14,Specification,2656,270,270,,0
+14,Specification,2657,271,271,,0
+14,Specification,2658,272,272,,0
+14,Specification,2659,273,273,,0
+14,Specification,2660,274,274,,0
+14,Specification,2661,275,275,,0
+14,Specification,2662,276,276,,0
+14,Specification,2663,277,277,,0
+14,Specification,2664,278,278,,0
+14,Specification,2665,279,279,,0
+14,Specification,2666,280,280,,0
+14,Specification,2667,281,281,,0
+14,Specification,2668,282,282,,0
+14,Specification,2669,283,283,,0
+14,Specification,2670,284,284,,0
+14,Specification,2671,285,285,,0
+14,Specification,2672,286,286,,0
+14,Specification,2673,287,287,,0
+14,Specification,2674,288,288,,0
+14,Specification,2675,289,289,,0
+14,Specification,2676,290,290,,0
+14,Specification,2677,291,291,,0
+14,Specification,2678,292,292,,0
+14,Specification,2679,293,293,,0
+14,Specification,2680,294,294,,0
+14,Specification,2681,295,295,,0
+14,Specification,2682,296,296,,0
+14,Specification,2683,297,297,,0
+14,Specification,2684,298,298,,0
+14,Specification,2685,299,299,,0
+14,Specification,2686,300,300,,0
+14,Specification,2687,301,301,,0
+14,Specification,2688,302,302,,0
+14,Specification,2689,303,303,,0
+14,Specification,2690,304,304,,0
+14,Specification,2691,305,305,,0
+14,Specification,2692,306,306,,0
+14,Specification,2693,307,307,,0
+14,Specification,2694,308,308,,0
+14,Specification,2695,309,309,,0
+14,Specification,2696,310,310,,0
+14,Specification,2697,311,311,,0
+14,Specification,2698,312,312,,0
+14,Specification,2699,313,313,,0
+14,Specification,2700,314,314,,0
+14,Specification,2701,315,315,,0
+14,Specification,2702,316,316,,0
+14,Specification,2703,317,317,,0
+14,Specification,2704,318,318,,0
+14,Specification,2705,319,319,,0
+14,Specification,2706,320,320,,0
+14,Specification,2707,321,321,,0
+14,Specification,2708,322,322,,0
+14,Specification,2709,323,323,,0
+14,Specification,2710,324,324,,0
+14,Specification,2711,325,325,,0
+14,Specification,2712,326,326,,0
+14,Specification,2713,327,327,,0
+14,Specification,2714,328,328,,0
+14,Specification,2715,329,329,,0
+14,Specification,2716,330,330,,0
+14,Specification,2717,331,331,,0
+14,Specification,2718,332,332,,0
+14,Specification,2719,333,333,,0
+14,Specification,2720,334,334,,0
+14,Specification,2721,335,335,,0
+14,Specification,2722,336,336,,0
+14,Specification,2723,337,337,,0
+14,Specification,2724,338,338,,0
+14,Specification,2725,339,339,,0
+14,Specification,2726,340,340,,0
+14,Specification,2727,341,341,,0
+14,Specification,2728,342,342,,0
+14,Specification,2729,343,343,,0
+14,Specification,2730,344,344,,0
+14,Specification,2731,345,345,,0
+14,Specification,2732,346,346,,0
+14,Specification,2733,347,347,,0
+14,Specification,2734,348,348,,0
+14,Specification,2735,349,349,,0
+14,Specification,2736,350,350,,0
+14,Specification,2737,351,351,,0
+14,Specification,2738,352,352,,0
+14,Specification,2739,353,353,,0
+14,Specification,2740,354,354,,0
+14,Specification,2741,355,355,,0
+14,Specification,2742,356,356,,0
+14,Specification,2743,357,357,,0
+14,Specification,2744,358,358,,0
+14,Specification,2745,359,359,,0
+14,Specification,2746,360,360,,0
+14,Specification,2747,361,361,,0
+14,Specification,2748,362,362,,0
+14,Specification,2749,363,363,,0
+14,Specification,2750,364,364,,0
+14,Specification,2751,365,365,,0
+14,Specification,2752,366,366,,0
+14,Specification,2753,367,367,,0
+14,Specification,2754,368,368,,0
+14,Specification,2755,369,369,,0
+14,Specification,2756,370,370,,0
+14,Specification,2757,371,371,,0
+14,Specification,2758,372,372,,0
+14,Specification,2759,373,373,,0
+14,Specification,2760,374,374,,0
+14,Specification,2761,375,375,,0
+14,Specification,2762,376,376,,0
+14,Specification,2763,377,377,,0
+14,Specification,2764,378,378,,0
+14,Specification,2765,379,379,,0
+14,Specification,2766,380,380,,0
+14,Specification,2767,381,381,,0
+14,Specification,2768,382,382,,0
+14,Specification,2769,383,383,,0
+14,Specification,2770,384,384,,0
+14,Specification,2771,385,385,,0
+14,Specification,2772,386,386,,0
+14,Specification,2773,387,387,,0
+14,Specification,2774,388,388,,0
+14,Specification,2775,389,389,,0
+14,Specification,2776,390,390,,0
+14,Specification,2777,391,391,,0
+14,Specification,2778,392,392,,0
+14,Specification,2779,393,393,,0
+14,Specification,2780,394,394,,0
+14,Specification,2781,395,395,,0
+14,Specification,2782,396,396,,0
+14,Specification,2783,397,397,,0
+14,Specification,2784,398,398,,0
+14,Specification,2785,399,399,,0
+14,Specification,2786,400,400,,0
+14,Specification,2787,401,401,,0
+14,Specification,2788,402,402,,0
+14,Specification,2789,403,403,,0
+14,Specification,2790,404,404,,0
+14,Specification,2791,405,405,,0
+14,Specification,2792,406,406,,0
+14,Specification,2793,407,407,,0
+14,Specification,2794,408,408,,0
+14,Specification,2795,409,409,,0
+14,Specification,2796,410,410,,0
+14,Specification,2797,411,411,,0
+14,Specification,2798,412,412,,0
+14,Specification,2799,413,413,,0
+14,Specification,2800,414,414,,0
+14,Specification,2801,415,415,,0
+14,Specification,2802,416,416,,0
+14,Specification,2803,417,417,,0
+14,Specification,2804,418,418,,0
+14,Specification,2805,419,419,,0
+14,Specification,2806,420,420,,0
+14,Specification,2807,421,421,,0
+14,Specification,2808,422,422,,0
+14,Specification,2809,423,423,,0
+14,Specification,2810,424,424,,0
+14,Specification,2811,425,425,,0
+14,Specification,2812,426,426,,0
+14,Specification,2813,427,427,,0
+14,Specification,2814,428,428,,0
+14,Specification,2815,429,429,,0
+14,Specification,2816,430,430,,0
+14,Specification,2817,431,431,,0
+14,Specification,2818,432,432,,0
+14,Specification,2819,433,433,,0
+14,Specification,2820,434,434,,0
+14,Specification,2821,435,435,,0
+14,Specification,2822,436,436,,0
+14,Specification,2823,437,437,,0
+14,Specification,2824,438,438,,0
+14,Specification,2825,439,439,,0
+14,Specification,2826,440,440,,0
+14,Specification,2827,441,441,,0
+14,Specification,2828,442,442,,0
+14,Specification,2829,443,443,,0
+14,Specification,2830,444,444,,0
+14,Specification,2831,445,445,,0
+14,Specification,2832,446,446,,0
+14,Specification,2833,447,447,,0
+14,Specification,2834,448,448,,0
+14,Specification,2835,449,449,,0
+14,Specification,2836,450,450,,0
+14,Specification,2837,451,451,,0
+14,Specification,2838,452,452,,0
+14,Specification,2839,453,453,,0
+14,Specification,2840,454,454,,0
+14,Specification,2841,455,455,,0
+14,Specification,2842,456,456,,0
+14,Specification,2843,457,457,,0
+14,Specification,2844,458,458,,0
+14,Specification,2845,459,459,,0
+14,Specification,2846,460,460,,0
+14,Specification,2847,461,461,,0
+14,Specification,2848,462,462,,0
+14,Specification,2849,463,463,,0
+14,Specification,2850,464,464,,0
+14,Specification,2851,465,465,,0
+14,Specification,2852,466,466,,0
+14,Specification,2853,467,467,,0
+14,Specification,2854,468,468,,0
+14,Specification,2855,469,469,,0
+14,Specification,2856,470,470,,0
+14,Specification,2857,471,471,,0
+14,Specification,2858,472,472,,0
+14,Specification,2859,473,473,,0
+14,Specification,2860,474,474,,0
+14,Specification,2861,475,475,,0
+14,Specification,2862,476,476,,0
+14,Specification,2863,477,477,,0
+14,Specification,2864,478,478,,0
+14,Specification,2865,479,479,,0
+14,Specification,2866,480,480,,0
+14,Specification,2867,481,481,,0
+14,Specification,2868,482,482,,0
+14,Specification,2869,483,483,,0
+14,Specification,2870,484,484,,0
+14,Specification,2871,485,485,,0
+14,Specification,2872,486,486,,0
+14,Specification,2873,487,487,,0
+14,Specification,2874,488,488,,0
+14,Specification,2875,489,489,,0
+14,Specification,2876,490,490,,0
+14,Specification,2877,491,491,,0
+14,Specification,2878,492,492,,0
+14,Specification,2879,493,493,,0
+14,Specification,2880,494,494,,0
+14,Specification,2881,495,495,,0
+14,Specification,2882,496,496,,0
+14,Specification,2883,497,497,,0
+14,Specification,2884,498,498,,0
+14,Specification,2885,500,500,,0
+14,Specification,3277,22inch,22inch,,0
+14,Specification,3280,silver color,silver color,,0
+14,Specification,3283,658,658,,0
+14,Specification,3284,697,697,,0
+14,Specification,3285,650,650,,0
+14,Specification,3300,2.5,2.5,,0
+14,Specification,3301,1.2,1.2,,0
+14,Specification,3304,27.2,27.2,,0
+14,Specification,3305,74.2,74.2,,0
+14,Specification,3306,27-2,27-2,,0
+14,Specification,3307,74-2,74-2,,0
+14,Specification,3523,598,598,,0
+14,Specification,3535,XXS,XXS,,0
+15,Size,1126,S,S,,0
+15,Size,1127,M,M,,0
+15,Size,1128,L,L,,0
+15,Size,1129,XL,XL,,0
+15,Size,1130,2XL,2XL,,0
+15,Size,1131,3XL,3XL,,0
+15,Size,1132,4XL,4XL,,0
+15,Size,1133,5XL,5XL,,0
+15,Size,1134,One Size,OneSize,,0
+15,Size,1135,US 4.5,US4.5,,0
+15,Size,1136,US 5,US5,,0
+15,Size,1137,US 6,US6,,0
+15,Size,1138,US 7,US7,,0
+15,Size,1139,US 8,US8,,0
+15,Size,1140,US 9,US9,,0
+15,Size,1141,US 10,US10,,0
+15,Size,1142,US 11,US11,,0
+15,Size,1143,6XL,6XL,,0
+15,Size,1144,7XL,7XL,,0
+15,Size,1145,US 12,US12,,0
+15,Size,1146,US 13,US13,,0
+15,Size,1147,US 14,US14,,0
+15,Size,1148,US 15,US15,,0
+15,Size,1149,XS,XS,,0
+15,Size,1150,US 5.5,US5.5,,0
+15,Size,1151,US 6.5,US6.5,,0
+15,Size,1152,US 7.5,US7.5,,0
+15,Size,1153,US 8.5,US8.5,,0
+15,Size,1154,US 9.5,US9.5,,0
+15,Size,1155,US 10.5,US10.5,,0
+15,Size,1157,A,A,,0
+15,Size,1158,B,B,,0
+15,Size,1159,C,C,,0
+15,Size,1160,D,D,,0
+15,Size,1162,30cm,30cm,,0
+15,Size,1163,40cm,40cm,,0
+15,Size,1164,50cm,50cm,,0
+15,Size,1165,60cm,60cm,,0
+15,Size,1166,80cm,80cm,,0
+15,Size,1167,95cm,95cm,,0
+15,Size,1168,S-M,S-M,,0
+15,Size,1169,L-XL,L-XL,,0
+15,Size,1170,UK 2,UK2,,0
+15,Size,1171,UK 3,UK3,,0
+15,Size,1172,UK 4,UK4,,0
+15,Size,1173,UK 5,UK5,,0
+15,Size,1174,UK 6,UK6,,0
+15,Size,1175,UK 7,UK7,,0
+15,Size,1176,UK 8,UK8,,0
+15,Size,1177,UK 9,UK9,,0
+15,Size,1178,UK 10,UK10,,0
+15,Size,1179,UK 11,UK11,,0
+15,Size,1180,UK 12,UK12,,0
+15,Size,1183,UK 6.5,UK6.5,,0
+15,Size,1184,UK3-UK4,UK3UK4,,0
+15,Size,1185,UK5-UK6,UK5UK6,,0
+15,Size,1186,UK7-UK8,UK7UK8,,0
+15,Size,1187,UK4-UK5,UK4UK5,,0
+15,Size,1188,UK6-UK7,UK6UK7,,0
+15,Size,1189,UK8-UK9,UK8UK9,,0
+15,Size,1190,UK9-UK10,UK9UK10,,0
+15,Size,1191,UK10-UK11,UK10UK11,,0
+15,Size,1192,UK11-UK12,UK11UK12,,0
+15,Size,1193,UK2-UK3,UK2UK3,,0
+15,Size,1194,1M/Cigarette lighter socket,1M#Cigarette lighter socket,,0
+15,Size,1195,UK4.5,UK4.5,,0
+15,Size,1196,UK5.5,UK5.5,,0
+15,Size,1197,UK7.5,UK7.5,,0
+15,Size,1198,UK8.5,UK8.5,,0
+15,Size,1199,UK9.5,UK9.5,,0
+15,Size,1201,59 (1-3M),59,,0
+15,Size,1202,66 (3-6M),66,,0
+15,Size,1203,73 (6-9M),73,,0
+15,Size,1204,80 (9-12M),80,,0
+15,Size,1206,100 (3-4Y),100,,0
+15,Size,1207,110 (4-5Y),110,,0
+15,Size,1208,120 (5-6Y),120,,0
+15,Size,1209,130 (7-8Y),130,,0
+15,Size,1210,140 (9-10Y),140,,0
+15,Size,1211,150 (11-12Y),150,,0
+15,Size,1212,160  (13-14Y),160,,0
+15,Size,1215,No. 8,No. 8,,0
+15,Size,1216,No. 9,No. 9,,0
+15,Size,1217,No. 10,No. 10,,0
+15,Size,1218,No. 11,No. 11,,0
+15,Size,1219,No. 12,No. 12,,0
+15,Size,1220,1.8M,1.8M,,0
+15,Size,1221,24-25,24-25,,0
+15,Size,1222,26-27,26-27,,0
+15,Size,1223,28-29,28-29,,0
+15,Size,1224,30-31,30-31,,0
+15,Size,1225,32-33,32-33,,0
+15,Size,1226,34-35,34-35,,0
+15,Size,1227,22-23,22-23,,0
+15,Size,1228,25,25,,0
+15,Size,1229,26,26,,0
+15,Size,1230,27,27,,0
+15,Size,1231,28,28,,0
+15,Size,1232,29,29,,0
+15,Size,1233,30,30,,0
+15,Size,1234,31,31,,0
+15,Size,1235,32,32,,0
+15,Size,1236,8XL,8XL,,0
+15,Size,1237,13.3 inch,13.3 inch,,0
+15,Size,1238,14.1-15.4 inch,14.1-15.4 inch,,0
+15,Size,1239,15.6 inch,15.6 inch,,0
+15,Size,1240,11.6-12.5 inch,11.6-12.5 inch,,0
+15,Size,1426,Aldult-S,Aldult-S,,0
+15,Size,1427,Aldult-M,Aldult-M,,0
+15,Size,1428,Aldult-L,Aldult-L,,0
+15,Size,1429,Aldult-XL,Aldult-XL,,0
+15,Size,1430,Child-M,Child-M,,0
+15,Size,1431,Child-S,Child-S,,0
+15,Size,1432,Child-L,Child-L,,0
+15,Size,1433,Child--XL,Child-XL,,0
+15,Size,1439,36-37,36-37,,0
+15,Size,1440,38-39,38-39,,0
+15,Size,1441,40-41,40-41,,0
+15,Size,1442,42-43,42-43,,0
+15,Size,1454,14,14,,0
+15,Size,1460,70cm,70cm,,0
+15,Size,1461,90cm,90cm,,0
+15,Size,1462,100cm,100cm,,0
+15,Size,1463,110cm,110cm,,0
+15,Size,1464,120cm,120cm,,0
+15,Size,1465,130cm,130cm,,0
+15,Size,1499,75B,75B,,0
+15,Size,1500,75C,75C,,0
+15,Size,1501,80B,80B,,0
+15,Size,1502,80C,80C,,0
+15,Size,1503,85B,85B,,0
+15,Size,1504,85C,85C,,0
+15,Size,1505,90B,90B,,0
+15,Size,1506,90C,90C,,0
+15,Size,1507,95B,95B,,0
+15,Size,1508,95C,95C,,0
+15,Size,1551,XS/S,XS/S,,0
+15,Size,1552,M/L,M/L,,0
+15,Size,1553,XL/XXL,XL/XXL,,0
+15,Size,1581,21,21,,0
+15,Size,1582,22,22,,0
+15,Size,1583,23,23,,0
+15,Size,1584,24,24,,0
+15,Size,1587,UK 13-UK 14,UK13-UK14,,0
+15,Size,1588,UK 15-UK 16,UK15-UK16,,0
+15,Size,1590,90,90,,0
+15,Size,1623,6(95-105CM),6(95-105CM),,0
+15,Size,1624,8(105-115CM),8(105-115CM),,0
+15,Size,1625,10(115-125CM),10(115-125CM),,0
+15,Size,1626,12(125-135CM),12(125-135CM),,0
+15,Size,1627,14(135-145CM),14(135-145CM),,0
+15,Size,1628,16(145-155CM),16(145-155CM),,0
+15,Size,1634,15,15,,0
+15,Size,1635,16,16,,0
+15,Size,1636,17,17,,0
+15,Size,1637,18,18,,0
+15,Size,1638,19,19,,0
+15,Size,1639,20,20,,0
+15,Size,1642,7mm,7mm,,0
+15,Size,1645,140cm,140cm,,0
+15,Size,1646,150cm,150cm,,0
+15,Size,1653,Child-2 (5-7 years old),Child-2 (5-7 years old),,0
+15,Size,1654,Child-3 (7-10 years old),Child-3 (7-10 years old),,0
+15,Size,1655,Adults-one size,Adults-one-size,,0
+15,Size,1660,1,1,,0
+15,Size,1661,2,2,,0
+15,Size,1662,3,3,,0
+15,Size,1665,Child-one size,Child-one size,,0
+15,Size,1740,UK13,UK13,,0
+15,Size,1741,UK14,UK14,,0
+15,Size,1742,UK15,UK15,,0
+15,Size,1743,UK16,UK16,,0
+15,Size,1747,M（100-112）,M（100-112）,,0
+15,Size,1748,L（111-123）,L（111-123）,,0
+15,Size,1749,XL（120-132）,XL（120-132）,,0
+15,Size,1750,2XL（129-141）,2XL（129-141）,,0
+15,Size,1751,3XL（141-153）,3XL（141-153）,,0
+15,Size,1752,4XL（150-162）,4XL（150-162）,,0
+15,Size,1761,Free size,Free size,,0
+15,Size,1768,35,35,,0
+15,Size,1769,36,36,,0
+15,Size,1770,37,37,,0
+15,Size,1771,38,38,,0
+15,Size,1772,39,39,,0
+15,Size,1773,40,40,,0
+15,Size,1774,41,41,,0
+15,Size,1775,42,42,,0
+15,Size,1776,43,43,,0
+15,Size,1777,44,44,,0
+15,Size,1778,35-36,35-36,,0
+15,Size,1779,37-38,37-38,,0
+15,Size,1780,39-40,39-40,,0
+15,Size,1781,44-45,44-45,,0
+15,Size,1782,41-42,41-42,,0
+15,Size,1783,43-44,43-44,,0
+15,Size,1801,S/M,S/M,,0
+15,Size,1802,L/XL,L/XL,,0
+15,Size,1829,1-S,1-S,,0
+15,Size,1830,2-M,2-M,,0
+15,Size,1831,3-L,3-L,,0
+15,Size,1842,45,45,,0
+15,Size,1843,46,46,,0
+15,Size,1845,1-M,1-M,,0
+15,Size,1846,2-L,2-L,,0
+15,Size,1847,3-XL,3-XL,,0
+15,Size,1848,4-2XL,4-2XL,,0
+15,Size,1865,170,170,,0
+15,Size,1866,180,180,,0
+15,Size,1867,190,190,,0
+15,Size,1868,200,200,,0
+15,Size,1869,210,210,,0
+15,Size,1870,220,220,,0
+15,Size,1885,5-3XL,5-3XL,,0
+15,Size,1886,6-4XL,6-4XL,,0
+15,Size,1914,XXL-3XL,XXL-3XL,,0
+15,Size,1915,4XL-5XL,4XL-5XL,,0
+15,Size,1926,5-M,5-M,,0
+15,Size,1927,7-L,7-L,,0
+15,Size,1928,4-XL,4-XL,,0
+15,Size,1929,5-2XL,5-2XL,,0
+15,Size,1930,6-3XL,6-3XL,,0
+15,Size,1955,46-47,46-47,,0
+15,Size,1957,47,47,,0
+15,Size,1958,48,48,,0
+15,Size,1970,7-4XL,7-4XL,,0
+15,Size,1971,8-5XL,8-5XL,,0
+15,Size,1981,2-S,2-S,,0
+15,Size,1982,3-M,3-M,,0
+15,Size,1983,4-L,4-L,,0
+15,Size,1984,5-XL,5-XL,,0
+15,Size,1985,6-XXL,6-XXL,,0
+15,Size,1989,45-46,45-46,,0
+15,Size,1990,47-48,47-48,,0
+15,Size,2003,260mm,260mm,,0
+15,Size,2004,270mm,270mm,,0
+15,Size,2005,280mm,280mm,,0
+15,Size,2006,290mm,290mm,,0
+15,Size,2007,300mm,300mm,,0
+15,Size,2008,36/37,36/37,,0
+15,Size,2009,38/39,38/39,,0
+15,Size,2010,40/41,40/41,,0
+15,Size,2011,42/43,42/43,,0
+15,Size,2019,4,4,,0
+15,Size,2020,5,5,,0
+15,Size,2062,XXL (Medium Size),XXL (Medium Size),,0
+15,Size,2064,3XL(Large Size),3XL(Large Size),,0
+15,Size,2065,XL (Small Size),XL (Small Size),,0
+15,Size,2066,4XL(Extra Large Size),4XL(Extra Large Size),,0
+15,Size,2068,5XL(Two Extra Larger Size),5XL(Two Extra Larger Size),,0
+15,Size,2069,6XL(Three Extra Larger Size),6XL(Three Extra Larger Size),,0
+15,Size,2075,XL（uk8-10）,XL（uk8-10）,,0
+15,Size,2076,2XL（uk10-12）,2XL（uk10-12）,,0
+15,Size,2077,3XL（uk12-14）,3XL（uk12-14）,,0
+15,Size,2078,4XL（uk14-16）,4XL（uk14-16）,,0
+15,Size,2079,5XL（uk16-18）,5XL（uk16-18）,,0
+15,Size,2080,6XL（uk18-20）,6XL（uk18-20）,,0
+15,Size,2090,XL(uk8-10),XL(uk8-10),,0
+15,Size,2091,2XL(uk10-12),2XL(uk10-12),,0
+15,Size,2092,3XL(uk12-14),3XL(uk12-14),,0
+15,Size,2093,4XL(uk14-16),4XL(uk14-16),,0
+15,Size,2094,5XL(uk16-18),5XL(uk16-18),,0
+15,Size,2095,6XL(uk18-20),6XL(uk18-20),,0
+15,Size,2115,S+S,S+S,,0
+15,Size,2116,M+M,M+M,,0
+15,Size,2117,L+L,L+L,,0
+15,Size,2118,XL+XL,XL+XL,,0
+15,Size,2119,Black onesize+Pink L,Black onesize+Pink L,,0
+15,Size,2120,Black onesize+Pink M,Black onesize+Pink M,,0
+15,Size,2122,Onesize+xl,Onesize+xl,,0
+15,Size,2123,Onesize+M,Onesize+M,,0
+15,Size,2151,33,33,,0
+15,Size,2152,34,34,,0
+15,Size,2262,Medium Size,Medium Size,,0
+15,Size,2279,M(35-52kg),M(35-52kg),,0
+15,Size,2280,L(52-59kg),L(52-59kg),,0
+15,Size,2281,XL(59-67kg),XL(59-67kg),,0
+15,Size,2282,2XL(67-77kg),2XL(67-77kg),,0
+15,Size,2283,3XL(77-90kg),3XL(77-90kg),,0
+15,Size,2286,random size,random size,,0
+15,Size,2317,45kg-53kg,45kg-53kg,,0
+15,Size,2318,53kg-60kg,53kg-60kg,,0
+15,Size,2319,60kg-66kg,60kg-66kg,,0
+15,Size,2320,66kg-72kg,66kg-72kg,,0
+15,Size,2322,L(45kg-52kg),L(45kg-52kg),,0
+15,Size,2323,93,93,,0
+15,Size,2324,52,52,,0
+15,Size,2325,74,74,,0
+15,Size,2326,68,68,,0
+15,Size,2327,101,101,,0
+15,Size,2328,01,01,,0
+15,Size,2329,02,02,,0
+15,Size,2388,213,213,,0
+15,Size,2389,119,119,,0
+15,Size,2886,185,185,,0
+15,Size,3279,22inch,22inch,,0
+15,Size,3289,658,658,,0
+15,Size,3290,697,697,,0
+15,Size,3291,650,650,,0
+15,Size,3292,514,514,,0
+15,Size,3293,592,592,,0
+15,Size,3298,30*40双层9.8丝,30x40double9.8silk,,0
+15,Size,3299,30*40,30*40,,0
+15,Size,3302,9,9,,0
+15,Size,3308,27-2,27-2,,0
+15,Size,3309,74-2,74-2,,0
+15,Size,3310,18inch,18inch,,0
+15,Size,3315,537,537,,0
+15,Size,3320,683,683,,0
+15,Size,3321,6,6,,0
+15,Size,3322,701,701,,0
+15,Size,3323,703,703,,0
+15,Size,3324,705,705,,0
+15,Size,3325,615,615,,0
+15,Size,3326,600,600,,0
+15,Size,3329,14-2#,14-2#,,0
+15,Size,3332,apricot-pink,apricot-pink,,0
+15,Size,3333,542,542,,0
+15,Size,3334,781,781,,0
+15,Size,3335,16inch,16inch,,0
+15,Size,3438,20inch,20inch,,0
+15,Size,3439,7832,7832,,0
+15,Size,3445,M（40-50kg）,M（40-50kg）,,0
+15,Size,3446,L(50-60KG),L(50-60KG),,0
+15,Size,3447,XL(60-70KG),XL(60-70KG),,0
+15,Size,3448,XXL(70-80KG),XXL(70-80KG),,0
+15,Size,3449,3XL(80-90KG),3XL(80-90KG),,0
+15,Size,3450,4XL(90-100KG),4XL(90-100KG),,0
+15,Size,3455,1.5cm,1.5cm,,0
+15,Size,3456,2cm,2cm,,0
+15,Size,3459,long sleeved dress,long sleeved dress,,0
+15,Size,3460,short sleeve dress,short sleeve dress,,0
+15,Size,3463,4cm,4cm,,0
+15,Size,3464,762,762,,0
+15,Size,3465,765,765,,0
+15,Size,3467,2.2,2.2,,0
+15,Size,3468,2.0,2.0,,0
+15,Size,3469,1.8,1.8,,0
+15,Size,3470,1.5,1.5,,0
+15,Size,3498,4.5cm,4.5cm,,0
+15,Size,3502,7inch,7inch,,0
+15,Size,3503,24inch,24inch,,0
+15,Size,3504,0.5cmthickness ,0.5cmthickness ,,0
+15,Size,3519,557,557,,0
+15,Size,3524,L(45-52KG),L(45-52KG),,0
+15,Size,3525,XL(52-60KG),XL(52-60KG),,0
+15,Size,3527,2XL(60-67KG),2XL(60-67KG),,0
+15,Size,3528,3XL(67-75KG),3XL(67-75KG),,0
+15,Size,3529,4XL(75-80KG),4XL(75-80KG),,0
+15,Size,3531,2.5cm,2.5cm,,0
+15,Size,3533,14inch,14inch,,0
+15,Size,3534,XXS,XXS,,0
+15,Size,3536,xxxs,xxxs,,0
+15,Size,3573,3cm,3cm,,0
+15,Size,3578,601,601,,0
+15,Size,3583,XXL,XXL,,0
+15,Size,3586,7,7,,0
+15,Size,3587,8,8,,0
+15,Size,4295,all size,all size,,0
+15,Size,4296,size jumbo,size jumbo,,0
+15,Size,4453,150/S,150/S,,0
+15,Size,4454,160/M,160/M,,0
+15,Size,4456,170/L,170/L,,0
+15,Size,4533,Sampel eksklusif KOL,Sampel eksklusif KOL,Sampel eksklusif KOL,0
+15,Size,4534,Silakan hubungi penjual untuk memilih ukuran setel,Silakan hubungi penjual untuk,Silakan hubungi penjual untuk memilih ukuran setelah melamar,0
+16,Pack Size,1241,S,S,,0
+16,Pack Size,1242,M,M,,0
+16,Pack Size,1243,L,L,,0
+16,Pack Size,1244,XL,XL,,0
+16,Pack Size,1245,2XL,2XL,,0
+16,Pack Size,1246,3XL,3XL,,0
+16,Pack Size,1247,4XL,4XL,,0
+16,Pack Size,1248,5XL,5XL,,0
+16,Pack Size,1249,One Size,OneSize,,0
+16,Pack Size,1250,US 4.5,US4.5,,0
+16,Pack Size,1251,US 5,US5,,0
+16,Pack Size,1252,US 6,US6,,0
+16,Pack Size,1253,US 7,US7,,0
+16,Pack Size,1254,US 8,US8,,0
+16,Pack Size,1255,US 9,US9,,0
+16,Pack Size,1256,US 10,US10,,0
+16,Pack Size,1257,US 11,US11,,0
+16,Pack Size,1258,6XL,6XL,,0
+16,Pack Size,1259,7XL,7XL,,0
+16,Pack Size,1260,US 12,US12,,0
+16,Pack Size,1261,US 13,US13,,0
+16,Pack Size,1262,US 14,US14,,0
+16,Pack Size,1263,US 15,US15,,0
+16,Pack Size,1264,XS,XS,,0
+16,Pack Size,1265,US 5.5,US5.5,,0
+16,Pack Size,1266,US 6.5,US6.5,,0
+16,Pack Size,1267,US 7.5,US7.5,,0
+16,Pack Size,1268,US 8.5,US8.5,,0
+16,Pack Size,1269,US 9.5,US9.5,,0
+16,Pack Size,1270,US 10.5,US10.5,,0
+16,Pack Size,1271,5cm*5m,5cm*5m,,0
+16,Pack Size,1272,A,A,,0
+16,Pack Size,1273,B,B,,0
+16,Pack Size,1274,C,C,,0
+16,Pack Size,1275,D,D,,0
+16,Pack Size,1276,95,95,,0
+16,Pack Size,1277,30cm,30cm,,0
+16,Pack Size,1278,40cm,40cm,,0
+16,Pack Size,1279,50cm,50cm,,0
+16,Pack Size,1280,60cm,60cm,,0
+16,Pack Size,1281,80cm,80cm,,0
+16,Pack Size,1282,95cm,95cm,,0
+16,Pack Size,1283,S-M,S-M,,0
+16,Pack Size,1284,L-XL,L-XL,,0
+16,Pack Size,1285,UK 2,UK2,,0
+16,Pack Size,1286,UK 3,UK3,,0
+16,Pack Size,1287,UK 4,UK4,,0
+16,Pack Size,1288,UK 5,UK5,,0
+16,Pack Size,1289,UK 6,UK6,,0
+16,Pack Size,1290,UK 7,UK7,,0
+16,Pack Size,1291,UK 8,UK8,,0
+16,Pack Size,1292,UK 9,UK9,,0
+16,Pack Size,1293,UK 10,UK10,,0
+16,Pack Size,1294,UK 11,UK11,,0
+16,Pack Size,1295,UK 12,UK12,,0
+16,Pack Size,1296,1m,1m,,0
+16,Pack Size,1297,2m,2m,,0
+16,Pack Size,1298,UK 6.5,UK6.5,,0
+16,Pack Size,1299,UK3-UK4,UK3UK4,,0
+16,Pack Size,1300,UK5-UK6,UK5UK6,,0
+16,Pack Size,1301,UK7-UK8,UK7UK8,,0
+16,Pack Size,1302,UK4-UK5,UK4UK5,,0
+16,Pack Size,1303,UK6-UK7,UK6UK7,,0
+16,Pack Size,1304,UK8-UK9,UK8UK9,,0
+16,Pack Size,1305,UK9-UK10,UK9UK10,,0
+16,Pack Size,1306,UK10-UK11,UK10UK11,,0
+16,Pack Size,1307,UK11-UK12,UK11UK12,,0
+16,Pack Size,1308,UK2-UK3,UK2UK3,,0
+16,Pack Size,1309,1M/Cigarette lighter socket,1M#Cigarette lighter socket,,0
+16,Pack Size,1310,UK4.5,UK4.5,,0
+16,Pack Size,1311,UK5.5,UK5.5,,0
+16,Pack Size,1312,UK7.5,UK7.5,,0
+16,Pack Size,1313,UK8.5,UK8.5,,0
+16,Pack Size,1314,UK9.5,UK9.5,,0
+16,Pack Size,1315,E,E,,0
+16,Pack Size,1316,59 (1-3M),59,,0
+16,Pack Size,1317,66 (3-6M),66,,0
+16,Pack Size,1318,73 (6-9M),73,,0
+16,Pack Size,1319,80 (9-12M),80,,0
+16,Pack Size,1320,90 (1-2Y),90,,0
+16,Pack Size,1321,100 (3-4Y),100,,0
+16,Pack Size,1322,110 (4-5Y),110,,0
+16,Pack Size,1323,120 (5-6Y),120,,0
+16,Pack Size,1324,130 (7-8Y),130,,0
+16,Pack Size,1325,140 (9-10Y),140,,0
+16,Pack Size,1326,150 (11-12Y),150,,0
+16,Pack Size,1327,160  (13-14Y),160,,0
+16,Pack Size,1328,0.5m,0.5m,,0
+16,Pack Size,1329,3m,3m,,0
+16,Pack Size,1330,No. 8,No. 8,,0
+16,Pack Size,1331,No. 9,No. 9,,0
+16,Pack Size,1332,No. 10,No. 10,,0
+16,Pack Size,1333,No. 11,No. 11,,0
+16,Pack Size,1334,No. 12,No. 12,,0
+16,Pack Size,1335,1.8M,1.8M,,0
+16,Pack Size,1336,24-25,24-25,,0
+16,Pack Size,1337,26-27,26-27,,0
+16,Pack Size,1338,28-29,28-29,,0
+16,Pack Size,1339,30-31,30-31,,0
+16,Pack Size,1340,32-33,32-33,,0
+16,Pack Size,1341,34-35,34-35,,0
+16,Pack Size,1342,22-23,22-23,,0
+16,Pack Size,1343,25,25,,0
+16,Pack Size,1344,26,26,,0
+16,Pack Size,1345,27,27,,0
+16,Pack Size,1346,28,28,,0
+16,Pack Size,1347,29,29,,0
+16,Pack Size,1348,30,30,,0
+16,Pack Size,1349,31,31,,0
+16,Pack Size,1350,32,32,,0
+16,Pack Size,1351,8XL,8XL,,0
+16,Pack Size,1352,13.3 inch,13.3 inch,,0
+16,Pack Size,1353,14.1-15.4 inch,14.1-15.4 inch,,0
+16,Pack Size,1354,15.6 inch,15.6 inch,,0
+16,Pack Size,1355,11.6-12.5 inch,11.6-12.5 inch,,0
+24,Color,863,Rose,Rose,,0
+24,Color,864,Pink,Pink,,0
+24,Color,865,Yellow,Yellow,,0
+24,Color,866,Lemon Yellow,LemonYellow,,0
+24,Color,867,Orange,Orange,,0
+24,Color,868,Blue,Blue,,0
+24,Color,869,Green,Green,,0
+24,Color,870,Chartreuse,Chartreuse,,0
+24,Color,871,Purple,Purple,,0
+24,Color,872,Black,Black,,0
+24,Color,873,White,White,,0
+24,Color,874,Gold,Gold,,0
+24,Color,875,Silver,Silver,,0
+24,Color,876,Khaki,Khaki,,0
+24,Color,877,Apricot,Apricot,,0
+24,Color,878,Brown,Brown,,0
+24,Color,879,Gray,Gray,,0
+24,Color,880,Camouflage,Camouflage,,0
+24,Color,881,Multicolor,Multicolor,,0
+24,Color,882,Same As Photo,SameAsPhoto,,0
+24,Color,883,Leopard,Leopard,,0
+24,Color,884,Dark blue,Darkblue,,0
+24,Color,885,Light blue,Lightblue,,0
+24,Color,886,Dark green,DarkGreen,,0
+24,Color,887,Light green,Lightgreen,,0
+24,Color,888,Beige,Beige,,0
+24,Color,889,Wine red,Wine red,,0
+24,Color,890,Coffee,Coffee,,0
+24,Color,891,champagne,champagne,,0
+24,Color,892,1,1,,0
+24,Color,893,2,2,,0
+24,Color,894,3,3,,0
+24,Color,895,4,4,,0
+24,Color,896,5,5,,0
+24,Color,897,Deep brown,Deepbrown,,0
+24,Color,898,Camel,Camel,,0
+24,Color,899,Caramel,Caramel,,0
+24,Color,900,Dark gray,Darkgray,,0
+24,Color,901,6,6,,0
+24,Color,902,7,7,,0
+24,Color,903,8,8,,0
+24,Color,904,9,9,,0
+24,Color,905,10,10,,0
+24,Color,906,Brick red,Brickred,,0
+24,Color,907,Light gray,Lightgray,,0
+24,Color,908,Red,Red,,0
+24,Color,910,ZTJ339-1#,ZTJ339-1#,,0
+24,Color,911,ZTJ339-3#,ZTJ339-3#,,0
+24,Color,912,ZTJ339-4#,ZTJ339-4#,,0
+24,Color,913,ZTJ339-2#,ZTJ339-2#,,0
+24,Color,914,Light Pink,Light Pink,,0
+24,Color,915,Slot peep,Slot peep,,0
+24,Color,916,Fine hole peep,Fine hole peep,,0
+24,Color,917,Rose gold,Rosegold,,0
+24,Color,918,White colorhair,Whitecolorhair,,0
+24,Color,919,Green colorhair,Greencolorhair,,0
+24,Color,920,Black colorhair,Blackcolorhair,,0
+24,Color,921,Brown colorhair,Browncolorhair,,0
+24,Color,922,Nude,nude,,0
+24,Color,923,black step feet,heisecaijiao,,0
+24,Color,924,nude step feet,fusecaijiao,,0
+24,Color,925,black tights,heiselianjiao,,0
+24,Color,926,nude tights,fuselianjiao,,0
+24,Color,927,ArmyGreen,ArmyGreen,,0
+24,Color,928,Red Painting,RedPainting,,0
+24,Color,929,White Painting,WhitePainting,,0
+24,Color,930,Black Painting,BlackPainting,,0
+24,Color,931,Right hand black,Right hand black,,0
+24,Color,932,Left hand black,Left hand black,,0
+24,Color,933,Light coffee,Lightcoffee,,0
+24,Color,934,Dark coffee,Darkcoffee,,0
+24,Color,935,White & Black ShuangPin,White & Black ShuangPin,,0
+24,Color,936,Black & White Shuangpin,Black & White Shuangpin,,0
+24,Color,1359,Light brow,Lightbrow,,0
+24,Color,1384,11,11,,0
+24,Color,1385,12,12,,0
+24,Color,1794,Apricot blouse,Apricot blouse,,0
+24,Color,1795,Apricot skirt,Apricot skirt,,0
+24,Color,1796,Brown blouse,Brown blouse,,0
+24,Color,1797,Brown skirt,Brown skirt,,0
+24,Color,1799,Blue top,Blue top,,0
+24,Color,1811,Short blue skirt,Short blue skirt,,0
+24,Color,1812,Blue coat,Blue coat,,0
+24,Color,1816,white blouse+black skirt,white blouse+black skirt,,0
+24,Color,1817,black blouse+white skirt,black blouse+white skirt,,0
+24,Color,1818,apricot blouse+coffee skirt,apricot blouse+coffee skirt,,0
+24,Color,2269,red coffee color,red coffee color,,0
+24,Color,3286,658,658,,0
+24,Color,3287,697,697,,0
+24,Color,3288,650,650,,0
+24,Color,3295,peacock blue,peacock blue,,0
+24,Color,3313,Cardigan + Print Top (2 pieces),Cardigan + Print Top (2 pieces,,0
+24,Color,3314,Skirt (single piece),Skirt (single piece),,0
+24,Color,3428,Top (2 pieces),Top (2 pieces),,0
+24,Color,3429,Black-Long Dress,Black-Long Dress,,0
+24,Color,3430,Black-Short Dress,Black-Short Dress,,0
+24,Color,3431,Dress,Dress,,0
+24,Color,3432,Top,Top,,0
+24,Color,3433,Jumpsuit,Jumpsuit,,0
+24,Color,3434,Pants,Pants,,0
+24,Color,3435,skirt,skirt,,0
+24,Color,3436,Blazer,Blazer,,0
+24,Color,3437,Clothing Sets,Clothing Sets,,0
+24,Color,3440,blue long dress,blue long dress,,0
+24,Color,3441,blue short dress,blue short dress,,0
+24,Color,3442,Long Dress,Long Dress,,0
+24,Color,3443,short dress,short dress,,0
+24,Color,3453,Knitted Cardigan (single piece),Knitted Cardigan (single piece,,0
+24,Color,3454,Puffed Sleeve Cardigan (single piece),Puffed Sleeve Cardigan (single,,0
+24,Color,3461,short sleeve dress,short sleeve dress,,0
+24,Color,3462,long sleeved dress,long sleeved dress,,0
+24,Color,3466,navy blue,navy blue,,0
+24,Color,3471,14,14,,0
+24,Color,3472,16,16,,0
+24,Color,3473,18,18,,0
+24,Color,3474,19,19,,0
+24,Color,3475,20,20,,0
+24,Color,3476,21,21,,0
+24,Color,3477,23,23,,0
+24,Color,3478,22,22,,0
+24,Color,3479,24,24,,0
+24,Color,3480,25,25,,0
+24,Color,3481,26,26,,0
+24,Color,3482,27,27,,0
+24,Color,3483,28,28,,0
+24,Color,3484,29,29,,0
+24,Color,3485,30,30,,0
+24,Color,3486,31,31,,0
+24,Color,3487,32,32,,0
+24,Color,3488,33,33,,0
+24,Color,3489,34,34,,0
+24,Color,3490,35,35,,0
+24,Color,3491,36,36,,0
+24,Color,3492,37,37,,0
+24,Color,3493,38,38,,0
+24,Color,3494,39,39,,0
+24,Color,3495,40,40,,0
+24,Color,3496,13,13,,0
+24,Color,3497,4.5cm,4.5cm,,0
+24,Color,3499,Black Suit,Black Suit,,0
+24,Color,3500,Apricot Black Suit,Apricot Black Suit,,0
+24,Color,3501,Apricot Suit,Apricot Suit,,0
+24,Color,3518,Rompers,Rompers,,0
+24,Color,3521,Winered,Winered,,0
+24,Color,3537,Blue-Long Dress,Blue-Long Dress,,0
+24,Color,3538,Blue-Short Dress,Blue-Short Dress,,0
+24,Color,3539,Green-Long Dress,Green-Long Dress,,0
+24,Color,3540,Green-Short Dress,Green-Short Dress,,0
+24,Color,3541,Black top,Black top,,0
+24,Color,3542,White top,White top,,0
+24,Color,3543,black pants,black pants,,0
+24,Color,3544,white pants,white pants,,0
+24,Color,3545,41,41,,0
+24,Color,3546,42,42,,0
+24,Color,3547,43,43,,0
+24,Color,3548,44,44,,0
+24,Color,3549,45,45,,0
+24,Color,3550,46,46,,0
+24,Color,3551,47,47,,0
+24,Color,3552,48,48,,0
+24,Color,3553,49,49,,0
+24,Color,3554,50,50,,0
+24,Color,3555,51,51,,0
+24,Color,3556,52,52,,0
+24,Color,3557,53,53,,0
+24,Color,3558,54,54,,0
+24,Color,3559,55,55,,0
+24,Color,3560,56,56,,0
+24,Color,3561,57,57,,0
+24,Color,3562,58,58,,0
+24,Color,3563,59,59,,0
+24,Color,3564,60,60,,0
+24,Color,3565,Wine-Red,Wine-Red,,0
+24,Color,3566,Black-1,Black-1,,0
+24,Color,3567,Black-2,Black-2,,0
+24,Color,3568,Blue1,Blue1,,0
+24,Color,3569,Blue2,Blue2,,0
+24,Color,3575,Pink top,Pink top,,0
+24,Color,3579,Checkered Pattern 1,Checkered Pattern 1,,0
+24,Color,3580,Checkered Pattern 2,Checkered Pattern 2,,0
+24,Color,3585,any question contact customer service,any question contact customer ,,0
+24,Color,3588,15,15,,0
+24,Color,3589,17,17,,0
+24,Color,3590,Light-purple,Light-purple,,0
+24,Color,3591,light red,light red,,0
+24,Color,3592,no belt,no belt,,0
+24,Color,3594,Hazelnut,Hazelnut,,0
+24,Color,3595,A1,A1,,0
+24,Color,3596,A2,A2,,0
+24,Color,3597,A3,A3,,0
+24,Color,3598,A4,A4,,0
+24,Color,3599,A5,A5,,0
+24,Color,3600,A6,A6,,0
+24,Color,3601,A7,A7,,0
+24,Color,3602,A8,A8,,0
+24,Color,3603,A9,A9,,0
+24,Color,3604,A10,A10,,0
+24,Color,3605,A11,A11,,0
+24,Color,3606,A12,A12,,0
+24,Color,3607,A13,A13,,0
+24,Color,3608,A14,A14,,0
+24,Color,3609,A15,A15,,0
+24,Color,3610,A16,A16,,0
+24,Color,3611,A17,A17,,0
+24,Color,3612,A18,A18,,0
+24,Color,3613,A19,A19,,0
+24,Color,3614,A20,A20,,0
+24,Color,3615,A21,A21,,0
+24,Color,3616,A22,A22,,0
+24,Color,3617,A23,A23,,0
+24,Color,3618,A24,A24,,0
+24,Color,3619,A25,A25,,0
+24,Color,3620,A26,A26,,0
+24,Color,3621,A27,A27,,0
+24,Color,3622,A28,A28,,0
+24,Color,3623,A29,A29,,0
+24,Color,3624,A30,A30,,0
+24,Color,3625,A31,A31,,0
+24,Color,3626,A32,A32,,0
+24,Color,3627,A33,A33,,0
+24,Color,3628,A34,A34,,0
+24,Color,3629,A35,A35,,0
+24,Color,3630,A36,A36,,0
+24,Color,3631,A37,A37,,0
+24,Color,3632,A38,A38,,0
+24,Color,3633,A39,A39,,0
+24,Color,3634,A40,A40,,0
+24,Color,3635,A41,A41,,0
+24,Color,3636,A42,A42,,0
+24,Color,3637,A43,A43,,0
+24,Color,3638,A44,A44,,0
+24,Color,3639,A45,A45,,0
+24,Color,3640,A46,A46,,0
+24,Color,3641,A47,A47,,0
+24,Color,3642,A48,A48,,0
+24,Color,3643,A49,A49,,0
+24,Color,3644,A50,A50,,0
+24,Color,3645,A51,A51,,0
+24,Color,3646,A52,A52,,0
+24,Color,3647,A53,A53,,0
+24,Color,3648,A54,A54,,0
+24,Color,3649,A55,A55,,0
+24,Color,3650,A56,A56,,0
+24,Color,3651,A57,A57,,0
+24,Color,3652,A58,A58,,0
+24,Color,3653,A59,A59,,0
+24,Color,3654,A60,A60,,0
+24,Color,3655,A61,A61,,0
+24,Color,3656,A62,A62,,0
+24,Color,3657,A63,A63,,0
+24,Color,3658,A64,A64,,0
+24,Color,3659,A65,A65,,0
+24,Color,3660,A66,A66,,0
+24,Color,3661,A67,A67,,0
+24,Color,3662,A68,A68,,0
+24,Color,3663,A69,A69,,0
+24,Color,3664,A70,A70,,0
+24,Color,3665,A71,A71,,0
+24,Color,3666,A72,A72,,0
+24,Color,3667,A73,A73,,0
+24,Color,3668,A74,A74,,0
+24,Color,3669,A75,A75,,0
+24,Color,3670,A76,A76,,0
+24,Color,3671,A77,A77,,0
+24,Color,3672,A78,A78,,0
+24,Color,3673,A79,A79,,0
+24,Color,3674,A80,A80,,0
+24,Color,3675,A81,A81,,0
+24,Color,3676,A82,A82,,0
+24,Color,3677,A83,A83,,0
+24,Color,3678,A84,A84,,0
+24,Color,3679,A85,A85,,0
+24,Color,3680,A86,A86,,0
+24,Color,3681,A87,A87,,0
+24,Color,3682,A88,A88,,0
+24,Color,3683,A89,A89,,0
+24,Color,3684,A90,A90,,0
+24,Color,3685,A91,A91,,0
+24,Color,3686,A92,A92,,0
+24,Color,3687,A93,A93,,0
+24,Color,3688,A94,A94,,0
+24,Color,3689,A95,A95,,0
+24,Color,3690,A96,A96,,0
+24,Color,3691,A97,A97,,0
+24,Color,3692,A98,A98,,0
+24,Color,3693,A99,A99,,0
+24,Color,3694,A100,A100,,0
+24,Color,3695,B1,B1,,0
+24,Color,3696,B2,B2,,0
+24,Color,3697,B3,B3,,0
+24,Color,3698,B4,B4,,0
+24,Color,3699,B5,B5,,0
+24,Color,3700,B6,B6,,0
+24,Color,3701,B7,B7,,0
+24,Color,3702,B8,B8,,0
+24,Color,3703,B9,B9,,0
+24,Color,3704,B10,B10,,0
+24,Color,3705,B11,B11,,0
+24,Color,3706,B12,B12,,0
+24,Color,3707,B13,B13,,0
+24,Color,3708,B14,B14,,0
+24,Color,3709,B15,B15,,0
+24,Color,3710,B16,B16,,0
+24,Color,3711,B17,B17,,0
+24,Color,3712,B18,B18,,0
+24,Color,3713,B19,B19,,0
+24,Color,3714,B20,B20,,0
+24,Color,3715,B21,B21,,0
+24,Color,3716,B22,B22,,0
+24,Color,3717,B23,B23,,0
+24,Color,3718,B24,B24,,0
+24,Color,3719,B25,B25,,0
+24,Color,3720,B26,B26,,0
+24,Color,3721,B27,B27,,0
+24,Color,3722,B28,B28,,0
+24,Color,3723,B29,B29,,0
+24,Color,3724,B30,B30,,0
+24,Color,3725,B31,B31,,0
+24,Color,3726,B32,B32,,0
+24,Color,3727,B33,B33,,0
+24,Color,3728,B34,B34,,0
+24,Color,3729,B35,B35,,0
+24,Color,3730,B36,B36,,0
+24,Color,3731,B37,B37,,0
+24,Color,3732,B38,B38,,0
+24,Color,3733,B39,B39,,0
+24,Color,3734,B40,B40,,0
+24,Color,3735,B41,B41,,0
+24,Color,3736,B42,B42,,0
+24,Color,3737,B43,B43,,0
+24,Color,3738,B44,B44,,0
+24,Color,3739,B45,B45,,0
+24,Color,3740,B46,B46,,0
+24,Color,3741,B47,B47,,0
+24,Color,3742,B48,B48,,0
+24,Color,3743,B49,B49,,0
+24,Color,3744,B50,B50,,0
+24,Color,3745,B51,B51,,0
+24,Color,3746,B52,B52,,0
+24,Color,3747,B53,B53,,0
+24,Color,3748,B54,B54,,0
+24,Color,3749,B55,B55,,0
+24,Color,3750,B56,B56,,0
+24,Color,3751,B57,B57,,0
+24,Color,3752,B58,B58,,0
+24,Color,3753,B59,B59,,0
+24,Color,3754,B60,B60,,0
+24,Color,3755,B61,B61,,0
+24,Color,3756,B62,B62,,0
+24,Color,3757,B63,B63,,0
+24,Color,3758,B64,B64,,0
+24,Color,3759,B65,B65,,0
+24,Color,3760,B66,B66,,0
+24,Color,3761,B67,B67,,0
+24,Color,3762,B68,B68,,0
+24,Color,3763,B69,B69,,0
+24,Color,3764,B70,B70,,0
+24,Color,3765,B71,B71,,0
+24,Color,3766,B72,B72,,0
+24,Color,3767,B73,B73,,0
+24,Color,3768,B74,B74,,0
+24,Color,3769,B75,B75,,0
+24,Color,3770,B76,B76,,0
+24,Color,3771,B77,B77,,0
+24,Color,3772,B78,B78,,0
+24,Color,3773,B79,B79,,0
+24,Color,3774,B80,B80,,0
+24,Color,3775,B81,B81,,0
+24,Color,3776,B82,B82,,0
+24,Color,3777,B83,B83,,0
+24,Color,3778,B84,B84,,0
+24,Color,3779,B85,B85,,0
+24,Color,3780,B86,B86,,0
+24,Color,3781,B87,B87,,0
+24,Color,3782,B88,B88,,0
+24,Color,3783,B89,B89,,0
+24,Color,3784,B90,B90,,0
+24,Color,3785,B91,B91,,0
+24,Color,3786,B92,B92,,0
+24,Color,3787,B93,B93,,0
+24,Color,3788,B94,B94,,0
+24,Color,3789,B95,B95,,0
+24,Color,3790,B96,B96,,0
+24,Color,3791,B97,B97,,0
+24,Color,3792,B98,B98,,0
+24,Color,3793,B99,B99,,0
+24,Color,3794,B100,B100,,0
+24,Color,3895,D1,D1,,0
+24,Color,3896,D2,D2,,0
+24,Color,3897,D3,D3,,0
+24,Color,3898,D4,D4,,0
+24,Color,3899,D5,D5,,0
+24,Color,3900,D6,D6,,0
+24,Color,3901,D7,D7,,0
+24,Color,3902,D8,D8,,0
+24,Color,3903,D9,D9,,0
+24,Color,3904,D10,D10,,0
+24,Color,3905,D11,D11,,0
+24,Color,3906,D12,D12,,0
+24,Color,3907,D13,D13,,0
+24,Color,3908,D14,D14,,0
+24,Color,3909,D15,D15,,0
+24,Color,3910,D16,D16,,0
+24,Color,3911,D17,D17,,0
+24,Color,3912,D18,D18,,0
+24,Color,3913,D19,D19,,0
+24,Color,3914,D20,D20,,0
+24,Color,3915,D21,D21,,0
+24,Color,3916,D22,D22,,0
+24,Color,3917,D23,D23,,0
+24,Color,3918,D24,D24,,0
+24,Color,3919,D25,D25,,0
+24,Color,3920,D26,D26,,0
+24,Color,3921,D27,D27,,0
+24,Color,3922,D28,D28,,0
+24,Color,3923,D29,D29,,0
+24,Color,3924,D30,D30,,0
+24,Color,3925,D31,D31,,0
+24,Color,3926,D32,D32,,0
+24,Color,3927,D33,D33,,0
+24,Color,3928,D34,D34,,0
+24,Color,3929,D35,D35,,0
+24,Color,3930,D36,D36,,0
+24,Color,3931,D37,D37,,0
+24,Color,3932,D38,D38,,0
+24,Color,3933,D39,D39,,0
+24,Color,3934,D40,D40,,0
+24,Color,3935,D41,D41,,0
+24,Color,3936,D42,D42,,0
+24,Color,3937,D43,D43,,0
+24,Color,3938,D44,D44,,0
+24,Color,3939,D45,D45,,0
+24,Color,3940,D46,D46,,0
+24,Color,3941,D47,D47,,0
+24,Color,3942,D48,D48,,0
+24,Color,3943,D49,D49,,0
+24,Color,3944,D50,D50,,0
+24,Color,3945,D51,D51,,0
+24,Color,3946,D52,D52,,0
+24,Color,3947,D53,D53,,0
+24,Color,3948,D54,D54,,0
+24,Color,3949,D55,D55,,0
+24,Color,3950,D56,D56,,0
+24,Color,3951,D57,D57,,0
+24,Color,3952,D58,D58,,0
+24,Color,3953,D59,D59,,0
+24,Color,3954,D60,D60,,0
+24,Color,3955,D61,D61,,0
+24,Color,3956,D62,D62,,0
+24,Color,3957,D63,D63,,0
+24,Color,3958,D64,D64,,0
+24,Color,3959,D65,D65,,0
+24,Color,3960,D66,D66,,0
+24,Color,3961,D67,D67,,0
+24,Color,3962,D68,D68,,0
+24,Color,3963,D69,D69,,0
+24,Color,3964,D70,D70,,0
+24,Color,3965,D71,D71,,0
+24,Color,3966,D72,D72,,0
+24,Color,3967,D73,D73,,0
+24,Color,3968,D74,D74,,0
+24,Color,3969,D75,D75,,0
+24,Color,3970,D76,D76,,0
+24,Color,3971,D77,D77,,0
+24,Color,3972,D78,D78,,0
+24,Color,3973,D79,D79,,0
+24,Color,3974,D80,D80,,0
+24,Color,3975,D81,D81,,0
+24,Color,3976,D82,D82,,0
+24,Color,3977,D83,D83,,0
+24,Color,3978,D84,D84,,0
+24,Color,3979,D85,D85,,0
+24,Color,3980,D86,D86,,0
+24,Color,3981,D87,D87,,0
+24,Color,3982,D88,D88,,0
+24,Color,3983,D89,D89,,0
+24,Color,3984,D90,D90,,0
+24,Color,3985,D91,D91,,0
+24,Color,3986,D92,D92,,0
+24,Color,3987,D93,D93,,0
+24,Color,3988,D94,D94,,0
+24,Color,3989,D95,D95,,0
+24,Color,3990,D96,D96,,0
+24,Color,3991,D97,D97,,0
+24,Color,3992,D98,D98,,0
+24,Color,3993,D99,D99,,0
+24,Color,3994,D100,D100,,0
+24,Color,4323,A,A,,0
+24,Color,4324,B,B,,0
+24,Color,4325,C,C,,0
+24,Color,4326,D,D,,0
+24,Color,4327,E,E,,0
+24,Color,4328,F,F,,0
+24,Color,4329,G,G,,0
+24,Color,4330,H,H,,0
+24,Color,4331,I,I,,0
+24,Color,4332,J,J,,0
+24,Color,4333,K,K,,0
+24,Color,4334,L,L,,0
+24,Color,4335,M,M,,0
+24,Color,4336,N,N,,0
+24,Color,4337,O,O,,0
+24,Color,4338,P,P,,0
+24,Color,4339,Q,Q,,0
+24,Color,4340,R,R,,0
+24,Color,4341,S,S,,0
+24,Color,4342,T,T,,0
+24,Color,4343,U,U,,0
+24,Color,4344,V,V,,0
+24,Color,4345,W,W,,0
+24,Color,4346,X,X,,0
+24,Color,4347,Y,Y,,0
+24,Color,4348,Z,Z,,0
+24,Color,4364,sdfds,sdfds,,0
+24,Color,4365,A001,A001,,0
+24,Color,4366,B001,B001,,0
+24,Color,4367,B002,B002,,0
+24,Color,4368,B003,B003,,0
+24,Color,4369,B004,B004,,0
+24,Color,4370,B005,B005,,0
+24,Color,4371,B006,B006,,0
+24,Color,4372,B007,B007,,0
+24,Color,4373,B008,B008,,0
+24,Color,4374,B009,B009,,0
+24,Color,4375,B010,B010,,0
+24,Color,4376,B011,B011,,0
+24,Color,4377,B012,B012,,0
+24,Color,4378,B013,B013,,0
+24,Color,4379,B014,B014,,0
+24,Color,4380,B015,B015,,0
+24,Color,4381,B016,B016,,0
+24,Color,4382,B017,B017,,0
+24,Color,4384,101,101,,0
+24,Color,4387,102,102,,0
+24,Color,4388,Oatmeal color,Oatmeal color,,0
+24,Color,4389,gradient blue,gradient blue,,0
+24,Color,4390,103,103,,0
+24,Color,4391,104,104,,0
+24,Color,4392,105,105,,0
+24,Color,4393,106,106,,0
+24,Color,4394,107,107,,0
+24,Color,4395,108,108,,0
+24,Color,4396,109,109,,0
+24,Color,4397,110,110,,0
+24,Color,4398,111,111,,0
+24,Color,4399,112,112,,0
+24,Color,4400,113,113,,0
+24,Color,4401,114,114,,0
+24,Color,4402,off white,off white,,0
+24,Color,4438,danzhujitou,danzhujitou,,0
+24,Color,4442,red bean paste,red bean paste,,0
+24,Color,4443,olive green,olive green,,0
+24,Color,4444,gray blue,gray blue,,0
+24,Color,4445,claret,claret,,0
+24,Color,4446,grey,grey,,0
+24,Color,4447,blue stone,blue stone,,0
+24,Color,4448,stone blue,stone blue,,0
+24,Color,4450,cream,cream,,0
+24,Color,4451,Red Rose,Red Rose,,0
+24,Color,4452,plum,plum,,0
+24,Color,4457,black apricot,black apricot,,0
+24,Color,4458,deep pink,deep pink,,0
+24,Color,4465,light brown,light brown,,0
+24,Color,4466,Dark Brown,Dark Brown,,0
+24,Color,4467,black white,black white,,0
+24,Color,4468,apricot red,apricot red,,0
+24,Color,4469,dark khaki,dark khaki,,0
+24,Color,4470,been green,been green,,0
+24,Color,4471,gradient pink,gradient pink,,0
+24,Color,4472,gradient green,gradient green,,0
+24,Color,4473,gradient black,gradient black,,0
+24,Color,4474,gradient card,gradient card,,0
+24,Color,4475,gradient purple,gradient purple,,0
+24,Color,4476,Matcha,Matcha,,0
+24,Color,4477,mustard green,mustard green,,0
+24,Color,4478,blue jeans,blue jeans,,0
+24,Color,4479,Olive,Olive,,0
+24,Color,4480,sage,sage,,0
+24,Color,4481,mint,mint,,0
+24,Color,4482,broken white,broken white,,0
+24,Color,4483,sky blue,sky blue,,0
+24,Color,4484,white grey,white grey,,0
+24,Color,4485,APRIC,APRIC,,0
+24,Color,4488,SameAsPhoto,SameAsPhoto,,0
+24,Color,4489,mint green,mint green,,0
+24,Color,4490,rose red,rose red,,0
+24,Color,4491,cya7n,cya7n,,0
+24,Color,4492,cyan,cyan,,0
+24,Color,4493,stripes,stripes,,0
+24,Color,4494,rose pink,rose pink,,0
+24,Color,4495,according to link,according to link,,0
+24,Color,4497,pumpkin,pumpkin,,0
+24,Color,4498,pink vest,pink vest,,0
+24,Color,4499,blouse,blouse,,0
+24,Color,4500,grey vest,grey vest,,0
+24,Color,4501,hidden green,hidden green,,0
+24,Color,4515,green gray,green gray,,0
+24,Color,4516,light purple,light purple,,0
+24,Color,4517,just,just,,0
+24,Color,4518,set,set,,0
+24,Color,4519,light flower green,light flower green,,0
+24,Color,4520,love heart powder,love heart powder,,0
+24,Color,4521,army green,army green,,0
+24,Color,4522,gray purple,gray purple,,0
+24,Color,4523,blue streak,blue streak,,0
+24,Color,4524,pink streak,pink streak,,0
+24,Color,4525,black flower,black flower,,0
+24,Color,4526,children,children,,0
+24,Color,4527,pink + pink,pink + pink,,0
+24,Color,4528,green + green,green + green,,0
+24,Color,4529,blue + blue,blue + blue,,0
+24,Color,4530,blue + pink,blue + pink,,0
+24,Color,4531,KOL Eksklusif Sample (Hubungi penjual: ukuran),KOL Eksklusif Sample (Hubungi ,,0
+24,Color,4532,Silakan hubungi penjual untuk memilih ukuran setel,Silakan hubungi penjual untuk ,,0
+24,Color,4535,WHI,WHI,,0
+24,Color,4536,red flower,red flower,,0
+24,Color,4542,mik,mik,,0
+24,Color,4543,mika,mika,,0
+24,Color,4547,Nomor 13,Nomor 13,,0
+24,Color,4548,greenpink&amp;purple,greenpink&amp;purple,,0
+24,Color,4549,pink&amp;purple,pink&amp;purple,,0
+24,Color,4550,blue&amp;purple,blue&amp;purple,,0
+24,Color,4551,pink&amp;yellow,pink&amp;yellow,,0
+24,Color,4553,pink red,pink red,,0
+24,Color,4554,oatmeak,oatmeak,,0
+24,Color,4555,oatmeall,oatmeall,,0
+24,Color,4556,coffe color,coffe color,,0
+24,Color,4557,reddish brown,reddish brown,,0
+24,Color,4558,dark purple,dark purple,,0
+24,Color,4559,apricot color,apricot color,,0
+24,Color,4561,denim blue,denim blue,,0
+24,Color,4562,gray green,gray green,,0
+24,Color,4563,aprikot,aprikot,,0
+24,Color,4564,blue gray,blue gray,,0
+24,Color,4565,hijau tua,hijau tua,,0
+24,Color,4566,Biru laut,Biru laut,,0
+24,Color,4567,flower1,flower1,,0
+24,Color,4568,flower2,flower2,,0
+24,Color,4569,flower4,flower4,,0
+24,Color,4570,rainbow,rainbow,,0
+24,Color,4571,bluewhite,bluewhite,,0
+24,Color,4574,teal,teal,,0
+24,Color,4575,light yellow,light yellow,,0
+24,Color,4576,white powder,white powder,,0
+24,Color,4577,white pink,white pink,,0
+24,Color,4578,light khaki,light khaki,,0
+24,Color,4579,lotus root,lotus root,,0
+24,Color,4580,burgundy,burgundy,,0
+24,Color,4581,Black Straight,Black Straight,,0
+24,Color,4582,Gray Straight,Gray Straight,,0
+24,Color,4583,grayish purple,grayish purple,,0
+24,Color,4584,black and gray,black and gray,,0
+24,Color,4585,ocean blue,ocean blue,,0
+24,Color,4586,greygreen,greygreen,,0
+24,Color,4588,apricot check,apricot check,,0
+24,Color,4589,blackwhitecheck,blackwhitecheck,,0
+24,Color,4590,pea green,pea green,,0
+24,Color,4603,lingt red,lingt red,,0
+24,Color,4604,blue green,blue green,,0
+24,Color,4605,milky white,milky white,,0
+24,Color,4606,black and apricot,black and apricot,,0
+24,Color,4607,magenta,magenta,,0
+24,Color,4608,linen,linen,,0
+24,Color,4609,light orange,light orange,,0
+24,Color,4610,orange red,orange red,,0
+24,Color,4612,Peace Pink,Peace Pink,,0
+24,Color,4613,peach pink,peach pink,,0
+24,Color,4614,misty blue,misty blue,,0
+24,Color,4615,powder blue,powder blue,,0
+24,Color,4616,White 1,White 1,,0
+24,Color,4617,Blue 1,Blue 1,,0
+106,Material,3336,Acrylic,Acrylic,,0
+106,Material,3337,Jade,Jade,,0
+106,Material,3338,Mineral,Mineral,,0
+106,Material,3339,Stone,Stone,,0
+106,Material,3340,Plastic,Plastic,,0
+106,Material,3341,Stainless Steel,Stainless Steel,,0
+106,Material,3342,Silicone,Silicone,,0
+106,Material,3343,Ceramic,Ceramic,,0
+106,Material,3344,PVC,PVC,,0
+106,Material,3345,ABS,ABS,,0
+106,Material,3346,Wood,Wood,,0
+106,Material,3347,Rubber,Rubber,,0
+106,Material,3348,Aluminium,Aluminium,,0
+106,Material,3349,Metal,Metal,,0
+106,Material,3350,Glass,Glass,,0
+106,Material,3351,Polyester,Polyester,,0
+106,Material,3352,Nylon,Nylon,,0
+106,Material,3353,PU Leather,PU Leather,,0
+106,Material,3354,Bamboo,Bamboo,,0
+106,Material,3355,Cotton,Cotton,,0
+106,Material,3356,Linen,Linen,,0
+106,Material,3357,Cork,Cork,,0
+106,Material,3358,Artificial Crystal,Artificial Crystal,,0
+106,Material,3359,Porcelain,Porcelain,,0
+106,Material,3360,Bone China,Bone China,,0
+106,Material,3361,Iron,Iron,,0
+106,Material,3362,Copper,Copper,,0
+106,Material,3363,Non-woven Fabric,Non-woven Fabric,,0
+106,Material,3364,Flax,Flax,,0
+106,Material,3365,Canvas,Canvas,,0
+106,Material,3366,Velvet,Velvet,,0
+106,Material,3367,Chenille,Chenille,,0
+106,Material,3368,Silk,Silk,,0
+106,Material,3369,Leather,Leather,,0
+106,Material,3370,Suede,Suede,,0
+106,Material,3371,Microfibre,Microfibre,,0
+106,Material,3372,Fabric,Fabric,,0
+106,Material,3373,Wool,Wool,,0
+106,Material,3374,Cashmere,Cashmere,,0
+106,Material,3375,Rayon,Rayon,,0
+106,Material,3376,Tencel,Tencel,,0
+106,Material,3377,Cupro,Cupro,,0
+106,Material,3378,Mohair,Mohair,,0
+106,Material,3379,Lycra,Lycra,,0
+106,Material,3380,Braided,Braided,,0
+106,Material,3381,Faux Fur,Faux Fur,,0
+106,Material,3382,Synthetic,Synthetic,,0
+106,Material,3383,Modal,Modal,,0
+106,Material,3384,Down,Down,,0
+106,Material,3385,Corduroy,Corduroy,,0
+106,Material,3386,Denim,Denim,,0
+106,Material,3387,Felt,Felt,,0
+106,Material,3388,Fleece,Fleece,,0
+106,Material,3389,Chiffon,Chiffon,,0
+106,Material,3390,Knit,Knit,,0
+106,Material,3391,Lace,Lace,,0
+106,Material,3392,Rib,Rib,,0
+106,Material,3393,Satin,Satin,,0
+106,Material,3394,Metallic,Metallic,,0
+106,Material,3395,Mesh,Mesh,,0
+106,Material,3396,Crepe,Crepe,,0
+106,Material,3397,French Terry,French Terry,,0
+106,Material,3398,Twill,Twill,,0
+106,Material,3399,Jacquard,Jacquard,,0
+106,Material,3400,Braid,Braid,,0
+106,Material,3401,Calfskin,Calfskin,,0
+106,Material,3402,Cowhide,Cowhide,,0
+106,Material,3403,Exotic,Exotic,,0
+106,Material,3404,Goatskin,Goatskin,,0
+106,Material,3405,Lambskin,Lambskin,,0
+106,Material,3406,Nubuck,Nubuck,,0
+106,Material,3407,Pigskin,Pigskin,,0
+106,Material,3408,Sheepskin,Sheepskin,,0
+106,Material,3409,Paper,Paper,,0
+106,Material,3410,Shell,Shell,,0
+106,Material,3411,Silk/Satin,Silk/Satin,,0
+106,Material,3412,Straw/Bamboo,Straw/Bamboo,,0
+106,Material,3413,Recycled,Recycled,,0
+106,Material,3414,Carbon Fibre,Carbon Fibre,,0
+106,Material,3415,Neoprene,Neoprene,,0
+106,Material,3416,Polycarbonate,Polycarbonate,,0
+106,Material,3417,Silicon,Silicon,,0
+106,Material,3418,TPU,TPU,,0
+106,Material,3419,Metal Coating,Metal Coating,,0
+106,Material,3420,Concrete,Concrete,,0
+106,Material,3421,Vine,Vine,,0
+106,Material,3422,Rattan,Rattan,,0
+106,Material,3423,Oak,Oak,,0
+106,Material,3424,Maple,Maple,,0
+106,Material,3425,Pine,Pine,,0
+106,Material,3426,Vinyl,Vinyl,,0
+107,人群,4354,年轻,nianqing,,0
+107,人群,4355,成熟,chengshou,,0
+107,人群,4356,中老年,zhonglaonian,,0
+108,年龄,4351,18-30,18-30,,0
+108,年龄,4352,25-45,25-45,,0
+108,年龄,4353,45-65,45-65,,0
+109,定位,4350,基础款,jichukuan,,0
+109,定位,4383,穆斯林,musilin,,0
+109,定位,4385,穆斯林友好,musilinyouhao,,0
+109,定位,4386,非穆斯林,feimusilin,,0
+110,风格编号,4404,1-casual shirt-18-30休闲衬衫,casual shirt,,0
+110,风格编号,4405,2-prin shirt-18-30印花衬衫,prin shirt,,0
+110,风格编号,4406,3-design top-18-30设计上衣,design top,,0
+110,风格编号,4407,4-short shirt-18-30短袖衬衫,short shirt,,0
+110,风格编号,4408,5-print top-25-45印花上衣,print top,,0
+110,风格编号,4409,6-long shirt-25-45长款衬衫,long shirt,,0
+110,风格编号,4410,7-OL shirt-25-45通勤衬衫,OL shirt,,0
+110,风格编号,4411,8-print shirt-25-45印花衬衫,print shirt,,0
+110,风格编号,4412,9-long shirt-45-60长款衬衫,long shirt,,0
+110,风格编号,4413,10-print shirt-45-60印花衬衫,print shirt,,0
+110,风格编号,4414,11-knit top-18-30针织上衣,knit top,,0
+110,风格编号,4415,12-casual dress-18-30休闲连衣裙,casual dress,,0
+110,风格编号,4416,13-preppy dress-18-30学院风连衣裙,preppy dress,,0
+110,风格编号,4417,14-muslim dress-18-30穆斯林连衣裙,muslim dress,,0
+110,风格编号,4418,15-mini dress-18-30娃娃裙,mini dress,,0
+110,风格编号,4419,16-simple dress-18-30简约连衣裙,simple dress,,0
+110,风格编号,4420,17-long sleeve dress-18-30长袖连衣裙,long sleeve dress,,0
+110,风格编号,4421,18-short sleeve dress-18-30短袖连衣裙,short sleeve dress,,0
+110,风格编号,4422,19-3D print shirt-30-45 3D印花连衣裙,print shirt,,0
+110,风格编号,4423,20-elegant dress-30-45优雅连衣裙,elegant dress,,0
+110,风格编号,4424,21-short sleeve dress-30-45短袖连衣裙,short sleeve dress,,0
+110,风格编号,4425,22-muslim dress-30-45穆斯林连衣裙,muslim dress-,,0
+110,风格编号,4426,23-sexy dress-30-45性感连衣裙,sexy dress,,0
+110,风格编号,4427,24-short dress-30-45短款连衣裙,short dress,,0
+110,风格编号,4428,25- OL dress-30-45通勤连衣裙,OL dress,,0
+110,风格编号,4429,26-Loose dress-40-60宽松连衣裙,Loose dress,,0
+110,风格编号,4430,27-casual set-30-55休闲套装,casual set,,0
+110,风格编号,4431,28-OL suit&jumpsuit-30-45通勤套装&连体裤,OL suit&jumpsuit,,0
+110,风格编号,4432,29-print set&jumpsuit-30-45印花套装&连体裤,print set&jumpsuit,,0
+110,风格编号,4433,30-set-18-30搭配套装,set,,0
+110,风格编号,4434,31-elegant set-30-45优雅套装,elegant set,,0
+110,风格编号,4435,32- fashion set-30-45时尚套装,fashion set,,0
+110,风格编号,4436,33- print set-45-60休闲套装,print set,,0
+110,风格编号,4437,34-Jeans-牛仔裤,Jeans,,0
+110,风格编号,4439,35-coat-外套,coat,,0
+110,风格编号,4440,36-basic clothing-基础打底,basic clothing,,0
+110,风格编号,4441,37-lace top-蕾丝上衣,lace top-,,0
+110,风格编号,4449,38-senior dress-高级连衣裙,senior dress,,0
+110,风格编号,4459,39-denim Jacket-牛仔外套,denim Jacket,,0
+110,风格编号,4460,40-set-高价套装,High Price Set,,0
+110,风格编号,4461,41-Basic top-女士基础上衣,Basic top,,0
+110,风格编号,4462,42-Women T-shirt-女士T恤,Women T-shirt,,0
+110,风格编号,4463,43-Sweatshirt-女士卫衣,sweatshirt,,0
+110,风格编号,4464,45-Skirt-18-30-半裙,Skirt,,0
+110,风格编号,4486,46-穆斯林高价长袍,musilin,,0
+110,风格编号,4487,47-Pajamas-睡衣,Pajamas,,0
+110,风格编号,4496,48-Loose shirt-30-45宽松衬衫,Loose shirt,,0
+110,风格编号,4503,49-muslim design top-18-30穆斯林设计上衣,muslim design top,,0
+110,风格编号,4504,50-muslim OL shirt-25-45穆斯林通勤上衣,muslim OL shirt,,0
+110,风格编号,4505,51-muslim long shirt-45-60穆斯林长款衬衫,muslim long shirt,,0
+110,风格编号,4506,52-muslim knit top-18-30穆斯林针织上衣,muslim knit top,,0
+110,风格编号,4507,53-muslim knit cardigan-18-30穆斯林针织开衫,muslim knit cardigan,,0
+110,风格编号,4508,54-knit cardigan-18-30针织开衫,knit cardigan,,0
+110,风格编号,4509,55-muslim dress-18-30穆斯林连衣裙,muslim dress,,0
+110,风格编号,4510,56-muslim casual set-30-55穆斯林休闲套装,muslim casual set,,0
+110,风格编号,4511,57-muslim OL-30-55穆斯林通勤服饰,muslim OL,,0
+110,风格编号,4512,58-muslim casual shirt-18-30穆斯林休闲衬衫,muslim casual shirt,,0
+110,风格编号,4513,59-muslim abaya-30-45高价穆斯林传统服饰,muslim abaya,,0
+110,风格编号,4514,60-Casual Men's Wear-休闲男装,Casual Men's Wear,,0
+110,风格编号,4537,61-design shirt-25-45设计衬衫,design shirt,,0
+110,风格编号,4538,62-elegant top-25-45设计上衣,elegant top,,0
+110,风格编号,4539,63-Short Sleeve Lace Top-25-45短袖蕾丝上衣,Short Sleeve Lace Top,,0
+110,风格编号,4540,65-OL short-sleeved shirt-25-45通勤短袖衬衫,OL short-sleeved shirt,,0
+110,风格编号,4541,66-Casual shirt-25-45休闲衬衫,Casual shirt,,0
+110,风格编号,4544,67-Traditional Muslim top-18-30-传统穆斯林上衣,Traditional Muslim top,,0
+110,风格编号,4545,68-Traditional Muslim Dress-25-35-传统穆斯林连衣裙,Traditional Muslim Dress,,0
+110,风格编号,4546,69-Traditional Muslim Tunic-30-55-传统穆斯林上衣,Traditional Muslim Tunic,,0
+110,风格编号,4552,70-Traditional Muslim Abaya-25-45,Traditional Muslim Abaya,,0
+110,风格编号,4560,71-Business Men's Wear-轻商务男装,Business Men's Wear,,0
+110,风格编号,4572,72- Plain-colored Top-18-35-纯色上衣,Plain-colored Top-,,0
+110,风格编号,4573,73- Plain-colored Top-35-55-纯色上衣,Plain-colored Top,,0
+110,风格编号,4587,74-Basic Skirt-18-35基础半裙,Basic Skirt,,0
+110,风格编号,4591,75-casual skirt-35-55休闲半裙,casual skirt,,0
+110,风格编号,4592,76-simple pants-18-35简约裤子,simple pants,,0
+110,风格编号,4593,77-casual pants-35-55简约裤子,casual pants,,0
+110,风格编号,4594,78-simple T-shirt-18-35简约T恤,simple T-shirt,,0
+110,风格编号,4595,79-loose T-shirt-35-55宽松T恤,loose T-shirt,,0
+110,风格编号,4596,80-print T-shirt-35-55印花T恤,print T-shirt,,0
+110,风格编号,4597,81-print skirt-18-35印花半裙,print skirt,,0
+110,风格编号,4598,82-print skirt-35-55印花半裙,print skirt,,0
+110,风格编号,4599,83-Solid robe-18-35纯色长袍,Solid robe,,0
+110,风格编号,4600,84-solid robe-35-55纯色长袍,solid robe,,0
+110,风格编号,4601,85-asaya pajamas-18-35-低价睡衣,asaya pajamas,,0
+110,风格编号,4602,86-OL skirt-通勤半裙,OL skirt,,0
+110,风格编号,4611,90-fadfad basic clothing-超级基础女装,fadfad basic clothing,,0

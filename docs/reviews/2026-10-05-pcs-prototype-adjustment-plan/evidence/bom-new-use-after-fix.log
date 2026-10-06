@@ -1,0 +1,21 @@
+(node:45451) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ COST draft uses recursive composite standard cost and notes upstream reference changes (8.474ms)
+✔ COST actual zero remains valid; missing standard is blocked; calculations avoid per-line early rounding (7.847625ms)
+✔ GOV-006 BOM new selection and save reject an unavailable SKU or parent without changing saved lines (21.73ms)
+✔ GOV-006 stopping a material preserves an existing BOM line but blocks adding or replacing a line (8.501459ms)
+✔ GOV-006 technical BOM edits retain an existing stopped material while new material selection stays guarded (17.932208ms)
+✔ COST confirmed plan keeps its cost and unit versions, while copied drafts use new standards (15.701417ms)
+✔ COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes (17.750917ms)
+✔ UOM frozen usage conversion retains the selected unit relation version (7.420792ms)
+✔ BRIDGE multiple yarn intentions remain separate technical inputs, project once and preserve source SKU (24.487083ms)
+✔ COST failed publishing cannot leave a published record or half-frozen cost references (9.814834ms)
+✔ BRIDGE-002/003 multi-color yarn keeps both technical inputs and separates panel from garment output (4.918584ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 588.7895

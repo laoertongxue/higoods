@@ -29,7 +29,6 @@ import {
   replaceProjectRelationStore,
 } from './pcs-project-relation-repository.ts'
 import type { ProjectRelationRecord } from './pcs-project-relation-types.ts'
-import { listProjectChannelProductsByProjectId } from './pcs-channel-product-project-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
 import { getTechnicalDataVersionById } from './pcs-technical-data-version-repository.ts'
 import { getProjectArchiveById } from './pcs-project-archive-repository.ts'
@@ -167,51 +166,12 @@ function pickPrimaryNodeInstance(projectId: string, projectNodeId: string, stepC
 }
 
 function validateChannelListingNode(project: PcsProjectViewRecord, node: PcsProjectNodeRecord): ProjectNodeCompletionValidationResult {
-  const activeRecords = listProjectChannelProductsByProjectId(project.projectId).filter(
-    (item) => item.projectNodeId === node.projectNodeId && item.channelProductStatus !== '已作废',
-  )
-  if (activeRecords.length === 0) {
-    return {
-      ok: false,
-      project,
-      node,
-      message: '当前节点缺少正式款式上架批次。',
-      missingFieldLabels: ['款式上架批次'],
-    }
-  }
-
-  const latestRecord = [...activeRecords].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0]
-  const missingFieldLabels: string[] = []
-  const effectiveRecords = activeRecords.filter(
-    (item) =>
-      item.listingBatchStatus === '已上传待确认' ||
-      item.listingBatchStatus === '已完成' ||
-      item.channelProductStatus === '已上架待测款' ||
-      item.channelProductStatus === '已生效',
-  )
-
-  if (effectiveRecords.length === 0) missingFieldLabels.push('已上架商品')
-  if (!latestRecord.upstreamProductId) missingFieldLabels.push('上游款式商品编号')
-  if (!latestRecord.specLines.length) missingFieldLabels.push('规格明细')
-  if (latestRecord.specLines.some((item) => !item.productImageId)) missingFieldLabels.push('商品图片')
-  if (latestRecord.specLines.some((item) => !item.upstreamSkuId)) missingFieldLabels.push('上游规格编号')
-  if (
-    latestRecord.listingBatchStatus !== '已完成' &&
-    latestRecord.channelProductStatus !== '已上架待测款' &&
-    latestRecord.channelProductStatus !== '已生效'
-  ) {
-    missingFieldLabels.push('商品上架完成状态')
-  }
-
   return {
-    ok: missingFieldLabels.length === 0,
+    ok: false,
     project,
     node,
-    message:
-      missingFieldLabels.length === 0
-        ? '商品上架节点已完成且规格上传完整。'
-        : `当前节点仍缺少字段：${missingFieldLabels.join('、')}。`,
-    missingFieldLabels,
+    message: '项目式渠道上架入口已停用。请从渠道店铺商品或测款单的渠道上架动作处理。',
+    missingFieldLabels: [],
   }
 }
 
@@ -420,19 +380,6 @@ function pushProjectLinkIssues(project: PcsProjectViewRecord, issues: PcsProject
   }
 }
 
-function pushModuleRecordIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {
-  listProjectChannelProductsByProjectId(project.projectId).forEach((record) => {
-    pushRecordBindingIssue(issues, {
-      project,
-      moduleName: '渠道店铺商品',
-      sourceObjectId: record.channelProductId,
-      sourceObjectCode: record.channelProductCode,
-      projectNodeId: record.projectNodeId,
-      expectedStepCode: 'CHANNEL_PRODUCT_LISTING',
-    })
-  })
-
-}
 
 function pushCompletedNodeIssues(project: PcsProjectViewRecord, issues: PcsProjectDataConsistencyIssue[]): void {
   listProjectNodes(project.projectId)
@@ -491,7 +438,6 @@ export function auditPcsProjectDataConsistency(): PcsProjectDataConsistencyRepor
     pushFixedStepAlignmentIssues(project, issues)
     pushProjectLinkIssues(project, issues)
     pushRelationIssues(project, issues)
-    pushModuleRecordIssues(project, issues)
     pushCompletedNodeIssues(project, issues)
   })
 

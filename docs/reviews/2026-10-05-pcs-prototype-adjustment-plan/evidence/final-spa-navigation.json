@@ -1,0 +1,502 @@
+[
+  {
+    "path": "/pcs/products/styles",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 76.69999998807907,
+        "end": 73176.79999995232,
+        "images": 5,
+        "label": "页签进入:款式档案",
+        "start": 73100.09999996424,
+        "url": "/pcs/products/styles"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.80000001192093,
+        "end": 73510.19999998808,
+        "images": 5,
+        "label": "页签进入:款式档案",
+        "start": 73450.39999997616,
+        "url": "/pcs/products/styles"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 58,
+        "end": 73843.79999995232,
+        "images": 5,
+        "label": "页签进入:款式档案",
+        "start": 73785.79999995232,
+        "url": "/pcs/products/styles"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60,
+        "end": 74177.79999995232,
+        "images": 5,
+        "label": "页签进入:款式档案",
+        "start": 74117.79999995232,
+        "url": "/pcs/products/styles"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 58.09999996423721,
+        "end": 74509.29999995232,
+        "images": 5,
+        "label": "页签进入:款式档案",
+        "start": 74451.19999998808,
+        "url": "/pcs/products/styles"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/specifications",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 76.59999996423721,
+        "end": 74860.29999995232,
+        "images": 5,
+        "label": "页签进入:规格档案",
+        "start": 74783.69999998808,
+        "url": "/pcs/products/specifications"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.40000003576279,
+        "end": 75193.5,
+        "images": 5,
+        "label": "页签进入:规格档案",
+        "start": 75134.09999996424,
+        "url": "/pcs/products/specifications"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.19999998807907,
+        "end": 75526.89999997616,
+        "images": 5,
+        "label": "页签进入:规格档案",
+        "start": 75467.69999998808,
+        "url": "/pcs/products/specifications"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.60000002384186,
+        "end": 75860.19999998808,
+        "images": 5,
+        "label": "页签进入:规格档案",
+        "start": 75800.59999996424,
+        "url": "/pcs/products/specifications"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.60000002384186,
+        "end": 76193.5,
+        "images": 5,
+        "label": "页签进入:规格档案",
+        "start": 76133.89999997616,
+        "url": "/pcs/products/specifications"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/channel-products",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 59.5,
+        "end": 76526.79999995232,
+        "images": 3,
+        "label": "页签进入:渠道店铺商品",
+        "start": 76467.29999995232,
+        "url": "/pcs/products/channel-products"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 58.30000001192093,
+        "end": 76860.19999998808,
+        "images": 3,
+        "label": "页签进入:渠道店铺商品",
+        "start": 76801.89999997616,
+        "url": "/pcs/products/channel-products"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 73.10000002384186,
+        "end": 77209.19999998808,
+        "images": 3,
+        "label": "页签进入:渠道店铺商品",
+        "start": 77136.09999996424,
+        "url": "/pcs/products/channel-products"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.20000004768371,
+        "end": 77543.5,
+        "images": 3,
+        "label": "页签进入:渠道店铺商品",
+        "start": 77484.29999995232,
+        "url": "/pcs/products/channel-products"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 75.30000001192093,
+        "end": 77893.5,
+        "images": 3,
+        "label": "页签进入:渠道店铺商品",
+        "start": 77818.19999998808,
+        "url": "/pcs/products/channel-products"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/channels/stores",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 61,
+        "end": 78226.79999995232,
+        "images": 0,
+        "label": "页签进入:渠道店铺管理",
+        "start": 78165.79999995232,
+        "url": "/pcs/channels/stores"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.89999997615814,
+        "end": 78560.09999996424,
+        "images": 0,
+        "label": "页签进入:渠道店铺管理",
+        "start": 78500.19999998808,
+        "url": "/pcs/channels/stores"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.60000002384186,
+        "end": 78893.39999997616,
+        "images": 0,
+        "label": "页签进入:渠道店铺管理",
+        "start": 78833.79999995232,
+        "url": "/pcs/channels/stores"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.80000001192093,
+        "end": 79226.69999998808,
+        "images": 0,
+        "label": "页签进入:渠道店铺管理",
+        "start": 79166.89999997616,
+        "url": "/pcs/channels/stores"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.10000002384186,
+        "end": 79560.19999998808,
+        "images": 0,
+        "label": "页签进入:渠道店铺管理",
+        "start": 79501.09999996424,
+        "url": "/pcs/channels/stores"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/fabric",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 175.30000001192093,
+        "end": 80010.19999998808,
+        "images": 4,
+        "label": "页签进入:面料档案",
+        "start": 79834.89999997616,
+        "url": "/pcs/materials/fabric"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60.30000001192093,
+        "end": 80343.39999997616,
+        "images": 4,
+        "label": "页签进入:面料档案",
+        "start": 80283.09999996424,
+        "url": "/pcs/materials/fabric"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59,
+        "end": 80676.89999997616,
+        "images": 4,
+        "label": "页签进入:面料档案",
+        "start": 80617.89999997616,
+        "url": "/pcs/materials/fabric"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.10000002384186,
+        "end": 81010.19999998808,
+        "images": 4,
+        "label": "页签进入:面料档案",
+        "start": 80951.09999996424,
+        "url": "/pcs/materials/fabric"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.60000002384186,
+        "end": 81210.19999998808,
+        "images": 4,
+        "label": "页签进入:面料档案",
+        "start": 81147.59999996424,
+        "url": "/pcs/materials/fabric"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/accessory",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 92.30000001192091,
+        "end": 93443.5,
+        "images": 4,
+        "label": "页签进入:辅料档案",
+        "start": 93351.19999998808,
+        "url": "/pcs/materials/accessory"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60,
+        "end": 93776.79999995232,
+        "images": 4,
+        "label": "页签进入:辅料档案",
+        "start": 93716.79999995232,
+        "url": "/pcs/materials/accessory"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.29999995231629,
+        "end": 93976.79999995232,
+        "images": 4,
+        "label": "页签进入:辅料档案",
+        "start": 93914.5,
+        "url": "/pcs/materials/accessory"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.5,
+        "end": 94310.09999996424,
+        "images": 4,
+        "label": "页签进入:辅料档案",
+        "start": 94250.59999996424,
+        "url": "/pcs/materials/accessory"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 94510.09999996424,
+        "images": 4,
+        "label": "页签进入:辅料档案",
+        "start": 94447.79999995232,
+        "url": "/pcs/materials/accessory"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/yarn",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 109.39999997615814,
+        "end": 94893.39999997616,
+        "images": 3,
+        "label": "页签进入:纱线档案",
+        "start": 94784,
+        "url": "/pcs/materials/yarn"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60.79999995231629,
+        "end": 95226.79999995232,
+        "images": 3,
+        "label": "页签进入:纱线档案",
+        "start": 95166,
+        "url": "/pcs/materials/yarn"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.5,
+        "end": 95560,
+        "images": 3,
+        "label": "页签进入:纱线档案",
+        "start": 95500.5,
+        "url": "/pcs/materials/yarn"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.60000002384186,
+        "end": 95893.39999997616,
+        "images": 3,
+        "label": "页签进入:纱线档案",
+        "start": 95833.79999995232,
+        "url": "/pcs/materials/yarn"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.09999996423721,
+        "end": 96226.79999995232,
+        "images": 3,
+        "label": "页签进入:纱线档案",
+        "start": 96165.69999998808,
+        "url": "/pcs/materials/yarn"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/consumable",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 59.69999998807907,
+        "end": 96560.19999998808,
+        "images": 3,
+        "label": "页签进入:耗材档案",
+        "start": 96500.5,
+        "url": "/pcs/materials/consumable"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59,
+        "end": 96892.5,
+        "images": 3,
+        "label": "页签进入:耗材档案",
+        "start": 96833.5,
+        "url": "/pcs/materials/consumable"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 58.69999998807907,
+        "end": 97225.79999995232,
+        "images": 3,
+        "label": "页签进入:耗材档案",
+        "start": 97167.09999996424,
+        "url": "/pcs/materials/consumable"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.19999998807907,
+        "end": 97560.09999996424,
+        "images": 3,
+        "label": "页签进入:耗材档案",
+        "start": 97500.89999997616,
+        "url": "/pcs/materials/consumable"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.69999998807907,
+        "end": 97893.39999997616,
+        "images": 3,
+        "label": "页签进入:耗材档案",
+        "start": 97833.69999998808,
+        "url": "/pcs/materials/consumable"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/parts",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 77.30000001192093,
+        "end": 98243.39999997616,
+        "images": 3,
+        "label": "页签进入:配件档案",
+        "start": 98166.09999996424,
+        "url": "/pcs/materials/parts"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60.19999998807907,
+        "end": 98576.79999995232,
+        "images": 3,
+        "label": "页签进入:配件档案",
+        "start": 98516.59999996424,
+        "url": "/pcs/materials/parts"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 77.79999995231628,
+        "end": 98926.79999995232,
+        "images": 3,
+        "label": "页签进入:配件档案",
+        "start": 98849,
+        "url": "/pcs/materials/parts"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.59999996423721,
+        "end": 99126.79999995232,
+        "images": 3,
+        "label": "页签进入:配件档案",
+        "start": 99064.19999998808,
+        "url": "/pcs/materials/parts"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.5,
+        "end": 99460.09999996424,
+        "images": 3,
+        "label": "页签进入:配件档案",
+        "start": 99400.59999996424,
+        "url": "/pcs/materials/parts"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/settings/config-workspace",
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 59.80000001192093,
+        "end": 99793.39999997616,
+        "images": 0,
+        "label": "页签进入:基础配置",
+        "start": 99733.59999996424,
+        "url": "/pcs/settings/config-workspace"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 58.39999997615814,
+        "end": 100126.79999995232,
+        "images": 0,
+        "label": "页签进入:基础配置",
+        "start": 100068.39999997616,
+        "url": "/pcs/settings/config-workspace"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 59.5,
+        "end": 100443.39999997616,
+        "images": 0,
+        "label": "页签进入:基础配置",
+        "start": 100383.89999997616,
+        "url": "/pcs/settings/config-workspace"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 58.80000001192093,
+        "end": 100776.69999998808,
+        "images": 0,
+        "label": "页签进入:基础配置",
+        "start": 100717.89999997616,
+        "url": "/pcs/settings/config-workspace"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60,
+        "end": 101111,
+        "images": 0,
+        "label": "页签进入:基础配置",
+        "start": 101051,
+        "url": "/pcs/settings/config-workspace"
+      }
+    ]
+  }
+]

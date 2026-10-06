@@ -1,161 +1,47 @@
+import test, { beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import * as catalog from '../src/data/pcs-channel-catalog.ts'
+import * as sync from '../src/data/pcs-channel-sync.ts'
+import type { ChannelMedia } from '../src/data/pcs-channel-catalog-types.ts'
+import { listProjectImageAssets } from '../src/data/pcs-project-image-repository.ts'
 
-import {
-  createProjectChannelProductFromListingNode,
-  launchProjectChannelProductListing,
-  resetProjectChannelProductRepository,
-} from '../src/data/pcs-channel-product-project-repository.ts'
-import { validateChannelListingImagesForUpload } from '../src/data/pcs-channel-listing-image-utils.ts'
-import {
-  createProjectImageAssetRecords,
-  resetProjectImageAssets,
-  upsertProjectImageAssets,
-  getProjectImageAssetById,
-} from '../src/data/pcs-project-image-repository.ts'
-import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+const baseline = catalog.getPcsChannelCatalogSnapshot()
+const styleId = 'style_r1_wms_tee', internalSkuId = 'sku_r1_wms_tee_black_s'
+const baseMedia = catalog.contentFromStyle(styleId).media[0]
+assert.ok(baseMedia?.url)
+beforeEach(() => { pcsRecordStore.setItem(catalog.PCS_CHANNEL_CATALOG_KEY, JSON.stringify(baseline)); catalog.resetPcsChannelCatalogCache() })
+function create(media: ChannelMedia[]) { return catalog.createChannelListing({ storeId: 'ST-001', styleId, internalSkuIds: [internalSkuId], initialPrice: 149000, content: { title: '渠道自有图片校验', media } }) }
 
-resetProjectRepository()
-resetProjectChannelProductRepository()
-resetProjectImageAssets()
-
-const project = listProjects().find((item) => item.projectCode === 'PRJ-202604-014')
-assert.ok(project, '应存在 PRJ-202604-014 演示项目')
-const secondProject = listProjects().find((item) => item.projectCode === 'PRJ-202603-003')
-assert.ok(secondProject, '应存在 PRJ-202603-003 演示项目')
-
-const [specProductImage] = createProjectImageAssetRecords(
-  project!,
-  [
-    {
-      imageUrl: 'mock://listing-image/spec-product',
-      imageName: '规格商品图',
-      imageType: '上架图',
-      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
-      sourceRecordId: 'spec-product-check',
-      sourceType: '商品上架',
-      usageScopes: ['商品上架', '项目资料归档'],
-      imageStatus: '可用于上架',
-      mainFlag: false,
-      sortNo: 1,
-    },
-  ],
-  '测试用户',
-  '2026-04-20T11:05:00.000Z',
-)
-upsertProjectImageAssets([specProductImage])
-
-const noImageResult = createProjectChannelProductFromListingNode(
-  project!.projectId,
-  {
-    targetChannelCode: 'tiktok',
-    targetStoreId: 'store-tiktok-01',
-    listingTitle: '无上架图批次',
-    defaultPriceAmount: 229,
-    currencyCode: 'IDR',
-    specLines: [
-      {
-        productImageId: specProductImage.imageId,
-        colorName: '黑色',
-        sizeName: 'M',
-        priceAmount: 229,
-        currencyCode: 'IDR',
-      },
-    ],
-  },
-  '测试用户',
-)
-assert.equal(noImageResult.ok, true, `创建批次时允许暂不选择上架主图：${noImageResult.message}`)
-
-const noImageLaunch = launchProjectChannelProductListing(noImageResult.record!.channelProductId, '测试用户')
-assert.equal(noImageLaunch.ok, false, '没有上架图片时不应允许上传')
-assert.match(noImageLaunch.message, /请先选择或上传上架图片/, '没有图片时应明确提示先补齐上架图片')
-
-const [referenceImage] = createProjectImageAssetRecords(
-  secondProject!,
-  [
-    {
-      imageUrl: 'mock://listing-image/unconfirmed',
-      imageName: '未确认参考图',
-      imageType: '项目参考图',
-      sourceNodeCode: 'PROJECT_INIT',
-      sourceRecordId: secondProject!.projectId,
-      sourceType: '商品项目立项',
-      usageScopes: ['立项参考', '项目资料归档'],
-      imageStatus: '待确认',
-      mainFlag: false,
-      sortNo: 1,
-    },
-  ],
-  '测试用户',
-  '2026-04-20T11:10:00.000Z',
-)
-upsertProjectImageAssets([referenceImage])
-
-const unconfirmedImageResult = createProjectChannelProductFromListingNode(
-  secondProject!.projectId,
-  {
-    targetChannelCode: 'shopee',
-    targetStoreId: 'store-shopee-01',
-    listingTitle: '未确认图片批次',
-    defaultPriceAmount: 229,
-    currencyCode: 'IDR',
-    listingMainImageId: referenceImage.imageId,
-    listingImageIds: [referenceImage.imageId],
-    specLines: [
-      {
-        productImageId: referenceImage.imageId,
-        colorName: '黑色',
-        sizeName: 'L',
-        priceAmount: 229,
-        currencyCode: 'IDR',
-      },
-    ],
-  },
-  '测试用户',
-)
-assert.equal(unconfirmedImageResult.ok, true, `未确认图片仍可先创建批次：${unconfirmedImageResult.message}`)
-
-const unconfirmedLaunch = launchProjectChannelProductListing(unconfirmedImageResult.record!.channelProductId, '测试用户')
-assert.equal(unconfirmedLaunch.ok, false, '未确认用途的图片不应允许上传')
-assert.match(unconfirmedLaunch.message, /请确认图片可用于商品上架/, '未确认用途时应明确提示先确认图片可用于上架')
-
-const [listingImage] = createProjectImageAssetRecords(
-  project!,
-  [
-    {
-      imageUrl: 'mock://listing-image/no-main',
-      imageName: '缺少主图测试图',
-      imageType: '上架图',
-      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
-      sourceRecordId: 'no-main-check',
-      sourceType: '商品上架',
-      usageScopes: ['商品上架', '项目资料归档'],
-      imageStatus: '可用于上架',
-      mainFlag: false,
-      sortNo: 1,
-    },
-  ],
-  '测试用户',
-  '2026-04-20T11:20:00.000Z',
-)
-upsertProjectImageAssets([listingImage])
-
-const noMainMessage = validateChannelListingImagesForUpload({
-  listingImages: [
-    {
-      listingImageId: 'manual-check-01',
-      listingBatchId: 'manual-batch',
-      imageId: listingImage.imageId,
-      imageUrl: listingImage.imageUrl,
-      imageName: listingImage.imageName,
-      sourceType: '上架补充图',
-      sortNo: 1,
-      mainFlag: false,
-    },
-  ],
-  listingMainImageId: '',
-  getImageAssetById: getProjectImageAssetById,
+test('R1 incomplete image drafts are allowed, but title/main-image validation blocks review and publication', () => {
+  const listing = create([]), before = catalog.getChannelListing(listing.id)!
+  assert.equal(before.reviewStatus, '草稿')
+  assert.throws(() => catalog.reviewChannelListing(listing.id, '提交审核'), /标题和主图/)
+  assert.throws(() => sync.submitChannelSync(listing.id, '发布'), /审核/)
+  assert.deepEqual(catalog.getChannelListing(listing.id), before, '审核失败不更新版本和状态')
+  const detailOnly = create([{ ...baseMedia, role: '详情图', sort: 1 }])
+  assert.throws(() => catalog.reviewChannelListing(detailOnly.id, '提交审核'), /主图/)
+  assert.equal(catalog.listChannelSyncOperations(listing.id).length, 0)
 })
-assert.equal(noMainMessage, '请设置上架主图。', '缺少主图时应明确提示先设置上架主图')
 
-console.log('pcs-channel-listing-image-upload-validation.spec.ts PASS')
+test('R1 explicit main and detail media can publish without a project image or development-project prerequisite', () => {
+  const projectImages = listProjectImageAssets('PRJ-008')
+  const listing = create([{ ...baseMedia, id: 'channel-own-detail', role: '详情图', sort: 2 }, { ...baseMedia, id: 'channel-own-main', role: '主图', sort: 1 }])
+  assert.equal('projectId' in listing, false)
+  catalog.reviewChannelListing(listing.id, '提交审核', '同一操作人'); catalog.reviewChannelListing(listing.id, '审核通过', '同一操作人')
+  const operation = sync.submitChannelSync(listing.id, '发布')
+  assert.deepEqual(operation.items.find(item => item.targetId === listing.id && item.field === 'media')!.submittedValue, listing.content.media)
+  assert.equal(sync.receiveChannelReceipt(sync.demoChannelReceipt(operation.id)).result, '成功')
+  assert.equal(catalog.getChannelListing(listing.id)!.platformStatus, '在售')
+  assert.deepEqual(listProjectImageAssets('PRJ-008'), projectImages, '渠道引用不额外制造项目图片资产')
+})
+
+test('R1 missing references and embedded file bytes fail before saving while valid media keeps its role', () => {
+  const initial = catalog.getPcsChannelCatalogSnapshot()
+  for (const media of [{ ...baseMedia, id: '' }, { ...baseMedia, url: '' }, { ...baseMedia, url: 'data:image/png;base64,AAAA' }]) {
+    assert.throws(() => create([media]), /已登记资料/); assert.deepEqual(catalog.getPcsChannelCatalogSnapshot(), initial)
+  }
+  const listing = create([{ ...baseMedia, role: '主图' }]), before = catalog.getChannelListing(listing.id)!
+  assert.throws(() => catalog.saveChannelContent(listing.id, { ...before.content, media: [{ ...baseMedia, url: 'data:image/png;base64,AAAA' }] }, before.version), /文件内容/)
+  assert.deepEqual(catalog.getChannelListing(listing.id), before)
+})

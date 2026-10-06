@@ -298,10 +298,6 @@ export interface PcsProjectChannelProductRecord {
   listingBatchCode: string
   upstreamChannelProductCode: string
   upstreamProductId: string
-  projectId: string
-  projectCode: string
-  projectName: string
-  projectNodeId: string
   channelCode: string
   channelName: string
   storeId: string
@@ -591,7 +587,7 @@ const projectInitFields = [
   ...groupFields({
     id: 'project-init-product',
     title: '商品归属信息',
-    description: '品类、品牌、风格编号和兼容分类字段统一沉淀到正式立项。',
+    description: '品类、品牌、品类编号和兼容分类字段统一沉淀到正式立项。',
     fields: [
       {
         key: 'categoryId',
@@ -658,24 +654,24 @@ const projectInitFields = [
         readonly: true,
       },
       {
-        key: 'styleCodeId',
-        label: '风格编号',
+        key: 'categoryNumberId',
+        label: '品类编号',
         type: 'single-select',
         sourceKind: '配置工作台',
-        sourceRef: 'styleCodes',
-        meaning: '风格编号映射',
-        logic: '风格编号统一选择配置工作台风格编号维度，不再单独手填。',
+        sourceRef: 'categoryNumbers',
+        meaning: '品类编号映射',
+        logic: '品类编号统一选择配置工作台品类编号维度，不再单独手填。',
         required: false,
-        placeholder: '请选择风格编号',
+        placeholder: '请选择品类编号',
       },
       {
-        key: 'styleCodeName',
-        label: '风格编号名称快照',
+        key: 'categoryNumberName',
+        label: '品类编号名称快照',
         type: 'text',
         sourceKind: '配置工作台',
-        sourceRef: 'styleCodes',
-        meaning: '立项时的风格编号名称快照',
-        logic: '根据所选风格编号自动回写名称，供详情、导出和审计直接使用。',
+        sourceRef: 'categoryNumbers',
+        meaning: '立项时的品类编号名称快照',
+        logic: '根据所选品类编号自动回写名称，供详情、导出和审计直接使用。',
         required: false,
         readonly: true,
       },
@@ -2416,8 +2412,8 @@ export const PCS_PROJECT_CONFIG_SOURCE_MAPPINGS: PcsProjectConfigSourceMapping[]
   { fieldKey: 'subCategoryName', fieldLabel: '二级品类名称快照', sourceKind: '本地主数据', sourceRef: '兼容字段', reason: '二级品类名称作为兼容快照保留到项目主记录和 PROJECT_INIT 中。' },
   { fieldKey: 'brandId', fieldLabel: '品牌', sourceKind: '配置工作台', sourceRef: 'brands', reason: '品牌统一来自配置工作台品牌维度。' },
   { fieldKey: 'brandName', fieldLabel: '品牌名称快照', sourceKind: '配置工作台', sourceRef: 'brands', reason: '品牌名称快照由配置工作台品牌名称回写，供详情和导出直接使用。' },
-  { fieldKey: 'styleCodeId', fieldLabel: '风格编号', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号统一来自配置工作台风格编号维度，不再要求手填。' },
-  { fieldKey: 'styleCodeName', fieldLabel: '风格编号名称快照', sourceKind: '配置工作台', sourceRef: 'styleCodes', reason: '风格编号名称快照由配置工作台 styleCodes 回写，供详情和导出直接使用。' },
+  { fieldKey: 'categoryNumberId', fieldLabel: '品类编号', sourceKind: '配置工作台', sourceRef: 'categoryNumbers', reason: '品类编号统一来自配置工作台品类编号维度，不再要求手填。' },
+  { fieldKey: 'categoryNumberName', fieldLabel: '品类编号名称快照', sourceKind: '配置工作台', sourceRef: 'categoryNumbers', reason: '品类编号名称快照由配置工作台 categoryNumbers 回写，供详情和导出直接使用。' },
   { fieldKey: 'styleNumber', fieldLabel: '款式编号', sourceKind: '本地主数据', sourceRef: '商品项目创建表单', reason: '款式编号由创建表单录入，并同步进入唯一商品测款档案。' },
   { fieldKey: 'sampleSourceType', fieldLabel: '样衣来源方式', sourceKind: '固定枚举', sourceRef: '样衣来源方式', reason: '样衣来源方式在立项时录入，并由样衣获取阶段继续核对。' },
   { fieldKey: 'sampleSupplierId', fieldLabel: '来源方', sourceKind: '样衣供应商主数据', sourceRef: '样衣供应商主数据', reason: '样衣来源方从样衣供应商主数据选择。' },

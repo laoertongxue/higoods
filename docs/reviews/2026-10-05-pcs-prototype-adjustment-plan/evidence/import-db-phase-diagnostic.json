@@ -1,0 +1,71 @@
+{
+  "context": "Before list projection and receipt range pruning; about 9004 existing roots, importing 1000 new roots",
+  "data": {
+    "phases": [
+      [
+        "start",
+        2684.399999976158
+      ],
+      [
+        "readCurrent",
+        2771.100000023842
+      ],
+      [
+        "businessPrepared",
+        2993.800000011921
+      ],
+      [
+        "rowsPrepared",
+        3027.699999988079
+      ],
+      [
+        "dbStart",
+        3031.800000011921
+      ],
+      [
+        "dbPrepared",
+        3053.800000011921
+      ],
+      [
+        "dbWritesComplete",
+        3302.199999988079
+      ],
+      [
+        "dbRetained",
+        3512.699999988079
+      ],
+      [
+        "databaseComplete",
+        3512.699999988079
+      ],
+      [
+        "mergeComplete",
+        3521.199999988079
+      ],
+      [
+        "publishComplete",
+        3590.800000011921
+      ]
+    ],
+    "metrics": [
+      {
+        "label": "navigation",
+        "start": 0,
+        "end": 846.8000000119209,
+        "durationMs": 846.8000000119209,
+        "url": "/pcs/materials/fabric",
+        "images": 0,
+        "brokenImages": 0
+      },
+      {
+        "label": "import1000-save-db-diagnostic",
+        "start": 2683.600000023842,
+        "end": 4048.300000011921,
+        "durationMs": 1364.699999988079,
+        "url": "/pcs/materials/fabric",
+        "images": 0,
+        "brokenImages": 0
+      }
+    ]
+  }
+}

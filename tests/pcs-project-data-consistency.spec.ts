@@ -100,7 +100,7 @@ const catalog = getProjectCreateCatalog()
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
-const styleCode = catalog.styleCodes[0] || catalog.styles[0]
+const styleCode = catalog.categoryNumbers[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
 
@@ -116,8 +116,8 @@ const created = createProject(
     subCategoryName: subCategory?.name || '',
     brandId: brand?.id || 'brand-chicmore',
     brandName: brand?.name || 'Chicmore',
-    styleCodeId: styleCode?.id || 'style-001',
-    styleCodeName: styleCode?.name || '1-Casul Shirt-18-30休闲衬衫',
+    categoryNumberId: styleCode?.id || 'style-001',
+    categoryNumberName: styleCode?.name || '1-Casul Shirt-18-30休闲衬衫',
     styleType: '基础款',
     priceRangeLabel: '5美元~10美元',
     targetChannelCodes: [catalog.channelOptions[0]?.code || 'tiktok'],

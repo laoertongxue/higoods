@@ -1,0 +1,1109 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 72.59999996423721,
+    "end": 37068.39999997616,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 36995.80000001192,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 37201.69999998808,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 37139.30000001192,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62,
+    "end": 37335.10000002384,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 37273.10000002384,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.59999996423721,
+    "end": 37451.69999998808,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 37389.10000002384,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.19999998807907,
+    "end": 37585,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 37522.80000001192,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 96.5999999642372,
+    "end": 37751.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 37655.10000002384,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 81.5,
+    "end": 37901.80000001192,
+    "images": 3,
+    "label": "SPA:/pcs/materials/accessory",
+    "start": 37820.30000001192,
+    "url": "/pcs/materials/accessory"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 79.69999998807907,
+    "end": 38051.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/yarn",
+    "start": 37972,
+    "url": "/pcs/materials/yarn"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.20000004768371,
+    "end": 38185.10000002384,
+    "images": 3,
+    "label": "SPA:/pcs/materials/consumable",
+    "start": 38121.89999997616,
+    "url": "/pcs/materials/consumable"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 78.5,
+    "end": 38335,
+    "images": 3,
+    "label": "SPA:/pcs/materials/parts",
+    "start": 38256.5,
+    "url": "/pcs/materials/parts"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.5,
+    "end": 38468.30000001192,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 38405.80000001192,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.40000003576279,
+    "end": 38585.10000002384,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 38521.69999998808,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.59999996423721,
+    "end": 38701.69999998808,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 38638.10000002384,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.59999996423721,
+    "end": 38818.39999997616,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 38755.80000001192,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.19999998807907,
+    "end": 38951.39999997616,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 38889.19999998808,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62,
+    "end": 39085,
+    "images": 3,
+    "label": "SPA:/pcs/materials/accessory",
+    "start": 39023,
+    "url": "/pcs/materials/accessory"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61,
+    "end": 39217.5,
+    "images": 3,
+    "label": "SPA:/pcs/materials/yarn",
+    "start": 39156.5,
+    "url": "/pcs/materials/yarn"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62,
+    "end": 39351.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/consumable",
+    "start": 39289.69999998808,
+    "url": "/pcs/materials/consumable"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.39999997615814,
+    "end": 39485,
+    "images": 3,
+    "label": "SPA:/pcs/materials/parts",
+    "start": 39423.60000002384,
+    "url": "/pcs/materials/parts"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 39618.30000001192,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 39555.30000001192,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.5,
+    "end": 39735,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 39672.5,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.19999998807907,
+    "end": 39851.69999998808,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 39789.5,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.90000003576279,
+    "end": 39968.30000001192,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 39904.39999997616,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.80000001192093,
+    "end": 40101.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 40039.89999997616,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.10000002384186,
+    "end": 40235.10000002384,
+    "images": 3,
+    "label": "SPA:/pcs/materials/accessory",
+    "start": 40173,
+    "url": "/pcs/materials/accessory"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.80000001192093,
+    "end": 40368.30000001192,
+    "images": 3,
+    "label": "SPA:/pcs/materials/yarn",
+    "start": 40304.5,
+    "url": "/pcs/materials/yarn"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.09999996423721,
+    "end": 40501.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/consumable",
+    "start": 40439.60000002384,
+    "url": "/pcs/materials/consumable"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.30000001192093,
+    "end": 40635,
+    "images": 3,
+    "label": "SPA:/pcs/materials/parts",
+    "start": 40571.69999998808,
+    "url": "/pcs/materials/parts"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 40768.30000001192,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 40705.30000001192,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61,
+    "end": 40900.80000001192,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 40839.80000001192,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.69999998807907,
+    "end": 41018.30000001192,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 40956.60000002384,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.10000002384186,
+    "end": 41134.5,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 41072.39999997616,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.30000001192093,
+    "end": 41268.30000001192,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 41206,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.80000001192093,
+    "end": 41401.60000002384,
+    "images": 3,
+    "label": "SPA:/pcs/materials/accessory",
+    "start": 41338.80000001192,
+    "url": "/pcs/materials/accessory"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.69999998807907,
+    "end": 41533.80000001192,
+    "images": 3,
+    "label": "SPA:/pcs/materials/yarn",
+    "start": 41471.10000002384,
+    "url": "/pcs/materials/yarn"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.79999995231629,
+    "end": 41668.39999997616,
+    "images": 3,
+    "label": "SPA:/pcs/materials/consumable",
+    "start": 41606.60000002384,
+    "url": "/pcs/materials/consumable"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.59999996423721,
+    "end": 41801.39999997616,
+    "images": 3,
+    "label": "SPA:/pcs/materials/parts",
+    "start": 41739.80000001192,
+    "url": "/pcs/materials/parts"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.70000004768371,
+    "end": 41935.10000002384,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 41873.39999997616,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 42068.39999997616,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 42006,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 59.5,
+    "end": 42185,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 42125.5,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.89999997615814,
+    "end": 42335,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 42273.10000002384,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 42468.39999997616,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 42406,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.09999996423721,
+    "end": 42601.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/accessory",
+    "start": 42539.60000002384,
+    "url": "/pcs/materials/accessory"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.89999997615814,
+    "end": 42734.89999997616,
+    "images": 3,
+    "label": "SPA:/pcs/materials/yarn",
+    "start": 42673,
+    "url": "/pcs/materials/yarn"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.5,
+    "end": 42868.30000001192,
+    "images": 3,
+    "label": "SPA:/pcs/materials/consumable",
+    "start": 42806.80000001192,
+    "url": "/pcs/materials/consumable"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 64.19999998807907,
+    "end": 43001.69999998808,
+    "images": 3,
+    "label": "SPA:/pcs/materials/parts",
+    "start": 42937.5,
+    "url": "/pcs/materials/parts"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 57.39999997615814,
+    "end": 288.89999997615814,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "start": 231.5,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 405.89999997615814,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "start": 343.5,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.30000001192093,
+    "end": 291.89999997615814,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "start": 229.5999999642372,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.30000001192093,
+    "end": 408.699999988079,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "start": 345.39999997615814,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.10000002384186,
+    "end": 525.3999999761581,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 462.2999999523163,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.40000003576279,
+    "end": 642,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "start": 580.5999999642372,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.20000004768371,
+    "end": 760.5,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "start": 697.2999999523163,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.19999998807907,
+    "end": 875.3999999761581,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 812.1999999880791,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62,
+    "end": 992,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "start": 930,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.09999996423721,
+    "end": 1108.5999999642372,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "start": 1045.5,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.19999998807907,
+    "end": 1225.399999976158,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 1162.199999988079,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.5,
+    "end": 1341.899999976158,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "start": 1280.399999976158,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 1458.5999999642372,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "start": 1395.5999999642372,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.10000002384186,
+    "end": 1575.399999976158,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 1512.2999999523165,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 1692,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "start": 1629,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.09999996423721,
+    "end": 1808.5999999642372,
+    "images": 1,
+    "label": "SPA:/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "start": 1745.5,
+    "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.60000002384186,
+    "end": 1925.399999976158,
+    "images": 5,
+    "label": "SPA:/pcs/products/styles",
+    "start": 1861.7999999523165,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.40000003576279,
+    "end": 254.10000002384183,
+    "images": 1,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c",
+    "start": 192.69999998807907,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.60000002384186,
+    "end": 371.60000002384186,
+    "images": 0,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit",
+    "start": 308,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.69999998807907,
+    "end": 487.39999997615814,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 423.699999988079,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.09999996423721,
+    "end": 619.8999999761581,
+    "images": 1,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c",
+    "start": 558.8000000119209,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 754.1000000238419,
+    "images": 0,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit",
+    "start": 691.1000000238419,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.10000002384186,
+    "end": 869.3000000119209,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 807.1999999880791,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.69999998807907,
+    "end": 987.399999976158,
+    "images": 1,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c",
+    "start": 925.6999999880792,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.59999996423721,
+    "end": 1120.699999988079,
+    "images": 0,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit",
+    "start": 1058.100000023842,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.89999997615814,
+    "end": 1237.399999976158,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 1174.5,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 57.89999997615814,
+    "end": 1387.399999976158,
+    "images": 1,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c",
+    "start": 1329.5,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 1520.699999988079,
+    "images": 0,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit",
+    "start": 1457.699999988079,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.39999997615814,
+    "end": 1637.399999976158,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 1574,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.89999997615814,
+    "end": 1754,
+    "images": 1,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c",
+    "start": 1692.100000023842,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.5,
+    "end": 1887.300000011921,
+    "images": 0,
+    "label": "SPA:/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit",
+    "start": 1824.800000011921,
+    "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.10000002384186,
+    "end": 2004,
+    "images": 5,
+    "label": "SPA:/pcs/products/specifications",
+    "start": 1940.899999976158,
+    "url": "/pcs/products/specifications"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.60000002384186,
+    "end": 272.60000002384186,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1",
+    "start": 211,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 65.69999998807907,
+    "end": 390.800000011921,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1/edit",
+    "start": 325.10000002384186,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.10000002384186,
+    "end": 505.800000011921,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 442.699999988079,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.69999998807907,
+    "end": 656.8999999761581,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1",
+    "start": 594.1999999880791,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.80000001192093,
+    "end": 772.6000000238419,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1/edit",
+    "start": 708.8000000119209,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.90000003576279,
+    "end": 889.3000000119209,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 826.3999999761581,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.40000003576279,
+    "end": 1022.600000023842,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1",
+    "start": 960.1999999880792,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.39999997615814,
+    "end": 1139.199999988079,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1/edit",
+    "start": 1075.800000011921,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.69999998807907,
+    "end": 1255.899999976158,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 1193.199999988079,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.10000002384186,
+    "end": 1372.5,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1",
+    "start": 1310.399999976158,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.60000002384186,
+    "end": 1489.300000011921,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1/edit",
+    "start": 1425.699999988079,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.59999996423721,
+    "end": 1605.899999976158,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 1543.300000011921,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.30000001192093,
+    "end": 1722.600000023842,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1",
+    "start": 1660.300000011921,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.80000001192093,
+    "end": 1839.199999988079,
+    "images": 0,
+    "label": "SPA:/pcs/products/channel-products/channel-listing-demo-1/edit",
+    "start": 1775.399999976158,
+    "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.79999995231629,
+    "end": 1955.899999976158,
+    "images": 2,
+    "label": "SPA:/pcs/products/channel-products",
+    "start": 1893.100000023842,
+    "url": "/pcs/products/channel-products"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.19999998807907,
+    "end": 243.39999997615817,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001",
+    "start": 181.19999998807907,
+    "url": "/pcs/channels/stores/ST-001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.60000002384186,
+    "end": 360.10000002384186,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001/edit",
+    "start": 296.5,
+    "url": "/pcs/channels/stores/ST-001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 476.699999988079,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 414.300000011921,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.20000004768371,
+    "end": 610.1000000238419,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001",
+    "start": 547.8999999761581,
+    "url": "/pcs/channels/stores/ST-001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.39999997615814,
+    "end": 743.3999999761581,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001/edit",
+    "start": 681,
+    "url": "/pcs/channels/stores/ST-001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.5,
+    "end": 860.1000000238419,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 797.6000000238419,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61.89999997615814,
+    "end": 993.399999976158,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001",
+    "start": 931.5,
+    "url": "/pcs/channels/stores/ST-001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.09999996423721,
+    "end": 1126.899999976158,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001/edit",
+    "start": 1063.800000011921,
+    "url": "/pcs/channels/stores/ST-001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.59999996423721,
+    "end": 1243.399999976158,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 1180.800000011921,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.19999998807907,
+    "end": 1376.699999988079,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001",
+    "start": 1314.5,
+    "url": "/pcs/channels/stores/ST-001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 1510,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001/edit",
+    "start": 1447,
+    "url": "/pcs/channels/stores/ST-001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.30000001192093,
+    "end": 1626.699999988079,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 1564.399999976158,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.80000001192093,
+    "end": 1758.800000011921,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001",
+    "start": 1696,
+    "url": "/pcs/channels/stores/ST-001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.80000001192093,
+    "end": 1893.300000011921,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores/ST-001/edit",
+    "start": 1830.5,
+    "url": "/pcs/channels/stores/ST-001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 60.69999998807907,
+    "end": 2008.300000011921,
+    "images": 0,
+    "label": "SPA:/pcs/channels/stores",
+    "start": 1947.600000023842,
+    "url": "/pcs/channels/stores"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 57.59999996423721,
+    "end": 269.19999998807907,
+    "images": 1,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "start": 211.60000002384183,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 65.90000003576279,
+    "end": 387.9000000357628,
+    "images": 0,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit",
+    "start": 322,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.5,
+    "end": 502.60000002384186,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 439.10000002384186,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.79999995231629,
+    "end": 619.1999999880791,
+    "images": 1,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "start": 556.4000000357628,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.5,
+    "end": 735.8000000119209,
+    "images": 0,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit",
+    "start": 673.3000000119209,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.19999998807907,
+    "end": 852.5,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 789.3000000119209,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 61,
+    "end": 969.600000023842,
+    "images": 1,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "start": 908.600000023842,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.30000001192093,
+    "end": 1085.9000000357628,
+    "images": 0,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit",
+    "start": 1022.600000023842,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 1202.5,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 1139.5,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.60000002384186,
+    "end": 1319.100000023842,
+    "images": 1,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "start": 1256.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.60000002384186,
+    "end": 1435.9000000357628,
+    "images": 0,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit",
+    "start": 1372.300000011921,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.40000003576279,
+    "end": 1552.600000023842,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 1489.199999988079,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 62.69999998807907,
+    "end": 1669.199999988079,
+    "images": 1,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "start": 1606.5,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63,
+    "end": 1785.9000000357628,
+    "images": 0,
+    "label": "SPA:/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit",
+    "start": 1722.9000000357628,
+    "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 63.19999998807907,
+    "end": 1902.600000023842,
+    "images": 3,
+    "label": "SPA:/pcs/materials/fabric",
+    "start": 1839.4000000357628,
+    "url": "/pcs/materials/fabric"
+  }
+]

@@ -1,69 +1,48 @@
-import { invalidateBomPriceReviewsForExchangeRateChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
-import { runTechnicalDataVersionRepositoryTransaction } from './pcs-technical-data-version-repository.ts'
+import { pcsRecordStore, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
+import type { ConfigLog } from './pcs-config-dimensions.ts'
 
+/** 标准成本展示汇率。修改不改变成本基数、历史快照或渠道销售价格。 */
 export interface PcsExchangeRateRecord {
   idrPerCny: number
+  usdPerCny: number
+  source: string
   updatedAt: string
   updatedBy: string
+  logs?: ConfigLog[]
 }
-
 const STORAGE_KEY = 'higood-pcs-exchange-rate-config-v1'
-let memoryRate: PcsExchangeRateRecord = {
-  idrPerCny: 2200,
-  updatedAt: '2026-08-01 09:00',
-  updatedBy: '系统管理员',
-}
-
-function canUseStorage(): boolean {
-  try { return typeof localStorage !== 'undefined' } catch { return false }
-}
-
-function nowText(): string {
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-}
-
+const SEED: PcsExchangeRateRecord = { idrPerCny: 2200, usdPerCny: 0.14, source: '原型展示汇率', updatedAt: '2026-10-05 09:00', updatedBy: '系统管理员' }
+let memoryRate: PcsExchangeRateRecord | null = null
+export function resetPcsExchangeRateCache(): void { memoryRate = null }
+registerPcsRepositoryReset(resetPcsExchangeRateCache)
 export function getLatestPcsExchangeRate(): PcsExchangeRateRecord {
-  if (!canUseStorage()) return { ...memoryRate }
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { ...memoryRate }
-    const parsed = JSON.parse(raw) as Partial<PcsExchangeRateRecord>
-    if (!Number.isFinite(parsed.idrPerCny) || Number(parsed.idrPerCny) <= 0) return { ...memoryRate }
-    return {
-      idrPerCny: Number(parsed.idrPerCny),
-      updatedAt: parsed.updatedAt || memoryRate.updatedAt,
-      updatedBy: parsed.updatedBy || memoryRate.updatedBy,
+  if (!memoryRate) {
+    const raw = pcsRecordStore.getItem(STORAGE_KEY)
+    if (!raw) memoryRate = { ...SEED }
+    else {
+      const saved = JSON.parse(raw)
+      const validRate = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : Number.NaN
+      // 存量记录缺汇率时保留“未配置”，不能用演示汇率补成已维护值。
+      memoryRate = { ...SEED, ...saved, idrPerCny: validRate(saved.idrPerCny), usdPerCny: validRate(saved.usdPerCny) }
     }
-  } catch {
-    return { ...memoryRate }
   }
+  return { ...memoryRate! }
 }
-
-export function updateLatestPcsExchangeRate(input: { idrPerCny: number; updatedBy: string }): PcsExchangeRateRecord {
-  if (!Number.isFinite(input.idrPerCny) || input.idrPerCny <= 0) throw new Error('请输入有效的人民币兑印尼盾汇率。')
+export const getPcsExchangeRateConfig = getLatestPcsExchangeRate
+export function updateLatestPcsExchangeRate(input: { idrPerCny: number; usdPerCny?: number; source?: string; updatedBy: string }): PcsExchangeRateRecord {
   const previous = getLatestPcsExchangeRate()
-  if (previous.idrPerCny === input.idrPerCny) return previous
-  const next = { idrPerCny: input.idrPerCny, updatedAt: nowText(), updatedBy: input.updatedBy.trim() || '系统管理员' }
-  const previousStorageValue = canUseStorage() ? localStorage.getItem(STORAGE_KEY) : null
-  return runTechnicalDataVersionRepositoryTransaction(() => {
-    try {
-      memoryRate = next
-      if (canUseStorage()) localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-      invalidateBomPriceReviewsForExchangeRateChange({
-        beforeIdrPerCny: previous.idrPerCny,
-        afterIdrPerCny: next.idrPerCny,
-        operator: next.updatedBy,
-      })
-      return { ...next }
-    } catch (error) {
-      memoryRate = previous
-      if (canUseStorage()) {
-        if (previousStorageValue === null) localStorage.removeItem(STORAGE_KEY)
-        else localStorage.setItem(STORAGE_KEY, previousStorageValue)
-      }
-      throw error
-    }
-  })
+  const usdPerCny = input.usdPerCny ?? previous.usdPerCny
+  if (![input.idrPerCny, usdPerCny].every(value => Number.isFinite(value) && value > 0)) throw new Error('请输入大于 0 的展示汇率。')
+  const time = new Date().toLocaleString('sv-SE'), operator = input.updatedBy.trim() || '当前用户'
+  const next: PcsExchangeRateRecord = { idrPerCny: input.idrPerCny, usdPerCny, source: input.source?.trim() || previous.source, updatedAt: time, updatedBy: operator,
+    logs: [...(previous.logs || []), { id: crypto.randomUUID(), action: '维护展示汇率', detail: `1 RMB = ${input.idrPerCny} IDR；1 RMB = ${usdPerCny} USD。`, time, operator }] }
+  pcsRecordStore.setItem(STORAGE_KEY, JSON.stringify(next))
+  memoryRate = next
+  return { ...next }
+}
+export function displayStandardCost(cny: number, currency: 'CNY' | 'IDR' | 'USD'): number | null {
+  const rate = getLatestPcsExchangeRate()
+  const multiplier = currency === 'CNY' ? 1 : currency === 'IDR' ? rate.idrPerCny : rate.usdPerCny
+  if (!Number.isFinite(multiplier) || multiplier <= 0) return null
+  return Number((cny * multiplier).toFixed(4))
 }

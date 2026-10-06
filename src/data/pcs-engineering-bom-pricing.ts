@@ -1,4 +1,4 @@
-import { getMaterialSkuRecordById } from './pcs-material-archive-repository.ts'
+import { getMaterialSkuRecordById, isMaterialSkuAvailableForNewUse } from './pcs-material-archive-repository.ts'
 import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
 import {
   getTechnicalDataVersionById,
@@ -25,6 +25,7 @@ import type {
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
 import {
   MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
+  captureEngineeringBomMaterialReference,
   resolveEngineeringBomConversion,
   resolveEngineeringBomMaterialLine,
 } from './pcs-engineering-bom-material-resolver.ts'
@@ -120,6 +121,10 @@ export function technicalBomItemToEngineeringLine(
     linkedPatternResultIds,
     processCode: item.usageProcessCodes?.[0] || '',
     remark: item.remark || '',
+    materialCostReference: item.materialCostReference ? structuredClone(item.materialCostReference) : undefined,
+    costReferenceMode: item.costReferenceMode,
+    unitConversionReference: item.unitConversionReference ? structuredClone(item.unitConversionReference) : undefined,
+    legacyIntentSourceId: item.legacyIntentSourceId,
   }
 }
 
@@ -213,22 +218,31 @@ export function buildEngineeringBomMaterialLine(
   input: EngineeringBomMaterialLineDraft,
   role: EngineeringBomOperatorRole,
 ): EngineeringBomMaterialLineDraft {
+  return prepareEngineeringBomMaterialLine(input, role)
+}
+
+function prepareEngineeringBomMaterialLine(
+  input: EngineeringBomMaterialLineDraft,
+  role: EngineeringBomOperatorRole,
+  existingMaterialSkuId?: string,
+): EngineeringBomMaterialLineDraft {
   requireBuyer(role)
   assertPositiveNumber(input.usage, '单位用量')
   assertPositiveNumber(input.sampleQuantity, '打样数量')
   assertLossRate(input.lossRate)
   const sku = getMaterialSkuRecordById(input.materialSkuId)
-  if (!sku || sku.status !== 'ACTIVE') throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
-  if (!Number.isFinite(sku.costPrice) || sku.costPrice <= 0) throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
-  resolveEngineeringBomConversion(sku.materialSkuId, input.usageUnit, sku.pricingUnit)
-  return {
+  if (!sku || (sku.materialSkuId !== existingMaterialSkuId && !isMaterialSkuAvailableForNewUse(sku))) throw new Error('物料 SKU 及其主档须已审核并启用，才能新加入 BOM。')
+  const resolved = resolveEngineeringBomMaterialLine({ ...input, costReferenceMode: 'CURRENT' })
+  if (resolved.standardUnitPriceCny === null) throw new Error(resolved.standardCostMessage || MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
+  resolveEngineeringBomConversion(sku.materialSkuId, input.usageUnit, resolved.pricingUnit)
+  return captureEngineeringBomMaterialReference({
     ...input,
     materialSkuId: sku.materialSkuId,
     usage: input.usage,
     sampleQuantity: input.sampleQuantity,
     usageUnit: input.usageUnit.trim(),
     lossRate: input.lossRate,
-  }
+  })
 }
 
 export function calculateEngineeringBomCost(input: {
@@ -237,6 +251,7 @@ export function calculateEngineeringBomCost(input: {
     materialSkuId: string
     usage: number
     sampleQuantity?: number
+    quantityBasis?: 'PER_SAMPLE' | 'ORDER_TOTAL'
     usageUnit: string
     pricingUnit: string
     conversionToPricingUnit: number | null
@@ -248,7 +263,7 @@ export function calculateEngineeringBomCost(input: {
   assertPositiveNumber(input.exchangeRateIdrPerCny, '汇率')
   let rawMaterialCostCny = 0
   for (const line of input.materialLines) {
-    if (!Number.isFinite(line.standardUnitPriceCny) || Number(line.standardUnitPriceCny) <= 0) {
+    if (line.standardUnitPriceCny === null || !Number.isFinite(line.standardUnitPriceCny) || Number(line.standardUnitPriceCny) < 0) {
       throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
     }
     if (!Number.isFinite(line.conversionToPricingUnit) || Number(line.conversionToPricingUnit) <= 0) {
@@ -259,7 +274,7 @@ export function calculateEngineeringBomCost(input: {
     assertLossRate(line.lossRate)
     rawMaterialCostCny +=
       line.usage *
-      (line.sampleQuantity ?? 1) *
+      (line.quantityBasis === 'ORDER_TOTAL' ? 1 : line.sampleQuantity ?? 1) *
       (1 + line.lossRate) *
       Number(line.conversionToPricingUnit) *
       Number(line.standardUnitPriceCny)
@@ -279,7 +294,7 @@ export function calculateEngineeringBomCost(input: {
 }
 
 export function resolveEngineeringBomDraft(draft: EngineeringBomDraft): EngineeringBomResolvedDraft {
-  const materialLines = draft.materialLines.map(resolveEngineeringBomMaterialLine)
+  const materialLines = draft.materialLines.map(line => resolveEngineeringBomMaterialLine({ ...line, costReferenceMode: draft.versionStatus && draft.versionStatus !== 'DRAFT' ? 'FROZEN' : line.costReferenceMode }))
   const validLines = materialLines.filter(
     (line): line is EngineeringBomResolvedMaterialLine & { standardUnitPriceCny: number } => line.standardUnitPriceCny !== null,
   )
@@ -328,6 +343,7 @@ export function buildTechnicalDataVersionBomDraft(
 
   return {
     styleCode: record?.styleCode || '',
+    versionStatus: record?.versionStatus === 'DRAFT' ? 'DRAFT' : 'PUBLISHED_SNAPSHOT',
     productColor: colors.length === 1 ? colors[0] : '',
     applicableSkuIds: skuScope,
     materialLines: content.bomItems.map((item) => technicalBomItemToEngineeringLine(item, record?.styleCode || '')),
@@ -336,6 +352,12 @@ export function buildTechnicalDataVersionBomDraft(
 }
 
 export function getTechnicalDataVersionBomWorkspace(technicalVersionId: string): EngineeringBomResolvedDraft {
+  const content = getTechnicalDataVersionContent(technicalVersionId)
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (record?.versionStatus !== 'DRAFT' && content?.bomPricingSnapshot) {
+    const snapshot = content.bomPricingSnapshot
+    return { materialLines: structuredClone(snapshot.materialLines), customCosts: structuredClone(snapshot.customCosts), cost: { ...snapshot.cost } }
+  }
   const draft = buildTechnicalDataVersionBomDraft(technicalVersionId)
   if (!draft) {
     return resolveEngineeringBomDraft({ materialLines: [], customCosts: [] })
@@ -358,7 +380,7 @@ export function saveTechnicalDataVersionBomMaterialLine(
     if (!item) throw new Error('未找到要维护的 BOM 物料行。')
     const materialSkuId = patch.materialSkuId ?? item.materialSkuId
     if (!materialSkuId) throw new Error('BOM 物料行未关联物料 SKU。')
-    const nextLine = buildEngineeringBomMaterialLine({
+    const nextLine = prepareEngineeringBomMaterialLine({
       materialSkuId,
       bomItemId,
       styleCode: patch.styleCode,
@@ -386,7 +408,7 @@ export function saveTechnicalDataVersionBomMaterialLine(
       linkedPatternResultIds: patch.linkedPatternResultIds ?? item.linkedPatternIds,
       processCode: patch.processCode ?? item.usageProcessCodes?.[0],
       remark: patch.remark ?? item.remark,
-    }, role)
+    }, role, item.materialSkuId)
     const sku = getMaterialSkuRecordById(nextLine.materialSkuId)
     if (!sku) throw new Error('未找到可用的物料 SKU，无法加入 BOM。')
     const nextItems = content.bomItems.map((candidate) => {
@@ -400,6 +422,9 @@ export function saveTechnicalDataVersionBomMaterialLine(
       return {
           ...candidate,
           materialSkuId: nextLine.materialSkuId,
+          materialCostReference: nextLine.materialCostReference,
+          costReferenceMode: nextLine.costReferenceMode,
+          unitConversionReference: nextLine.unitConversionReference,
           materialCode: sku.materialCode,
           name: sku.materialName,
           spec: sku.specName,
@@ -425,7 +450,7 @@ export function saveTechnicalDataVersionBomMaterialLine(
     })
     const changes = compareBomPriceChanges(content, { ...content, bomItems: nextItems })
     const contentChanged = JSON.stringify(nextItems) !== JSON.stringify(content.bomItems)
-    if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomItems: nextItems })
+    if (contentChanged) updateTechnicalDataVersionContent(technicalVersionId, { bomItems: nextItems, legacySkuIntentSourceIds: content.legacySkuIntentSourceIds })
     if (changes.length > 0) {
       invalidateReviewForBomPriceChange(technicalVersionId, { changes, operator: '系统价格联动' })
     }

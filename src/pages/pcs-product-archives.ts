@@ -1,2906 +1,462 @@
-import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
-import { listTestingOrders } from '../data/pcs-testing-order-repository.ts'
-import { renderProductInformation, handleProductInformationEvent } from './pcs-product-information.ts'
+// @page-pattern: list
+// R1 P01-P03 / PROD-001..012: separate lists, read-only details and dedicated editors.
+import { escapeHtml } from '../utils.ts'
+import { hydrateIcons } from '../components/shell.ts'
 import { appStore } from '../state/store.ts'
-import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
-import {
-  formalizeStyleArchive,
-  getStyleArchiveFormalizationCheck,
-} from '../data/pcs-project-style-archive-generation.ts'
-import {
-  activateTechPackVersionForStyle,
-  publishTechnicalDataVersion,
-} from '../data/pcs-project-technical-data-writeback.ts'
-import {
-  createProductionTechPackPublishEvaluationBatch,
-} from '../data/fcs/production-tech-pack-change-domain.ts'
-import {
-  listProjectChannelProductsSnapshot,
-} from '../data/pcs-channel-product-project-repository.ts'
-import type { ProjectChannelProductRecord } from '../data/pcs-channel-product-project-repository.ts'
-import { buildSkuFixture } from '../data/pcs-product-archive-fixtures.ts'
-import {
-  STYLE_ARCHIVE_STATUS_RULES,
-  isStyleArchiveFormalized,
-  resolveStyleArchiveBusinessStatus,
-  type StyleArchiveBusinessStatusKey,
-} from '../data/pcs-product-lifecycle-governance.ts'
-import { getStyleArchiveById, listStyleArchives, updateStyleArchive, createStyleArchiveDirect } from '../data/pcs-style-archive-repository.ts'
+import { renderStandardListPage, renderStandardListFilters, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../components/ui/list-table.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, paginateStandardListRows, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../components/ui/list-table-model.ts'
+import { listStyleArchives, getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
+import { listSkuArchives, getSkuArchiveCountsByStyle, listSkuArchivesByStyleId, getSkuArchiveById, createSkuArchiveBatch } from '../data/pcs-sku-archive-repository.ts'
+import { listEngineeringBomPricingPlans } from '../data/pcs-engineering-bom-repository.ts'
+import { listTechnicalDataVersionsByStyleId } from '../data/pcs-technical-data-version-repository.ts'
+import { listChannelMappingsBySkuId, listChannelListingsByStyleId, getChannelArchiveCounts } from '../data/pcs-channel-catalog.ts'
+import { listConfigDimensionOptions, listProductCategoryNodes } from '../data/pcs-config-workspace-repository.ts'
+import { FLAT_DIMENSION_META, type FlatDimensionId } from '../data/pcs-config-dimensions.ts'
+import { APPROVAL_LABELS as approvalLabels, LIFECYCLE_LABELS as lifecycleLabels, DELIVERY_LABELS as deliveryLabels, type SalesBaseContent, resolveProductMainUnit } from '../data/pcs-product-archive-rules.ts'
+import { previewProductSkus, saveProductStyleDraft, saveProductSkuDraft, submitProductForApproval, reviewProductArchive, setProductLifecycle, saveProductSalesContent, productDraftCopy, type ProductStyleDraft, type ProductSkuDraft } from '../data/pcs-product-archive-commands.ts'
+import { listMaterialUnitDefinitions } from '../data/pcs-material-config.ts'
+import { productPackages } from '../data/pcs-product-packaging.ts'
+import { listMaterialPatternChoices } from '../data/pcs-material-pattern.ts'
+import { getProjectCreateCatalog } from '../data/pcs-project-repository.ts'
+import { listAllMaterialSkuRecords } from '../data/pcs-material-archive-repository.ts'
+import { runPcsRecordCommand, registerPcsFile, releasePcsPendingFile } from '../data/pcs-record-runtime.ts'
 import type { StyleArchiveShellRecord } from '../data/pcs-style-archive-types.ts'
-import {
-  createSkuArchive,
-  createSkuArchiveBatch,
-  findSkuArchiveByCode,
-  getSkuArchiveById,
-  listSkuArchives,
-  listSkuArchivesByStyleId,
-  updateSkuArchive,
-} from '../data/pcs-sku-archive-repository.ts'
-import type { SkuArchiveMappingHealth, SkuArchiveRecord, SkuArchiveStatusCode } from '../data/pcs-sku-archive-types.ts'
-import { buildTechnicalVersionListByStyle } from '../data/pcs-technical-data-version-view-model.ts'
-import {
-  getTechnicalDataVersionById,
-  listTechnicalDataVersions,
-  listTechnicalDataVersionsByStyleId,
-} from '../data/pcs-technical-data-version-repository.ts'
-import type { TechnicalDataVersionRecord, TechnicalReviewStage } from '../data/pcs-technical-data-version-types.ts'
-import {
-  getTechnicalReviewFeishuNotifyText,
-  getTechnicalReviewPendingReviewerText,
-  getTechnicalReviewStatusText,
-  normalizeTechnicalReviewSnapshot,
-} from '../data/pcs-tech-pack-review.ts'
-import { listTechPackVersionLogsByVersionId } from '../data/pcs-tech-pack-version-log-repository.ts'
-import {
-  listProjectWorkspaceColors,
-  listProjectWorkspaceSizes,
-} from '../data/pcs-project-config-workspace-adapter.ts'
-import {
-  getEngineeringIndependentSamplingRecord,
-  linkCompletedTemporarySpuToStyleArchive,
-  listCompletedTemporarySpuDesignRevisions,
-} from '../data/pcs-engineering-master-sampling.ts'
-
-type StyleVersionFilter = 'all' | 'has' | 'none'
-type StyleReviewFilter = 'all' | 'needsReview' | 'waitingPublish' | 'published'
-type StyleDetailTabKey = 'overview' | 'versions' | 'specifications' | 'mappings' | 'channels' | 'logs'
-type SkuDetailTabKey = 'overview' | 'channelMappings' | 'channelVariants' | 'codeMappings' | 'logs'
-type SkuCreateMode = 'single' | 'batch' | 'import'
-type SkuCodeStrategy = 'auto' | 'manual'
-
-interface ProductArchivePageState {
-  notice: string | null
-  styleList: {
-    search: string
-    status: 'all' | StyleArchiveBusinessStatusKey
-    version: StyleVersionFilter
-    review: StyleReviewFilter
-    mapping: 'all' | SkuArchiveMappingHealth
-  }
-  skuList: {
-    search: string
-    status: 'all' | SkuArchiveStatusCode
-    mapping: 'all' | SkuArchiveMappingHealth
-    styleId: string
-  }
-  styleDetail: {
-    styleId: string | null
-    activeTab: StyleDetailTabKey
-  }
-  skuDetail: {
-    skuId: string | null
-    activeTab: SkuDetailTabKey
-  }
-  skuCreate: {
-    open: boolean
-    mode: SkuCreateMode
-    styleId: string
-    color: string
-    size: string
-    print: string
-    barcode: string
-    codeStrategy: SkuCodeStrategy
-    manualCode: string
-    legacySystem: string
-    legacyCode: string
-    batchColors: string[]
-    batchSizes: string[]
-    batchPrint: string
-  }
-  styleCompletion: {
-    open: boolean
-    styleId: string
-    designRevisionTaskId: string
-    styleName: string
-    styleNumber: string
-    productType: string
-    categoryName: string
-    subCategoryName: string
-    brandName: string
-    yearTag: string
-    seasonTags: string
-    styleTags: string
-    targetAudienceTags: string
-    targetChannelCodes: string
-    priceRangeLabel: string
-    mainImageId: string
-    mainImageUrl: string
-    galleryImageIds: string[]
-    galleryImageUrls: string[]
-    imageSource: string
-    sellingPointText: string
-    detailDescription: string
-    packagingInfo: string
-    remark: string
-  }
-  styleCreate: {
-    open: boolean
-    styleName: string
-    styleNumber: string
-    productType: string
-    categoryName: string
-  }
-  versionLogDialog: {
-    open: boolean
-    technicalVersionId: string
-  }
-}
-
-interface StyleArchiveListItemViewModel {
-  style: StyleArchiveShellRecord
-  displayStatus: StyleArchiveBusinessStatusKey
-  hasEffectiveTechPack: boolean
-  skuCount: number
-  mappingHealth: SkuArchiveMappingHealth
-  currentVersionText: string
-  currentVersionMetaText: string
-  reviewVersionId: string
-  reviewVersionText: string
-  reviewStage: TechnicalReviewStage | '无技术包'
-  reviewStatusText: string
-  reviewPendingReviewerText: string
-  reviewNotifyText: string
-  reviewActionText: string
-  reviewBadgeClass: string
-  channelCount: number
-  onSaleCount: number
-  legacyMappingText: string
-  originBusinessText: string
-}
-
-interface ProductArchiveListContext {
-  styles: StyleArchiveShellRecord[]
-  skuSummariesByStyleId: Map<string, { count: number; mappingHealth: SkuArchiveMappingHealth }>
-  technicalVersionsByStyleId: Map<string, TechnicalDataVersionRecord[]>
-  channelProductsByStyleId: Map<string, ProjectChannelProductRecord[]>
-  channelProductsByProjectId: Map<string, ProjectChannelProductRecord[]>
-}
-
-const STYLE_DETAIL_TABS: Array<{ key: StyleDetailTabKey; label: string }> = [
-  { key: 'overview', label: '概览' },
-  { key: 'versions', label: '技术包版本' },
-  { key: 'specifications', label: '规格档案' },
-  { key: 'mappings', label: '编码映射' },
-  { key: 'channels', label: '渠道店铺商品' },
-  { key: 'logs', label: '日志' },
-]
-
-const SKU_DETAIL_TABS: Array<{ key: SkuDetailTabKey; label: string }> = [
-  { key: 'overview', label: '概览' },
-  { key: 'channelMappings', label: '渠道映射' },
-  { key: 'channelVariants', label: '渠道变体' },
-  { key: 'codeMappings', label: '外部编码' },
-  { key: 'logs', label: '日志' },
-]
-
-const SKU_STATUS_META: Record<SkuArchiveStatusCode, { label: string; className: string }> = {
-  ACTIVE: { label: '启用', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  INACTIVE: { label: '停用', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-  ARCHIVED: { label: '已归档', className: 'border-slate-200 bg-slate-100 text-slate-600' },
-}
-
-const MAPPING_META: Record<SkuArchiveMappingHealth, { label: string; className: string }> = {
-  OK: { label: '健康', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  MISSING: { label: '缺映射', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-  CONFLICT: { label: '冲突', className: 'border-rose-200 bg-rose-50 text-rose-700' },
-}
-
-const LEGACY_SYSTEM_OPTIONS = ['ERP-A', 'ERP-B', 'OMS-旧档', '外部表格导入']
-const FALLBACK_SKU_COLOR_OPTIONS = ['Black', 'White', 'Red', 'Blue', 'Green', 'Khaki']
-const FALLBACK_SKU_SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'One Size']
-let productArchiveDataReady = false
-
-function listConfiguredSkuColors(): string[] {
-  const options = listProjectWorkspaceColors()
-    .map((item) => item.name.trim())
-    .filter(Boolean)
-  return options.length > 0 ? options : FALLBACK_SKU_COLOR_OPTIONS
-}
-
-function listConfiguredSkuSizes(): string[] {
-  const options = listProjectWorkspaceSizes()
-    .map((item) => item.name.trim())
-    .filter(Boolean)
-  return options.length > 0 ? options : FALLBACK_SKU_SIZE_OPTIONS
-}
-
-function createDefaultSkuCreateState(): ProductArchivePageState['skuCreate'] {
-  const colors = listConfiguredSkuColors()
-  const sizes = listConfiguredSkuSizes()
-  return {
-    open: false,
-    mode: 'single',
-    styleId: '',
-    color: colors[0] || FALLBACK_SKU_COLOR_OPTIONS[0],
-    size: sizes[0] || FALLBACK_SKU_SIZE_OPTIONS[0],
-    print: '',
-    barcode: '',
-    codeStrategy: 'auto',
-    manualCode: '',
-    legacySystem: 'ERP-A',
-    legacyCode: '',
-    batchColors: colors.slice(0, Math.min(2, colors.length)),
-    batchSizes: sizes.slice(0, Math.min(2, sizes.length)),
-    batchPrint: '',
-  }
-}
-
-function createDefaultStyleCompletionState(): ProductArchivePageState['styleCompletion'] {
-  return {
-    open: false,
-    styleId: '',
-    designRevisionTaskId: '',
-    styleName: '',
-    styleNumber: '',
-    productType: '',
-    categoryName: '',
-    subCategoryName: '',
-    brandName: '',
-    yearTag: '',
-    seasonTags: '',
-    styleTags: '',
-    targetAudienceTags: '',
-    targetChannelCodes: '',
-    priceRangeLabel: '',
-    mainImageId: '',
-    mainImageUrl: '',
-    galleryImageIds: [],
-    galleryImageUrls: [],
-    imageSource: '',
-    sellingPointText: '',
-    detailDescription: '',
-    packagingInfo: '',
-    remark: '',
-  }
-}
-
-function createDefaultStyleCreateState(): ProductArchivePageState['styleCreate'] {
-  return {
-    open: false,
-    styleName: '',
-    styleNumber: '',
-    productType: '成衣',
-    categoryName: '',
-  }
-}
-
-function createDefaultVersionLogDialogState(): ProductArchivePageState['versionLogDialog'] {
-  return {
-    open: false,
-    technicalVersionId: '',
-  }
-}
-
-const state: ProductArchivePageState = {
-  notice: null,
-  styleList: {
-    search: '',
-    status: 'all',
-    version: 'all',
-    review: 'all',
-    mapping: 'all',
-  },
-  skuList: {
-    search: '',
-    status: 'all',
-    mapping: 'all',
-    styleId: '',
-  },
-  styleDetail: {
-    styleId: null,
-    activeTab: 'overview',
-  },
-  skuDetail: {
-    skuId: null,
-    activeTab: 'overview',
-  },
-  skuCreate: createDefaultSkuCreateState(),
-  styleCompletion: createDefaultStyleCompletionState(),
-  styleCreate: createDefaultStyleCreateState(),
-  versionLogDialog: createDefaultVersionLogDialogState(),
-}
-
-function openProductionChangeEvaluationFromProductArchive(record: TechnicalDataVersionRecord): string {
-  const batch = createProductionTechPackPublishEvaluationBatch({
-    technicalVersionId: record.technicalVersionId,
-    technicalVersionCode: record.technicalVersionCode,
-    versionLabel: record.versionLabel,
-    styleId: record.styleId,
-    styleCode: record.styleCode,
-    styleName: record.styleName,
-    publishedAt: record.publishedAt || record.updatedAt,
-    publishedBy: record.publishedBy || record.updatedBy || '当前用户',
-    changeSummary: record.changeSummary,
-  })
-  if (batch.affectedOrders.length === 0) {
-    return `已发布技术包新版本 ${record.versionLabel}，当前没有关联旧版本生产单需要评估。`
-  }
-  appStore.openTab({
-    key: `production-change-${batch.batchId}`,
-    title: '生产单变更',
-    href: `/fcs/production/changes?publishBatchId=${encodeURIComponent(batch.batchId)}`,
-    closable: true,
-  })
-  return `已发布技术包新版本 ${record.versionLabel}，已生成 ${batch.affectedOrders.length} 个生产单评估入口。`
-}
-
-function resetSkuCreateState(): void {
-  state.skuCreate = createDefaultSkuCreateState()
-}
-
-function resetStyleCompletionState(): void {
-  state.styleCompletion = createDefaultStyleCompletionState()
-}
-
-function resetVersionLogDialogState(): void {
-  state.versionLogDialog = createDefaultVersionLogDialogState()
-}
-
-export function resetPcsProductArchiveState(): void {
-  state.notice = null
-  state.styleList = {
-    search: '',
-    status: 'all',
-    version: 'all',
-    review: 'all',
-    mapping: 'all',
-  }
-  state.skuList = {
-    search: '',
-    status: 'all',
-    mapping: 'all',
-    styleId: '',
-  }
-  state.styleDetail = {
-    styleId: null,
-    activeTab: 'overview',
-  }
-  state.skuDetail = {
-    skuId: null,
-    activeTab: 'overview',
-  }
-  resetSkuCreateState()
-  resetStyleCompletionState()
-  resetVersionLogDialogState()
-}
-
-function ensurePageDataReady(): void {
-  if (productArchiveDataReady) return
-  productArchiveDataReady = true
-}
-
-function nowText(): string {
-  const now = new Date()
-  const pad = (value: number) => String(value).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
-}
-
-function normalizeTextToken(value: string, fallback: string): string {
-  const normalized = value.trim().toLowerCase()
-  if (normalized.includes('黑')) return 'BLK'
-  if (normalized.includes('白')) return 'WHT'
-  if (normalized.includes('红')) return 'RED'
-  if (normalized.includes('蓝')) return 'BLU'
-  if (normalized.includes('绿')) return 'GRN'
-  if (normalized.includes('卡其')) return 'KHA'
-  const ascii = normalized.replace(/[^a-z0-9]/g, '').slice(0, 3).toUpperCase()
-  return ascii || fallback
-}
-
-function buildSkuIdentity(): { skuId: string; timestamp: string } {
-  const timestamp = nowText()
-  const dateKey = timestamp.slice(0, 10).replace(/-/g, '')
-  const sequence = listSkuArchives().filter((item) => item.createdAt.startsWith(timestamp.slice(0, 10))).length + 1
-  return {
-    skuId: `skuDraft_${dateKey}_${String(sequence).padStart(3, '0')}`,
-    timestamp,
-  }
-}
-
-function buildAutoSkuCode(styleCode: string, color: string, size: string, print: string): string {
-  const colorToken = normalizeTextToken(color, 'CLR')
-  const sizeToken = size.trim().toUpperCase() || 'OS'
-  const printToken = print.trim() ? `-${normalizeTextToken(print, 'PRT')}` : ''
-  return `${styleCode}-${colorToken}-${sizeToken}${printToken}`
-}
-
-function resolveLatestVersionMeta(styleId: string): { versionId: string; versionCode: string; versionLabel: string } {
-  const versions = listTechnicalDataVersionsByStyleId(styleId)
-  return {
-    versionId: versions[0]?.technicalVersionId || '',
-    versionCode: versions[0]?.technicalVersionCode || '',
-    versionLabel: versions[0]?.versionLabel || '',
-  }
-}
-
-function resolveStyleMappingHealth(skus: SkuArchiveRecord[]): SkuArchiveMappingHealth {
-  if (skus.some((item) => item.mappingHealth === 'CONFLICT')) return 'CONFLICT'
-  if (skus.some((item) => item.mappingHealth === 'MISSING') || skus.length === 0) return 'MISSING'
-  return 'OK'
-}
-
-function groupByStyleId<T extends { styleId?: string }>(records: T[]): Map<string, T[]> {
-  const grouped = new Map<string, T[]>()
-  records.forEach((record) => {
-    if (!record.styleId) return
-    const current = grouped.get(record.styleId)
-    if (current) current.push(record)
-    else grouped.set(record.styleId, [record])
-  })
-  return grouped
-}
-
-function groupChannelProductsByProjectId(records: ProjectChannelProductRecord[]): Map<string, ProjectChannelProductRecord[]> {
-  const grouped = new Map<string, ProjectChannelProductRecord[]>()
-  records.forEach((record) => {
-    if (!record.projectId) return
-    const current = grouped.get(record.projectId)
-    if (current) current.push(record)
-    else grouped.set(record.projectId, [record])
-  })
-  return grouped
-}
-
-function groupTechnicalVersionsByStyleId(records: TechnicalDataVersionRecord[]): Map<string, TechnicalDataVersionRecord[]> {
-  const grouped = groupByStyleId(records)
-  grouped.forEach((items) => {
-    items.sort((a, b) => b.versionNo - a.versionNo || b.updatedAt.localeCompare(a.updatedAt))
-  })
-  return grouped
-}
-
-function resolveStyleReviewTargetVersion(
-  style: StyleArchiveShellRecord,
-  versions: TechnicalDataVersionRecord[],
-): TechnicalDataVersionRecord | null {
-  const draftVersion = versions.find((item) => item.versionStatus === 'DRAFT')
-  if (draftVersion) return draftVersion
-  return versions.find((item) => item.technicalVersionId === style.currentTechPackVersionId) || versions[0] || null
-}
-
-function resolveReviewBadgeClass(reviewStage: TechnicalReviewStage | '无技术包', statusText: string): string {
-  if (reviewStage === '无技术包') return 'border-slate-200 bg-slate-50 text-slate-600'
-  if (statusText.includes('未通过') || statusText.includes('打回')) return 'border-rose-200 bg-rose-50 text-rose-700'
-  if (reviewStage === '待发布') return 'border-blue-200 bg-blue-50 text-blue-700'
-  if (reviewStage === '已发布') return 'border-emerald-200 bg-emerald-50 text-emerald-700'
-  if (reviewStage === '未提交审核') return 'border-amber-200 bg-amber-50 text-amber-700'
-  return 'border-orange-200 bg-orange-50 text-orange-700'
-}
-
-function buildStyleReviewSummary(version: TechnicalDataVersionRecord | null): Pick<
-  StyleArchiveListItemViewModel,
-  | 'reviewVersionId'
-  | 'reviewVersionText'
-  | 'reviewStage'
-  | 'reviewStatusText'
-  | 'reviewPendingReviewerText'
-  | 'reviewNotifyText'
-  | 'reviewActionText'
-  | 'reviewBadgeClass'
-> {
-  if (!version) {
-    return {
-      reviewVersionId: '',
-      reviewVersionText: '未建立技术包版本',
-      reviewStage: '无技术包',
-      reviewStatusText: '未建立技术包',
-      reviewPendingReviewerText: '无',
-      reviewNotifyText: '无待通知审核人',
-      reviewActionText: '先建立技术包版本',
-      reviewBadgeClass: resolveReviewBadgeClass('无技术包', '未建立技术包'),
-    }
-  }
-
-  const snapshot = normalizeTechnicalReviewSnapshot(version)
-  const pendingReviewerText = getTechnicalReviewPendingReviewerText(version)
-  const notifyText = getTechnicalReviewFeishuNotifyText(version)
-  const statusText = getTechnicalReviewStatusText(version)
-  const actionText =
-    version.versionStatus === 'PUBLISHED' || snapshot.reviewStage === '已发布'
-      ? '无需审核'
-      : snapshot.reviewStage === '未提交审核'
-        ? '提交买手、版师并行审核'
-        : snapshot.reviewStage === '待发布'
-          ? '发布正式版本'
-          : pendingReviewerText !== '无'
-            ? `待${pendingReviewerText}审核`
-            : '等待审核流转'
-
-  return {
-    reviewVersionId: version.technicalVersionId,
-    reviewVersionText: `${version.versionLabel} · ${version.technicalVersionCode}`,
-    reviewStage: snapshot.reviewStage,
-    reviewStatusText: statusText,
-    reviewPendingReviewerText: pendingReviewerText,
-    reviewNotifyText: notifyText,
-    reviewActionText: actionText,
-    reviewBadgeClass: resolveReviewBadgeClass(snapshot.reviewStage, statusText),
-  }
-}
-
-function buildSkuSummariesByStyleId(
-  styles: StyleArchiveShellRecord[],
-): Map<string, { count: number; mappingHealth: SkuArchiveMappingHealth }> {
-  const grouped = groupByStyleId(listSkuArchives())
-  return new Map(
-    styles.map((style) => {
-      const skus = grouped.get(style.styleId) || []
-      return [
-        style.styleId,
-        {
-          count: skus.length,
-          mappingHealth: resolveStyleMappingHealth(skus),
-        },
-      ]
-    }),
-  )
-}
-
-function buildProductArchiveListContext(): ProductArchiveListContext {
-  ensurePageDataReady()
-  const styles = listStyleArchives()
-  const technicalVersions = listTechnicalDataVersions()
-  const channelProducts = listProjectChannelProductsSnapshot()
-  return {
-    styles,
-    skuSummariesByStyleId: buildSkuSummariesByStyleId(styles),
-    technicalVersionsByStyleId: groupTechnicalVersionsByStyleId(technicalVersions),
-    channelProductsByStyleId: groupByStyleId(channelProducts),
-    channelProductsByProjectId: groupChannelProductsByProjectId(channelProducts),
-  }
-}
-
-function listStyleChannelProducts(
-  style: StyleArchiveShellRecord,
-  context?: Pick<ProductArchiveListContext, 'channelProductsByStyleId' | 'channelProductsByProjectId'>,
-): ProjectChannelProductRecord[] {
-  const records = context
-    ? [
-        ...(context.channelProductsByStyleId.get(style.styleId) || []),
-      ]
-    : listProjectChannelProductsSnapshot()
-  const matchedRecords = records.filter(
-    (item) => item.styleId === style.styleId,
-  )
-  const uniqueRecords = new Map(matchedRecords.map((item) => [item.channelProductId, item]))
-  return Array.from(uniqueRecords.values())
-}
-
-function countOnSaleChannelProducts(records: ReturnType<typeof listStyleChannelProducts>): number {
-  return records.filter((item) => item.channelProductStatus === '已生效' && item.upstreamSyncStatus === '已更新').length
-}
-
-function buildStyleListItems(context = buildProductArchiveListContext()): StyleArchiveListItemViewModel[] {
-  return context.styles.map((style) => {
-    const skuSummary = context.skuSummariesByStyleId.get(style.styleId) || {
-      count: style.specificationCount || 0,
-      mappingHealth: style.specificationCount > 0 ? 'OK' as const : 'MISSING' as const,
-    }
-    const versions = context.technicalVersionsByStyleId.get(style.styleId) || []
-    const currentVersion =
-      versions.find((item) => item.technicalVersionId === style.currentTechPackVersionId) || versions[0] || null
-    const reviewTargetVersion = resolveStyleReviewTargetVersion(style, versions)
-    const reviewSummary = buildStyleReviewSummary(reviewTargetVersion)
-    const styleChannels = listStyleChannelProducts(style, context)
-    return {
-      style,
-      displayStatus: resolveStyleArchiveBusinessStatus(style),
-      hasEffectiveTechPack: Boolean(currentVersion),
-      skuCount: skuSummary.count,
-      mappingHealth: skuSummary.mappingHealth,
-      currentVersionText: currentVersion ? `${currentVersion.versionLabel}` : '未建立当前生效技术包',
-      currentVersionMetaText: currentVersion?.publishedAt ? `生效于 ${currentVersion.publishedAt.slice(0, 10)}` : '待建立技术包版本',
-      ...reviewSummary,
-      channelCount: styleChannels.length || style.channelProductCount,
-      onSaleCount: countOnSaleChannelProducts(styleChannels),
-      legacyMappingText: style.legacyOriginProject ? `历史项目：${style.legacyOriginProject}` : `款号：${style.styleNumber || style.styleCode}`,
-      originBusinessText: getStyleOriginText(style.styleId),
-    }
-  })
-}
-
-function filterStyleItems(items: StyleArchiveListItemViewModel[]): StyleArchiveListItemViewModel[] {
-  const search = state.styleList.search.trim().toLowerCase()
-  return items.filter((item) => {
-    if (search) {
-      const haystack = [
-        item.style.styleCode,
-        item.style.styleName,
-        item.style.styleNumber,
-        item.legacyMappingText,
-        item.originBusinessText,
-      ]
-        .join(' ')
-        .toLowerCase()
-      if (!haystack.includes(search)) return false
-    }
-
-    if (state.styleList.status !== 'all' && item.displayStatus !== state.styleList.status) return false
-    if (state.styleList.version === 'has' && !item.hasEffectiveTechPack) return false
-    if (state.styleList.version === 'none' && item.hasEffectiveTechPack) return false
-    if (state.styleList.review === 'needsReview' && !(
-      item.reviewStage !== '无技术包' &&
-      item.reviewStage !== '待发布' &&
-      item.reviewStage !== '已发布'
-    )) return false
-    if (state.styleList.review === 'waitingPublish' && item.reviewStage !== '待发布') return false
-    if (state.styleList.review === 'published' && item.reviewStage !== '已发布') return false
-    if (state.styleList.mapping !== 'all' && item.mappingHealth !== state.styleList.mapping) return false
-
-    return true
-  })
-}
-
-function getFilteredStyleItems(): StyleArchiveListItemViewModel[] {
-  return filterStyleItems(buildStyleListItems())
-}
-
-function getStyleStats(items: StyleArchiveListItemViewModel[]) {
-  return {
-    total: items.length,
-    waitingBaseInfo: items.filter((item) => item.displayStatus === 'WAITING_BASE_INFO').length,
-    waitingTechPack: items.filter((item) => item.displayStatus === 'WAITING_TECH_PACK').length,
-    active: items.filter((item) => item.displayStatus === 'ACTIVE').length,
-    archived: items.filter((item) => item.displayStatus === 'ARCHIVED').length,
-    hasVersion: items.filter((item) => item.hasEffectiveTechPack).length,
-    noVersion: items.filter((item) => !item.hasEffectiveTechPack).length,
-    mappingOK: items.filter((item) => item.mappingHealth === 'OK').length,
-    mappingConflict: items.filter((item) => item.mappingHealth === 'CONFLICT').length,
-  }
-}
-
-function getFilteredSkuItems(): SkuArchiveRecord[] {
-  ensurePageDataReady()
-  const search = state.skuList.search.trim().toLowerCase()
-  return listSkuArchives().filter((item) => {
-    if (search) {
-      const haystack = [item.skuCode, item.barcode, item.styleCode, item.styleName, item.colorName, item.legacyCode]
-        .join(' ')
-        .toLowerCase()
-      if (!haystack.includes(search)) return false
-    }
-
-    if (state.skuList.status !== 'all' && item.archiveStatus !== state.skuList.status) return false
-    if (state.skuList.mapping !== 'all' && item.mappingHealth !== state.skuList.mapping) return false
-    if (state.skuList.styleId && item.styleId !== state.skuList.styleId) return false
-    return true
-  })
-}
-
-function getSkuStats() {
-  const items = listSkuArchives()
-  return {
-    total: items.length,
-    active: items.filter((item) => item.archiveStatus === 'ACTIVE').length,
-    inactive: items.filter((item) => item.archiveStatus === 'INACTIVE').length,
-    mappingOK: items.filter((item) => item.mappingHealth === 'OK').length,
-    mappingMissing: items.filter((item) => item.mappingHealth === 'MISSING').length,
-    mappingConflict: items.filter((item) => item.mappingHealth === 'CONFLICT').length,
-  }
-}
-
-function renderBadge(text: string, className: string): string {
-  return `<span class="${escapeHtml(toClassName('inline-flex rounded-full border px-2 py-0.5 text-xs font-medium', className))}">${escapeHtml(text)}</span>`
-}
-
-function renderStatusBadge(status: StyleArchiveBusinessStatusKey | SkuArchiveStatusCode, type: 'style' | 'sku'): string {
-  const meta = type === 'style' ? STYLE_ARCHIVE_STATUS_RULES[status as StyleArchiveBusinessStatusKey] : SKU_STATUS_META[status as SkuArchiveStatusCode]
-  return renderBadge(meta.label, meta.className)
-}
-
-function renderStyleLifecycleBadge(style: StyleArchiveShellRecord): string {
-  return renderStatusBadge(resolveStyleArchiveBusinessStatus(style), 'style')
-}
-
-function renderMappingBadge(health: SkuArchiveMappingHealth): string {
-  const meta = MAPPING_META[health]
-  return renderBadge(meta.label, meta.className)
-}
-
-function renderMetricButton(title: string, value: string | number, description: string, action: string, extraData = ''): string {
-  const clickable = action !== 'noop'
-  const className = toClassName(
-    'rounded-lg border bg-white px-4 py-3 text-left shadow-sm',
-    clickable && 'hover:border-slate-300 hover:bg-slate-50',
-  )
-  return `
-    <button type="button" class="${escapeHtml(className)}" ${clickable ? `data-pcs-product-archive-action="${escapeHtml(action)}"` : ''} ${extraData}>
-      <div class="text-xs text-slate-500">${escapeHtml(title)}</div>
-      <div class="mt-2 text-2xl font-semibold text-slate-900">${escapeHtml(value)}</div>
-      <div class="mt-1 text-xs text-slate-500">${escapeHtml(description)}</div>
-    </button>
-  `
-}
-
-function renderFormField(label: string, control: string, required = false, hint = ''): string {
-  return `
-    <label class="block space-y-2">
-      <div class="text-sm font-medium text-slate-700">${escapeHtml(label)}${required ? '<span class="ml-1 text-rose-500">*</span>' : ''}</div>
-      ${control}
-      ${hint ? `<div class="text-xs text-slate-500">${escapeHtml(hint)}</div>` : ''}
-    </label>
-  `
-}
-
-function renderTextInput(field: string, value: string, placeholder: string, type = 'text'): string {
-  return `<input type="${escapeHtml(type)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" data-pcs-product-archive-field="${escapeHtml(field)}" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400" />`
-}
-
-function renderTextarea(field: string, value: string, placeholder: string, rows = 4): string {
-  return `<textarea rows="${rows}" placeholder="${escapeHtml(placeholder)}" data-pcs-product-archive-field="${escapeHtml(field)}" class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm leading-6 text-slate-700 outline-none transition focus:border-slate-400">${escapeHtml(value)}</textarea>`
-}
-
-function renderReadonlyValue(value: string, placeholder = '—'): string {
-  return `<div class="min-h-10 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-700">${escapeHtml(value || placeholder)}</div>`
-}
-
-function renderSelect(
-  field: string,
-  value: string,
-  options: Array<{ value: string; label: string }>,
-  placeholder: string,
-): string {
-  const optionHtml = [`<option value="">${escapeHtml(placeholder)}</option>`, ...options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`)].join('')
-  return `<select data-pcs-product-archive-field="${escapeHtml(field)}" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400">${optionHtml}</select>`
-}
-
-function renderCheckbox(field: string, checked: boolean, label: string, extraData = ''): string {
-  return `
-    <label class="inline-flex items-center gap-2 text-sm text-slate-700">
-      <input type="checkbox" ${checked ? 'checked' : ''} data-pcs-product-archive-field="${escapeHtml(field)}" ${extraData} class="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400" />
-      <span>${escapeHtml(label)}</span>
-    </label>
-  `
-}
-
-function renderDrawerShell(title: string, description: string, body: string, footer: string): string {
-  return `
-    <div class="fixed inset-0 z-40 flex justify-end">
-      <button type="button" class="absolute inset-0 bg-slate-900/30" data-pcs-product-archive-action="close-drawers"></button>
-      <section class="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-xl">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
-              <p class="mt-1 text-sm text-slate-500">${escapeHtml(description)}</p>
-            </div>
-            <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">×</button>
-          </div>
-        </div>
-        <div class="flex-1 overflow-y-auto px-5 py-5">${body}</div>
-        <div class="border-t border-slate-200 px-5 py-4">
-          <div class="flex flex-wrap items-center justify-end gap-2">${footer}</div>
-        </div>
-      </section>
-    </div>
-  `
-}
-
-function renderNotice(): string {
-  if (!state.notice) return ''
-  return `
-    <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-      <div class="flex items-start justify-between gap-3">
-        <p class="text-sm text-blue-800">${escapeHtml(state.notice)}</p>
-        <button type="button" class="inline-flex h-7 items-center rounded-md px-2 text-xs text-blue-700 hover:bg-blue-100" data-pcs-product-archive-action="close-notice">关闭</button>
-      </div>
-    </section>
-  `
-}
-
-function stringifyTagList(values: string[]): string {
-  return values.filter((item) => item.trim()).join('，')
-}
-
-function parseTagList(value: string): string[] {
-  return value
-    .split(/[，,、/]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function formatCurrency(value: number, currency = '人民币'): string {
-  if (!Number.isFinite(value)) return '-'
-  if (currency === '美元') return `$${value.toFixed(2)}`
-  if (currency === '印尼盾') return `Rp${Math.round(value).toLocaleString('zh-CN')}`
-  return `¥${value.toFixed(2)}`
-}
-
-function uniqueImageUrls(urls: string[]): string[] {
-  const unique = new Set<string>()
-  urls.forEach((item) => {
-    const normalized = item.trim()
-    if (!normalized) return
-    unique.add(normalized)
-  })
-  return Array.from(unique)
-}
-
-function getStyleImageUrls(style: StyleArchiveShellRecord): string[] {
-  return uniqueImageUrls([style.mainImageUrl, ...(style.galleryImageUrls || [])])
-}
-
-function getStyleCompletionImageUrls(): string[] {
-  return uniqueImageUrls([state.styleCompletion.mainImageUrl, ...state.styleCompletion.galleryImageUrls])
-}
-
-function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md', highlighted = false): string {
-  const dimension = size === 'sm' ? 'h-12 w-12' : 'h-20 w-20'
-  if (!url) return `<span class="${dimension} flex shrink-0 items-center justify-center rounded-md border border-dashed border-amber-300 px-1 text-center text-xs text-amber-700">缺少对应图片</span>`
-  return `<button type="button" class="${escapeHtml(toClassName('relative block shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-50', dimension, highlighted && 'ring-2 ring-slate-900 ring-offset-1'))}" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(alt)}" aria-label="查看${escapeHtml(alt)}大图"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}实拍图" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=true;this.nextElementSibling.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500">加载中</span><span hidden class="absolute inset-0 items-center justify-center bg-slate-50 px-1 text-center text-[10px] text-amber-700">图片加载失败，点击重试预览</span></button>`
-}
-
-function renderStyleImagePreviewButton(url: string, title: string, size: 'sm' | 'md' = 'md', highlighted = false): string {
-  return renderArchiveImage(url, title, size, highlighted)
-}
-
-function renderTechPackVersionLogDialog(): string {
-  if (!state.versionLogDialog.open || !state.versionLogDialog.technicalVersionId) return ''
-  const record = getTechnicalDataVersionById(state.versionLogDialog.technicalVersionId)
-  const logs = listTechPackVersionLogsByVersionId(state.versionLogDialog.technicalVersionId)
-  const versionText = record
-    ? `${record.versionLabel} · ${record.technicalVersionCode}`
-    : state.versionLogDialog.technicalVersionId
-
-  return `
-    <div class="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
-      <button type="button" class="absolute inset-0 bg-slate-950/55" data-pcs-product-archive-action="close-tech-pack-version-logs"></button>
-      <section class="relative z-10 flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
-        <div class="flex items-start justify-between gap-3 border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 class="text-base font-semibold text-slate-900">技术包版本日志</h2>
-            <p class="mt-1 text-sm text-slate-500">${escapeHtml(versionText)} · 共 ${escapeHtml(String(logs.length))} 条</p>
-          </div>
-          <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-pcs-product-archive-action="close-tech-pack-version-logs">×</button>
-        </div>
-        <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          ${
-            logs.length > 0
-              ? `
-                <div class="space-y-3">
-                  ${logs
-                    .map(
-                      (item) => `
-                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-                          <div class="flex flex-wrap items-center justify-between gap-3">
-                            <div class="text-sm font-medium text-slate-900">${escapeHtml(item.logType)}</div>
-                            <div class="text-xs text-slate-500">${escapeHtml(item.createdAt)}</div>
-                          </div>
-                          <div class="mt-2 text-sm leading-6 text-slate-600">${escapeHtml(item.changeText || '未补充')}</div>
-                          <div class="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
-                            <span>操作人：${escapeHtml(item.createdBy || '-')}</span>
-                            <span>来源任务：${escapeHtml(item.sourceTaskCode ? `${item.sourceTaskCode} · ${item.sourceTaskName || item.sourceTaskType}` : '系统操作')}</span>
-                          </div>
-                        </div>
-                      `,
-                    )
-                    .join('')}
-                </div>
-              `
-              : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">暂无技术包版本日志。</div>'
-          }
-        </div>
-        <div class="flex items-center justify-end border-t border-slate-200 px-5 py-4">
-          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-tech-pack-version-logs">关闭</button>
-        </div>
-      </section>
-    </div>
-  `
-}
-
-function renderStyleHeader(): string {
-  return `
-    <section class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-slate-500">商品中心 / 商品档案</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">款式档案</h1>
-        <p class="mt-1 text-sm text-slate-500">选品即可直接建档，无需测款历史；补齐资料后完成正式建档。</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="open-style-create">
-          <i data-lucide="plus" class="h-4 w-4"></i>新建款式
-        </button>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleStats(items: StyleArchiveListItemViewModel[]): string {
-  const stats = getStyleStats(items)
-  return `
-    <section class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-      ${renderMetricButton('全部款式', stats.total, '正式款式主档数', 'style-quick-filter', 'data-filter="reset"')}
-      ${renderMetricButton('待完善', stats.waitingBaseInfo, '基础资料未补齐，尚未正式建档', 'style-quick-filter', 'data-filter="status" data-value="WAITING_BASE_INFO"')}
-      ${renderMetricButton('待技术包', stats.waitingTechPack, '已建档但还没有当前生效技术包', 'style-quick-filter', 'data-filter="status" data-value="WAITING_TECH_PACK"')}
-      ${renderMetricButton('已启用', stats.active, '已有当前生效技术包，可承接下游', 'style-quick-filter', 'data-filter="status" data-value="ACTIVE"')}
-      ${renderMetricButton('已归档', stats.archived, '历史款式档案，仅保留追溯', 'style-quick-filter', 'data-filter="status" data-value="ARCHIVED"')}
-      ${renderMetricButton('映射冲突', stats.mappingConflict, '存在规格映射冲突待处理', 'style-quick-filter', 'data-filter="mapping" data-value="CONFLICT"')}
-    </section>
-  `
-}
-
-function renderStyleFilters(total: number): string {
-  return `
-    <section class="rounded-lg border bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="min-w-[240px] flex-1">${renderTextInput('style-list-search', state.styleList.search, '搜索款式编码/名称/款号/老系统编码...')}</div>
-        <div class="w-full sm:w-48">${renderSelect('style-list-status', state.styleList.status === 'all' ? '' : state.styleList.status, [{ value: 'WAITING_BASE_INFO', label: '待完善' }, { value: 'WAITING_TECH_PACK', label: '已建档待技术包' }, { value: 'ACTIVE', label: '已启用' }, { value: 'ARCHIVED', label: '已归档' }], '全部状态')}</div>
-        <div class="w-full sm:w-44">${renderSelect('style-list-version', state.styleList.version === 'all' ? '' : state.styleList.version, [{ value: 'has', label: '有当前生效技术包' }, { value: 'none', label: '无当前生效技术包' }], '技术包情况')}</div>
-        <div class="w-full sm:w-44">${renderSelect('style-list-review', state.styleList.review === 'all' ? '' : state.styleList.review, [{ value: 'needsReview', label: '需要审核' }, { value: 'waitingPublish', label: '待发布正式版' }, { value: 'published', label: '已发布正式版' }], '技术包审核')}</div>
-        <div class="w-full sm:w-40">${renderSelect('style-list-mapping', state.styleList.mapping === 'all' ? '' : state.styleList.mapping, [{ value: 'OK', label: '健康' }, { value: 'MISSING', label: '缺映射' }, { value: 'CONFLICT', label: '冲突' }], '映射健康')}</div>
-      </div>
-      <div class="mt-3 text-sm text-slate-500">共 ${escapeHtml(total)} 条款式档案记录。</div>
-    </section>
-  `
-}
-
-function renderStyleTable(items: StyleArchiveListItemViewModel[]): string {
-  const rows = items
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <div class="flex items-start gap-3">
-              ${renderStyleImagePreviewButton(item.style.mainImageUrl || '', `${item.style.styleCode} ${item.style.styleName}`, 'sm')}
-              <div class="min-w-0">
-                <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}">
-                  ${escapeHtml(item.style.styleCode)}
-                </button>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.legacyMappingText)}</div>
-              </div>
-            </div>
-          </td>
-          <td class="px-4 py-3">
-            <div class="text-sm font-medium text-slate-900">${escapeHtml(item.style.styleName)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.styleNameEn || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.originBusinessText)}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(item.style.categoryName || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.subCategoryName || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml([item.style.brandName, item.style.yearTag, item.style.seasonTags.join('/')].filter(Boolean).join(' / ') || '-')}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(item.style.styleTags.join(' / ') || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.targetAudienceTags.join(' / ') || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.priceRangeLabel || '-')}</div>
-          </td>
-          <td class="px-4 py-3">
-            <div class="text-sm font-medium text-slate-900">${escapeHtml(item.currentVersionText)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.currentTechPackVersionCode || item.currentVersionMetaText)}</div>
-          </td>
-          <td class="px-4 py-3">
-            <div>${renderBadge(item.reviewStatusText, item.reviewBadgeClass)}</div>
-            <div class="mt-1 text-xs text-slate-500">${
-              item.reviewVersionId
-                ? `<button type="button" class="text-left hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}/technical-data/${escapeHtml(item.reviewVersionId)}">${escapeHtml(item.reviewVersionText)}</button>`
-                : escapeHtml(item.reviewVersionText)
-            }</div>
-            <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.reviewPendingReviewerText)}</div>
-            <div class="mt-1 text-xs text-slate-500">飞书：${escapeHtml(item.reviewNotifyText)}</div>
-            <div class="mt-1 text-xs text-slate-500">提示：${escapeHtml(item.reviewActionText)}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCount)}</td>
-          <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(item.channelCount)} 个渠道店铺商品</div>
-            <div class="mt-1 text-xs text-slate-500">在售 ${escapeHtml(item.onSaleCount)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.style.targetChannelCodes.join(' / ') || '-')}</div>
-          </td>
-          <td class="px-4 py-3">${renderStyleLifecycleBadge(item.style)}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.style.updatedAt))}</td>
-          <td class="px-4 py-3">
-            <div class="flex items-center justify-end gap-2">
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(item.style.styleId)}">查看</button>
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="single" data-style-id="${escapeHtml(item.style.styleId)}">新增规格</button>
-            </div>
-          </td>
-        </tr>
-      `,
-    )
-    .join('')
-
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">款式档案编码</th>
-              <th class="px-4 py-3 font-medium">款式名称</th>
-              <th class="px-4 py-3 font-medium">类目</th>
-              <th class="px-4 py-3 font-medium">风格标签</th>
-              <th class="px-4 py-3 font-medium">当前生效版本</th>
-              <th class="px-4 py-3 font-medium">技术包审核</th>
-              <th class="px-4 py-3 font-medium">规格数</th>
-              <th class="px-4 py-3 font-medium">映射状态</th>
-              <th class="px-4 py-3 font-medium">渠道 / 在售</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">更新时间</th>
-              <th class="px-4 py-3 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="12" class="px-4 py-10 text-center text-sm text-slate-500">暂无款式档案数据。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function openStyleCompletionDrawer(style: StyleArchiveShellRecord): void {
-  state.styleCompletion = {
-    open: true,
-    styleId: style.styleId,
-    designRevisionTaskId: '',
-    styleName: style.styleName,
-    styleNumber: style.styleNumber,
-    productType: style.productType,
-    categoryName: style.categoryName,
-    subCategoryName: style.subCategoryName,
-    brandName: style.brandName,
-    yearTag: style.yearTag,
-    seasonTags: stringifyTagList(style.seasonTags),
-    styleTags: stringifyTagList(style.styleTags),
-    targetAudienceTags: stringifyTagList(style.targetAudienceTags),
-    targetChannelCodes: stringifyTagList(style.targetChannelCodes),
-    priceRangeLabel: style.priceRangeLabel,
-    mainImageId: style.mainImageId,
-    mainImageUrl: style.mainImageUrl,
-    galleryImageIds: [...(style.galleryImageIds || [])],
-    galleryImageUrls: getStyleImageUrls(style),
-    imageSource: style.imageSource,
-    sellingPointText: style.sellingPointText,
-    detailDescription: style.detailDescription,
-    packagingInfo: style.packagingInfo,
-    remark: style.remark,
-  }
-}
-
-function renderStyleFormalizationPanel(style: StyleArchiveShellRecord): string {
-  const check = getStyleArchiveFormalizationCheck(style.styleId)
-  const missingCount = check.missingFields.length
-  const ready = check.ready
-  const alreadyFormalized = isStyleArchiveFormalized(style)
-
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div class="flex flex-wrap items-center gap-2">
-            <h2 class="text-base font-semibold text-slate-900">正式建档检查</h2>
-            ${alreadyFormalized ? renderBadge('已完成正式建档', 'border-sky-200 bg-sky-50 text-sky-700') : ready ? renderBadge('可以正式建档', 'border-emerald-200 bg-emerald-50 text-emerald-700') : renderBadge(`缺 ${missingCount} 项`, 'border-amber-200 bg-amber-50 text-amber-700')}
-          </div>
-          <p class="mt-1 text-sm text-slate-500">选品即可直接建档；补齐基础资料后可完成正式建档，无需测款历史。</p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">完善款式资料</button>
-          ${
-            alreadyFormalized
-              ? `<span class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">已完成正式建档</span>`
-              : ready
-                ? `<button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="formalize-style-archive" data-style-id="${escapeHtml(style.styleId)}">正式建档</button>`
-                : ''
-          }
-        </div>
-      </div>
-      <div class="mt-4 grid gap-4 lg:grid-cols-[1fr,1fr]">
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-          <div class="text-xs text-slate-500">当前状态</div>
-          <div class="mt-2 text-sm font-medium text-slate-900">${escapeHtml(alreadyFormalized ? '款式档案已补齐基础资料，当前可继续推进技术包与转档。' : check.message)}</div>
-        </div>
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3">
-          <div class="text-xs text-slate-500">必填资料清单</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            ${(missingCount > 0 ? check.missingFields : [{ key: 'done', label: '已全部补齐' }])
-              .map((item) =>
-                renderBadge(
-                  item.label,
-                  missingCount > 0 ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700',
-                ),
-              )
-              .join('')}
-          </div>
-        </div>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleCreateDrawer(): string {
-  if (!state.styleCreate.open) return ''
-  const body = `
-    <div class="space-y-5">
-      <div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm leading-6 text-blue-700">
-        选品即可直接建档，无需测款历史；创建后可继续补齐资料并完成正式建档。
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('款式名称', renderTextInput('style-create-style-name', state.styleCreate.styleName, '填写款式名称'), true)}
-        ${renderFormField('款号', renderTextInput('style-create-style-number', state.styleCreate.styleNumber, '留空可稍后补充'))}
-        ${renderFormField('商品类型', renderTextInput('style-create-product-type', state.styleCreate.productType, '例如：成衣'))}
-        ${renderFormField('一级类目', renderTextInput('style-create-category-name', state.styleCreate.categoryName, '填写一级类目'))}
-      </div>
-    </div>
-  `
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="submit-style-create">创建款式</button>
-  `
-  return renderDrawerShell('新建款式', '直接创建 SPU 档案，后续测款单关联此档案。', body, footer)
-}
-
-function renderStyleCompletionDrawer(): string {
-  if (!state.styleCompletion.open) return ''
-  const currentStyle = state.styleCompletion.styleId ? getStyleArchiveById(state.styleCompletion.styleId) : null
-  const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
-  const temporaryDesignRevisions = alreadyFormalized ? [] : listCompletedTemporarySpuDesignRevisions()
-  const renderControlledTextField = (label: string, field: string, value: string, placeholder: string, required = false) =>
-    renderFormField(
-      label,
-      alreadyFormalized ? renderReadonlyValue(value) : renderTextInput(field, value, placeholder),
-      required,
-      alreadyFormalized ? '正式建档后只读' : '',
-    )
-  const renderControlledTextareaField = (label: string, field: string, value: string, placeholder: string, rows: number, required = false) =>
-    renderFormField(
-      label,
-      alreadyFormalized ? renderReadonlyValue(value) : renderTextarea(field, value, placeholder, rows),
-      required,
-      alreadyFormalized ? '正式建档后只读' : '',
-    )
-  const imageUrls = getStyleCompletionImageUrls()
-  const imageGrid = imageUrls.length
-    ? imageUrls
-        .map(
-          (item, index) => `
-            <div class="space-y-2">
-              ${renderStyleImagePreviewButton(item, `${state.styleCompletion.styleName || '款式主图'} ${index + 1}`, 'md', item === state.styleCompletion.mainImageUrl)}
-              <div class="flex flex-wrap gap-2">
-                ${
-                  !alreadyFormalized && item !== state.styleCompletion.mainImageUrl
-                    ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="set-style-main-image" data-url="${escapeHtml(item)}">设为主图</button>`
-                    : ''
-                }
-                ${
-                  !alreadyFormalized
-                    ? `<button type="button" class="inline-flex h-7 items-center rounded-md border border-rose-200 bg-white px-2 text-xs text-rose-600 hover:bg-rose-50" data-pcs-product-archive-action="remove-style-image" data-url="${escapeHtml(item)}">删除</button>`
-                    : ''
-                }
-              </div>
-            </div>
-          `,
-        )
-        .join('')
-    : '<div class="col-span-full rounded-md border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm text-slate-500">当前还没有款式主图，请先上传图片。</div>'
-  const body = `
-    <div class="space-y-5">
-      ${
-        alreadyFormalized
-          ? `
-            <div class="rounded-md border border-sky-200 bg-sky-50 px-4 py-3 text-sm leading-6 text-sky-700">
-              当前款式已完成正式建档。以下核心建档字段改为只读，当前仅允许补充包装信息与备注。
-            </div>
-          `
-          : ''
-      }
-      ${
-        temporaryDesignRevisions.length
-          ? `<section class="rounded-lg border border-blue-200 bg-blue-50 p-4">
-              <label class="block space-y-2 text-sm">
-                <span class="font-medium text-slate-900">承接线下设计改款</span>
-                <select class="h-10 w-full rounded-md border border-blue-200 bg-white px-3" data-pcs-product-archive-field="style-completion-design-revision">
-                  <option value="">不关联</option>
-                  ${temporaryDesignRevisions.map((record) => `<option value="${escapeHtml(record.samplingTaskId)}" ${state.styleCompletion.designRevisionTaskId === record.samplingTaskId ? 'selected' : ''}>${escapeHtml(record.temporarySpuName)} · ${escapeHtml(record.samplingTaskCode)}</option>`).join('')}
-                </select>
-              </label>
-            </section>`
-          : ''
-      }
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderControlledTextField('款式名称', 'style-completion-style-name', state.styleCompletion.styleName, '填写款式名称', true)}
-        ${renderControlledTextField('款号', 'style-completion-style-number', state.styleCompletion.styleNumber, '填写款号', true)}
-        ${renderControlledTextField('商品类型', 'style-completion-product-type', state.styleCompletion.productType, '例如：成衣', true)}
-        ${renderControlledTextField('品牌', 'style-completion-brand-name', state.styleCompletion.brandName, '填写品牌', true)}
-        ${renderControlledTextField('一级类目', 'style-completion-category-name', state.styleCompletion.categoryName, '填写一级类目', true)}
-        ${renderControlledTextField('二级类目', 'style-completion-sub-category-name', state.styleCompletion.subCategoryName, '填写二级类目', true)}
-        ${renderControlledTextField('年份', 'style-completion-year-tag', state.styleCompletion.yearTag, '填写年份', true)}
-        ${renderControlledTextField('价格带', 'style-completion-price-range-label', state.styleCompletion.priceRangeLabel, '例如：¥199-399', true)}
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderControlledTextField('季节标签', 'style-completion-season-tags', state.styleCompletion.seasonTags, '多个标签用中文逗号分隔', true)}
-        ${renderControlledTextField('风格标签', 'style-completion-style-tags', state.styleCompletion.styleTags, '多个标签用中文逗号分隔', true)}
-        ${renderControlledTextField('目标人群', 'style-completion-target-audience-tags', state.styleCompletion.targetAudienceTags, '多个标签用中文逗号分隔', true)}
-        ${renderControlledTextField('目标渠道', 'style-completion-target-channel-codes', state.styleCompletion.targetChannelCodes, '多个渠道用中文逗号分隔', true)}
-      </div>
-      <section class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div class="text-sm font-medium text-slate-900">款式主图</div>
-            <p class="mt-1 text-xs text-slate-500">支持上传多张主图，第一张作为主展示图，点击缩略图可查看大图。</p>
-          </div>
-          ${
-            alreadyFormalized
-              ? `<div class="text-xs text-slate-500">正式建档后只读</div>`
-              : `
-                <label class="inline-flex h-9 cursor-pointer items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50">
-                  上传主图
-                  <input type="file" accept="image/*" multiple data-pcs-product-archive-field="style-completion-main-images" class="hidden" />
-                </label>
-              `
-          }
-        </div>
-        <div class="mt-4 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          ${imageGrid}
-        </div>
-        <div class="mt-4 grid gap-3 md:grid-cols-3">
-          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
-            <div class="text-xs text-slate-500">主图图片资产</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(state.styleCompletion.mainImageId || '未记录')}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
-            <div class="text-xs text-slate-500">图册图片资产数</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(String(state.styleCompletion.galleryImageIds.length))}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
-            <div class="text-xs text-slate-500">图片来源</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(state.styleCompletion.imageSource || '未记录')}</div>
-          </div>
-        </div>
-      </section>
-      ${renderControlledTextareaField('卖点摘要', 'style-completion-selling-point-text', state.styleCompletion.sellingPointText, '填写款式卖点摘要', 3, true)}
-      ${renderControlledTextareaField('详情描述', 'style-completion-detail-description', state.styleCompletion.detailDescription, '填写详情描述', 5, true)}
-      ${renderFormField('包装信息', renderTextarea('style-completion-packaging-info', state.styleCompletion.packagingInfo, '可填写包装与发货说明', 3), false, alreadyFormalized ? '正式建档后仅允许补充包装信息与备注。' : '')}
-      ${renderFormField('备注', renderTextarea('style-completion-remark', state.styleCompletion.remark, '可填写补充说明', 3))}
-    </div>
-  `
-
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="submit-style-completion">保存资料</button>
-  `
-
-  return renderDrawerShell('完善款式资料', '补齐款式档案基础资料后，才可以从草稿进入正式建档。', body, footer)
-}
-
-async function submitStyleCompletion(): Promise<void> {
-  if (!state.styleCompletion.styleId) {
-    state.notice = '未找到待补齐的款式档案。'
-    return
-  }
-
-  const currentStyle = getStyleArchiveById(state.styleCompletion.styleId)
-  const alreadyFormalized = currentStyle ? isStyleArchiveFormalized(currentStyle) : false
-  const imageUrls = getStyleCompletionImageUrls()
-  const designRevisionTaskId = state.styleCompletion.designRevisionTaskId
-  const updated = await runPcsRecordCommand(() => updateStyleArchive(state.styleCompletion.styleId, {
-    ...(alreadyFormalized
-      ? {}
-      : {
-          styleName: state.styleCompletion.styleName.trim(),
-          styleNumber: state.styleCompletion.styleNumber.trim(),
-          productType: state.styleCompletion.productType.trim(),
-          categoryName: state.styleCompletion.categoryName.trim(),
-          subCategoryName: state.styleCompletion.subCategoryName.trim(),
-          brandName: state.styleCompletion.brandName.trim(),
-          yearTag: state.styleCompletion.yearTag.trim(),
-          seasonTags: parseTagList(state.styleCompletion.seasonTags),
-          styleTags: parseTagList(state.styleCompletion.styleTags),
-          targetAudienceTags: parseTagList(state.styleCompletion.targetAudienceTags),
-          targetChannelCodes: parseTagList(state.styleCompletion.targetChannelCodes),
-          priceRangeLabel: state.styleCompletion.priceRangeLabel.trim(),
-          mainImageId: state.styleCompletion.mainImageId,
-          mainImageUrl: imageUrls[0] || '',
-          galleryImageIds: [...state.styleCompletion.galleryImageIds],
-          galleryImageUrls: imageUrls,
-          imageSource: state.styleCompletion.imageSource.trim(),
-          sellingPointText: state.styleCompletion.sellingPointText.trim(),
-          detailDescription: state.styleCompletion.detailDescription.trim(),
-        }),
-    packagingInfo: state.styleCompletion.packagingInfo.trim(),
-    remark: state.styleCompletion.remark.trim(),
-    updatedAt: nowText(),
-    updatedBy: '当前用户',
-  }))
-
-  if (!updated) {
-    state.notice = '保存款式资料失败。'
-    return
-  }
-
-  if (designRevisionTaskId) {
-    try {
-      await runPcsRecordCommand(() => linkCompletedTemporarySpuToStyleArchive({
-        samplingTaskId: designRevisionTaskId,
-        styleId: updated.styleId,
-        actor: { userId: 'PRODUCT-ARCHIVE-CURRENT', userName: '当前用户' },
-      }))
-    } catch (error) {
-      state.notice = error instanceof Error ? error.message : '承接线下设计改款资料失败。'
-      return
-    }
-  }
-
-  resetStyleCompletionState()
-
-  const check = getStyleArchiveFormalizationCheck(updated.styleId)
-  state.notice = alreadyFormalized
-    ? `已保存 ${updated.styleCode} 的受控补充信息，核心建档字段保持只读。`
-    : check.ready
-      ? `已保存 ${updated.styleCode} 的款式资料${designRevisionTaskId ? '，并承接线下设计改款资料' : ''}，当前可以正式建档。`
-      : `已保存 ${updated.styleCode} 的款式资料，仍需补齐：${check.missingFields.map((item) => item.label).join('、')}。`
-}
-
-function renderSkuHeader(): string {
-  return `
-    <section class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-slate-500">商品中心 / 商品档案</p>
-        <h1 class="mt-1 text-2xl font-semibold text-slate-900">规格档案</h1>
-        <p class="mt-1 text-sm text-slate-500">对应参照对象的商品档案 - SKU，管理规格主档、条码、渠道映射与上架关联。</p>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-slate-900 px-4 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="open-sku-create" data-mode="single">
-          <i data-lucide="plus" class="h-4 w-4"></i>新建规格
-        </button>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="batch">
-          <i data-lucide="table-properties" class="h-4 w-4"></i>批量生成
-        </button>
-        <button type="button" class="inline-flex h-10 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="import">
-          <i data-lucide="link" class="h-4 w-4"></i>导入/绑定老系统 SKU
-        </button>
-      </div>
-    </section>
-  `
-}
-
-function renderSkuStats(): string {
-  const stats = getSkuStats()
-  return `
-    <section class="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
-      ${renderMetricButton('全部规格', stats.total, '正式 SKU 主档数', 'sku-quick-filter', 'data-filter="reset"')}
-      ${renderMetricButton('启用中', stats.active, '当前允许上架与渠道映射', 'sku-quick-filter', 'data-filter="status" data-value="ACTIVE"')}
-      ${renderMetricButton('停用中', stats.inactive, '保留历史数据，不参与当前流转', 'sku-quick-filter', 'data-filter="status" data-value="INACTIVE"')}
-      ${renderMetricButton('映射正常', stats.mappingOK, '渠道映射关系完整', 'sku-quick-filter', 'data-filter="mapping" data-value="OK"')}
-      ${renderMetricButton('缺渠道映射', stats.mappingMissing, '仍需补齐渠道 SKU 映射', 'sku-quick-filter', 'data-filter="mapping" data-value="MISSING"')}
-      ${renderMetricButton('映射冲突', stats.mappingConflict, '存在同码冲突或多头映射', 'sku-quick-filter', 'data-filter="mapping" data-value="CONFLICT"')}
-    </section>
-  `
-}
-
-function renderSkuFilters(total: number): string {
-  const styleOptions = listStyleArchives().map((item) => ({ value: item.styleId, label: `${item.styleCode} · ${item.styleName}` }))
-  return `
-    <section class="rounded-lg border bg-white p-4 shadow-sm">
-      <div class="flex flex-wrap items-center gap-3">
-        <div class="min-w-[240px] flex-1">${renderTextInput('sku-list-search', state.skuList.search, '搜索规格编码/条码/款式名称...')}</div>
-        <div class="w-full sm:w-40">${renderSelect('sku-list-status', state.skuList.status === 'all' ? '' : state.skuList.status, [{ value: 'ACTIVE', label: '启用' }, { value: 'INACTIVE', label: '停用' }, { value: 'ARCHIVED', label: '已归档' }], '全部状态')}</div>
-        <div class="w-full sm:w-40">${renderSelect('sku-list-mapping', state.skuList.mapping === 'all' ? '' : state.skuList.mapping, [{ value: 'OK', label: '健康' }, { value: 'MISSING', label: '缺映射' }, { value: 'CONFLICT', label: '冲突' }], '映射健康')}</div>
-        <div class="w-full sm:min-w-[260px] sm:flex-1">${renderSelect('sku-list-style-id', state.skuList.styleId, styleOptions, '全部款式')}</div>
-      </div>
-      <div class="mt-3 text-sm text-slate-500">共 ${escapeHtml(total)} 条规格档案记录。</div>
-    </section>
-  `
-}
-
-function renderSkuTable(items: SkuArchiveRecord[]): string {
-  const rows = items
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <div class="flex items-start gap-3">
-              ${renderArchiveImage(item.skuImageUrl || '', item.skuCode, 'sm')}
-              <div class="min-w-0">
-                <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/specifications/${escapeHtml(item.skuId)}">${escapeHtml(item.skuCode)}</button>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.skuName || '-')}</div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.barcode || '-')}</div>
-              </div>
-            </div>
-          </td>
-          <td class="px-4 py-3">
-            <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.styleId)}">${escapeHtml(item.styleCode)}</button>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.styleName)}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.colorName)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sizeName)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.printName || '-')}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            ${
-              item.techPackVersionId
-                ? `<button type="button" class="text-left font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.styleId)}/technical-data/${escapeHtml(item.techPackVersionId)}">${escapeHtml(item.techPackVersionLabel || item.techPackVersionCode || '未关联')}</button>`
-                : escapeHtml(item.techPackVersionLabel || '未关联')
-            }
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.techPackVersionCode || '-')}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(formatCurrency(item.costPrice, item.currency))}</div>
-            <div class="mt-1 text-xs text-slate-500">售价 ${escapeHtml(formatCurrency(item.suggestedRetailPrice, item.currency))}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.pricingUnit || '-')}</div>
-          </td>
-          <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            <div>${escapeHtml(item.channelMappingCount)} 个映射</div>
-            <div class="mt-1 text-xs text-slate-500">已上架 ${escapeHtml(item.listedChannelCount)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.lastListingAt || '-')}</div>
-          </td>
-          <td class="px-4 py-3">${renderStatusBadge(item.archiveStatus, 'sku')}</td>
-          <td class="px-4 py-3">
-            <div class="flex items-center justify-end gap-2">
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/specifications/${escapeHtml(item.skuId)}">查看</button>
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="toggle-sku-status" data-sku-id="${escapeHtml(item.skuId)}">${item.archiveStatus === 'ACTIVE' ? '停用' : '启用'}</button>
-            </div>
-          </td>
-        </tr>
-      `,
-    )
-    .join('')
-
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">规格编码</th>
-              <th class="px-4 py-3 font-medium">款式档案</th>
-              <th class="px-4 py-3 font-medium">颜色</th>
-              <th class="px-4 py-3 font-medium">尺码</th>
-              <th class="px-4 py-3 font-medium">花型 / 印花</th>
-              <th class="px-4 py-3 font-medium">资料版本</th>
-              <th class="px-4 py-3 font-medium">成本价</th>
-              <th class="px-4 py-3 font-medium">映射健康</th>
-              <th class="px-4 py-3 font-medium">渠道映射数</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">暂无规格档案数据。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderSkuCreateDrawer(): string {
-  if (!state.skuCreate.open) return ''
-  const mode = state.skuCreate.mode
-  const styleOptions = listStyleArchives().map((item) => ({ value: item.styleId, label: `${item.styleCode} · ${item.styleName}` }))
-  const colorOptions = listConfiguredSkuColors()
-  const sizeOptions = listConfiguredSkuSizes()
-  const title = mode === 'batch' ? '批量生成规格' : mode === 'import' ? '导入 / 绑定老系统 SKU' : '新建规格'
-  const description =
-    mode === 'batch'
-      ? '按颜色与尺码矩阵一次性生成多条规格档案。'
-      : mode === 'import'
-        ? '绑定老系统 SKU 编码，建立正式规格档案主记录。'
-        : '创建单个规格档案，并关联到正式款式主档。'
-
-  const body =
-    mode === 'batch'
-      ? `
-        <div class="space-y-5">
-          ${renderFormField('所属款式档案', renderSelect('sku-create-style-id', state.skuCreate.styleId, styleOptions, '选择款式档案'), true)}
-          <div class="space-y-2">
-            <div class="text-sm font-medium text-slate-700">颜色矩阵</div>
-            <div class="flex flex-wrap gap-3">
-              ${colorOptions.map((item) => renderCheckbox('sku-create-batch-color', state.skuCreate.batchColors.includes(item), item, `data-value="${escapeHtml(item)}"`)).join('')}
-            </div>
-          </div>
-          <div class="space-y-2">
-            <div class="text-sm font-medium text-slate-700">尺码矩阵</div>
-            <div class="flex flex-wrap gap-3">
-              ${sizeOptions.map((item) => renderCheckbox('sku-create-batch-size', state.skuCreate.batchSizes.includes(item), item, `data-value="${escapeHtml(item)}"`)).join('')}
-            </div>
-          </div>
-          ${renderFormField('统一花型 / 印花', renderTextInput('sku-create-batch-print', state.skuCreate.batchPrint, '可选，留空则按基础款生成'))}
-        </div>
-      `
-      : `
-        <div class="space-y-5">
-          ${renderFormField('所属款式档案', renderSelect('sku-create-style-id', state.skuCreate.styleId, styleOptions, '选择款式档案'), true)}
-          <div class="grid gap-4 md:grid-cols-2">
-            ${renderFormField('颜色', renderSelect('sku-create-color', state.skuCreate.color, colorOptions.map((item) => ({ value: item, label: item })), '选择颜色'), true, '来源：配置工作台 / 颜色')}
-            ${renderFormField('尺码', renderSelect('sku-create-size', state.skuCreate.size, sizeOptions.map((item) => ({ value: item, label: item })), '选择尺码'), true, '来源：配置工作台 / 尺码')}
-          </div>
-          ${renderFormField('花型 / 印花', renderTextInput('sku-create-print', state.skuCreate.print, '例如：花型A / 基础款'))}
-          ${renderFormField('条码', renderTextInput('sku-create-barcode', state.skuCreate.barcode, '输入或留空自动生成'))}
-          ${
-            mode === 'single'
-              ? `
-                <div class="space-y-2">
-                  <div class="text-sm font-medium text-slate-700">编码策略</div>
-                  <div class="flex flex-wrap gap-3">
-                    ${renderCheckbox('sku-create-code-strategy-auto', state.skuCreate.codeStrategy === 'auto', '自动生成')}
-                    ${renderCheckbox('sku-create-code-strategy-manual', state.skuCreate.codeStrategy === 'manual', '手工输入')}
-                  </div>
-                </div>
-                ${state.skuCreate.codeStrategy === 'manual' ? renderFormField('手工编码', renderTextInput('sku-create-manual-code', state.skuCreate.manualCode, '输入规格编码'), true) : ''}
-              `
-              : `
-                <div class="grid gap-4 md:grid-cols-2">
-                  ${renderFormField('老系统', renderSelect('sku-create-legacy-system', state.skuCreate.legacySystem, LEGACY_SYSTEM_OPTIONS.map((item) => ({ value: item, label: item })), '选择来源系统'), true)}
-                  ${renderFormField('老系统编码', renderTextInput('sku-create-legacy-code', state.skuCreate.legacyCode, '输入老系统 SKU 编码'), true)}
-                </div>
-                ${renderFormField('正式规格编码', renderTextInput('sku-create-manual-code', state.skuCreate.manualCode, '输入正式规格编码'), true)}
-              `
-          }
-        </div>
-      `
-
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-product-archive-action="${mode === 'batch' ? 'submit-sku-batch-create' : 'submit-sku-create'}">${mode === 'batch' ? '确认生成' : '确认创建'}</button>
-  `
-
-  return renderDrawerShell(title, description, body, footer)
-}
-
-function renderStyleDetailOverview(style: StyleArchiveShellRecord): string {
-  const skus = listSkuArchivesByStyleId(style.styleId)
-  const styleChannelProducts = listStyleChannelProducts(style)
-  const currentChannelProduct = styleChannelProducts[0] || null
-  const onSaleChannelCount = countOnSaleChannelProducts(styleChannelProducts)
-  const gallery = getStyleImageUrls(style)
-  const alreadyFormalized = isStyleArchiveFormalized(style)
-  const technicalVersions = listTechnicalDataVersionsByStyleId(style.styleId)
-  const reviewSummary = buildStyleReviewSummary(resolveStyleReviewTargetVersion(style, technicalVersions))
-  const currentTechPackHref =
-    style.currentTechPackVersionId && style.currentTechPackVersionCode
-      ? `/pcs/products/styles/${style.styleId}/technical-data/${style.currentTechPackVersionId}`
-      : ''
-  return `
-    <section class="grid gap-4 xl:grid-cols-[2.2fr,1fr]">
-      <div class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-5 lg:flex-row">
-          <div class="w-full max-w-[320px] shrink-0 space-y-3">
-            ${renderStyleImagePreviewButton(style.mainImageUrl, style.styleName, 'md', true)}
-            <div class="grid grid-cols-3 gap-2 sm:grid-cols-4">
-              ${gallery
-                .map((item, index) => renderStyleImagePreviewButton(item, `${style.styleName} ${index + 1}`, 'sm', item === style.mainImageUrl))
-                .join('')}
-            </div>
-            ${
-              alreadyFormalized
-                ? ''
-                : `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">上传主图</button>`
-            }
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="grid gap-4 md:grid-cols-2">
-              <div><div class="text-xs text-slate-500">款式名称</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(style.styleName)}</div></div>
-              <div><div class="text-xs text-slate-500">外文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleNameEn || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">款式编码 / 款号</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.styleCode)} / ${escapeHtml(style.styleNumber || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">年份 / 季节</div><div class="mt-1 text-sm text-slate-700">${escapeHtml([style.yearTag, style.seasonTags.join('/')].filter(Boolean).join(' / ') || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">价格带</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">关联测款单</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(getStyleOriginText(style.styleId))}</div></div>
-              <div><div class="text-xs text-slate-500">图片来源</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.imageSource || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">当前生效技术包</div><div class="mt-1 text-sm text-slate-700">${currentTechPackHref ? `<button type="button" class="font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(currentTechPackHref)}">${escapeHtml(style.currentTechPackVersionLabel || style.currentTechPackVersionCode)}</button>` : escapeHtml(style.currentTechPackVersionLabel || '未建立当前生效技术包')}</div></div>
-              <div>
-                <div class="text-xs text-slate-500">技术包审核</div>
-                <div class="mt-1">${renderBadge(reviewSummary.reviewStatusText, reviewSummary.reviewBadgeClass)}</div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(reviewSummary.reviewVersionText)}</div>
-                <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(reviewSummary.reviewPendingReviewerText)}；${escapeHtml(reviewSummary.reviewActionText)}</div>
-                <div class="mt-1 text-xs text-slate-500">飞书：${escapeHtml(reviewSummary.reviewNotifyText)}</div>
-              </div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">测款渠道</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div></div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">卖点摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.sellingPointText || '-')}</div></div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(style.packagingInfo || '-')}</div></div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">详情描述</div><div class="mt-1 text-sm leading-6 text-slate-700">${escapeHtml(style.detailDescription || '-')}</div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <aside class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">关联合并概览</div>
-        <div class="grid gap-3">
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <div class="text-xs text-slate-500">规格档案</div>
-            <div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(skus.length)}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <div class="text-xs text-slate-500">渠道店铺商品</div>
-            <div class="mt-1 text-sm font-semibold text-slate-900">${escapeHtml(`${styleChannelProducts.length || style.channelProductCount} 个`)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(currentChannelProduct?.channelProductCode || `在售 ${onSaleChannelCount}`)}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <div class="text-xs text-slate-500">价格带 / 渠道</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(style.priceRangeLabel || '-')}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(style.targetChannelCodes.join(' / ') || '-')}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-            <div class="text-xs text-slate-500">更新时间</div>
-            <div class="mt-1 text-sm text-slate-700">${escapeHtml(formatDateTime(style.updatedAt))}</div>
-          </div>
-        </div>
-      </aside>
-      ${renderProductInformation(style, true)}
-    </section>
-  `
-}
-
-function renderStyleDetailVersions(style: StyleArchiveShellRecord): string {
-  const versions = buildTechnicalVersionListByStyle(style.styleId)
-  const rows = versions
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <div class="text-sm font-medium text-slate-900">${escapeHtml(item.versionLabel)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.technicalVersionCode)}</div>
-          </td>
-          <td class="px-4 py-3">${renderBadge(item.versionStatus === 'PUBLISHED' && item.completenessScore < 100 ? '已发布 · 资料待补齐' : item.versionStatusLabel, item.isCurrentTechPackVersion ? 'border-blue-200 bg-blue-50 text-blue-700' : item.versionStatus === 'PUBLISHED' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-600')}</td>
-          <td class="px-4 py-3">
-            <div>${renderBadge(item.reviewStatusText, resolveReviewBadgeClass(item.reviewStage as TechnicalReviewStage, item.reviewStatusText))}</div>
-            <div class="mt-1 text-xs text-slate-500">待审核：${escapeHtml(item.pendingReviewerText)}</div>
-            <div class="mt-1 text-xs text-slate-500">飞书：${escapeHtml(item.reviewNotifyText)}</div>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.reviewActionText)}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(`${item.completenessScore}%`)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceTaskText)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sourceProjectText)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(String(item.versionLogCount))} 条</td>
-          <td class="px-4 py-3 text-sm text-slate-700">当前花型资产 ${escapeHtml(String(item.linkedPatternAssetCount))} 个</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.archiveStatusText)}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.updatedAt))}</td>
-          <td class="px-4 py-3">
-            <div class="flex flex-wrap gap-2">
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">查看版本</button>
-              <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="open-tech-pack-version-logs" data-version-id="${escapeHtml(item.technicalVersionId)}">查看版本日志</button>
-              ${item.reviewStage !== '未提交审核' ? `<button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="/pcs/products/styles/${escapeHtml(style.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}?reviewDetail=1">查看审核详情</button>` : ''}
-              ${item.canPublish ? `<button type="button" class="inline-flex h-8 items-center rounded-md bg-blue-600 px-3 text-xs text-white hover:bg-blue-700" data-pcs-product-archive-action="publish-tech-pack-version" data-version-id="${escapeHtml(item.technicalVersionId)}">发布新版本</button>` : ''}
-              ${item.canActivate ? `<button type="button" class="inline-flex h-8 items-center rounded-md bg-slate-900 px-3 text-xs text-white hover:bg-slate-800" data-pcs-product-archive-action="activate-tech-pack-version" data-style-id="${escapeHtml(style.styleId)}" data-version-id="${escapeHtml(item.technicalVersionId)}">启用为当前生效版本</button>` : ''}
-            </div>
-          </td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">技术包版本</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">版本</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">审核状态</th>
-              <th class="px-4 py-3 font-medium">完整度</th>
-              <th class="px-4 py-3 font-medium">来源任务</th>
-              <th class="px-4 py-3 font-medium">来源项目</th>
-              <th class="px-4 py-3 font-medium">版本日志</th>
-              <th class="px-4 py-3 font-medium">花型库资产</th>
-              <th class="px-4 py-3 font-medium">归档状态</th>
-              <th class="px-4 py-3 font-medium">更新时间</th>
-              <th class="px-4 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="11" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立技术包版本。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleDetailSpecifications(style: StyleArchiveShellRecord): string {
-  const skus = listSkuArchivesByStyleId(style.styleId)
-  const rows = skus
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <div class="flex items-start gap-3">
-              ${renderArchiveImage(item.skuImageUrl, `${item.skuCode} ${item.colorName}`, 'sm')}
-              <div>
-            <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/specifications/${escapeHtml(item.skuId)}">${escapeHtml(item.skuCode)}</button>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.barcode || '-')}</div>
-              </div>
-            </div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.colorName)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sizeName)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.printName || '-')}</td>
-          <td class="px-4 py-3">${renderMappingBadge(item.mappingHealth)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channelMappingCount)} / 已上架 ${escapeHtml(item.listedChannelCount)}</td>
-          <td class="px-4 py-3">${renderStatusBadge(item.archiveStatus, 'sku')}</td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">规格档案</h2>
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="single" data-style-id="${escapeHtml(style.styleId)}">新增规格</button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">规格编码</th>
-              <th class="px-4 py-3 font-medium">颜色</th>
-              <th class="px-4 py-3 font-medium">尺码</th>
-              <th class="px-4 py-3 font-medium">花型 / 印花</th>
-              <th class="px-4 py-3 font-medium">映射健康</th>
-              <th class="px-4 py-3 font-medium">渠道状态</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未建立规格档案。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleDetailMappings(style: StyleArchiveShellRecord): string {
-  const latestVersion = resolveLatestVersionMeta(style.styleId)
-  const styleChannelProducts = listStyleChannelProducts(style)
-  return `
-    <section class="grid gap-4 xl:grid-cols-3">
-      <div class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">主关联编码</div>
-        <div class="mt-4 space-y-3 text-sm text-slate-700">
-          <div><span class="text-slate-500">正式款式编码：</span>${escapeHtml(style.styleCode)}</div>
-          <div><span class="text-slate-500">款号：</span>${escapeHtml(style.styleNumber || '-')}</div>
-          <div><span class="text-slate-500">当前生效技术包：</span>${escapeHtml(style.currentTechPackVersionLabel || latestVersion.versionLabel || '未建立')}</div>
-        </div>
-      </div>
-      <div class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">来源与继承</div>
-        <div class="mt-4 space-y-3 text-sm text-slate-700">
-          <div><span class="text-slate-500">关联测款单：</span>${escapeHtml(getStyleOriginText(style.styleId))}</div>
-          <div><span class="text-slate-500">老系统来源：</span>${escapeHtml(style.legacyOriginProject || '无')}</div>
-          <div><span class="text-slate-500">生成人：</span>${escapeHtml(style.generatedBy || '-')}</div>
-        </div>
-      </div>
-      <div class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">同步健康</div>
-        <div class="mt-4 space-y-3 text-sm text-slate-700">
-          <div><span class="text-slate-500">规格映射健康：</span>${renderMappingBadge(resolveStyleMappingHealth(listSkuArchivesByStyleId(style.styleId)))}</div>
-          <div><span class="text-slate-500">渠道店铺商品：</span>${escapeHtml(`${styleChannelProducts.length || style.channelProductCount} 个`)}</div>
-          <div><span class="text-slate-500">最近更新：</span>${escapeHtml(formatDateTime(style.updatedAt))}</div>
-        </div>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleDetailChannels(style: StyleArchiveShellRecord): string {
-  const rows = listStyleChannelProducts(style)
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-blue-700 hover:underline" data-nav="/pcs/products/channel-products/${encodeURIComponent(item.channelProductId)}">${escapeHtml(item.channelProductCode)}</button>
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.projectCode)}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.skuCode || '—')}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channelName)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.storeName)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.listingTitle)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.upstreamChannelProductCode || '-')}</td>
-          <td class="px-4 py-3">${renderBadge(item.channelProductStatus, item.channelProductStatus === '已作废' ? 'border-slate-200 bg-slate-100 text-slate-600' : item.channelProductStatus === '已生效' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-blue-200 bg-blue-50 text-blue-700')}</td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">渠道店铺商品</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">渠道店铺商品</th>
-              <th class="px-4 py-3 font-medium">规格档案</th>
-              <th class="px-4 py-3 font-medium">渠道</th>
-              <th class="px-4 py-3 font-medium">店铺</th>
-              <th class="px-4 py-3 font-medium">标题</th>
-              <th class="px-4 py-3 font-medium">上游商品编码</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">当前款式尚未关联渠道店铺商品。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderStyleDetailLogs(style: StyleArchiveShellRecord): string {
-  const logs = [
-    { time: style.generatedAt || style.updatedAt, title: '建立款式档案', detail: `${style.generatedBy || '系统初始化'} 创建正式款式档案` },
-    { time: style.updatedAt, title: '更新主档信息', detail: `${style.updatedBy || '系统同步'} 更新款式主档状态与映射指针` },
-    ...buildTechnicalVersionListByStyle(style.styleId).slice(0, 3).map((item) => ({
-      time: item.updatedAt,
-      title: `技术包版本 ${item.versionLabel}`,
-      detail: `${item.versionStatusLabel}，完整度 ${item.completenessScore}%`,
-    })),
+import type { SkuArchiveRecord } from '../data/pcs-sku-archive-types.ts'
+
+type Kind = 'style' | 'sku'
+type Row = StyleArchiveShellRecord | SkuArchiveRecord
+const PREFIX = 'pcs-product-archive'
+const STYLE_PATH = '/pcs/products/styles', SKU_PATH = '/pcs/products/specifications'
+let listContext: { styles: Map<string, StyleArchiveShellRecord>; skuCounts: Map<string, number>; channelCounts: Map<string, number> } | null = null
+const cls = 'h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm disabled:bg-slate-100 disabled:text-slate-500'
+const state = {
+  kind: 'style' as Kind, view: 'list' as 'list' | 'detail' | 'edit', id: '', tab: 'basic', editorTab: 'identity', editorKey: '',
+  query: {} as Record<string, string>, filter: {} as Record<string, string>, page: 1, sort: null as StandardListSortState | null,
+  preferences: {} as Partial<Record<Kind, StandardListColumnPreferences>>, columnsOpen: false, more: false, notice: '', error: false,
+  selected: new Set<string>(), image: '', imageName: '', dirty: false, saving: false,
+  styleDraft: { styleName: '' } as ProductStyleDraft, skuDraft: {} as Partial<SkuArchiveRecord> & { changeReason?: string },
+  colors: [] as string[], sizes: [] as string[], pattern: '', difference: '', preview: [] as SkuArchiveRecord[],
+  sales: null as SalesBaseContent | null, salesLanguage: 'id', pendingFileIds: [] as string[],
+  importOpen: false, importText: '', importRows: [] as ProductSkuDraft[], importErrors: [] as string[],
+  batchResults: [] as Array<{ code: string; success: boolean; message: string }>,
+}
+const e = (v: unknown) => escapeHtml(String(v ?? ''))
+const path = (kind = state.kind) => kind === 'style' ? STYLE_PATH : SKU_PATH
+const idOf = (r: Row) => 'skuId' in r ? r.skuId : r.styleId
+const codeOf = (r: Row) => 'skuCode' in r ? r.skuCode : r.styleCode
+const nameOf = (r: Row) => 'skuName' in r ? r.skuName : r.styleName
+const imageOf = (r: Row) => 'skuImageUrl' in r ? r.skuImageUrl : r.mainImageUrl
+function btn(label: string, action: string, attrs = '', primary = false): string { return `<button type="button" class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border px-3 text-sm font-medium ${primary ? 'border-blue-600 bg-blue-600 text-white hover:bg-blue-700' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'} disabled:opacity-50" data-${PREFIX}-action="${action}" data-skip-page-rerender="true" ${attrs}>${e(label)}</button>` }
+function link(label: string, href: string, extra = ''): string { return `<a href="${e(href)}" data-nav="${e(href)}" class="text-blue-600 hover:underline ${extra}">${e(label)}</a>` }
+function field(label: string, control: string, help = ''): string {
+  const grouped = /<label|<details/.test(control), tag = grouped ? 'fieldset' : 'label'
+  return `<${tag} class="block min-w-0 space-y-1.5 text-sm"><${grouped ? 'legend' : 'span'} class="font-medium text-slate-700">${e(label)}</${grouped ? 'legend' : 'span'}>${control}${help ? `<span class="block text-xs leading-5 text-slate-500">${e(help)}</span>` : ''}</${tag}>`
+}
+function input(key: string, value: unknown, type = 'text', disabled = false, placeholder = ''): string { return `<input class="${cls}" type="${type}" data-${PREFIX}-field="${e(key)}" value="${e(value)}" ${disabled ? 'disabled' : ''} placeholder="${e(placeholder)}" ${type === 'number' ? 'min="0" step="any"' : ''}>` }
+function textarea(key: string, value: unknown): string { return `<textarea class="min-h-28 w-full rounded-md border border-slate-300 px-3 py-2 text-sm" data-${PREFIX}-field="${e(key)}">${e(value)}</textarea>` }
+function select(key: string, value: unknown, options: Array<[string, string]>, empty = '请选择', disabled = false): string { return `<select class="${cls}" data-${PREFIX}-field="${e(key)}" ${disabled ? 'disabled' : ''}><option value="">${e(empty)}</option>${options.map(([v, l]) => `<option value="${e(v)}" ${v === value ? 'selected' : ''}>${e(l)}</option>`).join('')}</select>` }
+function badge(label: string, tone = 'slate'): string { return `<span class="inline-flex whitespace-nowrap rounded border px-2 py-0.5 text-xs ${tone === 'green' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : tone === 'amber' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-slate-200 bg-slate-50 text-slate-600'}">${e(label)}</span>` }
+function statuses(r: Row): string { return `${badge(approvalLabels[r.approvalStatus || 'DRAFT'], r.approvalStatus === 'APPROVED' ? 'green' : r.approvalStatus === 'PENDING' ? 'amber' : 'slate')} ${badge(lifecycleLabels[r.lifecycleStatus || 'NOT_ENABLED'], r.lifecycleStatus === 'ACTIVE' ? 'green' : 'slate')}` }
+function photo(url: string, name: string, big = false): string { return url ? `<button type="button" class="shrink-0 overflow-hidden rounded-md border bg-slate-50 ${big ? 'h-20 w-20' : 'h-12 w-12'}" data-${PREFIX}-action="image" data-url="${e(url)}" data-name="${e(name)}"><img src="${e(url)}" alt="${e(name)}" class="h-full w-full object-cover" loading="${big ? 'eager' : 'lazy'}"></button>` : `<span class="flex ${big ? 'h-20 w-20' : 'h-12 w-12'} shrink-0 items-center justify-center rounded border bg-slate-50 text-xs text-slate-400">待补图片</span>` }
+function notice(): string { return (state.notice ? `<div role="${state.error ? 'alert' : 'status'}" class="flex items-center justify-between rounded-md border px-4 py-3 text-sm ${state.error ? 'border-red-200 bg-red-50 text-red-700' : 'border-blue-200 bg-blue-50 text-blue-700'}"><span>${e(state.notice)}</span>${btn('关闭', 'dismiss')}</div>` : '') + (state.batchResults.length ? `<details class="mt-3 rounded-md border bg-white p-3" open><summary class="cursor-pointer text-sm font-medium">批量提交结果</summary><div class="mt-3 max-h-56 overflow-auto">${table(['档案编码', '结果', '说明'], state.batchResults.map(r => [e(r.code), badge(r.success ? '成功' : '失败', r.success ? 'green' : 'amber'), e(r.message)]))}</div></details>` : '') }
+function panel(title: string, body: string, action = ''): string { return `<section class="overflow-hidden rounded-lg border bg-white"><header class="flex items-center justify-between gap-3 border-b px-5 py-3"><h2 class="font-semibold">${e(title)}</h2>${action}</header><div class="p-5">${body}</div></section>` }
+function grid(items: Array<[string, unknown]>): string { return `<dl class="grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">${items.map(([k, v]) => `<div class="min-w-0"><dt class="text-xs text-slate-500">${e(k)}</dt><dd class="mt-1.5 break-words text-sm text-slate-900">${e(Array.isArray(v) ? v.join('、') || '—' : (v === 0 ? 0 : v || '—'))}</dd></div>`).join('')}</dl>` }
+function table(headers: string[], rows: string[][]): string { return `<div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs text-slate-500"><tr>${headers.map(h => `<th class="whitespace-nowrap px-4 py-3 font-medium">${e(h)}</th>`).join('')}</tr></thead><tbody class="divide-y">${rows.length ? rows.map(row => `<tr>${row.map(cell => `<td class="px-4 py-3 align-middle">${cell}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${headers.length}" class="p-10 text-center text-slate-500">暂无记录</td></tr>`}</tbody></table></div>` }
+function tabBar(tabs: Array<[string, string]>, value: string, action: string): string { return `<nav class="flex gap-6 overflow-x-auto border-b bg-white px-5" aria-label="资料视图">${tabs.map(([k, label]) => `<button type="button" class="shrink-0 border-b-2 px-1 py-3 text-sm ${value === k ? 'border-blue-600 font-semibold text-blue-600' : 'border-transparent text-slate-500 hover:text-blue-600'}" aria-selected="${value === k}" data-${PREFIX}-action="${action}" data-tab="${k}">${e(label)}</button>`).join('')}</nav>` }
+function wrap(html: string): string { return `<div data-pcs-product-archive-root data-skip-page-rerender="true">${html}${overlays()}</div>` }
+function columns(): StandardListColumn<Row>[] {
+  const textCol = (key: string, title: string, value: (r: Row) => unknown, width = 130): StandardListColumn<Row> => ({ key, title, width, sortable: true, render: r => e(value(r) || '—'), sortValue: value })
+  const list: StandardListColumn<Row>[] = [
+    { key: 'select', title: '', width: 40, required: true, leadingControlColumn: true, renderHeader: rows => `<input type="checkbox" aria-label="选择本页" data-${PREFIX}-action="select-page" ${rows.length && rows.every(r => state.selected.has(idOf(r))) ? 'checked' : ''}>`, render: r => `<input type="checkbox" aria-label="选择 ${e(codeOf(r))}" data-${PREFIX}-action="select-row" data-id="${e(idOf(r))}" ${state.selected.has(idOf(r)) ? 'checked' : ''}>` },
+    { key: 'identity', title: state.kind === 'style' ? '款式' : '商品规格', width: 280, minWidth: 230, required: true, freezeable: true, sortable: true, sortValue: codeOf, render: r => `<div class="flex items-center gap-3">${photo(imageOf(r), nameOf(r))}<div class="min-w-0">${link(codeOf(r), `${path()}/${idOf(r)}`, 'font-medium break-all')}<div class="mt-1 line-clamp-2 text-xs text-slate-500">${e(nameOf(r))}</div></div></div>` },
   ]
-
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="space-y-4">
-        ${logs
-          .map(
-            (item) => `
-              <div class="border-l-2 border-slate-200 pl-4">
-                <div class="text-xs text-slate-500">${escapeHtml(formatDateTime(item.time))}</div>
-                <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(item.title)}</div>
-                <div class="mt-1 text-sm text-slate-600">${escapeHtml(item.detail)}</div>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-    </section>
-  `
+  if (state.kind === 'style') list.push(textCol('brand', '品牌', r => (r as StyleArchiveShellRecord).brandName, 100), textCol('category', '正式类目', r => (r as StyleArchiveShellRecord).thirdCategoryName || (r as StyleArchiveShellRecord).categoryName, 150), textCol('categories', '品类', r => (r as StyleArchiveShellRecord).categoryTags?.join('、')), textCol('styles', '风格', r => (r as StyleArchiveShellRecord).styleTags?.join('、'), 100), textCol('categoryNumber', '品类编号', r => (r as StyleArchiveShellRecord).categoryCode, 100), textCol('skus', 'SKU 数', r => listContext?.skuCounts.get(r.styleId) || 0, 80))
+  else list.push({ key: 'style', title: '所属款式', width: 175, sortable: true, sortValue: r => r.styleCode, render: r => link(r.styleCode, `${STYLE_PATH}/${r.styleId}`) }, textCol('color', '颜色', r => (r as SkuArchiveRecord).colorName, 110), textCol('size', '尺码', r => (r as SkuArchiveRecord).sizeName, 80), textCol('unit', '主单位', r => (r as SkuArchiveRecord).pricingUnit, 80), textCol('channels', '平台规格数', r => listContext?.channelCounts.get(idOf(r)) || 0, 100))
+  if (state.kind === 'style') list.push(textCol('technicalVersion', '当前技术包', r => (r as StyleArchiveShellRecord).currentTechPackVersionCode, 180), textCol('channelCount', '渠道商品数', r => listContext?.channelCounts.get(r.styleId) || 0, 100))
+  list.push({ key: 'approval', title: '审核', width: 100, sortable: true, sortValue: r => r.approvalStatus, render: r => badge(approvalLabels[r.approvalStatus || 'DRAFT'], r.approvalStatus === 'APPROVED' ? 'green' : 'amber') }, { key: 'lifecycle', title: '使用状态', width: 100, sortable: true, sortValue: r => r.lifecycleStatus, render: r => badge(lifecycleLabels[r.lifecycleStatus || 'NOT_ENABLED'], r.lifecycleStatus === 'ACTIVE' ? 'green' : 'slate') }, textCol('updatedAt', '更新时间', r => r.updatedAt, 165), textCol('remark', '备注', r => r.remark, 180), { key: 'actions', title: '操作', width: 130, required: true, actionColumn: true, render: r => `<div class="flex gap-3">${link('详情', `${path()}/${idOf(r)}`)}${link('编辑', `${path()}/${idOf(r)}/edit`)}</div>` })
+  return list
 }
-
-function renderStyleDetailPage(styleId: string): string {
-  ensurePageDataReady()
-  if (state.styleDetail.styleId !== styleId) {
-    state.styleDetail.styleId = styleId
-    state.styleDetail.activeTab = 'overview'
+function preferences(): StandardListColumnPreferences {
+  if (!state.preferences[state.kind]) {
+    const cols = columns(), defaults = { order: cols.map(c => c.key), visibleKeys: cols.filter(c => !['remark', 'technicalVersion', 'channelCount'].includes(c.key)).map(c => c.key), frozenKeys: ['identity'], pageSize: 20 }
+    let storage: Pick<Storage, 'getItem'> = { getItem: () => null }; try { storage = window.localStorage } catch { /* bounded optional preference */ }
+    state.preferences[state.kind] = loadListColumnPreferences(storage, `higood-pcs-${state.kind}-list-r1`, cols, defaults, [20, 50, 100])
   }
+  return state.preferences[state.kind]!
+}
+function savePreferences(): void { try { saveListColumnPreferences(window.localStorage, `higood-pcs-${state.kind}-list-r1`, preferences()) } catch { /* preference unavailable */ } }
+function filteredRows(all: Row[] = state.kind === 'style' ? listStyleArchives() : listSkuArchives()): Row[] {
+  const f = state.filter
+  return all.filter(r => {
+    const style = 'skuId' in r ? (listContext?.styles.get(r.styleId) || getStyleArchiveById(r.styleId)) : r
+    if (!style) return false
+    if (f.keyword && ![codeOf(r), nameOf(r), 'legacyCode' in r ? [r.legacyCode, r.barcode, ...(r.barcodeAliases || [])].join(' ') : (r.legacyCodes || []).join(' '), r.styleCode].join(' ').toLowerCase().includes(f.keyword.toLowerCase())) return false
+    if (f.approval && r.approvalStatus !== f.approval || f.lifecycle && r.lifecycleStatus !== f.lifecycle || f.styleId && r.styleId !== f.styleId) return false
+    if (f.formalCategory && style.productCategoryId !== f.formalCategory || f.year && style.yearTag !== f.year || f.material && style.materialType !== f.material || f.owner && !r.updatedBy.includes(f.owner)) return false
+    for (const dim of ['brands', 'categories', 'styles', 'categoryNumbers', 'productPositioning'] as FlatDimensionId[]) if (f[dim] && !style.productConfigRefs?.[dim]?.includes(f[dim])) return false
+    return !f.season || style.seasonTags?.includes(f.season)
+  })
+}
+function configOptions(dim: FlatDimensionId, selected: string[] = []): Array<[string, string]> { return listConfigDimensionOptions(dim).filter(v => v.status === 'ENABLED' || selected.includes(v.id)).map(v => [v.id, `${dim === 'categoryNumbers' ? `${v.code} · ` : ''}${v.name_zh}${v.status !== 'ENABLED' ? '（已停用）' : ''}`]) }
+function leafOptions(): Array<[string, string]> { const all = listProductCategoryNodes(); return all.filter(n => !all.some(c => c.parentId === n.id)).map(n => [n.id, [all.find(p => p.id === all.find(p => p.id === n.parentId)?.parentId)?.name, all.find(p => p.id === n.parentId)?.name, n.name].filter(Boolean).join(' / ')]) }
+function renderList(kind: Kind): string {
+  const styles = listStyleArchives(), skus = kind === 'sku' ? listSkuArchives() : [], channels = getChannelArchiveCounts()
+  listContext = { styles: new Map(styles.map(s => [s.styleId, s])), skuCounts: getSkuArchiveCountsByStyle(), channelCounts: kind === 'style' ? channels.byStyle : channels.bySku }
+  if (state.view !== 'list' || state.kind !== kind) { state.page = 1; state.sort = null; state.selected.clear(); state.filter = {}; state.query = {}; const parent = typeof location === 'undefined' ? '' : new URLSearchParams(location.search).get('styleId'); if (parent) state.query.styleId = state.filter.styleId = parent }
+  state.kind = kind; state.view = 'list'; state.id = ''; state.dirty = false
+  const cols = columns(), prefs = preferences(), all = kind === 'style' ? styles : skus
+  const filtered = sortStandardListRows(filteredRows(all), state.sort, (r, k) => cols.find(c => c.key === k)?.sortValue?.(r))
+  const page = paginateStandardListRows(filtered, state.page, prefs.pageSize); state.page = page.currentPage
+  const basic = field('编码 / 名称 / 旧码', input('filter.keyword', state.query.keyword, 'text', false, '支持模糊查询')) + (kind === 'style' ? field('品牌', select('filter.brands', state.query.brands, configOptions('brands'), '全部品牌')) : field('所属款式', select('filter.styleId', state.query.styleId, listStyleArchives().map(s => [s.styleId, s.styleCode]), '全部款式'))) + field('审核状态', select('filter.approval', state.query.approval, Object.entries(approvalLabels), '全部审核')) + field('使用状态', select('filter.lifecycle', state.query.lifecycle, Object.entries(lifecycleLabels), '全部状态'))
+  const more = state.more ? `<div class="mt-3 grid gap-3 border-t pt-3 md:grid-cols-4">${['categories', 'styles', 'categoryNumbers', 'productPositioning'].map(dim => field(FLAT_DIMENSION_META.find(v => v.id === dim)!.name, select(`filter.${dim}`, state.query[dim], configOptions(dim as FlatDimensionId), '全部'))).join('')}${field('正式类目', select('filter.formalCategory', state.query.formalCategory, leafOptions(), '全部'))}${field('年份', input('filter.year', state.query.year))}${field('季节', input('filter.season', state.query.season))}${field('材质类型', select('filter.material', state.query.material, [['毛织', '毛织'], ['非毛织', '非毛织']], '全部'))}${field('维护人', input('filter.owner', state.query.owner))}</div>` : ''
+  const filters = renderStandardListFilters({ fieldsHtml: `<div class="grid w-full gap-3 sm:grid-cols-2 xl:grid-cols-4">${basic}</div>${more}`, actionPrefix: PREFIX, extraActionsHtml: btn(state.more ? '收起筛选' : '更多筛选', 'more') + btn('导出', 'export') })
+  return wrap(renderStandardListPage({ title: kind === 'style' ? '款式档案' : '规格档案', primaryActionsHtml: `<div class="flex gap-2">${kind === 'sku' ? btn('导入规格', 'import') : ''}${link(kind === 'style' ? '新增款式' : '新增规格', `${path()}/new`, 'rounded-md bg-blue-600 px-4 py-2 text-white hover:text-white')}</div>`, feedbackHtml: notice(), filtersHtml: filters, statsHtml: renderStandardListStats([{ label: '当前结果', value: filtered.length }, { label: '待审核', value: filtered.filter(r => r.approvalStatus === 'PENDING').length }, { label: '启用', value: filtered.filter(r => r.lifecycleStatus === 'ACTIVE').length }, { label: '停用', value: filtered.filter(r => r.lifecycleStatus === 'INACTIVE').length }, { label: '归档', value: filtered.filter(r => r.lifecycleStatus === 'ARCHIVED').length }], { compact: true }), listTitle: `${kind === 'style' ? '款式' : '规格'}列表`, listActionsHtml: `<div class="flex items-center gap-2"><span class="text-xs text-slate-500">已选 ${state.selected.size} 条</span>${btn('提交审核', 'batch-submit', state.selected.size ? '' : 'disabled')}${btn('列设置', 'columns')}</div>`, tableHtml: renderStandardListTable({ columns: cols, rows: page.rows, preferences: prefs, sort: state.sort, eventPrefix: PREFIX, skipPageRerender: true }), paginationHtml: renderTablePagination({ ...page, actionPrefix: PREFIX, skipPageRerender: true, pageSizeOptions: [20, 50, 100] }) }))
+}
+export function renderPcsStyleArchiveListPage(): string { return renderList('style') }
+export function renderPcsSpecificationListPage(): string { return renderList('sku') }
+function detailActions(r: Row): string {
+  return `<div class="flex flex-wrap gap-2">${link('编辑', `${path()}/${idOf(r)}/edit`, 'rounded-md border px-3 py-2')}${r.approvalStatus === 'DRAFT' ? btn('提交审核', 'submit', '', true) : r.approvalStatus === 'PENDING' ? btn('审核通过', 'approve', '', true) + btn('驳回', 'reject') : r.lifecycleStatus === 'NOT_ENABLED' || r.lifecycleStatus === 'INACTIVE' ? btn('启用', 'activate', '', true) : ''}${r.lifecycleStatus === 'ACTIVE' ? btn('停用', 'deactivate') : ''}${r.lifecycleStatus !== 'ARCHIVED' ? btn('归档', 'archive') : ''}${btn('复制', 'copy')}</div>`
+}
+function productChangeLabel(key: string): string { return ({"styleName": "款式名称", "styleCode": "款式编码", "styleNameTranslations": "多语名称", "materialType": "材质类型", "brandName": "品牌", "mainImageUrl": "主图", "galleryImageUrls": "图片", "productConfigRefs": "分类与属性", "productCategoryId": "正式类目", "skuName": "规格名称", "skuCode": "规格编码", "colorId": "颜色", "sizeId": "尺码", "colorName": "颜色名称", "sizeName": "尺码名称", "patternId": "花型编号", "patternIdentityId": "花型", "printName": "花型名称", "barcode": "条码", "barcodeAliases": "条码别名", "pricingUnit": "主单位编码", "mainUnitId": "主单位", "packageSpecs": "包装规格", "packageSpecHistory": "历史包装", "weightKg": "净重", "remark": "备注", "approvalStatus": "审核状态", "lifecycleStatus": "使用状态", "archiveStatus": "档案状态", "salesContents": "销售基础内容", "sameStyleIds": "同款关联", "substitutionRelations": "替代关联", "updatedBy": "更新人", "deliveryMode": "交付方式", "buyerId": "买手", "buyerName": "买手名称", "yearTag": "年份", "seasonTags": "季节", "extraIdentityValues": "交付差异", "deliveryDifference": "交付差异", "bundleComponents": "组合组成"} as Record<string, string>)[key] || '其他资料' }
+function formatChangeValue(value: unknown): string { return value == null || value === '' ? '空' : typeof value === 'object' ? JSON.stringify(value) : String(value) }
+function recordTab(r: Row): string { return panel('记录', table(['动作', '说明', '操作人', '时间'], (r.archiveLogs || []).slice().reverse().map(l => [e(l.action), `${e(l.detail)}${l.changes?.length ? `<details class="mt-2"><summary>查看原值与新值</summary><div class="max-w-lg break-words">${l.changes.map(change => `<div class="mt-2">${e(productChangeLabel(change.field))}：${e(formatChangeValue(change.before))} → ${e(formatChangeValue(change.after))}</div>`).join('')}<div class="mt-2">原因：${e(l.reason || l.detail)}</div></div></details>` : ''}`, e(l.operator), e(l.time)])) + `<div class="mt-5">${grid([['内部身份', idOf(r)], ['来源系统', r.sourceSystem || ('legacySystem' in r ? r.legacySystem : r.identitySource === 'MANUAL' ? 'PCS手工建档' : '原型演示资料')], ['原记录 ID', r.sourceId || ('sourceProjectId' in r ? r.sourceProjectId : '')], ['来源旧码', 'legacyCode' in r ? [r.legacyCode, r.barcode, ...(r.barcodeAliases || [])].join(' ') : r.legacyCodes || r.legacyOriginProject], ['建立时间', 'createdAt' in r ? r.createdAt : r.generatedAt], ['更新人', r.updatedBy], ['更新时间', r.updatedAt]])}</div>${r.legacyValues?.length ? `<details class="mt-5"><summary>必要历史原值</summary>${table(['来源字段', '原值', '原单位 / 币种'], r.legacyValues.map(v => [e(v.field), e(formatChangeValue(v.value)), e([v.unit, v.currency].filter(Boolean).join(' / '))]))}</details>` : ''}`) }
+function technicalTab(styleId: string): string { return panel('技术包引用', table(['版本', '状态', 'BOM 条数', '尺寸 / 工艺', '更新', '操作'], listTechnicalDataVersionsByStyleId(styleId).map(v => [e(`${v.technicalVersionCode} · ${v.versionLabel}`), e(v.versionStatus === 'PUBLISHED' ? '已发布' : v.versionStatus === 'DRAFT' ? '草稿' : '归档'), e(v.bomItemCount), e(`${v.gradingRuleCount} / ${v.processEntryCount}`), e(v.updatedAt), link('查看技术包', `${STYLE_PATH}/${styleId}/technical-data/${v.technicalVersionId}`)]))) + '<div class="mt-4"></div>' + panel('核价引用', table(['核价方案', '业务来源', '采用版本', '更新', '操作'], listEngineeringBomPricingPlans().filter(p => p.styleId === styleId).map(p => [e(p.ownerCode), e(({ INDEPENDENT_SAMPLING: '设计改款', ENGINEERING_MASTER: '生产准备', TECH_PACK_DRAFT: '技术包草稿' })[p.ownerStage]), e(p.publishedSnapshotId || (p.status === 'DRAFT' ? '准备中' : p.completedConfirmedAt ? '已确认' : '当前方案')), e(p.updatedAt), link('查看核价', `/pcs/technical-data/bom-pricing/owner/${encodeURIComponent(p.ownerStage)}/${encodeURIComponent(p.ownerId)}`)]))) }
+function channelTab(skuId: string): string { return panel('渠道关联', table(['渠道 / 店铺', 'PID', '平台规格 ID', '平台颜色 / 尺码', '售价', '状态', '操作'], listChannelMappingsBySkuId(skuId).map(m => [e(`${m.channelCode} / ${m.storeName}`), e(m.platformProductId || '待发布'), e(m.platformVariantId || '待分配'), e(`${m.displayColor} / ${m.displaySize}`), e(m.effectivePrice == null ? '未维护' : `${m.effectivePrice} ${m.currency}`), e(m.platformStatus), link('查看渠道商品', `/pcs/products/channel-products/${m.listingId}`)]))) }
 
-  const style = getStyleArchiveById(styleId)
-  if (!style) {
-    return `
-      <div class="space-y-5 p-4" data-fast-page-render="true">
-        <section class="rounded-lg border bg-white p-4 text-center shadow-sm">
-          <h1 class="text-xl font-semibold text-slate-900">未找到款式档案</h1>
-          <p class="mt-2 text-sm text-slate-500">请返回款式档案列表重新选择。</p>
-          <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/styles">返回列表</button>
-        </section>
-      </div>
-    `
+function translationsPanel(kind: Kind, record: Partial<StyleArchiveShellRecord> | Partial<SkuArchiveRecord>, editing: boolean): string {
+  const names = kind === 'style' ? { en: (record as Partial<StyleArchiveShellRecord>).styleNameEn || '', ...(record as Partial<StyleArchiveShellRecord>).styleNameTranslations } : { en: (record as Partial<SkuArchiveRecord>).skuNameEn || '', ...(record as Partial<SkuArchiveRecord>).skuNameTranslations }
+  const languages = [['en', '英文'], ['id', '印尼语'], ['ms', '马来语']] as const
+  return panel('多语名称', editing ? `<div class="grid gap-5 md:grid-cols-2">${languages.map(([key, label]) => field(`${label}名称`, input(`translation.${key}`, names[key]))).join('')}</div>` : grid(languages.map(([key, label]) => [`${label}名称`, names[key]])))
+}
+
+function styleBody(r: StyleArchiveShellRecord): string {
+  if (state.tab === 'translations') return translationsPanel('style', r, false)
+  if (state.tab === 'technical') return technicalTab(r.styleId)
+  if (state.tab === 'records') return recordTab(r)
+  if (state.tab === 'skus') return panel('规格清单', table(['规格', '颜色', '尺码', '交付方式', '审核 / 使用状态', '操作'], listSkuArchivesByStyleId(r.styleId).map(s => [link(s.skuCode, `${SKU_PATH}/${s.skuId}`), e(s.colorName), e(s.sizeName), e(deliveryLabels[s.deliveryMode || 'SINGLE']), statuses(s), link('编辑', `${SKU_PATH}/${s.skuId}/edit`)])), link('新增规格', `${SKU_PATH}/new?styleId=${r.styleId}`))
+  if (state.tab === 'sales') {
+    const selected = state.sales || r.salesContents?.find(c => c.language === state.salesLanguage)
+    return panel('销售基础内容', `<div class="mb-5 flex flex-wrap items-center justify-between gap-3"><div class="w-48">${select('salesLanguage', state.salesLanguage, [['zh', '中文'], ['en', '英语'], ['id', '印尼语'], ['ms', '马来语']])}</div>${link('编辑销售内容', `${STYLE_PATH}/${r.styleId}/edit?tab=sales`)}</div>${selected ? grid([['销售标题', selected.title], ['卖点', selected.sellingPoints], ['详情', selected.description], ['内容版本', selected.version], ['尺码图', selected.sizeChartUrl]]) + `<div class="mt-5 flex flex-wrap gap-3">${selected.imageUrls.map(url => photo(url, r.styleName, true)).join('')}</div>` : '<p class="text-sm text-slate-500">该语言暂无基础销售内容。</p>'}<p class="mt-5 text-xs text-slate-500">关联渠道商品 ${listChannelListingsByStyleId(r.styleId).length} 个；渠道独立覆盖的内容继续保留。</p>`)
   }
-
-  const tabButtons = STYLE_DETAIL_TABS.map(
-    (tab) => `
-      <button type="button" class="${escapeHtml(toClassName('inline-flex h-9 items-center rounded-md px-3 text-sm', state.styleDetail.activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'))}" data-pcs-product-archive-action="set-style-detail-tab" data-value="${escapeHtml(tab.key)}">${escapeHtml(tab.label)}</button>
-    `,
-  ).join('')
-
-  const tabContent =
-    state.styleDetail.activeTab === 'overview'
-      ? renderStyleDetailOverview(style)
-      : state.styleDetail.activeTab === 'versions'
-        ? renderStyleDetailVersions(style)
-        : state.styleDetail.activeTab === 'specifications'
-          ? renderStyleDetailSpecifications(style)
-          : state.styleDetail.activeTab === 'mappings'
-            ? renderStyleDetailMappings(style)
-            : state.styleDetail.activeTab === 'channels'
-              ? renderStyleDetailChannels(style)
-              : renderStyleDetailLogs(style)
-
-  return `
-    <div class="space-y-5 p-4" data-fast-page-render="true">
-      ${renderNotice()}
-      <section class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-start gap-4">
-          <button type="button" class="inline-flex h-9 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/styles">
-            <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
-          </button>
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(style.styleCode)}</h1>
-              ${renderStyleLifecycleBadge(style)}
-            </div>
-            <p class="mt-1 text-sm text-slate-500">${escapeHtml(style.styleName)} · ${escapeHtml(style.categoryName || style.subCategoryName || '未设置类目')}</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-style-completion" data-style-id="${escapeHtml(style.styleId)}">
-            <i data-lucide="square-pen" class="h-4 w-4"></i>完善资料
-          </button>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="open-sku-create" data-mode="single" data-style-id="${escapeHtml(style.styleId)}">
-            <i data-lucide="plus" class="h-4 w-4"></i>新增规格
-          </button>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md ${style.archiveStatus === 'ARCHIVED' ? 'bg-slate-900 text-white hover:bg-slate-800' : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'} px-3 text-sm" data-pcs-product-archive-action="toggle-style-status" data-style-id="${escapeHtml(style.styleId)}">
-            <i data-lucide="archive" class="h-4 w-4"></i>${style.archiveStatus === 'ARCHIVED' ? '恢复启用' : '归档'}
-          </button>
-        </div>
-      </section>
-      <section class="rounded-lg border bg-white p-2 shadow-sm">
-        <div class="flex flex-wrap gap-2">${tabButtons}</div>
-      </section>
-      ${tabContent}
-      ${renderSkuCreateDrawer()}
-      ${renderStyleCompletionDrawer()}
-      ${renderTechPackVersionLogDialog()}
-    </div>
-  `
+  if (state.tab === 'relations') return substitutionView(r) + panel('同款与组合', grid([['交付方式', deliveryLabels[r.deliveryMode || 'SINGLE']]]) + table(['同款编码', '名称', '品牌'], (r.sameStyleIds || []).map(id => getStyleArchiveById(id)).filter((x): x is StyleArchiveShellRecord => !!x).map(s => [link(s.styleCode, `${STYLE_PATH}/${s.styleId}`), e(s.styleName), e(s.brandName)])) + `<div class="mt-4 text-sm text-slate-500">${r.deliveryMode === 'VIRTUAL_BUNDLE' ? '每个组合规格分别维护组件与组成版本。' : r.deliveryMode === 'PHYSICAL_SET' ? '固定实物套装以套作为交付单位。' : '同款关联保留各自的款式和规格身份。'}</div>`, link('编辑关系', `${STYLE_PATH}/${r.styleId}/edit?tab=relations`))
+  return panel('基本资料', grid([['款式编码', r.styleCode], ['款式名称', r.styleName], ['英文名称', r.styleNameEn], ['款号', r.styleNumber], ['品牌', r.brandName], ['正式类目', [r.categoryName, r.subCategoryName, r.thirdCategoryName].filter(Boolean).join(' / ')], ['品类', r.categoryTags], ['风格', r.styleTags], ['品类编号', `${r.categoryCode || ''} ${r.categoryCodeName || ''}`], ['商品定位', r.productPosition], ['流行元素', r.popularElementTags], ['营销面料', r.fabricTags], ['特殊工艺标签', configOptions('specialCrafts', r.productConfigRefs?.specialCrafts).filter(([id]) => r.productConfigRefs?.specialCrafts?.includes(id)).map(([, label]) => label)], ['材质类型', r.materialType], ['人群', r.targetAudienceTags], ['年龄', r.ageTags], ['人群定位', r.audiencePositionTags], ['年份 / 季节', [r.yearTag, ...(r.seasonTags || [])].join(' / ')], ['买手 / 资料责任人', r.buyerName], ['交付方式', deliveryLabels[r.deliveryMode || 'SINGLE']], ['备注', r.remark]]) + `<div class="mt-5 flex flex-wrap gap-3">${(r.galleryImageUrls || []).map((u, i) => `<figure>${photo(u, `${r.styleName} ${r.galleryImagePurposes?.[i] || '补充图'}`, true)}<figcaption class="mt-1 text-xs text-slate-500">${e(r.galleryImagePurposes?.[i] || '补充识别图')}</figcaption></figure>`).join('')}</div>`)
 }
-
-function buildSkuChannelMappingRows(sku: SkuArchiveRecord) {
-  return listProjectChannelProductsSnapshot()
-    .filter((item) => item.styleId === sku.styleId && item.channelProductStatus !== '已作废')
-    .map((item, index) => ({
-      id: `${sku.skuId}_mapping_${index + 1}`,
-      channel: item.channelName,
-      store: item.storeName,
-      storeId: item.storeId,
-      platformSkuId: `${item.channelCode.toUpperCase()}-${sku.skuCode}`.slice(0, 32),
-      sellerSku: sku.skuCode,
-      platformItemId: item.upstreamChannelProductCode || item.channelProductCode,
-      status: sku.mappingHealth === 'OK' ? '生效中' : sku.mappingHealth === 'MISSING' ? '待补齐' : '冲突待处理',
-      effectiveFrom: item.effectiveAt || item.updatedAt,
-      effectiveTo: '',
-      source: item.projectCode || item.channelProductCode,
-      listingTitle: item.listingTitle,
-    }))
+function skuBody(r: SkuArchiveRecord): string {
+  if (state.tab === 'translations') return translationsPanel('sku', r, false)
+  if (state.tab === 'technical') return technicalTab(r.styleId)
+  if (state.tab === 'channels') return channelTab(r.skuId)
+  if (state.tab === 'records') return recordTab(r)
+  if (state.tab === 'packaging') return productPackagingView(r)
+  return panel('规格资料', grid([['SKU', r.skuCode], ['规格名称', r.skuName], ['英文名称', r.skuNameEn], ['所属款式', r.styleCode], ['颜色', r.colorName], ['统一尺码', r.sizeName], ['花型', r.patternId || r.printName], ['交付差异', r.deliveryDifference], ['条码', r.barcode], ['条码 / 旧码别名', [...new Set([r.legacyCode, ...(r.barcodeAliases || [])].filter(Boolean))]], ['主单位', r.pricingUnit], ['交付方式', deliveryLabels[r.deliveryMode || 'SINGLE']], ['备注', r.remark]]) + (r.deliveryMode === 'VIRTUAL_BUNDLE' ? `<h3 class="mb-3 mt-6 font-semibold">组件 · 组成版本 ${r.compositionVersion || 1}</h3>${table(['组件 SKU', '规格', '每组合数量'], (r.bundleComponents || []).map(c => { const s = getSkuArchiveById(c.skuId); return [s ? link(s.skuCode, `${SKU_PATH}/${s.skuId}`) : e(c.skuId), e(s?.skuName), e(`${c.quantity} ${s?.pricingUnit || '件'}`)] }))}` : ''))
 }
-
-function renderSkuDetailOverview(sku: SkuArchiveRecord): string {
-  return `
-    <section class="grid gap-4 xl:grid-cols-[2fr,1fr]">
-      <div class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-5 lg:flex-row">
-          <div class="w-full max-w-[260px] shrink-0 space-y-3">
-            ${renderArchiveImage(sku.skuImageUrl || '', sku.skuCode)}
-            <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-600">
-              <div>渠道标题</div>
-              <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sku.channelTitle || '-')}</div>
-            </div>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="grid gap-4 md:grid-cols-2">
-              <div><div class="text-xs text-slate-500">所属款式</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(sku.styleCode)} · ${escapeHtml(sku.styleName)}</div></div>
-              <div><div class="text-xs text-slate-500">资料版本</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.techPackVersionLabel || '未关联')}</div></div>
-              <div><div class="text-xs text-slate-500">SKU 中文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.skuName || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">SKU 外文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.skuNameEn || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">颜色</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.colorName)}</div></div>
-              <div><div class="text-xs text-slate-500">尺码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.sizeName)}</div></div>
-              <div><div class="text-xs text-slate-500">花型 / 印花</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.printName || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">条码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.barcode || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">成本价</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatCurrency(sku.costPrice, sku.currency))}</div></div>
-              <div><div class="text-xs text-slate-500">含运费成本</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatCurrency((sku.costPrice || 0) + (sku.freightCost || 0), sku.currency))}</div></div>
-              <div><div class="text-xs text-slate-500">建议售价</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatCurrency(sku.suggestedRetailPrice, sku.currency))}</div></div>
-              <div><div class="text-xs text-slate-500">计价单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.pricingUnit || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">重量</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.weightText || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">体积</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.volumeText || '-')}</div></div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">包装信息</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(sku.packagingInfo || '-')}</div></div>
-              <div class="md:col-span-2">
-                <div class="text-xs text-slate-500">预计用料</div>
-                ${
-                  sku.expectedMaterials && sku.expectedMaterials.length
-                    ? `<ul class="mt-2 space-y-1 text-sm text-slate-700">${sku.expectedMaterials
-                        .map(
-                          (line) =>
-                            `<li>${escapeHtml(line.materialSkuCode || line.materialSkuId)} · ${escapeHtml(line.materialName)} · ${escapeHtml(String(line.quantity))} ${escapeHtml(line.unit)}${line.note ? ` · ${escapeHtml(line.note)}` : ''}</li>`,
-                        )
-                        .join('')}</ul>`
-                    : '<div class="mt-1 text-sm text-slate-700">尚未配置预计用料</div>'
-                }
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <aside class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">运行状态</div>
-        <div class="space-y-3 text-sm text-slate-700">
-          <div class="flex items-center justify-between gap-3"><span class="text-slate-500">状态</span><span>${renderStatusBadge(sku.archiveStatus, 'sku')}</span></div>
-          <div class="flex items-center justify-between gap-3"><span class="text-slate-500">映射健康</span><span>${renderMappingBadge(sku.mappingHealth)}</span></div>
-          <div class="flex items-center justify-between gap-3"><span class="text-slate-500">渠道映射数</span><span>${escapeHtml(sku.channelMappingCount)}</span></div>
-          <div class="flex items-center justify-between gap-3"><span class="text-slate-500">最近上架</span><span>${escapeHtml(sku.lastListingAt || '-')}</span></div>
-        </div>
-      </aside>
-    </section>
-  `
+function renderDetail(kind: Kind, id: string): string {
+  if (state.id !== id || state.view !== 'detail') state.tab = 'basic'
+  state.kind = kind; state.view = 'detail'; state.id = id; state.dirty = false
+  const r = kind === 'style' ? getStyleArchiveById(id) : getSkuArchiveById(id)
+  if (!r) return wrap(`<div class="p-6">${link('返回列表', path())}<p class="mt-6">档案不存在，请重新读取列表。</p></div>`)
+  const tabs: Array<[string, string]> = kind === 'style' ? [['basic', '基本资料'], ['translations', '多语名称'], ['sales', '销售基础内容'], ['skus', '规格'], ['technical', '技术引用'], ['relations', '同款与组合'], ['records', '记录']] : [['basic', '规格资料'], ['translations', '多语名称'], ['packaging', '包装物流'], ['channels', '渠道关联'], ['technical', '技术引用'], ['records', '记录']]
+  return wrap(`<div class="space-y-4 p-4"><div class="flex items-center justify-between">${link('← 返回列表', path())}<span class="text-xs text-slate-400">${kind === 'style' ? '款式档案' : '规格档案'}</span></div>${notice()}<header class="flex flex-wrap items-center justify-between gap-5 rounded-lg border bg-white p-5"><div class="flex min-w-0 items-center gap-4">${photo(imageOf(r), nameOf(r), true)}<div class="min-w-0"><h1 class="break-all text-xl font-semibold">${e(codeOf(r))}</h1><p class="my-2 text-sm text-slate-600">${e(nameOf(r))}</p><div class="flex gap-2">${statuses(r)}</div></div></div>${detailActions(r)}</header>${tabBar(tabs, state.tab, 'tab')}${kind === 'style' ? styleBody(r as StyleArchiveShellRecord) : skuBody(r as SkuArchiveRecord)}</div>`)
 }
-
-function renderSkuDetailMappings(sku: SkuArchiveRecord): string {
-  const rows = buildSkuChannelMappingRows(sku)
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channel)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.store)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.platformSkuId)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.sellerSku)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.platformItemId)}</td>
-          <td class="px-4 py-3">${renderBadge(item.status, item.status === '生效中' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : item.status === '待补齐' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-rose-200 bg-rose-50 text-rose-700')}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.effectiveFrom))}</td>
-          <td class="px-4 py-3 text-right">
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-product-archive-action="end-sku-mapping" data-sku-id="${escapeHtml(sku.skuId)}">结束映射</button>
-          </td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">渠道映射</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">渠道</th>
-              <th class="px-4 py-3 font-medium">店铺</th>
-              <th class="px-4 py-3 font-medium">平台 SKU ID</th>
-              <th class="px-4 py-3 font-medium">商家 SKU</th>
-              <th class="px-4 py-3 font-medium">平台商品 ID</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">生效时间</th>
-              <th class="px-4 py-3 text-right font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="8" class="px-4 py-10 text-center text-sm text-slate-500">当前规格尚未形成渠道映射。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
+export function renderPcsStyleArchiveDetailPage(id: string): string { return renderDetail('style', id) }
+export function renderPcsSpecificationDetailPage(id: string): string { return renderDetail('sku', id) }
+function choices(key: string, options: Array<[string, string]>, selected: string[], locked = false): string {
+  const names = options.filter(([id]) => selected.includes(id)).map(([, name]) => name)
+  return `<details class="rounded-md border bg-white" data-product-choice><summary class="cursor-pointer px-3 py-2 text-sm text-slate-600"><span data-product-choice-summary>${e(names.join('、') || '请选择，可多选')}</span></summary><div class="border-t p-3"><input type="search" class="${cls} mb-3" aria-label="搜索选项" placeholder="输入名称筛选" data-${PREFIX}-choice-search><div class="grid max-h-44 grid-cols-2 gap-3 overflow-auto">${options.map(([id, name]) => `<label class="flex items-center gap-2 text-sm" data-product-choice-option><input type="checkbox" aria-label="${e(name)}" data-${PREFIX}-field="${key}" value="${e(id)}" ${selected.includes(id) ? 'checked' : ''} ${locked ? 'disabled' : ''}><span>${e(name)}</span></label>`).join('')}</div></div></details>`
 }
-
-function renderSkuDetailVariants(sku: SkuArchiveRecord): string {
-  const rows = buildSkuChannelMappingRows(sku)
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.channel)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.store)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.platformItemId)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.listingTitle)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(`${sku.colorName}-${sku.sizeName}`)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.platformSkuId)}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(item.source)}</td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">渠道变体</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">渠道</th>
-              <th class="px-4 py-3 font-medium">店铺</th>
-              <th class="px-4 py-3 font-medium">渠道店铺商品 ID</th>
-              <th class="px-4 py-3 font-medium">渠道店铺商品名称</th>
-              <th class="px-4 py-3 font-medium">变体名称</th>
-              <th class="px-4 py-3 font-medium">平台变体 ID</th>
-              <th class="px-4 py-3 font-medium">关联链路</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-500">当前规格尚未形成渠道变体。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
+function multiConfig(dim: FlatDimensionId, selected: string[], locked = false): string { return choices(`ref.${dim}`, configOptions(dim, selected), selected, locked) }
+function upload(key: string, url: string, name: string): string { return `<div class="flex items-center gap-3">${photo(url, name, true)}<div><input type="file" accept="image/jpeg,image/png,image/webp" data-${PREFIX}-upload="${key}" class="max-w-64 text-xs"><p class="mt-2 text-xs text-slate-500">JPG / PNG / WebP，单张不超过 10 MB</p></div></div>` }
+function initEditor(kind: Kind, id = '', parentId = ''): void {
+  const key = `${kind}:${id || 'new'}:${id ? '' : parentId}`
+  if (state.editorKey === key && state.view === 'edit') return
+  state.editorKey = key; state.kind = kind; state.view = 'edit'; state.id = id; state.colors = []; state.sizes = []; state.preview = []; state.pattern = ''; state.difference = ''; state.dirty = false; state.sales = null
+  state.editorTab = typeof location !== 'undefined' ? new URLSearchParams(location.search).get('tab') || 'identity' : 'identity'
+  if (kind === 'style') state.styleDraft = id ? structuredClone(getStyleArchiveById(id) || { styleName: '' }) : { styleName: '', styleCode: '', styleNameEn: '', styleNumber: '', deliveryMode: 'SINGLE', materialType: '非毛织', mainImageUrl: '', galleryImageUrls: [], productConfigRefs: {}, seasonTags: [], sameStyleIds: [] }
+  else state.skuDraft = id ? structuredClone(getSkuArchiveById(id) || {}) : { styleId: parentId, deliveryMode: getStyleArchiveById(parentId)?.deliveryMode || 'SINGLE', bundleComponents: [] }
 }
-
-function renderSkuDetailCodeMappings(sku: SkuArchiveRecord): string {
-  const rows = [
-    {
-      type: '老系统 SKU',
-      system: sku.legacySystem || 'ERP-A',
-      code: sku.legacyCode || '-',
-      status: '生效中',
-      effective: sku.createdAt,
-      owner: sku.createdBy,
-    },
-    {
-      type: '条码',
-      system: '商品中心',
-      code: sku.barcode || '-',
-      status: sku.barcode ? '已绑定' : '待补齐',
-      effective: sku.updatedAt,
-      owner: sku.updatedBy,
-    },
-  ]
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.type)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.system)}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.code)}</td>
-          <td class="px-4 py-3">${renderBadge(item.status, item.status === '待补齐' ? 'border-amber-200 bg-amber-50 text-amber-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700')}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.effective))}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(item.owner)}</td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="border-b border-slate-200 px-4 py-3">
-        <h2 class="text-sm font-medium text-slate-900">外部编码</h2>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">类型</th>
-              <th class="px-4 py-3 font-medium">系统</th>
-              <th class="px-4 py-3 font-medium">编码</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">生效时间</th>
-              <th class="px-4 py-3 font-medium">维护人</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </section>
-  `
+function salesDraft(): SalesBaseContent {
+  if (!state.sales) state.sales = structuredClone(state.styleDraft.salesContents?.find(c => c.language === state.salesLanguage) || { language: state.salesLanguage as SalesBaseContent['language'], title: '', description: '', sellingPoints: '', imageUrls: [], videoUrls: [], sizeChartUrl: '', version: 0 })
+  return state.sales
 }
-
-function renderSkuDetailLogs(sku: SkuArchiveRecord): string {
-  const logs = [
-    { time: sku.createdAt, title: '建立规格档案', detail: `${sku.createdBy} 创建规格 ${sku.skuCode}` },
-    { time: sku.updatedAt, title: '更新规格主档', detail: `${sku.updatedBy} 更新状态、映射或条码信息` },
-    { time: sku.lastListingAt || sku.updatedAt, title: '最近上架同步', detail: sku.lastListingAt ? `最近上架时间 ${sku.lastListingAt}` : '当前未发生上架同步' },
-  ]
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="space-y-4">
-        ${logs
-          .map(
-            (item) => `
-              <div class="border-l-2 border-slate-200 pl-4">
-                <div class="text-xs text-slate-500">${escapeHtml(formatDateTime(item.time))}</div>
-                <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(item.title)}</div>
-                <div class="mt-1 text-sm text-slate-600">${escapeHtml(item.detail)}</div>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-    </section>
-  `
+function generatePanel(style: StyleArchiveShellRecord | null): string {
+  return panel(state.kind === 'sku' ? '选择新增规格' : '选择首批规格', `<div class="grid gap-5 md:grid-cols-2">${field('颜色', multiChoice('color', configOptions('colors'), state.colors))}${field('尺码', multiChoice('size', configOptions('sizes'), state.sizes))}${field('花型编号（构成交付差异时）', patternChoice('generate.pattern', state.pattern))}${field('其他交付差异', input('generate.difference', state.difference), '同色同尺仅在实物交付有差异时增加；营销标题不构成新规格。')}</div><div class="my-5 flex gap-2">${btn('生成规格预览', 'preview', '', true)}${state.preview.length ? `<span class="self-center text-sm text-slate-500">${state.preview.length} 条，保存后建立草稿</span>` : ''}</div>${table(['SKU 预览', '颜色', '尺码', '实物差异'], state.preview.map(s => [e(s.skuCode), e(s.colorName), e(s.sizeName), e(s.deliveryDifference || s.patternId || '—')]))}${style?.deliveryMode === 'VIRTUAL_BUNDLE' ? '<p class="mt-4 text-sm text-amber-700">请先为每条组合规格选择至少两条组件，再保存。</p>' + bundleEditor(state.skuDraft.bundleComponents || []) : ''}`)
 }
-
-function renderSkuDetailPage(skuId: string): string {
-  ensurePageDataReady()
-  if (state.skuDetail.skuId !== skuId) {
-    state.skuDetail.skuId = skuId
-    state.skuDetail.activeTab = 'overview'
+function multiChoice(type: string, options: Array<[string, string]>, selected: string[]): string { return choices(`generate.${type}`, options, selected) }
+function bundleEditor(components: Array<{ skuId: string; quantity: number }>): string {
+  const options: Array<[string, string]> = listSkuArchives().filter(s => s.skuId !== state.id && s.deliveryMode !== 'VIRTUAL_BUNDLE').map(s => [s.skuId, `${s.skuCode} · ${s.colorName}/${s.sizeName}`])
+  return `<div class="space-y-3">${components.map((c, i) => `<div class="grid grid-cols-[1fr_100px_60px] gap-3">${select(`component.${i}.skuId`, c.skuId, options)}${input(`component.${i}.quantity`, c.quantity, 'number')}${btn('移除', 'remove-component', `data-index="${i}"`)}</div>`).join('')}${btn('添加组件', 'add-component')}</div>`
+}
+function styleEditorBody(): string {
+  const d = state.styleDraft, locked = d.approvalStatus === 'APPROVED'
+  if (state.editorTab === 'attributes') {
+    const singles: FlatDimensionId[] = ['brands', 'categoryNumbers', 'productPositioning']
+    return panel('分类与属性', `<div class="grid gap-5 md:grid-cols-2">${singles.map(dim => field(FLAT_DIMENSION_META.find(o => o.id === dim)!.name, select(`ref.${dim}`, d.productConfigRefs?.[dim]?.[0], configOptions(dim, d.productConfigRefs?.[dim]), '请选择'))).join('')}${field('正式类目', select('style.productCategoryId', d.productCategoryId, leafOptions()))}${field('材质类型', select('style.materialType', d.materialType, [['毛织', '毛织'], ['非毛织', '非毛织']]))}${field('年份', input('style.yearTag', d.yearTag, 'number'))}${field('季节', choices('season', [...new Set([...getProjectCreateCatalog().seasonTags, ...(d.seasonTags || [])])].map(name => [name, name]), d.seasonTags || []))}${field('买手 / 资料责任人', select('style.buyerId', d.buyerId, getProjectCreateCatalog().owners.map(o => [o.id, o.name]), d.buyerName && !d.buyerId ? `${d.buyerName}（原资料，未核实人员）` : '请选择人员'))}</div><div class="mt-6 grid gap-5 md:grid-cols-2">${(['categories', 'styles', 'trendElements', 'fabrics', 'specialCrafts', 'crowds', 'ages', 'crowdPositioning'] as FlatDimensionId[]).map(dim => field(FLAT_DIMENSION_META.find(o => o.id === dim)!.name, multiConfig(dim, d.productConfigRefs?.[dim] || []))).join('')}</div>`)
   }
-
-  const sku = getSkuArchiveById(skuId)
-  if (!sku) {
-    return `
-      <div class="space-y-5 p-4" data-fast-page-render="true">
-        <section class="rounded-lg border bg-white p-4 text-center shadow-sm">
-          <h1 class="text-xl font-semibold text-slate-900">未找到规格档案</h1>
-          <p class="mt-2 text-sm text-slate-500">请返回规格档案列表重新选择。</p>
-          <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/specifications">返回列表</button>
-        </section>
-      </div>
-    `
+  if (state.editorTab === 'skus') return state.id ? panel('规格维护', `<p class="mb-4 text-sm text-slate-500">每条规格独立维护。后续新增规格独立提交审核。</p>${link('进入规格清单', `${SKU_PATH}?styleId=${state.id}`)}<span class="mx-3">·</span>${link('新增规格', `${SKU_PATH}/new?styleId=${state.id}`)}`) : generatePanel({ ...d, styleId: 'draft', styleCode: d.styleCode || '待生成SPU', mainImageUrl: d.mainImageUrl || '' } as StyleArchiveShellRecord)
+  if (state.editorTab === 'sales') {
+    const s = salesDraft()
+    return panel('销售基础内容', `<div class="mb-5 w-48">${field('语言', select('salesLanguage', s.language, [['zh', '中文'], ['en', '英语'], ['id', '印尼语'], ['ms', '马来语']]))}</div><div class="space-y-5">${field('销售标题', input('sales.title', s.title))}${field('卖点', textarea('sales.sellingPoints', s.sellingPoints))}${field('销售详情', textarea('sales.description', s.description))}${field('尺码图引用', input('sales.sizeChartUrl', s.sizeChartUrl))}${field('图片地址（每行一条）', textarea('sales.imageUrls', s.imageUrls.join('\n')))}${field('视频地址（每行一条）', textarea('sales.videoUrls', s.videoUrls.join('\n')))}</div><p class="mt-5 text-xs text-slate-500">${state.id ? `关联 ${listChannelListingsByStyleId(state.id).filter(l => l.platformStatus === '在售').length} 个在售链接、${listChannelListingsByStyleId(state.id).filter(l => l.reviewStatus === '草稿').length} 个渠道草稿。` : ''}保存基础内容后，店铺已覆盖的内容保持其经营版本；发布操作在渠道商品中完成。</p>`)
   }
-
-  const tabButtons = SKU_DETAIL_TABS.map(
-    (tab) => `
-      <button type="button" class="${escapeHtml(toClassName('inline-flex h-9 items-center rounded-md px-3 text-sm', state.skuDetail.activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'))}" data-pcs-product-archive-action="set-sku-detail-tab" data-value="${escapeHtml(tab.key)}">${escapeHtml(tab.label)}</button>
-    `,
-  ).join('')
-
-  const tabContent =
-    state.skuDetail.activeTab === 'overview'
-      ? renderSkuDetailOverview(sku)
-      : state.skuDetail.activeTab === 'channelMappings'
-        ? renderSkuDetailMappings(sku)
-        : state.skuDetail.activeTab === 'channelVariants'
-          ? renderSkuDetailVariants(sku)
-          : state.skuDetail.activeTab === 'codeMappings'
-            ? renderSkuDetailCodeMappings(sku)
-            : renderSkuDetailLogs(sku)
-
-  return `
-    <div class="space-y-5 p-4" data-fast-page-render="true">
-      ${renderNotice()}
-      <section class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-start gap-4">
-          <button type="button" class="inline-flex h-9 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/specifications">
-            <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
-          </button>
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(sku.skuCode)}</h1>
-              ${renderStatusBadge(sku.archiveStatus, 'sku')}
-              ${renderMappingBadge(sku.mappingHealth)}
-            </div>
-            <p class="mt-1 text-sm text-slate-500">${escapeHtml(sku.styleCode)} · ${escapeHtml(sku.styleName)} · ${escapeHtml(`${sku.colorName}/${sku.sizeName}`)}</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="copy-sku-code" data-sku-id="${escapeHtml(sku.skuId)}">
-            <i data-lucide="copy" class="h-4 w-4"></i>复制编码
-          </button>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-product-archive-action="push-sku-listing" data-sku-id="${escapeHtml(sku.skuId)}">
-            <i data-lucide="send" class="h-4 w-4"></i>推送上架
-          </button>
-          <button type="button" class="inline-flex h-9 items-center gap-2 rounded-md ${sku.archiveStatus === 'ACTIVE' ? 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50' : 'bg-slate-900 text-white hover:bg-slate-800'} px-3 text-sm" data-pcs-product-archive-action="toggle-sku-status" data-sku-id="${escapeHtml(sku.skuId)}">
-            <i data-lucide="power" class="h-4 w-4"></i>${sku.archiveStatus === 'ACTIVE' ? '停用' : '启用'}
-          </button>
-        </div>
-      </section>
-      <section class="rounded-lg border bg-white p-2 shadow-sm">
-        <div class="flex flex-wrap gap-2">${tabButtons}</div>
-      </section>
-      ${tabContent}
-      ${renderSkuCreateDrawer()}
-    </div>
-  `
+  if (state.editorTab === 'relations') return substitutionEditor(d) + '<div class="mt-4"></div>' + panel('同款与交付方式', `<div class="max-w-md">${field('交付方式', select('style.deliveryMode', d.deliveryMode, Object.entries(deliveryLabels), '请选择', locked), locked ? '审核后交付方式锁定；交付定义改变请新建款式。' : '')}</div><div class="mt-5">${field('关联同款', multiChoice('sameStyle', listStyleArchives().filter(s => s.styleId !== state.id).map(s => [s.styleId, `${s.styleCode} · ${s.brandName}`]), d.sameStyleIds || []))}</div>`)
+  return panel('身份与图片', `<div class="grid gap-5 md:grid-cols-2">${field('款式名称 *', input('style.styleName', d.styleName))}${field('款式编码', input('style.styleCode', d.styleCode, 'text', locked, '留空按 SPU-年份-流水号生成'), locked ? '审核通过后编码锁定。' : '可使用已存在的来源编码；新编码必须唯一。')}${field('款号', input('style.styleNumber', d.styleNumber))}${field('交付方式', select('style.deliveryMode', d.deliveryMode, Object.entries(deliveryLabels), '请选择', locked))}</div><div class="mt-6 grid gap-6 md:grid-cols-2">${field('主识别图', upload('styleMain', d.mainImageUrl || '', d.styleName))}${field('补充图片', `<input type="file" multiple accept="image/jpeg,image/png,image/webp" data-${PREFIX}-upload="styleGallery" class="text-sm"><div class="mt-3 flex flex-wrap gap-2">${(d.galleryImageUrls || []).map((u, i) => `<div class="flex items-center gap-2">${photo(u, d.styleName)}${select(`gallery.${i}`, d.galleryImagePurposes?.[i] || '补充识别图', ['补充识别图', '正面', '背面', '细节', '包装'].map(v => [v, v]))}${btn('前移', 'gallery-up', `data-index="${i}" ${i === 0 ? 'disabled' : ''}`)}${btn('移除', 'gallery-remove', `data-index="${i}"`)}</div>`).join('')}</div>`)}</div><div class="mt-6">${field('备注', textarea('style.remark', d.remark))}</div>`)
 }
-
-function renderSkuStyleLink(sku: SkuArchiveRecord): string {
-  return `<button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(sku.styleId)}">${escapeHtml(sku.styleCode)}</button>`
+function substitutionView(r: StyleArchiveShellRecord): string {
+  return panel('替代关系', table(['目标', '适用条件', '版本'], (r.substitutionRelations || []).map(row => [e(row.targetKind === 'PRODUCT_SKU' ? getSkuArchiveById(row.targetId)?.skuCode || row.targetId : listAllMaterialSkuRecords().find(s => s.materialSkuId === row.targetId)?.materialSkuCode || row.targetId), e(row.conditions), e(row.version)])))
 }
-
-function renderPcsStyleListPage(): string {
-  const context = buildProductArchiveListContext()
-  const allItems = buildStyleListItems(context)
-  const items = filterStyleItems(allItems)
-  return `
-    <div class="space-y-5 p-4" data-fast-page-render="true">
-      ${renderNotice()}
-      ${renderStyleHeader()}
-      ${renderStyleStats(allItems)}
-      ${renderStyleFilters(items.length)}
-      ${renderStyleTable(items)}
-      ${renderSkuCreateDrawer()}
-      ${renderStyleCompletionDrawer()}
-      ${renderStyleCreateDrawer()}
-    </div>
-  `
+function substitutionEditor(d: ProductStyleDraft): string {
+  return panel('有条件替代', `<p class="mb-4 text-sm text-slate-500">同款不自动视为替代。每条替代关系单独维护适用条件和版本。</p>${(d.substitutionRelations || []).map((row, i) => `<div class="mb-4 grid gap-3 rounded border p-4 md:grid-cols-2">${field('目标类型', select(`substitute.${i}.targetKind`, row.targetKind, [['PRODUCT_SKU', '商品规格'], ['MATERIAL_SKU', '物料规格']]))}${field('目标', select(`substitute.${i}.targetId`, row.targetId, row.targetKind === 'PRODUCT_SKU' ? listSkuArchives().map(s => [s.skuId, s.skuCode]) : listAllMaterialSkuRecords().map(s => [s.materialSkuId, s.materialSkuCode])))}${field('适用条件', textarea(`substitute.${i}.conditions`, row.conditions))}${field('版本', input(`substitute.${i}.version`, row.version, 'number'))}${btn('移除关系', 'remove-substitute', `data-index="${i}"`)}</div>`).join('')}${btn('添加替代关系', 'add-substitute')}`)
 }
-
-function renderPcsSkuListPage(): string {
-  const items = getFilteredSkuItems()
-  return `
-    <div class="space-y-5 p-4" data-fast-page-render="true">
-      ${renderNotice()}
-      ${renderSkuHeader()}
-      ${renderSkuStats()}
-      ${renderSkuFilters(items.length)}
-      ${renderSkuTable(items)}
-      ${renderSkuCreateDrawer()}
-    </div>
-  `
+function patternChoice(key: string, value: string, locked = false, legacy = ''): string {
+  const options: Array<[string, string]> = listMaterialPatternChoices().map(p => [p.id, `${p.pattern_code} · ${p.pattern_name}`])
+  return select(key, value, options, legacy ? `${legacy}（原花型编号）` : '无花型差异', locked)
 }
-
-export function renderPcsStyleArchiveListPage(): string {
-  return renderPcsStyleListPage()
+function productPackagingView(record: SkuArchiveRecord): string {
+  const rows = productPackages(record)
+  const data = (p: typeof rows[number]) => [e(`${p.packageTypeId} · v${p.version} · ${p.status === 'ACTIVE' ? '启用' : '停用'}`), e(`${p.contentQty} ${p.contentUnitId}`), e(p.grossWeightKg ?? '—'), e([p.lengthCm, p.widthCm, p.heightCm].map(v => v ?? '—').join(' × ')), e(p.volumeM3 ?? '—'), e(p.measurementBasis)]
+  return panel('包装物流', grid([['主计量单位', record.pricingUnit], ['每主单位净重 KG', record.weightKg], ['包装说明', record.packagingInfo]]) + `<div class="mt-5">${table(['包装 / 版本', '标准含量', '毛重 KG', '长 × 宽 × 高 cm', '体积 m³（尺寸计算）', '测量基准'], rows.map(data))}</div>` + (record.packageSpecHistory?.length ? `<details class="mt-5"><summary class="cursor-pointer text-sm">历史包装版本 ${record.packageSpecHistory.length} 条</summary>${table(['包装 / 版本', '标准含量', '毛重 KG', '长 × 宽 × 高 cm', '体积 m³', '测量基准'], record.packageSpecHistory.map(data))}</details>` : ''))
 }
-
-export function renderPcsStyleArchiveDetailPage(styleId: string): string {
-  return renderStyleDetailPage(styleId)
+function productPackagingEditor(d: Partial<SkuArchiveRecord>): string {
+  const rows = d.packageSpecs || productPackages(d)
+  return panel('包装物流', `<div class="grid gap-5 md:grid-cols-2">${field('主计量单位', select('sku.mainUnitId', d.mainUnitId || resolveProductMainUnit(d.pricingUnit)?.id, listMaterialUnitDefinitions().filter(unit => unit.enabled || unit.id === d.mainUnitId).map(unit => [unit.id, `${unit.label}（${unit.code}）`]), '请选择主单位', d.approvalStatus === 'APPROVED'))}${field('每主单位净重 KG', input('sku.weightKg', d.weightKg, 'number'))}</div><div class="mt-5 space-y-3">${rows.map((p, i) => `<details class="rounded-lg border" ${i === 0 ? 'open' : ''}><summary class="cursor-pointer bg-slate-50 px-4 py-3 text-sm font-medium">${e(p.packageTypeId)} · ${e(p.contentQty)} ${e(p.contentUnitId)} · v${p.version}</summary><div class="grid gap-4 p-4 md:grid-cols-3">${field('包装类型', select(`package.${i}.packageTypeId`, p.packageTypeId, ['包', '箱', '卷', '筒', '瓶', '件', '套'].map(v => [v, v])))}${field('标准包装含量', input(`package.${i}.contentQty`, p.contentQty, 'number'))}${field('含量单位', input(`package.${i}.contentUnitId`, p.contentUnitId, 'text', true))}${field('包装毛重 KG', input(`package.${i}.grossWeightKg`, p.grossWeightKg, 'number'))}${field('包装长 cm', input(`package.${i}.lengthCm`, p.lengthCm, 'number'))}${field('包装宽 cm', input(`package.${i}.widthCm`, p.widthCm, 'number'))}${field('包装高 cm', input(`package.${i}.heightCm`, p.heightCm, 'number'))}${field('测量基准', input(`package.${i}.measurementBasis`, p.measurementBasis))}${field('状态', select(`package.${i}.status`, p.status, [['ACTIVE', '启用'], ['INACTIVE', '停用']]))}</div></details>`).join('')}${btn('添加包装规格', 'add-package')}</div><p class="my-4 text-xs text-slate-500">体积按长、宽、高计算；未知尺寸留空。保存变更形成新包装版本，保留原版本。</p>${field('包装说明', textarea('sku.packagingInfo', d.packagingInfo))}`)
 }
-
-export function renderPcsSpecificationListPage(): string {
-  return renderPcsSkuListPage()
+function skuEditorBody(): string {
+  const d = state.skuDraft, parent = getStyleArchiveById(d.styleId || ''), locked = d.approvalStatus === 'APPROVED'
+  if (!state.id) return panel('所属款式', field('款式 *', select('sku.styleId', d.styleId, listStyleArchives().filter(s => s.lifecycleStatus !== 'ARCHIVED').map(s => [s.styleId, `${s.styleCode} · ${s.styleName}`])))) + (parent ? `<div class="mt-4">${generatePanel(parent)}</div>` : '')
+  if (state.editorTab === 'packaging') return productPackagingEditor(d)
+  if (state.editorTab === 'components') return panel('组合组件', locked ? table(['组件', '每组合数量'], (d.bundleComponents || []).map(c => [e(getSkuArchiveById(c.skuId)?.skuCode || c.skuId), e(c.quantity)])) + '<p class="mt-4 text-sm text-slate-500">已审核组成不可替换，请复制为新的交付规格。</p>' : bundleEditor(d.bundleComponents || []))
+  return panel('规格资料', `<div class="mb-5 text-sm">所属款式：${parent ? link(parent.styleCode, `${STYLE_PATH}/${parent.styleId}`) : e(d.styleCode)}</div><div class="grid gap-5 md:grid-cols-2">${field('SKU 编码', input('sku.skuCode', d.skuCode, 'text', locked))}${field('规格名称', input('sku.skuName', d.skuName))}${field('颜色', select('sku.colorId', d.colorId, configOptions('colors', [d.colorId || '']), d.colorName || '请选择', locked))}${field('尺码', select('sku.sizeId', d.sizeId, configOptions('sizes', [d.sizeId || '']), d.sizeName || '请选择', locked))}${field('花型编号', patternChoice('sku.patternIdentityId', d.patternIdentityId || '', locked, d.patternId || d.printName))}${field('交付差异', input('sku.deliveryDifference', d.deliveryDifference, 'text', locked))}${field('条码', input('sku.barcode', d.barcode))}${field('条码 / 旧码别名', textarea('sku.barcodeAliases', (d.barcodeAliases || []).join('\n')), '每行一个识别码；不能关联其他 SKU。')}</div><div class="mt-6">${field('识别图', upload('skuMain', d.skuImageUrl || '', d.skuName || '规格图'))}</div><div class="mt-5">${field('备注', textarea('sku.remark', d.remark))}</div>`)
 }
-
-export function renderPcsSpecificationDetailPage(skuId: string): string {
-  return renderSkuDetailPage(skuId)
+function renderEditor(kind: Kind, id = '', parentId = ''): string {
+  initEditor(kind, id, parentId)
+  const tabs: Array<[string, string]> = kind === 'style' ? [['identity', '身份与图片'], ['translations', '多语名称'], ['attributes', '分类与属性'], ['skus', '规格'], ['sales', '销售基础内容'], ['relations', '同款与组合']] : id ? [['identity', '规格资料'], ['translations', '多语名称'], ['packaging', '包装物流'], ...(state.skuDraft.deliveryMode === 'VIRTUAL_BUNDLE' ? [['components', '组合组件'] as [string, string]] : [])] : [['identity', '新增规格']]
+  return wrap(`<div class="space-y-4 p-4 pb-24"><div class="flex items-center justify-between"><div><h1 class="text-xl font-semibold">${id ? '编辑' : '新增'}${kind === 'style' ? '款式' : '规格'}</h1><p class="mt-1 text-xs text-slate-500">${state.dirty ? '有未保存修改' : '保存草稿后可继续完善，再提交审核。'}</p></div>${btn('返回', 'cancel-edit')}</div>${notice()}${tabBar(tabs, state.editorTab, 'editor-tab')}${state.editorTab === 'translations' ? translationsPanel(kind, kind === 'style' ? state.styleDraft : state.skuDraft, true) : kind === 'style' ? styleEditorBody() : skuEditorBody()}${id ? panel('修改说明', field('修改原因', input(kind === 'style' ? 'style.changeReason' : 'sku.changeReason', kind === 'style' ? state.styleDraft.changeReason : state.skuDraft.changeReason), '选填；未填时记录为资料维护。')) : ''}<footer class="sticky bottom-0 flex items-center justify-end gap-3 rounded-lg border bg-white p-4 shadow-sm">${btn('取消', 'cancel-edit')}${btn(state.saving ? '保存中…' : '保存草稿', 'save', state.saving ? 'disabled' : '', true)}</footer></div>`)
 }
-
-function buildSkuRecord(input: {
-  style: StyleArchiveShellRecord
-  color: string
-  size: string
-  print: string
-  barcode: string
-  skuCode: string
-  legacySystem?: string
-  legacyCode?: string
-  mappingHealth?: SkuArchiveMappingHealth
-}): SkuArchiveRecord {
-  const identity = buildSkuIdentity()
-  const latestVersion = resolveLatestVersionMeta(input.style.styleId)
-  const fixture = buildSkuFixture(input.style.styleCode, input.style.styleName, input.color, input.size)
-  const styleChannelCount = listStyleChannelProducts(input.style).length || input.style.channelProductCount || 0
-  return {
-    skuId: identity.skuId,
-    skuCode: input.skuCode,
-    styleId: input.style.styleId,
-    styleCode: input.style.styleCode,
-    styleName: input.style.styleName,
-    skuName: fixture.skuName,
-    skuNameEn: fixture.skuNameEn,
-    colorName: input.color,
-    sizeName: input.size,
-    printName: input.print.trim() || '基础款',
-    barcode: input.barcode.trim() || `69${identity.timestamp.replace(/\D/g, '').slice(-11)}`.slice(0, 13),
-    channelTitle: fixture.channelTitle,
-    skuImageUrl: fixture.skuImageUrl,
-    archiveStatus: 'ACTIVE',
-    mappingHealth: input.mappingHealth || (styleChannelCount > 0 ? 'OK' : 'MISSING'),
-    channelMappingCount: Math.max(0, styleChannelCount),
-    listedChannelCount: 0,
-    techPackVersionId: input.style.currentTechPackVersionId || latestVersion.versionId,
-    techPackVersionCode: input.style.currentTechPackVersionCode || latestVersion.versionCode,
-    techPackVersionLabel: input.style.currentTechPackVersionLabel || latestVersion.versionLabel,
-    legacySystem: input.legacySystem || '',
-    legacyCode: input.legacyCode || '',
-    costPrice: fixture.costPrice,
-    freightCost: fixture.freightCost,
-    suggestedRetailPrice: fixture.suggestedRetailPrice,
-    currency: fixture.currency,
-    pricingUnit: fixture.pricingUnit,
-    weightKg: fixture.weightKg,
-    lengthCm: fixture.lengthCm,
-    widthCm: fixture.widthCm,
-    heightCm: fixture.heightCm,
-    packagingInfo: fixture.packagingInfo,
-    weightText: `${fixture.weightKg}kg`,
-    volumeText: `${fixture.lengthCm}*${fixture.widthCm}*${fixture.heightCm}cm`,
-    lastListingAt: '',
-    createdAt: identity.timestamp,
-    createdBy: '系统演示',
-    updatedAt: identity.timestamp,
-    updatedBy: '系统演示',
-    remark: '',
-  }
+export function renderPcsStyleArchiveEditPage(id?: string): string { return renderEditor('style', id) }
+export function renderPcsSpecificationEditPage(id?: string, parentId?: string): string { return renderEditor('sku', id, parentId || (typeof location !== 'undefined' ? new URLSearchParams(location.search).get('styleId') || '' : '')) }
+function overlays(): string {
+  if (state.image) return `<div class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-8" role="dialog" aria-modal="true" aria-label="图片预览"><button class="absolute inset-0" data-${PREFIX}-action="close-image-preview" aria-label="关闭预览"></button><div class="relative flex max-h-full max-w-full flex-col items-center gap-3"><img src="${e(state.image)}" alt="${e(state.imageName)}" class="max-h-[80vh] max-w-[85vw] rounded object-contain"><p class="text-white">${e(state.imageName)}</p>${btn('关闭 Esc', 'close-image-preview')}</div></div>`
+  if (state.columnsOpen) return renderStandardListColumnSettings({ title: '显示列与固定列', columns: columns(), preferences: preferences(), eventPrefix: PREFIX, maxFrozenWidth: 450, skipPageRerender: true })
+  if (state.importOpen) return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-5" role="dialog" aria-modal="true" aria-label="导入商品规格"><section class="max-h-[90vh] w-full max-w-4xl overflow-auto rounded-lg bg-white p-6"><div class="mb-4 flex justify-between"><h2 class="text-lg font-semibold">导入规格</h2>${btn('关闭', 'close-drawers')}</div>${field('所属款式', select('importStyle', state.skuDraft.styleId, listStyleArchives().map(s => [s.styleId, s.styleCode])))}<p class="my-4 text-sm text-slate-500">CSV 列：SKU编码,颜色名称,尺码,图片地址,花型编号,交付差异。首行为标题；先校验预览，有错误时不会写入。</p>${field('CSV 文件', '<input type="file" accept=".csv,text/csv" data-pcs-product-archive-upload="import" class="text-sm">')}${textarea('importText', state.importText)}<div class="my-4 flex gap-3">${btn('校验预览', 'import-preview', '', true)}${btn('确认导入', 'import-confirm', state.importRows.length && !state.importErrors.length ? '' : 'disabled')}</div>${state.importErrors.map(m => `<p class="text-sm text-red-600">${e(m)}</p>`).join('')}${table(['行', 'SKU', '颜色', '尺码'], state.importRows.slice(0, 100).map((r, i) => [e(i + 2), e(r.skuCode), e(configOptions('colors').find(([id]) => id === r.colorId)?.[1]), e(configOptions('sizes').find(([id]) => id === r.sizeId)?.[1])]))}<p class="mt-3 text-xs text-slate-500">已校验 ${state.importRows.length} 条，预览最多展示 100 条。</p></section></div>`
+  return ''
 }
-
-async function submitSkuCreate(): Promise<void> {
-  const style = state.skuCreate.styleId ? getStyleArchiveById(state.skuCreate.styleId) : null
-  if (!style) {
-    state.notice = '请先选择所属款式档案。'
-    return
-  }
-
-  if (state.skuCreate.mode === 'import') {
-    if (!state.skuCreate.legacySystem.trim() || !state.skuCreate.legacyCode.trim() || !state.skuCreate.manualCode.trim()) {
-      state.notice = '请补齐老系统、老系统编码和正式规格编码。'
-      return
-    }
-  }
-
-  const skuCode =
-    state.skuCreate.mode === 'import'
-      ? state.skuCreate.manualCode.trim()
-      : state.skuCreate.codeStrategy === 'manual'
-        ? state.skuCreate.manualCode.trim()
-        : buildAutoSkuCode(style.styleCode, state.skuCreate.color, state.skuCreate.size, state.skuCreate.print)
-
-  if (!skuCode) {
-    state.notice = '请补齐规格编码。'
-    return
-  }
-
+function rerender(): void {
+  const root = document.querySelector<HTMLElement>('[data-pcs-product-archive-root]'); if (!root) return
+  const scroll = root.parentElement?.scrollTop || 0
+  const html = state.view === 'list' ? renderList(state.kind) : state.view === 'detail' ? renderDetail(state.kind, state.id) : renderEditor(state.kind, state.id, state.kind === 'sku' ? state.skuDraft.styleId : '')
+  root.outerHTML = html
+  const next = document.querySelector<HTMLElement>('[data-pcs-product-archive-root]'); if (next) { hydrateIcons(next); if (next.parentElement) next.parentElement.scrollTop = scroll }
+}
+function go(href: string, title: string): void { state.dirty = false; appStore.openTab({ key: href.split('?')[0], title, href, closable: true }) }
+function fail(error: unknown): void { state.notice = error instanceof Error ? `${error.message} 当前输入仍保留，尚未保存。` : '操作未保存，请重试。'; state.error = true }
+async function save(): Promise<void> {
+  if (state.saving) return
+  state.saving = true; state.notice = ''; const operationId = crypto.randomUUID()
   try {
-    const created = await runPcsRecordCommand(() => createSkuArchive(
-      buildSkuRecord({
-        style,
-        color: state.skuCreate.color,
-        size: state.skuCreate.size,
-        print: state.skuCreate.print,
-        barcode: state.skuCreate.barcode,
-        skuCode,
-        legacySystem: state.skuCreate.mode === 'import' ? state.skuCreate.legacySystem : '',
-        legacyCode: state.skuCreate.mode === 'import' ? state.skuCreate.legacyCode : '',
-        mappingHealth: state.skuCreate.mode === 'import' ? 'OK' : undefined,
-      }),
-    ))
-    resetSkuCreateState()
-    state.notice = `已创建规格档案 ${created.skuCode}。`
-  } catch (error) {
-    state.notice = error instanceof Error ? error.message : '创建规格档案失败。'
-  }
+    let savedId = state.id
+    await runPcsRecordCommand(() => {
+      if (state.kind === 'style') {
+        const draft = { ...state.styleDraft, initialSkus: state.id ? undefined : state.preview.map(s => ({ colorId: s.colorId!, sizeId: s.sizeId!, imageUrl: s.skuImageUrl, patternId: s.patternId, patternIdentityId: s.patternIdentityId, deliveryDifference: s.deliveryDifference, bundleComponents: state.skuDraft.bundleComponents })) }
+        const result = saveProductStyleDraft(draft, state.id || undefined); savedId = result.styleId
+        if (state.sales?.title.trim()) saveProductSalesContent(savedId, state.sales)
+      } else if (state.id) saveProductSkuDraft(state.id, state.skuDraft)
+      else {
+        const parent = getStyleArchiveById(state.skuDraft.styleId || ''); if (!parent) throw new Error('请选择所属款式。')
+        if (!state.preview.length) throw new Error('先选择颜色和尺码，生成规格预览。')
+        const result = createSkuArchiveBatch(state.preview.map(s => ({ ...s, bundleComponents: state.skuDraft.bundleComponents, compositionVersion: parent.deliveryMode === 'VIRTUAL_BUNDLE' ? 1 : undefined })))
+        savedId = state.preview[0].skuId
+      }
+    }, operationId)
+    state.notice = '已保存'; state.error = false; state.dirty = false; state.editorKey = ''; state.pendingFileIds = []
+    go(`${path()}/${savedId}`, state.kind === 'style' ? '款式详情' : '规格详情')
+  } catch (error) { fail(error) } finally { state.saving = false; if (state.dirty) rerender() }
 }
-
-async function submitSkuBatchCreate(): Promise<void> {
-  const style = state.skuCreate.styleId ? getStyleArchiveById(state.skuCreate.styleId) : null
-  if (!style) {
-    state.notice = '请先选择所属款式档案。'
-    return
+export async function handlePcsProductArchiveInput(target: HTMLElement): Promise<boolean> {
+  if (state.saving) return true
+  const choiceSearch = target.closest<HTMLInputElement>(`[data-${PREFIX}-choice-search]`)
+  if (choiceSearch) {
+    choiceSearch.closest('[data-product-choice]')?.querySelectorAll<HTMLElement>('[data-product-choice-option]').forEach(option => { option.hidden = !(option.textContent || '').toLowerCase().includes(choiceSearch.value.trim().toLowerCase()) })
+    return true
   }
-  if (state.skuCreate.batchColors.length === 0 || state.skuCreate.batchSizes.length === 0) {
-    state.notice = '请至少选择一个颜色和一个尺码。'
-    return
+  const uploadNode = target.closest<HTMLInputElement>(`[data-${PREFIX}-upload]`)
+  if (uploadNode) {
+    try {
+      const key = uploadNode.dataset.pcsProductArchiveUpload!, files = Array.from(uploadNode.files || [])
+      if (!files.length) return true
+      if (key === 'import') { state.importText = await files[0].text(); state.importRows = []; state.importErrors = []; rerender(); return true }
+      for (const file of files) if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) throw new Error('请选择不超过 10 MB 的 JPG、PNG 或 WebP 图片。')
+      const refs = files.map(f => registerPcsFile(f)); state.pendingFileIds.push(...refs.map(f => f.fileId))
+      if (key === 'styleMain') { state.styleDraft.mainImageId = refs[0].fileId; state.styleDraft.mainImageUrl = refs[0].url }
+      else if (key === 'styleGallery') { state.styleDraft.galleryImagePurposes = [...(state.styleDraft.galleryImageUrls || []).map((_, i) => state.styleDraft.galleryImagePurposes?.[i] || '补充识别图'), ...refs.map(() => '补充识别图')]; state.styleDraft.galleryImageIds = [...(state.styleDraft.galleryImageIds || []), ...refs.map(f => f.fileId)]; state.styleDraft.galleryImageUrls = [...(state.styleDraft.galleryImageUrls || []), ...refs.map(f => f.url)] }
+      else state.skuDraft.skuImageUrl = refs[0].url
+      state.dirty = true; rerender()
+    } catch (error) { fail(error); rerender() }
+    return true
   }
-
-  const records = state.skuCreate.batchColors.flatMap((color) =>
-    state.skuCreate.batchSizes
-      .map((size) => {
-        const skuCode = buildAutoSkuCode(style.styleCode, color, size, state.skuCreate.batchPrint)
-        if (findSkuArchiveByCode(skuCode)) return null
-        return buildSkuRecord({
-          style,
-          color,
-          size,
-          print: state.skuCreate.batchPrint,
-          barcode: '',
-          skuCode,
-        })
-      })
-      .filter(Boolean) as SkuArchiveRecord[],
-  )
-
-  if (records.length === 0) {
-    state.notice = '当前颜色 / 尺码矩阵对应的规格已全部存在。'
-    return
-  }
-
-  await runPcsRecordCommand(() => createSkuArchiveBatch(records))
-  resetSkuCreateState()
-  state.notice = `已批量生成 ${records.length} 条规格档案。`
-}
-
-function resolveClosestNode(target: unknown, selector: string): HTMLElement | null {
-  if (!target || typeof target !== 'object') return null
-  const maybe = target as { closest?: (selector: string) => HTMLElement | null }
-  if (typeof maybe.closest === 'function') {
-    return maybe.closest(selector)
-  }
-  if ('dataset' in maybe) return maybe as HTMLElement
-  return null
-}
-
-function resolveFieldValue(target: Element): { value: string; checked: boolean } {
-  const input = target as HTMLInputElement & HTMLSelectElement
-  return {
-    value: 'value' in input ? input.value : '',
-    checked: 'checked' in input ? Boolean(input.checked) : false,
-  }
-}
-
-function toggleBatchValue(list: string[], value: string, checked: boolean): string[] {
-  if (checked) {
-    return list.includes(value) ? list : [...list, value]
-  }
-  return list.filter((item) => item !== value)
-}
-
-function handleStyleImageUpload(target: HTMLElement): boolean {
-  const input = target as HTMLInputElement
-  const files = Array.from(input.files || []).filter((item) => item.type.startsWith('image/'))
-  if (files.length === 0) return false
-  const uploadedUrls = files.map((item) => URL.createObjectURL(item))
-  const nextImageUrls = uniqueImageUrls([...getStyleCompletionImageUrls(), ...uploadedUrls])
-  state.styleCompletion.mainImageId = ''
-  state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
-  state.styleCompletion.galleryImageIds = []
-  state.styleCompletion.galleryImageUrls = nextImageUrls
-  state.styleCompletion.imageSource = '款式档案页补充上传'
-  input.value = ''
-  state.notice = `已添加 ${uploadedUrls.length} 张款式主图，请保存资料后生效。`
+  const el = target.closest<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(`[data-${PREFIX}-field]`); if (!el) return false
+  const key = el.dataset.pcsProductArchiveField!, value = el.value
+  if (key.startsWith('filter.')) state.query[key.slice(7)] = value
+  else if (key === 'pageSize') { preferences().pageSize = Number(value); state.page = 1; savePreferences(); rerender() }
+  else if (key.startsWith('ref.')) {
+    const dim = key.slice(4) as FlatDimensionId, refs = state.styleDraft.productConfigRefs ||= {}
+    if (el instanceof HTMLInputElement && el.type === 'checkbox') { const selected = new Set(refs[dim] || []); el.checked ? selected.add(value) : selected.delete(value); refs[dim] = [...selected] }
+    else refs[dim] = value ? [value] : []
+    state.dirty = true
+  } else if (key.startsWith('translation.')) {
+    const language = key.slice(12) as 'en' | 'id' | 'ms'
+    if (state.kind === 'style') { state.styleDraft.styleNameTranslations = { en: state.styleDraft.styleNameEn || '', ...state.styleDraft.styleNameTranslations, [language]: value }; if (language === 'en') state.styleDraft.styleNameEn = value }
+    else { state.skuDraft.skuNameTranslations = { en: state.skuDraft.skuNameEn || '', ...state.skuDraft.skuNameTranslations, [language]: value }; if (language === 'en') state.skuDraft.skuNameEn = value }
+    state.dirty = true
+  } else if (key === 'season') { const selected = new Set(state.styleDraft.seasonTags || []); (el as HTMLInputElement).checked ? selected.add(value) : selected.delete(value); state.styleDraft.seasonTags = [...selected]; state.dirty = true
+  } else if (key.startsWith('style.')) { const f = key.slice(6); Object.assign(state.styleDraft, { [f]: f === 'seasonTags' ? value.split(/[、,]/).filter(Boolean) : value }); state.dirty = true; if (f === 'deliveryMode') { state.preview = []; rerender() } }
+  else if (key.startsWith('gallery.')) { const index = Number(key.split('.')[1]); const purposes = (state.styleDraft.galleryImageUrls || []).map((_, i) => state.styleDraft.galleryImagePurposes?.[i] || '补充识别图'); purposes[index] = value; state.styleDraft.galleryImagePurposes = purposes; state.dirty = true }
+  else if (key.startsWith('package.')) { const [, index, f] = key.split('.'); state.skuDraft.packageSpecs ||= productPackages(state.skuDraft); const row = state.skuDraft.packageSpecs[Number(index)]; Object.assign(row, { [f]: ['contentQty', 'grossWeightKg', 'lengthCm', 'widthCm', 'heightCm'].includes(f) ? (value === '' ? null : Number(value)) : value }); state.dirty = true }
+  else if (key.startsWith('sku.')) { const f = key.slice(4); Object.assign(state.skuDraft, { [f]: f === 'barcodeAliases' ? value.split(/\n/).map(v => v.trim()).filter(Boolean) : ['weightKg', 'packageQuantity', 'packageGrossWeightKg', 'lengthCm', 'widthCm', 'heightCm'].includes(f) ? (value === '' ? undefined : Number(value)) : value }); state.dirty = true; if (f === 'mainUnitId') { state.skuDraft.pricingUnit = resolveProductMainUnit(value)?.code || ''; state.skuDraft.packageSpecs = productPackages(state.skuDraft).map(row => ({ ...row, contentUnitId: state.skuDraft.pricingUnit || '' })); for (const unit of document.querySelectorAll<HTMLInputElement>('[data-pcs-product-archive-field$=".contentUnitId"]')) unit.value = state.skuDraft.pricingUnit || '' } if (f === 'styleId') { state.preview = []; state.editorKey = `sku:new:${value}`; rerender() } }
+  else if (key.startsWith('generate.')) {
+    const f = key.slice(9)
+    if (['color', 'size', 'sameStyle'].includes(f)) {
+      const values = new Set(f === 'color' ? state.colors : f === 'size' ? state.sizes : state.styleDraft.sameStyleIds || [])
+      ;(el as HTMLInputElement).checked ? values.add(value) : values.delete(value)
+      if (f === 'color') state.colors = [...values]; else if (f === 'size') state.sizes = [...values]; else state.styleDraft.sameStyleIds = [...values]
+    } else if (f === 'pattern') state.pattern = value; else state.difference = value
+    state.preview = []; state.dirty = true
+  } else if (key === 'salesLanguage') { if (state.sales) state.styleDraft.salesContents = [...(state.styleDraft.salesContents || []).filter(s => s.language !== state.sales!.language), state.sales]; state.sales = null; state.salesLanguage = value; rerender() }
+  else if (key.startsWith('sales.')) { const f = key.slice(6); Object.assign(salesDraft(), { [f]: ['imageUrls', 'videoUrls'].includes(f) ? value.split('\n').filter(Boolean) : value }); state.dirty = true }
+  else if (key.startsWith('substitute.')) { const [, index, field] = key.split('.'); const row = state.styleDraft.substitutionRelations![Number(index)]; Object.assign(row, { [field]: field === 'version' ? Number(value) : value }); if (field === 'targetKind') { row.targetId = ''; rerender() } state.dirty = true }
+  else if (key.startsWith('component.')) { const [, index, f] = key.split('.'); const rows = state.skuDraft.bundleComponents ||= []; Object.assign(rows[Number(index)], { [f]: f === 'quantity' ? Number(value) : value }); state.dirty = true }
+  else if (key === 'importText') { state.importText = value; state.importRows = []; state.importErrors = [] }
+  else if (key === 'importStyle') { state.skuDraft.styleId = value; state.importRows = []; state.importErrors = [] }
+  const choice = el.closest('[data-product-choice]'), summary = choice?.querySelector('[data-product-choice-summary]')
+  if (choice && summary) summary.textContent = [...choice.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')].map(c => c.getAttribute('aria-label')).join('、') || '请选择，可多选'
   return true
 }
-
-export function handlePcsProductArchiveInput(target: Element): boolean {
-  const fieldNode = resolveClosestNode(target, '[data-pcs-product-archive-field]')
-  if (!fieldNode) return false
-  const field = fieldNode.dataset.pcsProductArchiveField
-  if (!field) return false
-
-  if (field === 'style-completion-main-images') {
-    return handleStyleImageUpload(fieldNode)
+function csvValues(text: string): string[][] {
+  const rows: string[][] = []; let row: string[] = [], cell = '', quoted = false
+  for (let i = 0; i < text.length; i++) { const ch = text[i]; if (ch === '"') { if (quoted && text[i + 1] === '"') { cell += '"'; i++ } else quoted = !quoted } else if (ch === ',' && !quoted) { row.push(cell); cell = '' } else if (ch === '\n' && !quoted) { row.push(cell.replace(/\r$/, '')); if (row.some(Boolean)) rows.push(row); row = []; cell = '' } else cell += ch }
+  if (quoted) throw new Error('CSV 引号未闭合。'); row.push(cell.replace(/\r$/, '')); if (row.some(Boolean)) rows.push(row)
+  return rows
+}
+function importPreview(): void {
+  state.importRows = []; state.importErrors = []
+  const parent = getStyleArchiveById(state.skuDraft.styleId || ''); if (!parent) throw new Error('请选择导入规格所属款式。')
+  const rows = csvValues(state.importText.replace(/^\uFEFF/, '')); if (!rows.length) throw new Error('请选择 CSV 文件或粘贴内容。')
+  const colors = listConfigDimensionOptions('colors'), sizes = listConfigDimensionOptions('sizes')
+  if (/SKU|编码/i.test(rows[0][0])) rows.shift()
+  if (rows.length > 1000) throw new Error('每次最多导入 1000 条规格。')
+  rows.forEach((r, i) => {
+    const color = colors.find(c => [c.code, c.name_zh, c.name_en, ...(c.aliases || [])].some(n => n?.toLowerCase() === r[1]?.trim().toLowerCase()) && c.status === 'ENABLED')
+    const size = sizes.find(s => [s.code, s.name_zh, s.name_en, ...(s.aliases || [])].some(n => n?.toLowerCase() === r[2]?.trim().toLowerCase()) && s.status === 'ENABLED')
+    if (!color || !size) state.importErrors.push(`第 ${i + 2} 行：颜色或尺码不在启用字典中。`)
+    else state.importRows.push({ skuCode: r[0]?.trim(), colorId: color.id, sizeId: size.id, imageUrl: r[3]?.trim() || parent.mainImageUrl, patternId: r[4]?.trim(), deliveryDifference: r[5]?.trim() })
+  })
+  if (!state.importErrors.length) { try { previewProductSkus(parent, state.importRows) } catch (error) { state.importErrors.push(error instanceof Error ? error.message : '规格有重复，请核查。') } }
+}
+function exportList(): void {
+  const cols = columns().filter(c => !c.actionColumn && !c.leadingControlColumn && preferences().visibleKeys.includes(c.key))
+  const csv = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const rows = filteredRows(), data = [cols.map(c => csv(c.title)).join(','), ...rows.map(r => cols.map(c => csv(c.key === 'identity' ? `${codeOf(r)} ${nameOf(r)}` : c.key === 'approval' ? approvalLabels[r.approvalStatus || 'DRAFT'] : c.key === 'lifecycle' ? lifecycleLabels[r.lifecycleStatus || 'NOT_ENABLED'] : c.sortValue?.(r) || '')).join(','))].join('\r\n')
+  const url = URL.createObjectURL(new Blob(['\uFEFF', data], { type: 'text/csv;charset=utf-8' })), a = document.createElement('a'); a.href = url; a.download = `${state.kind === 'style' ? '款式档案' : '规格档案'}.csv`; a.click(); URL.revokeObjectURL(url)
+  state.notice = `已导出当前筛选的全部 ${rows.length} 条记录。`; state.error = false
+}
+export async function handlePcsProductArchiveEvent(target: HTMLElement, event?: Event): Promise<boolean> {
+  if (event?.type === 'drop') {
+    const drag = event as DragEvent & { higoodStandardListColumnKey?: string }, destination = target.closest<HTMLElement>('[data-drop-target]')?.dataset.dropTarget
+    const from = drag.higoodStandardListColumnKey, order = preferences().order
+    if (from && destination && from !== destination && order.includes(from) && order.includes(destination)) { order.splice(order.indexOf(from), 1); order.splice(order.indexOf(destination), 0, from); savePreferences(); rerender() }
+    return true
   }
-
-  const { value, checked } = resolveFieldValue(fieldNode)
-
-  switch (field) {
-    case 'style-list-search':
-      state.styleList.search = value
+  if (event && ['dragstart', 'dragover', 'dragend'].includes(event.type)) return true
+  const node = target.closest<HTMLElement>(`[data-${PREFIX}-action]`); if (!node) return false
+  const action = node.dataset.pcsProductArchiveAction!
+  try {
+    if (action === 'save') { await save(); return true }
+    if (action === 'dismiss') { state.notice = ''; state.batchResults = [] }
+    else if (action === 'image') { state.image = node.dataset.url || ''; state.imageName = node.dataset.name || '' }
+    else if (action === 'close-image-preview') state.image = ''
+    else if (action === 'columns') state.columnsOpen = true
+    else if (action === 'close-column-settings' || action === 'close-drawers') { state.columnsOpen = false; state.importOpen = false; state.image = '' }
+    else if (action === 'tab') { state.tab = node.dataset.tab!; state.sales = null }
+    else if (action === 'editor-tab') state.editorTab = node.dataset.tab!
+    else if (action === 'query') { state.filter = { ...state.query }; state.page = 1; state.selected.clear() }
+    else if (action === 'reset') { state.query = {}; state.filter = {}; state.page = 1; state.sort = null; state.selected.clear() }
+    else if (action === 'more') state.more = !state.more
+    else if (action === 'prev-page') state.page--
+    else if (action === 'next-page') state.page++
+    else if (action === 'sort-column') { const k = node.dataset.columnKey!; state.sort = state.sort?.key !== k ? { key: k, direction: 'asc' } : state.sort.direction === 'asc' ? { key: k, direction: 'desc' } : null; state.page = 1 }
+    else if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
+      const key = node.dataset.pcsProductArchiveColumnKey!, prefs = preferences(), list = action === 'toggle-column-visibility' ? prefs.visibleKeys : prefs.frozenKeys
+      if (list.includes(key)) list.splice(list.indexOf(key), 1); else { if (action === 'toggle-column-freeze' && [...list, key].reduce((n, k) => n + (columns().find(c => c.key === k)?.width || 0), 0) > 450) throw new Error('固定列总宽不能超过 450 像素。'); list.push(key) }
+      savePreferences()
+    } else if (action === 'restore-column-settings') { delete state.preferences[state.kind]; try { localStorage.removeItem(`higood-pcs-${state.kind}-list-r1`) } catch { /* optional preference */ } preferences() }
+    else if (action === 'select-row') { const id = node.dataset.id!; state.selected.has(id) ? state.selected.delete(id) : state.selected.add(id) }
+    else if (action === 'select-page') { const cols = columns(), rows = paginateStandardListRows(sortStandardListRows(filteredRows(), state.sort, (r, k) => cols.find(c => c.key === k)?.sortValue?.(r)), state.page, preferences().pageSize).rows; const all = rows.every(r => state.selected.has(idOf(r))); rows.forEach(r => all ? state.selected.delete(idOf(r)) : state.selected.add(idOf(r))) }
+    else if (action === 'export') exportList()
+    else if (action === 'preview') {
+      if (!state.colors.length || !state.sizes.length) throw new Error('请至少选择一种颜色和一个尺码。')
+      const parent = state.kind === 'sku' ? getStyleArchiveById(state.skuDraft.styleId || '') : { ...state.styleDraft, styleId: 'draft', styleCode: state.styleDraft.styleCode || '待生成SPU' } as StyleArchiveShellRecord
+      if (!parent) throw new Error('请选择所属款式。')
+      state.preview = previewProductSkus(parent, state.colors.flatMap(colorId => state.sizes.map(sizeId => ({ colorId, sizeId, patternIdentityId: state.pattern, deliveryDifference: state.difference }))))
+      state.notice = ''; state.dirty = true
+    } else if (action === 'add-substitute') { (state.styleDraft.substitutionRelations ||= []).push({ id: crypto.randomUUID(), targetKind: 'PRODUCT_SKU', targetId: '', conditions: '', version: 1 }); state.dirty = true }
+    else if (action === 'remove-substitute') { state.styleDraft.substitutionRelations?.splice(Number(node.dataset.index), 1); state.dirty = true }
+    else if (action === 'add-package') { (state.skuDraft.packageSpecs ||= productPackages(state.skuDraft)).push({ packageSpecId: crypto.randomUUID(), ownerSkuId: state.id, packageTypeId: '包', contentQty: 1, contentUnitId: state.skuDraft.pricingUnit || '件', grossWeightKg: null, lengthCm: null, widthCm: null, heightCm: null, volumeM3: null, measurementBasis: '每包装', version: 1, status: 'ACTIVE' }); state.dirty = true }
+    else if (action === 'gallery-up' || action === 'gallery-remove') { const i = Number(node.dataset.index), d = state.styleDraft; d.galleryImagePurposes = (d.galleryImageUrls || []).map((_, n) => d.galleryImagePurposes?.[n] || '补充识别图'); for (const rows of [d.galleryImageIds || [], d.galleryImageUrls || [], d.galleryImagePurposes]) { if (action === 'gallery-up' && i > 0) [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; else if (action === 'gallery-remove') rows.splice(i, 1) } state.dirty = true }
+    else if (action === 'add-component') { (state.skuDraft.bundleComponents ||= []).push({ skuId: '', quantity: 1 }); state.dirty = true }
+    else if (action === 'remove-component') { state.skuDraft.bundleComponents?.splice(Number(node.dataset.index), 1); state.dirty = true }
+    else if (action === 'import') { state.importOpen = true; state.importRows = []; state.importErrors = []; state.importText = ''; state.skuDraft = { styleId: state.filter.styleId || '' } }
+    else if (action === 'import-preview') importPreview()
+    else if (action === 'import-confirm') {
+      importPreview(); if (!state.importRows.length || state.importErrors.length) throw new Error('请先处理导入校验错误。')
+      await runPcsRecordCommand(() => createSkuArchiveBatch(previewProductSkus(getStyleArchiveById(state.skuDraft.styleId!)!, state.importRows)))
+      state.notice = `已导入 ${state.importRows.length} 条草稿规格。`; state.error = false; state.importOpen = false
+    } else if (action === 'cancel-edit') {
+      if (state.dirty && !window.confirm('修改尚未保存，确定离开并放弃本次输入？')) return true
+      state.pendingFileIds.forEach(releasePcsPendingFile); state.pendingFileIds = []; state.editorKey = ''; state.dirty = false
+      go(state.id ? `${path()}/${state.id}` : path(), state.kind === 'style' ? '款式档案' : '规格档案'); return true
+    } else if (action === 'copy') {
+      if (state.kind === 'style') { const copied = productDraftCopy(state.id); state.editorKey = ''; initEditor('style'); state.styleDraft = copied; state.dirty = true; go(`${STYLE_PATH}/new`, '复制款式'); state.dirty = true }
+      else { const source = getSkuArchiveById(state.id)!; state.editorKey = ''; initEditor('sku', '', source.styleId); state.colors = source.colorId ? [source.colorId] : []; state.sizes = source.sizeId ? [source.sizeId] : []; state.pattern = source.patternIdentityId || ''; state.notice = '请选择不同颜色、尺码或交付差异，然后生成规格预览。'; go(`${SKU_PATH}/new?styleId=${source.styleId}`, '复制规格') }
       return true
-    case 'style-list-status':
-      state.styleList.status = (value || 'all') as ProductArchivePageState['styleList']['status']
-      return true
-    case 'style-list-version':
-      state.styleList.version = (value || 'all') as StyleVersionFilter
-      return true
-    case 'style-list-review':
-      state.styleList.review = (value || 'all') as StyleReviewFilter
-      return true
-    case 'style-list-mapping':
-      state.styleList.mapping = (value || 'all') as ProductArchivePageState['styleList']['mapping']
-      return true
-    case 'style-create-style-name':
-      state.styleCreate.styleName = value
-      return true
-    case 'style-create-style-number':
-      state.styleCreate.styleNumber = value
-      return true
-    case 'style-create-product-type':
-      state.styleCreate.productType = value
-      return true
-    case 'style-create-category-name':
-      state.styleCreate.categoryName = value
-      return true
-    case 'style-completion-design-revision': {
-      state.styleCompletion.designRevisionTaskId = value
-      const revision = value ? getEngineeringIndependentSamplingRecord(value) : null
-      if (revision) {
-        const designImages = revision.designFiles
-          .filter((file) => ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension) && Boolean(file.dataUrl))
-          .map((file) => file.dataUrl)
-        state.styleCompletion.styleName = revision.temporarySpuName || state.styleCompletion.styleName
-        state.styleCompletion.mainImageId = revision.designFiles.find((file) => file.dataUrl === designImages[0])?.fileId || state.styleCompletion.mainImageId
-        state.styleCompletion.mainImageUrl = designImages[0] || state.styleCompletion.mainImageUrl
-        state.styleCompletion.galleryImageUrls = uniqueImageUrls([...designImages, ...state.styleCompletion.galleryImageUrls])
-        state.styleCompletion.imageSource = `承接自设计改款 ${revision.samplingTaskCode}`
-        state.styleCompletion.detailDescription = state.styleCompletion.detailDescription || revision.creationReason
+    } else if (['submit', 'approve', 'reject', 'activate', 'deactivate', 'archive', 'batch-submit'].includes(action)) {
+      if (action === 'batch-submit') {
+        if (state.saving) return true
+        state.saving = true; state.batchResults = []
+        try {
+          for (const id of [...state.selected]) {
+            const row = state.kind === 'style' ? getStyleArchiveById(id) : getSkuArchiveById(id)
+            try { await runPcsRecordCommand(() => submitProductForApproval(state.kind, id)); state.batchResults.push({ code: row ? codeOf(row) : id, success: true, message: '已提交审核' }); state.selected.delete(id) }
+            catch (error) { state.batchResults.push({ code: row ? codeOf(row) : id, success: false, message: error instanceof Error ? error.message : '本条未保存，请重试。' }) }
+          }
+          const success = state.batchResults.filter(r => r.success).length
+          state.notice = `提交成功 ${success} 条，失败 ${state.batchResults.length - success} 条。`; state.error = false
+        } finally { state.saving = false }
+        rerender(); return true
       }
-      return true
+      let reason = ''
+      if (action === 'reject') { const entered = window.prompt('请填写驳回原因'); if (entered === null) return true; reason = entered }
+      if (['deactivate', 'archive'].includes(action) && !window.confirm(action === 'archive' ? '归档后不再用于新业务，已有记录保留。确定归档？' : '停用后不再用于新业务；已有关联渠道商品保留。确定停用？')) return true
+      if (action === 'archive') {
+        const { getProductExternalActiveReferences } = await import('../data/pcs-product-reference-check.ts')
+        const references = await getProductExternalActiveReferences(state.kind, state.id)
+        if (references.length) throw new Error(`仍有活动引用，不能归档：${references.slice(0, 3).join('、')}${references.length > 3 ? `等 ${references.length} 项` : ''}。`)
+      }
+      await runPcsRecordCommand(() => {
+        if (action === 'submit') submitProductForApproval(state.kind, state.id)
+        else if (action === 'approve' || action === 'reject') reviewProductArchive(state.kind, state.id, action === 'approve', reason)
+        else {
+          setProductLifecycle(state.kind, state.id, action === 'activate' ? 'ACTIVE' : action === 'deactivate' ? 'INACTIVE' : 'ARCHIVED')
+        }
+      })
+      state.notice = '操作已保存。'; state.error = false
     }
-    case 'sku-list-search':
-      state.skuList.search = value
-      return true
-    case 'sku-list-status':
-      state.skuList.status = (value || 'all') as ProductArchivePageState['skuList']['status']
-      return true
-    case 'sku-list-mapping':
-      state.skuList.mapping = (value || 'all') as ProductArchivePageState['skuList']['mapping']
-      return true
-    case 'sku-list-style-id':
-      state.skuList.styleId = value
-      return true
-    case 'sku-create-style-id':
-      state.skuCreate.styleId = value
-      return true
-    case 'sku-create-color':
-      state.skuCreate.color = value
-      return true
-    case 'sku-create-size':
-      state.skuCreate.size = value
-      return true
-    case 'sku-create-print':
-      state.skuCreate.print = value
-      return true
-    case 'sku-create-barcode':
-      state.skuCreate.barcode = value
-      return true
-    case 'sku-create-manual-code':
-      state.skuCreate.manualCode = value
-      return true
-    case 'sku-create-legacy-system':
-      state.skuCreate.legacySystem = value
-      return true
-    case 'sku-create-legacy-code':
-      state.skuCreate.legacyCode = value
-      return true
-    case 'sku-create-batch-print':
-      state.skuCreate.batchPrint = value
-      return true
-    case 'sku-create-code-strategy-auto':
-      state.skuCreate.codeStrategy = checked ? 'auto' : state.skuCreate.codeStrategy
-      return true
-    case 'sku-create-code-strategy-manual':
-      state.skuCreate.codeStrategy = checked ? 'manual' : state.skuCreate.codeStrategy
-      return true
-    case 'sku-create-batch-color':
-      state.skuCreate.batchColors = toggleBatchValue(state.skuCreate.batchColors, fieldNode.dataset.value || value, checked)
-      return true
-    case 'sku-create-batch-size':
-      state.skuCreate.batchSizes = toggleBatchValue(state.skuCreate.batchSizes, fieldNode.dataset.value || value, checked)
-      return true
-    case 'style-completion-style-name':
-      state.styleCompletion.styleName = value
-      return true
-    case 'style-completion-style-number':
-      state.styleCompletion.styleNumber = value
-      return true
-    case 'style-completion-product-type':
-      state.styleCompletion.productType = value
-      return true
-    case 'style-completion-category-name':
-      state.styleCompletion.categoryName = value
-      return true
-    case 'style-completion-sub-category-name':
-      state.styleCompletion.subCategoryName = value
-      return true
-    case 'style-completion-brand-name':
-      state.styleCompletion.brandName = value
-      return true
-    case 'style-completion-year-tag':
-      state.styleCompletion.yearTag = value
-      return true
-    case 'style-completion-season-tags':
-      state.styleCompletion.seasonTags = value
-      return true
-    case 'style-completion-style-tags':
-      state.styleCompletion.styleTags = value
-      return true
-    case 'style-completion-target-audience-tags':
-      state.styleCompletion.targetAudienceTags = value
-      return true
-    case 'style-completion-target-channel-codes':
-      state.styleCompletion.targetChannelCodes = value
-      return true
-    case 'style-completion-price-range-label':
-      state.styleCompletion.priceRangeLabel = value
-      return true
-    case 'style-completion-selling-point-text':
-      state.styleCompletion.sellingPointText = value
-      return true
-    case 'style-completion-detail-description':
-      state.styleCompletion.detailDescription = value
-      return true
-    case 'style-completion-packaging-info':
-      state.styleCompletion.packagingInfo = value
-      return true
-    case 'style-completion-remark':
-      state.styleCompletion.remark = value
-      return true
-    default:
-      return false
-  }
+  } catch (error) { fail(error) }
+  rerender(); return true
 }
-
-export async function handlePcsProductArchiveEvent(target: HTMLElement): Promise<boolean> {
-  if (handleProductInformationEvent(target)) return true
-  const actionNode = resolveClosestNode(target, '[data-pcs-product-archive-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.pcsProductArchiveAction
-  if (!action) return false
-
-  switch (action) {
-    case 'close-notice':
-      state.notice = null
-      return true
-    case 'close-drawers':
-      resetSkuCreateState()
-      resetStyleCompletionState()
-      resetVersionLogDialogState()
-      state.styleCreate = { open: false, styleName: '', styleNumber: '', productType: '成衣', categoryName: '' }
-      return true
-    case 'open-tech-pack-version-logs': {
-      const technicalVersionId = actionNode.dataset.versionId || ''
-      if (!technicalVersionId) {
-        state.notice = '未找到需要查看日志的技术包版本。'
-        return true
-      }
-      state.versionLogDialog = {
-        open: true,
-        technicalVersionId,
-      }
-      return true
-    }
-    case 'close-tech-pack-version-logs':
-      resetVersionLogDialogState()
-      return true
-    case 'set-style-main-image': {
-      const url = actionNode.dataset.url || ''
-      if (!url) return true
-      const nextImageUrls = uniqueImageUrls([url, ...getStyleCompletionImageUrls().filter((item) => item !== url)])
-      state.styleCompletion.mainImageId = ''
-      state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
-      state.styleCompletion.galleryImageIds = []
-      state.styleCompletion.galleryImageUrls = nextImageUrls
-      return true
-    }
-    case 'remove-style-image': {
-      const url = actionNode.dataset.url || ''
-      if (!url) return true
-      const nextImageUrls = getStyleCompletionImageUrls().filter((item) => item !== url)
-      state.styleCompletion.mainImageId = ''
-      state.styleCompletion.mainImageUrl = nextImageUrls[0] || ''
-      state.styleCompletion.galleryImageIds = []
-      state.styleCompletion.galleryImageUrls = nextImageUrls
-      return true
-    }
-    case 'open-style-create':
-      state.styleCreate = { open: true, styleName: '', styleNumber: '', productType: '成衣', categoryName: '' }
-      return true
-    case 'submit-style-create': {
-      const styleName = state.styleCreate.styleName.trim()
-      if (!styleName) {
-        state.notice = '请填写款式名称。'
-        return true
-      }
-      try {
-        const created = await runPcsRecordCommand(() => createStyleArchiveDirect({
-          styleName,
-          styleNumber: state.styleCreate.styleNumber.trim(),
-          productType: state.styleCreate.productType.trim(),
-          categoryName: state.styleCreate.categoryName.trim(),
-        }))
-        state.styleCreate.open = false
-        state.notice = `已创建款式档案 ${created.styleCode}，可继续补齐资料后正式建档。`
-      } catch (error) {
-        state.notice = error instanceof Error ? error.message : '新建款式失败。'
-      }
-      return true
-    }
-    case 'open-style-completion': {
-      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
-      const style = styleId ? getStyleArchiveById(styleId) : null
-      if (!style) {
-        state.notice = '未找到对应款式档案。'
-        return true
-      }
-      openStyleCompletionDrawer(style)
-      return true
-    }
-    case 'submit-style-completion':
-      ;(await submitStyleCompletion())
-      return true
-    case 'formalize-style-archive': {
-      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
-      const result = formalizeStyleArchive(styleId, '当前用户')
-      state.notice = result.message
-      return true
-    }
-    case 'activate-tech-pack-version': {
-      const styleId = actionNode.dataset.styleId || state.styleDetail.styleId || ''
-      const technicalVersionId = actionNode.dataset.versionId || ''
-      if (!styleId || !technicalVersionId) {
-        state.notice = '未找到需要启用的技术包版本。'
-        return true
-      }
-      try {
-        await runPcsRecordCommand(() => activateTechPackVersionForStyle(styleId, technicalVersionId, '当前用户'))
-        state.notice = '已启用当前生效技术包版本。'
-      } catch (error) {
-        state.notice = error instanceof Error ? error.message : '启用当前生效技术包版本失败。'
-      }
-      return true
-    }
-    case 'publish-tech-pack-version': {
-      const technicalVersionId = actionNode.dataset.versionId || ''
-      if (!technicalVersionId) {
-        state.notice = '未找到需要发布的技术包版本。'
-        return true
-      }
-      try {
-        const record = await runPcsRecordCommand(() => publishTechnicalDataVersion(technicalVersionId, '当前用户'))
-        state.notice = openProductionChangeEvaluationFromProductArchive(record)
-      } catch (error) {
-        state.notice = error instanceof Error ? error.message : '发布技术包新版本失败。'
-      }
-      return true
-    }
-    case 'open-sku-create':
-      resetSkuCreateState()
-      state.skuCreate.open = true
-      state.skuCreate.mode = (actionNode.dataset.mode as SkuCreateMode) || 'single'
-      state.skuCreate.styleId = actionNode.dataset.styleId || state.skuCreate.styleId
-      return true
-    case 'submit-sku-create':
-      ;(await submitSkuCreate())
-      return true
-    case 'submit-sku-batch-create':
-      ;(await submitSkuBatchCreate())
-      return true
-    case 'style-quick-filter': {
-      const filter = actionNode.dataset.filter || 'reset'
-      if (filter === 'reset') {
-        state.styleList.status = 'all'
-        state.styleList.version = 'all'
-        state.styleList.review = 'all'
-        state.styleList.mapping = 'all'
-      } else if (filter === 'status') {
-        state.styleList.status = (actionNode.dataset.value || 'all') as ProductArchivePageState['styleList']['status']
-      } else if (filter === 'version') {
-        state.styleList.version = (actionNode.dataset.value || 'all') as StyleVersionFilter
-      } else if (filter === 'review') {
-        state.styleList.review = (actionNode.dataset.value || 'all') as StyleReviewFilter
-      } else if (filter === 'mapping') {
-        state.styleList.mapping = (actionNode.dataset.value || 'all') as ProductArchivePageState['styleList']['mapping']
-      }
-      return true
-    }
-    case 'sku-quick-filter': {
-      const filter = actionNode.dataset.filter || 'reset'
-      if (filter === 'reset') {
-        state.skuList.status = 'all'
-        state.skuList.mapping = 'all'
-      } else if (filter === 'status') {
-        state.skuList.status = (actionNode.dataset.value || 'all') as ProductArchivePageState['skuList']['status']
-      } else if (filter === 'mapping') {
-        state.skuList.mapping = (actionNode.dataset.value || 'all') as ProductArchivePageState['skuList']['mapping']
-      }
-      return true
-    }
-    case 'toggle-style-status': {
-      const styleId = actionNode.dataset.styleId || ''
-      const style = styleId ? getStyleArchiveById(styleId) : null
-      if (!style) {
-        state.notice = '未找到对应款式档案。'
-        return true
-      }
-      const nextStatus = style.archiveStatus === 'ARCHIVED' ? (style.currentTechPackVersionId ? 'ACTIVE' : 'DRAFT') : 'ARCHIVED'
-      const restored = await runPcsRecordCommand(() => updateStyleArchive(style.styleId, {
-        archiveStatus: nextStatus,
-        updatedAt: nowText(),
-        updatedBy: '系统演示',
-      }))
-      const restoredStatus = restored ? STYLE_ARCHIVE_STATUS_RULES[resolveStyleArchiveBusinessStatus(restored)].label : '待完善'
-      state.notice = nextStatus === 'ARCHIVED' ? `已归档 ${style.styleCode}。` : `已恢复 ${style.styleCode}，当前状态为${restoredStatus}。`
-      return true
-    }
-    case 'toggle-sku-status': {
-      const skuId = actionNode.dataset.skuId || ''
-      const sku = skuId ? getSkuArchiveById(skuId) : null
-      if (!sku) {
-        state.notice = '未找到对应规格档案。'
-        return true
-      }
-      const nextStatus: SkuArchiveStatusCode = sku.archiveStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
-      await runPcsRecordCommand(() => updateSkuArchive(sku.skuId, {
-        archiveStatus: nextStatus,
-        updatedAt: nowText(),
-        updatedBy: '系统演示',
-      }))
-      state.notice = nextStatus === 'ACTIVE' ? `已启用 ${sku.skuCode}。` : `已停用 ${sku.skuCode}。`
-      return true
-    }
-    case 'set-style-detail-tab':
-      state.styleDetail.activeTab = (actionNode.dataset.value as StyleDetailTabKey) || 'overview'
-      return true
-    case 'set-sku-detail-tab':
-      state.skuDetail.activeTab = (actionNode.dataset.value as SkuDetailTabKey) || 'overview'
-      return true
-    case 'end-sku-mapping': {
-      const skuId = actionNode.dataset.skuId || ''
-      const sku = skuId ? getSkuArchiveById(skuId) : null
-      if (!sku) {
-        state.notice = '未找到对应规格档案。'
-        return true
-      }
-      await runPcsRecordCommand(() => updateSkuArchive(sku.skuId, {
-        mappingHealth: 'MISSING',
-        listedChannelCount: 0,
-        updatedAt: nowText(),
-        updatedBy: '系统演示',
-      }))
-      state.notice = `已结束 ${sku.skuCode} 的当前渠道映射。`
-      return true
-    }
-    case 'copy-sku-code': {
-      const sku = actionNode.dataset.skuId ? getSkuArchiveById(actionNode.dataset.skuId) : null
-      state.notice = sku ? `已复制规格编码：${sku.skuCode}` : '未找到规格编码。'
-      return true
-    }
-    case 'push-sku-listing': {
-      const sku = actionNode.dataset.skuId ? getSkuArchiveById(actionNode.dataset.skuId) : null
-      state.notice = sku ? `已发起 ${sku.skuCode} 的上架推送。` : '未找到对应规格档案。'
-      return true
-    }
-    default:
-      return false
-  }
+export function resetPcsProductArchiveState(): void { state.view = 'list'; state.id = ''; state.tab = 'basic'; state.query = {}; state.filter = {}; state.page = 1; state.sort = null; state.notice = ''; state.batchResults = []; state.selected.clear(); state.columnsOpen = false; state.image = ''; state.dirty = false; state.editorKey = ''; state.importOpen = false }
+export function isPcsProductArchiveDialogOpen(): boolean { return state.columnsOpen || state.importOpen || !!state.image }
+export function isPcsProductArchiveDirty(): boolean { return state.dirty }
+registerPcsUnsavedChanges('product-archives', { isDirty: () => state.dirty, discard: () => { state.dirty = false; state.editorKey = ''; state.pendingFileIds.forEach(releasePcsPendingFile); state.pendingFileIds = [] } })
+if (typeof window !== 'undefined') {
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && isPcsProductArchiveDialogOpen()) { state.image = ''; state.columnsOpen = false; state.importOpen = false; rerender() } })
 }
-
-export function isPcsProductArchiveDialogOpen(): boolean {
-  return (
-    state.skuCreate.open ||
-    state.styleCompletion.open ||
-    state.styleCreate.open ||
-    state.versionLogDialog.open
-  )
-}
-
-function getStyleOriginText(styleId: string): string {
-  const orders = listTestingOrders().filter(order => order.styleId === styleId)
-  return orders.length ? orders.map(order => order.orderCode).join('、') : '直接建档，暂无测款单'
-}
+import { registerPcsUnsavedChanges } from '../data/pcs-unsaved-changes.ts'

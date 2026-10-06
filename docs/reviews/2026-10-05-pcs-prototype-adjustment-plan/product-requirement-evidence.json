@@ -1,0 +1,3536 @@
+{
+  "schema_version": 1,
+  "title": "PCS R1 商品根需求只读证据索引",
+  "prepared_date": "2026-10-05",
+  "prepared_by": "/root/r1_channels",
+  "branch": "main",
+  "head": "88324f65506f47c678b17d1b51879f8fd7c2488a",
+  "workspace": "/Users/laoer/Documents/higoods",
+  "frozen_at": "2026-10-05T16:36:45.556407+08:00",
+  "matrix": "requirement-traceability.csv",
+  "scope": [
+    "ARCH-005",
+    "ARCH-006",
+    "ARCH-007",
+    "ARCH-008",
+    "ARCH-009",
+    "ARCH-010",
+    "ARCH-011",
+    "ARCH-012",
+    "ARCH-013",
+    "ARCH-015",
+    "CFG-009",
+    "CFG-010",
+    "CFG-011",
+    "CFG-012",
+    "CFG-016",
+    "PROD-001",
+    "PROD-002",
+    "PROD-003",
+    "PROD-004",
+    "PROD-005",
+    "PROD-006",
+    "PROD-007",
+    "PROD-008",
+    "PROD-009",
+    "PROD-010",
+    "PROD-011",
+    "PROD-012",
+    "BRIDGE-002",
+    "BRIDGE-003",
+    "BRIDGE-004",
+    "BRIDGE-006",
+    "GOV-001",
+    "GOV-002",
+    "GOV-003",
+    "GOV-005",
+    "GOV-006",
+    "GOV-008",
+    "GOV-009",
+    "GOV-010",
+    "GOV-011",
+    "GOV-014",
+    "GOV-016",
+    "GOV-017",
+    "GOV-018",
+    "GOV-019",
+    "GOV-020",
+    "GOV-021",
+    "GOV-022",
+    "GOV-023",
+    "GOV-024",
+    "GOV-027"
+  ],
+  "evidence_policy": [
+    "只读检查当前字段、保存规则、页面落点和现有专项源文件；仅生成本索引。",
+    "不运行测试/浏览器/构建，不改业务代码或总矩阵。",
+    "测试名称中的 PROD/CFG/GOV 前缀不等同于矩阵编号；按实际断言绑定。",
+    "所有含页面行均待主代理完成命名页面、设备、刷新持久化与性能验收。",
+    "共用 GOV 仅检查商品和本页配置落点；物料/渠道/共享存储详见各自证据。",
+    "稳定颜色/尺码身份、主单位包装同步和组件整数边界为父任务已有修复；本索引未重跑其验证。"
+  ],
+  "requirements": [
+    {
+      "requirement_id": "ARCH-005",
+      "atomic_requirement": "服装规格默认颜色加统一尺码",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A04; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:previewProductSkus",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "previewProductSkus",
+          "line": 21,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:sameDeliveryIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "sameDeliveryIdentity",
+          "line": 42,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-config-dimensions.ts:ConfigOption",
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "ConfigOption",
+          "line": 40,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-004 same delivery identity is unique; different physical artwork creates distinct code",
+          "line": 36,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 193,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "SKU stable identity survives dictionary label changes and still matches legacy records",
+          "line": 160,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 210,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "name": "original size identities remain stable and category numbers keep formal codes and legacy labels",
+          "line": 9,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 77,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-006",
+        "SKU-007"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "默认颜色×尺码生成预览、重复冲突提示、统一字母/数字/均码需页面验收。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "ARCH-006",
+      "atomic_requirement": "实质款式改变建立新SPU",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A04; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-style-archive-repository.ts:createStyleArchiveDirect",
+          "file": "src/data/pcs-style-archive-repository.ts",
+          "symbol": "createStyleArchiveDirect",
+          "line": 422,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:productDraftCopy",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "productDraftCopy",
+          "line": 183,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductStyleIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductStyleIdentity",
+          "line": 85,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-001 direct archive is a clean draft with no generated images or development gate",
+          "line": 17,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 190,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-008 copy clears technical/channel identity while retaining reusable content",
+          "line": 63,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 197,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-005 SKU barcode and approved identity are immutable/unique",
+          "line": 43,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 194,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-001",
+        "STYLE-002",
+        "STYLE-022"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "以实质款式改变场景复制新 SPU，确认旧 SPU/SKU/渠道引用不改；代码不自动判断业务上的实质款式差别。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "ARCH-007",
+      "atomic_requirement": "品牌交付标准不同使用不同SPU",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A05; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-style-product-information.ts:resolveStyleProductInformation",
+          "file": "src/data/pcs-style-product-information.ts",
+          "symbol": "resolveStyleProductInformation",
+          "line": 20,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductStyleDraft",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductStyleDraft",
+          "line": 45,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductStyleIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductStyleIdentity",
+          "line": 85,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-007 same-style does not imply substitution; explicit conditions required",
+          "line": 58,
+          "coverage": "部分",
+          "assertion_scope": "同款与替代关系隔离；没有两品牌交付标准场景专项。",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 196,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-006",
+        "STYLE-026"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "不同品牌且交付标准不同分别建 SPU、同款关联不合并规格的直接业务场景尚待主代理验证。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "ARCH-008",
+      "atomic_requirement": "同款关联不合并身份",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A07; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductStyleIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductStyleIdentity",
+          "line": 85,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleBody",
+          "line": 135,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-007 same-style does not imply substitution; explicit conditions required",
+          "line": 58,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 196,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-026"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "加入同款前后规格与渠道映射保持不变的跨域端到端场景待验。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "ARCH-009",
+      "atomic_requirement": "替代关系独立维护适用条件",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A07; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductStyleDraft",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductStyleDraft",
+          "line": 45,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductStyleIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductStyleIdentity",
+          "line": 85,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:substitutionView",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "substitutionView",
+          "line": 205,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-007 same-style does not imply substitution; explicit conditions required",
+          "line": 58,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 196,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-018/027 cannot approve a style missing material type or save a nonexistent substitution",
+          "line": 199,
+          "coverage": "直接",
+          "assertion_scope": "缺失的商品替代目标拒绝且不会保存无效关联。",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 214,
+            "rerun_by_index_agent": false
+          }
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-027"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "商品目标不存在负例见 guards 专项；物料目标存在性同一命令分支，仍需页面验收。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "ARCH-010",
+      "atomic_requirement": "采购来源地区和默认仓不在档案编辑",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A08; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleEditorBody",
+          "line": 191,
+          "role": "商品可编辑字段"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:skuEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "skuEditorBody",
+          "line": 224,
+          "role": "规格可编辑字段"
+        }
+      ],
+      "implemented_behavior": "商品档案编辑不维护采购地区与默认仓；采购域未从档案动作写入。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "页面无采购库存维护控制。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "ARCH-011",
+      "atomic_requirement": "商品物料档案不提供供应商字段或供应商Tab",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-010; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleEditorBody",
+          "line": 191,
+          "role": "商品独立属性"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderDetail",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderDetail",
+          "line": 155,
+          "role": "分层详情"
+        }
+      ],
+      "implemented_behavior": "商品不提供供应商字段或供应商 Tab；买手引用现有人员目录。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "直接",
+          "assertion_scope": "商品列表无维护供应商控制。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-004/021 and SKU-005 preserve multilingual names and verified responsible person without channel writes",
+          "line": 102,
+          "coverage": "直接",
+          "assertion_scope": "资料责任人只接受目录身份。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 204,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "ARCH-012",
+      "atomic_requirement": "商品物料档案不提供库存输入或库存摘要",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-011; prototype-adjustment-proposal.md §2/§3",
+      "work_package": "WP01",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:skuBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "skuBody",
+          "line": 147,
+          "role": "只读规格身份"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderList",
+          "line": 104,
+          "role": "列表"
+        }
+      ],
+      "implemented_behavior": "商品档案无库存输入或库存摘要；WMS 对应身份仅作引用。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "直接",
+          "assertion_scope": "无库存维护控制。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-011 counts and WMS demo identity refer to actual SKU records, without copying stock",
+          "line": 79,
+          "rerun_for_this_index": false,
+          "coverage": "直接",
+          "assertion_scope": "WMS 对应 SKU 无 inventory/stock 字段。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 200,
+            "rerun_by_index_agent": false
+          }
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "ARCH-013",
+      "atomic_requirement": "仅实现原型页面Mock和必要轻交互",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §1/§15",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderDetail",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderDetail",
+          "line": 155,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductStyleDraft",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductStyleDraft",
+          "line": 45,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 460,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "本索引只证明商品/配置范围原型边界；全 R1 无真实平台 API/服务端/鉴权由主代理完整 diff 审查。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": "Vanilla 字符串页面、静态 Mock 与浏览器记录存储；不将演示事件视为真实业务完成。"
+    },
+    {
+      "requirement_id": "ARCH-015",
+      "atomic_requirement": "未给定的精确编码字符和组合结构标为本轮方案建议",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A06/C05; prototype-adjustment-proposal.md §1/§15",
+      "work_package": "WP01",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/prototype-adjustment-proposal.md:6.4 固定套装与虚拟搭售的承接方案",
+          "file": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/prototype-adjustment-proposal.md",
+          "symbol": "6.4 固定套装与虚拟搭售的承接方案",
+          "line": 206,
+          "role": "本轮细化方案来源"
+        }
+      ],
+      "automated_tests": [],
+      "related_field_ids": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "文档语义人工核对，不适用业务自动化；不能将本轮建议倒写成用户此前逐字确认。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": "本轮字段索引不修改确认基线，不再提出额外编码结构。"
+    },
+    {
+      "requirement_id": "CFG-009",
+      "atomic_requirement": "所有服装只用一套尺码字典",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B09; prototype-adjustment-proposal.md §5",
+      "work_package": "WP02",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:enabledOption",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "enabledOption",
+          "line": 16,
+          "role": "统一尺码选项"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:previewProductSkus",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "previewProductSkus",
+          "line": 21,
+          "role": "颜色×尺码生成"
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:sameDeliveryIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "sameDeliveryIdentity",
+          "line": 42,
+          "role": "按内部稳定 ID 识别"
+        }
+      ],
+      "implemented_behavior": "所有商品使用同一 sizes 字典。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "name": "original size identities remain stable and category numbers keep formal codes and legacy labels",
+          "line": 9,
+          "coverage": "直接",
+          "assertion_scope": "既有尺码稳定 ID。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 77,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "SKU stable identity survives dictionary label changes and still matches legacy records",
+          "line": 160,
+          "coverage": "直接",
+          "assertion_scope": "同一个尺码 ID 不随名称变化而变。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 210,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "CFG-010",
+      "atomic_requirement": "品牌主分类和商品定位使用单选",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B10; prototype-adjustment-proposal.md §5",
+      "work_package": "WP02",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:validateSelectedProductConfig",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "validateSelectedProductConfig",
+          "line": 68,
+          "role": "单选和叶类目校验"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleEditorBody",
+          "line": 191,
+          "role": "单选编辑控件"
+        }
+      ],
+      "implemented_behavior": "品牌和定位单选，正式类目选择启用叶类目。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "GOV-024 review revalidates the current pending style and changes no approval on failure",
+          "line": 89,
+          "coverage": "直接",
+          "assertion_scope": "缺失品牌/类目不能通过审核。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 202,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "需要商品保存层多品牌/多定位/非叶类目分别拒绝的专项或浏览器负例；不能拿字典测试代替选择规则。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "CFG-011",
+      "atomic_requirement": "风格流行元素特殊工艺人群年龄定位分别多选",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B10; prototype-adjustment-proposal.md §5",
+      "work_package": "WP02",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleEditorBody",
+          "line": 191,
+          "role": "多个属性独立多选"
+        },
+        {
+          "location": "src/data/pcs-style-product-information.ts:resolveStyleProductInformation",
+          "file": "src/data/pcs-style-product-information.ts",
+          "symbol": "resolveStyleProductInformation",
+          "line": 20,
+          "role": "按字段映射 ID→名称"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:validateSelectedProductConfig",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "validateSelectedProductConfig",
+          "line": 68,
+          "role": "配置存在性与启停"
+        }
+      ],
+      "implemented_behavior": "风格、流行元素、特殊工艺、人群、年龄、人群定位分别保存 ID 列表。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "name": "configuration references are counted from current records and disabling retains history",
+          "line": 31,
+          "coverage": "部分",
+          "assertion_scope": "风格 ID 引用保存与停用保留。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 79,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "各维度多选同时保存不覆盖其他维度的页面场景待验；没有对此六字段的完整专项断言。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "CFG-012",
+      "atomic_requirement": "品类风格品类编号是三个字典",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md B11; prototype-adjustment-proposal.md §5",
+      "work_package": "WP02",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-style-product-information.ts:resolveStyleProductInformation",
+          "file": "src/data/pcs-style-product-information.ts",
+          "symbol": "resolveStyleProductInformation",
+          "line": 20,
+          "role": "独立字段投影"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleEditorBody",
+          "line": 191,
+          "role": "品类/风格/品类编号独立控件"
+        }
+      ],
+      "implemented_behavior": "categories/styles/categoryNumbers 三个独立命名空间。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "name": "original size identities remain stable and category numbers keep formal codes and legacy labels",
+          "line": 9,
+          "coverage": "直接",
+          "assertion_scope": "三个字典相互独立。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 77,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "套装+休闲+正式89在同一 SPU 保存并重读的实际页面场景待验。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "CFG-016",
+      "atomic_requirement": "停用字典不供新选但保留历史显示",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §5",
+      "work_package": "WP02",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:enabledOption",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "enabledOption",
+          "line": 16,
+          "role": "颜色尺码新选只允许启用项"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:validateSelectedProductConfig",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "validateSelectedProductConfig",
+          "line": 68,
+          "role": "保留原历史停用引用"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:configOptions",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "configOptions",
+          "line": 102,
+          "role": "当前值和启用候选"
+        }
+      ],
+      "implemented_behavior": "已停用项不能作为新的商品选择，原有引用保留。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-config.test.ts",
+          "name": "configuration references are counted from current records and disabling retains history",
+          "line": 31,
+          "coverage": "直接",
+          "assertion_scope": "停用保留引用和稳定 ID。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 79,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "消费端所有属性选择器的禁用候选及已选历史显示待页面验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "PROD-001",
+      "atomic_requirement": "款式无需测款历史即可建档",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A04; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-style-archive-repository.ts:createStyleArchiveDirect",
+          "file": "src/data/pcs-style-archive-repository.ts",
+          "symbol": "createStyleArchiveDirect",
+          "line": 422,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductStyleDraft",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductStyleDraft",
+          "line": 45,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:submitProductForApproval",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "submitProductForApproval",
+          "line": 106,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-001 direct archive is a clean draft with no generated images or development gate",
+          "line": 17,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 190,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-002/003 first SKU reviews with style and enablement is independent of technical package",
+          "line": 23,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 191,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-001",
+        "GOV-001"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "无测款记录的新 SPU→首批 SKU→审核→刷新直达详情待浏览器验收。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-002",
+      "atomic_requirement": "商品SKU审核和启用不依赖技术包发布",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A04; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:reviewProductArchive",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "reviewProductArchive",
+          "line": 139,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:setProductLifecycle",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "setProductLifecycle",
+          "line": 163,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-lifecycle-governance.ts:resolveStyleArchiveBusinessStatus",
+          "file": "src/data/pcs-product-lifecycle-governance.ts",
+          "symbol": "resolveStyleArchiveBusinessStatus",
+          "line": 154,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-002/003 first SKU reviews with style and enablement is independent of technical package",
+          "line": 23,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 191,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-003 later SKU has independent review and no publishing side effect",
+          "line": 30,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 192,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-012 lifecycle status never derives activation from current tech version",
+          "line": 84,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 201,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "GOV-001",
+        "GOV-002"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "无技术包的审核启用动作与详情回显待浏览器验收。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-003",
+      "atomic_requirement": "固定实物套装以SKU按套交付",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A06; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:previewProductSkus",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "previewProductSkus",
+          "line": 21,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductSkuIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductSkuIdentity",
+          "line": 48,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:productPackagingEditor",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "productPackagingEditor",
+          "line": 220,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-006 physical set and bundle preserve units and fixed composition",
+          "line": 50,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 195,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "SKU-011 approved main unit cannot be changed via repository command",
+          "line": 125,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 206,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "Draft main unit and package content unit change together; approved unit remains locked",
+          "line": 169,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 211,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-022",
+        "SKU-011"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "固定套装默认套、包装含量主单位一致性待浏览器验收。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-004",
+      "atomic_requirement": "虚拟组合以组合SPU和SKU承接",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A06; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-sku-archive-types.ts:SkuArchiveRecord",
+          "file": "src/data/pcs-sku-archive-types.ts",
+          "symbol": "SkuArchiveRecord",
+          "line": 30,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:previewProductSkus",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "previewProductSkus",
+          "line": 21,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:bundleEditor",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "bundleEditor",
+          "line": 187,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-006 physical set and bundle preserve units and fixed composition",
+          "line": 50,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 195,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "STYLE-022",
+        "COMP-002"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "外部规格指向组合 SKU 而非组件直接混挂的实际操作待浏览器验收。"
+      ],
+      "cross_domain_evidence_refs": [
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-005",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+              "line": 37,
+              "proved_assertions": [
+                "同一内部 SKU 的两条实例 id 不同且外部 ID 初始为空"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-channel-product-listing-multi-instance.spec.ts",
+              "name": "R1 one current store allows multiple PIDs of the same SPU, each with multiple external instances of one internal SKU",
+              "line": 19,
+              "proved_assertions": [
+                "同店铺多个 PID、同 PID 多外部实例映射同 SKU 均保留"
+              ],
+              "existing_execution_ref": "node-legacy",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "SYNC-007/CHAN-005 incomplete or nontext external identity never becomes a successful formal publication",
+              "line": 319,
+              "proved_assertions": [
+                "缺失或非文本外部身份不能标为正式发布成功"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-012 historic imports preserve string IDs and reject incomplete mapping without partial formal records",
+              "line": 113,
+              "proved_assertions": [
+                "长数字 ID 保留文本原值"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        }
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-005",
+      "atomic_requirement": "虚拟组合记录组件SKU和正数量",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A06; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductSkuIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductSkuIdentity",
+          "line": 48,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:bundleEditor",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "bundleEditor",
+          "line": 187,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-006 physical set and bundle preserve units and fixed composition",
+          "line": 50,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 195,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "Bundle components measured in pieces cannot contain half a piece",
+          "line": 180,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 212,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "COMP-003",
+        "COMP-004"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "两个正数量普通组件、嵌套/自引拒绝的页面消息待验。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-006",
+      "atomic_requirement": "组合交付变更保留历史组成版本",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md A06; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-sku-archive-types.ts:SkuArchiveRecord",
+          "file": "src/data/pcs-sku-archive-types.ts",
+          "symbol": "SkuArchiveRecord",
+          "line": 30,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-sku-archive-repository.ts:normalizeRecord",
+          "file": "src/data/pcs-sku-archive-repository.ts",
+          "symbol": "normalizeRecord",
+          "line": 140,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:assertProductSkuIdentity",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "assertProductSkuIdentity",
+          "line": 48,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:skuBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "skuBody",
+          "line": 147,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-006 physical set and bundle preserve units and fixed composition",
+          "line": 50,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 195,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "SKU-011/COMP-001 main unit uses stable dictionary identity and composition owns stable identity",
+          "line": 206,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 215,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-013",
+        "COMP-001",
+        "COMP-005"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "组成稳定 ID + 版本已落地；已审核组成不可改，旧订单保持旧 SKU 引用的完整场景需主代理与现有履约入口联查；不扩大成组合库存/履约引擎。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-007",
+      "atomic_requirement": "工厂尺寸由技术资料维护",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md E06; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:technicalTab",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "technicalTab",
+          "line": 126,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-technical-data-version-repository.ts:listTechnicalDataVersionsByStyleId",
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "listTechnicalDataVersionsByStyleId",
+          "line": 976,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "详情引用技术域，无另建尺寸编辑。",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-015"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "技术版本→工厂尺寸原领域入口需浏览器验收。"
+      ],
+      "cross_domain_evidence_refs": [
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-007",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+              "line": 83,
+              "proved_assertions": [
+                "修改外部 displaySize 不改变内部 SKU 的 sizeName"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004 stopped parent SPU blocks new PID and new mappings while existing listing stays maintainable",
+              "line": 44,
+              "proved_assertions": [
+                "父款式停用仍允许原映射显示信息维护"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        }
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-008",
+      "atomic_requirement": "基础销售内容只初始化或更新未覆盖草稿",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md E04; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductSalesContent",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductSalesContent",
+          "line": 176,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleEditorBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleEditorBody",
+          "line": 191,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:styleBody",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "styleBody",
+          "line": 135,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-004/021 and SKU-005 preserve multilingual names and verified responsible person without channel writes",
+          "line": 102,
+          "coverage": "部分",
+          "assertion_scope": "商品多语字段与渠道写隔离。",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 204,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "基础内容变更后渠道未覆盖草稿更新、已覆盖/已发布不变的业务证据复用渠道已有索引；本次不复查87字段。"
+      ],
+      "cross_domain_evidence_refs": [
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-007",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+              "line": 83,
+              "proved_assertions": [
+                "修改外部 displaySize 不改变内部 SKU 的 sizeName"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004 stopped parent SPU blocks new PID and new mappings while existing listing stays maintainable",
+              "line": 44,
+              "proved_assertions": [
+                "父款式停用仍允许原映射显示信息维护"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        }
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-009",
+      "atomic_requirement": "平台规格别名不改变内部色码身份",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md E05; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-sku-archive-types.ts:SkuArchiveRecord",
+          "file": "src/data/pcs-sku-archive-types.ts",
+          "symbol": "SkuArchiveRecord",
+          "line": 30,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:channelTab",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "channelTab",
+          "line": 127,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "SKU stable identity survives dictionary label changes and still matches legacy records",
+          "line": 160,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 210,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-006",
+        "SKU-007",
+        "SKU-014"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "Black / Hitam 等多个外部显示名同内部 SKU 页面联查。"
+      ],
+      "cross_domain_evidence_refs": [
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-007",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+              "line": 83,
+              "proved_assertions": [
+                "修改外部 displaySize 不改变内部 SKU 的 sizeName"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004 stopped parent SPU blocks new PID and new mappings while existing listing stays maintainable",
+              "line": 44,
+              "proved_assertions": [
+                "父款式停用仍允许原映射显示信息维护"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        },
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-005",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+              "line": 37,
+              "proved_assertions": [
+                "同一内部 SKU 的两条实例 id 不同且外部 ID 初始为空"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-channel-product-listing-multi-instance.spec.ts",
+              "name": "R1 one current store allows multiple PIDs of the same SPU, each with multiple external instances of one internal SKU",
+              "line": 19,
+              "proved_assertions": [
+                "同店铺多个 PID、同 PID 多外部实例映射同 SKU 均保留"
+              ],
+              "existing_execution_ref": "node-legacy",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "SYNC-007/CHAN-005 incomplete or nontext external identity never becomes a successful formal publication",
+              "line": 319,
+              "proved_assertions": [
+                "缺失或非文本外部身份不能标为正式发布成功"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-012 historic imports preserve string IDs and reject incomplete mapping without partial formal records",
+              "line": 113,
+              "proved_assertions": [
+                "长数字 ID 保留文本原值"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        }
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-010",
+      "atomic_requirement": "内部SKU无渠道关联是合法状态",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md E09; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:previewProductSkus",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "previewProductSkus",
+          "line": 21,
+          "role": ""
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:channelTab",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "channelTab",
+          "line": 127,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-001 direct archive is a clean draft with no generated images or development gate",
+          "line": 17,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 190,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "直接",
+          "assertion_scope": "",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-014"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "全新无映射 SKU 合法空集，不出现映射健康错误的页面场景待验。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-011",
+      "atomic_requirement": "SKU渠道关联只显示真实持久外部实例",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md E09; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:channelTab",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "channelTab",
+          "line": 127,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-channel-catalog.ts:listChannelMappingsBySkuId",
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "listChannelMappingsBySkuId",
+          "line": 361,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "只读独立详情，实例正确性用渠道业务专项。",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-014"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "持久多外部实例刷新后行数和 PID/ID 准确性由主代理验证。"
+      ],
+      "cross_domain_evidence_refs": [
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-005",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+              "line": 37,
+              "proved_assertions": [
+                "同一内部 SKU 的两条实例 id 不同且外部 ID 初始为空"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-channel-product-listing-multi-instance.spec.ts",
+              "name": "R1 one current store allows multiple PIDs of the same SPU, each with multiple external instances of one internal SKU",
+              "line": 19,
+              "proved_assertions": [
+                "同店铺多个 PID、同 PID 多外部实例映射同 SKU 均保留"
+              ],
+              "existing_execution_ref": "node-legacy",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "SYNC-007/CHAN-005 incomplete or nontext external identity never becomes a successful formal publication",
+              "line": 319,
+              "proved_assertions": [
+                "缺失或非文本外部身份不能标为正式发布成功"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-012 historic imports preserve string IDs and reject incomplete mapping without partial formal records",
+              "line": 113,
+              "proved_assertions": [
+                "长数字 ID 保留文本原值"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        },
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-012",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-012 historic imports preserve string IDs and reject incomplete mapping without partial formal records",
+              "line": 113,
+              "proved_assertions": [
+                "缺映射导入拒绝且正式 listing 数不变；有效历史导入保留长文本身份"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-004/012 import grouping rejects cross-style, duplicate instance and different PID titles with exact row errors",
+              "line": 269,
+              "proved_assertions": [
+                "同 PID 跨款、重复外部实例、标题冲突返回行级错误"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-channel-listing-image-migration.spec.ts",
+              "name": "R1 a legacy row without a confirmed internal mapping aborts conversion and preserves inputs",
+              "line": 67,
+              "proved_assertions": [
+                "旧记录未匹配内部 SKU 时转换终止，输入保持原样"
+              ],
+              "existing_execution_ref": "node-legacy",
+              "rerun_for_this_index": false
+            }
+          ]
+        }
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "PROD-012",
+      "atomic_requirement": "材料意向和正式BOM只在技术域维护",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §6",
+      "work_package": "WP03",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:technicalTab",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "technicalTab",
+          "line": 126,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-sku-archive-types.ts:SkuExpectedMaterialLine",
+          "file": "src/data/pcs-sku-archive-types.ts",
+          "symbol": "SkuExpectedMaterialLine",
+          "line": 21,
+          "role": ""
+        },
+        {
+          "location": "src/data/pcs-technical-data-version-repository.ts:listTechnicalDataVersionsByStyleId",
+          "file": "src/data/pcs-technical-data-version-repository.ts",
+          "symbol": "listTechnicalDataVersionsByStyleId",
+          "line": 976,
+          "role": ""
+        }
+      ],
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "详情当前没有材料用量编辑入口。",
+          "execution": {
+            "status": "通过（已存在的主代理执行回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "related_field_ids": [
+        "SKU-015"
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "当前 UI 只读技术事实；尚未见覆盖旧 expectedMaterials→技术草稿材料意向的直接专项，需主代理确认旧来源承接。不以藏字段声称完成迁移。"
+      ],
+      "cross_domain_evidence_refs": [],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": ""
+    },
+    {
+      "requirement_id": "BRIDGE-002",
+      "atomic_requirement": "毛织部位片复用既有产出对象",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C03; prototype-adjustment-proposal.md §9.3/§12.4",
+      "work_package": "WP09",
+      "scope": "主代理明确留待既有毛织/主管PDA/打印定向补证；本旁路不扩审该域",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "既有入口待补实现证据",
+      "implementation": [],
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无可确认的具体符号/专项/命名页面回执，不以相邻物料或商品测试代替本条。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "note": "本条当前没有新浏览器、PDA或打印证据。"
+      },
+      "handoff_note": "主代理明确要求保留已实现待验证及未覆盖限制，稍后对既有对象与定向桥接补证。此状态不是完成声明。"
+    },
+    {
+      "requirement_id": "BRIDGE-003",
+      "atomic_requirement": "kg片件各按真实对象使用",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C03; prototype-adjustment-proposal.md §9.3/§12.4",
+      "work_package": "WP09",
+      "scope": "主代理明确留待既有毛织/主管PDA/打印定向补证；本旁路不扩审该域",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "既有入口待补实现证据",
+      "implementation": [],
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无可确认的具体符号/专项/命名页面回执，不以相邻物料或商品测试代替本条。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "note": "本条当前没有新浏览器、PDA或打印证据。"
+      },
+      "handoff_note": "主代理明确要求保留已实现待验证及未覆盖限制，稍后对既有对象与定向桥接补证。此状态不是完成声明。"
+    },
+    {
+      "requirement_id": "BRIDGE-004",
+      "atomic_requirement": "横机报告不等于缝盘完成",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md C03; prototype-adjustment-proposal.md §9.3/§12.4",
+      "work_package": "WP09",
+      "scope": "主代理明确留待既有毛织/主管PDA/打印定向补证；本旁路不扩审该域",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "既有入口待补实现证据",
+      "implementation": [],
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无可确认的具体符号/专项/命名页面回执，不以相邻物料或商品测试代替本条。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "note": "本条当前没有新浏览器、PDA或打印证据。"
+      },
+      "handoff_note": "主代理明确要求保留已实现待验证及未覆盖限制，稍后对既有对象与定向桥接补证。此状态不是完成声明。"
+    },
+    {
+      "requirement_id": "BRIDGE-006",
+      "atomic_requirement": "先上架测款不解除生产准备业务门槛",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md E10; prototype-adjustment-proposal.md §9.3/§12.4",
+      "work_package": "WP09",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:reviewProductArchive",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "reviewProductArchive",
+          "line": 139,
+          "role": ""
+        }
+      ],
+      "automated_tests": [],
+      "related_field_ids": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "生产准备既有门槛由渠道测款专项与原生产准备证据联查；本次不重新审查该模块。"
+      ],
+      "cross_domain_evidence_refs": [
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "CHAN-013",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-013/SYNC-011 test order selection uses canonical listing and precise action; passing production stays independent",
+              "line": 193,
+              "proved_assertions": [
+                "进行中测款可建刊登，无需测款先通过；未发布不能假报完成；复用同款 PID；后续生产资格不变"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            },
+            {
+              "file": "tests/pcs-channel-listing-image-upload-validation.spec.ts",
+              "name": "R1 explicit main and detail media can publish without a project image or development-project prerequisite",
+              "line": 27,
+              "proved_assertions": [
+                "无需项目图片或开发项目仍能刊登"
+              ],
+              "existing_execution_ref": "node-legacy",
+              "rerun_for_this_index": false
+            }
+          ]
+        },
+        {
+          "file": "channel-requirement-evidence.json",
+          "requirement_id": "SYNC-011",
+          "test_refs": [
+            {
+              "file": "tests/pcs-r1-channel-rules.test.ts",
+              "name": "CHAN-013/SYNC-011 test order selection uses canonical listing and precise action; passing production stays independent",
+              "line": 193,
+              "proved_assertions": [
+                "另一上架动作返回空；复用同款 PID 后按新的动作读取结果；不改变生产测款通过结论"
+              ],
+              "existing_execution_ref": "node-current",
+              "rerun_for_this_index": false
+            }
+          ]
+        }
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "本次没有浏览器或性能结果，不凭测试数量勾选总矩阵。"
+      },
+      "notes": "商品独立审核不替代测款通过；测款渠道发布继续使用已有可选动作入口。"
+    },
+    {
+      "requirement_id": "GOV-001",
+      "atomic_requirement": "同一操作人可以维护并审核",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F01; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:reviewProductArchive",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "reviewProductArchive",
+          "line": 139,
+          "role": "同一演示操作者可审核"
+        },
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:PCS_DEMO_OPERATOR_ID",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "PCS_DEMO_OPERATOR_ID",
+          "line": 15,
+          "role": "原型操作者身份"
+        },
+        {
+          "location": "src/data/pcs-config-dimensions.ts:ConfigLog",
+          "file": "src/data/pcs-config-dimensions.ts",
+          "symbol": "ConfigLog",
+          "line": 30,
+          "role": "配置日志保留稳定人员 ID 与显示名称"
+        },
+        {
+          "location": "src/data/pcs-config-workspace-repository.ts:appendOptionLog",
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "appendOptionLog",
+          "line": 240,
+          "role": "字典项新增动作记录当前原型操作者 ID"
+        },
+        {
+          "location": "src/data/pcs-config-workspace-repository.ts:appendCategoryLog",
+          "file": "src/data/pcs-config-workspace-repository.ts",
+          "symbol": "appendCategoryLog",
+          "line": 265,
+          "role": "分类新增动作记录当前原型操作者 ID"
+        },
+        {
+          "location": "src/data/pcs-material-config.ts:materialConfigLog",
+          "file": "src/data/pcs-material-config.ts",
+          "symbol": "materialConfigLog",
+          "line": 289,
+          "role": "物料模板、单位和工艺新增动作记录当前原型操作者 ID"
+        }
+      ],
+      "implemented_behavior": "不禁止作者自审，不接真实鉴权。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-002/003 first SKU reviews with style and enablement is independent of technical package",
+          "line": 23,
+          "coverage": "直接",
+          "assertion_scope": "同一测试操作者创建并审核。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 191,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "GOV-005/006/007/009/014 persist one operator identity and before/after audit through approval",
+          "line": 186,
+          "coverage": "直接",
+          "assertion_scope": "建档/修改/审核采用同一稳定 ID。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 213,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。",
+        "配置稳定 operatorId 与档案独立复制补丁晚于已有 218 项执行回执；本索引只核对当前源码，专项重跑及页面保存后重读由主代理补证。历史日志没有已确认 ID 时继续保留原值，不伪造历史人员绑定。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-002",
+      "atomic_requirement": "主档和首批SKU可一并审核",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F02; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:submitProductForApproval",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "submitProductForApproval",
+          "line": 106,
+          "role": "首批规格随主档提交"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:reviewProductArchive",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "reviewProductArchive",
+          "line": 139,
+          "role": "款式与首批审核"
+        }
+      ],
+      "implemented_behavior": "主档和首批未审 SKU 一起提交审核。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-002/003 first SKU reviews with style and enablement is independent of technical package",
+          "line": 23,
+          "coverage": "直接",
+          "assertion_scope": "首批同审。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 191,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-003",
+      "atomic_requirement": "后加SKU独立审核",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F02; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:submitProductForApproval",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "submitProductForApproval",
+          "line": 106,
+          "role": "新增规格单独提交"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:reviewProductArchive",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "reviewProductArchive",
+          "line": 139,
+          "role": "独立 SKU 审核"
+        }
+      ],
+      "implemented_behavior": "后增 SKU 独立审核，不回退原有通过档案。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-003 later SKU has independent review and no publishing side effect",
+          "line": 30,
+          "coverage": "直接",
+          "assertion_scope": "后增规格不改变原款式审核，也无发布副作用。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 192,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-005",
+      "atomic_requirement": "名称翻译修正留痕但不换身份",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F04; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-rules.ts:completeProductArchiveAudit",
+          "file": "src/data/pcs-product-archive-rules.ts",
+          "symbol": "completeProductArchiveAudit",
+          "line": 26,
+          "role": "同 ID 的字段前后值日志"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductStyleDraft",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductStyleDraft",
+          "line": 45,
+          "role": "商品名称/翻译保存"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:saveProductSkuDraft",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "saveProductSkuDraft",
+          "line": 79,
+          "role": "规格名称/翻译保存"
+        }
+      ],
+      "implemented_behavior": "名称、翻译等非身份资料可修订，保留原值、新值和原因。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "GOV-005/006/007/009/014 persist one operator identity and before/after audit through approval",
+          "line": 186,
+          "coverage": "直接",
+          "assertion_scope": "改名原新值、原因和稳定操作者。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 213,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-004/021 and SKU-005 preserve multilingual names and verified responsible person without channel writes",
+          "line": 102,
+          "coverage": "直接",
+          "assertion_scope": "SPU/SKU 三语名称不写渠道。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 204,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-006",
+      "atomic_requirement": "停用不自动终止在途或下架渠道",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:setProductLifecycle",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "setProductLifecycle",
+          "line": 163,
+          "role": "只修改档案使用状态"
+        }
+      ],
+      "implemented_behavior": "停用不发起平台下架或终止在途命令；归档另查引用。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-012 lifecycle status never derives activation from current tech version",
+          "line": 84,
+          "coverage": "部分",
+          "assertion_scope": "使用状态不依赖技术资料。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 201,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "商品停用后既有渠道/在途引用不变需跨域页面场景，不能由生命周期单测替代。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-008",
+      "atomic_requirement": "业务导入先预览再按主对象原子保存",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:importPreview",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "importPreview",
+          "line": 340,
+          "role": "逐行导入预览"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:handlePcsProductArchiveEvent",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "handlePcsProductArchiveEvent",
+          "line": 362,
+          "role": "按主对象提交"
+        },
+        {
+          "location": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 471,
+          "role": "对象级动作事务"
+        }
+      ],
+      "implemented_behavior": "商品 CSV 先预览行错误，再逐主对象执行保存。",
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "需要整批含有效/无效对象的商品导入页面验收；无此动作直接自动化结果。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-009",
+      "atomic_requirement": "导出覆盖筛选的全部匹配记录",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:filteredRows",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "filteredRows",
+          "line": 90,
+          "role": "完整筛选结果"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:exportList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "exportList",
+          "line": 355,
+          "role": "导出全筛选行"
+        }
+      ],
+      "implemented_behavior": "商品导出使用完整过滤结果，不仅当前页。",
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "需要两页以上商品数据过滤导出、CSV 行数和空集反馈验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-010",
+      "atomic_requirement": "真实图片可预览和打印",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:photo",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "photo",
+          "line": 62,
+          "role": "列表/详情真实图与大图"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:handlePcsProductArchiveInput",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "handlePcsProductArchiveInput",
+          "line": 275,
+          "role": "图片选择引用"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:overlays",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "overlays",
+          "line": 238,
+          "role": "放大图片"
+        }
+      ],
+      "implemented_behavior": "商品复用真实静态素材与用户图片，点击放大；原有打印入口另由主管/PDA门禁核对。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-024 image purposes preserve gallery ordering when the archive is copied",
+          "line": 153,
+          "coverage": "直接",
+          "assertion_scope": "图片顺序和用途引用复制。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 209,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "所有命名商品页图片/放大、适用打印由主代理浏览器验证。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-011",
+      "atomic_requirement": "全部PCS页面无浏览器资料维护工具",
+      "source": "../2026-10-04-product-material-domain-audit-v2/confirmed-rules-and-refinements.md §1/§9 USR-013; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderList",
+          "line": 104,
+          "role": "无浏览器维护工具的商品列表"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderDetail",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderDetail",
+          "line": 155,
+          "role": "商品详情"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderEditor",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderEditor",
+          "line": 231,
+          "role": "商品编辑"
+        }
+      ],
+      "implemented_behavior": "商品页不暴露浏览器迁移/备份/恢复/清理面板。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "直接",
+          "assertion_scope": "列表无本机数据维护控制。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "此条全 PCS 由主代理检查公共外壳与异常页，商品专项只覆盖本端。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-014",
+      "atomic_requirement": "复制记录复用附件且有效引用不误删",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:productDraftCopy",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "productDraftCopy",
+          "line": 183,
+          "role": "复制重用图片引用"
+        },
+        {
+          "location": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 471,
+          "role": "共享文件和业务记录事务"
+        }
+      ],
+      "implemented_behavior": "复制商品共享已存文件 ID，不再复制图片字节。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-024 image purposes preserve gallery ordering when the archive is copied",
+          "line": 153,
+          "coverage": "直接",
+          "assertion_scope": "保留文件 ID/图库用途及顺序。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 209,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "name": "a fileId-only attachment is persisted once and can be shared by another record",
+          "line": 148,
+          "coverage": "直接",
+          "assertion_scope": "共享附件单次持久化。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 243,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-016",
+      "atomic_requirement": "失败保留输入与旧记录并可重试",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:save",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "save",
+          "line": 253,
+          "role": "等待共享命令再成功跳转"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:fail",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "fail",
+          "line": 252,
+          "role": "失败保留输入"
+        },
+        {
+          "location": "src/data/pcs-record-runtime.ts:runPcsRecordCommand",
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "runPcsRecordCommand",
+          "line": 471,
+          "role": "失败回滚旧记录"
+        }
+      ],
+      "implemented_behavior": "命令失败不发布成功结果，当前编辑内容保留。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-storage-runtime.test.ts",
+          "name": "failure rolls memory back and preserves records for retry",
+          "line": 85,
+          "coverage": "直接",
+          "assertion_scope": "共享事务失败回滚。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 237,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "商品表单失败后的实际输入保留、消息与重试需浏览器验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-017",
+      "atomic_requirement": "适用页面与动作完整结果严格小于500ms",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品首开与全 R1 完整结果门禁",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderList",
+          "location": "src/pages/pcs-product-archives.ts:renderList",
+          "role": "列表计算和完整渲染入口"
+        },
+        {
+          "file": "src/data/pcs-record-runtime.ts",
+          "symbol": "ensurePcsRecordState",
+          "location": "src/data/pcs-record-runtime.ts:ensurePcsRecordState",
+          "role": "按范围装载原型业务数据"
+        }
+      ],
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "主代理最新交接的大样本页面读取优化后 5 次为 476/395.6/395.9/398.3/393.6ms；禁缓存 5 次为 423.4/396.1/396.4/399.2/393.6ms。均小于500ms。这是主代理交接事实，本索引未自行复测。",
+        "全 R1 命名页面、相关动作、两种管理端尺寸及适用刷新/失败恢复场景尚未完成最终完整结果性能矩阵；最终浏览器证据文件和最后代码版本由主代理登记。"
+      ],
+      "browser_verification": {
+        "status": "待主代理完成全部适用页面验证",
+        "owner": "主代理",
+        "reported_samples_ms": [
+          476,
+          395.6,
+          395.9,
+          398.3,
+          393.6
+        ],
+        "reported_no_cache_samples_ms": [
+          423.4,
+          396.1,
+          396.4,
+          399.2,
+          393.6
+        ],
+        "required_ms": "<500",
+        "evidence_source": "主代理本轮最新任务消息；本索引未复测",
+        "note": "以上大样本新结果取代先前超时样本的当前结论；不据此宣称所有页面性能已验证。"
+      }
+    },
+    {
+      "requirement_id": "GOV-018",
+      "atomic_requirement": "主管PDA与打印只消费正确引用且不增加档案维护页",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "主代理明确留待既有毛织/主管PDA/打印定向补证；本旁路不扩审该域",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "既有入口待补实现证据",
+      "implementation": [],
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "尚无可确认的具体符号/专项/命名页面回执，不以相邻物料或商品测试代替本条。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "note": "本条当前没有新浏览器、PDA或打印证据。"
+      },
+      "handoff_note": "主代理明确要求保留已实现待验证及未覆盖限制，稍后对既有对象与定向桥接补证。此状态不是完成声明。"
+    },
+    {
+      "requirement_id": "GOV-019",
+      "atomic_requirement": "默认20行并支持筛选分页列配置",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderList",
+          "line": 104,
+          "role": "标准列表/分页"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:preferences",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "preferences",
+          "line": 81,
+          "role": "列显隐排序冻结"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:savePreferences",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "savePreferences",
+          "line": 89,
+          "role": "有界偏好保存"
+        }
+      ],
+      "implemented_behavior": "列表默认20条、支持完整查询分页列配置。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "商品列表具有列设置等独立列表结构。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "具体分页/筛选/显隐/列拖动/冻结/重入默认行为由主代理浏览器验证。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-020",
+      "atomic_requirement": "查询重置导出位于完整筛选卡",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderList",
+          "line": 104,
+          "role": "标准筛选卡查询/重置/导出"
+        }
+      ],
+      "implemented_behavior": "查询、重置和导出集中在标准筛选卡。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "基本列表结构存在；非三按钮位置断言。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "纯页面布局与真实操作待浏览器。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-021",
+      "atomic_requirement": "编码名称识别图归同一单元格",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:columns",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "columns",
+          "line": 69,
+          "role": "商品主识别列"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:photo",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "photo",
+          "line": 62,
+          "role": "实际识别图"
+        }
+      ],
+      "implemented_behavior": "编码、名称、图在同一主识别列。",
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "纯视觉布局、大图和详情链接待浏览器。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-022",
+      "atomic_requirement": "批量动作展示选中数和逐项结果",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F07; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:handlePcsProductArchiveEvent",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "handlePcsProductArchiveEvent",
+          "line": 362,
+          "role": "逐项执行与结果收集"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:renderList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "renderList",
+          "line": 104,
+          "role": "选中数量与批量结果"
+        }
+      ],
+      "implemented_behavior": "商品批量操作保存每项结果，在列表显示成功/失败反馈。",
+      "automated_tests": [],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "混合可操作/不可操作对象的逐项结果和选中数待主代理浏览器验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-023",
+      "atomic_requirement": "停用归档等影响动作二次确认",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F05; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:handlePcsProductArchiveEvent",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "handlePcsProductArchiveEvent",
+          "line": 362,
+          "role": "停用/归档确认"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:setProductLifecycle",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "setProductLifecycle",
+          "line": 163,
+          "role": "活动引用防错"
+        }
+      ],
+      "implemented_behavior": "影响动作先确认，归档检查活动引用。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "GOV-020 archive rejects an active bundle component without a page-supplied count",
+          "line": 97,
+          "coverage": "直接",
+          "assertion_scope": "保存层拒绝仍被活动组合引用的档案。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 203,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "二次确认取消/确认、外部引用读取失败消息待浏览器。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-024",
+      "atomic_requirement": "审核动作有明确前置条件和结果",
+      "source": "../2026-10-04-product-material-domain-audit-v2/decision-register-2026-10-05.md F02; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:validateProductReview",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "validateProductReview",
+          "line": 124,
+          "role": "审核时读取当前完整性"
+        },
+        {
+          "location": "src/data/pcs-product-archive-commands.ts:reviewProductArchive",
+          "file": "src/data/pcs-product-archive-commands.ts",
+          "symbol": "reviewProductArchive",
+          "line": 139,
+          "role": "明确审核结果"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:detailActions",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "detailActions",
+          "line": 120,
+          "role": "状态允许的动作"
+        }
+      ],
+      "implemented_behavior": "审核前重新校验当前档案，缺资料不通过也不改首批 SKU 状态。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "GOV-024 review revalidates the current pending style and changes no approval on failure",
+          "line": 89,
+          "coverage": "直接",
+          "assertion_scope": "当前资料缺失不能审核且状态保持。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 202,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        },
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "STYLE-018/027 cannot approve a style missing material type or save a nonexistent substitution",
+          "line": 199,
+          "coverage": "直接",
+          "assertion_scope": "材质必填提交拒绝。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 214,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "已有代码落点；该动作的商品页面结果、重读持久化和完整耗时待主代理验收。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    },
+    {
+      "requirement_id": "GOV-027",
+      "atomic_requirement": "业务导入导出不变成浏览器整库备份恢复",
+      "source": "../../../AGENTS.md AGENTS; prototype-adjustment-proposal.md §4/§13/§14",
+      "work_package": "WP10",
+      "scope": "商品端补充证据；其他域由相同编号的独立 evidence 索引合并",
+      "suggested_matrix_status": "已实现待验证",
+      "coverage_judgment": "已实现待验证",
+      "implementation": [
+        {
+          "location": "src/pages/pcs-product-archives.ts:importPreview",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "importPreview",
+          "line": 340,
+          "role": "商品业务 CSV 预览"
+        },
+        {
+          "location": "src/pages/pcs-product-archives.ts:exportList",
+          "file": "src/pages/pcs-product-archives.ts",
+          "symbol": "exportList",
+          "line": 355,
+          "role": "商品业务 CSV 导出"
+        }
+      ],
+      "implemented_behavior": "导入导出为商品业务记录，不提供整库备份/恢复入口。",
+      "automated_tests": [
+        {
+          "file": "tests/pcs-r1-product-rules.test.ts",
+          "name": "PROD-010 details and lists are independent; archive has no procurement or inventory controls",
+          "line": 73,
+          "coverage": "部分",
+          "assertion_scope": "没有本机维护控件。",
+          "execution": {
+            "status": "通过（已有主代理回执）",
+            "log": "/tmp/pcs-r1-final-contracts.log",
+            "line": 199,
+            "rerun_by_index_agent": false
+          },
+          "rerun_for_this_index": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "CSV 模板字段、空集、错误行和整份过滤结果待浏览器。"
+      ],
+      "browser_verification": {
+        "status": "待验证",
+        "owner": "主代理",
+        "devices": [
+          "1366×768",
+          "1280×720"
+        ],
+        "complete_result_target_ms": 500,
+        "note": "未新增浏览器通过声明。"
+      }
+    }
+  ],
+  "outside_this_audit": [
+    "BRIDGE-002/003/004、GOV-018 仅按主代理交接登记待补证，不扩审既有毛织/PDA/打印源码。"
+  ],
+  "field_index": "product-field-coverage.json",
+  "source_fingerprints": {
+    "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/prototype-adjustment-proposal.md": "d8b175313a5447a6dccea3cc1c89146f3245a0ac4735fc4dcc7c3591cb489c85",
+    "src/data/pcs-channel-catalog.ts": "51aa7eab469fae071505105a78046df2d4bdfdb1c5b4ff728ec4bda8c8204e0c",
+    "src/data/pcs-config-dimensions.ts": "21621079c5373e66400619798bb2f4afe30d6e7d0f51bdcba353dff52e5a5b27",
+    "src/data/pcs-config-workspace-repository.ts": "822ae8d7c8b407ea20bebc0036ff09ada26dde368a60d4ca36576d4c5a732921",
+    "src/data/pcs-engineering-bom-repository.ts": "b18a6d88fed79b37ffb07e64c16ce2e2e3e7574ba9b0fc9df7be18d54c33b623",
+    "src/data/pcs-product-archive-commands.ts": "6a075ed07705fbad67b9a8fcc25de7a4c1dccb5dbb4b5dfa914f2f234aca19be",
+    "src/data/pcs-product-archive-rules.ts": "4a486639da5bf9ffaa09258bda5cc55490fc9977513fba959a1c093bbfb7c388",
+    "src/data/pcs-product-lifecycle-governance.ts": "e03952a422a157e5c7dbd9879f266f48a3ae94eac4bb49e26a549d0a25f8d8ba",
+    "src/data/pcs-record-runtime.ts": "8b3147299004a0b14f5f19f1260368dc84b577769dea203d4d93489df4496e35",
+    "src/data/pcs-sku-archive-repository.ts": "1c3781541af4ff78e28b6b34816d5266e35f081a32036922f28acb7deae79ded",
+    "src/data/pcs-sku-archive-types.ts": "14983a252784ab6a7a0963462cccc542a5347ee0ff2ffd369e7c3d995a392787",
+    "src/data/pcs-style-archive-repository.ts": "ce662c786fe2334d1877fb84c7e0ed39885e9e58680086903419851b3dd13dbe",
+    "src/data/pcs-style-archive-types.ts": "ae678f2dd80f0671974d08f45ae69f35e1d770d3690f358ded3b9f711025b042",
+    "src/data/pcs-style-product-information.ts": "586b97838fc02ac174440a908fc09d7d6448551208b333b95e8bb2ceaa2bb9c6",
+    "src/data/pcs-technical-data-version-repository.ts": "8ba62a20ecec1817887300bf4977f9ede3f6faeafbee18f85ff21c228a969a0a",
+    "src/pages/pcs-config-workspace.ts": "51b529128d4aed7c87e5bdeb234eb647d1adaa16fe6827bf97dbfc37dc76ac78",
+    "src/pages/pcs-product-archives.ts": "a980cccdc6df01abb671fcda61d0bfeef166bae6bd0b35831d773716fa92870a",
+    "tests/pcs-r1-config-page.test.ts": "8d53e9150759eb25580c44fe98147364acf1658333256c35a23e0ad5dc04845b",
+    "tests/pcs-r1-config.test.ts": "113f8663741c4d3bc281f1582e778a7c9513b6368c32af06a80bc2581338cba7",
+    "tests/pcs-r1-product-rules.test.ts": "860906ba292e6561f02bf157b32b7c992fe99f6ddd3f726d8c8e3866e5d07de6",
+    "tests/pcs-r1-storage-runtime.test.ts": "d62c42d076bd75e6f9eef2f66bf0a378afd11a55e25a5ddf097a98a2b9e90602",
+    "src/data/pcs-material-config.ts": "52a7280e491060055747ba4b24b73521d30522972b7822795a905abdda303474"
+  },
+  "execution_evidence": {
+    "log": "/tmp/pcs-r1-final-contracts.log",
+    "sha256": "5b35cb53b83840f2b93c2f6257a5b5dba1195a42dc614d11828df06509000b13",
+    "summary": "tests 218 / pass 218 / fail 0",
+    "boundary": "精确名称命中的已有主代理自动化结果；未包含命名页面、PDA、打印或真实性能验收。本代理没有重跑。",
+    "last_source_change_boundary": "配置稳定 operatorId 与档案独立复制补丁晚于已有 218 项执行回执；本索引只核对当前源码，专项重跑及页面保存后重读由主代理补证。历史日志没有已确认 ID 时继续保留原值，不伪造历史人员绑定。"
+  },
+  "matrix_merge_note": "本索引补充商品端共享条目；相同 requirement_id 的材料/配置/渠道证据必须并集合并，不能互相覆盖。"
+}

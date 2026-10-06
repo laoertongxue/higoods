@@ -1,7 +1,19 @@
+import type { ArchiveApprovalStatus, ArchiveLifecycleStatus, ProductDeliveryMode, ProductArchiveLog, SalesBaseContent, ProductBundleComponent, ProductArchiveOrigin } from './pcs-product-archive-rules.ts'
 import type { FlatDimensionId } from './pcs-config-dimensions.ts'
 export type StyleArchiveStatusCode = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
 
-export interface StyleArchiveShellRecord {
+export interface StyleArchiveShellRecord extends ProductArchiveOrigin {
+  approvalStatus?: ArchiveApprovalStatus
+  lifecycleStatus?: ArchiveLifecycleStatus
+  deliveryMode?: ProductDeliveryMode
+  archiveLogs?: ProductArchiveLog[]
+  recordVersion?: number
+  sameStyleIds?: string[]
+  substitutionRelations?: Array<{ id: string; targetKind: 'PRODUCT_SKU' | 'MATERIAL_SKU'; targetId: string; conditions: string; version: number }>
+  salesContents?: SalesBaseContent[]
+  legacyCodes?: string[]
+  identitySource?: 'MANUAL' | 'HISTORY'
+
   buyerId?: string
   buyerName?: string
   productConfigRefs?: Partial<Record<FlatDimensionId, string[]>>
@@ -11,6 +23,7 @@ export interface StyleArchiveShellRecord {
   styleCode: string
   styleName: string
   styleNameEn: string
+  styleNameTranslations?: Partial<Record<'en' | 'id' | 'ms', string>>
   styleNumber: string
   thirdCategoryName?: string
   materialType?: string
@@ -58,6 +71,7 @@ export interface StyleArchiveShellRecord {
   mainImageUrl: string
   galleryImageIds: string[]
   galleryImageUrls: string[]
+  galleryImagePurposes?: string[]
   imageSource: string
   sellingPointText: string
   detailDescription: string

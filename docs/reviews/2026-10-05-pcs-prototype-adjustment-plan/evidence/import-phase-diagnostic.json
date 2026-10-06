@@ -1,0 +1,41 @@
+{
+  "phases": [
+    [
+      "start",
+      2486.099999964237
+    ],
+    [
+      "readCurrent",
+      2565.300000011921
+    ],
+    [
+      "businessPrepared",
+      2788.899999976158
+    ],
+    [
+      "rowsPrepared",
+      2823.699999988079
+    ],
+    [
+      "databaseComplete",
+      3365.800000011921
+    ],
+    [
+      "mergeComplete",
+      3373.300000011921
+    ],
+    [
+      "publishComplete",
+      3441.5
+    ]
+  ],
+  "metric": {
+    "brokenImages": 0,
+    "durationMs": 1371.300000011921,
+    "end": 3856.699999988079,
+    "images": 0,
+    "label": "import1000-save-phase-diagnostic-encoded",
+    "start": 2485.399999976158,
+    "url": "/pcs/materials/fabric"
+  }
+}

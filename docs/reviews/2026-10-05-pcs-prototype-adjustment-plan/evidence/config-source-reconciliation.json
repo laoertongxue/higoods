@@ -1,0 +1,6181 @@
+{
+  "old_count": 343,
+  "passed": 343,
+  "rows": [
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-1",
+        "code": "1",
+        "name_zh": "Chicmore",
+        "name_en": "Chicmore",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-2",
+        "code": "2",
+        "name_zh": "FADFAD",
+        "name_en": "FADFAD",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-3",
+        "code": "3",
+        "name_zh": "Tendblank",
+        "name_en": "Tendblank",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-4",
+        "code": "4",
+        "name_zh": "Asaya",
+        "name_en": "Asaya",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-5",
+        "code": "5",
+        "name_zh": "LUXME",
+        "name_en": "LUXME",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-6",
+        "code": "6",
+        "name_zh": "MODISH",
+        "name_en": "MODISH",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "brands",
+        "dimension_name": "品牌",
+        "id": "brands-7",
+        "code": "7",
+        "name_zh": "PRIMA",
+        "name_en": "PRIMA",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "brands",
+      "matches": [
+        "brands-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "crowdPositioning",
+        "dimension_name": "人群定位",
+        "id": "crowdPositioning-1",
+        "code": "1",
+        "name_zh": "穆斯林",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "crowdPositioning",
+      "matches": [
+        "crowdPositioning-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "crowdPositioning",
+        "dimension_name": "人群定位",
+        "id": "crowdPositioning-2",
+        "code": "2",
+        "name_zh": "穆斯林友好",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "crowdPositioning",
+      "matches": [
+        "crowdPositioning-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "crowdPositioning",
+        "dimension_name": "人群定位",
+        "id": "crowdPositioning-3",
+        "code": "3",
+        "name_zh": "非穆斯林",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "crowdPositioning",
+      "matches": [
+        "crowdPositioning-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "ages",
+        "dimension_name": "年龄",
+        "id": "ages-1",
+        "code": "1",
+        "name_zh": "18~30",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "ages",
+      "matches": [
+        "ages-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "ages",
+        "dimension_name": "年龄",
+        "id": "ages-2",
+        "code": "2",
+        "name_zh": "25~45",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "ages",
+      "matches": [
+        "ages-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "ages",
+        "dimension_name": "年龄",
+        "id": "ages-3",
+        "code": "3",
+        "name_zh": "45~65",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "ages",
+      "matches": [
+        "ages-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "crowds",
+        "dimension_name": "人群",
+        "id": "crowds-1",
+        "code": "1",
+        "name_zh": "年轻",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "crowds",
+      "matches": [
+        "crowds-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "crowds",
+        "dimension_name": "人群",
+        "id": "crowds-2",
+        "code": "2",
+        "name_zh": "成熟",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "crowds",
+      "matches": [
+        "crowds-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "crowds",
+        "dimension_name": "人群",
+        "id": "crowds-3",
+        "code": "3",
+        "name_zh": "中老年",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "crowds",
+      "matches": [
+        "crowds-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "productPositioning",
+        "dimension_name": "商品定位",
+        "id": "productPositioning-1",
+        "code": "1",
+        "name_zh": "基础款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "productPositioning",
+      "matches": [
+        "productPositioning-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "productPositioning",
+        "dimension_name": "商品定位",
+        "id": "productPositioning-2",
+        "code": "2",
+        "name_zh": "设计款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "productPositioning",
+      "matches": [
+        "productPositioning-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "productPositioning",
+        "dimension_name": "商品定位",
+        "id": "productPositioning-3",
+        "code": "3",
+        "name_zh": "设计改款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "productPositioning",
+      "matches": [
+        "productPositioning-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "productPositioning",
+        "dimension_name": "商品定位",
+        "id": "productPositioning-4",
+        "code": "4",
+        "name_zh": "低价改款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "productPositioning",
+      "matches": [
+        "productPositioning-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "productPositioning",
+        "dimension_name": "商品定位",
+        "id": "productPositioning-5",
+        "code": "5",
+        "name_zh": "低价",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "productPositioning",
+      "matches": [
+        "productPositioning-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-1",
+        "code": "1",
+        "name_zh": "绣花",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-2",
+        "code": "2",
+        "name_zh": "烫画",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-3",
+        "code": "3",
+        "name_zh": "直喷",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-4",
+        "code": "4",
+        "name_zh": "贝壳绣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-5",
+        "code": "5",
+        "name_zh": "四合扣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-6",
+        "code": "6",
+        "name_zh": "打条",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-7",
+        "code": "7",
+        "name_zh": "打揽",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "specialCrafts",
+        "dimension_name": "特殊工艺",
+        "id": "specialCrafts-8",
+        "code": "8",
+        "name_zh": "压褶",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "specialCrafts",
+      "matches": [
+        "specialCrafts-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-1",
+        "code": "1",
+        "name_zh": "S",
+        "name_en": "S",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-2",
+        "code": "2",
+        "name_zh": "M",
+        "name_en": "M",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-3",
+        "code": "3",
+        "name_zh": "L",
+        "name_en": "L",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-4",
+        "code": "4",
+        "name_zh": "XL",
+        "name_en": "XL",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-5",
+        "code": "5",
+        "name_zh": "2XL",
+        "name_en": "2XL",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-6",
+        "code": "6",
+        "name_zh": "3XL",
+        "name_en": "3XL",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-7",
+        "code": "7",
+        "name_zh": "4XL",
+        "name_en": "4XL",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-8",
+        "code": "8",
+        "name_zh": "5XL",
+        "name_en": "5XL",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "sizes",
+        "dimension_name": "尺码",
+        "id": "sizes-9",
+        "code": "9",
+        "name_zh": "One Size",
+        "name_en": "One Size",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "sizes",
+      "matches": [
+        "sizes-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-1",
+        "code": "1",
+        "name_zh": "boho",
+        "name_en": "boho",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-2",
+        "code": "2",
+        "name_zh": "动物纹",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-3",
+        "code": "3",
+        "name_zh": "撞色",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-4",
+        "code": "4",
+        "name_zh": "扎染",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-5",
+        "code": "5",
+        "name_zh": "渐变",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-6",
+        "code": "6",
+        "name_zh": "拼接",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-7",
+        "code": "7",
+        "name_zh": "图腾",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-8",
+        "code": "8",
+        "name_zh": "刺绣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-9",
+        "code": "9",
+        "name_zh": "料",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-10",
+        "code": "10",
+        "name_zh": "条纹",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "10"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-10"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-11",
+        "code": "11",
+        "name_zh": "蕾丝",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "11"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-11"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-12",
+        "code": "12",
+        "name_zh": "流苏",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "12"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-12"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-13",
+        "code": "13",
+        "name_zh": "棉麻",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "13"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-13"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-14",
+        "code": "14",
+        "name_zh": "牛仔",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "14"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-14"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-15",
+        "code": "15",
+        "name_zh": "缎面",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "15"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-15"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-16",
+        "code": "16",
+        "name_zh": "A字型",
+        "name_en": "A字型",
+        "status": "ENABLED",
+        "sortOrder": "16"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-16"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-17",
+        "code": "17",
+        "name_zh": "H型",
+        "name_en": "H型",
+        "status": "ENABLED",
+        "sortOrder": "17"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-17"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-18",
+        "code": "18",
+        "name_zh": "X型",
+        "name_en": "X型",
+        "status": "ENABLED",
+        "sortOrder": "18"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-18"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-19",
+        "code": "19",
+        "name_zh": "S型",
+        "name_en": "S型",
+        "status": "ENABLED",
+        "sortOrder": "19"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-19"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-20",
+        "code": "20",
+        "name_zh": "0型",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "20"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-20"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-21",
+        "code": "21",
+        "name_zh": "不对称",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "21"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-21"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-22",
+        "code": "22",
+        "name_zh": "两件套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "22"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-22"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-23",
+        "code": "23",
+        "name_zh": "运动",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "23"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-23"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-24",
+        "code": "24",
+        "name_zh": "波点",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "24"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-24"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-25",
+        "code": "25",
+        "name_zh": "素色",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "25"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-25"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-26",
+        "code": "26",
+        "name_zh": "丝绒",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "26"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-26"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-27",
+        "code": "27",
+        "name_zh": "彩色",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "27"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-27"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-28",
+        "code": "28",
+        "name_zh": "字母",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "28"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-28"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-29",
+        "code": "29",
+        "name_zh": "不规则",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "29"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-29"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-30",
+        "code": "30",
+        "name_zh": "百褶",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "30"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-30"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "trendElements",
+        "dimension_name": "流行元素",
+        "id": "trendElements-31",
+        "code": "31",
+        "name_zh": "泡泡袖",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "31"
+      },
+      "target_dimension": "trendElements",
+      "matches": [
+        "trendElements-31"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-1",
+        "code": "1",
+        "name_zh": "混纺",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-2",
+        "code": "2",
+        "name_zh": "涤纶",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-3",
+        "code": "3",
+        "name_zh": "呢料",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-4",
+        "code": "4",
+        "name_zh": "棉麻",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-5",
+        "code": "5",
+        "name_zh": "毛织",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-6",
+        "code": "6",
+        "name_zh": "雪纺",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-7",
+        "code": "7",
+        "name_zh": "锻面",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-8",
+        "code": "8",
+        "name_zh": "棉",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-9",
+        "code": "9",
+        "name_zh": "仿牛仔",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-10",
+        "code": "10",
+        "name_zh": "蕾丝",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "10"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-10"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-11",
+        "code": "11",
+        "name_zh": "牛仔",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "11"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-11"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-12",
+        "code": "12",
+        "name_zh": "丝绒",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "12"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-12"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-13",
+        "code": "13",
+        "name_zh": "灯芯绒",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "13"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-13"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-14",
+        "code": "14",
+        "name_zh": "弹力布",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "14"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-14"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-15",
+        "code": "15",
+        "name_zh": "绒面",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "15"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-15"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-16",
+        "code": "16",
+        "name_zh": "鹿皮绒",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "16"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-16"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-17",
+        "code": "17",
+        "name_zh": "PU皮",
+        "name_en": "PU皮",
+        "status": "ENABLED",
+        "sortOrder": "17"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-17"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-18",
+        "code": "18",
+        "name_zh": "毛织",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "18"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-18"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-19",
+        "code": "19",
+        "name_zh": "皮草",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "19"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-19"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-20",
+        "code": "20",
+        "name_zh": "麂皮",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "20"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-20"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-21",
+        "code": "21",
+        "name_zh": "网纱",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "21"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-21"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-22",
+        "code": "22",
+        "name_zh": "羊羔毛",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "22"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-22"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-23",
+        "code": "23",
+        "name_zh": "法兰绒",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "23"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-23"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "fabrics",
+        "dimension_name": "面料",
+        "id": "fabrics-24",
+        "code": "24",
+        "name_zh": "竹节麻",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "24"
+      },
+      "target_dimension": "fabrics",
+      "matches": [
+        "fabrics-24"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-1",
+        "code": "1",
+        "name_zh": "休闲",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-2",
+        "code": "2",
+        "name_zh": "度假",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-3",
+        "code": "3",
+        "name_zh": "复古",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-4",
+        "code": "4",
+        "name_zh": "秀场",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-5",
+        "code": "5",
+        "name_zh": "礼服",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-6",
+        "code": "6",
+        "name_zh": "名媛",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-7",
+        "code": "7",
+        "name_zh": "通勤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-8",
+        "code": "8",
+        "name_zh": "街头",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-9",
+        "code": "9",
+        "name_zh": "中式",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-10",
+        "code": "10",
+        "name_zh": "碎花",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "10"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-10"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-11",
+        "code": "11",
+        "name_zh": "性感",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "11"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-11"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-12",
+        "code": "12",
+        "name_zh": "优雅",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "12"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-12"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styles",
+        "dimension_name": "风格",
+        "id": "styles-13",
+        "code": "13",
+        "name_zh": "甜美",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "13"
+      },
+      "target_dimension": "styles",
+      "matches": [
+        "styles-13"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-1",
+        "code": "1",
+        "name_zh": "上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-2",
+        "code": "2",
+        "name_zh": "连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-3",
+        "code": "3",
+        "name_zh": "半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-4",
+        "code": "4",
+        "name_zh": "裤子",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-5",
+        "code": "5",
+        "name_zh": "套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-6",
+        "code": "6",
+        "name_zh": "开衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-7",
+        "code": "7",
+        "name_zh": "短裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-8",
+        "code": "8",
+        "name_zh": "中长裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-9",
+        "code": "9",
+        "name_zh": "长裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-10",
+        "code": "10",
+        "name_zh": "外套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "10"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-10"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-11",
+        "code": "11",
+        "name_zh": "毛衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "11"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-11"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-12",
+        "code": "12",
+        "name_zh": "连体裤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "12"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-12"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-13",
+        "code": "13",
+        "name_zh": "马甲",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "13"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-13"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-14",
+        "code": "14",
+        "name_zh": "卫衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "14"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-14"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-15",
+        "code": "15",
+        "name_zh": "饰品",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "15"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-15"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-16",
+        "code": "16",
+        "name_zh": "男装外套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "16"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-16"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-17",
+        "code": "17",
+        "name_zh": "男装上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "17"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-17"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-18",
+        "code": "18",
+        "name_zh": "男装裤子",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "18"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-18"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-19",
+        "code": "19",
+        "name_zh": "男装套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "19"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-19"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-20",
+        "code": "20",
+        "name_zh": "鞋子",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "20"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-20"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-21",
+        "code": "21",
+        "name_zh": "泳装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "21"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-21"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-22",
+        "code": "22",
+        "name_zh": "男鞋",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "22"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-22"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-23",
+        "code": "23",
+        "name_zh": "女鞋",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "23"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-23"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-24",
+        "code": "24",
+        "name_zh": "居家",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "24"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-24"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-25",
+        "code": "25",
+        "name_zh": "童装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "25"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-25"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-26",
+        "code": "26",
+        "name_zh": "童鞋",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "26"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-26"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-27",
+        "code": "27",
+        "name_zh": "玩具",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "27"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-27"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-28",
+        "code": "28",
+        "name_zh": "数码",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "28"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-28"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-29",
+        "code": "29",
+        "name_zh": "睡衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "29"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-29"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-30",
+        "code": "30",
+        "name_zh": "箱包",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "30"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-30"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-31",
+        "code": "31",
+        "name_zh": "美妆+工具",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "31"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-31"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-32",
+        "code": "32",
+        "name_zh": "内衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "32"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-32"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-33",
+        "code": "33",
+        "name_zh": "假发",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "33"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-33"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-34",
+        "code": "34",
+        "name_zh": "女性护理",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "34"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-34"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "categories",
+        "dimension_name": "品类",
+        "id": "categories-35",
+        "code": "35",
+        "name_zh": "宠物用品",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "35"
+      },
+      "target_dimension": "categories",
+      "matches": [
+        "categories-35"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-1",
+        "code": "1",
+        "name_zh": "Rose",
+        "name_en": "Rose",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-2",
+        "code": "2",
+        "name_zh": "Pink",
+        "name_en": "Pink",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-3",
+        "code": "3",
+        "name_zh": "Yellow",
+        "name_en": "Yellow",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-4",
+        "code": "4",
+        "name_zh": "Lemon Yellow",
+        "name_en": "Lemon Yellow",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-5",
+        "code": "5",
+        "name_zh": "Orange",
+        "name_en": "Orange",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-6",
+        "code": "6",
+        "name_zh": "Blue",
+        "name_en": "Blue",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-7",
+        "code": "7",
+        "name_zh": "Green",
+        "name_en": "Green",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-8",
+        "code": "8",
+        "name_zh": "Chartreuse",
+        "name_en": "Chartreuse",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-9",
+        "code": "9",
+        "name_zh": "Purple",
+        "name_en": "Purple",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-10",
+        "code": "10",
+        "name_zh": "Black",
+        "name_en": "Black",
+        "status": "ENABLED",
+        "sortOrder": "10"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-10"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-11",
+        "code": "11",
+        "name_zh": "White",
+        "name_en": "White",
+        "status": "ENABLED",
+        "sortOrder": "11"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-11"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-12",
+        "code": "12",
+        "name_zh": "Gold",
+        "name_en": "Gold",
+        "status": "ENABLED",
+        "sortOrder": "12"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-12"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-13",
+        "code": "13",
+        "name_zh": "Silver",
+        "name_en": "Silver",
+        "status": "ENABLED",
+        "sortOrder": "13"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-13"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-14",
+        "code": "14",
+        "name_zh": "Khaki",
+        "name_en": "Khaki",
+        "status": "ENABLED",
+        "sortOrder": "14"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-14"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-15",
+        "code": "15",
+        "name_zh": "Apricot",
+        "name_en": "Apricot",
+        "status": "ENABLED",
+        "sortOrder": "15"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-15"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-16",
+        "code": "16",
+        "name_zh": "Brown",
+        "name_en": "Brown",
+        "status": "ENABLED",
+        "sortOrder": "16"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-16"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-17",
+        "code": "17",
+        "name_zh": "Gray",
+        "name_en": "Gray",
+        "status": "ENABLED",
+        "sortOrder": "17"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-17"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-18",
+        "code": "18",
+        "name_zh": "Camouflage",
+        "name_en": "Camouflage",
+        "status": "ENABLED",
+        "sortOrder": "18"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-18"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-19",
+        "code": "19",
+        "name_zh": "Multicolor",
+        "name_en": "Multicolor",
+        "status": "ENABLED",
+        "sortOrder": "19"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-19"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-20",
+        "code": "20",
+        "name_zh": "Same As Photo",
+        "name_en": "Same As Photo",
+        "status": "ENABLED",
+        "sortOrder": "20"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-20"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-21",
+        "code": "21",
+        "name_zh": "Leopard",
+        "name_en": "Leopard",
+        "status": "ENABLED",
+        "sortOrder": "21"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-21"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-22",
+        "code": "22",
+        "name_zh": "Dark blue",
+        "name_en": "Dark blue",
+        "status": "ENABLED",
+        "sortOrder": "22"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-22"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-23",
+        "code": "23",
+        "name_zh": "Light blue",
+        "name_en": "Light blue",
+        "status": "ENABLED",
+        "sortOrder": "23"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-23"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-24",
+        "code": "24",
+        "name_zh": "Dark green",
+        "name_en": "Dark green",
+        "status": "ENABLED",
+        "sortOrder": "24"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-24"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-25",
+        "code": "25",
+        "name_zh": "Light green",
+        "name_en": "Light green",
+        "status": "ENABLED",
+        "sortOrder": "25"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-25"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-26",
+        "code": "26",
+        "name_zh": "Beige",
+        "name_en": "Beige",
+        "status": "ENABLED",
+        "sortOrder": "26"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-26"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-27",
+        "code": "27",
+        "name_zh": "Wine red",
+        "name_en": "Wine red",
+        "status": "ENABLED",
+        "sortOrder": "27"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-27"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-28",
+        "code": "28",
+        "name_zh": "Coffee",
+        "name_en": "Coffee",
+        "status": "ENABLED",
+        "sortOrder": "28"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-28"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-29",
+        "code": "29",
+        "name_zh": "champagne",
+        "name_en": "champagne",
+        "status": "ENABLED",
+        "sortOrder": "29"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-29"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-30",
+        "code": "30",
+        "name_zh": "Deep brown",
+        "name_en": "Deep brown",
+        "status": "ENABLED",
+        "sortOrder": "30"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-30"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-31",
+        "code": "31",
+        "name_zh": "Camel",
+        "name_en": "Camel",
+        "status": "ENABLED",
+        "sortOrder": "31"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-31"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-32",
+        "code": "32",
+        "name_zh": "Caramel",
+        "name_en": "Caramel",
+        "status": "ENABLED",
+        "sortOrder": "32"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-32"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-33",
+        "code": "33",
+        "name_zh": "Dark gray",
+        "name_en": "Dark gray",
+        "status": "ENABLED",
+        "sortOrder": "33"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-33"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-34",
+        "code": "34",
+        "name_zh": "Brick red",
+        "name_en": "Brick red",
+        "status": "ENABLED",
+        "sortOrder": "34"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-34"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-35",
+        "code": "35",
+        "name_zh": "Light gray",
+        "name_en": "Light gray",
+        "status": "ENABLED",
+        "sortOrder": "35"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-35"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-36",
+        "code": "36",
+        "name_zh": "Red",
+        "name_en": "Red",
+        "status": "ENABLED",
+        "sortOrder": "36"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-36"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-37",
+        "code": "37",
+        "name_zh": "Navy blue",
+        "name_en": "Navy blue",
+        "status": "ENABLED",
+        "sortOrder": "37"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-37"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-38",
+        "code": "38",
+        "name_zh": "ZTJ339-1#",
+        "name_en": "ZTJ339-1#",
+        "status": "ENABLED",
+        "sortOrder": "38"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-38"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-39",
+        "code": "39",
+        "name_zh": "ZTJ339-3#",
+        "name_en": "ZTJ339-3#",
+        "status": "ENABLED",
+        "sortOrder": "39"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-39"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-40",
+        "code": "40",
+        "name_zh": "ZTJ339-4#",
+        "name_en": "ZTJ339-4#",
+        "status": "ENABLED",
+        "sortOrder": "40"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-40"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-41",
+        "code": "41",
+        "name_zh": "ZTJ339-2#",
+        "name_en": "ZTJ339-2#",
+        "status": "ENABLED",
+        "sortOrder": "41"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-41"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-42",
+        "code": "42",
+        "name_zh": "Light Pink",
+        "name_en": "Light Pink",
+        "status": "ENABLED",
+        "sortOrder": "42"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-42"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-43",
+        "code": "43",
+        "name_zh": "Slot peep",
+        "name_en": "Slot peep",
+        "status": "ENABLED",
+        "sortOrder": "43"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-43"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-44",
+        "code": "44",
+        "name_zh": "Fine hole peep",
+        "name_en": "Fine hole peep",
+        "status": "ENABLED",
+        "sortOrder": "44"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-44"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-45",
+        "code": "45",
+        "name_zh": "Rose gold",
+        "name_en": "Rose gold",
+        "status": "ENABLED",
+        "sortOrder": "45"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-45"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-46",
+        "code": "46",
+        "name_zh": "White colorhair",
+        "name_en": "White colorhair",
+        "status": "ENABLED",
+        "sortOrder": "46"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-46"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-47",
+        "code": "47",
+        "name_zh": "Green colorhair",
+        "name_en": "Green colorhair",
+        "status": "ENABLED",
+        "sortOrder": "47"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-47"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-48",
+        "code": "48",
+        "name_zh": "Black colorhair",
+        "name_en": "Black colorhair",
+        "status": "ENABLED",
+        "sortOrder": "48"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-48"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-49",
+        "code": "49",
+        "name_zh": "Brown colorhair",
+        "name_en": "Brown colorhair",
+        "status": "ENABLED",
+        "sortOrder": "49"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-49"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-50",
+        "code": "50",
+        "name_zh": "Nude",
+        "name_en": "Nude",
+        "status": "ENABLED",
+        "sortOrder": "50"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-50"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-51",
+        "code": "51",
+        "name_zh": "black step feet",
+        "name_en": "black step feet",
+        "status": "ENABLED",
+        "sortOrder": "51"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-51"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-52",
+        "code": "52",
+        "name_zh": "nude step feet",
+        "name_en": "nude step feet",
+        "status": "ENABLED",
+        "sortOrder": "52"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-52"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-53",
+        "code": "53",
+        "name_zh": "black tights",
+        "name_en": "black tights",
+        "status": "ENABLED",
+        "sortOrder": "53"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-53"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-54",
+        "code": "54",
+        "name_zh": "nude tights",
+        "name_en": "nude tights",
+        "status": "ENABLED",
+        "sortOrder": "54"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-54"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-55",
+        "code": "55",
+        "name_zh": "ArmyGreen",
+        "name_en": "ArmyGreen",
+        "status": "ENABLED",
+        "sortOrder": "55"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-55"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-56",
+        "code": "56",
+        "name_zh": "Red Painting",
+        "name_en": "Red Painting",
+        "status": "ENABLED",
+        "sortOrder": "56"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-56"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-57",
+        "code": "57",
+        "name_zh": "White Painting",
+        "name_en": "White Painting",
+        "status": "ENABLED",
+        "sortOrder": "57"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-57"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-58",
+        "code": "58",
+        "name_zh": "Black Painting",
+        "name_en": "Black Painting",
+        "status": "ENABLED",
+        "sortOrder": "58"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-58"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-59",
+        "code": "59",
+        "name_zh": "Right hand black",
+        "name_en": "Right hand black",
+        "status": "ENABLED",
+        "sortOrder": "59"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-59"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-60",
+        "code": "60",
+        "name_zh": "Left hand black",
+        "name_en": "Left hand black",
+        "status": "ENABLED",
+        "sortOrder": "60"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-60"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-61",
+        "code": "61",
+        "name_zh": "Light coffee",
+        "name_en": "Light coffee",
+        "status": "ENABLED",
+        "sortOrder": "61"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-61"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-62",
+        "code": "62",
+        "name_zh": "Dark coffee",
+        "name_en": "Dark coffee",
+        "status": "ENABLED",
+        "sortOrder": "62"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-62"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-63",
+        "code": "63",
+        "name_zh": "White & Black ShuangPin",
+        "name_en": "White & Black ShuangPin",
+        "status": "ENABLED",
+        "sortOrder": "63"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-63"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-64",
+        "code": "64",
+        "name_zh": "Black & White Shuangpin",
+        "name_en": "Black & White Shuangpin",
+        "status": "ENABLED",
+        "sortOrder": "64"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-64"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-65",
+        "code": "65",
+        "name_zh": "Fruit green",
+        "name_en": "Fruit green",
+        "status": "ENABLED",
+        "sortOrder": "65"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-65"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-66",
+        "code": "66",
+        "name_zh": "Light purple",
+        "name_en": "Light purple",
+        "status": "ENABLED",
+        "sortOrder": "66"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-66"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-67",
+        "code": "67",
+        "name_zh": "Brown short",
+        "name_en": "Brown short",
+        "status": "ENABLED",
+        "sortOrder": "67"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-67"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-68",
+        "code": "68",
+        "name_zh": "Brown long",
+        "name_en": "Brown long",
+        "status": "ENABLED",
+        "sortOrder": "68"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-68"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-69",
+        "code": "69",
+        "name_zh": "Black short",
+        "name_en": "Black short",
+        "status": "ENABLED",
+        "sortOrder": "69"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-69"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-70",
+        "code": "70",
+        "name_zh": "Black long",
+        "name_en": "Black long",
+        "status": "ENABLED",
+        "sortOrder": "70"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-70"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-71",
+        "code": "71",
+        "name_zh": "Grey short",
+        "name_en": "Grey short",
+        "status": "ENABLED",
+        "sortOrder": "71"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-71"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-72",
+        "code": "72",
+        "name_zh": "Grey long",
+        "name_en": "Grey long",
+        "status": "ENABLED",
+        "sortOrder": "72"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-72"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-73",
+        "code": "73",
+        "name_zh": "Grey stripes",
+        "name_en": "Grey stripes",
+        "status": "ENABLED",
+        "sortOrder": "73"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-73"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-74",
+        "code": "74",
+        "name_zh": "Red stripes",
+        "name_en": "Red stripes",
+        "status": "ENABLED",
+        "sortOrder": "74"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-74"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-75",
+        "code": "75",
+        "name_zh": "Grey Short Sleeve dress",
+        "name_en": "Grey Short Sleeve dress",
+        "status": "ENABLED",
+        "sortOrder": "75"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-75"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-76",
+        "code": "76",
+        "name_zh": "Dark grey1",
+        "name_en": "Dark grey1",
+        "status": "ENABLED",
+        "sortOrder": "76"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-76"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-77",
+        "code": "77",
+        "name_zh": "Dark grey2",
+        "name_en": "Dark grey2",
+        "status": "ENABLED",
+        "sortOrder": "77"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-77"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-78",
+        "code": "78",
+        "name_zh": "Blue1",
+        "name_en": "Blue1",
+        "status": "ENABLED",
+        "sortOrder": "78"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-78"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-79",
+        "code": "79",
+        "name_zh": "Blue2",
+        "name_en": "Blue2",
+        "status": "ENABLED",
+        "sortOrder": "79"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-79"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-80",
+        "code": "80",
+        "name_zh": "Army green1",
+        "name_en": "Army green1",
+        "status": "ENABLED",
+        "sortOrder": "80"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-80"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-81",
+        "code": "81",
+        "name_zh": "Army green2",
+        "name_en": "Army green2",
+        "status": "ENABLED",
+        "sortOrder": "81"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-81"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-82",
+        "code": "82",
+        "name_zh": "green+purple",
+        "name_en": "green+purple",
+        "status": "ENABLED",
+        "sortOrder": "82"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-82"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-83",
+        "code": "83",
+        "name_zh": "Black dress",
+        "name_en": "Black dress",
+        "status": "ENABLED",
+        "sortOrder": "83"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-83"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-84",
+        "code": "84",
+        "name_zh": "Skirt （single piece）",
+        "name_en": "Skirt （single piece）",
+        "status": "ENABLED",
+        "sortOrder": "84"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-84"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-85",
+        "code": "85",
+        "name_zh": "Cardigan + Print Top （2 pieces）",
+        "name_en": "Cardigan + Print Top （2 pieces）",
+        "status": "ENABLED",
+        "sortOrder": "85"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-85"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "colors",
+        "dimension_name": "颜色",
+        "id": "colors-86",
+        "code": "86",
+        "name_zh": "winered",
+        "name_en": "winered",
+        "status": "ENABLED",
+        "sortOrder": "86"
+      },
+      "target_dimension": "colors",
+      "matches": [
+        "colors-86"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-1",
+        "code": "1",
+        "name_zh": "1-Casul Shirt-18-30休闲衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "1"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-1"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-2",
+        "code": "2",
+        "name_zh": "2-prin shirt-18-30印花衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "2"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-2"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-3",
+        "code": "3",
+        "name_zh": "3-Sweet Blouse-18-30设计上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "3"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-3"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-4",
+        "code": "4",
+        "name_zh": "4-Short Sleeve Top-18-35短袖上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "4"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-4"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-5",
+        "code": "5",
+        "name_zh": "5-print top-25-45印花上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "5"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-5"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-6",
+        "code": "6",
+        "name_zh": "6-long shirt-25-45长款衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "6"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-6"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-7",
+        "code": "7",
+        "name_zh": "7-Office Blouse-25-45通勤衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "7"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-7"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-8",
+        "code": "8",
+        "name_zh": "8-Classic Blouse-25-45印花衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "8"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-8"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-9",
+        "code": "9",
+        "name_zh": "9-Print Shirt-45-60长款衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "9"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-9"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-10",
+        "code": "10",
+        "name_zh": "10-print shirt-45-60印花衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "10"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-10"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-11",
+        "code": "11",
+        "name_zh": "11-wool top-18-30毛织上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "11"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-11"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-12",
+        "code": "12",
+        "name_zh": "12-Casual Set-18-30休闲套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "12"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-12"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-13",
+        "code": "13",
+        "name_zh": "13-Preppy Dress-18-30学院风连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "13"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-13"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-14",
+        "code": "14",
+        "name_zh": "14-muslim dress-18-30穆斯林连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "14"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-14"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-15",
+        "code": "15",
+        "name_zh": "15-mini dress-18-30娃娃裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "15"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-15"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-16",
+        "code": "16",
+        "name_zh": "16-Preppy Dress-18-30简约连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "16"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-16"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-17",
+        "code": "17",
+        "name_zh": "17-Classic Dress-18-30长袖连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "17"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-17"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-18",
+        "code": "18",
+        "name_zh": "18-Classic Dress-18-30短袖连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "18"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-18"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-19",
+        "code": "19",
+        "name_zh": "19-Asaya print dress-30-45 平价印花连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "19"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-19"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-20",
+        "code": "20",
+        "name_zh": "20-Elegant Dress-30-45优雅连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "20"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-20"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-21",
+        "code": "21",
+        "name_zh": "21-Elegant Dress-30-45短袖连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "21"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-21"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-22",
+        "code": "22",
+        "name_zh": "22-Casual Dress-30-45休闲连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "22"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-22"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-23",
+        "code": "23",
+        "name_zh": "23-sexy dress-30-45性感连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "23"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-23"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-24",
+        "code": "24",
+        "name_zh": "24-short dress-30-45短款连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "24"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-24"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-25",
+        "code": "25",
+        "name_zh": "25- OL dress-30-45通勤连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "25"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-25"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-26",
+        "code": "26",
+        "name_zh": "26-Loose dress-40-60宽松连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "26"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-26"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-27",
+        "code": "27",
+        "name_zh": "27-Casual Set-30-55休闲套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "27"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-27"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-28",
+        "code": "28",
+        "name_zh": "28-Office Set-30-45通勤套装&连体裤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "28"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-28"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-29",
+        "code": "29",
+        "name_zh": "29-print set jumpsuit-30-45印花套装&连体裤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "29"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-29"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-30",
+        "code": "30",
+        "name_zh": "30-Sweet Set-18-30搭配套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "30"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-30"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-31",
+        "code": "31",
+        "name_zh": "31-Sweet Set-18-30优雅套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "31"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-31"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-32",
+        "code": "32",
+        "name_zh": "32- fashion set-30-45时尚套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "32"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-32"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-33",
+        "code": "33",
+        "name_zh": "33- print set-45-60休闲套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "33"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-33"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-34",
+        "code": "34",
+        "name_zh": "34-Jeans-牛仔裤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "34"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-34"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-35",
+        "code": "35",
+        "name_zh": "35-coat-外套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "35"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-35"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-36",
+        "code": "36",
+        "name_zh": "36-basic clothing-基础打底",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "36"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-36"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-37",
+        "code": "37",
+        "name_zh": "37-lace top-蕾丝上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "37"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-37"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-38",
+        "code": "38",
+        "name_zh": "38-senior dress-高级连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "38"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-38"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-39",
+        "code": "39",
+        "name_zh": "39-denim Jacket-牛仔外套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "39"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-39"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-40",
+        "code": "40",
+        "name_zh": "40-set-高价套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "40"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-40"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-41",
+        "code": "41",
+        "name_zh": "41-Basic top-女士基础上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "41"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-41"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-42",
+        "code": "42",
+        "name_zh": "42-Women T-shirt-女士T恤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "42"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-42"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-43",
+        "code": "43",
+        "name_zh": "43-Sweatshirt-女士卫衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "43"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-43"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-44",
+        "code": "44",
+        "name_zh": "45-Skirt-18-30-半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "44"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-44"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-45",
+        "code": "45",
+        "name_zh": "46-穆斯林高价长袍",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "45"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-45"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-46",
+        "code": "46",
+        "name_zh": "47-Pajamas-睡衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "46"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-46"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-47",
+        "code": "47",
+        "name_zh": "48-Casul Shirt-30-45宽松衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "47"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-47"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-48",
+        "code": "48",
+        "name_zh": "49-Classic Top-18-30穆斯林设计上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "48"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-48"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-49",
+        "code": "49",
+        "name_zh": "50-muslim OL shirt-25-45穆斯林通勤上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "49"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-49"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-50",
+        "code": "50",
+        "name_zh": "51-muslim long shirt-45-60穆斯林长款衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "50"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-50"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-51",
+        "code": "51",
+        "name_zh": "52-muslim wool top-18-30穆斯林毛织上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "51"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-51"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-52",
+        "code": "52",
+        "name_zh": "53-muslim wool cardigan-18-30穆斯林毛织开衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "52"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-52"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-53",
+        "code": "53",
+        "name_zh": "54-wool cardigan-18-30毛织开衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "53"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-53"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-54",
+        "code": "54",
+        "name_zh": "55-Casual Dress-18-30休闲连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "54"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-54"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-55",
+        "code": "55",
+        "name_zh": "56-muslim casual set-30-55穆斯林休闲套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "55"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-55"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-56",
+        "code": "56",
+        "name_zh": "57-muslim OL-30-55穆斯林通勤服饰",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "56"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-56"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-57",
+        "code": "57",
+        "name_zh": "58-muslim casual shirt-18-30穆斯林休闲衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "57"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-57"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-58",
+        "code": "58",
+        "name_zh": "59-muslim abaya-30-45高价穆斯林传统服饰",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "58"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-58"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-59",
+        "code": "59",
+        "name_zh": "60-Men's basic T-shirt-男装基础T恤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "59"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-59"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-60",
+        "code": "60",
+        "name_zh": "61-design shirt-25-45设计衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "60"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-60"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-61",
+        "code": "61",
+        "name_zh": "62-elegant top-25-45设计上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "61"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-61"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-62",
+        "code": "62",
+        "name_zh": "63-Short Sleeve Lace Top-25-45短袖蕾丝上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "62"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-62"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-63",
+        "code": "63",
+        "name_zh": "65-Short Sleeve Top-25-45短袖上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "63"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-63"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-64",
+        "code": "64",
+        "name_zh": "66-Casual Shirt-25-45休闲衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "64"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-64"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-65",
+        "code": "65",
+        "name_zh": "67-Traditional Muslim top-18-30-传统穆斯林上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "65"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-65"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-66",
+        "code": "66",
+        "name_zh": "68-Traditional Muslim Dress-25-35-传统穆斯林连衣裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "66"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-66"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-67",
+        "code": "67",
+        "name_zh": "69-Traditional Muslim Tunic-30-55-传统穆斯林上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "67"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-67"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-68",
+        "code": "68",
+        "name_zh": "70-Traditional Muslim Abaya-25-45",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "68"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-68"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-69",
+        "code": "69",
+        "name_zh": "71-Business Men's Wear-轻商务男装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "69"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-69"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-70",
+        "code": "70",
+        "name_zh": "72- Classic Top-18-35纯色上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "70"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-70"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-71",
+        "code": "71",
+        "name_zh": "73- Plain-colored Top-35-55-纯色上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "71"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-71"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-72",
+        "code": "72",
+        "name_zh": "74-Casual Skirt-18-35休闲半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "72"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-72"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-73",
+        "code": "73",
+        "name_zh": "75-casual skirt-35-55休闲半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "73"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-73"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-74",
+        "code": "74",
+        "name_zh": "76-simple pants-18-35简约裤子",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "74"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-74"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-75",
+        "code": "75",
+        "name_zh": "77-casual pants-35-55简约裤子",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "75"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-75"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-76",
+        "code": "76",
+        "name_zh": "78-simple T-shirt-18-35简约T恤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "76"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-76"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-77",
+        "code": "77",
+        "name_zh": "79-loose T-shirt-35-55宽松T恤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "77"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-77"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-78",
+        "code": "78",
+        "name_zh": "80-Printed Blouse-35-55印花上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "78"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-78"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-79",
+        "code": "79",
+        "name_zh": "81-print skirt-18-35印花半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "79"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-79"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-80",
+        "code": "80",
+        "name_zh": "82-print skirt-35-55印花半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "80"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-80"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-81",
+        "code": "81",
+        "name_zh": "83-Solid robe-18-35纯色长袍",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "81"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-81"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-82",
+        "code": "82",
+        "name_zh": "84-solid robe-35-55纯色长袍",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "82"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-82"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-83",
+        "code": "83",
+        "name_zh": "85-asaya pajamas-18-35-低价睡衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "83"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-83"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-84",
+        "code": "84",
+        "name_zh": "86-OL skirt-通勤半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "84"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-84"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-85",
+        "code": "85",
+        "name_zh": "90-fadfad basic clothing-超级基础女装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "85"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-85"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-86",
+        "code": "86",
+        "name_zh": "91-Casual Blouse-18-35休闲衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "86"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-86"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-87",
+        "code": "87",
+        "name_zh": "92-Printed Tunik-35-55印花长款上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "87"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-87"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-88",
+        "code": "88",
+        "name_zh": "87-Casual Set-18-35休闲套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "88"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-88"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-89",
+        "code": "89",
+        "name_zh": "88-Sweet Set-18-35印花套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "89"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-89"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-90",
+        "code": "90",
+        "name_zh": "89-Printed Set-35-55印花套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "90"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-90"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-91",
+        "code": "91",
+        "name_zh": "93-Asaya shirt-20-45衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "91"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-91"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-92",
+        "code": "92",
+        "name_zh": "94-Casaul Dress-35-55休闲长裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "92"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-92"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-93",
+        "code": "93",
+        "name_zh": "95-Asaya dress-18-30-年轻印花长裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "93"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-93"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-94",
+        "code": "94",
+        "name_zh": "96-Asaya night dress-30-55睡衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "94"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-94"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-95",
+        "code": "95",
+        "name_zh": "97-Modern Gamis -25-35日常穆斯林长裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "95"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-95"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-96",
+        "code": "96",
+        "name_zh": "98-Sarimbit-30-45穆斯林家庭装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "96"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-96"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-97",
+        "code": "97",
+        "name_zh": "99-casual pants-休闲裤子",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "97"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-97"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-98",
+        "code": "98",
+        "name_zh": "100-Basic NU裸感基础款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "98"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-98"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-99",
+        "code": "99",
+        "name_zh": "101-Cloudsoft云感基础款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "99"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-99"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-100",
+        "code": "100",
+        "name_zh": "102-Basic Nature户外基础款",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "100"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-100"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-101",
+        "code": "101",
+        "name_zh": "103-Men's polo-男装polo",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "101"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-101"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-102",
+        "code": "102",
+        "name_zh": "104-Men's basic & micro-design woolwear-男装毛织",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "102"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-102"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-103",
+        "code": "103",
+        "name_zh": "105-men's shirts-男装衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "103"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-103"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-104",
+        "code": "104",
+        "name_zh": "106-Men's hoodies-男装卫衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "104"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-104"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-105",
+        "code": "105",
+        "name_zh": "107-men's jacket&coat-男装外套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "105"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-105"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-106",
+        "code": "106",
+        "name_zh": "108-Men's trousers-男装长裤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "106"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-106"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-107",
+        "code": "107",
+        "name_zh": "109-Men's shorts-男装短裤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "107"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-107"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-108",
+        "code": "108",
+        "name_zh": "110-Men's suits-男装套装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "108"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-108"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-109",
+        "code": "109",
+        "name_zh": "111-couple outfit-25-35情侣装",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "109"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-109"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-110",
+        "code": "110",
+        "name_zh": "112-Printed short-sleeved shirt-30-55印花短袖衬衫",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "110"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-110"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-111",
+        "code": "111",
+        "name_zh": "113-Design T-shirts-25-45设计T恤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "111"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-111"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-112",
+        "code": "112",
+        "name_zh": "118-Office Vest-25-35通勤马甲",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "112"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-112"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-113",
+        "code": "113",
+        "name_zh": "120-Casual Tshirt-18-30休闲t恤",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "113"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-113"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-114",
+        "code": "114",
+        "name_zh": "121-Casual Jacket-18-30休闲薄外套",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "114"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-114"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-115",
+        "code": "115",
+        "name_zh": "122-Sweet Skirt-18-30设计半裙",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "115"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-115"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    },
+    {
+      "source": {
+        "dimension_id": "styleCodes",
+        "dimension_name": "风格编号",
+        "id": "styleCodes-116",
+        "code": "116",
+        "name_zh": "123-Sweet Top-18-30设计毛织上衣",
+        "name_en": "",
+        "status": "ENABLED",
+        "sortOrder": "116"
+      },
+      "target_dimension": "categoryNumbers",
+      "matches": [
+        "categoryNumbers-116"
+      ],
+      "match_by": "stable_source_id_and_name_or_preserved_alias",
+      "passed": true
+    }
+  ],
+  "scope": "源码343项语义逐项核对；浏览器新增项另验，不据此冒充已核对"
+}

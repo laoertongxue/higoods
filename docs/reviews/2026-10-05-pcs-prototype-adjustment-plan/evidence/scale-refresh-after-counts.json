@@ -1,0 +1,47 @@
+[
+  {
+    "label": "navigation",
+    "start": 0,
+    "end": 618.1000000238419,
+    "durationMs": 618.1000000238419,
+    "url": "/pcs/products/styles",
+    "images": 5,
+    "brokenImages": 0
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 534.8999999761581,
+    "end": 534.8999999761581,
+    "images": 5,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 460.89999997615814,
+    "end": 460.89999997615814,
+    "images": 5,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 463.89999997615814,
+    "end": 463.89999997615814,
+    "images": 5,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/styles"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 467,
+    "end": 467,
+    "images": 5,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/styles"
+  }
+]

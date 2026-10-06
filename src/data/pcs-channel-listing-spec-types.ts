@@ -13,7 +13,6 @@ export interface ChannelListingSpecLineRecord {
   sellerSku: string
   priceAmount: number
   currencyCode: string
-  stockQty: number
   lineStatus: ChannelListingSpecLineStatus
   upstreamSkuId: string
   uploadResultText: string
@@ -32,7 +31,6 @@ export interface ChannelListingSpecLineInput {
   sellerSku?: string
   priceAmount?: number
   currencyCode?: string
-  stockQty?: number
   lineStatus?: ChannelListingSpecLineStatus
   upstreamSkuId?: string
   uploadResultText?: string

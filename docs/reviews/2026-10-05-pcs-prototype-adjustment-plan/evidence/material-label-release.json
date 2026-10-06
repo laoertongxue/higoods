@@ -1,0 +1,55 @@
+{
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 176.39999997615814,
+      "end": 58628.09999996424,
+      "images": 5,
+      "label": "label-ready-1",
+      "start": 58451.69999998808,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 177.0999999642372,
+      "end": 59211.59999996424,
+      "images": 5,
+      "label": "label-ready-2",
+      "start": 59034.5,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 177.0999999642372,
+      "end": 59794.89999997616,
+      "images": 5,
+      "label": "label-ready-3",
+      "start": 59617.80000001192,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 176.80000001192093,
+      "end": 60378,
+      "images": 5,
+      "label": "label-ready-4",
+      "start": 60201.19999998808,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 177.5,
+      "end": 60961.5,
+      "images": 5,
+      "label": "label-ready-5",
+      "start": 60784,
+      "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+    }
+  ],
+  "labels": 7,
+  "fullSkuCodes": true
+}

@@ -509,6 +509,7 @@ export function renderSpecialCraftTaskOrdersPage(operationSlug: string): string 
 
   const content = renderStandardListPage({
     title: `${operation.operationName}加工单`,
+    primaryActionsHtml: ['AUX-OP-EMBROIDERY', 'AUX-OP-HEAT-TRANSFER'].includes(operation.operationId) ? `<button class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/process/material-plans?processType=${operation.operationId==='AUX-OP-EMBROIDERY'?'EMBROIDERY':'HEAT_TRANSFER'}">物料加工计划</button>` : '',
     filtersHtml: renderFilters(state),
     statsHtml: renderStats(uniqueTaskOrders),
     listTitle: '加工单列表',

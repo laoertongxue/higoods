@@ -1,0 +1,3129 @@
+[
+  {
+    "path": "/pcs/materials/fabric/material-r1-MAT-FB-00000001",
+    "names": [
+      "基本资料",
+      "SKU",
+      "加工关系",
+      "技术引用",
+      "资料",
+      "记录"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 60.69999998807907,
+        "end": 619.9000000357628,
+        "images": 1,
+        "label": "物料主档详情:基本资料",
+        "start": 559.2000000476837,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 78,
+        "end": 936.5,
+        "images": 3,
+        "label": "物料主档详情:SKU",
+        "start": 858.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63,
+        "end": 1203.2000000476835,
+        "images": 3,
+        "label": "物料主档详情:加工关系",
+        "start": 1140.2000000476835,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 1503.2000000476835,
+        "images": 0,
+        "label": "物料主档详情:技术引用",
+        "start": 1441.4000000357628,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.5,
+        "end": 1803.300000011921,
+        "images": 3,
+        "label": "物料主档详情:资料",
+        "start": 1740.800000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 2103.300000011921,
+        "images": 0,
+        "label": "物料主档详情:记录",
+        "start": 2041.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.39999997615814,
+        "end": 2386.600000023842,
+        "images": 1,
+        "label": "物料主档详情:基本资料",
+        "start": 2325.2000000476837,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.60000002384186,
+        "end": 2703.2000000476837,
+        "images": 3,
+        "label": "物料主档详情:SKU",
+        "start": 2641.600000023842,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.69999998807907,
+        "end": 3003.300000011921,
+        "images": 3,
+        "label": "物料主档详情:加工关系",
+        "start": 2941.600000023842,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.5,
+        "end": 3303.300000011921,
+        "images": 0,
+        "label": "物料主档详情:技术引用",
+        "start": 3241.800000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.70000004768371,
+        "end": 3603.200000047684,
+        "images": 3,
+        "label": "物料主档详情:资料",
+        "start": 3541.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 3903.300000011921,
+        "images": 0,
+        "label": "物料主档详情:记录",
+        "start": 3841.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.19999998807907,
+        "end": 4186.600000023842,
+        "images": 1,
+        "label": "物料主档详情:基本资料",
+        "start": 4124.400000035763,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.19999998807907,
+        "end": 4469.900000035763,
+        "images": 3,
+        "label": "物料主档详情:SKU",
+        "start": 4407.700000047684,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60.90000003576279,
+        "end": 4769.900000035763,
+        "images": 3,
+        "label": "物料主档详情:加工关系",
+        "start": 4709,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.79999995231629,
+        "end": 5070,
+        "images": 0,
+        "label": "物料主档详情:技术引用",
+        "start": 5008.200000047684,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.40000003576279,
+        "end": 5369.900000035763,
+        "images": 3,
+        "label": "物料主档详情:资料",
+        "start": 5307.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.30000001192093,
+        "end": 5669.900000035763,
+        "images": 0,
+        "label": "物料主档详情:记录",
+        "start": 5608.600000023842,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.09999996423721,
+        "end": 5970,
+        "images": 1,
+        "label": "物料主档详情:基本资料",
+        "start": 5906.900000035763,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 78.10000002384186,
+        "end": 6286.600000023842,
+        "images": 3,
+        "label": "物料主档详情:SKU",
+        "start": 6208.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.40000003576279,
+        "end": 6553.200000047684,
+        "images": 3,
+        "label": "物料主档详情:加工关系",
+        "start": 6491.800000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.80000001192093,
+        "end": 6854.300000011921,
+        "images": 0,
+        "label": "物料主档详情:技术引用",
+        "start": 6791.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.90000003576279,
+        "end": 7153.400000035763,
+        "images": 3,
+        "label": "物料主档详情:资料",
+        "start": 7090.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.09999996423721,
+        "end": 7453.300000011921,
+        "images": 0,
+        "label": "物料主档详情:记录",
+        "start": 7391.200000047684,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 7753.200000047684,
+        "images": 1,
+        "label": "物料主档详情:基本资料",
+        "start": 7691.400000035763,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.09999996423721,
+        "end": 8053.300000011921,
+        "images": 3,
+        "label": "物料主档详情:SKU",
+        "start": 7991.200000047684,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.70000004768371,
+        "end": 8353.200000047684,
+        "images": 3,
+        "label": "物料主档详情:加工关系",
+        "start": 8291.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 8653.200000047684,
+        "images": 0,
+        "label": "物料主档详情:技术引用",
+        "start": 8591.400000035763,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 8953.300000011921,
+        "images": 3,
+        "label": "物料主档详情:资料",
+        "start": 8891.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.19999998807907,
+        "end": 9253.30000001192,
+        "images": 0,
+        "label": "物料主档详情:记录",
+        "start": 9192.100000023842,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01",
+    "names": [
+      "规格",
+      "加工关系",
+      "加工计划",
+      "计量单位",
+      "标准成本",
+      "包装物流",
+      "技术引用",
+      "资料",
+      "记录"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 61.60000002384186,
+        "end": 568.5,
+        "images": 1,
+        "label": "物料SKU详情:规格",
+        "start": 506.89999997615814,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.40000003576279,
+        "end": 868.5,
+        "images": 1,
+        "label": "物料SKU详情:加工关系",
+        "start": 807.0999999642372,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.69999998807907,
+        "end": 1168.5,
+        "images": 0,
+        "label": "物料SKU详情:加工计划",
+        "start": 1104.800000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64,
+        "end": 1435.199999988079,
+        "images": 0,
+        "label": "物料SKU详情:计量单位",
+        "start": 1371.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.89999997615814,
+        "end": 1735.0999999642372,
+        "images": 0,
+        "label": "物料SKU详情:标准成本",
+        "start": 1673.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.69999998807907,
+        "end": 2035.199999988079,
+        "images": 0,
+        "label": "物料SKU详情:包装物流",
+        "start": 1973.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.39999997615814,
+        "end": 2335.099999964237,
+        "images": 0,
+        "label": "物料SKU详情:技术引用",
+        "start": 2273.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.69999998807907,
+        "end": 2635.199999988079,
+        "images": 0,
+        "label": "物料SKU详情:资料",
+        "start": 2572.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 2918.5,
+        "images": 0,
+        "label": "物料SKU详情:记录",
+        "start": 2856.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.60000002384186,
+        "end": 3201.800000011921,
+        "images": 1,
+        "label": "物料SKU详情:规格",
+        "start": 3139.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 3501.899999976158,
+        "images": 1,
+        "label": "物料SKU详情:加工关系",
+        "start": 3439.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.40000003576279,
+        "end": 3801.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:加工计划",
+        "start": 3740.399999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.20000004768371,
+        "end": 4101.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:计量单位",
+        "start": 4039.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 4401.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:标准成本",
+        "start": 4339.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 4701.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:包装物流",
+        "start": 4639.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.09999996423721,
+        "end": 4985.099999964237,
+        "images": 0,
+        "label": "物料SKU详情:技术引用",
+        "start": 4924,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 5301.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:资料",
+        "start": 5239.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 5585.199999988079,
+        "images": 0,
+        "label": "物料SKU详情:记录",
+        "start": 5523.099999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.30000001192093,
+        "end": 5901.800000011921,
+        "images": 1,
+        "label": "物料SKU详情:规格",
+        "start": 5840.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 6201.899999976158,
+        "images": 1,
+        "label": "物料SKU详情:加工关系",
+        "start": 6139.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 6501.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:加工计划",
+        "start": 6439.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 6801.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:计量单位",
+        "start": 6740,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 7101.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:标准成本",
+        "start": 7039.800000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 7401.899999976158,
+        "images": 0,
+        "label": "物料SKU详情:包装物流",
+        "start": 7339.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 7701.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:技术引用",
+        "start": 7640,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 8001.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:资料",
+        "start": 7939.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 8301.800000011921,
+        "images": 0,
+        "label": "物料SKU详情:记录",
+        "start": 8240,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 8601.899999976158,
+        "images": 1,
+        "label": "物料SKU详情:规格",
+        "start": 8539.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.69999998807907,
+        "end": 8901.899999976158,
+        "images": 1,
+        "label": "物料SKU详情:加工关系",
+        "start": 8840.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 9201.80000001192,
+        "images": 0,
+        "label": "物料SKU详情:加工计划",
+        "start": 9139.80000001192,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.39999997615814,
+        "end": 9485.099999964235,
+        "images": 0,
+        "label": "物料SKU详情:计量单位",
+        "start": 9422.69999998808,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 9785.19999998808,
+        "images": 0,
+        "label": "物料SKU详情:标准成本",
+        "start": 9722.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.40000003576279,
+        "end": 10068.5,
+        "images": 0,
+        "label": "物料SKU详情:包装物流",
+        "start": 10006.099999964235,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.59999996423721,
+        "end": 10369.099999964235,
+        "images": 0,
+        "label": "物料SKU详情:技术引用",
+        "start": 10307.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.40000003576279,
+        "end": 10668.5,
+        "images": 0,
+        "label": "物料SKU详情:资料",
+        "start": 10606.099999964235,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.59999996423721,
+        "end": 10968.399999976158,
+        "images": 0,
+        "label": "物料SKU详情:记录",
+        "start": 10906.80000001192,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 11268.5,
+        "images": 1,
+        "label": "物料SKU详情:规格",
+        "start": 11206.599999964235,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 11568.5,
+        "images": 1,
+        "label": "物料SKU详情:加工关系",
+        "start": 11506.69999998808,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 11868.5,
+        "images": 0,
+        "label": "物料SKU详情:加工计划",
+        "start": 11806.599999964235,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.60000002384186,
+        "end": 12168.5,
+        "images": 0,
+        "label": "物料SKU详情:计量单位",
+        "start": 12106.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.59999996423721,
+        "end": 12451.899999976158,
+        "images": 0,
+        "label": "物料SKU详情:标准成本",
+        "start": 12389.30000001192,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.60000002384186,
+        "end": 12751.80000001192,
+        "images": 0,
+        "label": "物料SKU详情:包装物流",
+        "start": 12690.19999998808,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.69999998807907,
+        "end": 13052.69999998808,
+        "images": 0,
+        "label": "物料SKU详情:技术引用",
+        "start": 12990,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.19999998807907,
+        "end": 13335.099999964235,
+        "images": 0,
+        "label": "物料SKU详情:资料",
+        "start": 13272.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.10000002384186,
+        "end": 13618.5,
+        "images": 0,
+        "label": "物料SKU详情:记录",
+        "start": 13555.399999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit",
+    "names": [
+      "基本资料",
+      "技术属性",
+      "图片"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 61.5,
+        "end": 568.8000000119209,
+        "images": 0,
+        "label": "物料主档编辑:基本资料",
+        "start": 507.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 868.8000000119209,
+        "images": 0,
+        "label": "物料主档编辑:技术属性",
+        "start": 807,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.70000004768371,
+        "end": 1135.4000000357628,
+        "images": 2,
+        "label": "物料主档编辑:图片",
+        "start": 1071.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.80000001192093,
+        "end": 1402.100000023842,
+        "images": 0,
+        "label": "物料主档编辑:基本资料",
+        "start": 1338.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.69999998807907,
+        "end": 1702.100000023842,
+        "images": 0,
+        "label": "物料主档编辑:技术属性",
+        "start": 1640.4000000357628,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.19999998807907,
+        "end": 2002.100000023842,
+        "images": 2,
+        "label": "物料主档编辑:图片",
+        "start": 1939.9000000357628,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60.80000001192093,
+        "end": 2302.100000023842,
+        "images": 0,
+        "label": "物料主档编辑:基本资料",
+        "start": 2241.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 2602.100000023842,
+        "images": 0,
+        "label": "物料主档编辑:技术属性",
+        "start": 2540.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.5,
+        "end": 2885.600000023842,
+        "images": 2,
+        "label": "物料主档编辑:图片",
+        "start": 2823.100000023842,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 3185.5,
+        "images": 0,
+        "label": "物料主档编辑:基本资料",
+        "start": 3123.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 3485.5,
+        "images": 0,
+        "label": "物料主档编辑:技术属性",
+        "start": 3423.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 3785.400000035763,
+        "images": 2,
+        "label": "物料主档编辑:图片",
+        "start": 3723.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 4085.400000035763,
+        "images": 0,
+        "label": "物料主档编辑:基本资料",
+        "start": 4023.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.09999996423721,
+        "end": 4385.5,
+        "images": 0,
+        "label": "物料主档编辑:技术属性",
+        "start": 4323.400000035763,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.60000002384186,
+        "end": 4668.800000011921,
+        "images": 2,
+        "label": "物料主档编辑:图片",
+        "start": 4606.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/edit"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit",
+    "names": [
+      "规格与图片",
+      "计量单位",
+      "标准成本",
+      "包装物流",
+      "资料"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 61.5,
+        "end": 570.8000000119209,
+        "images": 1,
+        "label": "物料SKU编辑:规格与图片",
+        "start": 509.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.70000004768371,
+        "end": 870.8000000119209,
+        "images": 0,
+        "label": "物料SKU编辑:计量单位",
+        "start": 809.0999999642372,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.89999997615814,
+        "end": 1154.199999988079,
+        "images": 0,
+        "label": "物料SKU编辑:标准成本",
+        "start": 1091.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 64.5,
+        "end": 1421.5999999642372,
+        "images": 0,
+        "label": "物料SKU编辑:包装物流",
+        "start": 1357.0999999642372,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 1720.800000011921,
+        "images": 0,
+        "label": "物料SKU编辑:资料",
+        "start": 1658.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 2020.800000011921,
+        "images": 1,
+        "label": "物料SKU编辑:规格与图片",
+        "start": 1959,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 2320.800000011921,
+        "images": 0,
+        "label": "物料SKU编辑:计量单位",
+        "start": 2258.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 2620.800000011921,
+        "images": 0,
+        "label": "物料SKU编辑:标准成本",
+        "start": 2558.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 2920.800000011921,
+        "images": 0,
+        "label": "物料SKU编辑:包装物流",
+        "start": 2859,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 3220.899999976158,
+        "images": 0,
+        "label": "物料SKU编辑:资料",
+        "start": 3159.099999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.39999997615814,
+        "end": 3504.099999964237,
+        "images": 1,
+        "label": "物料SKU编辑:规格与图片",
+        "start": 3441.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.59999996423721,
+        "end": 3804.099999964237,
+        "images": 0,
+        "label": "物料SKU编辑:计量单位",
+        "start": 3742.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.39999997615814,
+        "end": 4087.399999976158,
+        "images": 0,
+        "label": "物料SKU编辑:标准成本",
+        "start": 4025,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 4387.5,
+        "images": 0,
+        "label": "物料SKU编辑:包装物流",
+        "start": 4325.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 4687.5,
+        "images": 0,
+        "label": "物料SKU编辑:资料",
+        "start": 4625.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 4987.5,
+        "images": 1,
+        "label": "物料SKU编辑:规格与图片",
+        "start": 4925.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 5287.5,
+        "images": 0,
+        "label": "物料SKU编辑:计量单位",
+        "start": 5225.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 5587.399999976158,
+        "images": 0,
+        "label": "物料SKU编辑:标准成本",
+        "start": 5525.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 5887.399999976158,
+        "images": 0,
+        "label": "物料SKU编辑:包装物流",
+        "start": 5825.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.30000001192093,
+        "end": 6187.5,
+        "images": 0,
+        "label": "物料SKU编辑:资料",
+        "start": 6126.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.19999998807907,
+        "end": 6487.5,
+        "images": 1,
+        "label": "物料SKU编辑:规格与图片",
+        "start": 6425.300000011921,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 6787.5,
+        "images": 0,
+        "label": "物料SKU编辑:计量单位",
+        "start": 6725.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 7087.5,
+        "images": 0,
+        "label": "物料SKU编辑:标准成本",
+        "start": 7025.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.40000003576279,
+        "end": 7388.300000011921,
+        "images": 0,
+        "label": "物料SKU编辑:包装物流",
+        "start": 7325.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.69999998807907,
+        "end": 7687.399999976158,
+        "images": 0,
+        "label": "物料SKU编辑:资料",
+        "start": 7625.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/edit"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process",
+    "names": [
+      "投入与工艺",
+      "交付规格",
+      "标准费用",
+      "识别与资料",
+      "编码预览"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 60.59999996423721,
+        "end": 569.2999999523163,
+        "images": 1,
+        "label": "物料加工编辑:投入与工艺",
+        "start": 508.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63,
+        "end": 870.2999999523163,
+        "images": 0,
+        "label": "物料加工编辑:交付规格",
+        "start": 807.2999999523163,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.5,
+        "end": 1152.699999988079,
+        "images": 0,
+        "label": "物料加工编辑:标准费用",
+        "start": 1089.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.60000002384186,
+        "end": 1419.399999976158,
+        "images": 0,
+        "label": "物料加工编辑:识别与资料",
+        "start": 1355.7999999523165,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 63.30000001192093,
+        "end": 1703.699999988079,
+        "images": 0,
+        "label": "物料加工编辑:编码预览",
+        "start": 1640.399999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 1985.899999976158,
+        "images": 1,
+        "label": "物料加工编辑:投入与工艺",
+        "start": 1923.5999999642372,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 2286,
+        "images": 0,
+        "label": "物料加工编辑:交付规格",
+        "start": 2224.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 60.80000001192093,
+        "end": 2586,
+        "images": 0,
+        "label": "物料加工编辑:标准费用",
+        "start": 2525.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.70000004768371,
+        "end": 2886,
+        "images": 0,
+        "label": "物料加工编辑:识别与资料",
+        "start": 2824.2999999523163,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.20000004768371,
+        "end": 3186,
+        "images": 0,
+        "label": "物料加工编辑:编码预览",
+        "start": 3123.7999999523163,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 3486,
+        "images": 1,
+        "label": "物料加工编辑:投入与工艺",
+        "start": 3424.199999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.90000003576279,
+        "end": 3786,
+        "images": 0,
+        "label": "物料加工编辑:交付规格",
+        "start": 3724.099999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 4069.399999976158,
+        "images": 0,
+        "label": "物料加工编辑:标准费用",
+        "start": 4007.299999952316,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 4369.399999976158,
+        "images": 0,
+        "label": "物料加工编辑:识别与资料",
+        "start": 4307.299999952316,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.79999995231629,
+        "end": 4669.299999952316,
+        "images": 0,
+        "label": "物料加工编辑:编码预览",
+        "start": 4607.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 4969.399999976158,
+        "images": 1,
+        "label": "物料加工编辑:投入与工艺",
+        "start": 4907.399999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 5269.299999952316,
+        "images": 0,
+        "label": "物料加工编辑:交付规格",
+        "start": 5207.299999952316,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.79999995231629,
+        "end": 5569.299999952316,
+        "images": 0,
+        "label": "物料加工编辑:标准费用",
+        "start": 5507.5,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.5,
+        "end": 5852.599999964237,
+        "images": 0,
+        "label": "物料加工编辑:识别与资料",
+        "start": 5790.099999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62.10000002384186,
+        "end": 6152.699999988079,
+        "images": 0,
+        "label": "物料加工编辑:编码预览",
+        "start": 6090.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.89999997615814,
+        "end": 6452.599999964237,
+        "images": 1,
+        "label": "物料加工编辑:投入与工艺",
+        "start": 6390.699999988079,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.5,
+        "end": 6752.599999964237,
+        "images": 0,
+        "label": "物料加工编辑:交付规格",
+        "start": 6691.099999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.60000002384186,
+        "end": 7052.699999988079,
+        "images": 0,
+        "label": "物料加工编辑:标准费用",
+        "start": 6991.099999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 61.80000001192093,
+        "end": 7352.699999988079,
+        "images": 0,
+        "label": "物料加工编辑:识别与资料",
+        "start": 7290.899999976158,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 62,
+        "end": 7652.599999964237,
+        "images": 0,
+        "label": "物料加工编辑:编码预览",
+        "start": 7590.599999964237,
+        "url": "/pcs/materials/fabric/material-r1-MAT-FB-00000001/skus/material-r1-MAT-FB-00000001-B01/process"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485",
+    "names": [
+      "基本资料",
+      "多语名称",
+      "销售基础内容",
+      "规格",
+      "技术引用",
+      "同款与组合",
+      "记录"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 572.9000000357628,
+        "images": 1,
+        "label": "款式详情:基本资料",
+        "start": 528.1000000238419,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.59999996423721,
+        "end": 873,
+        "images": 1,
+        "label": "款式详情:多语名称",
+        "start": 828.4000000357628,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 1172.800000011921,
+        "images": 1,
+        "label": "款式详情:销售基础内容",
+        "start": 1128.600000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 1472.800000011921,
+        "images": 1,
+        "label": "款式详情:规格",
+        "start": 1428.600000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 42.69999998807907,
+        "end": 1789.699999988079,
+        "images": 1,
+        "label": "款式详情:技术引用",
+        "start": 1747,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 2089.600000023842,
+        "images": 1,
+        "label": "款式详情:同款与组合",
+        "start": 2045.300000011921,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 2389.5,
+        "images": 1,
+        "label": "款式详情:记录",
+        "start": 2345.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.90000003576279,
+        "end": 2690.400000035763,
+        "images": 1,
+        "label": "款式详情:基本资料",
+        "start": 2645.5,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 2989.5,
+        "images": 1,
+        "label": "款式详情:多语名称",
+        "start": 2945.300000011921,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 3272.800000011921,
+        "images": 1,
+        "label": "款式详情:销售基础内容",
+        "start": 3227.800000011921,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.69999998807907,
+        "end": 3572.800000011921,
+        "images": 1,
+        "label": "款式详情:规格",
+        "start": 3529.100000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 3872.800000011921,
+        "images": 1,
+        "label": "款式详情:技术引用",
+        "start": 3828.5,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 41.80000001192093,
+        "end": 4172.800000011921,
+        "images": 1,
+        "label": "款式详情:同款与组合",
+        "start": 4131,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.10000002384186,
+        "end": 4472.800000011921,
+        "images": 1,
+        "label": "款式详情:记录",
+        "start": 4428.699999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 4772.800000011921,
+        "images": 1,
+        "label": "款式详情:基本资料",
+        "start": 4728.600000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.10000002384186,
+        "end": 5072.900000035763,
+        "images": 1,
+        "label": "款式详情:多语名称",
+        "start": 5028.800000011921,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.90000003576279,
+        "end": 5356.100000023842,
+        "images": 1,
+        "label": "款式详情:销售基础内容",
+        "start": 5311.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 39.80000001192093,
+        "end": 5656.100000023842,
+        "images": 1,
+        "label": "款式详情:规格",
+        "start": 5616.300000011921,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.59999996423721,
+        "end": 5956.199999988079,
+        "images": 1,
+        "label": "款式详情:技术引用",
+        "start": 5911.600000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.69999998807907,
+        "end": 6256.100000023842,
+        "images": 1,
+        "label": "款式详情:同款与组合",
+        "start": 6212.400000035763,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.09999996423721,
+        "end": 6556.199999988079,
+        "images": 1,
+        "label": "款式详情:记录",
+        "start": 6512.100000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 6839.5,
+        "images": 1,
+        "label": "款式详情:基本资料",
+        "start": 6794.699999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.59999996423721,
+        "end": 7139.5,
+        "images": 1,
+        "label": "款式详情:多语名称",
+        "start": 7094.900000035763,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.39999997615814,
+        "end": 7439.5,
+        "images": 1,
+        "label": "款式详情:销售基础内容",
+        "start": 7394.100000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.59999996423721,
+        "end": 7739.5,
+        "images": 1,
+        "label": "款式详情:规格",
+        "start": 7695.900000035763,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.80000001192093,
+        "end": 8022.800000011921,
+        "images": 1,
+        "label": "款式详情:技术引用",
+        "start": 7979,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.70000004768371,
+        "end": 8322.900000035763,
+        "images": 1,
+        "label": "款式详情:同款与组合",
+        "start": 8278.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.40000003576279,
+        "end": 8622.900000035763,
+        "images": 1,
+        "label": "款式详情:记录",
+        "start": 8578.5,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 8922.800000011921,
+        "images": 1,
+        "label": "款式详情:基本资料",
+        "start": 8878.5,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.10000002384186,
+        "end": 9222.900000035765,
+        "images": 1,
+        "label": "款式详情:多语名称",
+        "start": 9178.80000001192,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 9522.80000001192,
+        "images": 1,
+        "label": "款式详情:销售基础内容",
+        "start": 9478.30000001192,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 9822.80000001192,
+        "images": 1,
+        "label": "款式详情:规格",
+        "start": 9778.600000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 10122.900000035765,
+        "images": 1,
+        "label": "款式详情:技术引用",
+        "start": 10078.400000035765,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 10422.80000001192,
+        "images": 1,
+        "label": "款式详情:同款与组合",
+        "start": 10378.600000023842,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 10722.80000001192,
+        "images": 1,
+        "label": "款式详情:记录",
+        "start": 10678.400000035765,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit",
+    "names": [
+      "身份与图片",
+      "多语名称",
+      "分类与属性",
+      "规格",
+      "销售基础内容",
+      "同款与组合"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 43.89999997615814,
+        "end": 553.0999999642372,
+        "images": 1,
+        "label": "款式编辑:身份与图片",
+        "start": 509.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.69999998807907,
+        "end": 853.0999999642372,
+        "images": 0,
+        "label": "款式编辑:多语名称",
+        "start": 809.3999999761581,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 47.09999996423721,
+        "end": 1154.0999999642372,
+        "images": 0,
+        "label": "款式编辑:分类与属性",
+        "start": 1107,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 47,
+        "end": 1419.7999999523165,
+        "images": 0,
+        "label": "款式编辑:规格",
+        "start": 1372.7999999523165,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 1703,
+        "images": 0,
+        "label": "款式编辑:销售基础内容",
+        "start": 1658.399999976158,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 1986.2999999523165,
+        "images": 0,
+        "label": "款式编辑:同款与组合",
+        "start": 1941.899999976158,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 2286.5,
+        "images": 1,
+        "label": "款式编辑:身份与图片",
+        "start": 2242.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 2587.399999976158,
+        "images": 0,
+        "label": "款式编辑:多语名称",
+        "start": 2542.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.39999997615814,
+        "end": 2886.399999976158,
+        "images": 0,
+        "label": "款式编辑:分类与属性",
+        "start": 2843,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.10000002384186,
+        "end": 3186.399999976158,
+        "images": 0,
+        "label": "款式编辑:规格",
+        "start": 3141.2999999523163,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.10000002384186,
+        "end": 3486.399999976158,
+        "images": 0,
+        "label": "款式编辑:销售基础内容",
+        "start": 3442.2999999523163,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.89999997615814,
+        "end": 3769.799999952316,
+        "images": 0,
+        "label": "款式编辑:同款与组合",
+        "start": 3724.899999976158,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.5,
+        "end": 4070.599999964237,
+        "images": 1,
+        "label": "款式编辑:身份与图片",
+        "start": 4025.099999964237,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 4369.799999952316,
+        "images": 0,
+        "label": "款式编辑:多语名称",
+        "start": 4325.599999964237,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.40000003576279,
+        "end": 4669.699999988079,
+        "images": 0,
+        "label": "款式编辑:分类与属性",
+        "start": 4625.299999952316,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 4970.699999988079,
+        "images": 0,
+        "label": "款式编辑:规格",
+        "start": 4925.699999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 5269.699999988079,
+        "images": 0,
+        "label": "款式编辑:销售基础内容",
+        "start": 5225.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 5553.099999964237,
+        "images": 0,
+        "label": "款式编辑:同款与组合",
+        "start": 5508.699999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 5853.099999964237,
+        "images": 1,
+        "label": "款式编辑:身份与图片",
+        "start": 5808.799999952316,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.69999998807907,
+        "end": 6136.399999976158,
+        "images": 0,
+        "label": "款式编辑:多语名称",
+        "start": 6091.699999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.79999995231629,
+        "end": 6419.799999952316,
+        "images": 0,
+        "label": "款式编辑:分类与属性",
+        "start": 6375,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.89999997615814,
+        "end": 6719.799999952316,
+        "images": 0,
+        "label": "款式编辑:规格",
+        "start": 6675.899999976158,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.69999998807907,
+        "end": 7019.699999988079,
+        "images": 0,
+        "label": "款式编辑:销售基础内容",
+        "start": 6976,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 7319.799999952316,
+        "images": 0,
+        "label": "款式编辑:同款与组合",
+        "start": 7275.599999964237,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 7619.699999988079,
+        "images": 1,
+        "label": "款式编辑:身份与图片",
+        "start": 7575.5,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.80000001192093,
+        "end": 7919.699999988079,
+        "images": 0,
+        "label": "款式编辑:多语名称",
+        "start": 7873.899999976158,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.90000003576279,
+        "end": 8219.699999988079,
+        "images": 0,
+        "label": "款式编辑:分类与属性",
+        "start": 8175.799999952316,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.89999997615814,
+        "end": 8503.099999964237,
+        "images": 0,
+        "label": "款式编辑:规格",
+        "start": 8458.199999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 8803.099999964237,
+        "images": 0,
+        "label": "款式编辑:销售基础内容",
+        "start": 8758.699999988079,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.09999996423721,
+        "end": 9103.099999964235,
+        "images": 0,
+        "label": "款式编辑:同款与组合",
+        "start": 9059,
+        "url": "/pcs/products/styles/style_1b2d1a30-923d-4e1e-9a57-293de505b485/edit"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c",
+    "names": [
+      "规格资料",
+      "多语名称",
+      "包装物流",
+      "渠道关联",
+      "技术引用",
+      "记录"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 43.80000001192093,
+        "end": 544.4000000357628,
+        "images": 1,
+        "label": "规格详情:规格资料",
+        "start": 500.60000002384186,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 844.5,
+        "images": 1,
+        "label": "规格详情:多语名称",
+        "start": 800.1000000238419,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.10000002384186,
+        "end": 1111.100000023842,
+        "images": 1,
+        "label": "规格详情:包装物流",
+        "start": 1065,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.5,
+        "end": 1377.699999988079,
+        "images": 1,
+        "label": "规格详情:渠道关联",
+        "start": 1331.199999988079,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 1677.800000011921,
+        "images": 1,
+        "label": "规格详情:技术引用",
+        "start": 1633.600000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 1977.9000000357628,
+        "images": 1,
+        "label": "规格详情:记录",
+        "start": 1933.100000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.59999996423721,
+        "end": 2261.199999988079,
+        "images": 1,
+        "label": "规格详情:规格资料",
+        "start": 2216.600000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.90000003576279,
+        "end": 2544.600000023842,
+        "images": 1,
+        "label": "规格详情:多语名称",
+        "start": 2499.699999988079,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 2844.5,
+        "images": 1,
+        "label": "规格详情:包装物流",
+        "start": 2800.300000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.40000003576279,
+        "end": 3144.400000035763,
+        "images": 1,
+        "label": "规格详情:渠道关联",
+        "start": 3100,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 3427.800000011921,
+        "images": 1,
+        "label": "规格详情:技术引用",
+        "start": 3382.800000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.60000002384186,
+        "end": 3727.800000011921,
+        "images": 1,
+        "label": "规格详情:记录",
+        "start": 3682.199999988079,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 4027.800000011921,
+        "images": 1,
+        "label": "规格详情:规格资料",
+        "start": 3983.199999988079,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 4327.800000011921,
+        "images": 1,
+        "label": "规格详情:多语名称",
+        "start": 4283.600000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 4627.800000011921,
+        "images": 1,
+        "label": "规格详情:包装物流",
+        "start": 4583.400000035763,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.90000003576279,
+        "end": 4927.900000035763,
+        "images": 1,
+        "label": "规格详情:渠道关联",
+        "start": 4884,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 5227.900000035763,
+        "images": 1,
+        "label": "规格详情:技术引用",
+        "start": 5183.600000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 5527.800000011921,
+        "images": 1,
+        "label": "规格详情:记录",
+        "start": 5483.600000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 5827.800000011921,
+        "images": 1,
+        "label": "规格详情:规格资料",
+        "start": 5783.400000035763,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 6111.100000023842,
+        "images": 1,
+        "label": "规格详情:多语名称",
+        "start": 6066.900000035763,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.10000002384186,
+        "end": 6411.100000023842,
+        "images": 1,
+        "label": "规格详情:包装物流",
+        "start": 6367,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 6694.5,
+        "images": 1,
+        "label": "规格详情:渠道关联",
+        "start": 6649.300000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 6994.5,
+        "images": 1,
+        "label": "规格详情:技术引用",
+        "start": 6950.300000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.20000004768371,
+        "end": 7294.400000035763,
+        "images": 1,
+        "label": "规格详情:记录",
+        "start": 7250.199999988079,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.39999997615814,
+        "end": 7594.5,
+        "images": 1,
+        "label": "规格详情:规格资料",
+        "start": 7551.100000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 7877.800000011921,
+        "images": 1,
+        "label": "规格详情:多语名称",
+        "start": 7833,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.39999997615814,
+        "end": 8177.800000011921,
+        "images": 1,
+        "label": "规格详情:包装物流",
+        "start": 8132.400000035763,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 8477.800000011921,
+        "images": 1,
+        "label": "规格详情:渠道关联",
+        "start": 8433.5,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.80000001192093,
+        "end": 8777.800000011921,
+        "images": 1,
+        "label": "规格详情:技术引用",
+        "start": 8734,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 9077.80000001192,
+        "images": 1,
+        "label": "规格详情:记录",
+        "start": 9033.400000035765,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit",
+    "names": [
+      "规格资料",
+      "多语名称",
+      "包装物流"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 43.89999997615814,
+        "end": 554.3000000119209,
+        "images": 0,
+        "label": "规格编辑:规格资料",
+        "start": 510.4000000357628,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.09999996423721,
+        "end": 854.3000000119209,
+        "images": 0,
+        "label": "规格编辑:多语名称",
+        "start": 810.2000000476837,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.10000002384186,
+        "end": 1137.600000023842,
+        "images": 0,
+        "label": "规格编辑:包装物流",
+        "start": 1091.5,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.20000004768371,
+        "end": 1404.2000000476835,
+        "images": 0,
+        "label": "规格编辑:规格资料",
+        "start": 1358,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 1687.600000023842,
+        "images": 0,
+        "label": "规格编辑:多语名称",
+        "start": 1642.800000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 1987.600000023842,
+        "images": 0,
+        "label": "规格编辑:包装物流",
+        "start": 1943.2000000476835,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.40000003576279,
+        "end": 2270.900000035763,
+        "images": 0,
+        "label": "规格编辑:规格资料",
+        "start": 2225.5,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 2571.100000023842,
+        "images": 0,
+        "label": "规格编辑:多语名称",
+        "start": 2526.5,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 2870.900000035763,
+        "images": 0,
+        "label": "规格编辑:包装物流",
+        "start": 2826.7000000476837,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.70000004768371,
+        "end": 3154.2000000476837,
+        "images": 0,
+        "label": "规格编辑:规格资料",
+        "start": 3109.5,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 3454.300000011921,
+        "images": 0,
+        "label": "规格编辑:多语名称",
+        "start": 3409.100000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 3737.600000023842,
+        "images": 0,
+        "label": "规格编辑:包装物流",
+        "start": 3692.600000023842,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.90000003576279,
+        "end": 4037.700000047684,
+        "images": 0,
+        "label": "规格编辑:规格资料",
+        "start": 3993.800000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 4320.900000035763,
+        "images": 0,
+        "label": "规格编辑:多语名称",
+        "start": 4276.300000011921,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.89999997615814,
+        "end": 4604.300000011921,
+        "images": 0,
+        "label": "规格编辑:包装物流",
+        "start": 4559.400000035763,
+        "url": "/pcs/products/specifications/sku_b926eba2-fe3b-4126-8971-0ea7ad370b2c/edit"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/channel-products/channel-listing-demo-1",
+    "names": [
+      "渠道内容",
+      "规格映射",
+      "价格",
+      "发布与同步",
+      "测款关联",
+      "记录"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 43.19999998807907,
+        "end": 604,
+        "images": 1,
+        "label": "渠道详情:渠道内容",
+        "start": 560.8000000119209,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 904.2000000476836,
+        "images": 4,
+        "label": "渠道详情:规格映射",
+        "start": 859.9000000357628,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 1187.4000000357628,
+        "images": 1,
+        "label": "渠道详情:价格",
+        "start": 1142.2000000476835,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44,
+        "end": 1470.7000000476835,
+        "images": 1,
+        "label": "渠道详情:发布与同步",
+        "start": 1426.7000000476835,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 1755.100000023842,
+        "images": 1,
+        "label": "渠道详情:测款关联",
+        "start": 1709.9000000357628,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 42.90000003576279,
+        "end": 2053.900000035763,
+        "images": 1,
+        "label": "渠道详情:记录",
+        "start": 2011,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.09999996423721,
+        "end": 2353.5,
+        "images": 1,
+        "label": "渠道详情:渠道内容",
+        "start": 2310.400000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 42.80000001192093,
+        "end": 2655.100000023842,
+        "images": 4,
+        "label": "渠道详情:规格映射",
+        "start": 2612.300000011921,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.69999998807907,
+        "end": 2938.400000035763,
+        "images": 1,
+        "label": "渠道详情:价格",
+        "start": 2893.7000000476837,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.89999997615814,
+        "end": 3237.100000023842,
+        "images": 1,
+        "label": "渠道详情:发布与同步",
+        "start": 3193.2000000476837,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.5,
+        "end": 3521.7000000476837,
+        "images": 1,
+        "label": "渠道详情:测款关联",
+        "start": 3476.2000000476837,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 3821.800000011921,
+        "images": 1,
+        "label": "渠道详情:记录",
+        "start": 3777,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.89999997615814,
+        "end": 4104.100000023842,
+        "images": 1,
+        "label": "渠道详情:渠道内容",
+        "start": 4060.200000047684,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 4421.700000047684,
+        "images": 4,
+        "label": "渠道详情:规格映射",
+        "start": 4377.400000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44,
+        "end": 4721.700000047684,
+        "images": 1,
+        "label": "渠道详情:价格",
+        "start": 4677.700000047684,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.20000004768371,
+        "end": 5021.700000047684,
+        "images": 1,
+        "label": "渠道详情:发布与同步",
+        "start": 4977.5,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 5321.700000047684,
+        "images": 1,
+        "label": "渠道详情:测款关联",
+        "start": 5277.200000047684,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.80000001192093,
+        "end": 5621.700000047684,
+        "images": 1,
+        "label": "渠道详情:记录",
+        "start": 5577.900000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 5905.100000023842,
+        "images": 1,
+        "label": "渠道详情:渠道内容",
+        "start": 5860.300000011921,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 42.80000001192093,
+        "end": 6203.900000035763,
+        "images": 4,
+        "label": "渠道详情:规格映射",
+        "start": 6161.100000023842,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.79999995231629,
+        "end": 6488,
+        "images": 1,
+        "label": "渠道详情:价格",
+        "start": 6443.200000047684,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 6771.900000035763,
+        "images": 1,
+        "label": "渠道详情:发布与同步",
+        "start": 6726.700000047684,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.5,
+        "end": 7055,
+        "images": 1,
+        "label": "渠道详情:测款关联",
+        "start": 7009.5,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.30000001192093,
+        "end": 7355.200000047684,
+        "images": 1,
+        "label": "渠道详情:记录",
+        "start": 7310.900000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 42.09999996423721,
+        "end": 7653,
+        "images": 1,
+        "label": "渠道详情:渠道内容",
+        "start": 7610.900000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 7955.100000023842,
+        "images": 4,
+        "label": "渠道详情:规格映射",
+        "start": 7909.900000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 8238.300000011921,
+        "images": 1,
+        "label": "渠道详情:价格",
+        "start": 8193.900000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 8521.100000023842,
+        "images": 1,
+        "label": "渠道详情:发布与同步",
+        "start": 8476.600000023842,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.29999995231629,
+        "end": 8805,
+        "images": 1,
+        "label": "渠道详情:测款关联",
+        "start": 8759.700000047684,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.10000002384186,
+        "end": 9105.100000023842,
+        "images": 1,
+        "label": "渠道详情:记录",
+        "start": 9062,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/products/channel-products/channel-listing-demo-1/edit",
+    "names": [
+      "渠道内容",
+      "规格映射",
+      "价格"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 45.80000001192093,
+        "end": 586.8000000119209,
+        "images": 0,
+        "label": "渠道编辑:渠道内容",
+        "start": 541,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.19999998807907,
+        "end": 887.3000000119209,
+        "images": 1,
+        "label": "渠道编辑:规格映射",
+        "start": 841.1000000238419,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.69999998807907,
+        "end": 1186.699999988079,
+        "images": 0,
+        "label": "渠道编辑:价格",
+        "start": 1141,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.69999998807907,
+        "end": 1453.5,
+        "images": 0,
+        "label": "渠道编辑:渠道内容",
+        "start": 1406.800000011921,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 47.5,
+        "end": 1739,
+        "images": 1,
+        "label": "渠道编辑:规格映射",
+        "start": 1691.5,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.09999996423721,
+        "end": 2036.699999988079,
+        "images": 0,
+        "label": "渠道编辑:价格",
+        "start": 1992.600000023842,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.69999998807907,
+        "end": 2320,
+        "images": 0,
+        "label": "渠道编辑:渠道内容",
+        "start": 2275.300000011921,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.89999997615814,
+        "end": 2621.300000011921,
+        "images": 1,
+        "label": "渠道编辑:规格映射",
+        "start": 2575.400000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.10000002384186,
+        "end": 2920.100000023842,
+        "images": 0,
+        "label": "渠道编辑:价格",
+        "start": 2875,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 3203.400000035763,
+        "images": 0,
+        "label": "渠道编辑:渠道内容",
+        "start": 3158.400000035763,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 49.09999996423721,
+        "end": 3490.699999988079,
+        "images": 1,
+        "label": "渠道编辑:规格映射",
+        "start": 3441.600000023842,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.19999998807907,
+        "end": 3785,
+        "images": 0,
+        "label": "渠道编辑:价格",
+        "start": 3741.800000011921,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.80000001192093,
+        "end": 4070.100000023842,
+        "images": 0,
+        "label": "渠道编辑:渠道内容",
+        "start": 4025.300000011921,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 49.10000002384186,
+        "end": 4357.100000023842,
+        "images": 1,
+        "label": "渠道编辑:规格映射",
+        "start": 4308,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.40000003576279,
+        "end": 4653.400000035763,
+        "images": 0,
+        "label": "渠道编辑:价格",
+        "start": 4608,
+        "url": "/pcs/products/channel-products/channel-listing-demo-1/edit"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/channels/stores/ST-001",
+    "names": [
+      "基本资料",
+      "经营配置",
+      "渠道商品",
+      "同步",
+      "记录"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 49.30000001192093,
+        "end": 576.3999999761581,
+        "images": 0,
+        "label": "店铺详情:基本资料",
+        "start": 527.0999999642372,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.10000002384186,
+        "end": 843,
+        "images": 0,
+        "label": "店铺详情:经营配置",
+        "start": 797.8999999761581,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.10000002384186,
+        "end": 1143,
+        "images": 0,
+        "label": "店铺详情:渠道商品",
+        "start": 1096.899999976158,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 46.09999996423721,
+        "end": 1409.5999999642372,
+        "images": 0,
+        "label": "店铺详情:同步",
+        "start": 1363.5,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 42.59999996423721,
+        "end": 1708.0999999642372,
+        "images": 0,
+        "label": "店铺详情:记录",
+        "start": 1665.5,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.10000002384186,
+        "end": 2009.699999988079,
+        "images": 0,
+        "label": "店铺详情:基本资料",
+        "start": 1965.5999999642372,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.5,
+        "end": 2293,
+        "images": 0,
+        "label": "店铺详情:经营配置",
+        "start": 2247.5,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.20000004768371,
+        "end": 2593,
+        "images": 0,
+        "label": "店铺详情:渠道商品",
+        "start": 2548.7999999523163,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 2893,
+        "images": 0,
+        "label": "店铺详情:同步",
+        "start": 2848.399999976158,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 3193,
+        "images": 0,
+        "label": "店铺详情:记录",
+        "start": 3148.399999976158,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.5,
+        "end": 3493,
+        "images": 0,
+        "label": "店铺详情:基本资料",
+        "start": 3447.5,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 3776.299999952316,
+        "images": 0,
+        "label": "店铺详情:经营配置",
+        "start": 3731.299999952316,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.19999998807907,
+        "end": 4059.699999988079,
+        "images": 0,
+        "label": "店铺详情:渠道商品",
+        "start": 4014.5,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43,
+        "end": 4343.099999964237,
+        "images": 0,
+        "label": "店铺详情:同步",
+        "start": 4300.099999964237,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44,
+        "end": 4642.899999976158,
+        "images": 0,
+        "label": "店铺详情:记录",
+        "start": 4598.899999976158,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 4926.299999952316,
+        "images": 0,
+        "label": "店铺详情:基本资料",
+        "start": 4881.799999952316,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.60000002384186,
+        "end": 5209.699999988079,
+        "images": 0,
+        "label": "店铺详情:经营配置",
+        "start": 5165.099999964237,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.09999996423721,
+        "end": 5509.799999952316,
+        "images": 0,
+        "label": "店铺详情:渠道商品",
+        "start": 5465.699999988079,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.90000003576279,
+        "end": 5793,
+        "images": 0,
+        "label": "店铺详情:同步",
+        "start": 5748.099999964237,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45,
+        "end": 6076.299999952316,
+        "images": 0,
+        "label": "店铺详情:记录",
+        "start": 6031.299999952316,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.5,
+        "end": 6376.299999952316,
+        "images": 0,
+        "label": "店铺详情:基本资料",
+        "start": 6330.799999952316,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 6676.299999952316,
+        "images": 0,
+        "label": "店铺详情:经营配置",
+        "start": 6631.799999952316,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.69999998807907,
+        "end": 6976.399999976158,
+        "images": 0,
+        "label": "店铺详情:渠道商品",
+        "start": 6931.699999988079,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.89999997615814,
+        "end": 7276.299999952316,
+        "images": 0,
+        "label": "店铺详情:同步",
+        "start": 7231.399999976158,
+        "url": "/pcs/channels/stores/ST-001"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.29999995231629,
+        "end": 7576.299999952316,
+        "images": 0,
+        "label": "店铺详情:记录",
+        "start": 7532,
+        "url": "/pcs/channels/stores/ST-001"
+      }
+    ]
+  },
+  {
+    "path": "/pcs/channels/stores/ST-001/edit",
+    "names": [
+      "基本资料",
+      "经营配置"
+    ],
+    "samples": [
+      {
+        "brokenImages": 0,
+        "durationMs": 45.80000001192093,
+        "end": 589,
+        "images": 0,
+        "label": "店铺编辑:基本资料",
+        "start": 543.1999999880791,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 888.8999999761581,
+        "images": 0,
+        "label": "店铺编辑:经营配置",
+        "start": 844.3999999761581,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.19999998807907,
+        "end": 1171.699999988079,
+        "images": 0,
+        "label": "店铺编辑:基本资料",
+        "start": 1127.5,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 45.69999998807907,
+        "end": 1455.300000011921,
+        "images": 0,
+        "label": "店铺编辑:经营配置",
+        "start": 1409.600000023842,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 1755.600000023842,
+        "images": 0,
+        "label": "店铺编辑:基本资料",
+        "start": 1711.100000023842,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.30000001192093,
+        "end": 2037.300000011921,
+        "images": 0,
+        "label": "店铺编辑:经营配置",
+        "start": 1994,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.39999997615814,
+        "end": 2338.899999976158,
+        "images": 0,
+        "label": "店铺编辑:基本资料",
+        "start": 2294.5,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.5,
+        "end": 2638.899999976158,
+        "images": 0,
+        "label": "店铺编辑:经营配置",
+        "start": 2594.399999976158,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 44.09999996423721,
+        "end": 2938.899999976158,
+        "images": 0,
+        "label": "店铺编辑:基本资料",
+        "start": 2894.800000011921,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      },
+      {
+        "brokenImages": 0,
+        "durationMs": 43.80000001192093,
+        "end": 3222.199999988079,
+        "images": 0,
+        "label": "店铺编辑:经营配置",
+        "start": 3178.399999976158,
+        "url": "/pcs/channels/stores/ST-001/edit"
+      }
+    ]
+  }
+]

@@ -1,5 +1,5 @@
 import type { ConfigOption, FlatDimensionId } from './pcs-config-dimensions.ts'
-import { listConfigDimensionOptions } from './pcs-config-workspace-repository.ts'
+import { listConfigDimensionChoices } from './pcs-config-workspace-repository.ts'
 import {
   getProjectConfigSourceMapping,
   listProjectConfigSourceMappings,
@@ -20,7 +20,7 @@ export interface ProjectWorkspaceSourceSummaryItem {
   fieldLabels: string[]
 }
 
-function toWorkspaceOption(option: ConfigOption): ProjectWorkspaceOption {
+function toWorkspaceOption(option: Pick<ConfigOption, 'id' | 'code' | 'name_zh'>): ProjectWorkspaceOption {
   return {
     id: option.id,
     code: option.code,
@@ -29,7 +29,7 @@ function toWorkspaceOption(option: ConfigOption): ProjectWorkspaceOption {
 }
 
 function listEnabledDimensionOptions(dimensionId: FlatDimensionId): ProjectWorkspaceOption[] {
-  return listConfigDimensionOptions(dimensionId)
+  return listConfigDimensionChoices(dimensionId)
     .filter((item) => item.status === 'ENABLED')
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map(toWorkspaceOption)
@@ -55,8 +55,8 @@ export function listProjectWorkspaceStyles(): ProjectWorkspaceOption[] {
   return listEnabledDimensionOptions('styles')
 }
 
-export function listProjectWorkspaceStyleCodes(): ProjectWorkspaceOption[] {
-  return listEnabledDimensionOptions('styleCodes')
+export function listProjectWorkspaceCategoryNumbers(): ProjectWorkspaceOption[] {
+  return listEnabledDimensionOptions('categoryNumbers')
 }
 
 export function listProjectWorkspaceTrendElements(): ProjectWorkspaceOption[] {

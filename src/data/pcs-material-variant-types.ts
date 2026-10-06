@@ -1,4 +1,4 @@
-export type MaterialVariantProcessType = 'dye' | 'finish' | 'print' | 'embroider' | 'wash'
+export type MaterialVariantProcessType = 'dye' | 'finish' | 'print' | 'embroider' | 'wash' | 'heat'
 
 export type MaterialVariantChainCategory = 'plain' | 'process'
 
@@ -74,6 +74,7 @@ export const MATERIAL_VARIANT_PROCESS_TYPE_LABELS: Record<MaterialVariantProcess
   print: '印花',
   embroider: '绣花',
   wash: '水洗',
+  heat: '烫画',
 }
 
 export const MATERIAL_VARIANT_CHAIN_CATEGORY_LABELS: Record<MaterialVariantChainCategory, string> = {

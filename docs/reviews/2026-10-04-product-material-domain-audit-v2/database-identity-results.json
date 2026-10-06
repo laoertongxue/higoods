@@ -1,0 +1,180 @@
+{
+  "database": "poemfuture_test",
+  "results": [
+    {
+      "sql": "SELECT p.id,p.primary_sku,p.product_type,p.status,p.audit_status FROM td_products p WHERE p.primary_sku IN ('YSSZAW122101','FADAH25033110','ALHH081104') ORDER BY p.primary_sku,p.id LIMIT 30",
+      "rows": [
+        {
+          "id": 20437,
+          "primary_sku": "ALHH081104",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 1
+        },
+        {
+          "id": 20456,
+          "primary_sku": "ALHH081104",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 1
+        },
+        {
+          "id": 105339,
+          "primary_sku": "FADAH25033110",
+          "product_type": 0,
+          "status": 3,
+          "audit_status": 2
+        },
+        {
+          "id": 105340,
+          "primary_sku": "FADAH25033110",
+          "product_type": 0,
+          "status": 3,
+          "audit_status": 2
+        },
+        {
+          "id": 105341,
+          "primary_sku": "FADAH25033110",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        },
+        {
+          "id": 31539,
+          "primary_sku": "YSSZAW122101",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        },
+        {
+          "id": 31540,
+          "primary_sku": "YSSZAW122101",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        },
+        {
+          "id": 31541,
+          "primary_sku": "YSSZAW122101",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        },
+        {
+          "id": 31542,
+          "primary_sku": "YSSZAW122101",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        },
+        {
+          "id": 31543,
+          "primary_sku": "YSSZAW122101",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        },
+        {
+          "id": 31544,
+          "primary_sku": "YSSZAW122101",
+          "product_type": 0,
+          "status": 1,
+          "audit_status": 2
+        }
+      ]
+    },
+    {
+      "sql": "SELECT s.id,s.p_id,s.sku,s.status,s.is_delete,p.status parent_status,p.primary_sku FROM td_products_sku s LEFT JOIN td_products p ON p.id=s.p_id WHERE s.sku IN ('FADAH25033110-sameasphoto-m','BTSZIDOE050704') ORDER BY s.sku,s.id LIMIT 20",
+      "rows": [
+        {
+          "id": 660559,
+          "p_id": 72907,
+          "sku": "BTSZIDOE050704",
+          "status": 0,
+          "is_delete": 0,
+          "parent_status": 1,
+          "primary_sku": "BTSZIDOE050704"
+        },
+        {
+          "id": 660560,
+          "p_id": 72907,
+          "sku": "BTSZIDOE050704",
+          "status": 0,
+          "is_delete": 0,
+          "parent_status": 1,
+          "primary_sku": "BTSZIDOE050704"
+        },
+        {
+          "id": 660561,
+          "p_id": 72907,
+          "sku": "BTSZIDOE050704",
+          "status": 0,
+          "is_delete": 0,
+          "parent_status": 1,
+          "primary_sku": "BTSZIDOE050704"
+        },
+        {
+          "id": 660562,
+          "p_id": 72907,
+          "sku": "BTSZIDOE050704",
+          "status": 0,
+          "is_delete": 0,
+          "parent_status": 1,
+          "primary_sku": "BTSZIDOE050704"
+        },
+        {
+          "id": 660563,
+          "p_id": 72907,
+          "sku": "BTSZIDOE050704",
+          "status": 0,
+          "is_delete": 0,
+          "parent_status": 1,
+          "primary_sku": "BTSZIDOE050704"
+        },
+        {
+          "id": 868058,
+          "p_id": 105339,
+          "sku": "FADAH25033110-sameasphoto-m",
+          "status": 0,
+          "is_delete": 1,
+          "parent_status": 3,
+          "primary_sku": "FADAH25033110"
+        },
+        {
+          "id": 868063,
+          "p_id": 105340,
+          "sku": "FADAH25033110-sameasphoto-m",
+          "status": 0,
+          "is_delete": 1,
+          "parent_status": 3,
+          "primary_sku": "FADAH25033110"
+        },
+        {
+          "id": 868068,
+          "p_id": 105341,
+          "sku": "FADAH25033110-sameasphoto-m",
+          "status": 0,
+          "is_delete": 0,
+          "parent_status": 1,
+          "primary_sku": "FADAH25033110"
+        }
+      ]
+    },
+    {
+      "sql": "SELECT COUNT(*) n FROM td_products_sku s LEFT JOIN td_products p ON p.id=s.p_id WHERE p.id IS NULL",
+      "rows": [
+        {
+          "n": 48989
+        }
+      ]
+    },
+    {
+      "sql": "SELECT COUNT(*) n FROM td_products_sku s JOIN td_products p ON p.id=s.p_id WHERE s.spu IS NOT NULL AND s.spu<>'' AND s.spu<>p.primary_sku",
+      "rows": [
+        {
+          "n": 82
+        }
+      ]
+    }
+  ]
+}

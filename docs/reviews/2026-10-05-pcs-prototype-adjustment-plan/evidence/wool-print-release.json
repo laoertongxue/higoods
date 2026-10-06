@@ -1,0 +1,130 @@
+{
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 396.800000011921,
+      "end": 396.800000011921,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "cold",
+      "round": 1
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 213.9000000357628,
+      "end": 213.9000000357628,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "cold",
+      "round": 2
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 220.30000001192093,
+      "end": 220.30000001192093,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "cold",
+      "round": 3
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 257.5999999642372,
+      "end": 257.5999999642372,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "cold",
+      "round": 4
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 222.4000000357628,
+      "end": 222.4000000357628,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "cold",
+      "round": 5
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 217.39999997615817,
+      "end": 217.39999997615817,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "refresh",
+      "round": 1
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 203.69999998807907,
+      "end": 203.69999998807907,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "refresh",
+      "round": 2
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 214.69999998807907,
+      "end": 214.69999998807907,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "refresh",
+      "round": 3
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 207.69999998807907,
+      "end": 207.69999998807907,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "refresh",
+      "round": 4
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 205.5,
+      "end": 205.5,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/craft/wool/knitting-orders/WOOL-STAGE-009%3AKNITTING/handover-print",
+      "mode": "refresh",
+      "round": 5
+    }
+  ],
+  "dom": "- banner:\n  - generic: HG\n  - generic: HiGood\n  - button \"商品中心系统 (PCS)\":\n    - generic: 商品中心系统\n    - generic: (PCS)\n  - button \"采购管理系统 (PMS)\":\n    - generic: 采购管理系统\n    - generic: (PMS)\n  - button \"工厂生产协同系统 (FCS)\":\n    - generic: 工厂生产协同系统\n    - generic: (FCS)\n  - button \"工艺工厂运营系统 (PFOS)\":\n    - generic: 工艺工厂运营系统\n    - generic: (PFOS)\n  - button \"仓储物流系统 (WLS)\":\n    - generic: 仓储物流系统\n    - generic: (WLS)\n  - button \"直播运营系统 (LOS)\":\n    - generic: 直播运营系统\n    - generic: (LOS)\n  - button \"订单管理系统 (OMS)\":\n    - generic: 订单管理系统\n    - generic: (OMS)\n  - button \"业财一体化系统 (BFIS)\":\n    - generic: 业财一体化系统\n    - generic: (BFIS)\n  - button \"数据决策系统 (DDS)\":\n    - generic: 数据决策系统\n    - generic: (DDS)\n  - button \"通知\":\n  - button \"管理员\":\n    - generic: 管理员\n- complementary:\n  - heading \"工艺工厂运营系统\" [level=2]\n  - paragraph: PFOS\n  - button \"收起菜单\":\n  - button \"裁床厂管理\":\n    - generic: 裁床厂管理\n  - button \"裁床总览\":\n    - generic: 裁床总览\n  - button \"裁前准备\":\n    - generic: 裁前准备\n  - button \"接收管理\":\n    - generic: 接收管理\n  - button \"铺布执行\":\n    - generic: 铺布执行\n  - button \"裁后处理\":\n    - generic: 裁后处理\n  - button \"裁床仓库管理\":\n    - generic: 裁床仓库管理\n  - button \"裁床统计\":\n    - generic: 裁床统计\n  - button \"印花厂管理\":\n    - generic: 印花厂管理\n  - button \"印花管理\":\n    - generic: 印花管理\n  - button \"染厂管理\":\n    - generic: 染厂管理\n  - button \"染厂管理\":\n    - generic: 染厂管理\n  - button \"毛织厂管理\":\n    - generic: 毛织厂管理\n  - button \"毛织管理\":\n    - generic: 毛织管理\n  - button \"辅料工厂管理\":\n    - generic: 辅料工厂管理\n  - button \"花边厂管理\":\n    - generic: 花边厂管理\n  - button \"织带厂管理\":\n    - generic: 织带厂管理\n  - button \"后道工厂管理\":\n    - generic: 后道工厂管理\n  - button \"后道工厂管理\":\n    - generic: 后道工厂管理\n  - button \"辅助工艺工厂管理\":\n    - generic: 辅助工艺工厂管理\n  - button \"打揽加工单\":\n    - generic: 打揽加工单\n  - button \"打条加工单\":\n    - generic: 打条加工单\n  - button \"烫画加工单\":\n    - generic: 烫画加工单\n  - button \"直喷加工单\":\n    - generic: 直喷加工单\n  - button \"布包扣加工单\":\n    - generic: 布包扣加工单\n  - button \"绣花加工单\":\n    - generic: 绣花加工单\n  - button \"压褶加工单\":\n    - generic: 压褶加工单\n  - button \"贝壳绣加工单\":\n    - generic: 贝壳绣加工单\n  - button \"曲牙绣加工单\":\n    - generic: 曲牙绣加工单\n  - button \"一字贝绣花加工单\":\n    - generic: 一字贝绣花加工单\n  - button \"盘扣加工单\":\n    - generic: 盘扣加工单\n  - button \"花朵加工单\":\n    - generic: 花朵加工单\n  - button \"打褶加工单\":\n    - generic: 打褶加工单\n  - button \"烫钻加工单\":\n    - generic: 烫钻加工单\n  - button \"辅助工艺待加工仓\":\n    - generic: 辅助工艺待加工仓\n  - button \"辅助工艺待交出仓\":\n    - generic: 辅助工艺待交出仓\n  - button \"特种工艺工厂管理\":\n    - generic: 特种工艺工厂管理\n  - button \"模板工序加工单\":\n    - generic: 模板工序加工单\n  - button \"激光开袋加工单\":\n    - generic: 激光开袋加工单\n  - button \"特种车缝（花样机）加工单\":\n    - generic: 特种车缝（花样机）加工单\n  - button \"橡筋定长切割加工单\":\n    - generic: 橡筋定长切割加工单\n  - button \"特种工艺待加工仓\":\n    - generic: 特种工艺待加工仓\n  - button \"特种工艺待交出仓\":\n    - generic: 特种工艺待交出仓\n- main:\n  - button \"横机加工单\"\n  - button:\n  - button \"全部关闭\"\n  - main:\n    - generic: 横机加工交出单打印\n    - generic: A4 纸；每条交出记录一页，二维码可扫码追溯。\n    - button \"打印\"\n    - generic: SURAT JALAN\n    - generic: 横机加工交出单\n    - generic: 每次发起交出形成一张独立交出单，随货流转。\n    - generic: 交出单号：WDEMO-HO:WOOL-STAGE-009:KNITTING:Q1\n    - generic: 打印页：1\n    - generic: 交出时间：2026-09-18 09:30:00\n    - img \"扫描查看横机加工交出单 WDEMO-HO:WOOL-STAGE-009:KNITTING:Q1\"\n    - figure \"款式图，非片实拍\":\n      - img \"SPU 款式图\"\n      - generic: 款式图，非片实拍\n    - generic: SPU 款式信息\n    - generic: 款号：CARDIGAN-CREAM\n    - generic: 款名：奶油色针织开衫\n    - generic: 生产单：PO-MZ-009\n    - generic: 横机加工单：HJ260918-009\n    - generic: 配对加工单：FP260918-009\n    - generic: 技术包版本：v1.0\n    - generic: 交出工厂：周哥毛织厂\n    - generic: 加工类型：整件毛织\n    - generic: 下游接收工厂：APF - 辅助工艺\n    - generic: 接收方标识：FAC-APF / APF - 辅助工艺\n    - table:\n      - rowgroup:\n        - row \"颜色 尺码 部位/对象 加工后 SKU 本次交出数量 备注\":\n          - columnheader \"颜色\"\n          - columnheader \"尺码\"\n          - columnheader \"部位/对象\"\n          - columnheader \"加工后 SKU\"\n          - columnheader \"本次交出数量\"\n          - columnheader \"备注\"\n      - rowgroup:\n        - row \"奶油色 M Q / 第1片 片身份：Q1 纸样包：WOOL-STAGE-009:pattern 首工艺：绣花 CARDIGAN-CREAM-M 100 片\":\n          - cell \"奶油色\"\n          - cell \"M\"\n          - cell \"Q / 第1片 片身份：Q1 纸样包：WOOL-STAGE-009:pattern 首工艺：绣花\":\n            - text: Q / 第1片\n            - text: 片身份：Q1\n            - text: 纸样包：WOOL-STAGE-009:pattern\n            - text: 首工艺：绣花\n          - cell \"CARDIGAN-CREAM-M\"\n          - cell \"100 片\"\n          - cell\n    - generic: 交出人：毛织仓管（演示）\n    - generic: 承运/交接\n    - generic: 接收方签收\n    - generic: SURAT JALAN\n    - generic: 横机加工交出单\n    - generic: 每次发起交出形成一张独立交出单，随货流转。\n    - generic: 交出单号：WDEMO-HO:WOOL-STAGE-009:KNITTING:Q2\n    - generic: 打印页：2\n    - generic: 交出时间：2026-09-18 09:30:00\n    - img \"扫描查看横机加工交出单 WDEMO-HO:WOOL-STAGE-009:KNITTING:Q2\"\n    - figure \"款式图，非片实拍\":\n      - img \"SPU 款式图\"\n      - generic: 款式图，非片实拍\n    - generic: SPU 款式信息\n    - generic: 款号：CARDIGAN-CREAM\n    - generic: 款名：奶油色针织开衫\n    - generic: 生产单：PO-MZ-009\n    - generic: 横机加工单：HJ260918-009\n    - generic: 配对加工单：FP260918-009\n    - generic: 技术包版本：v1.0\n    - generic: 交出工厂：周哥毛织厂\n    - generic: 加工类型：整件毛织\n    - generic: 下游接收工厂：全能力测试工厂\n    - generic: 接收方标识：F090 / 全能力测试工厂\n    - table:\n      - rowgroup:\n        - row \"颜色 尺码 部位/对象 加工后 SKU 本次交出数量 备注\":\n          - columnheader \"颜色\"\n          - columnheader \"尺码\"\n          - columnheader \"部位/对象\"\n          - columnheader \"加工后 SKU\"\n          - columnheader \"本次交出数量\"\n          - columnheader \"备注\"\n      - rowgroup:\n        - row \"奶油色 M Q / 第2片 片身份：Q2 纸样包：WOOL-STAGE-009:pattern 首工艺：曲牙绣 CARDIGAN-CREAM-M 100 片\":\n          - cell \"奶油色\"\n          - cell \"M\"\n          - cell \"Q / 第2片 片身份：Q2 纸样包：WOOL-STAGE-009:pattern 首工艺：曲牙绣\":\n            - text: Q / 第2片\n            - text: 片身份：Q2\n            - text: 纸样包：WOOL-STAGE-009:pattern\n            - text: 首工艺：曲牙绣\n          - cell \"CARDIGAN-CREAM-M\"\n          - cell \"100 片\"\n          - cell\n    - generic: 交出人：毛织仓管（演示）\n    - generic: 承运/交接\n    - generic: 接收方签收\n- button \"查生产\":",
+  "readiness": {
+    "images": [
+      {
+        "complete": true,
+        "width": 1024
+      },
+      {
+        "complete": true,
+        "width": 1024
+      }
+    ],
+    "pages": 2,
+    "qr": 2,
+    "ready": true
+  }
+}

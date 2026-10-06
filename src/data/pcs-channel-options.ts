@@ -1,16 +1,14 @@
 export const PCS_CHANNEL_OPTIONS = [
   { code: 'tiktok', name: 'TikTok' },
-  { code: 'shopee', name: '虾皮' },
+  { code: 'shopify', name: 'Shopify' },
   { code: 'independent-site', name: '独立站' },
 ] as const
 
-export type PcsChannelCode = (typeof PCS_CHANNEL_OPTIONS)[number]['code']
+export type PcsChannelCode = (typeof PCS_CHANNEL_OPTIONS)[number]['code'] | 'shopee'
 
 export const DEFAULT_PCS_CHANNEL_CODE: PcsChannelCode = 'tiktok'
 
-const PCS_CHANNEL_NAME_MAP: Record<PcsChannelCode, string> = Object.fromEntries(
-  PCS_CHANNEL_OPTIONS.map((item) => [item.code, item.name]),
-) as Record<PcsChannelCode, string>
+const PCS_CHANNEL_NAME_MAP: Record<PcsChannelCode, string> = { ...Object.fromEntries(PCS_CHANNEL_OPTIONS.map((item) => [item.code, item.name])), shopee: 'Shopee（历史）' } as Record<PcsChannelCode, string>
 
 export function isPcsChannelCode(value: string | null | undefined): value is PcsChannelCode {
   return PCS_CHANNEL_OPTIONS.some((item) => item.code === value)
@@ -21,6 +19,7 @@ export function normalizePcsChannelCode(value: string | null | undefined): PcsCh
   const normalized = rawValue.toLowerCase()
   if (!normalized) return ''
   if (normalized.includes('tiktok')) return 'tiktok'
+  if (normalized.includes('shopify')) return 'shopify'
   if (normalized.includes('shopee') || rawValue.includes('虾皮')) return 'shopee'
   if (normalized.includes('independent') || rawValue.includes('独立')) return 'independent-site'
   return ''

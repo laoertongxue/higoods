@@ -1,0 +1,148 @@
+{
+  "url": "http://127.0.0.1:5178/pcs/testing/orders/to_muvkree1_6",
+  "viewport": "1366x768",
+  "samples": [
+    {
+      "step": "create-testing-order",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 107.19999998807909,
+        "end": 76593.60000002384,
+        "images": 0,
+        "label": "test-create-1",
+        "start": 76486.40000003576,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "purchase-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 63.40000003576279,
+        "end": 83993.70000004768,
+        "images": 0,
+        "label": "test-purchase-step-1",
+        "start": 83930.30000001192,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "logistics-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 61.20000004768371,
+        "end": 91510.20000004768,
+        "images": 0,
+        "label": "test-logistics-step-1",
+        "start": 91449,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "sample-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 62.69999998807907,
+        "end": 102276.90000003576,
+        "images": 0,
+        "label": "test-sample-step-1",
+        "start": 102214.20000004768,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "label-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 62.80000001192093,
+        "end": 108960.30000001192,
+        "images": 0,
+        "label": "test-label-step-1",
+        "start": 108897.5,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "buyer-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 64.19999998807907,
+        "end": 115743.90000003576,
+        "images": 0,
+        "label": "test-buyer-step-1",
+        "start": 115679.70000004768,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "pricing-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 62.40000003576279,
+        "end": 122976.90000003576,
+        "images": 0,
+        "label": "test-pricing-step-1",
+        "start": 122914.5,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "channel-step",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 62.30000001192093,
+        "end": 130976.80000001192,
+        "images": 0,
+        "label": "test-channel-step-1",
+        "start": 130914.5,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "empty-results-block",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 45.10000002384186,
+        "end": 144410.10000002384,
+        "images": 0,
+        "label": "test-empty-results-1",
+        "start": 144365,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    },
+    {
+      "step": "receive-related-action",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 127.0999999642372,
+        "end": 208427,
+        "images": 1,
+        "label": "test-receive-related-1",
+        "start": 208299.90000003576,
+        "url": "/pcs/products/channel-products/channel-listing-demo-2"
+      }
+    },
+    {
+      "step": "confirm-and-advance-live",
+      "metric": {
+        "brokenImages": 0,
+        "durationMs": 76.70000004768372,
+        "end": 235726.20000004768,
+        "images": 0,
+        "label": "test-confirm-live-1",
+        "start": 235649.5,
+        "url": "/pcs/testing/orders/to_muvkree1_6"
+      }
+    }
+  ],
+  "linkedAction": "d9419f9a-2747-47c3-873b-b7e5aee1a6ed",
+  "listingId": "channel-listing-demo-2",
+  "pid": "demo-pid-702",
+  "finalDom": "- banner:\n  - generic: HG\n  - generic: HiGood\n  - button \"商品中心系统 (PCS)\":\n    - generic: 商品中心系统\n    - generic: (PCS)\n  - button \"采购管理系统 (PMS)\":\n    - generic: 采购管理系统\n    - generic: (PMS)\n  - button \"工厂生产协同系统 (FCS)\":\n    - generic: 工厂生产协同系统\n    - generic: (FCS)\n  - button \"工艺工厂运营系统 (PFOS)\":\n    - generic: 工艺工厂运营系统\n    - generic: (PFOS)\n  - button \"仓储物流系统 (WLS)\":\n    - generic: 仓储物流系统\n    - generic: (WLS)\n  - button \"直播运营系统 (LOS)\":\n    - generic: 直播运营系统\n    - generic: (LOS)\n  - button \"订单管理系统 (OMS)\":\n    - generic: 订单管理系统\n    - generic: (OMS)\n  - button \"业财一体化系统 (BFIS)\":\n    - generic: 业财一体化系统\n    - generic: (BFIS)\n  - button \"数据决策系统 (DDS)\":\n    - generic: 数据决策系统\n    - generic: (DDS)\n  - button \"通知\":\n  - button \"管理员\":\n    - generic: 管理员\n- complementary:\n  - heading \"商品中心系统\" [level=2]\n  - paragraph: PCS\n  - button \"收起菜单\":\n  - button \"商品中心系统\":\n    - generic: 商品中心系统\n  - button \"商品测款\":\n    - generic: 商品测款\n  - button \"生产准备管理\":\n    - generic: 生产准备管理\n  - button \"技术资料\":\n    - generic: 技术资料\n  - button \"样衣管理\":\n    - generic: 样衣管理\n  - button \"商品&物料档案\":\n    - generic: 商品&物料档案\n  - button \"系统设置\":\n    - generic: 系统设置\n- main:\n  - button \"款式档案\"\n  - button \"款式详情\"\n  - button \"规格详情\"\n  - button \"面料档案\"\n  - button \"渠道店铺商品\"\n  - button \"基础配置\"\n  - button \"辅料档案\"\n  - button \"规格详情\"\n  - button \"规格档案\"\n  - button \"渠道店铺管理\"\n  - button \"纱线档案\"\n  - button \"耗材档案\"\n  - button \"配件档案\"\n  - button \"测款单\"\n  - button:\n  - button \"全部关闭\"\n  - button \"返回列表\":\n    - text: 返回列表\n  - heading \"TO-0006\" [level=1]\n  - generic: 进行中\n  - paragraph: SPU-QC-002 · 后道验收连衣裙\n  - button \"查看后道验收连衣裙大图\":\n    - img \"后道验收连衣裙\"\n  - generic: SPU SPU-QC-002\n  - generic: SKU SPU-QC-002-01\n  - generic: 买手 陈买手\n  - generic: 寄样 人头\n  - text: 当前步骤责任团队：\n  - strong: 买手\n  - list:\n    - generic: ①系统建档\n    - generic: 核对关联商品档案及本次测款 SKU。\n    - generic: ②采购下单\n    - generic: 记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。\n    - generic: ③快递信息\n    - generic: 记录寄件快递、运单号与预计到达。\n    - generic: ④样衣入库\n    - generic: 样衣模块确认样品入库成功后推进。\n    - generic: ⑤打标\n    - generic: 已贴码且码值等于 SKU 编码后方可完成本步。\n    - generic: ⑥买手确认\n    - generic: 通过→⑦核价；淘汰→测款单结束并保留淘汰事实。\n    - generic: ⑦核价\n    - generic: 记录初步 BOM、用量、工艺成本与定价；淘汰则结束。\n    - generic: ⑧寄样+渠道上架\n    - generic: 寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。\n    - generic: ⑨直播测款\n    - generic: 记录测款执行事实。\n    - generic: ⑩大货判断\n    - generic: 是/否/待定三态；待定保持进行中。\n  - text: 直播测款执行记录\n  - textbox \"直播测款执行记录\"\n  - button \"保存并进入⑩大货判断\"\n  - table:\n    - rowgroup:\n      - row \"店铺 / 上架动作 平台 PID 平台状态 同步结果 操作\":\n        - columnheader \"店铺 / 上架动作\"\n        - columnheader \"平台 PID\"\n        - columnheader \"平台状态\"\n        - columnheader \"同步结果\"\n        - columnheader \"操作\"\n    - rowgroup:\n      - row \"TikTok 马来西亚店 d9419f9a-2747-47c3-873b-b7e5aee1a6ed demo-pid-702 在售 一致 查看渠道详情\":\n        - cell \"TikTok 马来西亚店 d9419f9a-2747-47c3-873b-b7e5aee1a6ed\":\n          - text: TikTok 马来西亚店\n          - generic: d9419f9a-2747-47c3-873b-b7e5aee1a6ed\n        - cell \"demo-pid-702\"\n        - cell \"在售\"\n        - cell \"一致\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n  - generic \"商品信息（来自商品档案）\"\n  - generic: 关键事实\n  - term: 采购链接\n  - definition: —\n  - term: 物流\n  - definition: 本地验收快递 · R1-DEMO-TESTING-0006\n  - term: 打标\n  - definition: SPU-QC-002-01 @ 2026-10-05 18:20\n  - term: 核价\n  - definition: BOM ¥0 · 工艺 ¥0 · 定价 ¥45\n  - term: 渠道\n  - definition: tiktok\n  - term: 大货判断\n  - definition: —\n  - generic: 操作历史\n  - list:\n    - listitem: 2026-10-05 18:22 · 推进到 ⑨直播测款 · 当前用户\n    - listitem: 2026-10-05 18:21 · 发起渠道上架 · 当前用户 · TikTok 马来西亚店；动作 d9419f9a-2747-47c3-873b-b7e5aee1a6ed；渠道商品 channel-listing-demo-2\n    - listitem: 2026-10-05 18:20 · 推进到 ⑧寄样+渠道上架 · 当前用户\n    - listitem: 2026-10-05 18:20 · 保存核价 · 当前用户\n    - listitem: 2026-10-05 18:20 · 推进到 ⑦核价 · 当前用户\n    - listitem: 2026-10-05 18:20 · 完成打标，码值 SPU-QC-002-01 · 当前用户\n    - listitem: 2026-10-05 18:20 · 完成 ④样衣入库 · 当前用户 · 仅本机原型验收\n    - listitem: 2026-10-05 18:20 · 推进到 ④样衣入库 · 当前用户\n- button \"查生产\":",
+  "refreshedDom": "- banner:\n  - generic: HG\n  - generic: HiGood\n  - button \"商品中心系统 (PCS)\":\n    - generic: 商品中心系统\n    - generic: (PCS)\n  - button \"采购管理系统 (PMS)\":\n    - generic: 采购管理系统\n    - generic: (PMS)\n  - button \"工厂生产协同系统 (FCS)\":\n    - generic: 工厂生产协同系统\n    - generic: (FCS)\n  - button \"工艺工厂运营系统 (PFOS)\":\n    - generic: 工艺工厂运营系统\n    - generic: (PFOS)\n  - button \"仓储物流系统 (WLS)\":\n    - generic: 仓储物流系统\n    - generic: (WLS)\n  - button \"直播运营系统 (LOS)\":\n    - generic: 直播运营系统\n    - generic: (LOS)\n  - button \"订单管理系统 (OMS)\":\n    - generic: 订单管理系统\n    - generic: (OMS)\n  - button \"业财一体化系统 (BFIS)\":\n    - generic: 业财一体化系统\n    - generic: (BFIS)\n  - button \"数据决策系统 (DDS)\":\n    - generic: 数据决策系统\n    - generic: (DDS)\n  - button \"通知\":\n  - button \"管理员\":\n    - generic: 管理员\n- complementary:\n  - heading \"商品中心系统\" [level=2]\n  - paragraph: PCS\n  - button \"收起菜单\":\n  - button \"商品中心系统\":\n    - generic: 商品中心系统\n  - button \"商品测款\":\n    - generic: 商品测款\n  - button \"生产准备管理\":\n    - generic: 生产准备管理\n  - button \"技术资料\":\n    - generic: 技术资料\n  - button \"样衣管理\":\n    - generic: 样衣管理\n  - button \"商品&物料档案\":\n    - generic: 商品&物料档案\n  - button \"系统设置\":\n    - generic: 系统设置\n- main:\n  - button \"款式档案\"\n  - button \"款式详情\"\n  - button \"规格详情\"\n  - button \"面料档案\"\n  - button \"渠道店铺商品\"\n  - button \"基础配置\"\n  - button \"辅料档案\"\n  - button \"规格详情\"\n  - button \"规格档案\"\n  - button \"渠道店铺管理\"\n  - button \"纱线档案\"\n  - button \"耗材档案\"\n  - button \"配件档案\"\n  - button \"测款单\"\n  - button:\n  - button \"全部关闭\"\n  - button \"返回列表\":\n    - text: 返回列表\n  - heading \"TO-0006\" [level=1]\n  - generic: 进行中\n  - paragraph: SPU-QC-002 · 后道验收连衣裙\n  - button \"查看后道验收连衣裙大图\":\n    - img \"后道验收连衣裙\"\n  - generic: SPU SPU-QC-002\n  - generic: SKU SPU-QC-002-01\n  - generic: 买手 陈买手\n  - generic: 寄样 人头\n  - text: 当前步骤责任团队：\n  - strong: 买手\n  - list:\n    - generic: ①系统建档\n    - generic: 核对关联商品档案及本次测款 SKU。\n    - generic: ②采购下单\n    - generic: 记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。\n    - generic: ③快递信息\n    - generic: 记录寄件快递、运单号与预计到达。\n    - generic: ④样衣入库\n    - generic: 样衣模块确认样品入库成功后推进。\n    - generic: ⑤打标\n    - generic: 已贴码且码值等于 SKU 编码后方可完成本步。\n    - generic: ⑥买手确认\n    - generic: 通过→⑦核价；淘汰→测款单结束并保留淘汰事实。\n    - generic: ⑦核价\n    - generic: 记录初步 BOM、用量、工艺成本与定价；淘汰则结束。\n    - generic: ⑧寄样+渠道上架\n    - generic: 寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。\n    - generic: ⑨直播测款\n    - generic: 记录测款执行事实。\n    - generic: ⑩大货判断\n    - generic: 是/否/待定三态；待定保持进行中。\n  - text: 直播测款执行记录\n  - textbox \"直播测款执行记录\"\n  - button \"保存并进入⑩大货判断\"\n  - table:\n    - rowgroup:\n      - row \"店铺 / 上架动作 平台 PID 平台状态 同步结果 操作\":\n        - columnheader \"店铺 / 上架动作\"\n        - columnheader \"平台 PID\"\n        - columnheader \"平台状态\"\n        - columnheader \"同步结果\"\n        - columnheader \"操作\"\n    - rowgroup:\n      - row \"TikTok 马来西亚店 d9419f9a-2747-47c3-873b-b7e5aee1a6ed demo-pid-702 在售 一致 查看渠道详情\":\n        - cell \"TikTok 马来西亚店 d9419f9a-2747-47c3-873b-b7e5aee1a6ed\":\n          - text: TikTok 马来西亚店\n          - generic: d9419f9a-2747-47c3-873b-b7e5aee1a6ed\n        - cell \"demo-pid-702\"\n        - cell \"在售\"\n        - cell \"一致\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n  - generic \"商品信息（来自商品档案）\"\n  - generic: 关键事实\n  - term: 采购链接\n  - definition: —\n  - term: 物流\n  - definition: 本地验收快递 · R1-DEMO-TESTING-0006\n  - term: 打标\n  - definition: SPU-QC-002-01 @ 2026-10-05 18:20\n  - term: 核价\n  - definition: BOM ¥0 · 工艺 ¥0 · 定价 ¥45\n  - term: 渠道\n  - definition: tiktok\n  - term: 大货判断\n  - definition: —\n  - generic: 操作历史\n  - list:\n    - listitem: 2026-10-05 18:22 · 推进到 ⑨直播测款 · 当前用户\n    - listitem: 2026-10-05 18:21 · 发起渠道上架 · 当前用户 · TikTok 马来西亚店；动作 d9419f9a-2747-47c3-873b-b7e5aee1a6ed；渠道商品 channel-listing-demo-2\n    - listitem: 2026-10-05 18:20 · 推进到 ⑧寄样+渠道上架 · 当前用户\n    - listitem: 2026-10-05 18:20 · 保存核价 · 当前用户\n    - listitem: 2026-10-05 18:20 · 推进到 ⑦核价 · 当前用户\n    - listitem: 2026-10-05 18:20 · 完成打标，码值 SPU-QC-002-01 · 当前用户\n    - listitem: 2026-10-05 18:20 · 完成 ④样衣入库 · 当前用户 · 仅本机原型验收\n    - listitem: 2026-10-05 18:20 · 推进到 ④样衣入库 · 当前用户\n- button \"查生产\":",
+  "notes": [
+    "1条完整功能场景，未达到完整5轮。",
+    "prepare-channel和publish-related动作计时条件写错，实际完成但没有有效耗时，不能计入性能通过。",
+    "发现先触发无回执阻断后，成功关联并返回时旧错误提示仍在；待修复并重测。"
+  ]
+}

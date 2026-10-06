@@ -1,0 +1,11 @@
+src/data/fcs/factory-receiving-source-sync.ts(20,105): error TS2345: Argument of type 'WarehouseExecutionDoc[]' is not assignable to parameter of type 'readonly CentralTransferDocument[]'.
+  Type 'WarehouseExecutionDoc' is not assignable to type 'CentralTransferDocument'.
+    Type 'WarehouseReturnOrder' is not assignable to type 'CentralTransferDocument'.
+      Type 'WarehouseReturnOrder' is not assignable to type 'WarehouseInternalTransferOrder'.
+        Types of property 'docType' are incompatible.
+          Type '"RETURN"' is not assignable to type '"INTERNAL_TRANSFER"'.
+src/data/pms/material-purchase-orders.ts(355,5): error TS2739: Type 'PmsMaterialPurchaseOrder[]' is missing the following properties from type 'Promise<PmsMaterialPurchaseOrder[]>': then, catch, finally, [Symbol.toStringTag]
+src/data/pms/material-purchase-orders.ts(357,3): error TS2322: Type 'PmsMaterialPurchaseOrder[] | null' is not assignable to type 'PmsMaterialPurchaseOrder[]'.
+  Type 'null' is not assignable to type 'PmsMaterialPurchaseOrder[]'.
+src/data/pms/tmf-material-purchases.ts(813,9): error TS2722: Cannot invoke an object which is possibly 'undefined'.
+src/data/pms/tmf-material-purchases.ts(824,9): error TS2722: Cannot invoke an object which is possibly 'undefined'.

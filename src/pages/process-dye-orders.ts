@@ -1,3 +1,4 @@
+import { renderPcsMaterialHandoff } from './pcs-material-handoff.ts'
 // @page-pattern: list
 
 import { DYE_FACTORY_TABS } from '../data/fcs/dye-work-order-demo-details.ts'
@@ -303,9 +304,9 @@ export function renderProcessDyeOrdersPage(options: { sourceType?: SourceFilter;
   listController.installColumnDragEvents()
   listController.ensurePreferencesLoaded()
   const view = listController.getView(options.sourceType === undefined ? undefined : getFilteredOrders(options.sourceType))
-  return `<div data-process-dye-orders-root data-early-process-management="DYE" data-skip-page-rerender="true"><style>[data-process-dye-orders-root] [data-standard-list-scroll] td{vertical-align:top}[data-process-dye-orders-stats] [data-standard-list-stats]{display:flex;overflow-x:auto}[data-process-dye-orders-stats] [data-process-stat]{flex:1 0 max-content;min-height:48px;height:48px;gap:2px}[data-process-dye-orders-stats] [data-process-stat] strong{font-size:11px;line-height:14px;white-space:nowrap}</style>${renderStandardListPage({
+  return `<div data-process-dye-orders-root data-early-process-management="DYE" data-skip-page-rerender="true"><style>[data-process-dye-orders-root] [data-standard-list-scroll] td{vertical-align:top}[data-process-dye-orders-stats] [data-standard-list-stats]{display:flex;overflow-x:auto}[data-process-dye-orders-stats] [data-process-stat]{flex:1 0 max-content;min-height:48px;height:48px;gap:2px}[data-process-dye-orders-stats] [data-process-stat] strong{font-size:11px;line-height:14px;white-space:nowrap}</style>${renderPcsMaterialHandoff('DYE')}${renderStandardListPage({
     title: '染色加工单',
-    primaryActionsHtml: '<div class="flex items-center gap-2"><button class="rounded-md border px-4 py-2 text-sm" data-dye-order-action="create-new">按备货创建</button><button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-early-process-action="open-create">新增染色加工单</button></div>',
+    primaryActionsHtml: '<div class="flex items-center gap-2"><button class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/process/material-plans?processType=DYEING">物料加工计划</button><button class="rounded-md border px-4 py-2 text-sm" data-dye-order-action="create-new">按备货创建</button><button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-early-process-action="open-create">新增染色加工单</button></div>',
     feedbackHtml: `<div data-process-dye-orders-feedback>${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}</div>`,
     filtersHtml: `<div data-process-dye-orders-filters>${renderFilters()}</div>`,
     statsHtml: `<div data-process-dye-orders-stats>${renderStats()}</div>`,

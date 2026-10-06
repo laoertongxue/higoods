@@ -21,7 +21,8 @@ import {
   type PcsProjectTaskCarrierMode,
   type ProjectStepCode,
 } from './pcs-project-domain-contract.ts'
-import { getProjectChannelProductById } from './pcs-channel-product-project-repository.ts'
+import { getChannelListing, listChannelVariants, resolveChannelPrice } from './pcs-channel-catalog.ts'
+import { channelLabel, getChannelStore } from './pcs-channel-store-repository.ts'
 import { getEngineeringIndependentSamplingRecord } from './pcs-engineering-master-sampling.ts'
 import { getPlateMakingTaskById } from './pcs-plate-making-repository.ts'
 import { getPatternTaskById } from './pcs-pattern-task-repository.ts'
@@ -197,8 +198,8 @@ function buildProjectRecordInstance(project: PcsProjectViewRecord, node: PcsProj
   addField(fields, labelMap.get('subCategoryName') || '二级品类名称快照', project.subCategoryName, 'subCategoryName')
   addField(fields, labelMap.get('brandId') || '品牌', project.brandName, 'brandId')
   addField(fields, labelMap.get('brandName') || '品牌名称快照', project.brandName, 'brandName')
-  addField(fields, labelMap.get('styleCodeId') || '风格编号', project.styleCodeName, 'styleCodeId')
-  addField(fields, labelMap.get('styleCodeName') || '风格编号名称快照', project.styleCodeName, 'styleCodeName')
+  addField(fields, labelMap.get('categoryNumberId') || '品类编号', project.categoryNumberName, 'categoryNumberId')
+  addField(fields, labelMap.get('categoryNumberName') || '品类编号名称快照', project.categoryNumberName, 'categoryNumberName')
   addField(fields, labelMap.get('yearTag') || '年份', project.yearTag, 'yearTag')
   addField(fields, labelMap.get('seasonTags') || '季节标签', project.seasonTags, 'seasonTags')
   addField(fields, labelMap.get('styleTags') || '风格标签快照', project.styleTags, 'styleTags')
@@ -338,43 +339,37 @@ function buildFallbackRelationFields(relation: ProjectRelationRecord, meta: Reco
 }
 
 function resolveChannelProductRelationObject(relation: ProjectRelationRecord, meta: Record<string, unknown>): ResolvedRelationObjectSnapshot {
-  const record = getProjectChannelProductById(relation.sourceObjectId)
-  const sku =
-    (record?.skuId ? getSkuArchiveById(record.skuId) : null) ||
-    (record?.skuCode ? findSkuArchiveByCode(record.skuCode) : null)
+  // 历史关联只引用独立渠道事实，不赋予渠道商品开发项目身份。
+  const record = getChannelListing(relation.sourceObjectId)
+  const store = record ? getChannelStore(record.storeId) : null
+  const variants = record ? listChannelVariants(record.id) : []
+  const skus = [...new Set(variants.map(variant => variant.internalSkuId))].map(getSkuArchiveById).filter(Boolean)
+  const style = record ? getStyleArchiveById(record.styleId) : null
+  const prices = variants.map(variant => resolveChannelPrice(variant).amount).filter((value): value is number => value !== null)
+  const priceText = prices.length ? `${Math.min(...prices)}${Math.min(...prices) !== Math.max(...prices) ? `～${Math.max(...prices)}` : ''} ${store?.salesCurrency || ''}` : '未设置'
   const fields: PcsProjectInstanceField[] = []
-  addField(fields, '渠道', record?.channelCode, 'targetChannelCode')
-  addField(fields, '店铺', record?.storeId, 'targetStoreId')
-  addField(fields, '规格档案ID', record?.skuId || sku?.skuId, 'skuId')
-  addField(fields, '规格档案编码', record?.skuCode || sku?.skuCode, 'skuCode')
-  addField(fields, '规格档案名称', record?.skuName || sku?.skuName, 'skuName')
-  addField(fields, '渠道店铺商品编码', record?.channelProductCode, 'channelProductCode')
-  addField(fields, '渠道编码', record?.channelCode, 'channelCode')
-  addField(fields, '渠道名称', record?.channelName, 'channelName')
-  addField(fields, '店铺 ID', record?.storeId, 'storeId')
-  addField(fields, '店铺名称', record?.storeName, 'storeName')
-  addField(fields, '币种', record?.currency, 'currency')
-  addField(fields, '商品标题', record?.listingTitle, 'listingTitle')
-  addField(fields, '标价', record?.listingPrice, 'listingPrice')
-  addField(fields, '作废原因', record?.invalidatedReason, 'invalidatedReason')
-  addField(fields, '渠道 / 店铺', record ? `${record.channelName} / ${record.storeName}` : '', 'channelStoreDisplay')
-  addField(fields, '渠道店铺商品状态', record?.channelProductStatus || relation.sourceStatus, 'channelProductStatus')
-  addField(fields, '上游更新状态', record?.upstreamSyncStatus, 'upstreamSyncStatus')
-  addField(fields, '关联上游编码', record?.upstreamChannelProductCode || meta.upstreamChannelProductCode, 'upstreamChannelProductCode')
-  addField(fields, '关联款式档案', record?.styleCode || meta.styleCode || meta.linkedStyleCode, 'linkedStyleCode')
-  addField(fields, '关联规格档案', record?.skuCode || sku?.skuCode, 'skuCode')
-  addField(fields, '规格名称', record?.skuName || sku?.skuName, 'skuName')
-  addField(fields, '定价', record ? `${record.currency} ${record.listingPrice}` : '', 'listingPriceDisplay')
+  addField(fields, '渠道', store ? channelLabel(store.channelCode) : '', 'channelName')
+  addField(fields, '店铺', store?.storeName, 'storeName')
+  addField(fields, '区域市场', store?.marketCode, 'marketCode')
+  addField(fields, '平台 PID', record?.platformProductId || meta.upstreamChannelProductCode, 'platformProductId')
+  addField(fields, '关联款式档案', style?.styleCode || meta.styleCode || meta.linkedStyleCode, 'linkedStyleCode')
+  addField(fields, '内部 SKU', skus.map(sku => sku!.skuCode).join('、'), 'internalSkuCodes')
+  addField(fields, '平台规格 / 内部 SKU 数', `${variants.length} / ${skus.length}`, 'variantCounts')
+  addField(fields, '渠道标题', record?.content.title, 'listingTitle')
+  addField(fields, '日常售价范围', record ? priceText : '', 'listingPriceDisplay')
+  addField(fields, '内容审核', record?.reviewStatus, 'reviewStatus')
+  addField(fields, '平台实际状态', record?.platformStatus || relation.sourceStatus, 'platformStatus')
+  addField(fields, '同步状态', record?.syncStatus, 'syncStatus')
   return {
-    instanceId: record?.channelProductId || relation.sourceObjectId,
-    instanceCode: record?.channelProductCode || relation.sourceObjectCode,
-    title: record?.listingTitle || relation.sourceTitle,
-    status: record?.channelProductStatus || relation.sourceStatus,
+    instanceId: record?.id || relation.sourceObjectId,
+    instanceCode: record?.platformProductId || relation.sourceObjectCode,
+    title: record?.content.title || relation.sourceTitle,
+    status: record?.platformStatus || relation.sourceStatus,
     ownerName: relation.ownerName,
     businessDate: relation.businessDate,
     updatedAt: record?.updatedAt || relation.updatedAt,
     summaryText: buildSummaryFromFields(fields, relation.sourceTitle),
-    targetRoute: record ? `/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}` : '/pcs/products/channel-products',
+    targetRoute: record ? `/pcs/products/channel-products/${encodeURIComponent(record.id)}` : '/pcs/products/channel-products',
     fields,
   }
 }

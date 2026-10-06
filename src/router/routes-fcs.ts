@@ -41,6 +41,10 @@ import {
   renderProductionPreparationTimingPage,
   renderProductionPreparationTimingStatisticsPage,
   renderProcessDyeOrdersPage,
+  renderFcsMaterialProcessPlansPage,
+  renderFcsMaterialProcessPlanCreatePage,
+  renderFcsMaterialProcessPlanDetailPage,
+  renderFcsMaterialProcessPlanEditPage,
   renderProcessWaterSolubleOrdersPage,
   renderProcessPrintOrdersPage,
   renderMaterialIssuePage,
@@ -255,6 +259,7 @@ export const routes: RouteRegistry = {
     '/fcs/production/changes/new': () => renderProductionChangeNewPage(),
     '/fcs/production/craft-dict': () => renderProductionCraftDictPage(),
     '/fcs/process/task-breakdown': () => renderTaskBreakdownPage(),
+    '/fcs/process/material-plans': () => renderFcsMaterialProcessPlansPage(),
     '/fcs/process/dye-orders': () => renderProcessDyeOrdersPage(),
     '/fcs/process/water-soluble-orders': () => renderProcessWaterSolubleOrdersPage(),
     '/fcs/process/print-orders': () => renderProcessPrintOrdersPage(),
@@ -461,6 +466,9 @@ export const routes: RouteRegistry = {
     '/fcs/trace/unit-price': () => renderTraceUnitPricePage(),
   },
   dynamicRoutes: [
+    { pattern: /^\/fcs\/process\/material-plans\/new$/, render: () => renderFcsMaterialProcessPlanCreatePage() },
+    { pattern: /^\/fcs\/process\/material-plans\/([^/]+)\/edit$/, render: match => renderFcsMaterialProcessPlanEditPage(decodeURIComponent(match[1])) },
+    { pattern: /^\/fcs\/process\/material-plans\/([^/]+)$/, render: match => renderFcsMaterialProcessPlanDetailPage(decodeURIComponent(match[1])) },
     {
       pattern: /^\/fcs\/process-factory\/special-craft\/(auxiliary|special-type)\/wait-process-warehouse$/,
       render: (match) => renderSpecialCraftDomainWaitProcessWarehousePage(match[1]),

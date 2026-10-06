@@ -1,0 +1,267 @@
+{
+  "date": "2026-10-06",
+  "baseHead": "88324f65506f47c678b17d1b51879f8fd7c2488a",
+  "service": "http://127.0.0.1:5178",
+  "viewport": "1366x768",
+  "order": "TO-0007",
+  "url": "/pcs/testing/orders/to_muvl1of8_7",
+  "metrics": [
+    {
+      "brokenImages": 0,
+      "durationMs": 94,
+      "end": 179086,
+      "images": 1,
+      "label": "testing-regression:create",
+      "start": 178992,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 76.80000001192093,
+      "end": 193469,
+      "images": 1,
+      "label": "testing-regression:purchase-step",
+      "start": 193392.19999998808,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.29999995231629,
+      "end": 202485.69999998808,
+      "images": 1,
+      "label": "testing-regression:purchase-save",
+      "start": 202423.40000003576,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.89999997615814,
+      "end": 209335.69999998808,
+      "images": 1,
+      "label": "testing-regression:express-save",
+      "start": 209272.80000001192,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.89999997615814,
+      "end": 219769,
+      "images": 1,
+      "label": "testing-regression:sample-save",
+      "start": 219706.10000002384,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.80000001192093,
+      "end": 235302.30000001192,
+      "images": 1,
+      "label": "testing-regression:label-save",
+      "start": 235239.5,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.80000001192093,
+      "end": 243552.30000001192,
+      "images": 1,
+      "label": "testing-regression:buyer-pass",
+      "start": 243489.5,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.69999998807907,
+      "end": 251202.19999998808,
+      "images": 1,
+      "label": "testing-regression:pricing-save",
+      "start": 251139.5,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45,
+      "end": 269535.6999999881,
+      "images": 0,
+      "label": "testing-regression:missing-store",
+      "start": 269490.6999999881,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 114.69999998807909,
+      "end": 269937.3000000119,
+      "images": 0,
+      "label": "testing-regression:prepare-1",
+      "start": 269822.60000002384,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 65.89999997615814,
+      "end": 294818.5,
+      "images": 1,
+      "label": "testing-regression:return-1",
+      "start": 294752.60000002384,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.89999997615814,
+      "end": 315819,
+      "images": 0,
+      "label": "testing-regression:missing-store-2",
+      "start": 315775.10000002384,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 311.80000001192093,
+      "end": 316436,
+      "images": 0,
+      "label": "testing-regression:prepare-2",
+      "start": 316124.1999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 77.60000002384186,
+      "end": 351602.10000002384,
+      "images": 1,
+      "label": "testing-regression:return-2",
+      "start": 351524.5,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 46.5,
+      "end": 351752.1999999881,
+      "images": 0,
+      "label": "testing-regression:missing-store-3",
+      "start": 351705.6999999881,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 98.69999998807909,
+      "end": 352138.1999999881,
+      "images": 0,
+      "label": "testing-regression:prepare-3",
+      "start": 352039.5,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 95.69999998807909,
+      "end": 352402.1999999881,
+      "images": 1,
+      "label": "testing-regression:cancel-3",
+      "start": 352306.5,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 95.4000000357628,
+      "end": 352602.10000002384,
+      "images": 1,
+      "label": "testing-regression:return-3",
+      "start": 352506.6999999881,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 46.39999997615814,
+      "end": 352768.8000000119,
+      "images": 0,
+      "label": "testing-regression:missing-store-4",
+      "start": 352722.40000003576,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 96.5999999642372,
+      "end": 353152.1999999881,
+      "images": 0,
+      "label": "testing-regression:prepare-4",
+      "start": 353055.60000002384,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 79.90000003576279,
+      "end": 353302.10000002384,
+      "images": 1,
+      "label": "testing-regression:cancel-4",
+      "start": 353222.1999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 111.89999997615814,
+      "end": 353535.5,
+      "images": 1,
+      "label": "testing-regression:return-4",
+      "start": 353423.60000002384,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 46.60000002384186,
+      "end": 353685.40000003576,
+      "images": 0,
+      "label": "testing-regression:missing-store-5",
+      "start": 353638.8000000119,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 98.20000004768372,
+      "end": 354070.40000003576,
+      "images": 0,
+      "label": "testing-regression:prepare-5",
+      "start": 353972.1999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3/edit"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 79.89999997615814,
+      "end": 354218.8000000119,
+      "images": 1,
+      "label": "testing-regression:cancel-5",
+      "start": 354138.90000003576,
+      "url": "/pcs/products/channel-products/channel-listing-demo-3"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 112.30000001192091,
+      "end": 354452.10000002384,
+      "images": 1,
+      "label": "testing-regression:return-5",
+      "start": 354339.8000000119,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 48,
+      "end": 368637.40000003576,
+      "images": 0,
+      "label": "testing-regression:pending-receipt-block",
+      "start": 368589.40000003576,
+      "url": "/pcs/testing/orders/to_muvl1of8_7"
+    }
+  ],
+  "afterFirstReturn": "- banner:\n  - generic: HG\n  - generic: HiGood\n  - button \"商品中心系统 (PCS)\":\n    - generic: 商品中心系统\n    - generic: (PCS)\n  - button \"采购管理系统 (PMS)\":\n    - generic: 采购管理系统\n    - generic: (PMS)\n  - button \"工厂生产协同系统 (FCS)\":\n    - generic: 工厂生产协同系统\n    - generic: (FCS)\n  - button \"工艺工厂运营系统 (PFOS)\":\n    - generic: 工艺工厂运营系统\n    - generic: (PFOS)\n  - button \"仓储物流系统 (WLS)\":\n    - generic: 仓储物流系统\n    - generic: (WLS)\n  - button \"直播运营系统 (LOS)\":\n    - generic: 直播运营系统\n    - generic: (LOS)\n  - button \"订单管理系统 (OMS)\":\n    - generic: 订单管理系统\n    - generic: (OMS)\n  - button \"业财一体化系统 (BFIS)\":\n    - generic: 业财一体化系统\n    - generic: (BFIS)\n  - button \"数据决策系统 (DDS)\":\n    - generic: 数据决策系统\n    - generic: (DDS)\n  - button \"通知\":\n  - button \"管理员\":\n    - generic: 管理员\n- complementary:\n  - heading \"商品中心系统\" [level=2]\n  - paragraph: PCS\n  - button \"收起菜单\":\n  - button \"商品中心系统\":\n    - generic: 商品中心系统\n  - button \"商品测款\":\n    - generic: 商品测款\n  - button \"生产准备管理\":\n    - generic: 生产准备管理\n  - button \"技术资料\":\n    - generic: 技术资料\n  - button \"样衣管理\":\n    - generic: 样衣管理\n  - button \"商品&物料档案\":\n    - generic: 商品&物料档案\n  - button \"系统设置\":\n    - generic: 系统设置\n- main:\n  - button \"款式档案\"\n  - button \"款式详情\"\n  - button \"规格详情\"\n  - button \"面料档案\"\n  - button \"渠道店铺商品\"\n  - button \"基础配置\"\n  - button \"辅料档案\"\n  - button \"规格详情\"\n  - button \"规格档案\"\n  - button \"渠道店铺管理\"\n  - button \"纱线档案\"\n  - button \"耗材档案\"\n  - button \"配件档案\"\n  - button \"测款单\"\n  - button:\n  - button \"全部关闭\"\n  - button \"返回列表\":\n    - text: 返回列表\n  - heading \"TO-0007\" [level=1]\n  - generic: 进行中\n  - paragraph: SPU-QC-003 · 后道验收外套\n  - button \"查看后道验收外套大图\":\n    - img \"后道验收外套\"\n  - generic: SPU SPU-QC-003\n  - generic: SKU SPU-QC-003-01\n  - generic: 买手 陈买手\n  - generic: 寄样 人头\n  - text: 当前步骤责任团队：\n  - strong: 买手\n  - list:\n    - generic: ①系统建档\n    - generic: 核对关联商品档案及本次测款 SKU。\n    - generic: ②采购下单\n    - generic: 记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。\n    - generic: ③快递信息\n    - generic: 记录寄件快递、运单号与预计到达。\n    - generic: ④样衣入库\n    - generic: 样衣模块确认样品入库成功后推进。\n    - generic: ⑤打标\n    - generic: 已贴码且码值等于 SKU 编码后方可完成本步。\n    - generic: ⑥买手确认\n    - generic: 通过→⑦核价；淘汰→测款单结束并保留淘汰事实。\n    - generic: ⑦核价\n    - generic: 记录初步 BOM、用量、工艺成本与定价；淘汰则结束。\n    - generic: ⑧寄样+渠道上架\n    - generic: 寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。\n    - generic: ⑨直播测款\n    - generic: 记录测款执行事实。\n    - generic: ⑩大货判断\n    - generic: 是/否/待定三态；待定保持进行中。\n  - paragraph: 选择具体店铺与同款 PID；内容、规格、售价、审核和发布在统一渠道商品编辑页维护。\n  - text: 目标店铺\n  - combobox \"目标店铺\":\n    - option \"请选择店铺\" [selected]\n    - option \"TikTok 马来西亚店 · MYR\"\n    - option \"Shopify 印尼店 · IDR\"\n    - option \"Shopify 马来西亚店 · MYR\"\n    - option \"独立站演示店铺 · 印尼 · IDR\"\n    - option \"独立站演示店铺 · 马来西亚 · MYR\"\n    - option \"TikTok 印尼主店 · R1验收5 · IDR\"\n  - text: 新建或关联同款 PID\n  - combobox \"新建或关联同款 PID\":\n    - option \"新建渠道商品\" [selected]\n    - option \"Shopify 印尼店 · 未发布容器 · 后道验收外套\"\n    - option \"Shopify 印尼店 · demo-0ddc0dc1-abc8-4644-b0df-5410dd61ff4b · 后道验收外套\"\n  - text: 寄样方式\n  - combobox \"寄样方式\":\n    - option \"人头\" [selected]\n    - option \"空运\"\n  - button \"保存来源并进入渠道编辑\"\n  - button \"核对回执并进入直播测款\"\n  - status\n  - table:\n    - rowgroup:\n      - row \"店铺 / 上架动作 平台 PID 平台状态 同步结果 操作\":\n        - columnheader \"店铺 / 上架动作\"\n        - columnheader \"平台 PID\"\n        - columnheader \"平台状态\"\n        - columnheader \"同步结果\"\n        - columnheader \"操作\"\n    - rowgroup:\n      - row \"Shopify 印尼店 34d70505-45f1-49cb-97c5-1c9c851349f0 待平台分配 未发布 待同步 查看渠道详情\":\n        - cell \"Shopify 印尼店 34d70505-45f1-49cb-97c5-1c9c851349f0\":\n          - text: Shopify 印尼店\n          - generic: 34d70505-45f1-49cb-97c5-1c9c851349f0\n        - cell \"待平台分配\"\n        - cell \"未发布\"\n        - cell \"待同步\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n  - generic \"商品信息（来自商品档案）\"\n  - generic: 关键事实\n  - term: 采购链接\n  - definition: —\n  - term: 物流\n  - definition: 本地验收快递 · R1-DEMO-TESTING-0007\n  - term: 打标\n  - definition: SPU-QC-003-01 @ 2026-10-05 18:28\n  - term: 核价\n  - definition: BOM ¥0 · 工艺 ¥0 · 定价 ¥45\n  - term: 渠道\n  - definition: tiktok、shopify\n  - term: 大货判断\n  - definition: —\n  - generic: 操作历史\n  - list:\n    - listitem: 2026-10-05 18:29 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 34d70505-45f1-49cb-97c5-1c9c851349f0；渠道商品 channel-listing-demo-3\n    - listitem: 2026-10-05 18:29 · 推进到 ⑧寄样+渠道上架 · 当前用户\n    - listitem: 2026-10-05 18:29 · 保存核价 · 当前用户\n    - listitem: 2026-10-05 18:29 · 推进到 ⑦核价 · 当前用户\n    - listitem: 2026-10-05 18:28 · 完成打标，码值 SPU-QC-003-01 · 当前用户\n    - listitem: 2026-10-05 18:28 · 完成 ④样衣入库 · 当前用户 · 仅本机原型验收\n    - listitem: 2026-10-05 18:28 · 推进到 ④样衣入库 · 当前用户\n    - listitem: 2026-10-05 18:28 · 保存物流信息 · 当前用户\n- button \"查生产\":",
+  "pendingReceipt": "- banner:\n  - generic: HG\n  - generic: HiGood\n  - button \"商品中心系统 (PCS)\":\n    - generic: 商品中心系统\n    - generic: (PCS)\n  - button \"采购管理系统 (PMS)\":\n    - generic: 采购管理系统\n    - generic: (PMS)\n  - button \"工厂生产协同系统 (FCS)\":\n    - generic: 工厂生产协同系统\n    - generic: (FCS)\n  - button \"工艺工厂运营系统 (PFOS)\":\n    - generic: 工艺工厂运营系统\n    - generic: (PFOS)\n  - button \"仓储物流系统 (WLS)\":\n    - generic: 仓储物流系统\n    - generic: (WLS)\n  - button \"直播运营系统 (LOS)\":\n    - generic: 直播运营系统\n    - generic: (LOS)\n  - button \"订单管理系统 (OMS)\":\n    - generic: 订单管理系统\n    - generic: (OMS)\n  - button \"业财一体化系统 (BFIS)\":\n    - generic: 业财一体化系统\n    - generic: (BFIS)\n  - button \"数据决策系统 (DDS)\":\n    - generic: 数据决策系统\n    - generic: (DDS)\n  - button \"通知\":\n  - button \"管理员\":\n    - generic: 管理员\n- complementary:\n  - heading \"商品中心系统\" [level=2]\n  - paragraph: PCS\n  - button \"收起菜单\":\n  - button \"商品中心系统\":\n    - generic: 商品中心系统\n  - button \"商品测款\":\n    - generic: 商品测款\n  - button \"生产准备管理\":\n    - generic: 生产准备管理\n  - button \"技术资料\":\n    - generic: 技术资料\n  - button \"样衣管理\":\n    - generic: 样衣管理\n  - button \"商品&物料档案\":\n    - generic: 商品&物料档案\n  - button \"系统设置\":\n    - generic: 系统设置\n- main:\n  - button \"款式档案\"\n  - button \"款式详情\"\n  - button \"规格详情\"\n  - button \"面料档案\"\n  - button \"渠道店铺商品\"\n  - button \"基础配置\"\n  - button \"辅料档案\"\n  - button \"规格详情\"\n  - button \"规格档案\"\n  - button \"渠道店铺管理\"\n  - button \"纱线档案\"\n  - button \"耗材档案\"\n  - button \"配件档案\"\n  - button \"测款单\"\n  - button:\n  - button \"全部关闭\"\n  - button \"返回列表\":\n    - text: 返回列表\n  - heading \"TO-0007\" [level=1]\n  - generic: 进行中\n  - paragraph: SPU-QC-003 · 后道验收外套\n  - button \"查看后道验收外套大图\":\n    - img \"后道验收外套\"\n  - generic: SPU SPU-QC-003\n  - generic: SKU SPU-QC-003-01\n  - generic: 买手 陈买手\n  - generic: 寄样 人头\n  - text: 当前步骤责任团队：\n  - strong: 买手\n  - list:\n    - generic: ①系统建档\n    - generic: 核对关联商品档案及本次测款 SKU。\n    - generic: ②采购下单\n    - generic: 记录采购链接与下单事实；链接只挂本测款单，不写入档案 SKU。\n    - generic: ③快递信息\n    - generic: 记录寄件快递、运单号与预计到达。\n    - generic: ④样衣入库\n    - generic: 样衣模块确认样品入库成功后推进。\n    - generic: ⑤打标\n    - generic: 已贴码且码值等于 SKU 编码后方可完成本步。\n    - generic: ⑥买手确认\n    - generic: 通过→⑦核价；淘汰→测款单结束并保留淘汰事实。\n    - generic: ⑦核价\n    - generic: 记录初步 BOM、用量、工艺成本与定价；淘汰则结束。\n    - generic: ⑧寄样+渠道上架\n    - generic: 寄样方式（人头/空运）记录；选择具体店铺与同款 PID，在渠道编辑页完成内容、规格和发布。\n    - generic: ⑨直播测款\n    - generic: 记录测款执行事实。\n    - generic: ⑩大货判断\n    - generic: 是/否/待定三态；待定保持进行中。\n  - paragraph: 选择具体店铺与同款 PID；内容、规格、售价、审核和发布在统一渠道商品编辑页维护。\n  - text: 目标店铺\n  - combobox \"目标店铺\":\n    - option \"请选择店铺\" [selected]\n    - option \"TikTok 马来西亚店 · MYR\"\n    - option \"Shopify 印尼店 · IDR\"\n    - option \"Shopify 马来西亚店 · MYR\"\n    - option \"独立站演示店铺 · 印尼 · IDR\"\n    - option \"独立站演示店铺 · 马来西亚 · MYR\"\n    - option \"TikTok 印尼主店 · R1验收5 · IDR\"\n  - text: 新建或关联同款 PID\n  - combobox \"新建或关联同款 PID\":\n    - option \"新建渠道商品\" [selected]\n    - option \"Shopify 印尼店 · 未发布容器 · 后道验收外套\"\n    - option \"Shopify 印尼店 · demo-0ddc0dc1-abc8-4644-b0df-5410dd61ff4b · 后道验收外套\"\n  - text: 寄样方式\n  - combobox \"寄样方式\":\n    - option \"人头\" [selected]\n    - option \"空运\"\n  - button \"保存来源并进入渠道编辑\"\n  - button \"核对回执并进入直播测款\" [active]\n  - status: 本测款单仍有渠道商品未获得完整在售回执，请先在渠道详情处理。\n  - table:\n    - rowgroup:\n      - row \"店铺 / 上架动作 平台 PID 平台状态 同步结果 操作\":\n        - columnheader \"店铺 / 上架动作\"\n        - columnheader \"平台 PID\"\n        - columnheader \"平台状态\"\n        - columnheader \"同步结果\"\n        - columnheader \"操作\"\n    - rowgroup:\n      - row \"Shopify 印尼店 34d70505-45f1-49cb-97c5-1c9c851349f0 待平台分配 未发布 待同步 查看渠道详情\":\n        - cell \"Shopify 印尼店 34d70505-45f1-49cb-97c5-1c9c851349f0\":\n          - text: Shopify 印尼店\n          - generic: 34d70505-45f1-49cb-97c5-1c9c851349f0\n        - cell \"待平台分配\"\n        - cell \"未发布\"\n        - cell \"待同步\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n      - row \"Shopify 印尼店 fa1926aa-5a8d-4edb-afcc-6b0e8372a960 待平台分配 未发布 待同步 查看渠道详情\":\n        - cell \"Shopify 印尼店 fa1926aa-5a8d-4edb-afcc-6b0e8372a960\":\n          - text: Shopify 印尼店\n          - generic: fa1926aa-5a8d-4edb-afcc-6b0e8372a960\n        - cell \"待平台分配\"\n        - cell \"未发布\"\n        - cell \"待同步\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n      - row \"Shopify 印尼店 105397b2-616f-4717-95f9-708831fe98ab 待平台分配 未发布 待同步 查看渠道详情\":\n        - cell \"Shopify 印尼店 105397b2-616f-4717-95f9-708831fe98ab\":\n          - text: Shopify 印尼店\n          - generic: 105397b2-616f-4717-95f9-708831fe98ab\n        - cell \"待平台分配\"\n        - cell \"未发布\"\n        - cell \"待同步\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n      - row \"Shopify 印尼店 51c39816-8ecf-45af-ad54-c0d028f104b7 待平台分配 未发布 待同步 查看渠道详情\":\n        - cell \"Shopify 印尼店 51c39816-8ecf-45af-ad54-c0d028f104b7\":\n          - text: Shopify 印尼店\n          - generic: 51c39816-8ecf-45af-ad54-c0d028f104b7\n        - cell \"待平台分配\"\n        - cell \"未发布\"\n        - cell \"待同步\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n      - row \"Shopify 印尼店 4d8e8160-0eca-455c-bbe6-1e8b9c54e708 待平台分配 未发布 待同步 查看渠道详情\":\n        - cell \"Shopify 印尼店 4d8e8160-0eca-455c-bbe6-1e8b9c54e708\":\n          - text: Shopify 印尼店\n          - generic: 4d8e8160-0eca-455c-bbe6-1e8b9c54e708\n        - cell \"待平台分配\"\n        - cell \"未发布\"\n        - cell \"待同步\"\n        - cell \"查看渠道详情\":\n          - button \"查看渠道详情\"\n  - generic \"商品信息（来自商品档案）\"\n  - generic: 关键事实\n  - term: 采购链接\n  - definition: —\n  - term: 物流\n  - definition: 本地验收快递 · R1-DEMO-TESTING-0007\n  - term: 打标\n  - definition: SPU-QC-003-01 @ 2026-10-05 18:28\n  - term: 核价\n  - definition: BOM ¥0 · 工艺 ¥0 · 定价 ¥45\n  - term: 渠道\n  - definition: tiktok、shopify\n  - term: 大货判断\n  - definition: —\n  - generic: 操作历史\n  - list:\n    - listitem: 2026-10-05 18:30 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 4d8e8160-0eca-455c-bbe6-1e8b9c54e708；渠道商品 channel-listing-demo-3\n    - listitem: 2026-10-05 18:30 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 51c39816-8ecf-45af-ad54-c0d028f104b7；渠道商品 channel-listing-demo-3\n    - listitem: 2026-10-05 18:30 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 105397b2-616f-4717-95f9-708831fe98ab；渠道商品 channel-listing-demo-3\n    - listitem: 2026-10-05 18:30 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 fa1926aa-5a8d-4edb-afcc-6b0e8372a960；渠道商品 channel-listing-demo-3\n    - listitem: 2026-10-05 18:29 · 发起渠道上架 · 当前用户 · Shopify 印尼店；动作 34d70505-45f1-49cb-97c5-1c9c851349f0；渠道商品 channel-listing-demo-3\n    - listitem: 2026-10-05 18:29 · 推进到 ⑧寄样+渠道上架 · 当前用户\n    - listitem: 2026-10-05 18:29 · 保存核价 · 当前用户\n    - listitem: 2026-10-05 18:29 · 推进到 ⑦核价 · 当前用户\n- button \"查生产\":",
+  "findings": [
+    "五次缺少店铺校验→正确选择→保存渠道来源→返回测款，旧校验提示均清除；关联动作共五条且分别保留",
+    "新测款未取得最终通过结论，仍可关联渠道商品；未得到完整在售回执时不可推进直播测款",
+    "首次发布被内部SKU SPU-QC-003-02已停用状态阻断；SKU01已审核启用，阻断符合真实档案状态",
+    "尝试在本机演示PID取消本次不使用的停用规格后保存，确认窗口不能由当前接口读取；没有绕过确认，此次修改未获得保存完成证据"
+  ],
+  "invalidMeasurements": [
+    "first-publish 原预期提交等待回执，但实际业务校验阻断；该等待计时无效，保留事实",
+    "SKU跳转等待使用不存在的通用标题，已以实际编号标题读取结果；未计入性能样本",
+    "第2轮取消编辑后快照读取先于路由完成；随后按实际完成状态读取，未把中间态当完成"
+  ],
+  "scopeLimit": "仅五次来源关联/提示恢复；不是五次完整发布回执闭环。最后一次保存没有完成证据。"
+}

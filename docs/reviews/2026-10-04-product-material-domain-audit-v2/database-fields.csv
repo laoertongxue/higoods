@@ -1,0 +1,692 @@
+﻿source_database,table_name,ordinal_position,column_name,column_type,is_nullable,column_default,column_comment,column_key,verification
+higood,td_fcs_pantone_color_map,1,id,int(10) unsigned,NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,2,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,3,update_time,datetime,NO,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,4,is_delete,tinyint(1) unsigned,NO,0,0-正常 1-删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,5,pantone_no,varchar(64),NO,,潘通色卡号,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,6,color_no,varchar(64),NO,,色号,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,7,color_no_segment,varchar(32),NO,,色号段,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,8,status,tinyint(3) unsigned,NO,1,状态：0-停用 1-启用,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,9,operator_id,bigint(20) unsigned,YES,,操作人 ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,10,operator_name,varchar(100),YES,,操作人姓名,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_pantone_color_map,11,remark,varchar(500),NO,,备注,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,1,id,int(10) unsigned,NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,2,code,varchar(50),NO,,工艺编码，唯一,UNI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,3,name,varchar(100),NO,,工艺名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,4,process_station_id,bigint(20) unsigned,NO,0,工序ID(关联td_fcs_process_station),MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,5,process_group,varchar(50),NO,,工艺分组/阶段（冗余或关联查询）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,6,sort,int(11),NO,0,排序，数字越小越靠前,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,7,status,tinyint(4),NO,1,状态：1启用 0停用,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,8,description,varchar(255),YES,,描述,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,9,standard_work_time,varchar(50),NO,,基准工时,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,10,work_unit,varchar(50),NO,,工时单位(如分钟/件),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,11,standard_difficulty,varchar(50),NO,,基准难度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,12,apply_targets,varchar(255),NO,,"作用对象逗号分隔:piece_part,full_fabric 裁片部位/完整面料",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,13,generate_task,tinyint(4),NO,1,是否生成任务  0：不生成  1：生成,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,14,standard_summary,varchar(500),NO,,工艺标准摘要,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,15,is_delete,tinyint(4),NO,0,软删除：0正常 1已删,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,16,create_time,datetime,YES,,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,17,update_time,datetime,YES,,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,18,standard_price,"decimal(10,2)",NO,0.00,核价标准价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,19,currency,varchar(20),NO,IDR,核价币种,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process,20,cost_unit,varchar(30),NO,IDR/件,核价单位,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,1,id,bigint(20) unsigned,NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,2,name,varchar(100),NO,,工序名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,3,code,varchar(50),NO,,工序编码,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,4,process_group,varchar(50),NO,,工序分组(阶段),MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,5,sort,int(11),NO,0,排序,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,6,status,tinyint(4),NO,1,状态 1启用 0停用,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,7,is_delete,tinyint(4),NO,0,是否删除,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,8,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fcs_process_station,9,update_time,datetime,NO,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,1,id,int(11),NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,2,title,varchar(255),NO,,商品标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,3,body_html,longtext,YES,,描述,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,4,color_card_type,smallint(4),NO,0,设卡类型：1：纱线RAINBOW色卡 2：辅料GCC色卡 3：TPG色卡 4：TCX色卡,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,5,fabric_composition,varchar(100),YES,,面料成分,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,6,fabric_composition_short,smallint(4),NO,0,成分简称：1.涤纶P 2.棉C 3.尼龙N 4.腈纶A 5.混纺B,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,7,product_type,int(4),YES,0,商品类型 1.面料 2.辅料 3.物料,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,8,is_yarn,smallint(4),NO,0,是否纱线 0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,9,tags,text,YES,,标签,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,10,primary_sku,varchar(50),YES,,SPU,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,11,mode,tinyint(1),NO,0,商品销售模式：0.预售商品 1.做货商品 2.库存商品,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,12,msg,varchar(255),YES,,备注,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,13,audit_status,tinyint(1),NO,1,审核状态 1：待审核 2：审核通过,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,14,cost_price,"decimal(6,2)",NO,0.00,商品成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,15,cost_price_method,varchar(50),NO,,成本价类型：KG、M、YAD,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,16,freight,"decimal(11,2)",NO,0.00,运费,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,17,freight_cost_price,"decimal(11,2)",NO,0.00,含运费的成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,18,kg_freight_cost,"decimal(11,2)",NO,0.00,每千克运费,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,19,create_id,int(11),NO,0,创建商品人id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,20,create_time,int(11),NO,,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,21,update_time,int(11),NO,,最后修改时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,22,last_modified,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,23,is_delete,smallint(4),NO,0,是否删除 ：0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,24,stock_type,tinyint(1),NO,0,面辅料库存类型:1:spu维度 2:sku维度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,25,auxiliary_units,varchar(255),NO,,辅助单位，逗号分隔,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,26,weight,varchar(100),NO,,克重,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,27,length,varchar(100),NO,,空差(cm),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,28,width,int(11),NO,0,幅宽(cm),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,29,craft_label,varchar(255),NO,,工艺标签,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,30,barcode_code,varchar(50),NO,,条码模板编码,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,31,size,varchar(50),NO,,门幅/尺寸,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,32,sku_tags,varchar(255),YES,,sku规格参数--用于生成sku的指标,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,33,category,tinyint(1) unsigned,NO,0,物料三级分类，具体字段说明见枚举,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,34,second_category,tinyint(1),NO,0,物料二级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,35,specification_summary,varchar(255),YES,,规格摘要,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,36,status,tinyint(1) unsigned,YES,1,状态：0-停用，1-启用，2-已归档,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting,37,title_id,varchar(255),NO,,商品标题-印尼,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,1,id,int(11),NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,2,f_id,int(11),NO,,对应td_fitting表id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,3,spu,varchar(50),NO,,SPU,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,4,tag,tinyint(1),NO,,资源类型：1 商品 ，2 原材料，3样衣质检图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,5,src,varchar(255),NO,,图片/视频地址,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,6,type,tinyint(2),NO,1,资源类型：1主图，2尺码图，3高清图，4视频,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,7,is_default,tinyint(1),NO,0,是否封面图,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,8,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,9,update_time,datetime,NO,CURRENT_TIMESTAMP,最后更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,10,status,tinyint(4),NO,1,状态 0；无效 1：有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_images,11,is_delete,tinyint(1) unsigned,NO,0,0-正常，1-删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,2,f_id,int(11),NO,0,商品id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,3,spu,varchar(200),NO,,主sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,4,sku,varchar(200),NO,,sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,5,option1,varchar(100),YES,,属性1,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,6,option2,varchar(100),YES,,属性2,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,7,option3,varchar(100),YES,,属性3,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,8,compare_at_price,"decimal(11,3)",NO,0.000,成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,9,compare_at_price_1,"decimal(11,4)",YES,0.0000,商品包含运费成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,10,title,varchar(255),NO,,sku标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,11,featured_image,varchar(5000),NO,,图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,12,is_delete,smallint(4),NO,0,是否删除 ：0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,13,is_lock,smallint(4),NO,0,是否可以配置面辅料 0：是 1：否,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,14,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,15,update_time,datetime,NO,CURRENT_TIMESTAMP,最后更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,16,status,tinyint(4),NO,1,状态 0；无效 1：有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,17,price_type,smallint(4),NO,0,转运价格类型：1：数码印  2：低价数码印 3：MJS染色 4：GTG染色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,18,side_type,smallint(4),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,19,volume,varchar(50),NO,,体积,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,20,weight,varchar(50),NO,,重量,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,21,print_price,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,22,asaya_price,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,23,asaya_compare_at_price,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,24,asaya_print_price,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_fitting_sku,25,stock,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,1,id,int(11),NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,2,pattern_no,varchar(40),NO,,花型编号 HX-日期-序号,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,3,pattern_name,varchar(100),NO,,花型名称,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,4,original_filename,varchar(100),NO,,原文件名,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,5,alias_names,varchar(255),NO,,别名/历史名，逗号分隔,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,6,file_path,varchar(255),NO,,当前有效文件 Web 路径,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,7,thumb_path,varchar(255),NO,,缩略图路径,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,8,usage_method,tinyint(2) unsigned,NO,0,花型使用方式:1-重复花，2-定位花，3-边条花，4-满印，5-纯色肌理,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,9,subject_cat_l1,varchar(15),NO,,题材一级,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,10,subject_cat_l2,varchar(15),NO,,题材二级,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,11,style_tags,varchar(255),NO,,风格标签，逗号分隔,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,12,main_color,varchar(128),NO,,主色系,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,13,sub_color,varchar(128),NO,,辅色系,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,14,is_hot,tinyint(1),NO,0,是否爆款 0/1,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,15,source_type,tinyint(1) unsigned,NO,1,来源类型:1-自研，2-客供，3-历史沉淀，4-外采,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,16,remark,varchar(255),YES,,备注,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,17,maint_status,tinyint(1) unsigned,NO,0,维护状态:0待补录，1已维护，2已治理,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,18,analysis_status,tinyint(4),NO,0,解析状态 0待解析 1成功 2失败,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,19,is_referenced,tinyint(1),NO,0,已被业务引用,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,20,parse_hint,varchar(255),NO,,解析提示/失败原因,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,21,applicable_category,varchar(255),NO,,适用品类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,22,applicable_parts,varchar(255),NO,,适用部位,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,23,craft_direction,varchar(255),NO,,工艺方向,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,24,manual_confirm_note,text,YES,,人工确认结论,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,25,audit_opinion,text,YES,,审核意见,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,26,extra_json,mediumtext,YES,,扩展 JSON（标签识别等二期）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,27,create_time,datetime,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,28,update_time,datetime,NO,CURRENT_TIMESTAMP,,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,29,is_delete,tinyint(1),NO,0,软删,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,30,operator_id,int(10),NO,0,创建人id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,31,operator_name,varchar(20),NO,,创建人名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,32,version,int(10) unsigned,YES,1,版本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,33,status,tinyint(1) unsigned,YES,1,状态:0-草稿，1-使用中，2-已归档（即老版本）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,34,process_id,int(10) unsigned,NO,0,工艺表ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,35,process_name,varchar(20),YES,,工艺名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,36,part_template_id,int(10) unsigned,NO,0,模板表ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_pattern_library,37,file_task_id,int(10),NO,0,td_pcs_sync_file_task 自增id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,2,site_id,int(6),NO,,对应店铺,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,3,shop_region,varchar(10),YES,,店铺所属地区,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,4,task_id,int(11) unsigned,NO,0,td_publish主键,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,5,products_id,int(11),NO,,商品编号,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,6,spu,varchar(50),NO,,,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,7,pub_id,varchar(250),NO,,,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,8,avg_rating,"decimal(10,1)",NO,0.0,连接评分,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,9,total_reviews,int(10),NO,0,评分人数,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,10,type,smallint(1),NO,1,商品类型 ：0：现货 1：预售 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,11,sku_list,text,YES,,"上架sku列表,json",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,12,status,smallint(5) unsigned,NO,1,"1.在售中 2.已下架 3.下架失败4.仅上传商品信息,5,仅上传到全球",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,13,takeoff_time,int(11) unsigned,NO,0,下架时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,14,score,"decimal(11,2)",NO,0.00,商品评分,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,15,create_time,datetime,YES,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,16,update_time,datetime,YES,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves,17,is_delete,tinyint(1) unsigned,NO,0,0-正常，1-删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,2,site_id,int(6),NO,,对应店铺,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,3,products_id,int(11),NO,,商品编号,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,4,pub_sku_id,varchar(100),NO,,店铺商品sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,5,sale_type,int(4),NO,0,售卖方式：0 未知，1 现货 ，2预售,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,6,pub_id,varchar(250),NO,,,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,7,price,"decimal(11,2)",NO,0.00,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,8,quantity,int(11),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,9,spu,varchar(255),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,10,sku,varchar(255),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,11,create_time,datetime,YES,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,12,update_time,datetime,YES,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,13,is_delete,tinyint(1) unsigned,NO,0,0-正常，1-删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_shelves_sku,14,status,tinyint(1) unsigned,YES,1,0-无效，1-有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,2,site_name,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,3,domain,varchar(100),NO,,shopify二级域名,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,4,app_id,int(4),NO,0,开发者平台应用ID 默认为0 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,5,app_key,varchar(181),NO,,APP账户,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,6,app_secret,varchar(50),NO,,密钥,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,7,site_type,smallint(1),NO,0,0:shopify;1:店匠2.tiktokglobalshop 3.shopee 4:lazada;5:shopxo,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,8,region,varchar(50),NO,,tiktok店铺区域,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,9,sync,tinyint(1),NO,0,0不同步1同步,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,10,rebuild_img,tinyint(1) unsigned,NO,0,是否切图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,11,status,tinyint(1) unsigned,NO,1,0-无效，1-有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,12,mb_id,varchar(10),YES,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,13,brand_id,smallint(4),NO,0,品牌id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,14,can_use_global_product,smallint(2),NO,0,0. 默认值 1.tiktok全球商品店铺,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,15,last_sync_time,datetime,NO,,最后同步时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,16,raw,longtext,YES,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,17,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,18,update_time,datetime,YES,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,19,is_delete,tinyint(1) unsigned,NO,0,0-正常，1-删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,20,team,tinyint(1) unsigned,YES,1,运营组：1-东南亚运营组，2-独立站运营组，3-渠道运营组,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,21,principal_id,int(10) unsigned,YES,0,负责人ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_pcs_site,22,principal_name,varchar(20),NO,,负责人名,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,1,id,int(11),NO,,链接编号,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,2,title,varchar(255),NO,,商品标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,3,title_id,varchar(255),NO,,商品印尼语标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,4,same_style_spu,varchar(100),YES,,同款商品spu,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,5,body_html,longtext,YES,,描述,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,6,vendor,varchar(50),YES,,商品负责人,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,7,style_id,int(11),NO,0,风格id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,8,product_type,int(4),YES,0,"product type  商品类型 0.常规商品,4.组合商品",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,9,seller_id,int(11),NO,0,商家uid（暂时没用）,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,10,cate_top_id,int(11),NO,0,一级分类,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,11,cate_two_id,int(11),NO,0,二级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,12,cate_three_id,int(11),NO,0,三级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,13,documentary,varchar(100),YES,,跟单人,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,14,tags,text,YES,,标签,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,15,primary_sku,varchar(50),YES,,SPU,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,16,mode,tinyint(1),NO,0,商品销售模式：0预售商品，1做货商品、2库存商品 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,17,is_require_paint,smallint(4),NO,0,是否需要烫面： 0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,18,remarks,text,YES,,风格名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,19,msg,varchar(255),YES,,备注,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,20,brand_id,smallint(4),NO,0,品牌: 1:Chicmore 2:FADFAD 3:Tendblank 4:Simple,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,21,audit_status,tinyint(1),NO,1,审核状态 1：待审核 2审核通过 99删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,22,sample_status,tinyint(1),NO,1,1：等待寄样 2：物流中 3：已入库 4：已试播,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,23,is_push,smallint(5),NO,0,是否推送过 0:否 1：有商品在线 2:准备下架 3:已下架,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,24,sku_time,int(11),NO,0,sku更新时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,25,create_id,int(11),NO,0,创建商品人id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,26,hot_grade,smallint(5),NO,0,1:累计销量大于10000件(sss)  2:累计销量大于5000件(ss) 3:累计销量大于3000件(s) 4:累计销量大于1000件(a) 5:近7天销量大于100件(b),MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,27,tag_price,"decimal(11,2)",NO,0.00,吊牌价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,28,first_pay_time,datetime,YES,,首单时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,29,is_delete,tinyint(1),NO,0,是否删除 ：0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,30,status,tinyint(1) unsigned,NO,0,0:草稿，1-启用，2-失效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,31,hot_tag,tinyint(3) unsigned,NO,0,热销标记：2热销 3爆款,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,32,create_time,datetime,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,33,update_time,datetime,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,34,project_id,int(11) unsigned,NO,0,项目id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,35,techpack_id,int(10) unsigned,YES,0,技术包ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,36,test_status,tinyint(1) unsigned,NO,0,测款状态，0-无测款，1-测款中，2-测款成功，3-测款失败,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,37,cost_price,"decimal(6,2) unsigned",NO,0.00,商品成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,38,kg_freight_cost,"decimal(11,2)",NO,0.00,每千克运费,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,39,inventory,int(4),NO,1000,库存,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,40,weight,varchar(100),YES,,商品重量 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,41,length,varchar(200),YES,,长度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,42,width,int(11),NO,0,宽度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,43,height,int(11),NO,0,高度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,44,fabric_composition_short,smallint(4),NO,0,0:非毛织 1:毛织类 2:毛织+梭织类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products,45,product_model,smallint(4),NO,1,采购来源 1 做货，2 成衣,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,1,id,int(11),NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,2,p_id,int(11),NO,,商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,3,zh_is_size,int(11),NO,0,组合商品是否显示尺码 默认不显示,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,4,zh_is_img,int(11),NO,0,组合商品是否显示图片 默认不显示,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,5,zh_sku_type,varchar(10),NO,,组合商品SKU前缀,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,6,product_attrs,varchar(3000),YES,,商品属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,7,options,text,YES,,SKU选项,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,8,weight,varchar(100),YES,,商品重量 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,9,length,varchar(200),YES,,长度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,10,width,int(11),NO,0,宽度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,11,height,int(11),NO,0,高度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,12,purchase_body_html,longtext,YES,,工厂采购尺码表,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,13,product_model,smallint(4),NO,1,采购来源 1 做货，2 成衣,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,14,sample_pic_id,smallint(5),NO,0,示意图id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,15,sample_type,smallint(5),NO,0,类型：1瘦身型 2：常规型 3：松散型,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,16,sample_stretch,smallint(5),NO,0,弹力 1：没有弹性 2：有点弹性 3：非常有弹性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,17,sample_transparency,smallint(5),NO,0,透明度：1:微透 2:适中 3:不透,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,18,price_range,varchar(20),YES,,价格带,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,19,year,char(4),YES,,年份,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,20,season,varchar(7),YES,,"季节：1-春，2-夏，3-秋，4-冬，多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,21,crowd,varchar(100),NO,,"目标人群，多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,22,popular_element,varchar(255),NO,,"流行元素：多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,23,fabric,varchar(100),NO,,"面料，多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,24,style,varchar(100),NO,,"风格，多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,25,age,varchar(100),NO,,"年龄段，多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,26,category,varchar(20),NO,,品类，只有一个值,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,27,special_craft,varchar(100),NO,,"特种工艺，多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,28,product_positioning,varchar(100),YES,,商品定位,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,29,crowd_positioning,varchar(100),YES,,"人群定位：多个以,分割",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,30,update_time,datetime,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_attrs,31,size_img,varchar(180),NO,,尺寸图,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,2,pc_id,int(11),NO,0,组合id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,3,source_pid,int(11),NO,0,原商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,4,sku_id,int(11),NO,0,products_sku.id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,5,num,int(11),NO,0,商品位置,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,6,option1,varchar(200),YES,,颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,7,sku,varchar(200),NO,,sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,8,featured_image,varchar(5000),NO,,图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,9,zh_featured_image,varchar(255),YES,,合并图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,10,stock,int(11),NO,0,库存,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,11,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,12,update_time,datetime,NO,CURRENT_TIMESTAMP,最后更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,13,is_delete,tinyint(1),NO,0,是否删除 ：0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_collection,14,status,tinyint(1) unsigned,NO,1,状态 0:无效  1有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,1,id,int(10),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,2,spu,char(50),NO,,,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,3,cost_type,tinyint(1),NO,1,"成本类型：1 做货成本，2 现货采购成本 ,3 样衣采购成本",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,4,is_delete,tinyint(1) unsigned,NO,0,状态：0 有效  1 删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,5,cost_buy,"decimal(10,2)",NO,0.00,采购成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,6,cost_price,"decimal(10,2)",NO,0.00,商品成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,7,cost_fabric,"decimal(10,2)",NO,0.00,面料成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,8,cost_assist,"decimal(10,2)",NO,0.00,辅料成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,9,cost_print,"decimal(10,2)",NO,0.00,印花染色成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,10,cost_cut_idr,"decimal(10,2)",NO,0.00,裁片成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,11,cost_cut,"decimal(10,2)",NO,0.00,裁片成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,12,cost_craft_idr,"decimal(10,2)",NO,,工艺成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,13,cost_craft,"decimal(10,2)",NO,0.00,工艺成本（缩水，绣花，打揽等）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,14,cost_process_idr,"decimal(10,2)",NO,,加工成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,15,cost_process,"decimal(10,2)",NO,0.00,加工成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,16,cost_logistics_idr,"decimal(10,2)",NO,,物流成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,17,cost_logistics,"decimal(10,2)",NO,0.00,物流成本（面辅料，物料等运送成本）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,18,cost_package_idr,"decimal(10,2)",NO,,包装成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,19,cost_package,"decimal(10,2)",NO,0.00,包装成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,20,cost_follow_idr,"decimal(10,2)",NO,,后道成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,21,cost_follow,"decimal(10,2)",NO,0.00,后道成本（熨烫，质检）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,22,cost_other_idr,"decimal(10,2)",NO,,其他成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,23,cost_other,"decimal(10,2)",NO,0.00,其他成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,24,cost_date,char(20),NO,,成本日期,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_cost,25,update_time,datetime,NO,,最后修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,2,p_id,int(11),NO,0,商品id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,3,region,varchar(100),YES,,区域,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,4,title,varchar(255),YES,,标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,5,price,"decimal(11,2)",NO,0.00,销售价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,6,body_html,longtext,YES,,描述,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,7,is_delete,smallint(4),YES,0,1:删除 0:正常,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,8,create_time,datetime,NO,,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extend,9,lastmodify,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,2,p_id,int(11),NO,0,td_products.id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,3,site_type,smallint(3),NO,0,0:shopify;1:店匠2.tiktokglobalshop 3.shopee,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,4,primary_sku,varchar(50),YES,,主sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,5,cate_top_id,int(11),NO,0,一级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,6,cate_two_id,int(11),NO,0,二级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,7,cate_three_id,int(11),NO,0,三级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,8,cate_four_id,int(11),NO,0,四级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,9,product_attrs,text,YES,,商品属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,10,create_time,int(11),NO,,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_extra,11,last_modified,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,1,id,int(11),NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,2,p_id,int(11),NO,,商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,3,spu,varchar(50),NO,,SPU,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,4,tag,tinyint(1) unsigned,NO,1,资源类型：1 商品 ，2 原材料，3样衣质检图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,5,src,varchar(255),NO,,图片/视频地址,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,6,type,tinyint(2),NO,1,资源类型：1主图，2尺码图，3高清图，4视频,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,7,is_default,tinyint(1),NO,0,是否封面图,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,8,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,9,update_time,datetime,NO,CURRENT_TIMESTAMP,最后更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,10,status,tinyint(4),NO,1,状态 0；无效 1：有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_images,11,is_delete,tinyint(1) unsigned,NO,0,0-正常，1-删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,2,p_id,int(11),NO,0,商品id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,3,spu,varchar(200),NO,,主sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,4,sku,varchar(200),NO,,sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,5,option1,varchar(100),YES,,属性1 (颜色),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,6,option2,varchar(100),YES,,属性2 （尺码）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,7,option3,varchar(100),YES,,属性3,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,8,id_price,"decimal(11,2)",NO,0.00,印尼销售价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,9,price,"decimal(11,2)",NO,0.00,销售价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,10,compare_at_price,"decimal(11,3)",NO,0.000,成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,11,compare_at_price_1,"decimal(11,4)",YES,0.0000,商品包含运费成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,12,title,varchar(255),NO,,sku标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,13,featured_image,varchar(5000),NO,,图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,14,position,int(11),NO,0,位置,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,15,stock,int(11),NO,0,库存,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,16,is_lock,smallint(4),NO,0,是否锁定0：否1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,17,dm_path,varchar(100),YES,,属性id路径,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,18,or_dm_path,varchar(100),YES,,原属性id路径,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,19,dx_code,bigint(20),NO,0,店小秘code,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,20,th_dx_code,bigint(20),NO,0,th店小秘code,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,21,aeg_id,bigint(20),NO,0,aeg商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,22,status,tinyint(4),NO,1,状态 0；无效 1：有效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,23,is_delete,smallint(4),NO,0,是否删除 ：0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,24,title_id,varchar(255),NO,,sku标题 -- 印尼,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,25,create_time,datetime,NO,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,26,update_time,datetime,NO,CURRENT_TIMESTAMP,最后更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,27,barcode,varchar(100),NO,,条形码,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,28,pattern_id,int(10) unsigned,NO,0,花型库ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,29,clearance_id_price,"decimal(11,2)",NO,0.00,清仓价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_sku,30,clearance_discount,"decimal(4,2)",NO,0.00,清仓折扣(几折)，如8.50表示8.5折,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,1,id,int(11),NO,,主键,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,2,p_id,int(11),NO,,商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,3,spu,varchar(50),NO,,SPU,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,4,tag,tinyint(1),NO,,资源类型：1 商品，2 原材料,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,5,supplier,varchar(50),YES,,供应商名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,6,supplier_type,tinyint(2),YES,,类型：1 淘宝，2 阿里，3 拼多多，4 抖音,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,7,supplier_url,varchar(10000),YES,,采购链接,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,8,supplier_address,varchar(255),YES,,供应商地址,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,9,supplier_url_status,smallint(4),NO,1,采购链接是否失效：1 正常，2 失效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,10,supplier_id,varchar(50),NO,,供应商ID,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_products_supplier,11,last_modified,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_product_fabric_spu,1,id,int(11),NO,,主键ID,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_product_fabric_spu,2,product_id,int(11),NO,,商品ID,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_product_fabric_spu,3,spu,varchar(50),NO,,面辅料SPU编码,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_product_fabric_spu,4,create_time,timestamp,NO,CURRENT_TIMESTAMP,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_product_fabric_spu,5,update_time,timestamp,NO,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,1,id,int(10),NO,0,主键 ttshop类目id,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,2,parent_id,int(10),NO,0,类目父id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,3,local_display_name,varchar(50),NO,,类目名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,4,create_time,int(11),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,5,is_leaf,int(2),NO,0,是否子类目1是子类目，0不是子类目,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,6,attr1,varchar(1024),YES,,类目属性1: 大小或者颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,7,attr2,varchar(1024),YES,,类目属性2:大小或者颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,8,attr3,varchar(1024),YES,,类目属性3:其他,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,9,product_attr1,text,YES,,商品属性1: 材质,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,10,product_attr2,text,YES,,商品属性2: 其他,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,11,attributes,text,YES,,分类属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,12,mabang_id,int(11),NO,0,马帮分类对应id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,13,update_time,timestamp,NO,CURRENT_TIMESTAMP,修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,14,higoods_id,varchar(50),NO,0,逗号隔开的诗和远方类目id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,15,is_delete,int(4),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory,16,rule,text,NO,,类目销售规则：尺寸图，商品资质图，是否冷链,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,1,id,int(10),NO,,主键 shopee类目id,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,2,parent_id,int(10),NO,0,类目父id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,3,original_category_name,varchar(100),NO,,类目名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,4,display_category_name,varchar(100),NO,,display_category_name,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,5,display_category_name_cn,varchar(100),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,6,create_time,int(11),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,7,has_children,smallint(2),NO,0,是否有子类目1有子类目，0没有子类目,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,8,attributes,text,YES,,属性值,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,9,common_attrs,text,YES,,默认的属性值,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,10,dts_limit,text,YES,,发货天数,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,11,global_dts_limit,text,YES,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,12,tt_cate_id,int(11),NO,0,马帮分类对应id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,13,update_time,timestamp,NO,CURRENT_TIMESTAMP,修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,14,higoods_id,varchar(50),NO,0,逗号隔开的诗和远方类目id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,15,is_delete,int(4),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_shopee,16,raw,text,NO,,raw,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,1,id,int(10),NO,0,主键 ttshop类目id,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,2,parent_id,int(10),NO,0,类目父id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,3,local_display_name,varchar(50),NO,,类目名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,4,create_time,int(11),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,5,is_leaf,int(2),NO,0,是否子类目1是子类目，0不是子类目,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,6,attr1,varchar(1024),YES,,类目属性1: 大小或者颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,7,attr2,varchar(1024),YES,,类目属性2:大小或者颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,8,attr3,varchar(1024),YES,,类目属性3:其他,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,9,product_attr1,text,YES,,商品属性1: 材质,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,10,product_attr2,text,YES,,商品属性2: 其他,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,11,attributes,text,YES,,分类属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,12,mabang_id,int(11),NO,0,马帮分类对应id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,13,update_time,timestamp,NO,CURRENT_TIMESTAMP,修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,14,higoods_id,varchar(50),NO,0,逗号隔开的诗和远方类目id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,15,is_delete,int(4),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_tcategory_tiktok_v2,16,rule,text,NO,,类目销售规则：尺寸图，商品资质图，是否冷链,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr,2,name,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr,3,plate_attrs,text,YES,,第三方平台属性关联信息,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr,4,type,tinyint(1),NO,1,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr,5,create_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr,6,update_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_plate,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_plate,2,attr_name,varchar(50),NO,,属性名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_plate,3,attr_type,varchar(20),NO,,属性所属平台类型,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_plate,4,attr_plate_id,int(11),NO,0,属性平台id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_plate,5,attr_mode_type,varchar(20),NO,,属性值的类型：自定义，平台提供的值id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_plate,6,create_time,datetime,YES,,添加和最后修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,2,dm1,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,3,name,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,4,plate_values,text,YES,,第三方平台属性值json格式数据,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,5,code,varchar(30),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,6,create_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_attr_value,7,update_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm1,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm1,2,name,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm1,3,type,tinyint(1),NO,1,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm1,4,create_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm1,5,update_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,2,dm1,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,3,name,varchar(50),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,4,code,varchar(30),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,5,id_code,varchar(100),YES,,值印尼语,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,6,bind_username,varchar(100),YES,,商品负责人,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,7,live_admin,varchar(100),YES,,运营负责人,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,8,brand_id,int(11),NO,0,品牌,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,9,create_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_dm2,10,update_time,int(11),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,1,id,int(11),NO,,链接编号,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,2,zh_is_size,int(11),NO,0,组合商品是否显示尺码 默认不显示,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,3,zh_is_img,int(11),NO,0,组合商品是否显示图片 默认不显示,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,4,url,varchar(255),YES,,商品链接,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,5,color_card_type,smallint(4),NO,0,设卡类型：1：纱线RAINBOW色卡 2：辅料GCC色卡 3：TPG色卡 4：TCX色卡,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,6,fabric_composition,varchar(100),YES,,面料成分,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,7,fabric_composition_short,smallint(4),NO,0,成分简称： 1. 涤纶P 2:棉C 3：尼龙 N 4:晴纶 A  5:混纺 B,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,8,title,varchar(255),NO,,商品标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,9,title_id,varchar(255),NO,,商品印尼语标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,10,same_style_spu,varchar(100),YES,,同款商品spu,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,11,handle,text,NO,,商品handle,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,12,body_html,longtext,YES,,描述,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,13,purchase_body_html,longtext,YES,,工厂采购尺码表,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,14,vendor,varchar(50),YES,,商品负责人,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,15,hot_tag,smallint(6),YES,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,16,style_id,int(11),NO,0,风格id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,17,product_type,int(4),YES,0,"product type  商品类型 0.常规商品,1.面料商品,2.辅料商品,3.物料商品,4.组合商品",MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,18,seller_id,int(11),NO,0,商家uid（暂时没用）,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,19,cate_top_id,int(11),NO,0,一级分类,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,20,cate_two_id,int(11),NO,0,二级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,21,cate_three_id,int(11),NO,0,三级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,22,product_model,smallint(4),NO,1,采购来源 1 做货，2 成衣,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,23,freight,"decimal(11,2)",NO,0.00,运费,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,24,freight_cost_price,"decimal(11,2)",NO,0.00,含运费的成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,25,kg_freight_cost,"decimal(11,2)",NO,0.00,每千克运费,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,26,documentary,varchar(100),YES,,跟单人,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,27,region_prices,varchar(256),YES,,商品区域售价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,28,fitting_prices,varchar(256),YES,,打版区域配件合计价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,29,product_attrs,varchar(256),YES,,商品属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,30,warehouse,smallint(4),NO,0,1:义乌仓 2海恩仓库,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,31,tags,text,YES,,标签,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,32,variants,text,YES,,商品SKU列表,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,33,big_images,text,YES,,高清图,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,34,video_count,int(4),NO,0,视频数量,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,35,videos,text,YES,,视频,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,36,size_img,varchar(180),NO,,尺寸图,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,37,images,longtext,NO,,图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,38,options,text,YES,,SKU选项,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,39,inventory,int(4),NO,1000,库存,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,40,dian_inventory,int(11),NO,0,是否推送sk图片加尺码表 0:否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,41,zh_sku_type,varchar(10),NO,,组合商品SKU前缀,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,42,primary_sku,varchar(50),YES,,SPU,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,43,supplier,varchar(50),YES,,供应商名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,44,supplier_url,varchar(10000),YES,,采购链接,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,45,supplier_address,varchar(255),YES,,供应商地址,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,46,supplier_url_status,smallint(4),NO,1,采购链接是否失效：1：正常 2失效,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,47,supplier_id,varchar(50),NO,,供应商ID,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,48,weight,varchar(100),YES,,商品重量 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,49,length,varchar(200),YES,,长度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,50,width,int(11),NO,0,宽度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,51,height,int(11),NO,0,高度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,52,volume,"decimal(11,4)",NO,0.0000,体积,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,53,cost_price,"decimal(11,4)",NO,0.0000,商品成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,54,cost_price_method,varchar(50),NO,,"成本价类型： KG,M,YAD",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,55,is_require_paint,smallint(4),NO,0,是否需要烫面： 0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,56,mode,tinyint(1),NO,0,商品销售模式：0预售商品，1做货商品、2库存商品 ,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,57,remarks,text,YES,,风格名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,58,msg,varchar(255),YES,,备注,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,59,status,smallint(1),NO,0,0未采集1已采集2无效链接3.删除,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,60,brand_id,smallint(4),NO,0,品牌: 1:Chicmore 2:FADFAD 3:Tendblank 4:Simple,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,61,audit_status,tinyint(1),NO,1,审核状态 1：待审核 2审核通过,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,62,sample_status,tinyint(1),NO,1,1：等待寄样 2：物流中 3：已入库 4：已试播,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,63,ads_type,tinyint(1),NO,0,0是fb商品1google商品（废弃）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,64,sku_time,int(11),NO,0,sku更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,65,push_spu,bigint(20),NO,0,推送商品spuid,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,66,create_id,int(11),NO,0,创建商品人id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,67,is_push,smallint(5),NO,0,是否推送过 0:否 1：是 2:准备下架 3:已下架,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,68,sample_pic_id,smallint(5),NO,0,示意图id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,69,sample_type,smallint(5),NO,0,类型：1瘦身型 2：常规型 3：松散型,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,70,sample_stretch,smallint(5),NO,0,弹力 1：没有弹性 2： 有点弹性 3；非常有弹性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,71,sample_transparency,smallint(5),NO,0,透明度：1:微透 2:适中 3:不透,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,72,hot_grade,smallint(5),NO,0,1:累计销量大于10000件(sss)  2:累计销量大于5000件(ss) 3:累计销量大于3000件(s) 4:累计销量大于1000件(a) 5:近7天销量大于100件(b),MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,73,stock_type,tinyint(1),NO,0,面辅料库存类型:1:spu维度 2:sku维度,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,74,tag_price,"decimal(11,2)",NO,0.00,吊牌价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,75,is_make,smallint(4),NO,0,是否做货 0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,76,create_time,int(11),NO,,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,77,first_pay_time,datetime,YES,,首单支付时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,78,plate_complete_time,datetime,YES,,打板完成时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,79,update_time,int(11),NO,,最后修改时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,80,quality_image,varchar(1000),YES,,质检图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,81,is_yarn,smallint(4),NO,0,是否纱线 0：否 1；是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,82,last_modified,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,83,unit_desc,varchar(255),NO,,包装单位,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products,84,product_position_id,int(11),NO,0,商品定位(dm2.id),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,2,pc_id,int(11),NO,0,组合id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,3,source_pid,int(11),NO,0,原商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,4,sku_id,int(11),NO,0,products_sku.id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,5,num,int(11),NO,0,商品位置,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,6,option1,varchar(200),YES,,颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,7,sku,varchar(200),NO,,sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,8,featured_image,varchar(5000),NO,,图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,9,zh_featured_image,varchar(255),YES,,合并图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,10,stock,int(11),NO,0,库存,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,11,num_alias,varchar(50),YES,,数字别名,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,12,create_time,datetime,NO,,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_collection,13,lastmodify,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,1,id,int(10),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,2,spu,char(50),NO,,,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,3,cost_type,tinyint(1),NO,1,"成本类型：1 做货成本，2 现货采购成本 ,3 样衣采购成本",,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,4,cost_buy,"decimal(10,2)",NO,0.00,采购成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,5,cost_price,"decimal(10,2)",NO,0.00,商品成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,6,cost_fabric,"decimal(10,2)",NO,0.00,面料成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,7,cost_assist,"decimal(10,2)",NO,0.00,辅料成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,8,cost_print,"decimal(10,2)",NO,0.00,印花染色成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,9,cost_cut_idr,"decimal(10,2)",NO,0.00,裁片成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,10,cost_cut,"decimal(10,2)",NO,0.00,裁片成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,11,cost_craft_idr,"decimal(10,2)",NO,,工艺成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,12,cost_craft,"decimal(10,2)",NO,0.00,工艺成本（缩水，绣花，打揽等）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,13,cost_process_idr,"decimal(10,2)",NO,,加工成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,14,cost_process,"decimal(10,2)",NO,0.00,加工成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,15,cost_logistics_idr,"decimal(10,2)",NO,,物流成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,16,cost_logistics,"decimal(10,2)",NO,0.00,物流成本（面辅料，物料等运送成本）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,17,cost_package_idr,"decimal(10,2)",NO,,包装成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,18,cost_package,"decimal(10,2)",NO,0.00,包装成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,19,cost_follow_idr,"decimal(10,2)",NO,,后道成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,20,cost_follow,"decimal(10,2)",NO,0.00,后道成本（熨烫，质检）,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,21,cost_other_idr,"decimal(10,2)",NO,,其他成本IDR,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,22,cost_other,"decimal(10,2)",NO,0.00,其他成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,23,cost_date,char(20),NO,,成本日期,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_cost,24,update_time,datetime,NO,,最后修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,2,p_id,int(11),NO,0,td_products.id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,3,site_type,smallint(3),NO,0,0:shopify;1:店匠2.tiktokglobalshop 3.shopee,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,4,primary_sku,varchar(50),YES,,主sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,5,cate_top_id,int(11),NO,0,一级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,6,cate_two_id,int(11),NO,0,二级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,7,cate_three_id,int(11),NO,0,三级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,8,cate_four_id,int(11),NO,0,四级分类,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,9,product_attrs,text,YES,,商品属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,10,create_time,int(11),NO,,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_extra,11,last_modified,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,1,id,int(11),NO,,,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,2,p_id,int(11),NO,0,商品id,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,3,spu,varchar(200),NO,,主sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,4,sku,varchar(200),NO,,sku,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,5,option1,varchar(100),YES,,属性1,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,6,option2,varchar(100),YES,,属性2,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,7,option3,varchar(100),YES,,属性3,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,8,id_price,"decimal(11,3)",NO,0.000,印尼销售价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,9,price,"decimal(11,4)",NO,0.0000,销售价格,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,10,compare_at_price,"decimal(11,4)",NO,0.0000,成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,11,compare_at_price_1,"decimal(11,4)",YES,0.0000,商品包含运费成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,12,price_type,smallint(4),NO,0,转运价格类型：1：数码印  2：低价数码印 3：MJS染色 4：GTG染色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,13,title,varchar(255),NO,,sku标题,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,14,volume,"decimal(11,8)",NO,0.00000000,体积,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,15,weight,"decimal(11,4)",NO,0.0000,sku重量,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,16,print_price,"decimal(11,3)",NO,0.000,印花价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,17,mjs_price,"decimal(11,2)",NO,0.00,mjs染色费用,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,18,gtg_price,"decimal(11,2)",NO,0.00,GTG染色费用,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,19,featured_image,varchar(5000),NO,,图片,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,20,position,int(11),NO,0,位置,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,21,stock,int(11),NO,0,库存,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,22,dm_path,varchar(100),YES,,属性id路径,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,23,or_dm_path,varchar(100),YES,,原属性id路径,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,24,dx_code,bigint(20),NO,0,店小秘code,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,25,th_dx_code,bigint(20),NO,0,th店小秘code,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,26,aeg_id,bigint(20),NO,0,aeg商品id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,27,status,smallint(4),NO,0,状态 0；正常  1下架,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,28,is_delete,smallint(4),NO,0,是否删除 ：0：否 1：是,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,29,is_lock,smallint(4),NO,0,是否可以配置面辅料 0：是 1：否,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,30,create_time,datetime,NO,,创建时间,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,31,lastmodify,timestamp,NO,CURRENT_TIMESTAMP,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,32,clearance_discount,"decimal(4,2)",NO,0.00,清仓折扣(几折)，如8.50表示8.5折,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,33,clearance_id_price,"decimal(11,2)",NO,0.00,清仓IDR售价(id_price*几折/10),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,34,side_type,smallint(4),YES,0,印花单面双面  0：单面 1：双面印 - 一花印两面 2：双面印 - 每面都一花 3:渗透印-印花从正面渗透到反面（CT),,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,35,asaya_price,"decimal(10,4)",NO,0.0000,Asaya成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,36,asaya_compare_at_price,"decimal(10,4)",NO,0.0000,Asaya含运成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,37,asaya_print_price,"decimal(10,4)",NO,0.0000,Asaya加工费,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_products_sku,38,featured_image_1,text,YES,,背面图片JSON,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,1,id,int(10),NO,0,主键 ttshop类目id,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,2,parent_id,int(10),NO,0,类目父id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,3,local_display_name,varchar(50),NO,,类目名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,4,create_time,int(11),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,5,is_leaf,int(2),NO,0,是否子类目1是子类目，0不是子类目,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,6,attr1,varchar(1024),YES,,类目属性1: 大小或者颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,7,attr2,varchar(1024),YES,,类目属性2:大小或者颜色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,8,attr3,varchar(1024),YES,,类目属性3:其他,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,9,product_attr1,text,YES,,商品属性1: 材质,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,10,product_attr2,text,YES,,商品属性2: 其他,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,11,attributes,text,YES,,分类属性,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,12,mabang_id,int(11),NO,0,马帮分类对应id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,13,update_time,timestamp,NO,CURRENT_TIMESTAMP,修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,14,higoods_id,varchar(50),NO,0,逗号隔开的诗和远方类目id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,15,is_delete,int(4),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory,16,rule,text,NO,,类目销售规则：尺寸图，商品资质图，是否冷链,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,1,id,int(10),NO,,主键 shopee类目id,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,2,parent_id,int(10),NO,0,类目父id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,3,original_category_name,varchar(100),NO,,类目名称,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,4,display_category_name,varchar(100),NO,,display_category_name,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,5,display_category_name_cn,varchar(100),NO,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,6,create_time,int(11),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,7,has_children,smallint(2),NO,0,是否有子类目1有子类目，0没有子类目,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,8,attributes,text,YES,,属性值,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,9,common_attrs,text,YES,,默认的属性值,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,10,dts_limit,text,YES,,发货天数,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,11,global_dts_limit,text,YES,,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,12,tt_cate_id,int(11),NO,0,马帮分类对应id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,13,update_time,timestamp,NO,CURRENT_TIMESTAMP,修改时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,14,higoods_id,varchar(50),NO,0,逗号隔开的诗和远方类目id,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,15,is_delete,int(4),NO,0,,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+poemfuture_test,td_tcategory_shopee,16,raw,text,NO,,raw,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,1,id,int(11),NO,,主键ID,PRI,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,2,spu,varchar(50),NO,,SPU编码,MUL,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,3,digital_print,"decimal(10,4)",NO,0.0000,数码印,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,4,digital_aa_ab,"decimal(10,4)",NO,0.0000,数码AA/AB,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,5,low_digital_print,"decimal(10,4)",NO,0.0000,低价数码印,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,6,low_aa_ab,"decimal(10,4)",NO,0.0000,低价AA/AB,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,7,mjs_dyeing,"decimal(10,4)",YES,,MJS染色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,8,gtg_dyeing,"decimal(10,4)",YES,0.0000,GTG染色,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,9,create_time,datetime,NO,,创建时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,10,transport_cost,"decimal(11,3)",NO,0.000,含运费成本价,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,11,fabric_cost,"decimal(11,3)",NO,0.000,面料成本,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射
+higood,td_spu_print_dye_price,12,lastmodify,timestamp,NO,CURRENT_TIMESTAMP,更新时间,,结构已提取；字段语义须结合主报告，不代表已完成迁移映射

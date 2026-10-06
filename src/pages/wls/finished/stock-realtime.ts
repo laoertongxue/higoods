@@ -87,6 +87,7 @@ const state = {
   preferencesLoaded: false,
   showColumnSettings: false,
   keyword: '',
+  exactSku: '',
   categoryFilter: '' as string,
   warehouseFilter: '' as string,
 }
@@ -221,6 +222,7 @@ function filteredRowCount(): number {
     }).length
   }
   return getFinishedItems().filter(item => {
+    if (state.exactSku && item.sku !== state.exactSku) return false
     if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
     if (!kw) return true
     return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
@@ -267,6 +269,7 @@ function filteredRows(): unknown[] {
     })
   }
   return getFinishedItems().filter(item => {
+    if (state.exactSku && item.sku !== state.exactSku) return false
     if (state.warehouseFilter && item.warehouseName !== state.warehouseFilter) return false
     if (!kw) return true
     return `${item.productName} ${item.spu} ${item.sku} ${item.warehouseName}`.toLowerCase().includes(kw)
@@ -326,7 +329,8 @@ function renderVariant(variant: Variant): string {
   state.activeVariant = variant
   state.preferencesLoaded = false
   state.currentPage = 1
-  state.keyword = ''
+  state.exactSku = variant === 'finished' && typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('sku')?.trim() || '' : ''
+  state.keyword = state.exactSku
   state.categoryFilter = ''
   state.warehouseFilter = ''
   state.sort = null
@@ -352,7 +356,7 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
   const field = target.closest<HTMLInputElement | HTMLSelectElement>(`[data-${EVENT_PREFIX}-field]`)
   if (field) {
     const name = field.dataset[`${DATASET_PREFIX}Field`]
-    if (name === 'keyword') { state.keyword = field.value; return true }
+    if (name === 'keyword') { state.keyword = field.value; if (state.keyword.trim() !== state.exactSku) state.exactSku = ''; return true }
     if (name === 'category') { state.categoryFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'warehouse') { state.warehouseFilter = (field as HTMLSelectElement).value; return true }
     if (name === 'pageSize' && event?.type === 'change') {
@@ -383,6 +387,7 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
   if (action === 'apply-filter') {
     const input = rootElement()?.querySelector<HTMLInputElement>(`[data-${EVENT_PREFIX}-field="keyword"]`)
     if (input) state.keyword = input.value
+    if (state.keyword.trim() !== state.exactSku) state.exactSku = ''
     const category = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="category"]`)
     if (category) state.categoryFilter = category.value
     const warehouse = rootElement()?.querySelector<HTMLSelectElement>(`[data-${EVENT_PREFIX}-field="warehouse"]`)
@@ -393,6 +398,7 @@ export function handleStockRealtimeEvent(target: HTMLElement, event?: Event): bo
   }
   if (action === 'reset-filter') {
     state.keyword = ''
+    state.exactSku = ''
     state.categoryFilter = ''
     state.warehouseFilter = ''
     state.currentPage = 1

@@ -25,38 +25,63 @@ test('织带与绳子参考档案接入实际物料库，保留图片来源和�
   assert.equal(records.filter((item) => item.materialId.startsWith('tmf-')).length, 2)
 })
 
-test('同分钟新建不同幅宽织带和绳径主档不共用SPU身份，SKU保持各自父档归属',async()=>{
- const m=await import('../../src/data/pcs-material-archive-repository.ts')
- const reference=m.getMaterialArchiveById('tmf-webbing-reference')!
- const base={...reference,materialName:'测试同名织带',materialNameEn:'Test webbing',mainImageUrl:'',categoryName:'织带',mainUnit:'米',pricingUnit:'米',auxiliaryUnits:['卷'],widthText:'20mm'}
- const before=m.listMaterialArchives('accessory').length
- for(const widthText of ['','待确认','20/30mm','0mm','-20mm','Φ20mm','50CM截断'])assert.throws(()=>m.createMaterialArchive({...base,widthText}),/织带幅宽/)
- assert.equal(m.listMaterialArchives('accessory').length,before)
- const records=['20mm','3cm','40毫米'].map(widthText=>m.createMaterialArchive({...base,widthText}))
- assert.equal(new Set(records.map(r=>r.materialId)).size,3)
- assert.equal(new Set(records.map(r=>r.materialCode)).size,3)
- assert.deepEqual(records.map(r=>r.widthText),['20mm','30mm','40mm'])
- const draft={colorName:'蓝色',specName:'P001',sizeName:'',skuImageUrl:'',costPrice:0,freightCost:0,weightKg:0,lengthCm:0,widthCm:0,heightCm:0,barcode:''}
- for(const record of records){const sku=m.createMaterialSkuRecord(record.materialId,draft)!;assert.equal(sku.materialId,record.materialId);assert.equal(sku.materialCode,record.materialCode);assert.equal(m.listMaterialSkuRecordsByMaterialId(record.materialId).length,1)}
- const lineageSku=m.createMaterialSkuRecord(records[0].materialId,{...draft,pantoneCode:'19-4052',patternCode:'P001'})!
- assert.equal(lineageSku.materialSkuCode,`${records[0].materialCode}-19-4052-蓝色-P001`)
- assert.equal(lineageSku.pantoneCode,'19-4052');assert.equal(lineageSku.patternCode,'P001')
- assert.throws(()=>m.createMaterialSkuRecord(records[1].materialId,{...draft,colorName:''}),/必须填写颜色编码/)
- const rope=m.createMaterialArchive({...base,categoryName:'绳子',materialName:'测试绳子',widthText:'Φ5mm'})
- assert.equal(rope.widthText,'Φ5mm');assert.match(rope.materialCode,/-D5MM$/)
- const repeated=m.createMaterialArchive({...base,widthText:'20mm'})
- assert.notEqual(repeated.materialId,records[0].materialId);assert.notEqual(repeated.materialCode,records[0].materialCode)
- assert.equal(m.getMaterialArchiveById('tmf-webbing-reference')!.widthText,'幅宽待确认','不将参考图强行认定为正式尺寸')
+test('同分钟新建不同幅宽织带和绳径主档不共用 SPU 身份，SKU 保持各自父档与主单位', async () => {
+  const m = await import('../../src/data/pcs-material-archive-repository.ts')
+  const reference = m.getMaterialArchiveById('tmf-webbing-reference')!
+  const base = {
+    ...reference, materialCode: undefined, templateId: undefined, templateVersion: undefined,
+    materialName: '测试同名织带', materialNameEn: 'Test webbing', mainImageUrl: '',
+    categoryName: '织带', widthText: '', categoryAttributes: {},
+  }
+  const before = m.listMaterialArchives('accessory').length
+  for (const widthText of ['', '待确认', '20/30mm', '0mm', '-20mm', 'Φ20mm', '50CM截断']) {
+    assert.throws(() => m.createMaterialArchive({ ...base, widthText }), /织带宽度／绳子直径需使用明确的正数和单位/)
+  }
+  for (const width of [0, -20, '20/30mm']) {
+    assert.throws(() => m.createMaterialArchive({ ...base, categoryAttributes: { width } }), /织带宽度需填写大于 0 的数值/)
+  }
+  assert.equal(m.listMaterialArchives('accessory').length, before)
+  const records = [20, 30, 40].map(width => m.createMaterialArchive({ ...base, categoryAttributes: { width } }))
+  assert.equal(new Set(records.map(record => record.materialId)).size, 3)
+  assert.equal(new Set(records.map(record => record.materialCode)).size, 3)
+  assert.deepEqual(records.map(record => record.categoryAttributes?.width), [20, 30, 40])
+  assert.ok(records.every(record => /^MAT-AC-\d{8}$/.test(record.materialCode)))
+  const draft = { colorName: '蓝色', specName: 'P001', sizeName: '', skuImageUrl: '', mainUnit: 'M', pricingUnit: 'M', costPrice: 0, freightCost: 0, weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, barcode: '' }
+  for (const [index, record] of records.entries()) {
+    const mainUnit = ['M', 'Yard', 'KG'][index]
+    const skuDraft = { ...draft, mainUnit, pricingUnit: mainUnit }
+    const sku = m.createMaterialSkuRecord(record.materialId, skuDraft)!
+    assert.equal(sku.materialId, record.materialId)
+    assert.equal(sku.materialCode, record.materialCode)
+    assert.equal(sku.mainUnit, mainUnit, '每个 SKU 采用明确选择的主单位，不由参考主档覆盖')
+    assert.equal(m.listMaterialSkuRecordsByMaterialId(record.materialId).length, 1)
+    assert.throws(() => m.createMaterialSkuRecord(record.materialId, skuDraft), /该身份规格已存在/)
+  }
+  const lineageSku = m.createMaterialSkuRecord(records[0].materialId, { ...draft, pantoneCode: '19-4052', patternCode: 'P001' })!
+  assert.equal(lineageSku.materialSkuCode, `${records[0].materialCode}-19-4052-蓝色-P001`)
+  assert.equal(lineageSku.pantoneCode, '19-4052')
+  assert.equal(lineageSku.patternCode, 'P001')
+  assert.throws(() => m.createMaterialSkuRecord(records[1].materialId, { ...draft, colorName: '' }), /至少需要 SPU 和颜色编码/)
+  const rope = m.createMaterialArchive({ ...base, categoryName: '绳子', materialName: '测试绳子', categoryAttributes: { diameter: 5 } })
+  assert.equal(rope.categoryAttributes?.diameter, 5)
+  assert.match(rope.materialCode, /^MAT-AC-\d{8}$/)
+  const legacy = m.createMaterialArchive({ ...base, categoryName: '绳子', materialName: '兼容既有尺寸格式', widthText: 'Φ5mm' })
+  assert.equal(legacy.widthText, 'Φ5mm')
+  const repeated = m.createMaterialArchive({ ...base, categoryAttributes: { width: 20 } })
+  assert.notEqual(repeated.materialId, records[0].materialId)
+  assert.notEqual(repeated.materialCode, records[0].materialCode)
+  assert.throws(() => m.createMaterialArchive({ ...base, widthText: '20mm', materialCode: records[0].materialCode }), /该物料编码已存在/)
+  assert.equal(m.getMaterialArchiveById('tmf-webbing-reference')!.widthText, '幅宽待确认', '不将参考图强行认定为正式尺寸')
 })
 
 test('TMF半成品SKU按SPU→潘通色号→颜色→花型生成，长度和端头不进入SKU', () => {
   assert.equal(
     buildTmfSemiFinishedSkuCode({ spuCode: 'A', pantoneCode: '19-4052', colorCode: 'blue', patternCode: 'P001' }),
-    'A-19-4052-BLUE-P001',
+    'A-19-4052-blue-P001',
   )
   assert.equal(
     buildTmfSemiFinishedSkuCode({ spuCode: 'A', pantoneCode: '19-4052', colorCode: 'blue' }),
-    'A-19-4052-BLUE',
+    'A-19-4052-blue',
   )
   assert.equal(
     buildTmfSemiFinishedSkuCode({ spuCode: 'TMF-W20MM', colorCode: '本白', patternCode: '' }),

@@ -95,7 +95,7 @@ export function assertEngineeringBomPricingSnapshotValid(
     if (bomItem.unitConsumption !== line.usage || (bomItem.sampleQuantity ?? 1) !== line.sampleQuantity || (bomItem.unit || '').trim() !== line.usageUnit.trim() || bomItem.lossRate !== line.lossRate) {
       throw new Error(`正式 BOM 与价格快照的用量、单位或损耗不一致：${line.bomItemId}`)
     }
-    if (!line.materialSkuId.trim() || !Number.isFinite(line.standardUnitPriceCny) || line.standardUnitPriceCny <= 0) throw new Error('正式 BOM 与价格快照存在无效物料价格。')
+    if (!line.materialSkuId.trim() || !Number.isFinite(line.standardUnitPriceCny) || line.standardUnitPriceCny < 0) throw new Error('正式 BOM 与价格快照存在无效物料价格。')
     if (!Number.isFinite(line.conversionToPricingUnit) || line.conversionToPricingUnit <= 0) throw new Error('正式 BOM 与价格快照存在无效单位换算。')
     if (targetBomItems) {
       const trustedLine = resolveEngineeringBomMaterialLine({
@@ -105,6 +105,9 @@ export function assertEngineeringBomPricingSnapshotValid(
         sampleQuantity: bomItem.sampleQuantity ?? 1,
         usageUnit: bomItem.unit || '',
         lossRate: bomItem.lossRate,
+        materialCostReference: bomItem.materialCostReference,
+        costReferenceMode: bomItem.costReferenceMode,
+        unitConversionReference: bomItem.unitConversionReference,
       })
       if (trustedLine.standardUnitPriceCny === null || trustedLine.materialCostCny === null) {
         throw new Error(`正式 BOM 与价格快照无法取得当前物料档案有效标准单价：${line.bomItemId}`)

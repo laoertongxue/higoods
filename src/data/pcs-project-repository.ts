@@ -23,7 +23,7 @@ import {
   listProjectWorkspaceCrowdPositioning,
   listProjectWorkspaceCrowds,
   listProjectWorkspaceProductPositioning,
-  listProjectWorkspaceStyleCodes,
+  listProjectWorkspaceCategoryNumbers,
   listProjectWorkspaceStyles,
 } from './pcs-project-config-workspace-adapter.ts'
 import type {
@@ -125,8 +125,8 @@ const PROJECT_RECORD_FIELD_KEYS = [
   'brandId',
   'brandName',
   'styleNumber',
-  'styleCodeId',
-  'styleCodeName',
+  'categoryNumberId',
+  'categoryNumberName',
   'yearTag',
   'seasonTags',
   'styleTags',
@@ -280,8 +280,10 @@ function normalizeNodeStatus(status: LegacyProjectNodeStatus | string | null | u
 }
 
 function normalizeProject(project: PcsProjectRecord): PcsProjectRecord {
+  // 只在旧记录读取边界承接历史误命名，后续保存只输出正式的品类编号属性。
+  const { styleCodeId, styleCodeName, ...canonical } = project as PcsProjectRecord & { styleCodeId?: string; styleCodeName?: string }
   return {
-    ...cloneProject(project),
+    ...cloneProject(canonical),
     projectStatus:
       project.projectStatus === '已终止' ||
       project.projectStatus === '已归档' ||
@@ -294,8 +296,8 @@ function normalizeProject(project: PcsProjectRecord): PcsProjectRecord {
     linkedStyleCode: project.linkedStyleCode || '',
     linkedStyleName: project.linkedStyleName || '',
     linkedStyleGeneratedAt: project.linkedStyleGeneratedAt || '',
-    styleCodeId: project.styleCodeId || '',
-    styleCodeName: project.styleCodeName || '',
+    categoryNumberId: project.categoryNumberId || styleCodeId || '',
+    categoryNumberName: project.categoryNumberName || styleCodeName || '',
     styleTagIds: [...(project.styleTagIds || [])],
     styleTagNames: [...(project.styleTagNames || project.styleTags || [])],
     crowdPositioningIds: [...(project.crowdPositioningIds || [])],
@@ -1162,7 +1164,7 @@ function getProjectCreateCatalogInternal(): ProjectCreateCatalog {
     children: item.children.map((child) => ({ ...child })),
   }))
   const styles = listProjectWorkspaceStyles().map((item) => ({ id: item.id, name: item.name }))
-  const styleCodes = listProjectWorkspaceStyleCodes().map((item) => ({ id: item.id, name: item.name }))
+  const categoryNumbers = listProjectWorkspaceCategoryNumbers().map((item) => ({ id: item.id, name: item.name }))
   const crowdPositioning = listProjectWorkspaceCrowdPositioning().map((item) => ({ id: item.id, name: item.name }))
   const ages = listProjectWorkspaceAges().map((item) => ({ id: item.id, name: item.name }))
   const crowds = listProjectWorkspaceCrowds().map((item) => ({ id: item.id, name: item.name }))
@@ -1178,7 +1180,7 @@ function getProjectCreateCatalogInternal(): ProjectCreateCatalog {
     categories,
     brands,
     styles,
-    styleCodes,
+    categoryNumbers,
     crowdPositioning,
     ages,
     crowds,
@@ -1276,8 +1278,8 @@ export function createEmptyProjectDraft(): PcsProjectCreateDraft {
     brandId: '',
     brandName: '',
     styleNumber: '',
-    styleCodeId: '',
-    styleCodeName: '',
+    categoryNumberId: '',
+    categoryNumberName: '',
     yearTag: String(new Date().getFullYear()),
     seasonTags: [],
     styleTags: [],
@@ -1518,9 +1520,9 @@ export function createProject(input: PcsProjectCreateInput, operatorName = '当�
     subCategoryName: input.subCategoryName,
     brandId: input.brandId,
     brandName: input.brandName,
-    styleNumber: input.styleNumber.trim() || input.styleCodeName,
-    styleCodeId: input.styleCodeId,
-    styleCodeName: input.styleCodeName,
+    styleNumber: input.styleNumber.trim() || input.categoryNumberName,
+    categoryNumberId: input.categoryNumberId,
+    categoryNumberName: input.categoryNumberName,
     yearTag: input.yearTag.trim(),
     seasonTags: [...input.seasonTags],
     styleTags: styleTagNames,

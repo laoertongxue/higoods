@@ -1,0 +1,180 @@
+{
+  "scope": "实施追踪结构检查；业务结果以逐项证据为准",
+  "counts": {
+    "fields": 337,
+    "requirements": 158,
+    "decisions": 64,
+    "prototype_fields": 403,
+    "online_groups": 69,
+    "scenarios": 41,
+    "pages": 17,
+    "mermaid_blocks": 5
+  },
+  "all_passed": true,
+  "checks": [
+    {
+      "check": "字段编号唯一",
+      "passed": true,
+      "detail": 337
+    },
+    {
+      "check": "字段表格必填列非空",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "需求编号唯一",
+      "passed": true,
+      "detail": 158
+    },
+    {
+      "check": "需求表格必填列非空",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "决策编号唯一",
+      "passed": true,
+      "detail": 64
+    },
+    {
+      "check": "决策表格必填列非空",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "原型处置编号唯一",
+      "passed": true,
+      "detail": 403
+    },
+    {
+      "check": "原型处置表格必填列非空",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "线上承接编号唯一",
+      "passed": true,
+      "detail": 69
+    },
+    {
+      "check": "线上承接表格必填列非空",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "决策64项完整",
+      "passed": true,
+      "detail": 64
+    },
+    {
+      "check": "64决策均指向有效原子需求",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "需求来源编号有效",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "实施状态有效",
+      "passed": true,
+      "detail": {
+        "已实现待验证": 127,
+        "已验证": 29,
+        "已阻塞": 2
+      }
+    },
+    {
+      "check": "已实现需求绑定实现位置",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "已验证条目不保留未验证声明",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "10个工作包被覆盖",
+      "passed": true,
+      "detail": {
+        "WP01": 15,
+        "WP02": 16,
+        "WP03": 12,
+        "WP04": 24,
+        "WP05": 10,
+        "WP06": 17,
+        "WP07": 19,
+        "WP08": 12,
+        "WP09": 6,
+        "WP10": 27
+      }
+    },
+    {
+      "check": "正文15主章节均有需求关联",
+      "passed": true,
+      "detail": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ]
+    },
+    {
+      "check": "目标字段引用均存在",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "403字段来源逐行保留",
+      "passed": true,
+      "detail": 403
+    },
+    {
+      "check": "69线上组来源逐行保留",
+      "passed": true,
+      "detail": 69
+    },
+    {
+      "check": "Markdown本地文件链接存在",
+      "passed": true,
+      "detail": []
+    },
+    {
+      "check": "41场景编号完整唯一",
+      "passed": true,
+      "detail": 41
+    },
+    {
+      "check": "17页面编号完整唯一",
+      "passed": true,
+      "detail": 17
+    },
+    {
+      "check": "Markdown代码围栏成对",
+      "passed": true,
+      "detail": "结构检查，不代表Mermaid已渲染验收"
+    },
+    {
+      "check": "原始审计依据未改变",
+      "passed": true,
+      "detail": {
+        "tracked_sources": 17,
+        "changed": []
+      }
+    }
+  ]
+}

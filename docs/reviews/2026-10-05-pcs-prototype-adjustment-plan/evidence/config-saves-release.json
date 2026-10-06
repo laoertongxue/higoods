@@ -1,0 +1,54 @@
+{
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 96.30000001192091,
+      "end": 44811.19999998808,
+      "images": 0,
+      "label": "config-save-1",
+      "start": 44714.89999997616,
+      "url": "/pcs/settings/config-workspace"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.40000003576279,
+      "end": 45361.10000002384,
+      "images": 0,
+      "label": "config-save-2",
+      "start": 45300.69999998808,
+      "url": "/pcs/settings/config-workspace"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.30000001192093,
+      "end": 45961.10000002384,
+      "images": 0,
+      "label": "config-save-3",
+      "start": 45900.80000001192,
+      "url": "/pcs/settings/config-workspace"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.30000001192093,
+      "end": 46561.10000002384,
+      "images": 0,
+      "label": "config-save-4",
+      "start": 46500.80000001192,
+      "url": "/pcs/settings/config-workspace"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.20000004768371,
+      "end": 47161.10000002384,
+      "images": 0,
+      "label": "config-save-5",
+      "start": 47099.89999997616,
+      "url": "/pcs/settings/config-workspace"
+    }
+  ],
+  "refresh": "styles-1 / code 1 / 休闲 / Casual R1 5"
+}

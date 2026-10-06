@@ -1,0 +1,14 @@
+{
+  "result": {
+    "type": "object",
+    "value": {
+      "checks": [
+        "v1 to v2 preserves business record and version",
+        "v1 to v2 preserves original Blob",
+        "new createdAt index permits subsequent commit"
+      ],
+      "records": 2,
+      "status": "通过"
+    }
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 46.09999996423721,
+      "end": 616528.0999999642,
+      "images": 1,
+      "label": "物料缺基础规格阻断提交",
+      "start": 616482,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.5,
+      "end": 616828.0999999642,
+      "images": 1,
+      "label": "物料缺基础规格阻断提交",
+      "start": 616783.5999999642,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 45.39999997615814,
+      "end": 617128.0999999642,
+      "images": 1,
+      "label": "物料缺基础规格阻断提交",
+      "start": 617082.6999999881,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 44.5,
+      "end": 617428.0999999642,
+      "images": 1,
+      "label": "物料缺基础规格阻断提交",
+      "start": 617383.5999999642,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 43.29999995231629,
+      "end": 617728.0999999642,
+      "images": 1,
+      "label": "物料缺基础规格阻断提交",
+      "start": 617684.8000000119,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.30000001192093,
+      "end": 642778,
+      "images": 1,
+      "label": "物料新增基础规格保存",
+      "start": 642715.6999999881,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748/skus/material-sku_47b11b35-f923-433d-8955-0676df5520a3"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 63.09999996423721,
+      "end": 650561.3999999762,
+      "images": 1,
+      "label": "物料主档与首批规格提交审核",
+      "start": 650498.3000000119,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.5,
+      "end": 662561.3999999762,
+      "images": 1,
+      "label": "物料同人审核主档与首批规格",
+      "start": 662498.8999999762,
+      "url": "/pcs/materials/fabric/material-fabric_59cd13f7-69d8-4a86-8b77-2882d04c2748"
+    }
+  ],
+  "notes": [
+    "复制根档不会复制 SKU；第一次提交返回缺基础 SKU，保持草稿。",
+    "新建本白 M 基础规格后，主档和首批规格一并待审核；同一操作人审核成功。",
+    "启用触发浏览器原生确认，点击接口超时；getJsDialog 无可用对象，取消接口亦超时。启用、停用、归档的确认完成响应没有形成有效五轮证据。",
+    "最初缺规格提交的计时错误预期成功，记录在工具日志，不计有效样本。"
+  ]
+}

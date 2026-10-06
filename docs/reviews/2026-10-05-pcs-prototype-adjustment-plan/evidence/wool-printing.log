@@ -1,0 +1,5 @@
+PASS KNITTING 打印含真实阶段、批次、接收厂、图片、二维码及单位
+PASS LINKING 打印含真实阶段、批次、接收厂、图片、二维码及单位
+PASS 内部自动衔接无外发打印单
+(node:31605) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)

@@ -1,0 +1,197 @@
+{
+  "database": "poemfuture_test",
+  "results": [
+    {
+      "sql": "SELECT product_type,stock_type,cost_price_method,COUNT(*) n FROM td_products WHERE product_type IN (1,2,3) GROUP BY product_type,stock_type,cost_price_method ORDER BY product_type,stock_type,n DESC LIMIT 100",
+      "rows": [
+        {
+          "product_type": 1,
+          "stock_type": 0,
+          "cost_price_method": "M",
+          "n": 1
+        },
+        {
+          "product_type": 1,
+          "stock_type": 1,
+          "cost_price_method": "Yard",
+          "n": 132
+        },
+        {
+          "product_type": 1,
+          "stock_type": 1,
+          "cost_price_method": "KG",
+          "n": 14
+        },
+        {
+          "product_type": 1,
+          "stock_type": 1,
+          "cost_price_method": "M",
+          "n": 9
+        },
+        {
+          "product_type": 1,
+          "stock_type": 1,
+          "cost_price_method": "PCS",
+          "n": 2
+        },
+        {
+          "product_type": 1,
+          "stock_type": 2,
+          "cost_price_method": "M",
+          "n": 658
+        },
+        {
+          "product_type": 1,
+          "stock_type": 2,
+          "cost_price_method": "Yard",
+          "n": 319
+        },
+        {
+          "product_type": 1,
+          "stock_type": 2,
+          "cost_price_method": "PCS",
+          "n": 30
+        },
+        {
+          "product_type": 1,
+          "stock_type": 2,
+          "cost_price_method": "KG",
+          "n": 5
+        },
+        {
+          "product_type": 2,
+          "stock_type": 1,
+          "cost_price_method": "Yard",
+          "n": 164
+        },
+        {
+          "product_type": 2,
+          "stock_type": 1,
+          "cost_price_method": "PCS",
+          "n": 36
+        },
+        {
+          "product_type": 2,
+          "stock_type": 1,
+          "cost_price_method": "Pair",
+          "n": 6
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "PCS",
+          "n": 2417
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "Yard",
+          "n": 1116
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "M",
+          "n": 123
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "Pair",
+          "n": 107
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "DZ",
+          "n": 3
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "Bunch",
+          "n": 2
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "roll",
+          "n": 2
+        },
+        {
+          "product_type": 2,
+          "stock_type": 2,
+          "cost_price_method": "cns",
+          "n": 1
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "PCS",
+          "n": 48
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "roll",
+          "n": 7
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "Yard",
+          "n": 5
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "KG",
+          "n": 5
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "M",
+          "n": 4
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "Pair",
+          "n": 3
+        },
+        {
+          "product_type": 3,
+          "stock_type": 2,
+          "cost_price_method": "DZ",
+          "n": 1
+        }
+      ]
+    },
+    {
+      "sql": "SELECT price_type,side_type,COUNT(*) n FROM td_products_sku WHERE price_type<>0 GROUP BY price_type,side_type ORDER BY price_type,side_type LIMIT 50",
+      "rows": [
+        {
+          "price_type": 1,
+          "side_type": 0,
+          "n": 414
+        },
+        {
+          "price_type": 2,
+          "side_type": 0,
+          "n": 625
+        },
+        {
+          "price_type": 3,
+          "side_type": 0,
+          "n": 9
+        },
+        {
+          "price_type": 4,
+          "side_type": 0,
+          "n": 302
+        }
+      ]
+    }
+  ]
+}

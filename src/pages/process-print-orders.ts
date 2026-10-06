@@ -1,3 +1,4 @@
+import { renderPcsMaterialHandoff } from './pcs-material-handoff.ts'
 // @page-pattern: list
 
 import { withProcessOrderTaskRelationRead } from '../data/fcs/process-order-task-links.ts'
@@ -309,9 +310,9 @@ export function renderProcessPrintOrdersPage(options: { sourceType?: SourceFilte
   listController.installColumnDragEvents()
   listController.ensurePreferencesLoaded()
   const view = withProcessOrderTaskRelationRead(() => listController.getView(options.sourceType === undefined ? undefined : getFilteredOrders(options.sourceType)))
-  return `<div data-process-print-orders-root data-early-process-management="PRINT" data-skip-page-rerender="true"><style>[data-process-print-orders-root] [data-standard-list-scroll] td{vertical-align:top}[data-process-print-orders-stats] [data-standard-list-stats]{display:flex;overflow-x:auto}[data-process-print-orders-stats] [data-process-stat]{flex:1 0 max-content;min-height:48px;height:48px;gap:2px}[data-process-print-orders-stats] [data-process-stat] strong{font-size:11px;line-height:14px;white-space:nowrap}</style>${renderStandardListPage({
+  return `<div data-process-print-orders-root data-early-process-management="PRINT" data-skip-page-rerender="true"><style>[data-process-print-orders-root] [data-standard-list-scroll] td{vertical-align:top}[data-process-print-orders-stats] [data-standard-list-stats]{display:flex;overflow-x:auto}[data-process-print-orders-stats] [data-process-stat]{flex:1 0 max-content;min-height:48px;height:48px;gap:2px}[data-process-print-orders-stats] [data-process-stat] strong{font-size:11px;line-height:14px;white-space:nowrap}</style>${renderPcsMaterialHandoff('PRINT')}${renderStandardListPage({
     title: '印花加工单',
-    primaryActionsHtml: '<div class="flex items-center gap-2"><button class="rounded-md border px-4 py-2 text-sm" data-print-order-action="create-new">按备货创建</button><button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-early-process-action="open-create">新增印花加工单</button></div>',
+    primaryActionsHtml: '<div class="flex items-center gap-2"><button class="rounded-md border px-4 py-2 text-sm" data-nav="/fcs/process/material-plans?processType=PRINTING">物料加工计划</button><button class="rounded-md border px-4 py-2 text-sm" data-print-order-action="create-new">按备货创建</button><button class="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground" data-early-process-action="open-create">新增印花加工单</button></div>',
     feedbackHtml: `<div data-process-print-orders-feedback>${state.notice ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${escapeHtml(state.notice)}</div>` : ''}</div>`,
     filtersHtml: `<div data-process-print-orders-filters>${renderFilters()}</div>`,
     statsHtml: `<div data-process-print-orders-stats>${renderStats()}</div>`,

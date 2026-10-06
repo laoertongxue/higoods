@@ -13,14 +13,29 @@ export type FlatDimensionId =
   | 'styles'
   | 'categories'
   | 'colors'
-  | 'styleCodes'
+  | 'categoryNumbers'
+  | 'pantone'
+  | 'compositions'
+  | 'constructions'
+  | 'yarnCountSystems'
+  | 'equipmentTypes'
+  | 'packageTypes'
+  | 'materialConstructions'
+  | 'materialStructures'
+  | 'zipperTeeth'
+  | 'zipperOpenings'
+  | 'zipperGauges'
+  | 'yarnUses'
 
 export interface ConfigLog {
   id: string
   action: string
   detail: string
   operator: string
+  operatorId?: string
   time: string
+  changes?: Array<{ field: string; before: unknown; after: unknown }>
+  reason?: string
 }
 
 export interface ConfigOption {
@@ -28,6 +43,9 @@ export interface ConfigOption {
   code: string
   name_zh: string
   name_en?: string
+  name_id?: string
+  name_ms?: string
+  aliases?: string[]
   status: ConfigStatus
   sortOrder: number
   updatedAt: string
@@ -50,11 +68,23 @@ export const FLAT_DIMENSION_META: FlatDimensionMeta[] = [
   { id: 'specialCrafts', name: '特殊工艺', description: '维护工艺标签和设计工法' },
   { id: 'sizes', name: '尺码', description: '维护尺码标准与展示顺序' },
   { id: 'trendElements', name: '流行元素', description: '维护趋势元素与版型标签' },
-  { id: 'fabrics', name: '面料', description: '维护商品主面料与材质标签' },
+  { id: 'fabrics', name: '营销面料描述', description: '商品面料描述标签；具体物料成分及比例在物料档案维护' },
   { id: 'styles', name: '风格', description: '维护风格标签与商品风格池' },
   { id: 'categories', name: '品类', description: '维护销售品类和展示分组' },
   { id: 'colors', name: '颜色', description: '维护颜色值、色卡别名和展示顺序' },
-  { id: 'styleCodes', name: '风格编号', description: '维护风格编号映射和命名口径' },
+  { id: 'categoryNumbers', name: '品类编号', description: '独立业务编号，与品类和风格分别维护' },
+  { id: 'pantone', name: 'Pantone 色卡', description: '色卡体系与编号；染色物料必选' },
+  { id: 'compositions', name: '成分', description: '具体比例由物料档案维护' },
+  { id: 'constructions', name: '组织', description: '物料组织结构取值' },
+  { id: 'yarnCountSystems', name: '纱支体系', description: '纱支体系与数值分别保存' },
+  { id: 'equipmentTypes', name: '适配设备', description: '设备类型与型号参考' },
+  { id: 'packageTypes', name: '包装类型', description: '包装含量在每个物料 SKU 中维护' },
+  { id: 'materialConstructions', name: '结构材质', description: '辅料、耗材及配件材质，独立于面料成分比例和营销标签' },
+  { id: 'materialStructures', name: '结构款式', description: '辅料的结构与款式；具体尺寸仍在物料规格维护' },
+  { id: 'zipperTeeth', name: '拉链齿型', description: '拉链交付齿型，与材质和长度分别维护' },
+  { id: 'zipperOpenings', name: '拉链开合结构', description: '开口、闭口等交付要求' },
+  { id: 'zipperGauges', name: '拉链规格号', description: '独立规格号字典，保留稳定编号与名称，不作为尺寸单位' },
+  { id: 'yarnUses', name: '纱线用途', description: '针织、车缝等多选用途，与颜色分别维护' },
 ]
 
 const BRANDS = [
@@ -73,11 +103,12 @@ const AGES = ['18~30', '25~45', '45~65']
 
 const CROWDS = ['年轻', '成熟', '中老年']
 
-const PRODUCT_POSITIONING = ['基础款', '设计款', '设计改款', '低价改款', '低价']
+const PRODUCT_POSITIONING = ['基础款', '设计款', '设计改款', '低价改款', '低价', '冷启动基础款', '廉价款', '快时尚款']
 
 const SPECIAL_CRAFTS = ['绣花', '烫画', '直喷', '贝壳绣', '四合扣', '打条', '打揽', '压褶']
 
-const SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'One Size']
+// 保持既有 sizes-1…9 身份；新增尺码追加，展示顺序单独维护。
+const SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'One Size', 'XS', '28', '30', '32', '34', '36']
 
 const TREND_ELEMENTS = [
   'boho',
@@ -267,9 +298,10 @@ const COLORS = [
   'Skirt （single piece）',
   'Cardigan + Print Top （2 pieces）',
   'winered',
+  '本白',
 ]
 
-const STYLE_CODES = [
+const CATEGORY_NUMBERS = [
   '1-Casul Shirt-18-30休闲衬衫',
   '2-prin shirt-18-30印花衬衫',
   '3-Sweet Blouse-18-30设计上衣',
@@ -444,11 +476,19 @@ function buildCode(index: number): string {
 }
 
 function buildAlias(dimensionId: FlatDimensionId, value: string): string {
-  if (dimensionId === 'styleCodes') {
+  if (dimensionId === 'categoryNumbers') {
     return ''
   }
 
   return /[A-Za-z]/.test(value) ? value : ''
+}
+
+export function splitCategoryNumberLabel(value: string): { code: string; nameZh: string; nameEn: string; aliases: string[] } {
+  const code = value.match(/^\s*(\d+)[-－]?/)?.[1] || value.trim()
+  const remainder = value.replace(/^\s*\d+[-－]?\s*/, '')
+  const firstChinese = remainder.search(/[\u3400-\u9fff]/)
+  return { code, nameZh: firstChinese >= 0 ? remainder.slice(firstChinese).trim() : remainder.trim(),
+    nameEn: firstChinese >= 0 ? remainder.slice(0, firstChinese).replace(/[-\s]+$/, '').trim() : remainder.trim(), aliases: [value] }
 }
 
 function createDimensionOptions(
@@ -460,18 +500,35 @@ function createDimensionOptions(
     const seed = index + 1 + dimensionName.length * 3
     const audit = createAuditTrail(dimensionName, value, seed)
 
+    const category = dimensionId === 'categoryNumbers' ? splitCategoryNumberLabel(value) : null
     return {
       id: `${dimensionId}-${index + 1}`,
-      code: buildCode(index),
-      name_zh: value,
-      name_en: buildAlias(dimensionId, value),
+      code: category?.code || (dimensionId === 'pantone' ? value : buildCode(index)),
+      name_zh: category?.nameZh || value,
+      name_en: category?.nameEn || buildAlias(dimensionId, value),
+      aliases: category?.aliases || (dimensionId === 'colors' ? ({ White: ['白色'], Black: ['黑色'], Green: ['绿色'], Blue: ['蓝色'], Pink: ['粉色'], Apricot: ['杏色'], Gray: ['灰色'], Red: ['红色'], '本白': ['greige'] } as Record<string,string[]>)[value] || [] : value === 'One Size' ? ['均码', 'OS', 'F'] : dimensionId === 'sizes' && value === '2XL' ? ['XXL'] : []),
       status: 'ENABLED',
-      sortOrder: index + 1,
+      sortOrder: dimensionId === 'sizes' && value === 'XS' ? 0 : index + 1,
       updatedAt: audit.updatedAt,
       updatedBy: audit.updatedBy,
       logs: audit.logs,
     }
   })
+}
+
+/** Renaming the dimension did not change saved option identities. New static
+ * demos may meet the old dictionary, so reconcile only the known seed pair and
+ * its immutable business code. Missing/deleted/custom IDs are never guessed. */
+export function resolveConfigOptionReference(dimension: FlatDimensionId, id: string, options: readonly ConfigOption[]): ConfigOption | undefined {
+  const exact = options.find(option => option.id === id)
+  if (exact || dimension !== 'categoryNumbers') return exact
+  const match = /^(categoryNumbers|styleCodes)-(\d+)$/.exec(id)
+  if (!match) return undefined
+  const label = CATEGORY_NUMBERS[Number(match[2]) - 1]
+  if (!label) return undefined
+  const counterpart = `${match[1] === 'categoryNumbers' ? 'styleCodes' : 'categoryNumbers'}-${match[2]}`
+  const code = splitCategoryNumberLabel(label).code
+  return options.find(option => option.id === counterpart && option.code === code)
 }
 
 export function createInitialConfigData(): Record<FlatDimensionId, ConfigOption[]> {
@@ -488,6 +545,18 @@ export function createInitialConfigData(): Record<FlatDimensionId, ConfigOption[
     styles: createDimensionOptions('styles', '风格', STYLES),
     categories: createDimensionOptions('categories', '品类', CATEGORIES),
     colors: createDimensionOptions('colors', '颜色', COLORS),
-    styleCodes: createDimensionOptions('styleCodes', '风格编号', STYLE_CODES),
+    categoryNumbers: createDimensionOptions('categoryNumbers', '品类编号', CATEGORY_NUMBERS),
+    pantone: createDimensionOptions('pantone', 'Pantone', ['TCX 19-4003', 'TCX 17-4030', 'TCX 11-0601', 'TCX 18-1664', 'TPX 14-4203']),
+    compositions: createDimensionOptions('compositions', '成分', ['棉', '涤纶', '粘胶', '锦纶', '氨纶', '羊毛', '腈纶', '亚麻']),
+    constructions: createDimensionOptions('constructions', '组织', ['平纹', '斜纹', '缎纹', '罗纹', '经编', '针织']),
+    yarnCountSystems: createDimensionOptions('yarnCountSystems', '纱支体系', ['Ne', 'Nm', 'Tex', 'D']),
+    equipmentTypes: createDimensionOptions('equipmentTypes', '适配设备', ['平缝机', '包缝机', '横机', '裁床', '烫台', '检针机']),
+    packageTypes: createDimensionOptions('packageTypes', '包装类型', ['包', '箱', '卷', '筒', '袋', '瓶']),
+    materialConstructions: createDimensionOptions('materialConstructions', '结构材质', ['树脂', '金属', '尼龙', '涤纶', '棉', 'PE', 'PP', '纸', '钢', '不锈钢', '橡胶', '塑料']),
+    materialStructures: createDimensionOptions('materialStructures', '结构款式', ['圆形', '方形', '平纹', '斜纹', '罗纹', '单边花边', '双边花边', '镂空', '盘绳', '平带', '圆绳', '编织']),
+    zipperTeeth: createDimensionOptions('zipperTeeth', '拉链齿型', ['尼龙齿', '金属齿', '树脂齿', '隐形齿']),
+    zipperOpenings: createDimensionOptions('zipperOpenings', '拉链开合结构', ['开口', '闭口', '双开']),
+    zipperGauges: createDimensionOptions('zipperGauges', '拉链规格号', ['3#', '4#', '5#', '7#', '8#', '10#']),
+    yarnUses: createDimensionOptions('yarnUses', '纱线用途', ['针织', '车缝', '包缝', '绣花', '织带']),
   }
 }

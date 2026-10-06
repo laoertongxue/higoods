@@ -1,0 +1,137 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "商品中心系统" [level=2]
+  - paragraph: PCS
+  - button "收起菜单":
+  - button "商品中心系统":
+    - generic: 商品中心系统
+  - button "商品测款":
+    - generic: 商品测款
+  - button "生产准备管理":
+    - generic: 生产准备管理
+  - button "技术资料":
+    - generic: 技术资料
+  - button "样衣管理":
+    - generic: 样衣管理
+  - button "商品&物料档案":
+    - generic: 商品&物料档案
+  - button "系统设置":
+    - generic: 系统设置
+- main:
+  - button "款式档案"
+  - button "款式详情"
+  - button "规格详情"
+  - button "面料档案"
+  - button "渠道店铺商品"
+  - button "基础配置"
+  - button:
+  - button "辅料档案"
+  - button "规格详情"
+  - button "规格档案"
+  - button "渠道店铺管理"
+  - button "纱线档案"
+  - button "耗材档案"
+  - button "配件档案"
+  - button "全部关闭"
+  - status: 已记录对应操作的演示回执。
+  - heading "渠道同步工作台" [level=1]
+  - button "重新读取"
+  - heading "Kaos Polos Premium 高端纯色T恤" [level=2]
+  - button "返回操作列表"
+  - generic: 原型演示回执，未连接真实平台 API。发布状态只依据对应回执显示。
+  - button "发布更新"
+  - button "请求下架"
+  - button "查看同步工作台"
+  - term: 当前版本
+  - definition: "1"
+  - term: 同步状态
+  - definition: 一致
+  - term: 可售策略
+  - definition: 共享 WMS 可售
+  - term: 实际平台状态
+  - definition: 在售
+  - generic "WMS 共享可售来源与演示操作"
+  - generic "重新同步 · PCS→平台 成功 版本 1 · 2026/10/5 16:51:53":
+    - strong: 重新同步 · PCS→平台
+    - generic: 成功
+    - generic: 版本 1 · 2026/10/5 16:51:53
+  - paragraph: 操作 ecbefe7e-74ab-4c31-a82a-e9853b0e4d75 · 演示回执
+  - term: 共同基线版本 / 提交版本
+  - definition: 1 / 1
+  - term: 来源事件
+  - definition: ecbefe7e-74ab-4c31-a82a-e9853b0e4d75
+  - term: 完成时间
+  - definition: 2026-10-05T08:51:53.577Z
+  - generic "查看当次平台回执（1 条）"
+  - table:
+    - rowgroup:
+      - row "目标 字段 回执 原因":
+        - columnheader "目标"
+        - columnheader "字段"
+        - columnheader "回执"
+        - columnheader "原因"
+    - rowgroup:
+      - row "STYLE-PRJ-202603-012-BLA-S-ALT 日常售价 成功 —":
+        - cell "STYLE-PRJ-202603-012-BLA-S-ALT"
+        - cell "日常售价"
+        - cell "成功":
+          - generic: 成功
+        - cell "—"
+  - generic "重新同步 · PCS→平台 成功 版本 1 · 2026/10/5 16:51:52":
+    - strong: 重新同步 · PCS→平台
+    - generic: 成功
+    - generic: 版本 1 · 2026/10/5 16:51:52
+  - generic "重新同步 · PCS→平台 失败 版本 1 · 2026/10/5 16:51:52":
+    - strong: 重新同步 · PCS→平台
+    - generic: 失败
+    - generic: 版本 1 · 2026/10/5 16:51:52
+  - generic "重新同步 · PCS→平台 失败 版本 1 · 2026/10/5 16:51:51":
+    - strong: 重新同步 · PCS→平台
+    - generic: 失败
+    - generic: 版本 1 · 2026/10/5 16:51:51
+  - generic "重新同步 · PCS→平台 失败 版本 1 · 2026/10/5 16:51:50":
+    - strong: 重新同步 · PCS→平台
+    - generic: 失败
+    - generic: 版本 1 · 2026/10/5 16:51:50
+  - generic "重新同步 · PCS→平台 失败 版本 1 · 2026/10/5 16:50:35":
+    - strong: 重新同步 · PCS→平台
+    - generic: 失败
+    - generic: 版本 1 · 2026/10/5 16:50:35
+  - generic "发布 · PCS→平台 部分成功 版本 1 · 2026/10/5 10:00:00":
+    - strong: 发布 · PCS→平台
+    - generic: 部分成功
+    - generic: 版本 1 · 2026/10/5 10:00:00
+  - generic "字段同步范围"
+- button "查生产":

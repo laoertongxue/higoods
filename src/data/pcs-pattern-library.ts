@@ -792,15 +792,6 @@ function ensureHydration(): void {
       if (stored) {
         const migrated = migrateStoreSnapshot(stored)
         memoryStore = cloneStore(migrated.store)
-        if (migrated.migrated) {
-          persistPromise = patternRepo.saveStore(migrated.store).catch(() => {
-            // ignore
-          })
-        }
-      } else if (memoryStore) {
-        persistPromise = patternRepo.saveStore(memoryStore).catch(() => {
-          // ignore
-        })
       }
     })
     .catch(() => {

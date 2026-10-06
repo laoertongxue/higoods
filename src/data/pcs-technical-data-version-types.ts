@@ -1,5 +1,6 @@
 import type { WebbingInventoryForm, WebbingSpecification } from './fcs/webbing-specifications.ts'
 import type {
+  EngineeringBomMaterialLineDraft,
   EngineeringBomCustomCostDecision,
   EngineeringBomCustomCostDraft,
   EngineeringBomPricingSnapshot,
@@ -452,6 +453,10 @@ export interface TechnicalSizeRow {
 export type TechnicalBomItemType = '面料' | '纱线' | '辅料' | '包装材料' | '成衣' | '其他'
 
 export interface TechnicalBomItem {
+  materialCostReference?: EngineeringBomMaterialLineDraft['materialCostReference']
+  costReferenceMode?: EngineeringBomMaterialLineDraft['costReferenceMode']
+  unitConversionReference?: EngineeringBomMaterialLineDraft['unitConversionReference']
+  legacyIntentSourceId?: string
   id: string
   type: TechnicalBomItemType
   name: string
@@ -614,6 +619,7 @@ export interface TechnicalDataVersionRecord {
 }
 
 export interface TechnicalDataVersionContent {
+  legacySkuIntentSourceIds?: string[]
   technicalVersionId: string
   patternFiles: TechnicalPatternFile[]
   patternDesc: string

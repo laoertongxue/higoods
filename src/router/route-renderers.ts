@@ -13,12 +13,23 @@ function createAsyncRenderer<TArgs extends unknown[]>(
         throw error
       })
     }
-    if (exportName.startsWith('renderPcs') || exportName === 'renderTechPackPage') {
-      const { mountPcsLocalData } = await import('../pages/pcs-local-data.ts')
-      mountPcsLocalData()
+    if (exportName.startsWith('renderPcs') || exportName.startsWith('renderFcsMaterialProcessPlan') || exportName === 'renderTechPackPage') {
       const { ensurePcsRecordState } = await import('../data/pcs-record-runtime.ts')
-      try { await ensurePcsRecordState() } catch {
-        return '<div class="rounded border border-amber-300 bg-amber-50 p-6"><h1 class="text-xl font-semibold">本机资料暂时无法读取</h1><p>请通过右下角“本机数据”查看原因并重试。原有资料已保留。</p></div>'
+      const common = ['higood-pcs-config-workspace-store-v1']
+      const product = ['higood-pcs-material-config-v1', 'higood-pcs-style-archive-store-v3', 'higood-pcs-sku-archive-store-v1', ...common]
+      const material = ['higood-fcs-material-process-plans-v1', 'higood-pcs-material-archive-store-v2', 'higood-pcs-material-config-v1', 'higood-pcs-exchange-rate-config-v1', ...common]
+      const channel = ['higood-pcs-channel-catalog-v1', 'higood-pcs-channel-store-v1']
+      const productDetail = ['higood-pcs-engineering-bom-pricing-plan-store-v2', 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-material-archive-store-v2', 'higood-pcs-material-config-v1']
+      const scope = /FcsMaterialProcessPlan/.test(exportName) ? [...material, 'higood-fcs-material-process-plans-v1']
+        : /StyleArchiveList|SpecificationList/.test(exportName) ? [...product, ...channel]
+        : /StyleArchive|Specification/.test(exportName) ? [...product, ...channel, ...productDetail]
+        : /Material|FabricArchive|AccessoryArchive|YarnArchive|ConsumableArchive|PartsArchive/.test(exportName) ? [...material, 'higood-pcs-technical-data-version-store-v5', 'higood-pcs-engineering-bom-pricing-plan-store-v2']
+        : /Channel/.test(exportName) ? [...product, ...channel, 'higood-pcs-technical-data-version-store-v5']
+        : /ConfigWorkspace/.test(exportName) ? [...material, ...product, ...channel]
+        : []
+      try { await ensurePcsRecordState(scope) } catch (error) {
+        const { renderPcsStorageError } = await import('../pages/pcs-storage-error.ts')
+        return renderPcsStorageError(error)
       }
     }
 
@@ -94,6 +105,13 @@ export const renderPcsSpecificationDetailPage = createAsyncRenderer(
   () => import('../pages/pcs-product-archives'),
   'renderPcsSpecificationDetailPage',
 )
+export const renderPcsStyleArchiveEditPage = createAsyncRenderer(() => import('../pages/pcs-product-archives'), 'renderPcsStyleArchiveEditPage')
+export const renderPcsSpecificationEditPage = createAsyncRenderer(() => import('../pages/pcs-product-archives'), 'renderPcsSpecificationEditPage')
+export const renderPcsChannelProductEditPage = createAsyncRenderer(() => import('../pages/pcs-channel-products'), 'renderPcsChannelProductEditPage')
+export const renderPcsChannelStoreEditPage = createAsyncRenderer(() => import('../pages/pcs-channel-stores'), 'renderPcsChannelStoreEditPage')
+export const renderPcsMaterialArchiveEditPage = createAsyncRenderer(() => import('../pages/pcs-material-archives'), 'renderPcsMaterialArchiveEditPage')
+export const renderPcsMaterialSkuDetailPage = createAsyncRenderer(() => import('../pages/pcs-material-archives'), 'renderPcsMaterialSkuDetailPage')
+export const renderPcsMaterialSkuEditPage = createAsyncRenderer(() => import('../pages/pcs-material-archives'), 'renderPcsMaterialSkuEditPage')
 export const renderPcsTestingOrderCreatePage = createAsyncRenderer(
   () => import('../pages/pcs-testing-order-create'),
   'renderPcsTestingOrderCreatePage',
@@ -336,6 +354,10 @@ export const renderProcessPrintOrdersPage = createAsyncRenderer(
   () => import('../pages/process-print-orders'),
   'renderProcessPrintOrdersPage',
 )
+export const renderFcsMaterialProcessPlansPage = createAsyncRenderer(() => import('../pages/process-work-orders/material-process-plans.ts'), 'renderFcsMaterialProcessPlansPage')
+export const renderFcsMaterialProcessPlanCreatePage = createAsyncRenderer(() => import('../pages/process-work-orders/material-process-plans.ts'), 'renderFcsMaterialProcessPlanCreatePage')
+export const renderFcsMaterialProcessPlanDetailPage = createAsyncRenderer<[string]>(() => import('../pages/process-work-orders/material-process-plans.ts'), 'renderFcsMaterialProcessPlanDetailPage')
+export const renderFcsMaterialProcessPlanEditPage = createAsyncRenderer<[string]>(() => import('../pages/process-work-orders/material-process-plans.ts'), 'renderFcsMaterialProcessPlanEditPage')
 export const renderMaterialIssuePage = createAsyncRenderer(() => import('../pages/material-issue'), 'renderMaterialIssuePage')
 export const renderQcRecordDetailPage = createAsyncRenderer(() => import('../pages/qc-records'), 'renderQcRecordDetailPage')
 export const renderQcRecordMobileDetailPage = createAsyncRenderer(

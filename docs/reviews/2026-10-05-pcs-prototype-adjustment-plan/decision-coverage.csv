@@ -1,0 +1,65 @@
+﻿decision_id,confirmed_rule,source,proposal_sections,requirement_ids,coverage
+A01,面料、辅料、纱线、耗材、设备配件五类；服装用料如纽扣/拉链归辅料，各类有子分类模板。,DEFAULT,prototype-adjustment-proposal.md §2/§3,ARCH-001,已映射到方案与待实施需求；不是已实现
+A02,一套物料身份；基础、染后、印后、绣后、烫画后按阶段查询；旧原料/面辅料字段的来源含义继续技术核对。,DEFAULT；U07—U09,prototype-adjustment-proposal.md §2/§3; prototype-adjustment-proposal.md §7/§9,ARCH-002;MAT-001;MAT-002,已映射到方案与待实施需求；不是已实现
+A03,根编码默认系统生成；迁入原码保留；人工指定仅建档阶段且唯一，审核后锁定。,DEFAULT,prototype-adjustment-proposal.md §2/§3; prototype-adjustment-proposal.md §9.2,ARCH-003;ARCH-004;CODE-007;CODE-008,已映射到方案与待实施需求；不是已实现
+A04,服装 SKU 默认颜色加尺码；独立销售/拣货/交付差异才增加身份维度，改变款式本身则新 SPU。,DEFAULT；U04,prototype-adjustment-proposal.md §2/§3; prototype-adjustment-proposal.md §6,ARCH-005;ARCH-006;PROD-001;PROD-002,已映射到方案与待实施需求；不是已实现
+A05,不同品牌且吊牌/交付标准不同的款式分别建 SPU，以同款关系关联。,DEFAULT,prototype-adjustment-proposal.md §2/§3,ARCH-007,已映射到方案与待实施需求；不是已实现
+A06,固定生产包装并按套收发可为一个成品 SKU；虚拟搭售维护组件及数量，但仍须满足单 PID 同款式及每个平台规格明确匹配内部 SKU。虚拟组合的承接结构继续细化，不据此新增第四层商品档案。,DEFAULT；U24；U26,prototype-adjustment-proposal.md §1/§15; prototype-adjustment-proposal.md §6,ARCH-015;PROD-003;PROD-004;PROD-005;PROD-006,已映射到方案与待实施需求；不是已实现
+A07,同款为业务关联，不自动合并身份；替代关系另有适用条件。,DEFAULT,prototype-adjustment-proposal.md §2/§3,ARCH-008;ARCH-009,已映射到方案与待实施需求；不是已实现
+A08,采购来源、来源地区、采购区域、默认收货仓由采购策略及实际单据持有，档案不维护这些交易选择。,DEFAULT,prototype-adjustment-proposal.md §2/§3,ARCH-010,已映射到方案与待实施需求；不是已实现
+B01,面料主档管理成分、组织和标准幅宽/克重；色花/加工阶段为 SKU 差异；加工变化保存在阶段产出规格。幅宽仅一个有效值。,DEFAULT；U02,prototype-adjustment-proposal.md §5; prototype-adjustment-proposal.md §7/§9,CFG-001;MAT-003,已映射到方案与待实施需求；不是已实现
+B02,辅料按子类定义身份：纽扣款式/材质与颜色/直径，拉链结构/齿型与颜色/长度，花边按分类模板；已有织带绳子特例保留。,DEFAULT,prototype-adjustment-proposal.md §5,CFG-002,已映射到方案与待实施需求；不是已实现
+B03,纱支体系及数值、股数、成分、捻度等为纱线标准规格；颜色/加工结果为 SKU；筒重、批次差异归包装/批次。,DEFAULT,prototype-adjustment-proposal.md §5,CFG-003,已映射到方案与待实施需求；不是已实现
+B04,耗材按子类配置适用规格，采用上轮包装袋、胶带、油剂等字段方向；实际子类全集由现状核查补齐。,DEFAULT,prototype-adjustment-proposal.md §5,CFG-004,已映射到方案与待实施需求；不是已实现
+B05,配件管理型号、尺寸等规格，适配设备为可多值的独立关系。,DEFAULT,prototype-adjustment-proposal.md §5,CFG-005,已映射到方案与待实施需求；不是已实现
+B06,空差不进入目标页面、字段或计算；旧证据保留。,U01,prototype-adjustment-proposal.md §5,CFG-006,已映射到方案与待实施需求；不是已实现
+B07,仅“幅宽”一个字段，语义为有效幅宽；无全幅字段、净幅字段或额外计算。其他标准/实测分工沿用。,U02；DEFAULT,prototype-adjustment-proposal.md §5,CFG-007,已映射到方案与待实施需求；不是已实现
+B08,染色物料必须关联 Pantone 体系和色号；色样可作附件，不能替代必填 Pantone。,U03,prototype-adjustment-proposal.md §5; prototype-adjustment-proposal.md §9.2,CFG-008;CODE-009,已映射到方案与待实施需求；不是已实现
+B09,服装只维护一套统一尺码，可含字母、数字、均码；平台显示名可映射，不创建市场/品类尺码体系。,U04,prototype-adjustment-proposal.md §5,CFG-009,已映射到方案与待实施需求；不是已实现
+B10,品牌、正式主分类、商品定位单选；风格、流行元素、特殊工艺、人群、年龄、人群定位按原建议多选；品类、品类编号独立维护。,DEFAULT；U05,prototype-adjustment-proposal.md §5,CFG-010;CFG-011,已映射到方案与待实施需求；不是已实现
+B11,品类、风格、品类编号互相独立；图例分别为“套装”“休闲”“89-Printed Set-35-55印花套装”；不互相覆盖或按名称合并。,U05；用户附图,prototype-adjustment-proposal.md §5,CFG-012;CFG-013;CFG-014,已映射到方案与待实施需求；不是已实现
+B12,每 SKU 一个主单位、多个辅助单位及换算关系，SKU 详情提供“计量单位”Tab。,U06,prototype-adjustment-proposal.md §8,UOM-001;UOM-002;UOM-003,已映射到方案与待实施需求；不是已实现
+B13,标准换算与批次实际换算分开；KG 与长度需明确依据，不能无依据自动换算。,DEFAULT；U06,prototype-adjustment-proposal.md §8,UOM-004;UOM-005,已映射到方案与待实施需求；不是已实现
+B14,包装含量独立管理；单纯包装变化不自动新 SKU，整包确为独立交付规格时才区分。,DEFAULT,prototype-adjustment-proposal.md §8,UOM-006;UOM-007,已映射到方案与待实施需求；不是已实现
+B15,基本单位净重与包装毛重/尺寸分别保存测量基准；面料克重按面积重量维护。,DEFAULT,prototype-adjustment-proposal.md §8,UOM-008;UOM-009,已映射到方案与待实施需求；不是已实现
+C01,染色、印花、绣花、物料烫画可形成材料 SKU；裁片压褶/打揽不形成材料 SKU。,U07,prototype-adjustment-proposal.md §7/§9; prototype-adjustment-proposal.md §9.2; prototype-adjustment-proposal.md §9.3/§12.4,MAT-008;MAT-009;CODE-003;BRIDGE-005,已映射到方案与待实施需求；不是已实现
+C02,普通同对象链不设计任意重复工艺；面料到裁片的对象变化允许同名工艺；同目标返工留在执行记录。,U08；DEFAULT,prototype-adjustment-proposal.md §7/§9,MAT-010;MAT-011,已映射到方案与待实施需求；不是已实现
+C03,多色纱线到成片/缝盘/毛衣为多投入生产场景；通过生产 BOM、工艺路线和产出身份表达，不任选纱线作为唯一物料前驱。,U09,prototype-adjustment-proposal.md §9.3/§12.4,BRIDGE-001;BRIDGE-002;BRIDGE-003;BRIDGE-004,已映射到方案与待实施需求；不是已实现
+C04,pl001197 是花型编号，印花/绣花资料引用相应花型及版本。,U10,prototype-adjustment-proposal.md §7/§9; prototype-adjustment-proposal.md §9.2,MAT-012;CODE-004,已映射到方案与待实施需求；不是已实现
+C05,单面 A、双面 AB；渗透印也进入编码。取消原建议 DM/SM；渗透印具体字符仍需模板定义。,U10,prototype-adjustment-proposal.md §1/§15; prototype-adjustment-proposal.md §9.2,ARCH-015;CODE-001;CODE-002,已映射到方案与待实施需求；不是已实现
+C06,资料修正只升版本；改变交付一致性/规格的花型变更建立新产出规格及编码。,DEFAULT,prototype-adjustment-proposal.md §7/§9; prototype-adjustment-proposal.md §9.2,MAT-013;CODE-005,已映射到方案与待实施需求；不是已实现
+C07,加工单建单不依赖有库存，也不以库存接口可用作为前置门槛。,U11,prototype-adjustment-proposal.md §7/§9,MAT-014,已映射到方案与待实施需求；不是已实现
+C08,唯一基础规格可用 SPU 根码；多基础投入规格使用对应前驱 SKU 完整码再追加加工段。,DEFAULT,prototype-adjustment-proposal.md §7/§9; prototype-adjustment-proposal.md §9.2,MAT-015;CODE-006,已映射到方案与待实施需求；不是已实现
+D01,Asaya 与其他品牌印花/染色标准加工价一致，取消两套品牌列。,U12,prototype-adjustment-proposal.md §10,COST-001,已映射到方案与待实施需求；不是已实现
+D02,标准采购成本人工维护。,U13,prototype-adjustment-proposal.md §10,COST-002,已映射到方案与待实施需求；不是已实现
+D03,综合标准成本默认 RMB，按展示汇率显示 IDR/USD；切换展示不改标准成本。,U14；U21,prototype-adjustment-proposal.md §10,COST-003;COST-004,已映射到方案与待实施需求；不是已实现
+D04,标准采购、基础运输和加工价格统一含税。,U15,prototype-adjustment-proposal.md §10,COST-005,已映射到方案与待实施需求；不是已实现
+D05,不计入后续加工段新增运输费；基础运输成本继续保留并累计一次。,U16,prototype-adjustment-proposal.md §10,COST-006;COST-007,已映射到方案与待实施需求；不是已实现
+D06,不计标准损耗、缩率。,U17,prototype-adjustment-proposal.md §10,COST-008,已映射到方案与待实施需求；不是已实现
+D07,档案加工单价按加工产出及其计价单位表达。,U18,prototype-adjustment-proposal.md §10,COST-009,已映射到方案与待实施需求；不是已实现
+D08,加工单价已含染化料、绣花线等辅助用料，不再另加标准辅材费用。,U19,prototype-adjustment-proposal.md §10,COST-010,已映射到方案与待实施需求；不是已实现
+D09,不考虑开版、制网、打样等一次性费用及其分摊。,U20,prototype-adjustment-proposal.md §10,COST-011,已映射到方案与待实施需求；不是已实现
+D10,真实 0 与未维护分开；缺价可建档但不能充当完整核价依据。,DEFAULT,prototype-adjustment-proposal.md §10,COST-012,已映射到方案与待实施需求；不是已实现
+D11,保留来源精度，计算至少 6 位，单价默认 4 位可展开，最终按四舍五入规则汇总。,DEFAULT,prototype-adjustment-proposal.md §10,COST-013,已映射到方案与待实施需求；不是已实现
+D12,上游采购、计入公式的基础运输、加工标准费用调整自动传递；成本汇率变动触发重新生效本期不做。,既有确认；DEFAULT；U21,prototype-adjustment-proposal.md §10,COST-014;COST-015,已映射到方案与待实施需求；不是已实现
+D13,历史已发布/已确认/已发生业务的成本快照保留；未发布草稿使用最新标准重算并体现变化。,DEFAULT,prototype-adjustment-proposal.md §10,COST-016;COST-017,已映射到方案与待实施需求；不是已实现
+E01,当前经营渠道 Shopify、TikTok、独立站；市场 ID、MY。其余已有来源仅保留必要历史信息。,U22；DEFAULT,prototype-adjustment-proposal.md §11,CHAN-001;CHAN-018,已映射到方案与待实施需求；不是已实现
+E02,默认一店一个经营市场和对应销售币种，结算币种独立；不主动建设一店多市场工作台。,U23,prototype-adjustment-proposal.md §11,CHAN-002;CHAN-003,已映射到方案与待实施需求；不是已实现
+E03,同 PID 下所有内部 SKU 必须属于同一款式 SPU。,U24,prototype-adjustment-proposal.md §11,CHAN-004;CHAN-005,已映射到方案与待实施需求；不是已实现
+E04,基础内容供初始化/未覆盖草稿继承，店铺覆盖值保留；线上变更按发布与同步动作处理。,DEFAULT；U28,prototype-adjustment-proposal.md §6; prototype-adjustment-proposal.md §11,PROD-008;CHAN-006,已映射到方案与待实施需求；不是已实现
+E05,平台显示规格名可不同，但必须映射到确定内部规格；服装仍使用一套内部尺码。,DEFAULT；U04,prototype-adjustment-proposal.md §6; prototype-adjustment-proposal.md §11,PROD-009;CHAN-007,已映射到方案与待实施需求；不是已实现
+E06,工厂尺码及技术尺寸由技术资料负责，销售尺码图为引用技术版本的渠道素材。,DEFAULT,prototype-adjustment-proposal.md §6; prototype-adjustment-proposal.md §11,PROD-007;CHAN-008,已映射到方案与待实施需求；不是已实现
+E07,保留吊牌、日常、直播、批发、清仓价格语义，并按既定价格范围维护。,DEFAULT,prototype-adjustment-proposal.md §11,CHAN-009;CHAN-017,已映射到方案与待实施需求；不是已实现
+E08,同内部 SKU 的外部规格默认同价，允许独立覆盖；覆盖项在双向同步中按外部规格识别。,U25,prototype-adjustment-proposal.md §11,CHAN-010;CHAN-011,已映射到方案与待实施需求；不是已实现
+E09,历史和新建正式渠道规格均必须匹配内部 SKU；不设计未匹配正式记录或历史待匹配队列。,U26,prototype-adjustment-proposal.md §6; prototype-adjustment-proposal.md §11,PROD-010;PROD-011;CHAN-012;CHAN-019,已映射到方案与待实施需求；不是已实现
+E10,可关联测款单，测款单有渠道上架动作；无开发项目对象，也无项目必填条件。,U27,prototype-adjustment-proposal.md §11; prototype-adjustment-proposal.md §12; prototype-adjustment-proposal.md §9.3/§12.4,CHAN-013;CHAN-014;SYNC-011;BRIDGE-006,已映射到方案与待实施需求；不是已实现
+E11,正常变更双向自动同步达到一致；旧“平台变化只记录差异、由人选择是否采用”不再作为正常流程。,U28,prototype-adjustment-proposal.md §12,SYNC-001;SYNC-002;SYNC-003;SYNC-004;SYNC-005;SYNC-006;SYNC-007;SYNC-008;SYNC-012,已映射到方案与待实施需求；不是已实现
+E12,全部销售关联共享对应内部 SKU 的 WMS 可售额度；不按店铺预切份额、不复制库存。,U29,prototype-adjustment-proposal.md §12,SYNC-009;SYNC-010,已映射到方案与待实施需求；不是已实现
+E13,映射更正保留历史订单关联，新订单用新映射；未完成履约的受影响订单单独处理。,DEFAULT,prototype-adjustment-proposal.md §11,CHAN-015;CHAN-016,已映射到方案与待实施需求；不是已实现
+F01,维护/审核职责可区分，同一人可兼任并完成两动作；具体人员配置不作为设计确认前提。,U30；DEFAULT,prototype-adjustment-proposal.md §4/§13/§14,GOV-001;GOV-025,已映射到方案与待实施需求；不是已实现
+F02,SPU 与首批 SKU 可一并审核，后增 SKU/加工产出单独审核，其他已通过规格保持原结果。,DEFAULT,prototype-adjustment-proposal.md §4/§13/§14,GOV-002;GOV-003;GOV-024,已映射到方案与待实施需求；不是已实现
+F03,必填共同身份和分类适用属性；加工料需投入/工艺/色花要求，染色强制 Pantone；商品/物料识别素材和成本完整性分开校验。,DEFAULT；U03,prototype-adjustment-proposal.md §7/§9; prototype-adjustment-proposal.md §4/§13/§14,MAT-004;GOV-004,已映射到方案与待实施需求；不是已实现
+F04,名称/翻译/说明可修正留痕；改变实质交付规格建立新规格/版本，历史单据保存当时信息。,DEFAULT,prototype-adjustment-proposal.md §5; prototype-adjustment-proposal.md §8; prototype-adjustment-proposal.md §4/§13/§14,CFG-015;UOM-010;GOV-005,已映射到方案与待实施需求；不是已实现
+F05,停用限制新业务选择，不自动改写在途单据或下架渠道；在途终止和渠道下架走各自明确动作。,DEFAULT,prototype-adjustment-proposal.md §5; prototype-adjustment-proposal.md §4/§13/§14,CFG-016;GOV-006;GOV-023,已映射到方案与待实施需求；不是已实现
+F06,不建设历史重复、同码不同物、缺父、缺前驱等异常治理流程；以历史关系完整作为本次原型场景前提。,U31,prototype-adjustment-proposal.md §1/§15; prototype-adjustment-proposal.md §4/§13/§14,ARCH-014;GOV-007,已映射到方案与待实施需求；不是已实现
+F07,保留档案建改查、复制、审核、停用、业务导入导出、条码/素材/前后加工/标准成本等操作；采购/加工执行入口导航到对应领域。,DEFAULT；U11,prototype-adjustment-proposal.md §6; prototype-adjustment-proposal.md §7/§9; prototype-adjustment-proposal.md §4/§13/§14,PROD-012;MAT-005;MAT-006;MAT-007;GOV-008;GOV-009;GOV-010;GOV-019;GOV-020;GOV-021;GOV-022,已映射到方案与待实施需求；不是已实现

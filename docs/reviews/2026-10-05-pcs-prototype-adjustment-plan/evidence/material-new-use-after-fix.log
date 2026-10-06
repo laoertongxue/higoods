@@ -1,0 +1,31 @@
+✔ MAT/FCS: factory options use the actual name and code, not the short-name code fallback (4.252167ms)
+✔ MAT/FCS: four processes create actual plans without a production demand or warehouse facts (6.555416ms)
+✔ MAT/FCS: source identity and adopted process version are revalidated before every creation (1.626708ms)
+✔ GOV-006 new process selection, handoff and save reject unavailable input, target or parent archive (27.547ms)
+✔ GOV-006 stopping material later preserves the saved plan and its adopted process version (2.751625ms)
+✔ MAT/FCS: draft accepts incomplete arrangements; confirmed plan requires positive quantities and eligible factory (3.031166ms)
+✔ MAT/FCS: duplicate saves do not duplicate plans; changed retries and stale drafts cannot overwrite (1.918208ms)
+✔ MAT/FCS: saved source image/file and process versions stay frozen across subsequent material revisions (4.8965ms)
+✔ MAT/FCS: first read is empty and write-free; two plans for one target retain their own record identities (3.059917ms)
+✔ MAT/FCS: handoff opens a versioned independent plan form for all four processes without creating a plan (1.365417ms)
+(node:44458) ExperimentalWarning: Module mocking is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44458) DeprecationWarning: mock.module(): options.namedExports is deprecated. Use options.exports instead.
+▶ R1 PCS material purchase draft is owned and atomically saved by PMS
+  ✔ reading choices and hydrating does not copy seeds or write business records (1.69025ms)
+  ✔ no success before transaction completion; source/units/prices/log are one atomic action (3.380292ms)
+  ✔ same operation is idempotent; changed payload and stale edits fail without overwrite (0.570208ms)
+  ✔ transaction failure rolls back draft, log and receipt; retry preserves the intended action (0.334625ms)
+  ✔ refresh hydration restores draft and unit snapshot; current unit edits do not rewrite it (2.392959ms)
+  ✔ disabled localStorage is never a fallback; unavailable IDB is an explicit unsaved failure (0.282833ms)
+  ✔ required purchase conditions and purchase unit purpose are enforced without any inventory dependency (0.322125ms)
+  ✔ GOV-006 an inactive parent blocks a new purchase but keeps the existing purchase and unit snapshot usable (1.032583ms)
+✔ R1 PCS material purchase draft is owned and atomically saved by PMS (83.106084ms)
+ℹ tests 19
+ℹ suites 0
+ℹ pass 19
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 450.526084

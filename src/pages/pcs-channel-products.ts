@@ -1,973 +1,280 @@
 // @page-pattern: list
+import { getChannelPlatformTemplate, channelPlatformTemplateVersion, initializeChannelPlatformContent, CHANNEL_VARIANT_REQUIRED_LABELS, CHANNEL_TEMPLATE_FIELD_LABELS } from '../data/pcs-channel-platform-template.ts'
+import { escapeHtml as e } from '../utils.ts'
+import { appStore } from '../state/store.ts'
+import { renderStandardListPage, renderStandardListFilters, renderStandardListStats } from '../components/ui/list-page.ts'
+import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
+import type { StandardListColumn } from '../components/ui/list-table.ts'
+import { resetStandardListEntryTransientStateOnRouteEntry } from '../components/ui/list-table-model.ts'
+import { listStyleArchives, getStyleArchiveById } from '../data/pcs-style-archive-repository.ts'
+import { listTechnicalDataVersionsByStyleId } from '../data/pcs-technical-data-version-repository.ts'
+import { getTestingOrderById } from '../data/pcs-testing-order-repository.ts'
+import { listSkuArchives, listSkuArchivesByStyleId, getSkuArchiveById } from '../data/pcs-sku-archive-repository.ts'
+import { runPcsRecordCommand, registerPcsFile, releasePcsPendingFile } from '../data/pcs-record-runtime.ts'
+import { registerPcsUnsavedChanges } from '../data/pcs-unsaved-changes.ts'
+import { CURRENT_CHANNELS, CURRENT_MARKETS, channelLabel, getChannelStore, listChannelStores, isCurrentChannelStore, isChannelStorePublishable } from '../data/pcs-channel-store-repository.ts'
+import { getChannelCatalogListSnapshot, type ChannelListingListRow, type ChannelVariantListRow, listChannelListings, getChannelListing, listChannelVariants, getPcsChannelCatalogSnapshot, contentForChannelStore, createChannelListing, saveChannelContent, reviewChannelListing, copyChannelListing, addChannelVariant, saveChannelVariant, saveChannelPrice, followChannelDefaultPrice, resolveChannelPrice, createChannelPriceResolver, listChannelAffectedOrders, channelContentFieldOrigin, channelMappingHistoryRows, applyStyleContent, isChannelStyleSelectable, isChannelSkuSelectable, previewChannelImport, importChannelRows, type ChannelImportRow } from '../data/pcs-channel-catalog.ts'
+import { submitChannelSync, receiveChannelReceipt, demoChannelReceipt, retryChannelFailedItems, verifyUnknownChannelOperation, receiveChannelPlatformChange, resolveChannelSyncConflict, CHANNEL_CONTENT_SYNC_FIELDS, CHANNEL_VARIANT_SYNC_FIELDS, channelFieldSupported, readChannelSyncField } from '../data/pcs-channel-sync.ts'
+import { CHANNEL_PRICE_LABELS, type ChannelStore, type ChannelContent, type ChannelListing, type ChannelVariant, type ChannelPriceType, type ChannelSyncOperation } from '../data/pcs-channel-catalog-types.ts'
+import { channelButton as button, channelLink as link, channelBadge as badge, channelField as fact, channelCard as card, channelTabs as tabs, channelInput as input, channelSelect as select, channelTextArea as area, channelTable as table, channelImage as picture, channelNotice as notice, channelImageOverlay, channelDownload, channelCsv, channelInputClass, renderChannelDescription } from './pcs-channel-ui.ts'
 
-import { renderSecondaryButton } from '../components/ui/button.ts'
-import { renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
-import {
-  clearListColumnPreferences,
-  loadListColumnPreferences,
-  normalizeListColumnPreferences,
-  paginateStandardListRows,
-  resetStandardListEntryTransientStateOnRouteEntry,
-  saveListColumnPreferences,
-  sortStandardListRows,
-  type StandardListColumnPreferences,
-  type StandardListPageSlice,
-  type StandardListSortState,
-} from '../components/ui/list-table-model.ts'
-import {
-  renderStandardListColumnSettings,
-  renderStandardListTable,
-  type StandardListColumn,
-} from '../components/ui/list-table.ts'
-import { renderTablePagination } from '../components/ui/pagination.ts'
-import {
-  getProjectChannelProductById,
-  listProjectChannelProducts,
-  type ProjectChannelProductRecord,
-} from '../data/pcs-channel-product-project-repository.ts'
-import {
-  CHANNEL_PRODUCT_STATUS_RULES,
-  resolveChannelProductBusinessStatus,
-} from '../data/pcs-product-lifecycle-governance.ts'
-import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
+import { synchronizePublishedChannelChanges } from '../data/pcs-channel-commands.ts'
+import { getChannelWmsAvailability, synchronizeChannelWmsAvailability } from '../data/pcs-channel-wms-projection.ts'
 
-const PREFERRED_PROJECT_ORDER = [
-  'PRJ-202603-002',
-  'PRJ-202603-003',
-  'PRJ-202603-004',
-  'PRJ-202603-005',
-  'PRJ-202603-008',
-  'PRJ-202603-010',
-  'PRJ-202603-011',
-  'PRJ-202603-012',
-  'PRJ-202603-013',
+const BASE = '/pcs/products/channel-products'
+const prefix = 'pcs-channel-product-list'
+const state = { keyword: '', channel: '', store: '', market: '', brand: '', status: '', sync: '', testing: '', updatedFrom: '', updatedTo: '', history: false, notice: '', error: false, tab: 'content', editTab: 'content', selected: new Set<string>(), activeId: '', pageMode: 'list' as 'list'|'detail'|'edit', imageUrl: '', imageTitle: '', importText: '', importOpen: false, copyId: '', copyStoreId: '', busy: false, dirty: false, operationId: '', variantEditor: '', priceType: 'regular' as ChannelPriceType, form: null as null | { listingId: string; version: number; storeId: string; styleId: string; skuIds: string[]; content: ChannelContent; sourceTestingOrderId: string; testingListingActionId: string; initialPrice: string; variants: ChannelVariant[]; defaults: Record<string, { amount: string; from: string; to: string; version: number }>; overrides: Record<string, { amount: string; mode: string; from: string; to: string; version: number }>; reasons: Record<string,string> } }
+const listState: ProcessOrderListControllerState = { currentPage: 1, sort: null, preferences: { order: [], visibleKeys: [], frozenKeys: [], pageSize: 20 }, preferencesLoaded: false, showColumnSettings: false }
+// 一次渲染共享同一只读上下文，结束立即释放；不保留第二套业务记录或持久缓存。
+function createListReadContext() {
+  const snapshot=getChannelCatalogListSnapshot(),stores=new Map(listChannelStores(true).map(s=>[s.id,s])),styles=new Map(listStyleArchives().map(s=>[s.styleId,s])),skus=new Map(listSkuArchives().map(s=>[s.skuId,s])),variants=new Map<string,ChannelVariantListRow[]>()
+  snapshot.variants.forEach(v=>{const rows=variants.get(v.listingId);if(rows)rows.push(v);else variants.set(v.listingId,[v])})
+  const all=snapshot.listings.filter(l=>{const store=stores.get(l.storeId);return store&&(state.history||isCurrentChannelStore(store))}).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))
+  return{snapshot,stores,styles,skus,variants,all,resolvePrice:createChannelPriceResolver(snapshot)}
+}
+let activeListContext:ReturnType<typeof createListReadContext>|null=null
+function withListReadContext<T>(recipe:()=>T):T{const previous=activeListContext;activeListContext=createListReadContext();try{return recipe()}finally{activeListContext=previous}}
+const listStyle=(id:string)=>activeListContext?.styles.get(id)||getStyleArchiveById(id)
+const listStore=(id:string)=>activeListContext?.stores.get(id)||getChannelStore(id)
+const listVariants=(id:string)=>activeListContext?.variants.get(id)||listChannelVariants(id)
+const labelOf = (listing: ChannelListingListRow) => listStyle(listing.styleId)?.styleCode || listing.styleId
+function pricesOf(listing: ChannelListingListRow): string { const resolve = activeListContext?.resolvePrice||createChannelPriceResolver(), rows = listVariants(listing.id).filter(v=>v.active), amounts = rows.map(v => resolve(v).amount).filter((n): n is number => n !== null), currency = listStore(listing.storeId)?.salesCurrency || ''; return amounts.length ? `${Math.min(...amounts).toLocaleString()}${Math.max(...amounts) !== Math.min(...amounts) ? ` – ${Math.max(...amounts).toLocaleString()}` : ''} ${currency}` : '日常售价未设置' }
+function filteredListings(): ChannelListingListRow[] {
+  const context=activeListContext||createListReadContext(),keyword=state.keyword.toLowerCase()
+  return context.all.filter(l => {
+    const store=context.stores.get(l.storeId)!,style=context.styles.get(l.styleId),variants=context.variants.get(l.id)||[]
+    const matchesKeyword=!keyword||[style?.styleCode,style?.styleName,l.platformProductId,l.content.title,...variants.flatMap(v=>[v.platformVariantId,v.sellerSku,context.skus.get(v.internalSkuId)?.skuCode])].join(' ').toLowerCase().includes(keyword)
+    return matchesKeyword && (!state.channel || store.channelCode === state.channel) && (!state.store || store.id === state.store) && (!state.market || store.marketCode === state.market) && (!state.brand || style?.brandName === state.brand) && (!state.status || l.platformStatus === state.status) && (!state.sync || l.syncStatus === state.sync) && (!state.testing || l.sourceTestingOrderId.includes(state.testing) || l.testingReferences?.some(r=>r.testingOrderId.includes(state.testing))) && (!state.updatedFrom || l.updatedAt >= state.updatedFrom) && (!state.updatedTo || l.updatedAt.slice(0,10) <= state.updatedTo)
+  })
+}
+export function buildChannelFilteredExport(): { listingCount: number; variantCount: number; csv: string } {
+  return withListReadContext(() => {
+    const context = activeListContext!, listings = filteredListings()
+    const rows = listings.flatMap(listing => (context.variants.get(listing.id) || []).map(variant => {
+      const price = context.resolvePrice(variant)
+      return [context.styles.get(listing.styleId)?.styleCode || listing.styleId, context.stores.get(listing.storeId)?.storeName, listing.platformProductId, variant.platformVariantId, context.skus.get(variant.internalSkuId)?.skuCode, variant.sellerSku, listing.content.title, price.amount, price.currency, listing.platformStatus]
+    }))
+    return { listingCount: listings.length, variantCount: rows.length, csv: channelCsv([['内部 SPU','店铺','PID','平台规格 ID','内部 SKU','sellerSku','标题','日常价','币种','平台状态'], ...rows]) }
+  })
+}
+const columns: StandardListColumn<ChannelListingListRow>[] = [
+  { key:'select',title:'',width:42,leadingControlColumn:true,required:true,render:l=>`<input type="checkbox" aria-label="选择 ${e(labelOf(l))}" data-${prefix}-action="select" data-id="${e(l.id)}" ${state.selected.has(l.id)?'checked':''}>` },
+  { key:'identity',title:'商品',width:260,required:true,freezeable:true,sortable:true,sortValue:labelOf,render:l=>{ const s=listStyle(l.styleId);return `<div class="flex items-start gap-3">${picture(l.content.media.find(m=>m.role==='主图')?.url||s?.mainImageUrl||'',s?.styleName||l.content.title)}<div class="min-w-0"><button class="font-medium text-blue-600" data-nav="${BASE}/${e(l.id)}">${e(s?.styleCode||'')}</button><p class="mt-1 line-clamp-2 text-xs text-slate-500">${e(s?.styleName||l.content.title)}</p></div></div>`} },
+  { key:'store',title:'渠道 / 店铺',width:175,sortable:true,sortValue:l=>listStore(l.storeId)?.storeName,render:l=>{const s=listStore(l.storeId)!;return `<div class="font-medium">${e(channelLabel(s.channelCode))} · ${e(s.marketCode)}</div><div class="mt-1 text-xs text-slate-500">${e(s.storeName)}</div>`} },
+  { key:'pid',title:'平台 PID',width:170,render:l=>`<span class="break-all text-xs">${e(l.platformProductId||'待平台分配')}</span>` },
+  { key:'title',title:'渠道标题',width:240,render:l=>`<p class="line-clamp-2">${e(l.content.title)}</p>` },
+  { key:'specs',title:'平台规格 / 内部 SKU',width:140,render:l=>{const v=listVariants(l.id);return `<button class="text-blue-600" data-${prefix}-action="open-mapping" data-id="${e(l.id)}">${v.length} / ${new Set(v.map(v=>v.internalSkuId)).size}</button>`} },
+  { key:'price',title:'日常售价',width:155,render:pricesOf },
+  { key:'review',title:'内容审核',width:100,render:l=>badge(l.reviewStatus) },
+  { key:'status',title:'平台状态',width:100,required:true,render:l=>badge(l.platformStatus) },
+  { key:'sync',title:'同步',width:135,render:l=>badge(l.syncStatus) },
+  { key:'last',title:'最近成功',width:150,sortable:true,sortValue:l=>l.lastSuccessAt,render:l=>`<span class="text-xs">${e(l.lastSuccessAt?new Date(l.lastSuccessAt).toLocaleString('zh-CN',{hour12:false}):'尚无成功回执')}</span>` },
+  { key:'actions',title:'操作',width:140,required:true,actionColumn:true,render:l=>`<div class="flex gap-2"><button class="text-blue-600" data-nav="${BASE}/${e(l.id)}">详情</button>${isCurrentChannelStore(listStore(l.storeId)!)?`<button class="text-blue-600" data-nav="${BASE}/${e(l.id)}/edit">编辑</button>`:''}</div>` },
 ]
-
-interface ChannelStoreSpuRow {
-  rowKey: string
-  channelCode: string
-  channelName: string
-  storeId: string
-  storeName: string
-  spuCode: string
-  records: ProjectChannelProductRecord[]
-  currentRecord: ProjectChannelProductRecord
-  specLineCount: number
-  uploadedSpecLineCount: number
-  stockQty: number
-}
-
-interface ChannelProductListState {
-  search: string
-  channel: string
-  status: string
-  currentPage: number
-}
-
-const CHANNEL_PRODUCT_LIST_STORAGE_KEY = 'higood:list-page:/pcs/products/channel-products'
-const CHANNEL_PRODUCT_LIST_PAGE_SIZES = [10, 20, 50]
-const CHANNEL_PRODUCT_LIST_MAX_FROZEN_WIDTH = 520
-const CHANNEL_PRODUCT_LIST_COLUMN_RULES = [
-  { key: 'cover' },
-  { key: 'spu', required: true, freezeable: true },
-  { key: 'channelStore', freezeable: true },
-  { key: 'title' },
-  { key: 'upstreamId' },
-  { key: 'inventory' },
-  { key: 'price' },
-  { key: 'status', required: true, freezeable: true },
-  { key: 'linkage' },
-  { key: 'updated', freezeable: true },
-  { key: 'actions', required: true, actionColumn: true },
-]
-
-const channelProductListState: ChannelProductListState = {
-  search: '',
-  channel: '全部渠道',
-  status: '全部状态',
-  currentPage: 1,
-}
-
-const channelProductListUiState: {
-  sort: StandardListSortState | null
-  preferences: StandardListColumnPreferences
-  columnSettingsOpen: boolean
-  draggedColumnKey: string
-  preferencesLoaded: boolean
-} = {
-  sort: null,
-  preferences: normalizeListColumnPreferences(
-    CHANNEL_PRODUCT_LIST_COLUMN_RULES,
-    {
-      order: CHANNEL_PRODUCT_LIST_COLUMN_RULES.map((item) => item.key),
-      visibleKeys: CHANNEL_PRODUCT_LIST_COLUMN_RULES.map((item) => item.key),
-      frozenKeys: [],
-      pageSize: CHANNEL_PRODUCT_LIST_PAGE_SIZES[0]!,
-    },
-    CHANNEL_PRODUCT_LIST_PAGE_SIZES,
-  ),
-  columnSettingsOpen: false,
-  draggedColumnKey: '',
-  preferencesLoaded: false,
-}
-
-function resolveSpuCode(record: ProjectChannelProductRecord): string {
-  return (
-    record.upstreamProductId ||
-    record.upstreamChannelProductCode ||
-    record.styleCode ||
-    record.channelProductCode ||
-    '-'
-  )
-}
-
-function buildChannelStoreSpuRows(records: ProjectChannelProductRecord[]): ChannelStoreSpuRow[] {
-  const rowMap = new Map<string, ProjectChannelProductRecord[]>()
-  records.forEach((record) => {
-    const rowKey = [record.channelCode, record.storeId, resolveSpuCode(record)].join('::')
-    rowMap.set(rowKey, [...(rowMap.get(rowKey) || []), record])
-  })
-
-  return Array.from(rowMap.entries()).map(([rowKey, rowRecords]) => {
-    const sortedRecords = rowRecords.slice().sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    const currentRecord =
-      sortedRecords.find((item) => item.channelProductStatus !== '已作废') ||
-      sortedRecords[0]
-    return {
-      rowKey,
-      channelCode: currentRecord.channelCode,
-      channelName: currentRecord.channelName || getChannelLabel(currentRecord.channelCode),
-      storeId: currentRecord.storeId,
-      storeName: getStoreLabel(currentRecord),
-      spuCode: resolveSpuCode(currentRecord),
-      records: sortedRecords,
-      currentRecord,
-      specLineCount: sortedRecords.reduce((total, item) => total + (item.specLineCount || item.specLines.length || 0), 0),
-      uploadedSpecLineCount: sortedRecords.reduce((total, item) => total + (item.uploadedSpecLineCount || 0), 0),
-      stockQty: currentRecord.specLines.reduce((total, line) => total + (Number(line.stockQty) || 0), 0),
-    }
-  })
-}
-
-function listDisplayRows(): ChannelStoreSpuRow[] {
-  const priority = new Map(PREFERRED_PROJECT_ORDER.map((code, index) => [code, index]))
-  return buildChannelStoreSpuRows(listProjectChannelProducts()).sort((left, right) => {
-    const leftPriority = priority.get(left.currentRecord.projectCode) ?? Number.MAX_SAFE_INTEGER
-    const rightPriority = priority.get(right.currentRecord.projectCode) ?? Number.MAX_SAFE_INTEGER
-    if (leftPriority !== rightPriority) return leftPriority - rightPriority
-    return right.currentRecord.updatedAt.localeCompare(left.currentRecord.updatedAt)
-  })
-}
-
-function getChannelLabel(channelCode: string): string {
-  if (channelCode === 'shopee') return '虾皮'
-  if (channelCode === 'independent-site') return '独立站'
-  return 'TikTok'
-}
-
-function getStoreLabel(record: ProjectChannelProductRecord): string {
-  return record.storeName || '-'
-}
-
-function getViewLabel(record: ProjectChannelProductRecord): string {
-  return CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)].label
-}
-
-function getLinkageDescription(record: ProjectChannelProductRecord): string {
-  if (record.channelProductStatus === '已作废') {
-    return record.testingStatusText || record.invalidatedReason || record.upstreamSyncNote || '当前款式上架批次已作废'
-  }
-  if (record.styleCode && record.upstreamSyncStatus === '已更新') {
-    return '判断通过，已关联款式档案并完成上游最终更新'
-  }
-  if (record.styleCode && record.upstreamSyncStatus === '待更新') {
-    return '判断通过，已关联商品档案，待启用技术包'
-  }
-  if (record.channelProductStatus === '已上架待测款') {
-    return record.sourceTestingOrderId
-      ? '已由测款单推送，等待直播测款记录'
-      : '已完成上架，正在测款'
-  }
-  return record.upstreamSyncNote || record.testingStatusText || '-'
-}
-
-function renderBadge(text: string, className: string): string {
-  return `<span class="${escapeHtml(toClassName('inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium', className))}">${escapeHtml(text)}</span>`
-}
-
-function renderBusinessStatusBadge(record: ProjectChannelProductRecord): string {
-  const rule = CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)]
-  return renderBadge(rule.label, rule.className)
-}
-
-function renderDateTimeCell(value: string): string {
-  const formatted = formatDateTime(value)
-  if (formatted === '-') return '-'
-  const [dateText, timeText] = formatted.split(' ')
-  return `
-    <div class="text-sm text-slate-500">
-      <div>${escapeHtml(dateText || '-')}</div>
-      <div class="mt-0.5">${escapeHtml(timeText || '')}</div>
-    </div>
-  `
-}
-
-function getListingMainImage(record: ProjectChannelProductRecord): {
-  url: string
-  title: string
-} | null {
-  const mainImage =
-    record.listingImages.find((item) => item.imageId === record.listingMainImageId) ||
-    record.listingImages[0] ||
-    null
-  if (mainImage) {
-    return {
-      url: mainImage.imageUrl,
-      title: mainImage.imageName,
-    }
-  }
-  if (record.mainImageUrls[0]) {
-    return {
-      url: record.mainImageUrls[0],
-      title: '上架主图',
-    }
-  }
-  return null
-}
-
-const CHANNEL_PRODUCT_LIST_COLUMNS: StandardListColumn<ChannelStoreSpuRow>[] = [
-  {
-    key: 'cover',
-    title: '商品图片',
-    width: 92,
-    render: (row) => {
-      const record = row.currentRecord
-      const detailHref = `/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}`
-      const mainImage = getListingMainImage(record)
-      return mainImage
-        ? `<button type="button" class="group block h-14 w-14 overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-nav="${escapeHtml(detailHref)}"><img src="${escapeHtml(mainImage.url)}" alt="${escapeHtml(mainImage.title)}" class="h-full w-full object-cover transition group-hover:scale-105" /></button>`
-        : '<div class="flex h-14 w-14 items-center justify-center rounded-md border border-dashed border-slate-200 text-[11px] text-slate-400">暂无图片</div>'
-    },
-  },
-  {
-    key: 'spu',
-    title: 'SPU / 来源',
-    width: 230,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    render: (row) => {
-      const record = row.currentRecord
-      return `
-        <button type="button" class="text-left text-sm font-semibold text-blue-700 hover:underline" data-nav="/pcs/products/channel-products/${encodeURIComponent(record.channelProductId)}">${escapeHtml(row.spuCode)}</button>
-        <div class="mt-1 text-xs text-slate-500">上架批次：${escapeHtml(record.listingBatchCode || record.channelProductCode)}</div>
-        <div class="mt-1 text-xs font-medium text-slate-600">${escapeHtml(record.projectCode)}</div>
-      `
-    },
-    sortValue: (row) => row.spuCode,
-  },
-  {
-    key: 'channelStore',
-    title: '渠道 / 店铺',
-    width: 220,
-    freezeable: true,
-    sortable: true,
-    render: (row) => `
-      <div class="font-medium text-slate-900">${escapeHtml(`${getChannelLabel(row.channelCode)} / ${row.storeName}`)}</div>
-      <div class="mt-1 text-xs text-slate-500">${escapeHtml(row.currentRecord.channelName || row.channelName)}</div>
-    `,
-    sortValue: (row) => `${row.channelName}|${row.storeName}`,
-  },
-  {
-    key: 'title',
-    title: '商品标题',
-    width: 270,
-    render: (row) => `<div class="line-clamp-2 leading-6">${escapeHtml(row.currentRecord.styleListingTitle || row.currentRecord.listingTitle || '-')}</div>`,
-  },
-  {
-    key: 'upstreamId',
-    title: '平台商品 ID',
-    width: 170,
-    sortable: true,
-    render: (row) => escapeHtml(row.currentRecord.upstreamProductId || row.currentRecord.upstreamChannelProductCode || '-'),
-    sortValue: (row) => row.currentRecord.upstreamProductId || row.currentRecord.upstreamChannelProductCode || '',
-  },
-  {
-    key: 'inventory',
-    title: '库存 / SKU',
-    width: 170,
-    sortable: true,
-    render: (row) => `
-      <div class="font-medium text-slate-900">${escapeHtml(String(row.stockQty))}</div>
-      <div class="mt-1 text-xs text-slate-500">规格 ${escapeHtml(String(row.specLineCount))} 条 / 已上传 ${escapeHtml(String(row.uploadedSpecLineCount))} 条</div>
-    `,
-    sortValue: (row) => row.stockQty,
-  },
-  {
-    key: 'price',
-    title: '默认售价',
-    width: 150,
-    sortable: true,
-    render: (row) => {
-      const record = row.currentRecord
-      return `
-        <div class="font-medium text-slate-900">${escapeHtml(`${record.defaultPriceAmount || record.listingPrice || '-'} ${record.currencyCode || record.currency || ''}`.trim())}</div>
-        <div class="mt-1 text-xs text-slate-500">默认售价</div>
-      `
-    },
-    sortValue: (row) => Number(row.currentRecord.defaultPriceAmount || row.currentRecord.listingPrice || 0),
-  },
-  {
-    key: 'status',
-    title: '业务状态',
-    width: 140,
-    required: true,
-    freezeable: true,
-    sortable: true,
-    render: (row) => renderBusinessStatusBadge(row.currentRecord),
-    sortValue: (row) => getViewLabel(row.currentRecord),
-  },
-  {
-    key: 'linkage',
-    title: '链路状态',
-    width: 260,
-    render: (row) => `<div class="line-clamp-3 text-xs leading-5 text-slate-500">${escapeHtml(getLinkageDescription(row.currentRecord))}</div>`,
-  },
-  {
-    key: 'updated',
-    title: '最近更新',
-    width: 150,
-    freezeable: true,
-    sortable: true,
-    render: (row) => renderDateTimeCell(row.currentRecord.updatedAt),
-    sortValue: (row) => row.currentRecord.updatedAt,
-  },
-  {
-    key: 'actions',
-    title: '操作',
-    width: 108,
-    required: true,
-    actionColumn: true,
-    align: 'right',
-    render: (row) => `
-      <div class="flex flex-col items-end gap-2">
-        <button type="button" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products/${encodeURIComponent(row.currentRecord.channelProductId)}">详情</button>
-      </div>
-    `,
-  },
-]
-
-function getChannelProductListStorage(): Storage | null {
-  try {
-    return typeof window === 'undefined' ? null : window.localStorage
-  } catch {
-    return null
-  }
-}
-
-function normalizeChannelProductListPreferences(
-  raw: Partial<StandardListColumnPreferences> | null | undefined,
-): StandardListColumnPreferences {
-  const normalized = normalizeListColumnPreferences(
-    CHANNEL_PRODUCT_LIST_COLUMN_RULES,
-    raw,
-    CHANNEL_PRODUCT_LIST_PAGE_SIZES,
-  )
-  const columnsByKey = new Map(CHANNEL_PRODUCT_LIST_COLUMNS.map((column) => [column.key, column]))
-  const visibleKeys = new Set(normalized.visibleKeys)
-  const requestedFrozen = new Set(normalized.frozenKeys)
-  const frozen = normalized.order
-    .map((key) => columnsByKey.get(key))
-    .filter((column): column is StandardListColumn<ChannelStoreSpuRow> => Boolean(
-      column && column.freezeable && !column.actionColumn && visibleKeys.has(column.key) && requestedFrozen.has(column.key),
-    ))
-  let width = frozen.reduce((sum, column) => sum + Math.max(column.width, column.minWidth ?? 0), 0)
-  while (width > CHANNEL_PRODUCT_LIST_MAX_FROZEN_WIDTH && frozen.length > 0) {
-    const removed = frozen.pop()
-    if (removed) width -= Math.max(removed.width, removed.minWidth ?? 0)
-  }
-  return { ...normalized, frozenKeys: frozen.map((column) => column.key) }
-}
-
-function ensureChannelProductListPreferences(): void {
-  if (channelProductListUiState.preferencesLoaded) return
-  channelProductListUiState.preferencesLoaded = true
-  const storage = getChannelProductListStorage()
-  channelProductListUiState.preferences = storage
-    ? loadListColumnPreferences(
-        storage,
-        CHANNEL_PRODUCT_LIST_STORAGE_KEY,
-        CHANNEL_PRODUCT_LIST_COLUMN_RULES,
-        channelProductListUiState.preferences,
-        CHANNEL_PRODUCT_LIST_PAGE_SIZES,
-      )
-    : channelProductListUiState.preferences
-  channelProductListUiState.preferences = normalizeChannelProductListPreferences(
-    channelProductListUiState.preferences,
-  )
-}
-
-function saveChannelProductListPreferences(): void {
-  const storage = getChannelProductListStorage()
-  if (storage) {
-    saveListColumnPreferences(
-      storage,
-      CHANNEL_PRODUCT_LIST_STORAGE_KEY,
-      channelProductListUiState.preferences,
-    )
-  }
-}
-
-function withChannelProductLocalInteractions(html: string): string {
-  return html
-    .replace(/data-pcs-channel-product-list-action="([^"]+)"/g, (attribute) =>
-      `data-skip-page-rerender="true" data-pcs-channel-product-list-root="true" ${attribute}`)
-    .replace(/data-pcs-channel-product-list-field="([^"]+)"/g, (attribute) =>
-      `data-skip-page-rerender="true" data-pcs-channel-product-list-root="true" ${attribute}`)
-}
-
-function getFilteredChannelProductRows(): ChannelStoreSpuRow[] {
-  const keyword = channelProductListState.search.trim().toLowerCase()
-  return listDisplayRows().filter((row) => {
-    if (channelProductListState.channel !== '全部渠道' && row.channelName !== channelProductListState.channel) return false
-    if (channelProductListState.status !== '全部状态' && getViewLabel(row.currentRecord) !== channelProductListState.status) return false
-    if (!keyword) return true
-    const record = row.currentRecord
-    return [
-      row.spuCode,
-      row.channelName,
-      row.storeName,
-      record.projectCode,
-      record.projectName,
-      record.styleListingTitle,
-      record.listingTitle,
-      record.upstreamProductId,
-      record.upstreamChannelProductCode,
-    ].join('|').toLowerCase().includes(keyword)
-  })
-}
-
-function getChannelProductListView(): StandardListPageSlice<ChannelStoreSpuRow> {
-  ensureChannelProductListPreferences()
-  const sortedRows = sortStandardListRows(
-    getFilteredChannelProductRows(),
-    channelProductListUiState.sort,
-    (row, key) => CHANNEL_PRODUCT_LIST_COLUMNS.find((column) => column.key === key)?.sortValue?.(row),
-  )
-  const paging = paginateStandardListRows(
-    sortedRows,
-    channelProductListState.currentPage,
-    channelProductListUiState.preferences.pageSize,
-  )
-  channelProductListState.currentPage = paging.currentPage
-  return paging
-}
-
-function renderChannelProductListFilters(): string {
-  const allRows = listDisplayRows()
-  const channels = ['全部渠道', ...Array.from(new Set(allRows.map((row) => row.channelName))).sort()]
-  const statuses = ['全部状态', ...Array.from(new Set(allRows.map((row) => getViewLabel(row.currentRecord)))).sort()]
-  return `
-    <section class="rounded-lg border bg-white p-4">
-      <div class="grid gap-3 md:grid-cols-3">
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">搜索商品</span>
-          <input class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder="搜索 SPU、标题、项目或平台商品 ID" value="${escapeHtml(channelProductListState.search)}" data-pcs-channel-product-list-field="search" />
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">渠道</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" data-pcs-channel-product-list-field="channel">
-            ${channels.map((channel) => `<option value="${escapeHtml(channel)}" ${channelProductListState.channel === channel ? 'selected' : ''}>${escapeHtml(channel)}</option>`).join('')}
-          </select>
-        </label>
-        <label class="space-y-1">
-          <span class="text-xs text-slate-500">业务状态</span>
-          <select class="h-10 w-full rounded-md border border-slate-200 px-3 text-sm" data-pcs-channel-product-list-field="status">
-            ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${channelProductListState.status === status ? 'selected' : ''}>${escapeHtml(status)}</option>`).join('')}
-          </select>
-        </label>
-      </div>
-    </section>
-  `
-}
-
-function renderChannelProductListTable(
-  paging: StandardListPageSlice<ChannelStoreSpuRow>,
-): string {
-  return withChannelProductLocalInteractions(renderStandardListTable({
-    columns: CHANNEL_PRODUCT_LIST_COLUMNS,
-    rows: paging.rows,
-    preferences: channelProductListUiState.preferences,
-    sort: channelProductListUiState.sort,
-    eventPrefix: 'pcs-channel-product-list',
-    emptyText: '暂无符合条件的渠道店铺商品',
-  }))
-}
-
-function renderChannelProductListPagination(
-  paging: StandardListPageSlice<ChannelStoreSpuRow>,
-): string {
-  return withChannelProductLocalInteractions(renderTablePagination({
-    total: paging.total,
-    from: paging.from,
-    to: paging.to,
-    currentPage: paging.currentPage,
-    totalPages: paging.totalPages,
-    pageSize: paging.pageSize,
-    actionPrefix: 'pcs-channel-product-list',
-    fieldPrefix: 'pcs-channel-product-list',
-    pageSizeOptions: CHANNEL_PRODUCT_LIST_PAGE_SIZES,
-  }))
-}
-
-function renderChannelProductColumnSettings(): string {
-  if (!channelProductListUiState.columnSettingsOpen) return ''
-  return withChannelProductLocalInteractions(renderStandardListColumnSettings({
-    title: '列设置',
-    columns: CHANNEL_PRODUCT_LIST_COLUMNS,
-    preferences: channelProductListUiState.preferences,
-    eventPrefix: 'pcs-channel-product-list',
-    maxFrozenWidth: CHANNEL_PRODUCT_LIST_MAX_FROZEN_WIDTH,
-  }))
-}
-
-function refreshChannelProductListRegions(options: { filters?: boolean; settings?: boolean } = {}): void {
-  if (typeof document === 'undefined') return
-  const paging = getChannelProductListView()
-  const tableHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="table"]')
-  const paginationHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="pagination"]')
-  if (tableHost) tableHost.innerHTML = renderChannelProductListTable(paging)
-  if (paginationHost) paginationHost.innerHTML = renderChannelProductListPagination(paging)
-  if (options.filters) {
-    const filtersHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="filters"]')
-    if (filtersHost) filtersHost.innerHTML = withChannelProductLocalInteractions(renderChannelProductListFilters())
-  }
-  if (options.settings) {
-    const settingsHost = document.querySelector<HTMLElement>('[data-pcs-channel-product-list-region="column-settings"]')
-    if (settingsHost) settingsHost.innerHTML = renderChannelProductColumnSettings()
-  }
-}
-
-function renderDetailField(label: string, value: string): string {
-  return `
-    <div class="flex items-start justify-between gap-4 text-sm">
-      <span class="text-slate-500">${escapeHtml(label)}</span>
-      <span class="text-right font-semibold text-slate-900">${escapeHtml(value || '-')}</span>
-    </div>
-  `
-}
-
-function renderDetailButton(label: string, href: string | null): string {
-  if (!href) {
-    return `<button type="button" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-300" disabled>${escapeHtml(label)}</button>`
-  }
-  return `<button type="button" class="inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="${escapeHtml(href)}">${escapeHtml(label)}</button>`
-}
-
-function renderSpecLineRows(record: ProjectChannelProductRecord): string {
-  if (!record.specLines.length) {
-    return '<tr><td colspan="9" class="px-3 py-4 text-center text-xs text-slate-400">暂无规格明细</td></tr>'
-  }
-  return record.specLines
-    .map(
-      (line) => `
-        <tr>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.colorName || '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sizeName || '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.printName || '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.sellerSku || line.specLineCode || '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(String(line.priceAmount || '-'))}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.currencyCode || '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.stockQty ? String(line.stockQty) : '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.upstreamSkuId || '-')}</td>
-          <td class="px-3 py-2 text-slate-700">${escapeHtml(line.lineStatus || '-')}</td>
-        </tr>
-      `,
-    )
-    .join('')
-}
-
+const controller = createProcessOrderListController({ state:listState,columns,preferenceKey:'higood:list-page:pcs-channel-r1',pageSizeOptions:[20,50,100],eventPrefix:prefix,rootSelector:'[data-pcs-channel-list]',tableSurfaceSelector:'[data-channel-table]',paginationSurfaceSelector:'[data-channel-pagination]',overlaysSurfaceSelector:'[data-channel-overlays]',defaultFrozenKeys:['identity'],columnSettingsTitle:'渠道商品列表列设置',emptyText:'暂无符合筛选条件的渠道商品',getRows:filteredListings,maxFrozenWidth:520,locallyManagedEvents:true })
+function overlay():string { return channelImageOverlay(state.imageUrl,state.imageTitle) + (state.copyId?`<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6" role="dialog" aria-modal="true"><section class="w-full max-w-md rounded-lg bg-white p-6"><h2 class="mb-4 text-lg font-semibold">复制到店铺</h2>${select('目标店铺','copy-store',state.copyStoreId,[['','请选择'],...listChannelStores().filter(isChannelStorePublishable).map(s=>[s.id,s.storeName] as [string,string])])}<p class="my-4 text-sm text-slate-500">保留内部款式和 SKU 映射，重新取得外部 PID、规格 ID 与发布结果。</p><div class="flex justify-end gap-2">${button('取消','close-copy')}${button('创建副本','confirm-copy','',true)}</div></section></div>`:'') }
+function feedback():string { return notice(state.notice,state.error) }
 export function renderPcsChannelProductListPage(): string {
-  ensureChannelProductListPreferences()
-  const transient = {
-    currentPage: channelProductListState.currentPage,
-    sort: channelProductListUiState.sort,
-  }
-  const hasMountedRoot = typeof document !== 'undefined'
-    && Boolean(document.querySelector('[data-pcs-channel-product-list-page]'))
-  resetStandardListEntryTransientStateOnRouteEntry(transient, hasMountedRoot)
-  channelProductListState.currentPage = transient.currentPage
-  channelProductListUiState.sort = transient.sort
-
-  const allRows = listDisplayRows()
-  const paging = getChannelProductListView()
-  const page = renderStandardListPage({
-    title: '渠道店铺商品',
-    filtersHtml: `<div data-pcs-channel-product-list-region="filters">${withChannelProductLocalInteractions(renderChannelProductListFilters())}</div>`,
-    statsHtml: renderStandardListStats([
-      { label: '渠道商品', value: allRows.length },
-      { label: '已上架待测款', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已上架待测款').length },
-      { label: '已生效', value: allRows.filter((row) => getViewLabel(row.currentRecord).startsWith('已生效')).length },
-      { label: '已作废', value: allRows.filter((row) => getViewLabel(row.currentRecord) === '已作废').length },
-    ]),
-    listTitle: '商品列表',
-    listActionsHtml: withChannelProductLocalInteractions(
-      renderSecondaryButton(
-        '列设置',
-        { prefix: 'pcs-channel-product-list', action: 'open-column-settings' },
-        'settings-2',
-      ),
-    ),
-    tableHtml: `<div data-pcs-channel-product-list-region="table">${renderChannelProductListTable(paging)}</div>`,
-    paginationHtml: `<div data-table-pagination data-pcs-channel-product-list-region="pagination">${renderChannelProductListPagination(paging)}</div>`,
-    overlaysHtml: `<div data-pcs-channel-product-list-region="column-settings">${renderChannelProductColumnSettings()}</div>`,
-    className: 'min-w-0 max-w-full',
-  })
-  return `<div class="min-w-0 max-w-full" data-pcs-channel-product-list-page>${page}</div>`
+  return withListReadContext(renderChannelProductList)
 }
-
-export function handlePcsChannelProductListInput(target: Element): boolean {
-  const fieldNode = target.closest<HTMLElement>('[data-pcs-channel-product-list-field]')
-  if (!fieldNode) return false
-  const field = fieldNode.dataset.pcsChannelProductListField
-  if (!field) return false
-
-  if (field === 'pageSize' && fieldNode instanceof HTMLSelectElement) {
-    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
-      ...channelProductListUiState.preferences,
-      pageSize: Number(fieldNode.value),
-    })
-    channelProductListState.currentPage = 1
-    saveChannelProductListPreferences()
-    refreshChannelProductListRegions()
-    return true
+function renderChannelProductList():string {
+  resetStandardListEntryTransientStateOnRouteEntry(listState,typeof document!=='undefined'&&!!document.querySelector('[data-pcs-channel-list]'))
+  state.pageMode='list'; state.activeId=''; controller.ensurePreferencesLoaded(); controller.installColumnDragEvents()
+  const rows=filteredListings(), view=controller.getView(rows)
+  const fields=`<div class="w-64">${input('商品或平台编号','keyword',state.keyword,{help:'SPU / 内部 SKU / PID / 平台规格 / sellerSku / 标题'})}</div>${select('渠道','channel',state.channel,[['','全部渠道'],...CURRENT_CHANNELS.map(s=>[s.code,s.name] as [string,string])])}${select('店铺','store',state.store,[['','全部店铺'],...listChannelStores(state.history).map(s=>[s.id,s.storeName] as [string,string])])}${select('市场','market',state.market,[['','全部市场'],...CURRENT_MARKETS.map(s=>[s.code,s.code] as [string,string])])}${select('品牌','brand',state.brand,[['','全部品牌'],...[...new Set(listStyleArchives().map(s=>s.brandName))].filter(Boolean).map(v=>[v,v] as [string,string])])}${select('平台状态','status',state.status,[['','全部状态'],...['未发布','未取得状态','待平台审核','在售','已下架','平台限制','已删除'].map(v=>[v,v] as [string,string])])}${select('同步状态','sync',state.sync,[['','全部同步状态'],...['一致','待同步','同步中','失败','同时变更待处理','结果待核实'].map(v=>[v,v] as [string,string])])}${input('来源测款单','testing',state.testing)}${input('更新开始','updatedFrom',state.updatedFrom,{type:'date'})}${input('更新结束','updatedTo',state.updatedTo,{type:'date'})}<label class="mb-2 flex items-center gap-2 text-sm"><input type="checkbox" data-${prefix}-field="history" ${state.history?'checked':''}>含历史渠道/市场</label>`
+  const selected=state.selected.size
+  return `<div data-pcs-channel-page data-pcs-channel-list>${renderStandardListPage({ title:'渠道店铺商品',primaryActionsHtml:`<div class="flex gap-2">${button('业务导入','open-import')}${link('新建渠道商品',`${BASE}/new`,true)}</div>`,feedbackHtml:feedback(),filtersHtml:renderStandardListFilters({fieldsHtml:fields,actionPrefix:prefix,extraActionsHtml:button('导出全筛选结果','export')}),statsHtml:renderStandardListStats([{label:'当前 PID 容器',value:rows.length},{label:'在售',value:rows.filter(l=>l.platformStatus==='在售').length},{label:'待发布',value:rows.filter(l=>!l.platformProductId).length},{label:'同步失败',value:rows.filter(l=>l.syncStatus==='失败').length}],{compact:true}),listTitle:`渠道商品（${rows.length}）`,listActionsHtml:`<div class="flex flex-wrap items-center gap-2"><span class="text-xs text-slate-500">已选 ${selected} 项</span>${button('提交审核','batch-submit',selected?'':'disabled')}${button('发布 / 更新','batch-publish',selected?'':'disabled')}${button('下架','batch-offline',selected?'':'disabled')}${button('重新同步','batch-sync',selected?'':'disabled')}${button('列设置','open-column-settings')}</div>`,tableHtml:`<div data-channel-table>${view.tableHtml}</div>`,paginationHtml:`<div data-channel-pagination>${view.paginationHtml}</div>`,overlaysHtml:`<div data-channel-overlays>${controller.renderColumnSettings()}</div>${overlay()}${renderImport()}`})}</div>`
+}
+const detailTabs:Array<[string,string]>=[['content','渠道内容'],['mapping','规格映射'],['prices','价格'],['sync','发布与同步'],['testing','测款关联'],['logs','记录']]
+function detailHeader(listing:ChannelListing,editing=false):string {
+  const style=getStyleArchiveById(listing.styleId),store=getChannelStore(listing.storeId)!
+  return `<header class="space-y-4 rounded-lg border bg-white p-5"><div class="flex flex-wrap items-start justify-between gap-4"><div class="flex min-w-0 items-start gap-4">${picture(listing.content.media.find(m=>m.role==='主图')?.url||style?.mainImageUrl||'',listing.content.title,'h-16 w-16')}<div class="min-w-0"><h1 class="text-lg font-semibold">${e(editing?'编辑渠道商品':style?.styleCode||'渠道商品')}</h1><p class="mt-1 max-w-2xl truncate text-sm text-slate-600">${e(listing.content.title)}</p><div class="mt-2 flex gap-2">${badge(listing.reviewStatus)}${badge(listing.platformStatus)}${badge(listing.syncStatus)}</div></div></div><div class="flex flex-wrap gap-2">${link('返回列表',BASE)}${!editing&&isCurrentChannelStore(store)?`${button('复制到店铺','copy',`data-id="${e(listing.id)}"`)}${link('编辑',`${BASE}/${listing.id}/edit`,true)}`:''}</div></div><dl class="grid grid-cols-2 gap-4 border-t pt-4 xl:grid-cols-4">${fact('渠道店铺',`${channelLabel(store.channelCode)} · ${store.storeName}`)}${fact('市场 / 销售币种',`${store.marketCode} / ${store.salesCurrency}`)}${fact('平台 PID',listing.platformProductId||'待平台分配')}${fact('内部款式',style?.styleCode||listing.styleId)}</dl></header>`
+}
+export function renderPcsChannelProductDetailPage(id:string):string {
+  if(state.activeId!==id){state.activeId=id;state.tab='content'} state.pageMode='detail'
+  const listing=getChannelListing(id);if(!listing)return `<div class="p-5">${card('渠道商品不存在',link('返回列表',BASE))}</div>`
+  return `<div data-pcs-channel-page class="space-y-4 p-4">${feedback()}${detailHeader(listing)}<section class="overflow-hidden rounded-lg border bg-white">${tabs(detailTabs,state.tab)}<div class="p-5">${renderDetailTab(listing)}</div></section>${overlay()}</div>`
+}
+function renderDetailTab(l:ChannelListing):string {
+  const snapshot=getPcsChannelCatalogSnapshot(),store=getChannelStore(l.storeId)!,variants=snapshot.variants.filter(v=>v.listingId===l.id)
+  if(state.tab==='content')return renderChannelContentTab(l)
+  if(state.tab==='mapping')return renderChannelMappingTab(l,variants,store.timeZone)
+  if(state.tab==='prices')return `<div class="space-y-4"><div class="max-w-xs">${select('价格类型','priceType',state.priceType,Object.entries(CHANNEL_PRICE_LABELS) as Array<[string,string]>)}</div><p class="text-sm text-slate-500">销售币种 ${e(store.salesCurrency)}；有效期按 ${e(store.timeZone)}。默认价调整仅影响跟随项。</p>${table(['内部 SKU','平台规格 / sellerSku','当前有效价','价格来源','有效期'],variants.map(v=>{const p=resolveChannelPrice(v,state.priceType,new Date().toISOString(),snapshot);return[e(getSkuArchiveById(v.internalSkuId)?.skuCode||''),`${e(v.platformVariantId||'待分配')}<div class="text-xs text-slate-500">${e(v.sellerSku)}</div>`,p.amount===null?'未设置':`${p.amount.toLocaleString()} ${e(p.currency)}`,`${badge(p.mode)}${p.expired?'<div class="text-xs text-amber-600">已过期，参考日常价</div>':''}`,p.price?.validFrom?`${e(new Date(p.price.validFrom).toLocaleString('zh-CN',{timeZone:store.timeZone}))}<br>${e(new Date(p.price.validTo).toLocaleString('zh-CN',{timeZone:store.timeZone}))}`:'长期'] }))}</div>`
+  if(state.tab==='sync')return renderChannelSyncPanel(l.id)
+  if(state.tab==='testing'){
+    const references=[...(l.testingReferences||[])]
+    if(l.sourceTestingOrderId&&!references.some(r=>r.testingOrderId===l.sourceTestingOrderId&&r.testingListingActionId===l.testingListingActionId))references.unshift({id:l.testingListingActionId,testingOrderId:l.sourceTestingOrderId,testingListingActionId:l.testingListingActionId,at:l.createdAt})
+    return table(['测款单','上架动作','关联时间','测款结论','平台状态','最近成功回执'],references.map(r=>{const order=getTestingOrderById(r.testingOrderId);return[link(order?.orderCode||r.testingOrderId,`/pcs/testing/orders/${r.testingOrderId}`),e(r.testingListingActionId),e(new Date(r.at).toLocaleString('zh-CN',{hour12:false})),e(order?.bulkDecision||'尚无最终测款结论'),badge(l.platformStatus),e(l.lastSuccessAt||'尚未收到')]}),'此渠道商品独立建档，未关联测款单。')
   }
-  if (field === 'search' && fieldNode instanceof HTMLInputElement) {
-    channelProductListState.search = fieldNode.value
-  } else if (field === 'channel' && fieldNode instanceof HTMLSelectElement) {
-    channelProductListState.channel = fieldNode.value
-  } else if (field === 'status' && fieldNode instanceof HTMLSelectElement) {
-    channelProductListState.status = fieldNode.value
-  } else {
-    return false
+  return `<div class="space-y-4"><dl class="grid grid-cols-2 gap-4">${fact('来源身份',l.sourceIdentity||'PCS 独立建档')}${fact('内部渠道商品 ID',l.id)}</dl>${table(['时间','动作','操作人','来源','内容'],snapshot.logs.filter(log=>log.objectId===l.id||variants.some(v=>v.id===log.objectId)||log.objectId.startsWith(`${l.storeId}:`)).slice().reverse().map(log=>[e(new Date(log.at).toLocaleString('zh-CN',{hour12:false})),e(log.action),e(log.actor),e(log.source),e(log.detail)]))}</div>`
+}
+function renderChannelContentTab(l:ChannelListing):string {
+  const store=getChannelStore(l.storeId)!
+  const origin=(key:keyof ChannelContent)=>`<span class="text-xs font-normal text-slate-500" data-channel-content-origin="${e(key)}">${e(channelContentFieldOrigin(l,key))}</span>`
+  const field=(label:string,key:keyof ChannelContent,value:unknown)=>`<div class="min-w-0"><dt class="mb-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">${e(label)}${origin(key)}</dt><dd class="break-words text-sm text-slate-900">${e(value == null || value === '' ? '—' : String(value))}</dd></div>`
+  return `<div class="space-y-5"><div class="flex flex-wrap items-center justify-between gap-3"><div class="text-sm text-slate-500"><p>内容第 ${l.contentVersion} 版 · 各字段分别显示来源</p><p class="mt-1" data-channel-base-content-reference>基础来源：${l.baseContentReference?`${e(l.baseContentReference.source)} · ${e(l.baseContentReference.language)} · ${l.baseContentReference.version===null?'历史档案快照':`第 ${l.baseContentReference.version} 版`}`:'旧记录未登记具体基础语言和版本'} </p>${l.baseContentReference?`<details class="mt-1"><summary class="cursor-pointer text-xs">查看基础版本引用</summary><p class="mt-1 break-all text-xs">${e(l.baseContentReference.id)}</p></details>`:''}</div>${isCurrentChannelStore(store)?button('应用基础内容','apply-base',`data-id="${e(l.id)}"`):''}</div><dl class="grid grid-cols-2 gap-5">${field('渠道标题','title',l.content.title)}${field('Handle','handle',l.content.handle)}${field('平台类目','platformCategoryId',l.content.platformCategoryId)}${field('平台品牌','platformBrandId',l.content.platformBrandId)}${field('销售语言','languageCode',l.content.languageCode||store.languageCode)}${field('尺码图技术来源版本','sizeChartSourceVersion',l.content.sizeChartSourceVersion)}${field('卖点','sellingPoints',l.content.sellingPoints)}</dl>${l.content.sizeChartSourceVersion?link('查看工厂尺寸技术来源',`/pcs/products/styles/${l.styleId}/technical-data/${l.content.sizeChartSourceVersion}`):''}<section><h3 class="mb-2 flex items-center gap-2 text-sm font-semibold">商品描述 ${origin('description')}</h3><div class="max-h-64 overflow-auto rounded-md bg-slate-50 p-4 text-sm">${renderChannelDescription(l.content.description)}</div></section><section><h3 class="mb-2 flex items-center gap-2 text-sm font-semibold">平台属性 ${origin('platformAttributes')}</h3>${table(['平台属性','值','单位','模板版本'],Object.entries(l.content.platformAttributes).map(([k,v])=>[e(k),e(v),e(l.content.platformAttributeUnits?.[k]||'—'),e(l.content.platformAttributeSchemaVersion||'未提供')]),'未维护平台专用属性')}</section><section><h3 class="mb-3 flex items-center gap-2 text-sm font-semibold">刊登媒体 ${origin('media')}</h3><div class="flex flex-wrap gap-4">${l.content.media.map(m=>`<figure>${m.role==='视频'?`<video src="${e(m.url)}" class="h-28 w-44" controls></video>`:picture(m.url,m.name,'h-28 w-28')}<figcaption class="mt-1 text-center text-xs text-slate-500">${e(m.role)} · ${m.sort}</figcaption></figure>`).join('')}</div></section><details class="rounded-md border p-3"><summary class="cursor-pointer text-sm font-medium">多语内容 · ${origin('translations')}</summary><div class="mt-3">${table(['语言','标题','描述'],l.content.translations.map(t=>[e(t.language),e(t.title),e(t.description)]),'暂无其他语言内容')}</div></details></div>`
+}
+function renderChannelMappingTab(l:ChannelListing,variants:ChannelVariant[],timeZone:string):string {
+  const skuLabel=(id:string)=>getSkuArchiveById(id)?.skuCode||id
+  return `<div class="space-y-4"><p class="text-sm text-slate-500">${variants.length} 个平台规格映射 ${new Set(variants.map(v=>v.internalSkuId)).size} 个内部 SKU。同一个内部 SKU 可对应多个平台规格。</p>${table(['平台规格 / sellerSku','平台显示','内部 SKU','映射版本','使用'],variants.map(v=>[`<div class="flex gap-3">${picture(v.imageUrl,v.sellerSku)}<div><div class="break-all text-xs">${e(v.platformVariantId||'待平台分配')}</div><div class="mt-1">${e(v.sellerSku)}</div></div></div>`,e([v.displayColor,v.displaySize,v.displayPattern].filter(Boolean).join(' / ')),link(skuLabel(v.internalSkuId),`/pcs/products/specifications/${v.internalSkuId}`),`v${v.mappingVersion}<div class="mt-1 text-xs text-slate-500">${e(new Date(v.mappingEffectiveAt).toLocaleString('zh-CN',{timeZone,hour12:false}))}</div>`,badge(v.active?'启用':'停用')]))}<details class="rounded-md border p-3" data-channel-mapping-history><summary class="cursor-pointer text-sm font-medium">映射更正历史（${variants.reduce((count,v)=>count+v.mappingHistory.length,0)} 条）</summary><div class="mt-3 max-h-96 overflow-auto">${table(['平台规格 / sellerSku','版本','原内部 SKU → 新内部 SKU','生效时间','操作人','原因'],variants.flatMap(v=>channelMappingHistoryRows(v).slice().reverse().map(h=>[`${e(v.platformVariantId||'待平台分配')}<div class="text-xs text-slate-500">${e(v.sellerSku)}</div>`,`v${h.version}`,`${e(h.previousInternalSkuId?skuLabel(h.previousInternalSkuId):'首次映射')} → ${e(skuLabel(h.internalSkuId))}`,e(new Date(h.effectiveAt).toLocaleString('zh-CN',{timeZone,hour12:false})),e(h.actor),e(h.reason)])))}</div></details><section><h3 class="mb-2 text-sm font-semibold">履约中的历史引用</h3>${table(['订单','接单时内部 SKU','映射版本','核对'],variants.flatMap(v=>listChannelAffectedOrders(v.id)).map(o=>[e(o.orderCode),e(skuLabel(o.internalSkuId)),String(o.mappingVersion),`<span class="block text-xs text-slate-500">OMS 订单入口尚未接入</span>${button('复制订单号','copy-order-code',`data-order-code="${e(o.orderCode)}"`)}`]),'当前没有履约中的历史引用')}</section></div>`
+}
+const syncFieldLabels:Record<string,string>={languageCode:'内容语言',sellingPoints:'卖点',translations:'多语内容',title:'渠道标题',description:'商品描述',handle:'Handle',platformCategoryId:'平台类目',platformBrandId:'平台品牌',platformAttributes:'商品属性',media:'刊登媒体',sellerSku:'商家 SKU',displayColor:'平台颜色',displaySize:'平台尺码',displayPattern:'平台花型',imageUrl:'规格图片',platformAttributeValues:'规格属性','price.regular':'日常售价','price.retail':'零售价','price.live':'直播价','price.wholesale':'批发价','price.clearance':'清仓价',availability:'共享可售',platformStatus:'平台状态'}
+const syncFieldLabel=(field:string)=>syncFieldLabels[field]||field
+function renderChannelReceiptSnapshots(operation:ChannelSyncOperation):string {
+  if(!operation.receiptSnapshots?.length)return '<p class="text-xs text-slate-500">此记录尚无原始回执快照。</p>'
+  return `<details class="rounded-md border p-3"><summary class="cursor-pointer text-sm font-medium">查看当次平台回执（${operation.receiptSnapshots.length} 条）</summary><div class="mt-3 max-h-96 space-y-4 overflow-auto">${operation.receiptSnapshots.map(receipt=>`<section class="space-y-3"><dl class="grid grid-cols-2 gap-3">${fact('回执事件',receipt.eventId)}${fact('收到时间',receipt.receivedAt)}${fact('当次平台 PID',receipt.platformProductId||'未提供')}${fact('平台原始状态',receipt.rawStatus||'未提供')}${fact('平台状态',receipt.platformStatus||'未提供')}${fact('身份结果',receipt.unknown?'待核实':'已收到回执')}</dl>${table(['目标 / 字段','当次平台规格 ID','当次回执结果','平台原因'],receipt.items.map(item=>[`${e(item.targetId)}<div class="text-xs text-slate-500">${e(syncFieldLabel(item.field))}</div>`,e(item.platformVariantId||'未提供'),receipt.unknown?'结果待核实':item.success?'已确认':'未确认',e(item.error||'—')]))}<details><summary class="cursor-pointer text-xs text-blue-600">查看回执原始值</summary><pre class="mt-2 overflow-auto whitespace-pre-wrap break-all rounded bg-slate-50 p-3 text-xs">${e(JSON.stringify(receipt,null,2))}</pre></details></section>`).join('')}</div></details>`
+}
+export function renderChannelSyncPanel(listingId:string):string {
+  const snapshot=getPcsChannelCatalogSnapshot(),l=snapshot.listings.find(l=>l.id===listingId)
+  if(!l)return notice('渠道商品不存在。',true)
+  const store=getChannelStore(l.storeId)!,operations=snapshot.syncOperations.filter(o=>o.listingId===l.id).slice().reverse(),editable=isCurrentChannelStore(store)
+  const wms=[...new Set(snapshot.variants.filter(v=>v.listingId===l.id&&v.active).map(v=>v.internalSkuId))].map(getChannelWmsAvailability).filter((v):v is NonNullable<typeof v>=>!!v)
+  const operationError=(operation:ChannelSyncOperation)=>{
+    const failed=operation.items.filter(item=>item.result==='失败').length
+    return failed&&!operation.conflicts.length?`${failed} 项同步未成功，请查看下方逐项回执中的原因。`:operation.errorReason
   }
-  channelProductListState.currentPage = 1
-  refreshChannelProductListRegions()
+  const actions=`${editable&&l.reviewStatus==='草稿'?button('提交审核','review',`data-id="${e(l.id)}" data-review="提交审核"`,true):''}${editable&&l.reviewStatus==='待审核'?button('审核通过','review',`data-id="${e(l.id)}" data-review="审核通过"`,true):''}${editable&&l.reviewStatus==='审核通过'?button(l.platformProductId?'发布更新':'提交发布','publish',`data-id="${e(l.id)}"`,true):''}${editable&&l.platformProductId?button('请求下架','offline',`data-id="${e(l.id)}"`):''}${link('查看同步工作台','/pcs/channels/stores/sync')}`
+  return `<div class="space-y-5"><div class="rounded-md bg-blue-50 p-3 text-sm text-blue-800">原型演示回执，未连接真实平台 API。发布状态只依据对应回执显示。</div><div class="flex flex-wrap gap-2">${actions}</div><dl class="grid grid-cols-2 gap-4">${fact('当前版本',l.version)}${fact('同步状态',l.syncStatus)}${fact('可售策略','共享 WMS 可售')}${fact('实际平台状态',l.platformStatus)}</dl>
+  <details class="rounded-md border p-3"><summary class="cursor-pointer text-sm font-medium">WMS 共享可售来源与演示操作</summary><div class="mt-3 space-y-3">${wms.length?table(['内部 SKU','WMS 当前可售','来源'],wms.map(v=>[e(v.skuCode),`${v.available} ${e(v.unit)}`,link('打开仓储来源',v.route)])):'<p class="text-sm text-slate-500">当前 SKU 暂无精确对应的 WLS 演示来源，不生成手工库存。</p>'}<p class="text-xs text-slate-500">同一内部 SKU 的每个外部规格共享相同可售量；这些观测值不能相加，不反写 WMS。</p><div class="flex flex-wrap gap-2">${editable&&wms.length?button('同步 WMS 共享可售','wms-sync',`data-id="${e(l.id)}"`):''}${editable&&l.platformProductId?button('演示平台修改标题','platform-change',`data-id="${e(l.id)}"`):''}${editable&&l.platformProductId?button('演示平台修改一个规格价格','platform-price',`data-id="${e(l.id)}"`):''}</div></div></details>
+  <div class="space-y-3">${operations.length?operations.slice(0,20).map((o,index)=>`<details class="rounded-lg border" ${index===0?'open':''}><summary class="cursor-pointer rounded-t-lg bg-slate-50 p-3"><span class="inline-flex flex-wrap items-center gap-2"><strong class="text-sm">${e(o.action)} · ${e(o.direction)}</strong>${badge(o.result)}<span class="text-xs text-slate-500">版本 ${o.submittedVersion} · ${e(new Date(o.startedAt).toLocaleString('zh-CN',{hour12:false}))}</span></span></summary><div class="space-y-3 border-t p-3"><div class="flex flex-wrap gap-2">${editable&&o.result==='提交中'?`${button('成功回执','receipt',`data-operation="${e(o.id)}" data-mode="success"`)}${button('部分失败回执','receipt',`data-operation="${e(o.id)}" data-mode="partial"`)}${!l.platformProductId?button('超时回执','receipt',`data-operation="${e(o.id)}" data-mode="unknown"`):''}`:''}${editable&&o.result==='结果待核实'?button('核实同次操作','verify',`data-operation="${e(o.id)}"`):''}${editable&&o.items.some(i=>i.result==='失败')&&!o.conflicts.length?button('重试失败项','retry-sync',`data-operation="${e(o.id)}"`):''}</div><p class="break-all text-xs text-slate-500">操作 ${e(o.id)} · 演示回执</p><dl class="grid grid-cols-2 gap-3">${fact('共同基线版本 / 提交版本',`${o.baseVersion} / ${o.submittedVersion}`)}${fact('来源事件',o.sourceEventId)}${fact('完成时间',o.completedAt||'尚未完成')}</dl>${renderChannelReceiptSnapshots(o)}${o.errorReason?notice(operationError(o),true):''}${o.conflicts.map(c=>`<div class="rounded-md border border-amber-200 bg-amber-50 p-3"><strong class="text-sm">${e(syncFieldLabel(c.field))} 同时修改</strong><div class="my-2 grid grid-cols-2 gap-3 text-sm"><div>PCS：${e(JSON.stringify(c.pcsValue))}<p class="mt-1 text-xs text-slate-500">版本 ${c.pcsVersion} · ${e(c.pcsAt||'当前 PCS 版本')}</p></div><div>平台：${e(JSON.stringify(c.platformValue))}<p class="mt-1 text-xs text-slate-500">${e(c.platformAt)} · 平台回传</p></div></div>${button('采用 PCS 值','conflict',`data-operation="${e(o.id)}" data-target="${e(c.targetId)}" data-field="${e(c.field)}" data-choice="PCS"`)} ${button('采用平台值','conflict',`data-operation="${e(o.id)}" data-target="${e(c.targetId)}" data-field="${e(c.field)}" data-choice="平台"`)}</div>`).join('')}${o.observedAvailability?`<p class="break-all text-xs text-slate-500">WMS 来源：${e(o.wmsSourceRef||'')}</p>${table(['平台规格','内部 SKU','平台观测值'],o.observedAvailability.map(v=>[e(snapshot.variants.find(x=>x.id===v.externalVariantId)?.platformVariantId||'尚未发布'),e(getSkuArchiveById(v.internalSkuId)?.skuCode||v.internalSkuId),`${v.quantity} ${e(v.unit)}`]))}`:table(['目标','字段','回执','原因'],o.items.map(i=>[i.targetId===l.id?'PID 内容':e(snapshot.variants.find(v=>v.id===i.targetId)?.sellerSku||i.targetId),e(syncFieldLabel(i.field)),badge(i.result),e(i.error||'—')]))}</div></details>`).join(''):'<p class="py-8 text-center text-sm text-slate-400">尚无提交和同步记录</p>'}</div><details class="rounded-md border p-3"><summary class="cursor-pointer text-sm font-medium">字段同步范围</summary><div class="mt-3">${table(['字段','方向 / 归属','演示支持'],[...CHANNEL_CONTENT_SYNC_FIELDS,...CHANNEL_VARIANT_SYNC_FIELDS].map(field=>[e(syncFieldLabel(field)),'销售字段双向；内部身份保持引用',channelFieldSupported(store.channelCode,field)?'可同步':'仅 PCS 经营资料']))}</div></details></div>`
+}
+function initForm(id?:string):void {
+  if(state.form?.listingId===(id||'new'))return
+  const listing=id?getChannelListing(id):null,first=listStyleArchives().find(s=>isChannelStyleSelectable(s)&&listSkuArchivesByStyleId(s.styleId).some(isChannelSkuSelectable)),params=typeof window!=='undefined'?new URLSearchParams(window.location.search):new URLSearchParams(),styleId=listing?.styleId||params.get('styleId')||first?.styleId||'',storeId=listing?.storeId||params.get('storeId')||listChannelStores().find(isChannelStorePublishable)?.id||''
+  state.form={listingId:id||'new',version:listing?.version||0,storeId,styleId,skuIds:listing?listChannelVariants(listing.id).map(v=>v.internalSkuId):(params.get('skuIds')||'').split(',').filter(Boolean),content:listing?structuredClone(listing.content):styleId?contentForChannelStore(styleId,storeId):{title:'',description:'',languageCode:'id',sellingPoints:'',handle:'',platformCategoryId:'',platformBrandId:'',platformAttributes:{},translations:[],media:[],sizeChartSourceVersion:''},sourceTestingOrderId:listing?.sourceTestingOrderId||params.get('testingOrderId')||'',testingListingActionId:listing?.testingListingActionId||params.get('testingActionId')||'',initialPrice:'',variants:listing?listChannelVariants(listing.id):[],defaults:{},overrides:{},reasons:{}}
+  state.dirty=false; state.operationId=crypto.randomUUID(); state.editTab=id?'content':'identity';hydratePriceDrafts()
+}
+function hydratePriceDrafts():void {
+  const f=state.form!;const snapshot=getPcsChannelCatalogSnapshot()
+  for(const skuId of new Set(f.variants.map(v=>v.internalSkuId)))for(const type of Object.keys(CHANNEL_PRICE_LABELS) as ChannelPriceType[]){const p=snapshot.prices.find(p=>p.storeId===f.storeId&&p.internalSkuId===skuId&&!p.externalVariantId&&p.priceType===type);f.defaults[`${skuId}:${type}`]??={amount:p?.amount==null?'':String(p.amount),from:p?.validFrom||'',to:p?.validTo||'',version:p?.version||0}}
+  for(const v of f.variants)for(const type of Object.keys(CHANNEL_PRICE_LABELS) as ChannelPriceType[]){const p=snapshot.prices.find(p=>p.externalVariantId===v.id&&p.priceType===type);f.overrides[`${v.id}:${type}`]??={amount:p?.amount==null?'':String(p.amount),mode:p?'覆盖':'跟随',from:p?.validFrom||'',to:p?.validTo||'',version:p?.version||0}}
+}
+export function renderPcsChannelProductEditPage(id?:string):string {
+  initForm(id);state.pageMode='edit';state.activeId=id||'new';const f=state.form!,listing=id?getChannelListing(id):null,store=getChannelStore(f.storeId),editable=!store||isCurrentChannelStore(store)
+  if(id&&!listing)return `<div class="p-5">${card('渠道商品不存在',link('返回列表',BASE))}</div>`
+  if(!editable)return `<div class="p-5">${card('历史渠道商品只读',link('查看详情',`${BASE}/${id}`))}</div>`
+  const editorTabs:Array<[string,string]>=id?[['content','渠道内容'],['mapping','规格映射'],['prices','价格']]:[['identity','店铺与款式'],['content','渠道内容']]
+  return `<div data-pcs-channel-page class="space-y-4 p-4">${feedback()}<header class="flex flex-wrap items-center justify-between gap-4 rounded-lg border bg-white p-4"><div><h1 class="text-xl font-semibold">${id?'编辑渠道商品':'新建渠道商品'}</h1><p class="mt-1 text-sm text-slate-500">${id?`${e(labelOf(listing!))} · ${e(store?.storeName||'')}`:'一个 PID 只对应一个款式；内部映射在保存时必须完整。'}${state.dirty?' · 尚未保存':''}</p></div><div class="flex gap-2">${button('取消','cancel-edit')}${button(state.busy?'保存中…':'保存修改','save-edit',state.busy?'disabled':'',true)}</div></header><section class="overflow-hidden rounded-lg border bg-white">${tabs(editorTabs,state.editTab,prefix,'edit-tab')}<div class="p-5">${renderEditor()}</div></section>${overlay()}</div>`
+}
+function renderPlatformTemplateHint(store:ChannelStore):string {
+  const template=getChannelPlatformTemplate(store),required=[...template.requiredFields.map(key=>CHANNEL_TEMPLATE_FIELD_LABELS[key]),...template.requiredAttributes.map(key=>`属性：${key}`),...(template.requiredMediaRoles||[]).filter(role=>role!=='主图'),...(template.requiredVariantFields||[]).map(key=>`每个规格的${CHANNEL_VARIANT_REQUIRED_LABELS[key]}`),...(template.requiredVariantAttributes||[]).map(key=>`每个规格的属性：${key}`)]
+  return `<details class="rounded-md border bg-slate-50 p-3"><summary class="cursor-pointer text-sm font-medium">当前店铺平台字段要求 · ${e(channelPlatformTemplateVersion(store))}</summary><div class="mt-3 space-y-3 text-sm"><p>审核及发布必填：标题、商品描述、主图${required.length?`、${e(required.join('、'))}`:''}</p><p class="text-slate-500">类目、品牌与属性按店铺映射初始化，既有内容在显式应用时保留已填值。这里采用原型配置，未连接真实平台 API。</p><div class="flex gap-2">${button('应用当前平台模板','apply-platform-template')}${link('查看店铺经营配置',`/pcs/channels/stores/${store.id}`)}</div></div></details>`
+}
+function renderEditor():string {
+  const f=state.form!,store=getChannelStore(f.storeId)!,isNew=f.listingId==='new',eligibleStyle=isChannelStyleSelectable(getStyleArchiveById(f.styleId))
+  if(state.editTab==='identity')return `<div class="space-y-5"><div class="grid grid-cols-2 gap-5">${select('目标店铺','form.storeId',f.storeId,listChannelStores().filter(isChannelStorePublishable).map(s=>[s.id,`${s.storeName} · ${s.salesCurrency}`]))}${select('款式 SPU','form.styleId',f.styleId,listStyleArchives().filter(isChannelStyleSelectable).map(s=>[s.styleId,`${s.styleCode} · ${s.styleName}`]))}${input('日常默认售价','form.initialPrice',f.initialPrice,{type:'number',help:`${store?.salesCurrency||''}；稍后可为每个平台规格维护覆盖价`})}${input('来源测款单（可选）','form.sourceTestingOrderId',f.sourceTestingOrderId,{readOnly:true,help:'由测款单的渠道上架动作带入；独立建档可留空'})}</div>${table(['选择','SKU','颜色 / 尺码','识别图'],listSkuArchivesByStyleId(f.styleId).filter(isChannelSkuSelectable).map(s=>[`<input type="checkbox" data-${prefix}-field="new-sku" data-sku="${e(s.skuId)}" ${f.skuIds.includes(s.skuId)?'checked':''}>`,e(s.skuCode),e(`${s.colorName} / ${s.sizeName}`),picture(s.skuImageUrl,s.skuName)]),'此款式没有可选的已审核且启用 SKU')}</div>`
+  if(state.editTab==='content')return `<div class="space-y-6">${renderPlatformTemplateHint(store)}<div class="grid grid-cols-2 gap-5">${input('渠道标题','content.title',f.content.title,{required:true})}${input('Handle','content.handle',f.content.handle)}${input('平台类目 ID','content.platformCategoryId',f.content.platformCategoryId)}${input('平台品牌 ID','content.platformBrandId',f.content.platformBrandId)}${select('尺码图技术来源版本','content.sizeChartSourceVersion',f.content.sizeChartSourceVersion,[['','未关联'],...listTechnicalDataVersionsByStyleId(f.styleId).map(v=>[v.technicalVersionId,`${v.technicalVersionCode} · ${v.versionLabel}`] as [string,string])])}${select('内容语言','content.languageCode',f.content.languageCode,[['id','印尼语'],['ms','马来语'],['en','英语'],['zh','中文']])}</div>${area('卖点','content.sellingPoints',f.content.sellingPoints,3)}${area('商品描述（保留原始 HTML）','content.description',f.content.description,7)}<details class="rounded-md border p-3"><summary class="text-sm font-medium">查看销售说明预览</summary><div class="mt-3">${renderChannelDescription(f.content.description)}</div></details><div class="grid grid-cols-2 gap-5">${area('平台属性（每行 键=值）','attributes',Object.entries(f.content.platformAttributes).map(([k,v])=>`${k}=${v}`).join('\n'),4)}<details class="rounded-md border p-3"><summary class="text-sm font-medium">平台属性单位与版本</summary><div class="mt-4 grid grid-cols-2 gap-4">${input('属性模板版本','content.platformAttributeSchemaVersion',f.content.platformAttributeSchemaVersion||'未引用模板',{readOnly:true})}${area('属性单位（每行 属性=单位）','attribute-units',Object.entries(f.content.platformAttributeUnits||{}).map(([k,v])=>`${k}=${v}`).join('\n'),3)}</div></details>${area('多语内容（每行 语言 | 标题 | 描述）','translations',f.content.translations.map(t=>`${t.language} | ${t.title} | ${t.description}`).join('\n'),4)}</div><section><header class="mb-3 flex items-center justify-between"><h3 class="font-semibold">刊登媒体</h3><label class="cursor-pointer rounded-md border px-3 py-2 text-sm">添加图片 / 视频<input type="file" class="hidden" data-${prefix}-field="media-file" accept="image/jpeg,image/png,image/webp,video/mp4" multiple></label></header><div class="flex flex-wrap gap-4">${f.content.media.map(m=>`<div class="w-36 rounded-md border p-2">${m.role==='视频'?`<video src="${e(m.url)}" class="h-28 w-full" controls></video>`:picture(m.url,m.name,'h-28 w-full')}<div class="my-2 truncate text-xs" title="${e(m.name)}">${e(m.name)}</div><select class="h-8 w-full rounded border text-xs" data-${prefix}-field="media-role" data-media="${e(m.id)}">${['主图','详情图','尺码图','视频'].map(role=>`<option ${m.role===role?'selected':''}>${role}</option>`).join('')}</select><div class="mt-2 flex gap-2">${button('前移','media-up',`data-media="${e(m.id)}"`)}${button('移除','media-remove',`data-media="${e(m.id)}"`)}</div></div>`).join('')}</div></section>${isNew?'<p class="text-sm text-slate-500">保存后进入独立详情，可增建同 SKU 的其他平台规格、维护覆盖价和审核发布。</p>':''}</div>`
+  if(state.editTab==='mapping')return `<div class="space-y-4"><div class="flex justify-between"><p class="text-sm text-slate-500">外部规格独立保留。更正内部映射需填写原因，历史订单保持接单时快照。</p>${button('新增平台规格','add-variant',eligibleStyle?'':'disabled')}</div>${eligibleStyle?'':notice('款式须审核通过并启用后才能新增或改绑规格；原有映射的显示信息和价格仍可维护。')}${f.variants.map(v=>`<section class="rounded-lg border p-4"><header class="mb-4 flex justify-between"><div class="flex items-center gap-3">${picture(v.imageUrl,v.sellerSku)}<div class="text-sm"><strong>${e(v.platformVariantId||'待平台分配规格 ID')}</strong><p class="mt-1 text-xs text-slate-500">映射第 ${v.mappingVersion} 版</p></div></div><label class="flex items-center gap-2 text-sm"><input type="checkbox" data-${prefix}-field="variant.active" data-variant="${e(v.id)}" ${v.active?'checked':''}>启用</label></header><div class="grid grid-cols-2 gap-4 xl:grid-cols-3">${variantInput(v,'sellerSku','商家 SKU')}${variantInput(v,'displayColor','平台颜色显示')}${variantInput(v,'displaySize','平台尺码显示')}${variantInput(v,'displayPattern','平台花型显示')}<label class="text-sm"><span class="mb-1.5 block font-medium">内部 SKU 映射</span><select class="${channelInputClass}" data-${prefix}-field="variant.internalSkuId" data-variant="${e(v.id)}">${listSkuArchivesByStyleId(f.styleId).filter(s=>s.skuId===v.internalSkuId||isChannelSkuSelectable(s)).map(s=>`<option value="${e(s.skuId)}" ${s.skuId===v.internalSkuId?'selected':''}>${e(s.skuCode)}</option>`).join('')}</select></label><label class="text-sm"><span class="mb-1.5 block font-medium">规格图片</span><select class="${channelInputClass}" data-${prefix}-field="variant-image" data-variant="${e(v.id)}"><option value="">保留当前图片</option>${f.content.media.filter(m=>m.role!=='视频').map(m=>`<option value="${e(m.id)}" ${v.imageId===m.id?'selected':''}>${e(m.name)} · ${e(m.role)}</option>`).join('')}</select></label><label class="text-sm"><span class="mb-1.5 block font-medium">映射更正原因</span><input class="${channelInputClass}" value="${e(f.reasons[v.id]||'')}" data-${prefix}-field="variant.reason" data-variant="${e(v.id)}"></label><label class="text-sm"><span class="mb-1.5 block font-medium">平台规格属性（每行 键=值）</span><textarea rows="3" class="w-full rounded-md border p-2" data-${prefix}-field="variant-attributes" data-variant="${e(v.id)}">${e(Object.entries(v.platformAttributeValues).map(([k,val])=>`${k}=${val}`).join('\n'))}</textarea></label></div></section>`).join('')}</div>`
+  const type=state.priceType
+  return `<div class="space-y-5"><div class="max-w-xs">${select('本次维护价格类型','priceType',type,Object.entries(CHANNEL_PRICE_LABELS) as Array<[string,string]>)}</div><p class="text-sm text-slate-500">销售 ${e(store.salesCurrency)}，有效时间按 ${e(store.timeZone)}；清仓价必须设置有效期，留空金额表示未设置。</p>${card('同店铺 / 内部 SKU 默认价',table(['内部 SKU','默认价','开始时间','结束时间'],[...new Set(f.variants.map(v=>v.internalSkuId))].map(skuId=>{const key=`${skuId}:${type}`,p=f.defaults[key];return[e(getSkuArchiveById(skuId)?.skuCode||skuId),priceInput('default',key,'amount',p.amount,'number'),priceInput('default',key,'from',toLocalTime(p.from,store.timeZone),'datetime-local'),priceInput('default',key,'to',toLocalTime(p.to,store.timeZone),'datetime-local')]})))}${card('平台规格覆盖价',table(['平台规格 / sellerSku','价格模式','覆盖金额','开始时间','结束时间'],f.variants.map(v=>{const key=`${v.id}:${type}`,p=f.overrides[key];return[`${e(v.platformVariantId||'待分配')}<div class="text-xs text-slate-500">${e(v.sellerSku)}</div>`,`<select class="${channelInputClass}" data-${prefix}-field="price.override.mode" data-key="${e(key)}"><option ${p.mode==='跟随'?'selected':''}>跟随</option><option ${p.mode==='覆盖'?'selected':''}>覆盖</option></select>`,priceInput('override',key,'amount',p.amount,'number',p.mode==='跟随'),priceInput('override',key,'from',toLocalTime(p.from,store.timeZone),'datetime-local',p.mode==='跟随'),priceInput('override',key,'to',toLocalTime(p.to,store.timeZone),'datetime-local',p.mode==='跟随')]})))}</div>`
+}
+function variantInput(v:ChannelVariant,key:'sellerSku'|'displayColor'|'displaySize'|'displayPattern',label:string):string { return `<label class="text-sm"><span class="mb-1.5 block font-medium">${label}</span><input class="${channelInputClass}" value="${e(v[key])}" data-${prefix}-field="variant.${key}" data-variant="${e(v.id)}"></label>` }
+function priceInput(scope:string,key:string,field:string,value:string,type:string,disabled=false):string {return `<input type="${type}" class="${channelInputClass} min-w-28" value="${e(value)}" data-${prefix}-field="price.${scope}.${field}" data-key="${e(key)}" ${disabled?'disabled':''}>`}
+function toLocalTime(value:string,zone:string):string { if(!value)return '';if(!value.endsWith('Z'))return value;const parts=new Intl.DateTimeFormat('sv-SE',{timeZone:zone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(value));return parts.replace(' ','T') }
+function renderImport():string {if(!state.importOpen)return '';let result='';try{if(state.importText){const rows=JSON.parse(state.importText) as ChannelImportRow[];if(!Array.isArray(rows))throw Error('请提供记录数组');const p=previewChannelImport(rows);result=p.errors.length?table(['行','校验结果'],p.errors.map(x=>[String(x.row),e(x.message)])):notice(`${rows.length} 条规格 / ${p.groups.size} 个 PID 校验通过`)}}catch(error){result=notice((error as Error).message,true)}return `<div class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6" role="dialog" aria-modal="true"><section class="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white"><header class="flex items-center justify-between border-b p-4"><h2 class="font-semibold">渠道商品业务导入</h2>${button('关闭','close-import')}</header><div class="space-y-4 overflow-auto p-5"><p class="text-sm text-slate-500">JSON 业务模板；每行完整匹配内部 SKU，一个 PID 一个 SPU。不合格行不会形成正式记录。</p>${button('下载模板','import-template')}<details class="rounded-md border"><summary class="cursor-pointer p-3 text-sm">模板字段说明</summary><div class="p-3">${table(['字段','必填','类型 / 单位','引用或规则'],[['storeId','是','文本','渠道店铺稳定 ID；从店铺资料取得'],['styleCode','是','文本','内部 SPU 业务编码；同一 PID 仅一个款式'],['internalSkuCode','是','文本','内部 SKU 业务编码；须完整匹配'],['platformProductId','是','文本','平台原始 PID；长数字也保留为文本'],['platformVariantId','是','文本','平台原始规格 ID；同一 PID 内不重复'],['sellerSku','否','文本','平台商家自定义 SKU；未填时沿用内部 SKU 编码'],['title','是','文本','渠道商品标题'],['price','是','金额 / 店铺销售币种','日常售价，大于 0'],['imageUrl','否','图片地址','平台规格图片；未填时沿用内部 SKU 图片']])}</div></details>${area('导入记录','importText',state.importText,9)}${result}</div><footer class="flex justify-end gap-2 border-t p-4">${button('校验','validate-import')}${button('导入已校验记录','confirm-import','',true)}</footer></section></div>`}
+function refresh():void {if(typeof document==='undefined')return;const root=document.querySelector<HTMLElement>('[data-pcs-channel-page]');if(root){root.outerHTML=state.pageMode==='list'?renderPcsChannelProductListPage():state.pageMode==='detail'?renderPcsChannelProductDetailPage(state.activeId):renderPcsChannelProductEditPage(state.activeId==='new'?undefined:state.activeId)}}
+function message(value:string,error=false):void {state.notice=value;state.error=error}
+async function command<T>(recipe:()=>T,id?:string):Promise<T>{state.busy=true;try{return await runPcsRecordCommand(recipe,id)}finally{state.busy=false}}
+function dirty():void{state.dirty=true}
+export async function handlePcsChannelProductListInput(target:Element):Promise<boolean>{
+  const node=target.closest<HTMLElement>(`[data-${prefix}-field]`);if(!node)return false
+  const field=node.dataset.pcsChannelProductListField!,value=(node as HTMLInputElement).value
+  if(field==='media-file'&&node instanceof HTMLInputElement){const files=[...(node.files||[])];try{if(files.some(file=>!['image/jpeg','image/png','image/webp','video/mp4'].includes(file.type)||file.size>20*1024*1024))throw Error('仅支持 JPG、PNG、WebP、MP4，单文件不超过 20 MB。');for(const file of files){const registered=registerPcsFile(file);state.form!.content.media.push({id:registered.fileId,fileId:registered.fileId,url:registered.url,name:file.name,role:file.type==='video/mp4'?'视频':state.form!.content.media.length?'详情图':'主图',sort:state.form!.content.media.length+1});dirty()}refresh()}catch(error){message((error as Error).message,true);refresh()}return true}
+  if(field==='priceType'){state.priceType=value as ChannelPriceType;refresh();return true}
+  if(field==='copy-store'){state.copyStoreId=value;return true}if(field==='importText'){state.importText=value;return true}
+  if(field==='page-size'){controller.setPageSize(Number(value));refresh();return true}if(field==='goto-page'){listState.currentPage=Number(value)||1;refresh();return true}
+  if(['keyword','channel','store','market','brand','status','sync','testing','updatedFrom','updatedTo'].includes(field)){(state as any)[field]=value;return true}
+  if(field==='history'){state.history=(node as HTMLInputElement).checked;return true}
+  const f=state.form;if(!f)return false
+  if(field==='new-sku'){const id=node.dataset.sku!;f.skuIds=(node as HTMLInputElement).checked?[...new Set([...f.skuIds,id])]:f.skuIds.filter(v=>v!==id)}
+  else if(field.startsWith('form.')){const key=field.slice(5);(f as any)[key]=value;if(key==='styleId')f.skuIds=[];if((key==='styleId'||key==='storeId')&&f.styleId&&f.storeId){f.content=contentForChannelStore(f.styleId,f.storeId);refresh()}}
+  else if(field.startsWith('content.'))(f.content as any)[field.slice(8)]=value
+  else if(field==='attributes')f.content.platformAttributes=Object.fromEntries(value.split('\n').filter(v=>v.trim()).map(line=>{const split=line.indexOf('=');return split<0?[line.trim(),'']:[line.slice(0,split).trim(),line.slice(split+1).trim()]}))
+  else if(field==='attribute-units')f.content.platformAttributeUnits=Object.fromEntries(value.split('\n').filter(v=>v.trim()).map(line=>{const [key,...unit]=line.split('=');return[key.trim(),unit.join('=').trim()]}))
+  else if(field==='translations')f.content.translations=value.split('\n').filter(v=>v.trim()).map(line=>{const [language,title,...text]=line.split('|').map(v=>v.trim());return{language,title:title||'',description:text.join(' | ')}})
+  else if(field==='media-role'){const media=f.content.media.find(m=>m.id===node.dataset.media)!;if(value==='主图')f.content.media.forEach(m=>{if(m.role==='主图')m.role='详情图'});media.role=value as any;refresh()}
+  else if(field==='variant-image'){const v=f.variants.find(v=>v.id===node.dataset.variant)!,media=f.content.media.find(m=>m.id===value);if(media){v.imageId=media.id;v.imageUrl=media.url}}
+  else if(field==='variant-units'){const v=f.variants.find(v=>v.id===node.dataset.variant)!;v.platformAttributeUnits=Object.fromEntries(value.split('\n').filter(v=>v.trim()).map(line=>{const [key,...unit]=line.split('=');return[key.trim(),unit.join('=').trim()]}))}
+  else if(field==='variant-attributes'){const v=f.variants.find(v=>v.id===node.dataset.variant)!;v.platformAttributeValues=Object.fromEntries(value.split('\n').filter(v=>v.trim()).map(line=>{const split=line.indexOf('=');return split<0?[line.trim(),'']:[line.slice(0,split).trim(),line.slice(split+1).trim()]}))}
+  else if(field.startsWith('variant.')){const v=f.variants.find(v=>v.id===node.dataset.variant);if(!v)return false;const key=field.slice(8);if(key==='reason')f.reasons[v.id]=value;else(v as any)[key]=key==='active'?(node as HTMLInputElement).checked:value;if(key==='internalSkuId')hydratePriceDrafts()}
+  else if(field.startsWith('price.')){const [,scope,key]=field.split('.'),record=(scope==='default'?f.defaults:f.overrides)[node.dataset.key!];(record as any)[key]=value;if(key==='mode')refresh()}
+  else return false
+  dirty();return true
+}
+export async function handlePcsChannelProductListEvent(target:HTMLElement,_event?:Event):Promise<boolean>{
+  const node=target.closest<HTMLElement>(`[data-${prefix}-action]`);if(!node)return false
+  const action=node.dataset.pcsChannelProductListAction!,id=node.dataset.id||state.activeId
+  if(state.busy)return true
+  try{
+    if(action==='query'){listState.currentPage=1;refresh()}
+    else if(action==='reset'){Object.assign(state,{keyword:'',channel:'',store:'',market:'',brand:'',status:'',sync:'',testing:'',updatedFrom:'',updatedTo:'',history:false});listState.currentPage=1;refresh()}
+    else if(action==='select'){if((node as HTMLInputElement).checked)state.selected.add(id);else state.selected.delete(id);refresh()}
+    else if(action==='tab'){state.tab=node.dataset.tab!;refresh()}
+    else if(action==='edit-tab'){state.editTab=node.dataset.tab!;refresh()}
+    else if(action==='apply-platform-template'){const f=state.form!,store=getChannelStore(f.storeId)!,style=getStyleArchiveById(f.styleId)!;const defaults=initializeChannelPlatformContent(store,style);f.content.platformCategoryId ||= defaults.platformCategoryId;f.content.platformBrandId ||= defaults.platformBrandId;for(const [key,value] of Object.entries(defaults.platformAttributes))if(!f.content.platformAttributes[key]?.trim())f.content.platformAttributes[key]=value;f.content.platformAttributeUnits={...defaults.platformAttributeUnits,...f.content.platformAttributeUnits};f.content.platformAttributeSchemaVersion=defaults.platformAttributeSchemaVersion;dirty();message('已应用当前模板，保留已填写的销售值；请核对必填项后保存。');refresh()}
+    else if(action==='open-mapping'){state.activeId=id;state.tab='mapping';appStore.navigate(`${BASE}/${id}`)}
+    else if(action==='image'){state.imageUrl=node.dataset.url!;state.imageTitle=node.dataset.title!;refresh()}
+    else if(action==='copy-order-code'){await navigator.clipboard.writeText(node.dataset.orderCode||'');message('订单号已复制，可在订单系统中核对。');refresh()}
+    else if(action==='close-image'){state.imageUrl='';refresh()}
+    else if(action==='open-column-settings'||action==='close-column-settings'){listState.showColumnSettings=action==='open-column-settings';refresh()}
+    else if(action==='restore-column-preferences'){controller.restorePreferences();refresh()}
+    else if(action==='sort-column'){controller.cycleSort(node.dataset.columnKey||'');refresh()}
+    else if(action==='toggle-column-visibility'||action==='toggle-column-freeze'){controller.updateColumnPreference(action,node.dataset.columnKey||'',(node as HTMLInputElement).checked);refresh()}
+    else if(action==='prev-page'||action==='next-page'){controller.stepPage(action==='prev-page'?-1:1);refresh()}
+    else if(action.startsWith('goto-page-')){listState.currentPage=Number(action.slice(10));refresh()}
+    else if(action==='export'){const result=buildChannelFilteredExport();if(!result.listingCount)throw Error('当前筛选没有可导出的记录。');channelDownload('渠道商品-全筛选结果.csv',result.csv);message(`已导出全部筛选结果：${result.listingCount} 个 PID 容器、${result.variantCount} 条平台规格。`);refresh()}
+    else if(action==='open-import'){state.importOpen=true;refresh()}
+    else if(action==='close-import'){state.importOpen=false;refresh()}
+    else if(action==='validate-import')refresh()
+    else if(action==='import-template'){const l=listChannelListings()[0],v=l&&listChannelVariants(l.id)[0];channelDownload('渠道业务导入模板.json',JSON.stringify([{storeId:l?.storeId||'ST-001',styleCode:l?labelOf(l):'',internalSkuCode:v?getSkuArchiveById(v.internalSkuId)?.skuCode:'',platformProductId:'填写平台原始PID',platformVariantId:'填写平台原始规格ID',sellerSku:v?.sellerSku||'',title:l?.content.title||'',price:149000}],null,2),'application/json')}
+    else if(action==='confirm-import'){const rows=JSON.parse(state.importText);if(!Array.isArray(rows))throw Error('请按模板填写记录数组。');const ids=await command(()=>importChannelRows(rows));state.importOpen=false;message(`已导入 ${ids.length} 个渠道商品，内部映射完整。`);refresh()}
+    else if(action==='copy'){state.copyId=id;state.copyStoreId='';refresh()}
+    else if(action==='close-copy'){state.copyId='';refresh()}
+    else if(action==='confirm-copy'){const l=await command(()=>copyChannelListing(state.copyId,state.copyStoreId));state.copyId='';appStore.navigate(`${BASE}/${l.id}`)}
+    else if(action==='cancel-edit'){if(state.dirty&&!window.confirm('本页修改尚未保存，确认离开？'))return true;discardPcsChannelChanges();appStore.navigate(id==='new'?BASE:`${BASE}/${id}`)}
+    else if(action==='media-up'||action==='media-remove'){const f=state.form!,index=f.content.media.findIndex(m=>m.id===node.dataset.media);if(action==='media-remove'){const [removed]=f.content.media.splice(index,1);if(removed?.fileId)releasePcsPendingFile(removed.fileId);}else if(index>0)[f.content.media[index-1],f.content.media[index]]=[f.content.media[index],f.content.media[index-1]];f.content.media.forEach((m,i)=>m.sort=i+1);dirty();refresh()}
+    else if(action==='add-variant'){const f=state.form!,sku=listSkuArchivesByStyleId(f.styleId).find(isChannelSkuSelectable);if(!sku)throw Error('无可选 SKU。');const at=new Date().toISOString();f.variants.push({id:crypto.randomUUID(),listingId:f.listingId,platformVariantId:'',sellerSku:sku.skuCode,internalSkuId:sku.skuId,displayColor:sku.colorName,displaySize:sku.sizeName,displayPattern:sku.printName,platformAttributeValues:{},imageId:sku.skuId,imageUrl:sku.skuImageUrl,mappingVersion:1,mappingEffectiveAt:at,mappingReason:'新增平台实例',mappingHistory:[{version:1,internalSkuId:sku.skuId,effectiveAt:at,reason:'新增平台实例',actor:'当前用户'}],defaultPriceGroupId:`${f.storeId}:${sku.skuId}`,active:true,version:0});hydratePriceDrafts();dirty();refresh()}
+    else if(action==='save-edit'){await saveEditor();refresh()}
+    else if(action==='review'){await command(()=>{const before=getPcsChannelCatalogSnapshot();reviewChannelListing(id,node.dataset.review as any);synchronizePublishedChannelChanges(before)});message(node.dataset.review==='审核通过'?'当前内容版本已审核；已发布链接的正常差异已自动同步。':'已提交当前内容版本审核。');refresh()}
+    else if(action==='apply-base'){if(!window.confirm('将基础标题、描述与图片应用为新的渠道内容版本，继续？'))return true;await command(()=>applyStyleContent(id));message('已应用基础内容，发布链接需审核更新后生效。');refresh()}
+    else if(action==='publish'||action==='offline'){if(action==='offline'&&!window.confirm('确认向平台请求下架此渠道商品？实际状态以回执为准。'))return true;await command(()=>submitChannelSync(id,action==='offline'?'下架':getChannelListing(id)?.platformProductId?'更新':'发布'));message('已提交指定版本，等待演示回执。');refresh()}
+    else if(action==='receipt'){await command(()=>receiveChannelReceipt(demoChannelReceipt(node.dataset.operation!,node.dataset.mode as any)));message('已记录对应操作的演示回执。');refresh()}
+    else if(action==='retry-sync'){await command(()=>retryChannelFailedItems(node.dataset.operation!));message('仅失败项已重新提交，成功外部身份保留。');refresh()}
+    else if(action==='verify'){await command(()=>verifyUnknownChannelOperation(node.dataset.operation!));message('已核实原操作结果，没有重复创建 PID。');refresh()}
+    else if(action==='conflict'){await command(()=>resolveChannelSyncConflict(node.dataset.operation!,node.dataset.target!,node.dataset.field!,node.dataset.choice as any));message('已确认最终业务值。');refresh()}
+    else if(action==='wms-sync'){await command(()=>synchronizeChannelWmsAvailability(id));message('已从 WMS 同一来源生成共享可售演示回执；未修改库存。');refresh()}
+    else if(action==='platform-price'){const l=getChannelListing(id)!,s=getPcsChannelCatalogSnapshot(),v=listChannelVariants(id).find(v=>v.active)!;if(!v)throw Error('没有启用平台规格');const base=s.fieldBaselines.find(b=>b.listingId===id&&b.targetId===v.id&&b.field==='price.regular')?.value??resolveChannelPrice(v).amount;await command(()=>receiveChannelPlatformChange({eventId:crypto.randomUUID(),listingId:id,at:new Date().toISOString(),changes:[{targetId:v.id,field:'price.regular',baseValue:base,value:Number(base)+1}]}));message('此平台规格价格已自动回传为独立覆盖价，其他规格仍跟随原价。');refresh()}
+    else if(action==='platform-change'){const l=getChannelListing(id)!,s=getPcsChannelCatalogSnapshot(),base=s.fieldBaselines.find(b=>b.listingId===id&&b.targetId===id&&b.field==='title')?.value??l.content.title;await command(()=>receiveChannelPlatformChange({eventId:crypto.randomUUID(),listingId:id,at:new Date().toISOString(),changes:[{targetId:id,field:'title',baseValue:base,value:`${String(base).replace(/ · 平台更新$/,'')} · 平台更新`}]}));message('正常平台变更已自动合并；若同字段同时变化，详情会显示双方值。');refresh()}
+    else if(action.startsWith('batch-')){if(!state.selected.size)throw Error('请先选择渠道商品。');if(action==='batch-offline'&&!window.confirm(`确认请求下架选中的 ${state.selected.size} 个渠道商品？`))return true;const results:string[]=[];for(const listingId of state.selected){try{await command(()=>action==='batch-submit'?reviewChannelListing(listingId,'提交审核'):submitChannelSync(listingId,action==='batch-offline'?'下架':action==='batch-sync'?'重新同步':getChannelListing(listingId)?.platformProductId?'更新':'发布'));results.push(`${labelOf(getChannelListing(listingId)!)}：已提交`)}catch(error){results.push(`${labelOf(getChannelListing(listingId)!)}：${(error as Error).message}`)}}message(results.join('；'));refresh()}
+    else return false
+  }catch(error){message(`${(error as Error).message} 本次未保存的输入已保留。`,true);refresh()}
   return true
 }
-
-export function handlePcsChannelProductListEvent(target: HTMLElement, event?: Event): boolean {
-  const dragNode = target.closest<HTMLElement>('[data-standard-list-column-drag]')
-  if (dragNode && event && ['dragstart', 'dragover', 'drop', 'dragend'].includes(event.type)) {
-    const columnKey = dragNode.dataset.pcsChannelProductListColumnKey
-      || dragNode.dataset.dragSource
-      || dragNode.dataset.dropTarget
-      || ''
-    if (event.type === 'dragstart') {
-      channelProductListUiState.draggedColumnKey = columnKey
-      ;(event as DragEvent).dataTransfer?.setData('application/x-higood-list-column-key', columnKey)
-      return Boolean(columnKey)
-    }
-    if (event.type === 'dragend') {
-      channelProductListUiState.draggedColumnKey = ''
-      return true
-    }
-    const sourceKey = channelProductListUiState.draggedColumnKey
-    if (!sourceKey || !columnKey || sourceKey === columnKey) return false
-    if (event.type === 'dragover') {
-      event.preventDefault()
-      return true
-    }
-    event.preventDefault()
-    const order = channelProductListUiState.preferences.order.filter((key) => key !== sourceKey)
-    const targetIndex = order.indexOf(columnKey)
-    if (targetIndex < 0) return false
-    order.splice(targetIndex, 0, sourceKey)
-    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
-      ...channelProductListUiState.preferences,
-      order,
-    })
-    channelProductListUiState.draggedColumnKey = ''
-    saveChannelProductListPreferences()
-    refreshChannelProductListRegions({ settings: true })
-    return true
-  }
-
-  const actionNode = target.closest<HTMLElement>('[data-pcs-channel-product-list-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.pcsChannelProductListAction
-  if (!action) return false
-
-  if (action === 'sort-column') {
-    const columnKey = actionNode.dataset.columnKey || ''
-    const column = CHANNEL_PRODUCT_LIST_COLUMNS.find((item) => item.key === columnKey && item.sortable)
-    if (!column) return true
-    const currentSort = channelProductListUiState.sort
-    channelProductListUiState.sort = currentSort?.key !== columnKey
-      ? { key: columnKey, direction: 'asc' }
-      : currentSort.direction === 'asc'
-        ? { key: columnKey, direction: 'desc' }
-        : null
-    channelProductListState.currentPage = 1
-    refreshChannelProductListRegions()
-    return true
-  }
-  if (action === 'prev-page' || action === 'next-page') {
-    const totalPages = Math.max(
-      1,
-      Math.ceil(getFilteredChannelProductRows().length / channelProductListUiState.preferences.pageSize),
-    )
-    channelProductListState.currentPage = action === 'prev-page'
-      ? Math.max(1, channelProductListState.currentPage - 1)
-      : Math.min(totalPages, channelProductListState.currentPage + 1)
-    refreshChannelProductListRegions()
-    return true
-  }
-  if (action === 'open-column-settings' || action === 'close-column-settings') {
-    channelProductListUiState.columnSettingsOpen = action === 'open-column-settings'
-    refreshChannelProductListRegions({ settings: true })
-    return true
-  }
-  if (action === 'restore-column-settings') {
-    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
-      order: CHANNEL_PRODUCT_LIST_COLUMNS.map((column) => column.key),
-      visibleKeys: CHANNEL_PRODUCT_LIST_COLUMNS.map((column) => column.key),
-      frozenKeys: [],
-      pageSize: CHANNEL_PRODUCT_LIST_PAGE_SIZES[0],
-    })
-    channelProductListUiState.sort = null
-    channelProductListState.currentPage = 1
-    const storage = getChannelProductListStorage()
-    if (storage) clearListColumnPreferences(storage, CHANNEL_PRODUCT_LIST_STORAGE_KEY)
-    refreshChannelProductListRegions({ settings: true })
-    return true
-  }
-  if (
-    (action === 'toggle-column-visibility' || action === 'toggle-column-freeze')
-    && (!event || event.type === 'change')
-  ) {
-    const columnKey = actionNode.dataset.pcsChannelProductListColumnKey
-      || actionNode.dataset.columnKey
-      || ''
-    const column = CHANNEL_PRODUCT_LIST_COLUMNS.find((item) => item.key === columnKey)
-    if (!column || column.actionColumn) return true
-    const visibleKeys = new Set(channelProductListUiState.preferences.visibleKeys)
-    const frozenKeys = new Set(channelProductListUiState.preferences.frozenKeys)
-    if (action === 'toggle-column-visibility' && !column.required) {
-      if (visibleKeys.has(columnKey)) {
-        visibleKeys.delete(columnKey)
-        frozenKeys.delete(columnKey)
-      } else {
-        visibleKeys.add(columnKey)
+async function saveEditor():Promise<void>{
+  const f=state.form!
+  if(f.listingId==='new'){const l=await command(()=>createChannelListing({id:state.operationId,storeId:f.storeId,styleId:f.styleId,internalSkuIds:f.skuIds,content:f.content,sourceTestingOrderId:f.sourceTestingOrderId,testingListingActionId:f.testingListingActionId,initialPrice:f.initialPrice===''?undefined:Number(f.initialPrice)}),state.operationId);state.form=null;state.dirty=false;appStore.navigate(`${BASE}/${l.id}`);message('渠道商品已保存。');return}
+  const before=getPcsChannelCatalogSnapshot(),original=before.listings.find(l=>l.id===f.listingId)!
+  if(original.version!==f.version)throw Error('渠道商品已有新版本，本页输入已保留；请重新核对再保存。')
+  const disabled=f.variants.filter(v=>!v.active&&before.variants.some(old=>old.id===v.id&&old.active))
+  if(disabled.length&&!window.confirm(`确认停用 ${disabled.length} 个平台规格？历史映射与订单引用将保留。`))return
+  await command(()=>{
+    if(JSON.stringify(original.content)!==JSON.stringify(f.content))saveChannelContent(f.listingId,f.content,f.version)
+    for(const v of f.variants){const old=before.variants.find(x=>x.id===v.id);if(!old||JSON.stringify(old)!==JSON.stringify(v))saveChannelVariant(v,old?.version||0,'当前用户',f.reasons[v.id]||'')}
+    for(const type of Object.keys(CHANNEL_PRICE_LABELS) as ChannelPriceType[]){
+      for(const skuId of new Set(f.variants.map(v=>v.internalSkuId))){const p=f.defaults[`${skuId}:${type}`];if(!p)continue;const old=before.prices.find(x=>x.storeId===f.storeId&&x.internalSkuId===skuId&&!x.externalVariantId&&x.priceType===type),amount=p.amount===''?null:Number(p.amount)
+        if(amount!==(old?.amount??null)||p.from!==(old?.validFrom||'')||p.to!==(old?.validTo||''))saveChannelPrice({storeId:f.storeId,internalSkuId:skuId,externalVariantId:'',priceType:type,amount,validFrom:p.from,validTo:p.to,expectedVersion:p.version})
       }
-      if (!visibleKeys.has(columnKey) && channelProductListUiState.sort?.key === columnKey) {
-        channelProductListUiState.sort = null
+      for(const v of f.variants){const p=f.overrides[`${v.id}:${type}`];if(!p)continue;const old=before.prices.find(x=>x.externalVariantId===v.id&&x.priceType===type),amount=p.amount===''?null:Number(p.amount)
+        if(p.mode==='跟随'){if(old)followChannelDefaultPrice(v.id,type)}else if(!old||amount!==old.amount||p.from!==old.validFrom||p.to!==old.validTo)saveChannelPrice({storeId:f.storeId,internalSkuId:v.internalSkuId,externalVariantId:v.id,priceType:type,amount,validFrom:p.from,validTo:p.to,expectedVersion:p.version})
       }
     }
-    if (action === 'toggle-column-freeze' && column.freezeable) {
-      if (frozenKeys.has(columnKey)) frozenKeys.delete(columnKey)
-      else frozenKeys.add(columnKey)
-    }
-    channelProductListUiState.preferences = normalizeChannelProductListPreferences({
-      ...channelProductListUiState.preferences,
-      visibleKeys: [...visibleKeys],
-      frozenKeys: [...frozenKeys],
-    })
-    saveChannelProductListPreferences()
-    refreshChannelProductListRegions({ settings: true })
-    return true
-  }
-  return false
+    synchronizePublishedChannelChanges(before)
+  },state.operationId)
+  const editTab=state.editTab,id=f.listingId;state.form=null;initForm(id);state.editTab=editTab;state.dirty=false;message('所有视图中的修改已保存。已审核销售字段的正常差异已自动同步。')
 }
+export function hasUnsavedPcsChannelChanges():boolean{return state.pageMode==='edit'&&state.dirty}
+export function discardPcsChannelChanges():void{state.form?.content.media.forEach(m=>m.fileId&&releasePcsPendingFile(m.fileId));state.form=null;state.dirty=false;state.operationId=''}
+registerPcsUnsavedChanges('channel-products', { isDirty: hasUnsavedPcsChannelChanges, discard: discardPcsChannelChanges })
+export function isPcsChannelProductListDialogOpen():boolean {return !!state.imageUrl||state.importOpen||!!state.copyId||listState.showColumnSettings}
 
-export function isPcsChannelProductListDialogOpen(): boolean {
-  return channelProductListUiState.columnSettingsOpen
-}
-
-export function renderPcsChannelProductDetailPage(channelProductId: string): string {
-  const record = getProjectChannelProductById(channelProductId)
-
-  if (!record) {
-    return `
-      <div class="p-4">
-        <section class="rounded-[20px] border border-slate-200 bg-white px-6 py-8 shadow-sm">
-          <h1 class="text-2xl font-semibold text-slate-900">未找到渠道店铺商品</h1>
-          <p class="mt-3 text-sm text-slate-500">请返回列表重新选择。</p>
-          <button type="button" class="mt-6 inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
-            返回列表
-          </button>
-        </section>
-      </div>
-    `
-  }
-
-  const styleHref = record.styleId ? `/pcs/products/styles/${encodeURIComponent(record.styleId)}` : null
-  const completedUpstreamUpdate = record.upstreamSyncStatus === '已更新'
-  const upstreamUpdateTime = record.lastUpstreamSyncAt || (completedUpstreamUpdate ? record.updatedAt : '')
-  const currentRule = CHANNEL_PRODUCT_STATUS_RULES[resolveChannelProductBusinessStatus(record)]
-  const listingImages = record.listingImages
-    .slice()
-    .sort((left, right) => left.sortNo - right.sortNo)
-
-  return `
-    <div class="p-4">
-      <div class="space-y-4">
-        <section class="rounded-[20px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <button type="button" class="inline-flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50" data-nav="/pcs/products/channel-products">
-                <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
-              </button>
-              <div class="mt-3 text-xs text-slate-500">商品档案 / 渠道店铺商品</div>
-              <div class="mt-2 flex flex-wrap items-center gap-2">
-                <h1 class="text-[20px] font-semibold text-slate-900">${escapeHtml(resolveSpuCode(record))}</h1>
-                ${renderBusinessStatusBadge(record)}
-              </div>
-              <div class="mt-2 text-sm text-slate-500">${escapeHtml(`${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)} ｜ ${record.styleListingTitle || record.listingTitle || '-'}`)}</div>
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
-              ${renderDetailButton('查看款式档案', styleHref)}
-            </div>
-          </div>
-        </section>
-
-        <div class="grid gap-4 xl:grid-cols-3">
-          <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-            <h2 class="text-base font-semibold text-slate-900">来源与上架信息</h2>
-            <div class="mt-4 space-y-3">
-              ${renderDetailField('来源项目', record.projectCode)}
-              ${renderDetailField('项目名称', record.projectName)}
-              ${renderDetailField('SPU / 平台商品 ID', resolveSpuCode(record))}
-              ${renderDetailField('来源商品上架批次', record.listingInstanceCode || record.channelProductCode)}
-              ${renderDetailField('来源项目步骤', record.projectNodeId)}
-              ${renderDetailField('渠道 / 店铺', `${getChannelLabel(record.channelCode)} / ${getStoreLabel(record)}`)}
-              ${renderDetailField('上架标题', record.styleListingTitle || record.listingTitle || '—')}
-              ${renderDetailField('默认售价 / 币种', `${record.defaultPriceAmount || record.listingPrice || '—'} / ${record.currencyCode || record.currency || '—'}`)}
-            </div>
-          </section>
-
-          <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-            <h2 class="text-base font-semibold text-slate-900">规格上传结果</h2>
-            <div class="mt-4 space-y-3">
-              ${renderDetailField('规格数量', String(record.specLineCount || record.specLines.length || 0))}
-              ${renderDetailField('已上传规格数量', String(record.uploadedSpecLineCount || 0))}
-              ${renderDetailField('上架批次状态', record.listingBatchStatus || record.channelProductStatus)}
-              ${renderDetailField('上游款式商品编号', record.upstreamProductId || record.upstreamChannelProductCode || '—')}
-              ${renderDetailField('上传结果', record.uploadResultText || '—')}
-              ${renderDetailField('上传时间', record.uploadedAt ? formatDateTime(record.uploadedAt) : '—')}
-            </div>
-          </section>
-
-          <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-            <h2 class="text-base font-semibold text-slate-900">测款与链路状态</h2>
-            <div class="mt-4 space-y-3">
-              ${renderDetailField('当前测款状态', getLinkageDescription(record))}
-              ${renderDetailField('渠道商品状态', record.channelProductStatus)}
-              ${renderDetailField('是否已作废', record.channelProductStatus === '已作废' ? '是' : '否')}
-              ${renderDetailField('作废原因', record.invalidatedReason || '—')}
-              ${renderDetailField('关联设计改款任务', record.linkedDesignRevisionTaskCode || '—')}
-            </div>
-          </section>
-        </div>
-
-        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <div class="grid gap-4 xl:grid-cols-[1.3fr,1fr]">
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div class="flex flex-wrap items-center gap-2">
-                ${renderBusinessStatusBadge(record)}
-                <span class="text-sm text-slate-500">当前正式业务状态</span>
-              </div>
-              <div class="mt-3 text-sm leading-6 text-slate-700">${escapeHtml(currentRule.scene)}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div class="text-sm font-medium text-slate-900">当前可操作项</div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                ${currentRule.operations.map((item) => renderBadge(item, 'bg-white text-slate-700')).join('')}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">上架图片</h2>
-          <div class="mt-4">
-            ${
-              listingImages.length > 0
-                ? `<div class="flex flex-wrap gap-3">
-                    ${listingImages
-                      .map(
-                        (image) => `
-                          <div class="w-24">
-                            <div class="relative overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-                              <img src="${escapeHtml(image.imageUrl)}" alt="${escapeHtml(image.imageName)}" class="h-24 w-24 object-cover" />
-                              ${image.imageId === record.listingMainImageId ? '<span class="absolute left-1 top-1 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">主图</span>' : ''}
-                            </div>
-                            <div class="mt-1 text-[11px] text-slate-500">${escapeHtml(image.imageName)}</div>
-                            <div class="text-[11px] text-slate-400">排序 ${escapeHtml(String(image.sortNo))}</div>
-                          </div>
-                        `,
-                      )
-                      .join('')}
-                  </div>`
-                : '<div class="rounded-lg border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-400">暂无上架图片</div>'
-            }
-          </div>
-        </section>
-
-        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">规格明细</h2>
-          <div class="mt-4 overflow-x-auto">
-            <table class="min-w-full text-sm">
-              <thead class="bg-slate-50 text-left text-slate-500">
-                <tr>
-                  <th class="px-3 py-2 font-medium">颜色</th>
-                  <th class="px-3 py-2 font-medium">尺码</th>
-                  <th class="px-3 py-2 font-medium">花型</th>
-                  <th class="px-3 py-2 font-medium">平台销售 SKU</th>
-                  <th class="px-3 py-2 font-medium">价格</th>
-                  <th class="px-3 py-2 font-medium">币种</th>
-                  <th class="px-3 py-2 font-medium">初始库存</th>
-                  <th class="px-3 py-2 font-medium">上游规格编号</th>
-                  <th class="px-3 py-2 font-medium">状态</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-200 bg-white">
-                ${renderSpecLineRows(record)}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">上游更新日志</h2>
-          <div class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div class="text-sm font-semibold text-slate-900">${escapeHtml(record.upstreamSyncNote || record.upstreamSyncLog || '当前暂无上游更新日志。')}</div>
-            <div class="mt-1.5 text-xs leading-5 text-slate-500">${escapeHtml(record.upstreamSyncLog || (upstreamUpdateTime ? `${formatDateTime(upstreamUpdateTime)} 记录当前状态。` : '尚未触发上游更新。'))}</div>
-          </div>
-        </section>
-
-        <section class="rounded-xl border border-slate-200 bg-white px-4 py-4">
-          <h2 class="text-base font-semibold text-slate-900">关联对象</h2>
-          <div class="mt-4 grid gap-3 xl:grid-cols-4">
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div class="text-sm text-slate-500">款式档案编码</div>
-              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.styleCode || '—')}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div class="text-sm text-slate-500">渠道店铺商品编码</div>
-              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.channelProductCode)}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div class="text-sm text-slate-500">上游款式商品编号</div>
-              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(record.upstreamProductId || record.upstreamChannelProductCode || '—')}</div>
-            </div>
-            <div class="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div class="text-sm text-slate-500">最后一次上游更新时间</div>
-              <div class="mt-1.5 text-base font-semibold text-slate-900">${escapeHtml(upstreamUpdateTime ? formatDateTime(upstreamUpdateTime) : '—')}</div>
-            </div>
-          </div>
-        </section>
-      </div>
-    </div>
-  `
-}
+export function getPcsChannelActionFeedback():{message:string;error:boolean}{return{message:state.notice,error:state.error}}

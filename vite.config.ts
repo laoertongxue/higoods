@@ -60,6 +60,48 @@ function preloadProductionTimelinessRoute(): Plugin {
   }
 }
 
+// PCS archive pages have a published, read-only baseline. Discover their exact
+// route module and baseline during navigation instead of waiting for the shell
+// and route registry to finish first. This performs no storage reads or writes.
+function preloadPcsArchiveRoute(): Plugin {
+  return {
+    name: 'preload-pcs-archive-route',
+    transformIndexHtml: {
+      order: 'post',
+      handler(_html, context) {
+        const bundle = context.bundle
+        if (!bundle) return
+        const routes = [
+          ['/pcs/products/channel-products', '/src/pages/pcs-channel-products.ts'],
+          ['/pcs/products/styles', '/src/pages/pcs-product-archives.ts'],
+          ['/pcs/products/specifications', '/src/pages/pcs-product-archives.ts'],
+          ['/pcs/materials/', '/src/pages/pcs-material-archives.ts'],
+          ['/pcs/channels/stores', '/src/pages/pcs-channel-stores.ts'],
+          ['/pcs/settings/config-workspace', '/src/pages/pcs-config-workspace.ts'],
+        ]
+        const filesFor = (source: string): string[] => {
+          const entry = Object.values(bundle).find(item => item.type === 'chunk' && Object.keys(item.modules).some(id => id.endsWith(source)))
+          if (!entry || entry.type !== 'chunk') return []
+          const files = new Set<string>()
+          const visit = (file: string): void => {
+            if (files.has(file)) return
+            const chunk = bundle[file]
+            if (!chunk || chunk.type !== 'chunk') return
+            files.add(file); chunk.imports.forEach(visit)
+          }
+          visit(entry.fileName)
+          return [...files]
+        }
+        const baseline = filesFor('/src/data/pcs-record-bootstrap.ts')
+        const mapping = routes.map(([path, source]) => [path, [...new Set([...filesFor(source), ...baseline])]])
+        const baselineData = Object.values(bundle).find(item => item.type === 'asset' && /pcs-record-baseline-.*\.json$/.test(item.fileName))?.fileName
+        return [{ tag: 'script', injectTo: 'head-prepend', children:
+          `for(var route of ${JSON.stringify(mapping)}){if(location.pathname.startsWith(route[0])){route[1].forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)});var data=${JSON.stringify(baselineData || '')};if(data){var link=document.createElement('link');link.rel='preload';link.as='fetch';link.crossOrigin='anonymous';link.href='/'+data;document.head.appendChild(link)}break}}` }]
+      },
+    },
+  }
+}
+
 // Preview's default middleware recompresses large chunks on every cold request.
 // Emit the same bytes ahead of time; neither data nor module evaluation is skipped.
 function compressedPreviewAssets(): Plugin {
@@ -69,8 +111,8 @@ function compressedPreviewAssets(): Plugin {
       if (!options.dir) return
       for (const item of Object.values(bundle)) {
         const selected = item.type === 'chunk'
-          ? item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.isEntry
-          : item.fileName.endsWith('.css')
+          ? item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
+          : item.fileName.endsWith('.css') || /pcs-record-baseline-.*\.json$/.test(item.fileName)
         if (!selected) continue
         const path = resolve(options.dir, item.fileName)
         const source = readFileSync(path)
@@ -82,12 +124,12 @@ function compressedPreviewAssets(): Plugin {
       const directory = resolve(server.config.root, server.config.build.outDir)
       server.middlewares.use((request, response, next) => {
         const pathname = (request.url || '').split('?')[0]
-        if (!['GET', 'HEAD'].includes(request.method || '') || !/^\/assets\/[\w.-]+\.(js|css)$/.test(pathname)) return next()
+        if (!['GET', 'HEAD'].includes(request.method || '') || !/^\/assets\/[\w.-]+\.(js|css|json)$/.test(pathname)) return next()
         const encoding = /\bbr\b/.test(request.headers['accept-encoding'] || '') ? 'br' : /\bgzip\b/.test(request.headers['accept-encoding'] || '') ? 'gz' : ''
         if (!encoding) return next()
         const path = resolve(directory, `.${pathname}.${encoding}`)
         if (!existsSync(path)) return next()
-        response.setHeader('Content-Type', pathname.endsWith('.css') ? 'text/css' : 'text/javascript')
+        response.setHeader('Content-Type', pathname.endsWith('.css') ? 'text/css' : pathname.endsWith('.json') ? 'application/json' : 'text/javascript')
         response.setHeader('Content-Encoding', encoding === 'gz' ? 'gzip' : 'br')
         response.setHeader('Content-Length', statSync(path).size)
         response.setHeader('Vary', 'Accept-Encoding')
@@ -100,7 +142,7 @@ function compressedPreviewAssets(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [ensureStaticPlaceholderPlugin(), preloadProductionTimelinessRoute(), compressedPreviewAssets()],
+  plugins: [ensureStaticPlaceholderPlugin(), preloadProductionTimelinessRoute(), preloadPcsArchiveRoute(), compressedPreviewAssets()],
   resolve: {
     extensions: ['.ts', '.tsx', '.mts', '.mjs', '.js', '.jsx', '.json'],
   },
@@ -148,6 +190,10 @@ export default defineConfig({
           }
           const ddsModules = collectStaticModules(ids.find(moduleId => moduleId.endsWith('/src/pages/production-fulfillment/index.ts')))
           const shellModules = collectStaticModules(ids.find(moduleId => moduleId.endsWith('/src/main.ts')))
+          const pcsArchiveModules = new Set<string>()
+          for (const page of ['pcs-product-archives', 'pcs-material-archives', 'pcs-channel-products', 'pcs-channel-stores', 'pcs-config-workspace']) {
+            for (const moduleId of collectStaticModules(ids.find(value => value.endsWith(`/src/pages/${page}.ts`)))) pcsArchiveModules.add(moduleId)
+          }
           // Other lazy routes use these shared controls too. They must not import
           // the complete DDS feature just to render a button or a standard list.
           const sharedUiModules = new Set<string>()
@@ -169,10 +215,19 @@ export default defineConfig({
             '/src/data/process-craft-dict.ts',
             '/src/data/pcs-tmf-material-reference-seeds.ts',
           ]
+          // PCS must begin its record read without waiting for the unrelated
+          // production-source modules to parse. This closure contains only the
+          // existing storage codec/runtime; business repositories stay separate.
+          if (['pcs-record-db', 'pcs-record-codec', 'pcs-record-runtime', 'pcs-record-position', 'pcs-record-static-versions', 'pcs-engineering-bom-storage']
+            .some(file => id.endsWith(`/src/data/${file}.ts`))) return 'pcs-record-core'
           if (tmfDomainModules.some(modulePath => id.includes(modulePath))) return 'tmf-domain-shared'
           if (ddsModules.has(id) && !id.endsWith('.css')) {
             // Shared shell dependencies must never pull the DDS page into other routes.
             if (shellModules.has(id) || sharedUiModules.has(id)) return 'app-shared'
+            // PCS reads master records, not the unrelated production execution
+            // domains that DDS happens to share. Keep the actual static closure
+            // together without making archive entry parse those execution pages.
+            if (pcsArchiveModules.has(id)) return 'pcs-archive-shared'
             // Existing PCS/FCS routes reuse source records, not DDS views and its initialization.
             return id.includes('/src/pages/production-fulfillment/') ? 'production-timeliness' : 'production-source-shared'
           }

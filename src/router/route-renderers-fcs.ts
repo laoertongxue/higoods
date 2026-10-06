@@ -1,5 +1,12 @@
 type AnyAsyncRenderer = (...args: unknown[]) => Promise<string>
 
+export {
+  renderFcsMaterialProcessPlansPage,
+  renderFcsMaterialProcessPlanCreatePage,
+  renderFcsMaterialProcessPlanDetailPage,
+  renderFcsMaterialProcessPlanEditPage,
+} from './route-renderers.ts'
+
 export const renderReplacementFabricFeiTicketsPage = createAsyncRenderer(
   () => import('../pages/process-factory/cutting/replacement-fabric-fei-tickets.ts'),
   'renderReplacementFabricFeiTicketsPage',

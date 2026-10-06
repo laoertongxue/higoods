@@ -19,8 +19,9 @@ import type {
   EngineeringBomOwnerStage,
   EngineeringBomOwnerStyleSnapshot,
 } from './pcs-engineering-bom-types.ts'
-import { resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
+import { captureEngineeringBomMaterialReference, resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
 import { resolveEngineeringBomDraft } from './pcs-engineering-bom-pricing.ts'
+import { getMaterialSkuRecordById, isMaterialSkuAvailableForNewUse } from './pcs-material-archive-repository.ts'
 
 const STORAGE_KEY = 'higood-pcs-engineering-bom-pricing-plan-store-v2'
 const STORE_VERSION = 2
@@ -58,7 +59,7 @@ function cloneRecord(record: EngineeringBomVersionRecord): EngineeringBomVersion
     ...record,
     applicableSkuIds: [...record.applicableSkuIds],
     materialLines: record.materialLines.map((line) => ({
-      ...line,
+      ...structuredClone(line),
       applicableSkuIds: [...(line.applicableSkuIds || [])],
       linkedPatternResultIds: [...(line.linkedPatternResultIds || [])],
     })),
@@ -71,6 +72,7 @@ function cloneRecord(record: EngineeringBomVersionRecord): EngineeringBomVersion
 function clonePlan(plan: EngineeringBomPricingPlanRecord): EngineeringBomPricingPlanRecord {
   return {
     ...plan,
+    confirmedPricing: plan.confirmedPricing ? structuredClone(plan.confirmedPricing) : undefined,
     customCosts: plan.customCosts.map((item) => ({ ...item })),
   }
 }
@@ -87,7 +89,8 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
   if (memorySnapshot) return cloneSnapshot(memorySnapshot)
   if (canUseStorage()) {
     try {
-      const parsed = parseEngineeringBomSnapshot(pcsRecordStore.getItem(STORAGE_KEY) || '') as EngineeringBomVersionStoreSnapshot
+      const raw = pcsRecordStore.getItem(STORAGE_KEY)
+      const parsed = raw ? parseEngineeringBomSnapshot(raw) as EngineeringBomVersionStoreSnapshot : null
       if (parsed?.version === STORE_VERSION && Array.isArray(parsed.records) && Array.isArray(parsed.plans)) {
         memorySnapshot = {
           version: STORE_VERSION,
@@ -96,8 +99,9 @@ function readSnapshot(): EngineeringBomVersionStoreSnapshot {
         }
         return cloneSnapshot(memorySnapshot)
       }
-    } catch {
-      // 原型数据损坏时使用空仓储，不生成历史兼容分支。
+      if (raw !== null) throw new Error('BOM 资料格式不完整，原有资料已保留，请重新读取。')
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'BOM 资料暂时无法读取，请重新读取。')
     }
   }
   memorySnapshot = { version: STORE_VERSION, records: [], plans: [] }
@@ -526,14 +530,18 @@ export function saveEngineeringBomVersion(input: {
   if (index < 0) throw new Error('BOM 与价格版本不存在。')
   const current = snapshot.records[index]
   assertBomEditable(current)
-  input.materialLines.forEach((line) => resolveEngineeringBomMaterialLine(line))
+  input.materialLines.forEach((line) => {
+    const existing = line.bomItemId && current.materialLines.find(item => item.bomItemId === line.bomItemId && item.materialSkuId === line.materialSkuId)
+    if (!existing && !isMaterialSkuAvailableForNewUse(getMaterialSkuRecordById(line.materialSkuId))) throw new Error('物料 SKU 及其主档须已审核并启用，才能新加入 BOM。')
+    resolveEngineeringBomMaterialLine(line)
+  })
   const legacyCustomCosts = input.customCosts || []
   const next: EngineeringBomVersionRecord = {
     ...current,
     buyerId: input.userId,
     buyerName: input.userName,
     materialLines: input.materialLines.map((line, index) => ({
-      ...line,
+      ...captureEngineeringBomMaterialReference(line),
       bomItemId: line.bomItemId || `${current.bomDraftVersionId}-LINE-${index + 1}`,
       styleCode: current.styleCode,
       productColor: current.productColor,
@@ -627,6 +635,7 @@ export function reopenEngineeringBomPricingPlanForEditing(input: {
   if (plan.status === 'PUBLISHED_SNAPSHOT') throw new Error('正式版本 BOM 与价格快照不能重新编辑。')
   const reopenedAt = input.reopenedAt || nowText()
   plan.status = 'DRAFT'
+  plan.confirmedPricing = undefined
   plan.editingLockedAt = ''
   plan.editingLockedBy = ''
   plan.editingLockedReason = ''
@@ -639,6 +648,7 @@ export function reopenEngineeringBomPricingPlanForEditing(input: {
     .forEach((record) => {
       if (record.versionStatus === 'PUBLISHED_SNAPSHOT') throw new Error('正式版本颜色物料快照不能重新编辑。')
       record.versionStatus = 'DRAFT'
+      record.materialLines = record.materialLines.map(line => ({ ...line, costReferenceMode: 'CURRENT' }))
       record.editingLockedAt = ''
       record.editingLockedBy = ''
       record.editingLockedReason = ''
@@ -733,7 +743,7 @@ export function replaceEngineeringBomPricingPlanDraft(input: {
       productColor: color.productColor,
       applicableSkuIds: [...(color.applicableSkuIds || [])],
       materialLines: color.materialLines.map((line, lineIndex) => ({
-        ...line,
+        ...captureEngineeringBomMaterialReference(line),
         bomItemId: line.bomItemId || `${identity.id}-LINE-${lineIndex + 1}`,
         styleCode: plan.styleCode,
         productColor: color.productColor,
@@ -872,8 +882,8 @@ function resolvePricingPlanFromSnapshot(
     .filter((item) => item.ownerStage === ownerStage && item.ownerId === ownerId)
     .sort((left, right) => left.productColor.localeCompare(right.productColor, 'zh-CN'))
   if (!versions.length) throw new Error('整款 BOM 与价格方案尚未建立颜色物料方案。')
-  const resolved = resolveEngineeringBomDraft({
-    materialLines: versions.flatMap((version) => version.materialLines),
+  const resolved = plan.status !== 'DRAFT' && plan.confirmedPricing ? structuredClone(plan.confirmedPricing) : resolveEngineeringBomDraft({
+    materialLines: versions.flatMap((version) => version.materialLines.map(line => ({ ...line, costReferenceMode: version.versionStatus === 'DRAFT' ? 'CURRENT' : 'FROZEN' }))),
     customCosts: plan.customCosts,
   })
   return {
@@ -911,6 +921,8 @@ export function confirmEngineeringBomPricingPlan(input: {
   const resolved = resolvePricingPlanFromSnapshot(snapshot, input.ownerStage, input.ownerId)
   const invalid = resolved.resolved.materialLines.find((item) => item.priceStatus === '标准单价失效')
   if (invalid) throw new Error(`物料 ${invalid.materialSkuCode} 标准单价失效，不能确认整款 BOM 与价格。`)
+  const frozenLines = versions.map(record => record.materialLines.map(line => captureEngineeringBomMaterialReference(line, 'FROZEN')))
+  plan.confirmedPricing = resolveEngineeringBomDraft({ materialLines: frozenLines.flat(), customCosts: plan.customCosts })
   const confirmedAt = input.confirmedAt || nowText()
   plan.status = 'COMPLETED_CONFIRMED'
   plan.completedConfirmedAt = confirmedAt
@@ -919,7 +931,8 @@ export function confirmEngineeringBomPricingPlan(input: {
   plan.updatedBy = input.userName
   plan.buyerId = input.userId
   plan.buyerName = input.userName
-  versions.forEach((record) => {
+  versions.forEach((record, index) => {
+    record.materialLines = frozenLines[index]
     record.versionStatus = 'COMPLETED_CONFIRMED'
     record.completedConfirmedAt = confirmedAt
     record.completedConfirmedBy = input.userName
@@ -960,6 +973,7 @@ export function copyEngineeringBomPricingPlan(input: {
   if (!sourceVersions.length) throw new Error('来源整款方案没有颜色物料方案，不能复制。')
   targetVersions.forEach(assertBomEditable)
   const copiedAt = input.copiedAt || nowText()
+  target.confirmedPricing = undefined
   target.customCostDecision = source.customCostDecision
   target.customCosts = source.customCosts.map((item, index) => ({
     ...item,

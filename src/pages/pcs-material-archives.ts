@@ -1,1675 +1,454 @@
+import { listMaterialTechnicalUsages } from '../data/pcs-material-technical-usage.ts'
+import { listFcsMaterialProcessPlans, fcsMaterialProcessPlanDetailPath } from '../data/fcs/material-process-plans.ts'
+import { registerPcsUnsavedChanges } from '../data/pcs-unsaved-changes.ts'
+import { materialPurchaseHandoffPath, materialProcessHandoffPath } from '../data/pcs-material-handoff.ts'
+import { assertMaterialMainUnitChangeAllowed } from '../data/pcs-material-reference-check.ts'
 // @page-pattern: list
-import { appStore } from '../state/store.ts'
-import { renderStandardListFilters, renderStandardListPage, renderStandardListStats } from '../components/ui/list-page.ts'
-import type { StandardListColumn } from '../components/ui/list-table.ts'
-import { createProcessOrderListController, type ProcessOrderListControllerState } from '../components/ui/process-order-list-controller.ts'
-import { resetStandardListEntryTransientStateOnRouteEntry } from '../components/ui/list-table-model.ts'
-// renderStandardListTable、renderTablePagination 与 list-export 均按需加载：
-// 它们经 list-feedback 静态引入 shell，会破坏以 Node 直载 TS 的专项检查。
-import {
-  createMaterialArchive,
-  createMaterialSkuRecord,
-  getMaterialArchiveById,
-  getMaterialArchiveCategoryOptions,
-  getMaterialSkuRecordById,
-  getMaterialSkuSpecMeta,
-  listMaterialArchives,
-  listMaterialLogRecordsByMaterialId,
-  listMaterialSkuRecordsByMaterialId,
-  listMaterialUsageRecordsByMaterialId,
-  updateMaterialSkuRecord,
-} from '../data/pcs-material-archive-repository.ts'
-import type {
-  MaterialArchiveKind,
-  MaterialArchiveRecord,
-  MaterialArchiveStatus,
-  MaterialLogRecord,
-  MaterialSkuDraftInput,
-  MaterialSkuRecord,
-  MaterialUsageRecord,
-} from '../data/pcs-material-archive-types.ts'
-import { listMaterialVariants, createMaterialVariant, listVariantLineage } from '../data/pcs-material-variant-repository.ts'
-import type { MaterialVariantRecord } from '../data/pcs-material-variant-types.ts'
-import { MATERIAL_VARIANT_CHAIN_CATEGORY_LABELS, MATERIAL_VARIANT_PROCESS_TYPE_LABELS } from '../data/pcs-material-variant-types.ts'
-import { escapeHtml, formatDateTime, toClassName } from '../utils.ts'
+import { renderStandardListPage, renderStandardListFilters, renderStandardListStats } from '../components/ui/list-page.ts'
+import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../components/ui/list-table.ts'
+import { loadListColumnPreferences, saveListColumnPreferences, normalizeListColumnPreferences, paginateStandardListRows, sortStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../components/ui/list-table-model.ts'
+import { renderTablePagination } from '../components/ui/pagination.ts'
+import { escapeHtml } from '../utils.ts'
+import { getLatestPcsExchangeRate } from '../data/pcs-exchange-rate-config.ts'
+import { listConfigDimensionOptions } from '../data/pcs-config-workspace-repository.ts'
+import { getMaterialPatternReference, listMaterialPatternChoices, listMaterialPatternVersionChoices } from '../data/pcs-material-pattern.ts'
+import { MATERIAL_TRANSFER_LABELS, buildMaterialBusinessTemplate, materialTransferHeaders, previewMaterialBusinessImport, runMaterialBusinessImportBatch, exportMaterialBusinessRows, type MaterialTransferMode, type MaterialImportPreview, type MaterialImportCommitResult } from '../data/pcs-material-transfer.ts'
+import { renderRealQrPlaceholder } from '../components/real-qr.ts'
+import { runPcsRecordCommand, registerPcsFile, releasePcsPendingFile } from '../data/pcs-record-runtime.ts'
+import { getMaterialTemplate, getMaterialTemplateByVersion, getMaterialBoundFields, listMaterialUnitDefinitions, listMaterialProcessConfigurations, listMaterialEquipmentModels, type MaterialTemplateField } from '../data/pcs-material-config.ts'
+import { materialFieldRequired, validateMaterialDimensions } from '../data/pcs-material-attributes.ts'
+import { createMaterialArchive, updateMaterialArchive, copyMaterialArchive, createMaterialSkuRecord, updateMaterialSkuRecord, createProcessedMaterialSku,
+  getMaterialArchiveById, getMaterialSkuRecordById, listMaterialArchives, listMaterialSkuRecordsByMaterialId, queryMaterialArchiveList, type MaterialRootListRow, type MaterialSkuListRow, listMaterialSkuLineage,
+  getMaterialArchiveCategoryOptions, getMaterialProcessDefinition, getMaterialStandardCost, listMaterialCostVersions, previewMaterialCostChange,
+  saveMaterialStandardCost, materialStandardCostDisplay, listMaterialUnitRelations, saveMaterialUnitRelation, listMaterialPackageSpecs, saveMaterialPackageSpec,
+  listMaterialUsageRecordsByMaterialId, listMaterialLogRecordsByMaterialId, setMaterialApproval, setMaterialUseStatus, runMaterialApprovalBatch, type MaterialApprovalBatchResult,
+  listMaterialAssets, addMaterialAsset, validateMaterialAssetFile, reviseMaterialProcessAssets, materialProcessOrderIntent, type MaterialArchiveDraft } from '../data/pcs-material-archive-repository.ts'
+import { MATERIAL_PROCESS_LABELS, MATERIAL_PROCESS_NAMES, buildProcessedMaterialCode, materialUnitDimension, fixedMaterialFactor, canonicalMaterialUnit } from '../data/pcs-material-rules.ts'
+import type { MaterialArchiveKind, MaterialArchiveRecord, MaterialSkuRecord, MaterialSkuDraftInput, MaterialProcessDraft, MaterialProcessType, MaterialSpecValues, MaterialUnitRelation, MaterialAsset, MaterialStandardCostVersion, MaterialEquipmentCompatibility, MaterialNamedDimension } from '../data/pcs-material-archive-types.ts'
 
-type MaterialDetailTabKey = 'overview' | 'skus' | 'variants' | 'usage' | 'logs'
-
-interface MaterialArchiveFilterState {
-  search: string
-  status: 'all' | MaterialArchiveStatus
+const PREFIX = 'pcs-material-archive'
+const names: Record<MaterialArchiveKind,string> = {fabric:'面料',accessory:'辅料',yarn:'纱线',consumable:'耗材',parts:'配件'}
+const approval:Record<string,string>={DRAFT:'草稿',PENDING:'待审核',APPROVED:'审核通过'}
+const useStatus:Record<string,string>={NOT_ENABLED:'未启用',ACTIVE:'启用',INACTIVE:'停用',ARCHIVED:'归档'}
+const roles:Record<MaterialAsset['role'],string>={IDENTIFICATION:'实物识别图',INPUT:'投入实物图',PATTERN:'花型展示图',COLOR_SAMPLE:'确认色样',PRINT_FILE:'印花执行稿',EMBROIDERY_FILE:'绣花版',HEAT_TRANSFER_FILE:'烫画执行稿',SPECIFICATION:'技术资料'}
+interface Filters { search:string;category:string;stage:string;process:string;color:string;pantone:string;pattern:string;approval:string;status:string;cost:string }
+const emptyFilters=():Filters=>({search:'',category:'',stage:'',process:'',color:'',pantone:'',pattern:'',approval:'',status:'',cost:''})
+interface ListState { view:'root'|'sku';filters:Filters;draft:Filters;page:number;sort:StandardListSortState|null;prefs:StandardListColumnPreferences;settings:boolean;more:boolean;selected:Set<string> }
+const lists=new Map<MaterialArchiveKind,ListState>()
+let copySeed: MaterialSkuRecord | null = null
+let copyProcess: MaterialProcessDraft | null = null
+const pendingFiles = new Map<string,string>()
+const transfer={open:false,mode:'archives' as MaterialTransferMode,text:'',preview:null as MaterialImportPreview|null,batchId:'',resultPage:1,results:[] as MaterialImportCommitResult[]}
+const approvalBatch={open:false,kind:'fabric' as MaterialArchiveKind,action:'SUBMIT' as 'SUBMIT'|'APPROVE',selectedCount:0,results:[] as MaterialApprovalBatchResult[]}
+function releasePendingFiles():void { for(const id of pendingFiles.values()) releasePcsPendingFile(id); pendingFiles.clear() }
+const state={kind:'fabric' as MaterialArchiveKind,notice:'',detailId:'',detailTab:'basic',skuId:'',skuTab:'spec',image:'',printSkuIds:[] as string[],printMaterialId:'',printQuantity:'1',labelTemplate:'standard',labelPreview:false,formKey:'',formTab:'basic',form:{} as Record<string,string>,dirty:false,saving:false,operationId:'',costCurrency:'CNY' as 'CNY'|'IDR'|'USD',fx: {IDR:2000,USD:.14} as Partial<Record<'IDR'|'USD',number>>,assetFile:null as File|null}
+function listState(kind:MaterialArchiveKind):ListState { let value=lists.get(kind);if(!value){value={view:'root',filters:emptyFilters(),draft:emptyFilters(),page:1,sort:null,prefs:{order:[],visibleKeys:[],frozenKeys:['identity'],pageSize:20},settings:false,more:false,selected:new Set()};lists.set(kind,value)}return value }
+const h=(value:unknown)=>escapeHtml(value??'')
+const attr=(action:string,extra='')=>`data-${PREFIX}-action="${action}" ${extra}`
+const button=(text:string,action:string,extra='',primary=false)=>`<button type="button" class="inline-flex h-9 items-center justify-center rounded-md ${primary?'bg-blue-600 text-white hover:bg-blue-700':'border bg-white text-slate-700 hover:bg-slate-50'} px-3 text-sm font-medium" ${attr(action,extra)}>${h(text)}</button>`
+const nav=(text:string,path:string,primary=false)=>`<button type="button" class="inline-flex h-9 items-center rounded-md ${primary?'bg-blue-600 text-white':'border bg-white text-slate-700'} px-3 text-sm font-medium" data-nav="${h(path)}">${h(text)}</button>`
+const rootPath=(kind:MaterialArchiveKind,id='')=>`/pcs/materials/${kind}${id?`/${id}`:''}`
+const skuPath=(kind:MaterialArchiveKind,id:string,skuId:string)=>`${rootPath(kind,id)}/skus/${skuId}`
+const badge=(value:string,tone='slate')=>`<span class="inline-flex whitespace-nowrap rounded border px-2 py-0.5 text-xs ${tone==='blue'?'border-blue-200 bg-blue-50 text-blue-700':tone==='amber'?'border-amber-200 bg-amber-50 text-amber-700':'border-slate-200 bg-slate-50 text-slate-600'}">${h(value)}</span>`
+const note=()=>state.notice?`<div role="status" class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">${h(state.notice)}</div>`:''
+const image=(url:string,name:string,size='h-14 w-14')=>url?`<button type="button" ${attr('image',`data-url="${h(url)}"`)} class="shrink-0"><img loading="lazy" src="${h(url)}" alt="${h(name)}" class="${size} rounded border bg-slate-50 object-cover" /></button>`:'<span class="text-xs text-amber-700">待补识别图</span>'
+function identity(code:string,name:string,url:string,path:string,secondary=''):string{return `<div class="flex min-w-0 items-center gap-3">${image(url,name)}<div class="min-w-0"><button class="break-all text-left font-medium text-blue-700" data-nav="${h(path)}">${h(code)}</button><div class="mt-1 break-words text-xs text-slate-600">${h(name)}</div>${secondary?`<div class="mt-1 text-xs text-slate-400">${h(secondary)}</div>`:''}</div></div>`}
+function field(key:string,label:string,value:string,type='text',options?:Array<{value:string;label:string}>,scope='form',disabled=false):string{
+  if(options&&value&&!options.some(option=>option.value===value))options=[{value,label:value+'（原值）'},...options]
+  const data=`data-${PREFIX}-field="${key}" data-field-scope="${scope}" data-skip-page-rerender="true"`,css='h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50'
+  const control=options?`<select class="${css}" ${data} ${disabled?'disabled':''}><option value="">请选择</option>${options.map(o=>`<option value="${h(o.value)}" ${value===o.value?'selected':''}>${h(o.label)}</option>`).join('')}</select>`:type==='textarea'?`<textarea class="min-h-24 w-full rounded-md border px-3 py-2 text-sm" ${data} ${disabled?'disabled':''}>${h(value)}</textarea>`:`<input class="${css}" type="${type}" step="any" value="${h(value)}" ${data} ${disabled?'disabled':''} />`
+  return `<label class="block min-w-0 space-y-1.5"><span class="text-xs font-medium text-slate-600">${h(label)}</span>${control}</label>`
 }
+const options=(values:string[])=>values.map(value=>({value,label:value}))
+const colorOptions=()=>listConfigDimensionOptions('colors').filter(x=>x.status==='ENABLED').map(x=>({value:x.name_zh,label:x.name_zh}))
+const units=()=>listMaterialUnitDefinitions().filter(x=>x.enabled).map(x=>({value:x.code,label:`${x.code} · ${x.label}`}))
+const card=(title:string,content:string,actions='')=>`<section class="rounded-lg border bg-white"><div class="flex items-center justify-between gap-3 border-b px-5 py-3"><h2 class="text-sm font-semibold text-slate-800">${h(title)}</h2>${actions}</div><div class="p-5">${content}</div></section>`
+const labelFor=(key:string)=>({color:'颜色',construction:'组织 / 结构',material:'材质',width:'幅宽 / 宽度',widthCm:'幅宽（cm）',gramWeight:'克重（g/m²）',gramWeightGsm:'克重（g/m²）',length:'长度',diameter:'直径',thickness:'厚度',countSystem:'纱支体系',countValue:'纱支数值',plies:'股数',equipment:'设备适配',model:'型号',dimensions:'尺寸',interface:'接口 / 安装规格',holeCount:'孔数',fastening:'固定方式',teeth:'齿型',opening:'开合方式',gauge:'规格号',usage:'用途',twist:'捻度',partType:'部件类型',grade:'牌号',viscosityGrade:'黏度等级',shape:'形状要求',netContent:'净含量',elasticity:'弹力说明'}as Record<string,string>)[key]||key
+function specDisplay(value:unknown):unknown { return Array.isArray(value) ? value.map(item => item && typeof item==='object' && 'name'in item && 'value'in item ? `${item.name} ${item.value} ${item.unit}` : item).join('、') : value===null||value===undefined||value===''?'—':value }
+const rows=(items:Array<[string,unknown]>)=>`<dl class="grid grid-cols-1 gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">${items.map(([label,value])=>`<div><dt class="text-xs text-slate-500">${h(labelFor(label))}</dt><dd class="mt-1.5 break-all text-sm text-slate-800">${h(specDisplay(value))}</dd></div>`).join('')}</dl>`
+function tabs(items:Array<[string,string]>,active:string,action:string):string{return `<nav class="flex overflow-x-auto border-b bg-white px-5" aria-label="页面视图">${items.map(([id,label])=>`<button type="button" class="shrink-0 border-b-2 px-4 py-3 text-sm ${id===active?'border-blue-600 font-semibold text-blue-700':'border-transparent text-slate-500'}" ${attr(action,`data-value="${id}"`)} aria-selected="${id===active}">${h(label)}</button>`).join('')}</nav>`}
+function header(title:string,subtitle:string,back:string,actions=''):string{return `<header class="rounded-lg border bg-white px-5 py-4"><div class="mb-3 text-xs text-slate-500">${nav('返回',back)}<span class="ml-3">商品中心 / ${h(subtitle)}</span></div><div class="flex flex-wrap items-center justify-between gap-3"><div class="min-w-0"><h1 class="break-all text-xl font-semibold text-slate-900">${h(title)}</h1></div><div class="flex flex-wrap gap-2">${actions}</div></div></header>`}
+function simpleTable(headers:string[],data:string[][]):string{return `<div class="overflow-x-auto"><table class="min-w-full text-left text-sm"><thead class="border-b bg-slate-50 text-xs text-slate-500"><tr>${headers.map(x=>`<th class="px-3 py-3 font-medium">${h(x)}</th>`).join('')}</tr></thead><tbody>${data.length?data.map(row=>`<tr class="border-b border-slate-100 align-top">${row.map(cell=>`<td class="px-3 py-3">${cell}</td>`).join('')}</tr>`).join(''):`<tr><td colspan="${headers.length}" class="p-10 text-center text-sm text-slate-400">暂无记录</td></tr>`}</tbody></table></div>`}
+export function renderMaterialApprovalBatchResults(results:readonly MaterialApprovalBatchResult[],selectedCount:number):string {
+ const saved=results.filter(item=>item.ok).length,failed=results.length-saved
+ return `<div data-pcs-material-approval-results><p class="mb-4 text-sm">本次选中 ${selectedCount} 项，已保存 ${saved} 项，未保存 ${failed} 项。</p>${simpleTable(['对象','编码 / 名称','结果','说明'],results.map(item=>[h(item.objectType),`<div class="break-all font-medium">${h(item.code)}</div><div class="mt-1 text-xs text-slate-500">${h(item.name)}</div>`,`<span class="${item.ok?'text-green-700':'text-amber-700'}">${item.ok?'已保存':'未保存'}</span>`,h(item.message)]))}${failed?'<p class="mt-4 text-xs text-slate-500">未保存的对象仍保持选中。请根据原因补齐资料或重新读取后，再次提交。</p>':''}</div>`
+}
+function filteredMaterialRows(kind:MaterialArchiveKind) { const current=listState(kind); return queryMaterialArchiveList(kind,{...current.filters,view:current.view}) }
+function filteredSkus(kind:MaterialArchiveKind):MaterialSkuListRow[]{return filteredMaterialRows(kind).skus}
+function filteredRoots(kind:MaterialArchiveKind):MaterialRootListRow[]{return filteredMaterialRows(kind).roots}
+function listColumns(kind:MaterialArchiveKind):StandardListColumn<MaterialRootListRow|MaterialSkuListRow>[] {
+ const view=listState(kind).view,isSku=view==='sku'
+ return [
+  {key:'select',title:'选择',width:44,required:true,leadingControlColumn:true,render:row=>{const id=isSku?(row as MaterialSkuListRow).materialSkuId:row.materialId;return `<input type="checkbox" aria-label="选择 ${h(id)}" data-${PREFIX}-field="selection" data-value="${h(id)}" ${listState(kind).selected.has(id)?'checked':''} />`}},
+  {key:'identity',title:isSku?'物料 SKU':'物料',width:310,required:true,freezeable:true,sortable:true,sortValue:row=>'materialSkuCode'in row?row.materialSkuCode:row.materialCode,render:row=>isSku?identity((row as MaterialSkuListRow).materialSkuCode,row.materialName,(row as MaterialSkuListRow).skuImageUrl,skuPath(kind,row.materialId,(row as MaterialSkuListRow).materialSkuId)):identity(row.materialCode,row.materialName,(row as MaterialRootListRow).mainImageUrl,rootPath(kind,row.materialId))},
+  {key:'category',title:isSku?'颜色 / 色号 / 花型':'子类 / 核心规格',width:210,sortable:true,sortValue:row=>'materialSkuCode'in row?row.colorName:row.categoryName,render:row=>isSku?`<div>${h((row as MaterialSkuListRow).colorName||'—')}</div><div class="mt-1 text-xs text-slate-500">${h([(row as MaterialSkuListRow).pantoneSystem,(row as MaterialSkuListRow).pantoneCode,(row as MaterialSkuListRow).patternCode].filter(Boolean).join(' / '))}</div>`:`<div>${h((row as MaterialRootListRow).categoryName)}</div><div class="mt-1 text-xs text-slate-500">${h((row as MaterialRootListRow).specSummary)}</div>`},
+  {key:'stage',title:isSku?'加工阶段 / 直接投入':'SKU 数',width:isSku?205:80,render:row=>isSku?`${badge(MATERIAL_PROCESS_LABELS[(row as MaterialSkuListRow).stage||'BASE'])}<div class="mt-1 break-all text-xs text-slate-500">${h((row as MaterialSkuListRow).inputSkuId?getMaterialSkuRecordById((row as MaterialSkuListRow).inputSkuId!)?.materialSkuCode:'基础投入')}</div>`:h((row as MaterialRootListRow).skuCount)},
+  ...(isSku?[{key:'unit',title:'主单位',width:85,render:(row:MaterialRootListRow|MaterialSkuListRow)=>h((row as MaterialSkuListRow).mainUnit)}, {key:'cost',title:'综合标准成本',width:150,render:(row:MaterialRootListRow|MaterialSkuListRow)=>{const cost=getMaterialStandardCost((row as MaterialSkuListRow).materialSkuId);return cost.totalStandardCny===null?`<span class="text-amber-700">${h(cost.completeness.join('、'))}</span>`:`<span class="tabular-nums">${cost.totalStandardCny.toFixed(4)}</span><div class="text-xs text-slate-400">RMB / ${h(cost.pricingUnit)}</div>`}}]:[]),
+  {key:'status',title:'审核 / 使用',width:140,render:row=>`${badge(approval[row.approvalStatus||'APPROVED'],row.approvalStatus==='PENDING'?'amber':'slate')}<div class="mt-1 text-xs text-slate-500">${h(useStatus[row.status])}</div>`},
+  {key:'updated',title:'更新时间',width:155,sortable:true,sortValue:row=>row.updatedAt,render:row=>h(row.updatedAt)},
+  {key:'actions',title:'操作',width:145,actionColumn:true,render:row=>{const path=isSku?skuPath(kind,row.materialId,(row as MaterialSkuListRow).materialSkuId):rootPath(kind,row.materialId);return `<div class="flex gap-2">${nav('详情',path)}${nav('编辑',`${path}/edit`)}</div>`}},
+ ]
+}
+function renderListPage(kind:MaterialArchiveKind):string {
+ state.kind=kind; const current=listState(kind), columns=listColumns(kind), key=`pcs-material-r1-${kind}-${current.view}`
+ if(!current.prefs.order.length){current.prefs=normalizeListColumnPreferences(columns,loadListColumnPreferences(preferenceStorage,key,columns,current.prefs,[20,50,100]),[20,50,100]);if(current.prefs.visibleKeys.length<=3)current.prefs.visibleKeys=columns.map(c=>c.key);current.prefs.pageSize=20}
+ const {skus,roots,stats}=filteredMaterialRows(kind)
+ let data:Array<MaterialRootListRow|MaterialSkuListRow>=current.view==='sku'?skus:roots
+ data=sortStandardListRows(data,current.sort,(row,key)=>columns.find(c=>c.key===key)?.sortValue?.(row)||'')
+ const page=paginateStandardListRows(data,current.page,current.prefs.pageSize)
+ const filterFields=field('search','编码 / 旧码 / 名称',current.draft.search,'text',undefined,'filter')+field('category','子类',current.draft.category,'text',getMaterialArchiveCategoryOptions(kind),'filter')+field('stage','当前阶段',current.draft.stage,'text',Object.entries(MATERIAL_PROCESS_LABELS).map(([value,label])=>({value,label})),'filter')+field('approval','审核状态',current.draft.approval,'text',Object.entries(approval).map(([value,label])=>({value,label})),'filter')+field('status','使用状态',current.draft.status,'text',Object.entries(useStatus).map(([value,label])=>({value,label})),'filter')+(current.more?field('process','包含工艺',current.draft.process,'text',Object.entries(MATERIAL_PROCESS_NAMES).map(([value,label])=>({value,label})),'filter')+field('color','颜色',current.draft.color,'text',undefined,'filter')+field('pantone','Pantone',current.draft.pantone,'text',undefined,'filter')+field('pattern','花型编号',current.draft.pattern,'text',undefined,'filter')+field('cost','成本完整性',current.draft.cost,'text',[{value:'complete',label:'完整'},{value:'missing',label:'待补标准'}],'filter'):'')
+ return `<div data-pcs-material-archive-page="${kind}">${renderStandardListPage({title:`${names[kind]}档案`,primaryActionsHtml:nav(`新建${names[kind]}`,`${rootPath(kind)}/new`,true),feedbackHtml:note(),statusTabsHtml:tabs([['root','主档视图'],['sku','SKU 视图']],current.view,'list-view'),filtersHtml:renderStandardListFilters({fieldsHtml:`<div class="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-5">${filterFields}</div>`,actionPrefix:PREFIX,extraActionsHtml:button(current.more?'收起筛选':'更多筛选','more')+button('业务导入 / 导出','transfer-open')}),statsHtml:renderStandardListStats([{label:'主档数',value:stats.total},{label:'SKU 数',value:stats.skuCount},{label:'待审核',value:stats.pending},{label:'待补标准价',value:stats.incompleteCost}],{compact:true}),listTitle:current.view==='root'?'物料主档':'基础与加工 SKU',listActionsHtml:`<span class="mr-2 text-xs text-slate-500">已选择 ${current.selected.size} 项</span>${button('提交审核','batch-submit')}${button('审核通过','batch-approve')}${approvalBatch.results.length&&approvalBatch.kind===kind?button('查看批量结果','batch-results'):''}${button('列设置','columns')}`,tableHtml:renderStandardListTable({columns,rows:page.rows,preferences:current.prefs,sort:current.sort,eventPrefix:PREFIX,skipPageRerender:false}),paginationHtml:renderTablePagination({...page,actionPrefix:PREFIX,pageSizeOptions:[20,50,100],skipPageRerender:false}),overlaysHtml:current.settings?renderStandardListColumnSettings({title:'列设置',columns,preferences:current.prefs,eventPrefix:PREFIX,maxFrozenWidth:420,skipPageRerender:false}):''})}${renderOverlay()}</div>`
+}
+function approvalActions(id:string,status:string|undefined):string{return status==='PENDING'?button('审核通过','approve',`data-id="${h(id)}"`,true)+button('驳回','reject',`data-id="${h(id)}"`):status==='APPROVED'?'':button('提交审核','submit',`data-id="${h(id)}"`,true)}
+function useActions(id:string,status:MaterialArchiveRecord['status']):string{return(status!=='ARCHIVED'?button(status==='ACTIVE'?'停用':'启用','use-status',`data-id="${h(id)}" data-status="${status==='ACTIVE'?'INACTIVE':'ACTIVE'}"`):'')+(status!=='ARCHIVED'?button('归档','use-status',`data-id="${h(id)}" data-status="ARCHIVED"`):'')}
+function rootSkuTable(kind:MaterialArchiveKind,root:MaterialArchiveRecord):string{return simpleTable(['SKU 与实物','规格','阶段','主单位','审核 / 使用','操作'],listMaterialSkuRecordsByMaterialId(root.materialId).map(sku=>[identity(sku.materialSkuCode,sku.materialName,sku.skuImageUrl,skuPath(kind,root.materialId,sku.materialSkuId)),h([sku.colorName,sku.pantoneCode,sku.specName].filter(Boolean).join(' / ')),h(MATERIAL_PROCESS_LABELS[sku.stage||'BASE']),h(sku.mainUnit),`${badge(approval[sku.approvalStatus||'APPROVED'])} ${h(useStatus[sku.status])}`,nav('详情',skuPath(kind,root.materialId,sku.materialSkuId))]))}
+function relations(kind:MaterialArchiveKind,root:MaterialArchiveRecord,selected?:string):string {
+ const skus=listMaterialSkuRecordsByMaterialId(root.materialId),subset=selected?listMaterialSkuLineage(selected):skus
+ return simpleTable(['投入 → 产出','工艺与资料','有效规格'],subset.map(sku=>{const process=getMaterialProcessDefinition(sku.materialSkuId),parent=sku.inputSkuId?getMaterialSkuRecordById(sku.inputSkuId):null;return [`${parent?`<div class="mb-2 break-all text-xs text-slate-500">${h(parent.materialSkuCode)} →</div>`:''}${identity(sku.materialSkuCode,sku.materialName,sku.skuImageUrl,skuPath(kind,root.materialId,sku.materialSkuId))}`,`${h(MATERIAL_PROCESS_LABELS[sku.stage||'BASE'])}<div class="mt-1 text-xs text-slate-500">${h([process?.patternCode,process?.patternVersionId,process?.printSide,process?.penetration?'渗透印':'',process?.processVersionId].filter(Boolean).join(' / '))}</div>`,h(materialSpecRows(root,sku.effectiveSpecValues||{}).filter(([,v])=>v!==null).map(([k,v])=>`${k}: ${v}`).join('，'))]}))
+}
+function materialSpecRows(root:MaterialArchiveRecord,values:MaterialSpecValues):Array<[string,unknown]> {
+ const fields=getMaterialTemplateByVersion(root.templateId!,root.templateVersion||1).fields
+ const labels:Record<string,string>={width:'幅宽',gramWeight:'克重',widthCm:'幅宽',gramWeightGsm:'克重',color:'颜色',composition:'成分',construction:'组织结构',countSystem:'纱支体系',countValue:'纱支数值',plies:'股数',model:'型号',dimensions:'尺寸',interface:'接口规格',material:'材质',equipment:'适用设备',partType:'配件类型',length:'长度',thickness:'厚度'}
+ return Object.entries(values).map(([key,value])=>{const field=fields.find(f=>f.key===key);return [field?`${field.label}${field.unit?'（'+field.unit+'）':''}`:labels[key]||key,value]})
+}
+function rootSpecificationRows(root:MaterialArchiveRecord):string {
+ const template=getMaterialTemplateByVersion(root.templateId!,root.templateVersion||1)
+ const data:Array<[string,unknown]>=template.fields.filter(f=>f.level==='root').map(f=>[`${f.label}${f.unit?'（'+f.unit+'）':''}`,f.valueShape==='equipmentCompatibility'?root.equipmentCompatibilityDetails?.map(item=>`${item.equipmentTypeName}${item.equipmentModelName?' / '+item.equipmentModelName:' / 不限型号'}`).join('、'):f.type==='composition'?root.composition:root.categoryAttributes?.[f.key]??(f.key==='width'?root.widthValueCm:f.key==='gramWeight'?root.gramWeightGsm:undefined)])
+ return rows([...data,['备注',root.remark]])
+}
+export function renderPcsMaterialArchiveDetailPage(kind:MaterialArchiveKind,materialId:string):string {
+ state.kind=kind; if(state.detailId!==materialId){state.detailId=materialId;state.detailTab='basic'}
+ const root=getMaterialArchiveById(materialId);if(!root||root.kind!==kind)return card('物料不存在',nav('返回列表',rootPath(kind)))
+ const path=rootPath(kind,materialId);let content=''
+ if(state.detailTab==='basic') content=card('基本资料',`<div class="mb-6 flex gap-5">${image(root.mainImageUrl,root.materialName,'h-28 w-28')}<div class="flex-1">${rows([['名称',root.materialName],['英文名称',root.materialNameEn],['子类',root.categoryName],['审核',approval[root.approvalStatus||'APPROVED']],['使用',useStatus[root.status]],['属性模板',`${root.templateId} / v${root.templateVersion}`],['默认条码模板',root.barcodeTemplateCode==='material-label-detail-r1'?'带加工信息物料标签':'标准物料标签']])}</div></div>${rootSpecificationRows(root)}`)
+ else if(state.detailTab==='skus') content=card('物料 SKU',rootSkuTable(kind,root),nav('新增基础 SKU',`${path}/skus/new`,true))
+ else if(state.detailTab==='process')content=card('加工关系',relations(kind,root))
+ else if(state.detailTab==='usage')content=renderUsage(root)
+ else if(state.detailTab==='assets')content=renderAssets(root)
+ else content=renderLogs(root.materialId)
+ return `<div class="space-y-4 p-4" data-pcs-material-detail>${header(root.materialCode,`${names[kind]}档案 / 详情`,rootPath(kind),approvalActions(materialId,root.approvalStatus)+nav('编辑资料',`${path}/edit`)+button('复制主档','copy-root',`data-id="${h(materialId)}"`)+button('打印条码','print-label',`data-material-id="${h(materialId)}"`)+useActions(materialId,root.status))}${note()}${tabs([['basic','基本资料'],['skus','SKU'],['process','加工关系'],['usage','技术引用'],['assets','资料'],['logs','记录']],state.detailTab,'root-tab')}${content}${renderOverlay()}</div>`
+}
+function renderUsage(root:MaterialArchiveRecord):string{return renderSkuTechnicalUsage(listMaterialSkuRecordsByMaterialId(root.materialId).map(item=>item.materialSkuId))}
+function renderLogs(materialId:string):string{return card('操作记录',simpleTable(['动作','说明','操作人','时间'],listMaterialLogRecordsByMaterialId(materialId).map(item=>[h(item.title),h(item.detail),h(item.operatorName),h(item.createdAt)])))}
+function renderAssets(root:MaterialArchiveRecord,sku?:MaterialSkuRecord):string {
+ const data=listMaterialAssets(root.materialId,sku?.materialSkuId),process=sku?getMaterialProcessDefinition(sku.materialSkuId):null
+ return card('资料',`${!sku&&root.galleryImageUrls?.length?`<div class="mb-5 flex flex-wrap gap-3">${root.galleryImageUrls.map(url=>image(url,root.materialName,'h-20 w-20')).join('')}</div>`:''}<p class="mb-4 text-xs text-slate-500">实物识别图、花型展示图与执行稿按用途分别保存。</p>${simpleTable(['用途','名称 / 版本','文件类型 / 大小','查看'],data.map(item=>[h(roles[item.role]),h(`${item.name} / v${item.version}`)+(item.fileName?`<div class="mt-1 text-xs text-slate-500">${h(item.fileName)}</div>`:''),h(`${item.mimeType||'原资料未记录'} / ${item.sizeBytes===undefined?'原资料未记录':(item.sizeBytes/1024).toFixed(1)+' KB'}`),!['IDENTIFICATION','INPUT','PATTERN','COLOR_SAMPLE'].includes(item.role)?`<a class="text-blue-700" href="${h(item.url)}" target="_blank" rel="noopener">查看资料</a>`:image(item.url,item.name)]))}<div class="mt-5 grid gap-3 md:grid-cols-3">${field('assetRole','资料用途',state.form.assetRole||'IDENTIFICATION','text',Object.entries(roles).map(([value,label])=>({value,label})))}${field('assetName','资料名称',state.form.assetName||'')}${process?field('assetProcessVersion','工艺资料版本',state.form.assetProcessVersion||(process.executionAssetIds.length?process.processVersionId+'-修订1':process.processVersionId)):''}<label class="text-xs text-slate-600">选择文件<input type="file" class="mt-2 block w-full text-sm" data-${PREFIX}-field="assetFile" data-skip-page-rerender="true" /></label></div>${process?.documentHistory?.length?`<details class="mt-5"><summary class="cursor-pointer text-sm">历史执行资料版本</summary>${simpleTable(['资料版本','原执行资料','替换时间'],process.documentHistory.map(version=>[h(version.processVersionId),version.executionAssetIds.map(id=>{const asset=listMaterialAssets(root.materialId).find(item=>item.assetId===id);return asset?`<a class="mr-3 text-blue-700" href="${h(asset.url)}" target="_blank" rel="noopener">${h(asset.name)}</a>`:h(id)}).join(''),h(version.replacedAt)]))}</details>`:''}<div class="mt-4">${button('保存资料','save-asset',`data-material-id="${h(root.materialId)}" data-sku-id="${h(sku?.materialSkuId||'')}"`,true)}</div>`)
+}
+export function renderPcsMaterialSkuDetailPage(kind:MaterialArchiveKind,materialId:string,skuId:string):string {
+ state.kind=kind;if(state.skuId!==skuId){state.skuId=skuId;state.skuTab='spec'}
+ const root=getMaterialArchiveById(materialId),sku=getMaterialSkuRecordById(skuId);if(!root||root.kind!==kind||!sku||sku.materialId!==materialId)return card('物料 SKU 不存在',nav('返回',rootPath(kind)))
+ const path=skuPath(kind,materialId,skuId);let content=''
+ if(state.skuTab==='spec')content=card('规格资料',`<div class="mb-6 flex items-start gap-5">${image(sku.skuImageUrl,sku.materialName,'h-28 w-28')}<div class="flex-1">${rows([['父主档',root.materialCode],['名称',sku.materialName],['当前阶段',MATERIAL_PROCESS_LABELS[sku.stage||'BASE']],['颜色',sku.colorName],['Pantone',`${sku.pantoneSystem||''} ${sku.pantoneCode||''}`],['花型编号',sku.patternCode],['审核',approval[sku.approvalStatus||'APPROVED']],['使用',useStatus[sku.status]],['编码规则',sku.codeRuleVersionId]])}</div></div>${rows([...materialSpecRows(root,{...sku.identityValues,...sku.effectiveSpecValues}),['旧码 / 条码别名',sku.barcodeAliases]])}`)
+ else if(state.skuTab==='process')content=card('加工关系',relations(kind,root,skuId),nav('基于此 SKU 新增加工',`${path}/process`,true))
+ else if(state.skuTab==='plans')content=renderRelatedMaterialPlans(skuId)
+ else if(state.skuTab==='usage')content=renderSkuTechnicalUsage([skuId])
+ else if(state.skuTab==='units')content=renderUnits(sku,path)
+ else if(state.skuTab==='cost')content=renderCost(sku,path)
+ else if(state.skuTab==='pack')content=renderPack(sku,path)
+ else if(state.skuTab==='assets')content=renderAssets(root,sku)
+ else content=renderLogs(materialId)
+ return `<div class="space-y-4 p-4" data-pcs-material-sku-detail>${header(sku.materialSkuCode,`${names[kind]} SKU / ${MATERIAL_PROCESS_LABELS[sku.stage||'BASE']}`,rootPath(kind,materialId),approvalActions(skuId,sku.approvalStatus)+nav('编辑资料',`${path}/edit`)+button('复制规格','copy-sku',`data-sku-id="${h(skuId)}"`)+nav('新增加工',`${path}/process`)+button('打印条码','print-label',`data-sku-id="${h(skuId)}"`)+useActions(skuId,sku.status))}${note()}${tabs([['spec','规格'],['process','加工关系'],['plans','加工计划'],['units','计量单位'],['cost','标准成本'],['pack','包装物流'],['usage','技术引用'],['assets','资料'],['logs','记录']],state.skuTab,'sku-tab')}${content}<div class="flex justify-end gap-2">${button('发起采购','purchase',`data-sku-id="${h(skuId)}"`)}${sku.inputSkuId?button('创建加工计划','process-order',`data-sku-id="${h(skuId)}"`):''}</div>${renderOverlay()}</div>`
+}
+function renderRelatedMaterialPlans(skuId:string):string {
+ const plans=listFcsMaterialProcessPlans({skuId})
+ return card('关联加工计划',simpleTable(['计划编号','工艺 / 状态','本料角色','投入数量','产出数量','工厂','查看'],plans.map(plan=>[h(plan.planNo),h(`${MATERIAL_PROCESS_NAMES[plan.processType]} / ${plan.status==='DRAFT'?'草稿':'已计划'}`),plan.source.input.materialSkuId===skuId?'直接投入':'目标产出',h(`${plan.plannedInputQty??'未维护'} ${plan.source.input.mainUnit}`),h(`${plan.plannedOutputQty??'未维护'} ${plan.source.output.mainUnit}`),h(plan.factoryName||'未指定'),nav('加工计划',fcsMaterialProcessPlanDetailPath(plan.planId))])))
+}
+function renderSkuTechnicalUsage(skuIds:string[]):string {
+ const labels:Record<string,string>={DRAFT:'草稿',PENDING_REVIEW:'待审核',PUBLISHED:'已发布',COMPLETED_CONFIRMED:'已完成确认',PUBLISHED_SNAPSHOT:'已发布快照',ARCHIVED:'已归档',REVIEWING:'审核中',APPROVED:'审核通过',REJECTED:'已退回'}
+ return card('技术引用',simpleTable(['来源 / 版本','款式','物料 SKU','用量 / 单位','状态','查看'],listMaterialTechnicalUsages(skuIds).map(item=>[h(`${item.source==='TECHNICAL_VERSION'?'技术资料':'工程 BOM'} · ${item.ownerCode} / ${item.version}`),h(`${item.styleCode} / ${item.styleName}`),h(getMaterialSkuRecordById(item.materialSkuId)?.materialSkuCode||item.materialSkuId),h(`${item.quantity} ${item.unit}`),h(labels[item.status]||'历史版本'),item.path?nav('技术资料',item.path):h(item.ownerCode)])))
+}
+function renderUnits(sku:MaterialSkuRecord,path:string):string {
+ const all=listMaterialUnitRelations(sku.materialSkuId,true),active=all.filter(x=>x.status==='ACTIVE')
+ return card('计量单位',`${rows([['主单位',sku.mainUnit],['量纲',materialUnitDimension(sku.mainUnit||'')],['数量精度',listMaterialUnitDefinitions().find(x=>x.code===sku.mainUnit)?.precision??'按单位定义'],['采用版本',sku.mainUnitVersion||1],['主单位规则',sku.mainUnitUsed||sku.approvalStatus==='APPROVED'?'已使用 / 已审核，主单位锁定':'草稿可维护']])}<div class="mt-6">${simpleTable(['辅助单位','换算表达式','依据 / 版本','用途 / 默认','操作'],active.map(item=>[h(`${item.auxUnitId}${item.packageSpecId?`（${item.mainQtyPerAux} ${sku.mainUnit}）`:''}`),h(`1 ${item.auxUnitId} = ${item.mainQtyPerAux} ${sku.mainUnit}`),h(`${item.basisReference} / v${item.version}`),h(item.uses.map(x=>({PURCHASE:'采购',PRICING:'计价',ISSUE:'发料'})[x]).join('、'))+`<div class="text-xs">默认：${h(item.isDefaultForUse.map(x=>({PURCHASE:'采购',PRICING:'计价',ISSUE:'发料'})[x]).join('、')||'无')}</div>`,button('编辑关系','edit-section',`data-section="units" data-relation-id="${h(item.relationId)}" data-path="${h(path+'/edit')}"`)]))}</div>${all.length>active.length?`<details class="mt-5"><summary class="cursor-pointer text-sm text-slate-500">历史关系版本（${all.length-active.length}）</summary>${simpleTable(['单位','系数','版本','原因'],all.filter(x=>x.status==='INACTIVE').map(x=>[h(x.auxUnitId),h(x.mainQtyPerAux),h(x.version),h(x.changeReason)]))}</details>`:''}`,button('新增辅助关系','edit-section',`data-section="units" data-path="${h(path+'/edit')}"`,true))
+}
+function renderCost(sku:MaterialSkuRecord,path:string):string {
+ const fx=getLatestPcsExchangeRate(),rate=state.costCurrency==='CNY'?1:state.costCurrency==='IDR'?fx.idrPerCny:fx.usdPerCny,cost=materialStandardCostDisplay(sku.materialSkuId,state.costCurrency,rate),versions=listMaterialCostVersions(sku.materialSkuId),source=versions.at(-1)?.sourceMoney
+ return card('综合标准成本',`<div class="flex flex-wrap items-center justify-between gap-4"><div><p class="text-xs text-slate-500">含税 · 按产出计价单位</p><div class="mt-2 text-3xl font-semibold tabular-nums">${cost.displayAmount===null?'未维护':cost.displayAmount.toFixed(4)} <span class="text-sm font-normal text-slate-500">${state.costCurrency==='CNY'?'RMB':state.costCurrency} / ${h(cost.pricingUnit)}</span></div><div class="mt-2 text-xs ${cost.completeness.length?'text-amber-700':'text-slate-500'}">${h(cost.message||cost.completeness.join('、')||'标准完整')}</div></div><div class="flex gap-2">${(['CNY','IDR','USD']as const).map(currency=>button(currency==='CNY'?'RMB':currency,'cost-currency',`data-value="${currency}"`,state.costCurrency===currency)).join('')}</div></div><div class="mt-5">${simpleTable(['成本组成','来源 SKU','含税单价 / '+cost.pricingUnit],cost.lines.map(item=>[h(item.title),h(getMaterialSkuRecordById(item.materialSkuId)?.materialSkuCode),item.amountCny===null?'未维护':item.amountCny.toFixed(4)+' RMB']))}</div><p class="mt-4 text-xs text-slate-500">基础采购 + 基础运输 + 逐道加工费（已含辅材）。后段运输、损耗、缩率及一次性费用不纳入。</p>${state.costCurrency!=='CNY'?`<p class="mt-2 text-xs text-slate-500">${rate?`1 CNY = ${rate} ${state.costCurrency}；${h(fx.source)} · ${h(fx.updatedAt)}。仅展示换算，未改变标准成本版本。`:'未配置汇率，请在基础配置维护。'}</p>`:''}${source?`<details class="mt-4 text-sm"><summary>原币来源与精度</summary>${rows([['原始金额',`${source.amount} ${source.currency}/${source.unit}`],['固定折算',source.cnyPerSourceCurrency],['归一依据',source.normalizationBasis]])}</details>`:''}<details class="mt-5"><summary class="cursor-pointer text-sm text-slate-500">本道标准版本（${versions.length}）</summary>${simpleTable(['生效时间','原因','采购','基础运输','加工费'],versions.slice().reverse().map(x=>[h(x.effectiveAt),h(x.changeReason),h(x.purchaseStandardCny??'未维护'),h(x.transportStandardCny??'未维护'),h(x.processStandardCny??'未维护')]))}</details>`,button('修改标准','edit-section',`data-section="cost" data-path="${h(path+'/edit')}"`,true))
+}
+function renderPack(sku:MaterialSkuRecord,path:string):string{return card('包装物流',`${rows([['每主单位净重（KG）',sku.netWeightPerMainKg],['净重基准',`每 ${sku.mainUnit}`]])}<div class="mt-6">${simpleTable(['包装规格','含量','毛重 KG','长×宽×高 cm','体积 m³','基准 / 版本','操作'],listMaterialPackageSpecs(sku.materialSkuId).map(x=>[h(x.packageTypeId),h(`${x.contentQty} ${x.contentUnitId}`),h(x.grossWeightKg??'未维护'),h([x.lengthCm,x.widthCm,x.heightCm].map(v=>v??'未维护').join('×')),h(x.volumeM3??'未维护'),h(`${x.measurementBasis} / v${x.version}`),button('编辑包装','edit-section',`data-section="pack" data-package-id="${h(x.packageSpecId)}" data-path="${h(path+'/edit')}"`)]))}</div>`,button('新增包装规格','edit-section',`data-section="pack" data-path="${h(path+'/edit')}"`,true))}
 
-interface MaterialArchivePageState {
-  notice: string | null
-  activeKind: MaterialArchiveKind
-  filters: Record<MaterialArchiveKind, MaterialArchiveFilterState>
-  draftFilters: Record<MaterialArchiveKind, MaterialArchiveFilterState>
-  detail: {
-    materialId: string | null
-    activeTab: MaterialDetailTabKey
+function value(key:string):string{return state.form[key]||''}
+function nullable(key:string):number|null {const raw=value(key).trim();if(!raw)return null;const n=Number(raw);if(!Number.isFinite(n))throw new Error('请输入有效数字。');return n}
+function ensureForm(key:string,initial:Record<string,unknown>,tab='basic'):void {if(state.formKey===key)return;state.formKey=key;state.form=Object.fromEntries(Object.entries(initial).map(([k,v])=>[k,v===null||v===undefined?'':Array.isArray(v)?v.some(item=>item&&typeof item==='object')?JSON.stringify(v):v.join('、'):String(v)]));state.formTab=tab;state.dirty=false;state.operationId=crypto.randomUUID();state.notice=''}
+function grid(content:string):string{return `<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">${content}</div>`}
+function isTemplateFieldRequired(field:MaterialTemplateField):boolean {
+ return materialFieldRequired(field,{fastening:value('attr.fastening')},value('processType')||'BASE')
+}
+function dimensionInitial():MaterialNamedDimension[] { try { const items=JSON.parse(value('attr.dimensions')||'[]');return Array.isArray(items)?items:[] }catch{return[]} }
+function dimensionCount():number{return Math.max(2,dimensionInitial().length,Number(value('dimensionCount'))||0)}
+function dimensionValue(index:number,key:keyof MaterialNamedDimension):string { return state.form[`dimension.${index}.${key}`]??String(dimensionInitial()[index]?.[key]??(key==='unit'?'mm':'')) }
+function dimensionsEditor(locked:boolean):string { return `<div class="col-span-full space-y-3"><p class="text-xs text-slate-600">命名尺寸 *</p>${Array.from({length:dimensionCount()},(_,i)=>`<div class="grid grid-cols-3 gap-3">${field(`dimension.${i}.name`,'尺寸名称',dimensionValue(i,'name'),'text',undefined,'form',locked)}${field(`dimension.${i}.value`,'数值',dimensionValue(i,'value'),'number',undefined,'form',locked)}${field(`dimension.${i}.unit`,'单位',dimensionValue(i,'unit'),'text',options(['mm','cm','M']),'form',locked)}</div>`).join('')}${locked?'':button('增加尺寸项','dimension-add')}</div>` }
+function dimensionsValues():MaterialNamedDimension[]{const values=Array.from({length:dimensionCount()},(_,i)=>({name:dimensionValue(i,'name').trim(),value:dimensionValue(i,'value'),unit:dimensionValue(i,'unit')})).filter(item=>item.name||item.value).map(item=>({...item,value:Number(item.value)}));if(values.length)validateMaterialDimensions(values);return values}
+function equipmentInitial():MaterialEquipmentCompatibility[]{try{return JSON.parse(value('equipmentCompatibilityDetails')||'[]')}catch{return[]}}
+function equipmentCount():number{return Math.max(1,equipmentInitial().length,Number(value('equipmentCount'))||0)}
+function equipmentValue(index:number,key:'type'|'model'):string { return state.form[`equipment.${index}.${key}`]??equipmentInitial()[index]?.[key==='type'?'equipmentTypeId':'equipmentModelId']??'' }
+function equipmentEditor(locked:boolean):string { const allTypes=listConfigDimensionOptions('equipmentTypes');return `<div class="col-span-full space-y-3"><p class="text-xs text-slate-600">设备类型与型号适配 *</p>${Array.from({length:equipmentCount()},(_,i)=>{const prior=equipmentInitial()[i],type=equipmentValue(i,'type'),models=listMaterialEquipmentModels(type).filter(item=>item.enabled),modelOptions=models.map(item=>({value:item.id,label:`${item.code} · ${item.name}`}));if(prior?.equipmentModelId&&!modelOptions.some(item=>item.value===prior.equipmentModelId))modelOptions.unshift({value:prior.equipmentModelId,label:prior.equipmentModelName||'历史型号'});const typeOptions=allTypes.filter(item=>item.status==='ENABLED'||item.id===prior?.equipmentTypeId).map(item=>({value:item.id,label:item.id===prior?.equipmentTypeId?prior.equipmentTypeName:item.name_zh}));return `<div class="grid gap-3 md:grid-cols-2">${field(`equipment.${i}.type`,'设备类型',type,'text',typeOptions,'form',locked)}${field(`equipment.${i}.model`,'指定型号（不限型号可留空）',equipmentValue(i,'model'),'text',modelOptions,'form',locked||!type)}</div>`}).join('')}${locked?'':button('增加设备适配','equipment-add')}<p class="text-xs text-slate-500">每行的型号只属于本行设备类型；未限制型号时保留类型即可。</p></div>` }
+function equipmentValues():MaterialEquipmentCompatibility[]{const types=listConfigDimensionOptions('equipmentTypes'),models=listMaterialEquipmentModels();return Array.from({length:equipmentCount()},(_,i)=>{const typeId=equipmentValue(i,'type'),modelId=equipmentValue(i,'model'),prior=equipmentInitial()[i];return{equipmentTypeId:typeId,equipmentTypeName:prior?.equipmentTypeId===typeId?prior.equipmentTypeName:types.find(item=>item.id===typeId)?.name_zh||'',equipmentModelId:modelId||undefined,equipmentModelName:!modelId?undefined:prior?.equipmentModelId===modelId?prior.equipmentModelName:models.find(item=>item.id===modelId)?.name}}).filter(item=>item.equipmentTypeId||item.equipmentModelId)}
+function templateFields(fields:MaterialTemplateField[],level:'root'|'sku',locked=false):string {
+ return fields.filter(f=>f.level===level&&f.key!=='color'&&f.type!=='composition').map(f=>{
+  const label=`${f.label}${f.unit?'（'+f.unit+'）':''}${isTemplateFieldRequired(f)?' *':''}`,key='attr.'+f.key
+  if(f.valueShape==='namedDimensions')return dimensionsEditor(locked&&f.identity)
+  if(f.valueShape==='equipmentCompatibility')return equipmentEditor(locked&&f.identity)
+  if(f.requiredWhen==='button-hole'&&value('attr.fastening')==='脚式')return `<p class="self-center text-xs text-slate-500">脚式纽扣不适用孔数。</p>`
+  if(f.type==='multiSelect'&&f.options?.length){
+   const selected=value(key).split(/[、,，]/).filter(Boolean)
+   return `<fieldset class="space-y-2"><legend class="text-xs text-slate-600">${h(label)}</legend><div class="flex flex-wrap gap-3">${[...new Set([...f.options,...selected])].map(option=>`<label class="inline-flex items-center gap-1.5 text-sm"><input type="checkbox" data-${PREFIX}-field="${h(key)}" data-material-multi="true" data-option-value="${h(option)}" data-skip-page-rerender="true" ${selected.includes(option)?'checked':''} ${locked&&f.identity?'disabled':''}/>${h(option)}</label>`).join('')}</div></fieldset>`
   }
-  create: {
-    open: boolean
-    kind: MaterialArchiveKind
-    materialName: string
-    materialNameEn: string
-    categoryName: string
-    specSummary: string
-    composition: string
-    processTags: string
-    widthText: string
-    gramWeightText: string
-    pricingUnit: string
-    mainUnit: string
-    auxiliaryUnits: string[]
-    mainImageUrl: string
-    barcodeTemplateCode: string
-    remark: string
-  }
-  skuEditor: {
-    open: boolean
-    materialId: string
-    materialSkuId: string | null
-    colorName: string
-    pantoneCode: string
-    patternCode: string
-    specValue: string
-    costPrice: string
-    freightCost: string
-    skuImageUrl: string
-    barcode: string
-    weightKg: string
-    lengthCm: string
-    widthCm: string
-    heightCm: string
-  }
-  barcode: {
-    open: boolean
-    materialId: string
-    selectedSkuIds: string[]
-    quantity: string
-  }
-  log: {
-    open: boolean
-    materialId: string
-  }
-}
-
-const KIND_META: Record<
-  MaterialArchiveKind,
-  {
-    label: string
-    description: string
-    createLabel: string
-    unitOptions: string[]
-  }
-> = {
-  fabric: {
-    label: '面料档案',
-    description: '沉淀主布、里布等正式面料主档，并反查技术包引用。',
-    createLabel: '新建面料',
-    unitOptions: ['米', 'Yard', '公斤', '卷'],
-  },
-  accessory: {
-    label: '辅料档案',
-    description: '沉淀花边、纽扣、拉链等辅料主档及其 SKU 规格。',
-    createLabel: '新建辅料',
-    unitOptions: ['PCS', '米', '卷', '包', '条', '套'],
-  },
-  yarn: {
-    label: '纱线档案',
-    description: '沉淀车缝线、织带线等正式纱线与颜色规格。',
-    createLabel: '新建纱线',
-    unitOptions: ['卷', '公斤', '筒', '箱', '米'],
-  },
-  consumable: {
-    label: '耗材档案',
-    description: '沉淀裁剪、车缝、清洁等车间通用低值耗材。',
-    createLabel: '新建耗材',
-    unitOptions: ['卷', 'PCS', '箱', '米', '套'],
-  },
-  parts: {
-    label: '配件档案',
-    description: '沉淀裁床裁刀等生产车间设备使用的配件与备件。',
-    createLabel: '新建配件',
-    unitOptions: ['PCS', '把', '盒', '套'],
-  },
-}
-
-const STATUS_META: Record<MaterialArchiveStatus, { label: string; className: string }> = {
-  ACTIVE: { label: '启用', className: 'border-emerald-200 bg-emerald-50 text-emerald-700' },
-  INACTIVE: { label: '停用', className: 'border-amber-200 bg-amber-50 text-amber-700' },
-  ARCHIVED: { label: '已归档', className: 'border-slate-200 bg-slate-100 text-slate-600' },
-}
-
-const DETAIL_TABS: Array<{ key: MaterialDetailTabKey; label: string }> = [
-  { key: 'overview', label: '概览' },
-  { key: 'skus', label: '物料 SKU' },
-  { key: 'variants', label: '变种' },
-  { key: 'usage', label: '技术包引用' },
-  { key: 'logs', label: '日志' },
-]
-
-function createEmptySkuEditorState(): MaterialArchivePageState['skuEditor'] {
-  return {
-    open: false,
-    materialId: '',
-    materialSkuId: null,
-    colorName: '',
-    pantoneCode: '',
-    patternCode: '',
-    specValue: '',
-    costPrice: '',
-    freightCost: '',
-    skuImageUrl: '',
-    barcode: '',
-    weightKg: '',
-    lengthCm: '',
-    widthCm: '',
-    heightCm: '',
-  }
-}
-
-function createFilterMap(): Record<MaterialArchiveKind, MaterialArchiveFilterState> {
-  return {
-    fabric: { search: '', status: 'all' },
-    accessory: { search: '', status: 'all' },
-    yarn: { search: '', status: 'all' },
-    consumable: { search: '', status: 'all' },
-    parts: { search: '', status: 'all' },
-  }
-}
-
-function createDefaultState(): MaterialArchivePageState {
-  return {
-    notice: null,
-    activeKind: 'fabric',
-    filters: createFilterMap(),
-    draftFilters: createFilterMap(),
-    detail: {
-      materialId: null,
-      activeTab: 'overview',
-    },
-    create: {
-      open: false,
-      kind: 'fabric',
-      materialName: '',
-      materialNameEn: '',
-      categoryName: '',
-      specSummary: '',
-      composition: '',
-      processTags: '',
-      widthText: '',
-      gramWeightText: '',
-      pricingUnit: 'PCS',
-      mainUnit: 'PCS',
-      auxiliaryUnits: [],
-      mainImageUrl: '',
-      barcodeTemplateCode: '',
-      remark: '',
-    },
-    skuEditor: createEmptySkuEditorState(),
-    barcode: {
-      open: false,
-      materialId: '',
-      selectedSkuIds: [],
-      quantity: '1',
-    },
-    log: {
-      open: false,
-      materialId: '',
-    },
-  }
-}
-
-const state = createDefaultState()
-
-function resetCreateState(kind: MaterialArchiveKind): void {
-  state.create = {
-    open: false,
-    kind,
-    materialName: '',
-    materialNameEn: '',
-    categoryName: '',
-    specSummary: '',
-    composition: '',
-    processTags: '',
-    widthText: '',
-    gramWeightText: '',
-    pricingUnit: KIND_META[kind].unitOptions[0] || 'PCS',
-    mainUnit: KIND_META[kind].unitOptions[0] || 'PCS',
-    auxiliaryUnits: KIND_META[kind].unitOptions.slice(1, 4),
-    mainImageUrl: '',
-    barcodeTemplateCode: '',
-    remark: '',
-  }
-}
-
-export function resetPcsMaterialArchiveState(): void {
-  const next = createDefaultState()
-  state.notice = next.notice
-  state.activeKind = next.activeKind
-  state.filters = next.filters
-  state.draftFilters = next.draftFilters
-  state.detail = next.detail
-  state.create = next.create
-  state.skuEditor = next.skuEditor
-  state.barcode = next.barcode
-  state.log = next.log
-}
-
-function renderBadge(text: string, className: string): string {
-  return `<span class="${escapeHtml(toClassName('inline-flex rounded-full border px-2 py-0.5 text-xs font-medium', className))}">${escapeHtml(text)}</span>`
-}
-
-function renderStatusBadge(status: MaterialArchiveStatus): string {
-  const meta = STATUS_META[status]
-  return renderBadge(meta.label, meta.className)
-}
-
-function renderArchiveImage(url: string, alt: string, size: 'sm' | 'md' = 'md', highlighted = false): string {
-  const dimension = size === 'sm' ? 'h-12 w-12' : 'h-20 w-20'
-  if (!url) return `<span class="${dimension} flex shrink-0 items-center justify-center rounded-md border border-dashed border-amber-300 px-1 text-center text-xs text-amber-700">缺少对应图片</span>`
-  return `<button type="button" class="${escapeHtml(toClassName('relative block shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-50', dimension, highlighted && 'ring-2 ring-slate-900 ring-offset-1'))}" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(url)}" data-pda-image-preview-title="${escapeHtml(alt)}" aria-label="查看${escapeHtml(alt)}大图"><img src="${escapeHtml(url)}" alt="${escapeHtml(alt)}实拍图" class="h-full w-full object-contain" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=true;this.nextElementSibling.nextElementSibling.hidden=false"><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500">加载中</span><span hidden class="absolute inset-0 items-center justify-center bg-slate-50 px-1 text-center text-[10px] text-amber-700">图片加载失败，点击重试预览</span></button>`
-}
-
-function renderTextInput(field: string, value: string, placeholder: string, type = 'text'): string {
-  return `<input type="${escapeHtml(type)}" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}" data-pcs-material-archive-field="${escapeHtml(field)}" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400" />`
-}
-
-function renderSelect(
-  field: string,
-  value: string,
-  options: Array<{ value: string; label: string }>,
-  placeholder: string,
-): string {
-  const optionHtml = [`<option value="">${escapeHtml(placeholder)}</option>`, ...options.map((item) => `<option value="${escapeHtml(item.value)}" ${item.value === value ? 'selected' : ''}>${escapeHtml(item.label)}</option>`)].join('')
-  return `<select data-pcs-material-archive-field="${escapeHtml(field)}" class="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 outline-none transition focus:border-slate-400">${optionHtml}</select>`
-}
-
-function renderTextarea(field: string, value: string, placeholder: string): string {
-  return `<textarea rows="4" placeholder="${escapeHtml(placeholder)}" data-pcs-material-archive-field="${escapeHtml(field)}" class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400">${escapeHtml(value)}</textarea>`
-}
-
-function renderUnitTags(units: string[]): string {
-  const rows = units.filter(Boolean)
-  if (rows.length === 0) return '<span class="text-xs text-slate-400">-</span>'
-  return rows
-    .map((unit) => `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${escapeHtml(unit)}</span>`)
-    .join('')
-}
-
-function renderAuxiliaryUnitCheckboxes(kind: MaterialArchiveKind, mainUnit: string, selectedUnits: string[]): string {
-  const selected = new Set(selectedUnits)
-  const options = KIND_META[kind].unitOptions.filter((unit) => unit !== mainUnit)
-  return `
-    <div class="grid gap-2 sm:grid-cols-2">
-      ${options
-        .map(
-          (unit) => `
-            <label class="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
-              <input type="checkbox" ${selected.has(unit) ? 'checked' : ''} data-pcs-material-archive-field="create-auxiliary-unit" data-value="${escapeHtml(unit)}" />
-              <span>${escapeHtml(unit)}</span>
-            </label>
-          `,
-        )
-        .join('')}
-    </div>
-  `
-}
-
-function splitTags(value: string): string[] {
-  return value
-    .split(/[，,、/]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function parseNumberInput(value: string): number {
-  const parsed = Number.parseFloat(value)
-  return Number.isFinite(parsed) ? parsed : 0
-}
-
-function resetSkuEditor(): void {
-  state.skuEditor = createEmptySkuEditorState()
-}
-
-function buildSkuEditorSpecValue(kind: MaterialArchiveKind, record: MaterialSkuRecord): string {
-  if (kind === 'fabric') {
-    return record.sizeName && record.sizeName !== '-' ? record.sizeName : record.specName || ''
-  }
-  return record.specName && record.specName !== '-' ? record.specName : record.sizeName || ''
-}
-
-function openSkuEditor(materialId: string, materialSkuId: string | null = null): boolean {
-  const material = getMaterialArchiveById(materialId)
-  if (!material) {
-    state.notice = '未找到对应物料主档。'
-    return false
-  }
-
-  if (!materialSkuId) {
-    state.skuEditor = {
-      ...createEmptySkuEditorState(),
-      open: true,
-      materialId,
-    }
-    return true
-  }
-
-  const skuRecord = getMaterialSkuRecordById(materialSkuId)
-  if (!skuRecord) {
-    state.notice = '未找到对应物料 SKU。'
-    return false
-  }
-
-  state.skuEditor = {
-    open: true,
-    materialId,
-    materialSkuId,
-    colorName: skuRecord.colorName || '',
-    pantoneCode: skuRecord.pantoneCode || '',
-    patternCode: skuRecord.patternCode || '',
-    specValue: buildSkuEditorSpecValue(material.kind, skuRecord),
-    costPrice: skuRecord.costPrice ? String(skuRecord.costPrice) : '',
-    freightCost: skuRecord.freightCost ? String(skuRecord.freightCost) : '',
-    skuImageUrl: skuRecord.skuImageUrl || '',
-    barcode: skuRecord.barcode || '',
-    weightKg: skuRecord.weightKg ? String(skuRecord.weightKg) : '',
-    lengthCm: skuRecord.lengthCm ? String(skuRecord.lengthCm) : '',
-    widthCm: skuRecord.widthCm ? String(skuRecord.widthCm) : '',
-    heightCm: skuRecord.heightCm ? String(skuRecord.heightCm) : '',
-  }
-  return true
-}
-
-function buildSkuEditorInput(material: MaterialArchiveRecord): MaterialSkuDraftInput {
-  const specValue = state.skuEditor.specValue.trim()
-  return {
-    colorName: state.skuEditor.colorName.trim(),
-    pantoneCode: state.skuEditor.pantoneCode.trim(),
-    patternCode: state.skuEditor.patternCode.trim(),
-    specName: specValue || '-',
-    sizeName: material.kind === 'fabric' ? specValue || '-' : '-',
-    skuImageUrl: state.skuEditor.skuImageUrl.trim(),
-    costPrice: parseNumberInput(state.skuEditor.costPrice),
-    freightCost: parseNumberInput(state.skuEditor.freightCost),
-    weightKg: parseNumberInput(state.skuEditor.weightKg),
-    lengthCm: parseNumberInput(state.skuEditor.lengthCm),
-    widthCm: parseNumberInput(state.skuEditor.widthCm),
-    heightCm: parseNumberInput(state.skuEditor.heightCm),
-    barcode: state.skuEditor.barcode.trim(),
-  }
-}
-
-function renderFormField(label: string, control: string, required = false): string {
-  return `
-    <label class="block space-y-2">
-      <div class="text-sm font-medium text-slate-700">${escapeHtml(label)}${required ? '<span class="ml-1 text-rose-500">*</span>' : ''}</div>
-      ${control}
-    </label>
-  `
-}
-
-function renderNotice(): string {
-  if (!state.notice) return ''
-  return `
-    <section class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
-      <div class="flex items-start justify-between gap-3">
-        <p class="text-sm text-blue-800">${escapeHtml(state.notice)}</p>
-        <button type="button" class="inline-flex h-7 items-center rounded-md px-2 text-xs text-blue-700 hover:bg-blue-100" data-pcs-material-archive-action="close-notice">关闭</button>
-      </div>
-    </section>
-  `
-}
-
-function renderDrawerShell(title: string, body: string, footer: string): string {
-  return `
-    <div class="fixed inset-0 z-40 flex justify-end">
-      <button type="button" class="absolute inset-0 bg-slate-900/30" data-pcs-material-archive-action="close-drawers"></button>
-      <section class="relative z-10 flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-xl">
-        <div class="border-b border-slate-200 px-5 py-4">
-          <div class="flex items-start justify-between gap-3">
-            <h2 class="text-lg font-semibold text-slate-900">${escapeHtml(title)}</h2>
-            <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-500 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">×</button>
-          </div>
-        </div>
-        <div class="flex-1 overflow-y-auto px-5 py-5">${body}</div>
-        <div class="border-t border-slate-200 px-5 py-4">
-          <div class="flex flex-wrap items-center justify-end gap-2">${footer}</div>
-        </div>
-      </section>
-    </div>
-  `
-}
-
-function formatCurrency(value: number): string {
-  return Number.isFinite(value) ? `¥${value.toFixed(2)}` : '-'
-}
-
-function getFilteredRecords(kind: MaterialArchiveKind): MaterialArchiveRecord[] {
-  const { search, status } = state.filters[kind]
-  const keyword = search.trim().toLowerCase()
-  return listMaterialArchives(kind).filter((item) => {
-    if (status !== 'all' && item.status !== status) return false
-    if (!keyword) return true
-    return [item.materialCode, item.materialName, item.materialNameEn, item.categoryName, item.specSummary, item.mainUnit, item.auxiliaryUnits.join(' ')]
-      .join(' ')
-      .toLowerCase()
-      .includes(keyword)
-  })
-}
-
-type ArchiveListRow = {
-  record: MaterialArchiveRecord
-  skus: MaterialSkuRecord[]
-  minCost: number | null
-  maxCost: number | null
-}
-
-// 5 条/页是档位首项，即列表默认值：当前真实记录量（面料 2 条、辅料 6 条）也能验证跨页与
-// 首屏渲染量；不为凑页数伪造缺少实拍图的物料对象。
-const ARCHIVE_LIST_PAGE_SIZES = [5, 10, 20, 50]
-
-function getArchiveRows(kind: MaterialArchiveKind): ArchiveListRow[] {
-  return getFilteredRecords(kind).map((record) => {
-    const skus = listMaterialSkuRecordsByMaterialId(record.materialId)
-    const costs = skus.map((item) => item.costPrice)
-    return {
-      record,
-      skus,
-      minCost: costs.length > 0 ? Math.min(...costs) : null,
-      maxCost: costs.length > 0 ? Math.max(...costs) : null,
-    }
-  })
-}
-
-function isTmfArchiveRow(row: ArchiveListRow): boolean {
-  return ['织带', '绳子'].includes(row.record.categoryName)
-}
-
-function renderArchiveDimensionLabel(categoryName: string): string {
-  if (categoryName === '织带') return '织带幅宽'
-  if (categoryName === '绳子') return '绳子直径'
-  return '门幅 / 尺寸'
-}
-
-function renderArchiveThumb(row: ArchiveListRow): string {
-  const label = `${row.record.materialCode} ${row.record.materialName}`
-  if (!row.record.mainImageUrl) {
-    return isTmfArchiveRow(row)
-      ? '<span class="text-xs text-amber-700">缺对应规格实物图</span>'
-      : renderArchiveImage('', row.record.materialName, 'sm')
-  }
-  return `<button type="button" class="relative block h-12 w-12 shrink-0 cursor-zoom-in overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-skip-page-rerender="true" data-pda-image-preview-url="${escapeHtml(row.record.mainImageUrl)}" data-pda-image-preview-title="${escapeHtml(label)}" aria-label="查看${escapeHtml(label)}大图"><img src="${escapeHtml(row.record.mainImageUrl)}" alt="${escapeHtml(label)}实物图" class="h-full w-full object-cover" onload="this.nextElementSibling.hidden=true" onerror="this.hidden=true;this.nextElementSibling.hidden=true;this.nextElementSibling.nextElementSibling.hidden=false" /><span class="absolute inset-0 flex items-center justify-center bg-white text-[10px] text-slate-500">加载中</span><span hidden class="absolute inset-0 flex items-center justify-center bg-slate-50 px-1 text-center text-[10px] leading-tight text-amber-700">图片加载失败</span></button>`
-}
-
-function buildArchiveColumns(kind: MaterialArchiveKind): StandardListColumn<ArchiveListRow>[] {
-  const detailPath = (row: ArchiveListRow) => `/pcs/materials/${kind}/${row.record.materialId}`
-  const costText = (row: ArchiveListRow) => row.minCost === null
-    ? '-'
-    : row.minCost === row.maxCost ? formatCurrency(row.minCost) : `${formatCurrency(row.minCost)} ~ ${formatCurrency(row.maxCost || 0)}`
-  return [
-    {
-      key: 'archive',
-      title: '物料主档',
-      width: 268,
-      required: true,
-      freezeable: true,
-      sortable: true,
-      sortValue: (row) => row.record.materialCode,
-      render: (row) => `<div class="flex items-start gap-3">${renderArchiveThumb(row)}<div class="min-w-0"><button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="${escapeHtml(detailPath(row))}">${escapeHtml(row.record.materialCode)}</button><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.materialName)}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.materialNameEn || '-')}</div></div></div>`,
-    },
-    {
-      key: 'category',
-      title: '分类 / 摘要',
-      width: 214,
-      sortable: true,
-      sortValue: (row) => row.record.categoryName,
-      render: (row) => `<div class="text-sm text-slate-700">${escapeHtml(row.record.categoryName || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.specSummary || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.composition || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.processTags.join(' / ') || '-')}</div>`,
-    },
-    {
-      key: 'spec',
-      title: '规格信息',
-      width: 236,
-      render: (row) => `<div class="text-sm text-slate-700"><div>${escapeHtml(row.record.widthText || '-')}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(renderArchiveDimensionLabel(row.record.categoryName))}</div><div class="mt-1 text-xs text-slate-500">${escapeHtml(row.record.gramWeightText || '-')}</div><div class="mt-1 text-xs text-slate-500">主单位：${escapeHtml(row.record.mainUnit || '-')}</div><div class="mt-1 flex flex-wrap gap-1">辅助：${renderUnitTags(row.record.auxiliaryUnits || [])}</div><div class="mt-1 text-xs text-slate-500">计价：${escapeHtml(row.record.pricingUnit || '-')}</div><div class="mt-1 text-xs text-slate-500">条码模板：${escapeHtml(row.record.barcodeTemplateCode || '-')}</div></div>`,
-    },
-    {
-      key: 'usage',
-      title: 'SKU / 引用',
-      width: 158,
-      sortable: true,
-      sortValue: (row) => row.record.skuCount,
-      render: (row) => `<div class="text-sm text-slate-700"><div>${escapeHtml(row.record.skuCount)}</div><div class="mt-1 text-xs text-slate-500">款式 ${escapeHtml(row.record.usedStyleCount)}</div><div class="mt-1 text-xs text-slate-500">技术包 ${escapeHtml(row.record.usedTechPackCount)}</div><div class="mt-1 text-xs text-slate-500">成本 ${escapeHtml(costText(row))}</div></div>`,
-    },
-    {
-      key: 'status',
-      title: '状态',
-      width: 104,
-      required: true,
-      sortable: true,
-      sortValue: (row) => row.record.status,
-      render: (row) => renderStatusBadge(row.record.status),
-    },
-    {
-      key: 'updatedAt',
-      title: '更新时间',
-      width: 168,
-      sortable: true,
-      sortValue: (row) => row.record.updatedAt,
-      render: (row) => `<span class="text-sm text-slate-500">${escapeHtml(formatDateTime(row.record.updatedAt))}</span>`,
-    },
-    {
-      key: 'actions',
-      title: '操作',
-      width: 232,
-      required: true,
-      actionColumn: true,
-      render: (row) => `<div class="flex flex-wrap items-center gap-2"><button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-nav="${escapeHtml(detailPath(row))}">查看</button><button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-log" data-material-id="${escapeHtml(row.record.materialId)}">日志</button><button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-barcode" data-material-id="${escapeHtml(row.record.materialId)}" ${row.skus.length === 0 ? 'disabled' : ''}>打印条码</button></div>`,
-    },
-  ]
-}
-
-function createArchiveList(kind: MaterialArchiveKind) {
-  const listState: ProcessOrderListControllerState = {
-    currentPage: 1,
-    sort: null,
-    preferences: { order: [], visibleKeys: [], frozenKeys: ['archive'], pageSize: ARCHIVE_LIST_PAGE_SIZES[0] },
-    preferencesLoaded: false,
-    showColumnSettings: false,
-  }
-  const columns = buildArchiveColumns(kind)
-  const controller = createProcessOrderListController<ArchiveListRow>({
-    state: listState,
-    columns,
-    preferenceKey: `higood:list:/pcs/materials/${kind}`,
-    pageSizeOptions: ARCHIVE_LIST_PAGE_SIZES,
-    eventPrefix: 'pcs-material-archive',
-    rootSelector: `[data-pcs-material-archive-page="${kind}"]`,
-    tableSurfaceSelector: '[data-pcs-material-archive-list-region]',
-    paginationSurfaceSelector: '[data-pcs-material-archive-pagination-region]',
-    overlaysSurfaceSelector: '[data-pcs-material-archive-columns-region]',
-    defaultFrozenKeys: ['archive'],
-    columnSettingsTitle: `${KIND_META[kind].label}列设置`,
-    emptyText: '暂无物料档案数据。',
-    getRows: () => getArchiveRows(kind),
-    locallyManagedEvents: true,
-  })
-  return { listState, columns, controller }
-}
-
-const archiveLists = new Map<MaterialArchiveKind, ReturnType<typeof createArchiveList>>()
-
-function archiveList(kind: MaterialArchiveKind): ReturnType<typeof createArchiveList> {
-  const existing = archiveLists.get(kind)
-  if (existing) return existing
-  const created = createArchiveList(kind)
-  archiveLists.set(kind, created)
-  return created
-}
-
-function renderArchiveStats(kind: MaterialArchiveKind): string {
-  const rows = getArchiveRows(kind)
-  return renderStandardListStats([
-    { label: '当前查询主档', value: `${rows.length} 条` },
-    { label: '启用中', value: `${rows.filter((row) => row.record.status === 'ACTIVE').length} 条` },
-    { label: '物料 SKU', value: `${rows.reduce((sum, row) => sum + row.record.skuCount, 0)} 个` },
-    { label: '技术包引用', value: `${rows.reduce((sum, row) => sum + row.record.usedTechPackCount, 0)} 处` },
-    { label: '关联款式（按主档累计）', value: `${rows.reduce((sum, row) => sum + row.record.usedStyleCount, 0)} 处` },
-  ])
-}
-
-function renderCreateDrawer(): string {
-  if (!state.create.open) return ''
-  const meta = KIND_META[state.create.kind]
-  const categoryOptions = getMaterialArchiveCategoryOptions(state.create.kind)
-  const specMeta = getMaterialSkuSpecMeta(state.create.kind)
-  const body = `
-    <div class="space-y-4">
-      ${renderFormField('物料名称', renderTextInput('create-material-name', state.create.materialName, '输入物料名称'), true)}
-      ${renderFormField('外文名', renderTextInput('create-material-name-en', state.create.materialNameEn, '输入外文名'))}
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('分类', renderSelect('create-category-name', state.create.categoryName, categoryOptions, '请选择分类'), true)}
-        ${renderFormField('主单位', renderSelect('create-main-unit', state.create.mainUnit, meta.unitOptions.map((item) => ({ value: item, label: item })), '选择主单位'), true)}
-      </div>
-      ${renderFormField('辅助单位', renderAuxiliaryUnitCheckboxes(state.create.kind, state.create.mainUnit, state.create.auxiliaryUnits), true)}
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('计价单位', renderSelect('create-pricing-unit', state.create.pricingUnit, meta.unitOptions.map((item) => ({ value: item, label: item })), '选择计价单位'), true)}
-        <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-3 text-xs leading-5 text-slate-500">
-          主单位用于库存与需求主口径；辅助单位支持按多种采购 / 包装 / 换算口径维护。
-        </div>
-      </div>
-      ${renderFormField('规格摘要', renderTextInput('create-spec-summary', state.create.specSummary, '例如：white / black，180g'))}
-      ${renderFormField('成分', renderTextInput('create-composition', state.create.composition, '例如：100% cotton'))}
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('工艺标签', renderTextInput('create-process-tags', state.create.processTags, '例如：经编，弹力，印花'))}
-        ${renderFormField('条码模板编码', renderTextInput('create-barcode-template-code', state.create.barcodeTemplateCode, '例如：FAB-COTTON-180-WHT'))}
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField(state.create.categoryName==='织带'?'织带幅宽':state.create.categoryName==='绳子'?'绳子直径':'门幅 / 尺寸', renderTextInput('create-width-text', state.create.widthText, ['织带','绳子'].includes(state.create.categoryName)?'例如：20mm 或 2cm，不填写截断长度':'例如：180cm / 55×90mm / 10英寸'))}
-        ${renderFormField('克重', renderTextInput('create-gram-weight-text', state.create.gramWeightText, '例如：180g/m²'))}
-      </div>
-      ${renderFormField('主图链接', renderTextInput('create-main-image-url', state.create.mainImageUrl, '输入图片 URL'))}
-      ${renderFormField('备注', renderTextarea('create-remark', state.create.remark, '补充物料说明'))}
-      <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <div class="text-sm font-medium text-slate-900">SKU 规则参数</div>
-        <div class="mt-3 grid gap-3 md:grid-cols-2">
-          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
-            <div class="text-xs text-slate-500">参数一</div>
-            <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(specMeta.primaryLabel)}</div>
-          </div>
-          <div class="rounded-md border border-slate-200 bg-white px-3 py-3">
-            <div class="text-xs text-slate-500">参数二</div>
-            <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(specMeta.secondaryLabel)}</div>
-          </div>
-        </div>
-        <div class="mt-3 text-xs text-slate-500">
-          当前新建主档只定义 SKU 规则参数，不在此处新增具体 SKU。创建完成后，可在详情页通过“新增SKU”补充具体规格。
-        </div>
-      </div>
-    </div>
-  `
-  const footer = `
-    ${state.notice?`<p role="alert" class="text-sm text-red-700">${escapeHtml(state.notice)}</p>`:''}
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="submit-create">确认创建</button>
-  `
-  return renderDrawerShell(meta.createLabel, body, footer)
-}
-
-function renderSkuEditorDrawer(): string {
-  if (!state.skuEditor.open || !state.skuEditor.materialId) return ''
-  const material = getMaterialArchiveById(state.skuEditor.materialId)
-  if (!material) return ''
-  const specMeta = getMaterialSkuSpecMeta(material.kind)
-  const isTmf = ['织带', '绳子'].includes(material.categoryName)
-  const body = `
-    <div class="space-y-4">
-      <div class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        ${escapeHtml(material.materialCode)} · ${escapeHtml(material.materialName)}
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField(
-          specMeta.primaryLabel,
-          renderTextInput('sku-editor-color-name', state.skuEditor.colorName, specMeta.primaryPlaceholder),
-          true,
-        )}
-        ${renderFormField(
-          specMeta.secondaryLabel,
-          renderTextInput('sku-editor-spec-value', state.skuEditor.specValue, specMeta.secondaryPlaceholder),
-          !isTmf,
-        )}
-      </div>
-      ${isTmf ? `
-        <div class="grid gap-4 md:grid-cols-2">
-          ${renderFormField('潘通色号／色号', renderTextInput('sku-editor-pantone-code', state.skuEditor.pantoneCode, '例如：19-4052；本白可留空'))}
-          ${renderFormField('花型编号', renderTextInput('sku-editor-pattern-code', state.skuEditor.patternCode, '无印花可留空，例如：P001'))}
-        </div>
-        <p class="text-xs leading-5 text-slate-500">织带／绳子 SKU 只区分幅宽／绳径对应的 SPU、颜色和花型。生产单的截断长度、尺码用途及塑料包头／金属头／硅胶浸头，写入加工规格和批次／包装记录，不生成新的永久 SKU。</p>
-      ` : ''}
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('成本价', renderTextInput('sku-editor-cost-price', state.skuEditor.costPrice, '输入成本价', 'number'))}
-        ${renderFormField('运费', renderTextInput('sku-editor-freight-cost', state.skuEditor.freightCost, '输入运费', 'number'))}
-      </div>
-      <div class="grid gap-4 md:grid-cols-2">
-        ${renderFormField('SKU 图片', renderTextInput('sku-editor-image-url', state.skuEditor.skuImageUrl, '输入 SKU 图片链接'))}
-        ${renderFormField('条码', renderTextInput('sku-editor-barcode', state.skuEditor.barcode, '可留空，系统将自动生成'))}
-      </div>
-      <div class="grid gap-4 md:grid-cols-4">
-        ${renderFormField('重量(kg)', renderTextInput('sku-editor-weight-kg', state.skuEditor.weightKg, '例如：0.35', 'number'))}
-        ${renderFormField('长(cm)', renderTextInput('sku-editor-length-cm', state.skuEditor.lengthCm, '例如：180', 'number'))}
-        ${renderFormField('宽(cm)', renderTextInput('sku-editor-width-cm', state.skuEditor.widthCm, '例如：180', 'number'))}
-        ${renderFormField('高(cm)', renderTextInput('sku-editor-height-cm', state.skuEditor.heightCm, '例如：1', 'number'))}
-      </div>
-    </div>
-  `
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="submit-sku-editor">${state.skuEditor.materialSkuId ? '确认保存' : '确认新增'}</button>
-  `
-  return renderDrawerShell(state.skuEditor.materialSkuId ? '编辑SKU' : '新增SKU', body, footer)
-}
-
-function renderBarcodeDrawer(): string {
-  if (!state.barcode.open || !state.barcode.materialId) return ''
-  const material = getMaterialArchiveById(state.barcode.materialId)
-  if (!material) return ''
-  const skuRecords = listMaterialSkuRecordsByMaterialId(material.materialId)
-  const selectedIds = state.barcode.selectedSkuIds.length > 0 ? state.barcode.selectedSkuIds : skuRecords.slice(0, 1).map((item) => item.materialSkuId)
-  const selectedSkuRecords = skuRecords.filter((item) => selectedIds.includes(item.materialSkuId))
-  const body = `
-    <div class="space-y-4">
-      <div class="text-sm text-slate-600">${escapeHtml(material.materialCode)} · ${escapeHtml(material.materialName)}</div>
-      <div class="space-y-2">
-        <div class="text-sm font-medium text-slate-700">选择 SKU</div>
-        <div class="space-y-2">
-          ${skuRecords
-            .map(
-              (item) => `
-                <label class="flex items-center gap-3 rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-700">
-                  <input type="checkbox" ${selectedIds.includes(item.materialSkuId) ? 'checked' : ''} data-pcs-material-archive-field="barcode-sku" data-value="${escapeHtml(item.materialSkuId)}" />
-                  <span>${escapeHtml(item.materialSkuCode)}</span>
-                  <span class="text-slate-500">${escapeHtml(item.colorName)} / ${escapeHtml(item.specName)}</span>
-                </label>
-              `,
-            )
-            .join('')}
-        </div>
-      </div>
-      ${renderFormField('打印数量', renderTextInput('barcode-quantity', state.barcode.quantity, '输入数量', 'number'), true)}
-      <div class="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <div class="text-sm font-medium text-slate-900">打印预览</div>
-        <div class="mt-3 grid gap-3 md:grid-cols-2">
-          ${selectedSkuRecords
-            .map(
-              (item) => `
-                <div class="rounded-md border border-slate-200 bg-white px-3 py-3 text-center">
-                  <div class="text-[11px] text-slate-500">${escapeHtml(material.materialName)}</div>
-                  <div class="mt-2 font-mono text-sm font-semibold text-slate-900">${escapeHtml(item.barcode || item.materialSkuCode)}</div>
-                  <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.materialSkuCode)}</div>
-                </div>
-              `,
-            )
-            .join('')}
-        </div>
-      </div>
-    </div>
-  `
-  const footer = `
-    <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">取消</button>
-    <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="confirm-barcode-print">确认打印</button>
-  `
-  return renderDrawerShell('打印条码', body, footer)
-}
-
-function renderLogDrawer(): string {
-  if (!state.log.open || !state.log.materialId) return ''
-  const material = getMaterialArchiveById(state.log.materialId)
-  if (!material) return ''
-  const logs = listMaterialLogRecordsByMaterialId(material.materialId)
-  const body = `
-    <div class="space-y-4">
-      <div class="text-sm text-slate-600">${escapeHtml(material.materialCode)} · ${escapeHtml(material.materialName)}</div>
-      ${logs
-        .map(
-          (log) => `
-            <div class="rounded-md border border-slate-200 px-4 py-3">
-              <div class="flex items-center justify-between gap-3">
-                <div class="text-sm font-medium text-slate-900">${escapeHtml(log.title)}</div>
-                <div class="text-xs text-slate-500">${escapeHtml(formatDateTime(log.createdAt))}</div>
-              </div>
-              <div class="mt-1 text-xs text-slate-500">${escapeHtml(log.operatorName)}</div>
-              <div class="mt-2 text-sm text-slate-700">${escapeHtml(log.detail)}</div>
-            </div>
-          `,
-        )
-        .join('')}
-    </div>
-  `
-  const footer = `<button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="close-drawers">关闭</button>`
-  return renderDrawerShell('物料日志', body, footer)
-}
-
-function renderArchiveDrawers(): string {
-  return `${renderCreateDrawer()}${renderSkuEditorDrawer()}${renderBarcodeDrawer()}${renderLogDrawer()}`
-}
-
-function refreshArchiveFeedback(kind: MaterialArchiveKind): void {
-  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="feedback"]`)
-  if (region) region.innerHTML = renderArchivePageIntro(kind)
-}
-
-function renderArchivePageIntro(kind: MaterialArchiveKind): string {
-  return `${renderNotice()}<p class="text-sm text-slate-500">${escapeHtml(KIND_META[kind].description)}</p>`
-}
-
-function refreshArchiveStats(kind: MaterialArchiveKind): void {
-  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="stats"]`)
-  if (region) region.innerHTML = renderArchiveStats(kind)
-}
-
-function refreshArchiveFilters(kind: MaterialArchiveKind): void {
-  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="filters"]`)
-  if (region) region.innerHTML = renderFilterCard(kind)
-}
-
-function refreshArchiveDrawers(kind: MaterialArchiveKind): void {
-  const region = document.querySelector<HTMLElement>(`[data-pcs-material-archive-page="${kind}"] [data-pcs-material-archive-region="drawers"]`)
-  if (!region) return
-  region.innerHTML = renderArchiveDrawers()
-  void import('../components/shell.ts').then(({ hydrateIcons }) => hydrateIcons(region)).catch(() => undefined)
-}
-
-function refreshArchiveList(kind: MaterialArchiveKind): void {
-  archiveList(kind).controller.refresh()
-  refreshArchiveStats(kind)
-}
-
-function renderFilterFields(kind: MaterialArchiveKind): string {
-  const draft = state.draftFilters[kind]
-  const statusOptions: Array<{ value: MaterialArchiveStatus; label: string }> = [
-    { value: 'ACTIVE', label: '启用' },
-    { value: 'INACTIVE', label: '停用' },
-    { value: 'ARCHIVED', label: '已归档' },
-  ]
-  return `
-    <label class="min-w-[15rem] flex-1 space-y-1"><span class="block text-xs text-slate-500">编码 / 名称 / 分类 / 规格</span>${renderTextInput(`filter-search-${kind}`, draft.search, '搜索编码/名称/分类...')}</label>
-    <label class="w-full space-y-1 sm:w-40"><span class="block text-xs text-slate-500">状态</span>${renderSelect(`filter-status-${kind}`, draft.status === 'all' ? '' : draft.status, statusOptions.map((item) => ({ value: item.value, label: item.label })), '全部状态')}</label>
-  `
-}
-
-function renderFilterCard(kind: MaterialArchiveKind): string {
-  const exportButton = '<button type="button" class="h-9 rounded-md border bg-background px-4 text-sm font-semibold text-foreground hover:bg-muted" data-pcs-material-archive-action="export" data-skip-page-rerender="true">导出</button>'
-  return `<div data-pcs-material-archive-region="filters">${renderStandardListFilters({
-    fieldsHtml: renderFilterFields(kind),
-    actionPrefix: 'pcs-material-archive',
-    extraActionsHtml: exportButton,
-  })}</div>`
-}
-
-function renderListPage(kind: MaterialArchiveKind): string {
-  const meta = KIND_META[kind]
-  const { listState, controller } = archiveList(kind)
-  state.activeKind = kind
-  resetStandardListEntryTransientStateOnRouteEntry(
-    listState,
-    typeof document !== 'undefined' && Boolean(document.querySelector(`[data-pcs-material-archive-page="${kind}"]`)),
-  )
-  controller.installColumnDragEvents()
-  const view = controller.getView()
-  const createButton = `<button type="button" class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700" data-pcs-material-archive-action="open-create" data-kind="${escapeHtml(kind)}" data-skip-page-rerender="true"><i data-lucide="plus" class="h-4 w-4"></i>${escapeHtml(meta.createLabel)}</button>`
-  const columnSettingsButton = `<button type="button" class="inline-flex h-8 items-center gap-1 rounded-md border px-3 text-xs font-medium hover:bg-muted" data-pcs-material-archive-action="open-column-settings" data-skip-page-rerender="true"><i data-lucide="columns-3" class="h-4 w-4"></i>列设置</button>`
-
-  return `
-    <div data-pcs-material-archive-page="${escapeHtml(kind)}" data-skip-page-rerender="true">
-      ${renderStandardListPage({
-        title: meta.label,
-        primaryActionsHtml: `<div class="flex flex-wrap gap-2">${createButton}</div>`,
-        feedbackHtml: `<div data-pcs-material-archive-region="feedback">${renderArchivePageIntro(kind)}</div>`,
-        filtersHtml: renderFilterCard(kind),
-        statsHtml: `<div data-pcs-material-archive-region="stats">${renderArchiveStats(kind)}</div>`,
-        listTitle: `${meta.label}列表`,
-        listActionsHtml: columnSettingsButton,
-        tableHtml: `<div data-pcs-material-archive-list-region>${view.tableHtml}</div>`,
-        paginationHtml: `<div data-pcs-material-archive-pagination-region>${view.paginationHtml}</div>`,
-        overlaysHtml: `<div data-pcs-material-archive-columns-region>${controller.renderColumnSettings()}</div><div data-pcs-material-archive-region="drawers">${renderArchiveDrawers()}</div>`,
-      })}
-    </div>
-  `
-}
-
-function renderOverviewTab(material: MaterialArchiveRecord, skuRecords: MaterialSkuRecord[], usageRecords: MaterialUsageRecord[]): string {
-  const minCost = skuRecords.length > 0 ? Math.min(...skuRecords.map((item) => item.costPrice)) : null
-  const maxCost = skuRecords.length > 0 ? Math.max(...skuRecords.map((item) => item.costPrice)) : null
-  const latestUsage = [...usageRecords].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0] || null
-  return `
-    <section class="grid gap-4 xl:grid-cols-[2fr,1fr]">
-      <div class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-5 lg:flex-row">
-          <div class="w-full max-w-[280px] shrink-0 space-y-3">
-            ${!material.mainImageUrl&&['织带','绳子'].includes(material.categoryName)?'<p class="text-sm text-amber-700">缺对应规格实物图，请补充后再完成物料验收。</p>':renderArchiveImage(material.mainImageUrl, material.materialName)}
-            <div class="grid grid-cols-3 gap-2">
-              ${(material.galleryImageUrls || []).slice(0, 3).map((item) => renderArchiveImage(item, material.materialName, 'sm')).join('')}
-            </div>
-          </div>
-          <div class="min-w-0 flex-1">
-            <div class="grid gap-4 md:grid-cols-2">
-              <div><div class="text-xs text-slate-500">物料名称</div><div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(material.materialName)}</div></div>
-              <div><div class="text-xs text-slate-500">外文名</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.materialNameEn || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">分类</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.categoryName || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">规格摘要</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.specSummary || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">成分</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.composition || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">主单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.mainUnit || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">辅助单位</div><div class="mt-1 flex flex-wrap gap-1">${renderUnitTags(material.auxiliaryUnits || [])}</div></div>
-              <div><div class="text-xs text-slate-500">计价单位</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.pricingUnit || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">${material.categoryName==='织带'?'织带幅宽':material.categoryName==='绳子'?'绳子直径':'门幅 / 尺寸'}</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.widthText || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">克重</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.gramWeightText || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">条码模板编码</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.barcodeTemplateCode || '-')}</div></div>
-              <div><div class="text-xs text-slate-500">SKU 成本区间</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(minCost === null ? '-' : minCost === maxCost ? formatCurrency(minCost) : `${formatCurrency(minCost)} ~ ${formatCurrency(maxCost || 0)}`)}</div></div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">工艺标签</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(material.processTags.join(' / ') || '-')}</div></div>
-              <div class="md:col-span-2"><div class="text-xs text-slate-500">备注</div><div class="mt-1 text-sm leading-6 text-slate-700">${escapeHtml(material.remark || '-')}</div></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <aside class="space-y-4 rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">引用概览</div>
-        <div class="grid gap-3">
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"><div class="text-xs text-slate-500">物料 SKU</div><div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(skuRecords.length)}</div></div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"><div class="text-xs text-slate-500">技术包引用</div><div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(usageRecords.length)}</div></div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"><div class="text-xs text-slate-500">关联款式</div><div class="mt-1 text-lg font-semibold text-slate-900">${escapeHtml(new Set(usageRecords.map((item) => item.styleCode)).size)}</div></div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"><div class="text-xs text-slate-500">最近引用技术包</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(latestUsage?.technicalVersionLabel || '未建立')}</div></div>
-          <div class="rounded-md border border-slate-200 bg-slate-50 px-3 py-2"><div class="text-xs text-slate-500">更新时间</div><div class="mt-1 text-sm text-slate-700">${escapeHtml(formatDateTime(material.updatedAt))}</div></div>
-        </div>
-      </aside>
-    </section>
-  `
-}
-
-function renderSkuSpecText(kind: MaterialArchiveKind, item: MaterialSkuRecord): string {
-  if (kind === 'fabric') {
-    return item.sizeName && item.sizeName !== '-' ? item.sizeName : item.specName || '-'
-  }
-  return [item.specName, item.sizeName].filter((value) => value && value !== '-').join(' / ') || '-'
-}
-
-function renderSkuColorText(kind: MaterialArchiveKind, item: MaterialSkuRecord): string {
-  if (kind === 'accessory' && (item.pantoneCode || item.patternCode)) {
-    return [item.colorName, item.pantoneCode, item.patternCode ? `花型 ${item.patternCode}` : ''].filter(Boolean).join(' / ') || '-'
-  }
-  return item.colorName || '-'
-}
-
-function renderSkuTab(kind: MaterialArchiveKind, skuRecords: MaterialSkuRecord[]): string {
-  const specMeta = getMaterialSkuSpecMeta(kind)
-  const rows = skuRecords
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            <div class="flex items-start gap-3">
-              ${renderArchiveImage(item.skuImageUrl, item.materialSkuCode, 'sm')}
-              <div class="min-w-0">
-                <div class="text-sm font-medium text-slate-900">${escapeHtml(item.materialSkuCode)}</div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.barcode || '-')}</div>
-              </div>
-            </div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(renderSkuColorText(kind, item))}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(renderSkuSpecText(kind, item))}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(formatCurrency(item.costPrice))}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(formatCurrency(item.costPrice + item.freightCost))}</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.weightKg)}kg</td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(`${item.lengthCm}*${item.widthCm}*${item.heightCm}cm`)}</td>
-          <td class="px-4 py-3">${renderStatusBadge(item.status)}</td>
-          <td class="px-4 py-3">
-            <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50" data-pcs-material-archive-action="open-sku-edit" data-material-id="${escapeHtml(item.materialId)}" data-material-sku-id="${escapeHtml(item.materialSkuId)}">编辑</button>
-          </td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">物料 SKU</th>
-              <th class="px-4 py-3 font-medium">${escapeHtml(specMeta.primaryLabel)}</th>
-              <th class="px-4 py-3 font-medium">${escapeHtml(specMeta.secondaryLabel)}</th>
-              <th class="px-4 py-3 font-medium">成本价</th>
-              <th class="px-4 py-3 font-medium">含运费成本</th>
-              <th class="px-4 py-3 font-medium">重量</th>
-              <th class="px-4 py-3 font-medium">体积</th>
-              <th class="px-4 py-3 font-medium">状态</th>
-              <th class="px-4 py-3 font-medium">操作</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="9" class="px-4 py-10 text-center text-sm text-slate-500">当前主档尚未建立物料 SKU。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderVariantsTab(material: MaterialArchiveRecord, variants: MaterialVariantRecord[]): string {
-  if (variants.length === 0) {
-    return `
-      <section class="rounded-lg border bg-white p-5 shadow-sm">
-        <div class="text-sm font-medium text-slate-900">变种</div>
-        <p class="mt-2 text-sm text-slate-500">当前物料暂无变种。无加工链物料可不套链。</p>
-        <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="create-base-variant" data-material-id="${escapeHtml(material.materialId)}" data-base-sku-code="${escapeHtml(material.materialCode)}">创建基础态变种</button>
-      </section>
-    `
-  }
-  return `
-    <section class="rounded-lg border bg-white shadow-sm">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
-        <div class="text-sm font-medium text-slate-900">变种 <span class="ml-1 text-slate-400">${variants.length}</span></div>
-        <button type="button" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="create-base-variant" data-material-id="${escapeHtml(material.materialId)}" data-base-sku-code="${escapeHtml(material.materialCode)}">新建基础态变种</button>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">变种码</th>
-              <th class="px-4 py-3 font-medium">显示名</th>
-              <th class="px-4 py-3 font-medium">链类别</th>
-              <th class="px-4 py-3 font-medium">层数</th>
-              <th class="px-4 py-3 font-medium">工艺链</th>
-              <th class="px-4 py-3 font-medium">前驱</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${variants
-              .map((variant) => {
-                const lineage = listVariantLineage(variant.variantId)
-                const predecessor = variant.predecessorVariantId
-                  ? variants.find((item) => item.variantId === variant.predecessorVariantId)
-                  : null
-                return `
-                  <tr class="border-t border-slate-100 align-top">
-                    <td class="px-4 py-3 text-sm font-medium text-slate-900">${escapeHtml(variant.variantCode)}</td>
-                    <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(variant.displayName)}</td>
-                    <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(MATERIAL_VARIANT_CHAIN_CATEGORY_LABELS[variant.chainCategory])}</td>
-                    <td class="px-4 py-3 text-sm text-slate-700">${variant.layerIndex}</td>
-                    <td class="px-4 py-3 text-sm text-slate-700">${
-                      variant.processes.length
-                        ? variant.processes.map((step) => escapeHtml(step.processName)).join(' → ')
-                        : '—'
-                    }</td>
-                    <td class="px-4 py-3 text-sm text-slate-500">${predecessor ? escapeHtml(predecessor.variantCode) : '—'}${
-                          lineage.length > 1 ? `<div class="mt-1 text-xs">血缘 ${lineage.length} 层</div>` : ''
-                        }</td>
-                  </tr>
-                `
-              })
-              .join('')}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderUsageTab(usageRecords: MaterialUsageRecord[]): string {
-  const rows = usageRecords
-    .map(
-      (item) => `
-        <tr class="border-t border-slate-100 align-top">
-          <td class="px-4 py-3">
-            ${
-              item.styleId
-                ? `<button type="button" class="text-left text-sm font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.styleId)}">${escapeHtml(item.styleCode)}</button>`
-                : `<div class="text-sm font-medium text-slate-900">${escapeHtml(item.styleCode)}</div>`
-            }
-            <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.styleName)}</div>
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">
-            ${
-              item.styleId && item.technicalVersionId
-                ? `<button type="button" class="text-left font-medium text-slate-900 hover:text-slate-700" data-nav="/pcs/products/styles/${escapeHtml(item.styleId)}/technical-data/${escapeHtml(item.technicalVersionId)}">${escapeHtml(item.technicalVersionLabel || '-')}</button>`
-                : escapeHtml(item.technicalVersionLabel || '-')
-            }
-          </td>
-          <td class="px-4 py-3 text-sm text-slate-700">${escapeHtml(item.consumptionText)}</td>
-          <td class="px-4 py-3 text-sm text-slate-500">${escapeHtml(formatDateTime(item.updatedAt))}</td>
-        </tr>
-      `,
-    )
-    .join('')
-  return `
-    <section class="overflow-hidden rounded-lg border bg-white shadow-sm">
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-left text-sm">
-          <thead class="bg-slate-50 text-slate-500">
-            <tr>
-              <th class="px-4 py-3 font-medium">款式档案</th>
-              <th class="px-4 py-3 font-medium">技术包版本</th>
-              <th class="px-4 py-3 font-medium">用量</th>
-              <th class="px-4 py-3 font-medium">更新时间</th>
-            </tr>
-          </thead>
-          <tbody>${rows || '<tr><td colspan="4" class="px-4 py-10 text-center text-sm text-slate-500">当前主档尚未被技术包引用。</td></tr>'}</tbody>
-        </table>
-      </div>
-    </section>
-  `
-}
-
-function renderLogTab(logs: MaterialLogRecord[]): string {
-  return `
-    <section class="rounded-lg border bg-white p-5 shadow-sm">
-      <div class="space-y-4">
-        ${logs
-          .map(
-            (item) => `
-              <div class="border-l-2 border-slate-200 pl-4">
-                <div class="text-xs text-slate-500">${escapeHtml(formatDateTime(item.createdAt))}</div>
-                <div class="mt-1 text-sm font-medium text-slate-900">${escapeHtml(item.title)}</div>
-                <div class="mt-1 text-xs text-slate-500">${escapeHtml(item.operatorName)}</div>
-                <div class="mt-1 text-sm text-slate-700">${escapeHtml(item.detail)}</div>
-              </div>
-            `,
-          )
-          .join('')}
-      </div>
-    </section>
-  `
-}
-
-function renderDetailPage(kind: MaterialArchiveKind, materialId: string): string {
-  const material = getMaterialArchiveById(materialId)
-  if (!material || material.kind !== kind) {
-    return `
-      <div class="space-y-5 p-4">
-        <section class="rounded-lg border bg-white p-4 text-center shadow-sm">
-          <h1 class="text-xl font-semibold text-slate-900">未找到物料档案</h1>
-          <p class="mt-2 text-sm text-slate-500">请返回列表重新选择。</p>
-          <button type="button" class="mt-4 inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/materials/${escapeHtml(kind)}">返回列表</button>
-        </section>
-      </div>
-    `
-  }
-
-  if (state.detail.materialId !== materialId) {
-    state.detail.materialId = materialId
-    state.detail.activeTab = 'overview'
-  }
-
-  const skuRecords = listMaterialSkuRecordsByMaterialId(material.materialId)
-  const usageRecords = listMaterialUsageRecordsByMaterialId(material.materialId)
-  const logs = listMaterialLogRecordsByMaterialId(material.materialId)
-  const variants = listMaterialVariants(material.materialId)
-  const tabContent =
-    state.detail.activeTab === 'overview'
-      ? renderOverviewTab(material, skuRecords, usageRecords)
-      : state.detail.activeTab === 'skus'
-        ? renderSkuTab(kind, skuRecords)
-        : state.detail.activeTab === 'variants'
-          ? renderVariantsTab(material, variants)
-          : state.detail.activeTab === 'usage'
-            ? renderUsageTab(usageRecords)
-            : renderLogTab(logs)
-
-  return `
-    <div class="space-y-5 p-4">
-      ${renderNotice()}
-      <section class="flex flex-wrap items-center justify-between gap-4">
-        <div class="flex items-start gap-4">
-          <button type="button" class="inline-flex h-9 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/materials/${escapeHtml(kind)}">
-            <i data-lucide="arrow-left" class="h-4 w-4"></i>返回列表
-          </button>
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <h1 class="text-2xl font-semibold text-slate-900">${escapeHtml(material.materialCode)}</h1>
-              ${renderStatusBadge(material.status)}
-            </div>
-            <p class="mt-1 text-sm text-slate-500">${escapeHtml(material.materialName)} · ${escapeHtml(KIND_META[kind].label)}</p>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" class="inline-flex h-9 items-center rounded-md bg-slate-900 px-3 text-sm text-white hover:bg-slate-800" data-pcs-material-archive-action="open-sku-create" data-material-id="${escapeHtml(material.materialId)}">新增SKU</button>
-          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="open-log" data-material-id="${escapeHtml(material.materialId)}">查看日志</button>
-          <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 hover:bg-slate-50" data-pcs-material-archive-action="open-barcode" data-material-id="${escapeHtml(material.materialId)}" ${skuRecords.length === 0 ? 'disabled' : ''}>打印条码</button>
-        </div>
-      </section>
-      <section class="rounded-lg border bg-white p-2 shadow-sm">
-        <div class="flex flex-wrap gap-2">
-          ${DETAIL_TABS.map((tab) => `<button type="button" class="${escapeHtml(toClassName('inline-flex h-9 items-center rounded-md px-3 text-sm', state.detail.activeTab === tab.key ? 'bg-slate-900 text-white' : 'bg-white text-slate-600 hover:bg-slate-100'))}" data-pcs-material-archive-action="set-detail-tab" data-value="${escapeHtml(tab.key)}">${escapeHtml(tab.label)}</button>`).join('')}
-        </div>
-      </section>
-      ${tabContent}
-      ${renderCreateDrawer()}
-      ${renderSkuEditorDrawer()}
-      ${renderBarcodeDrawer()}
-      ${renderLogDrawer()}
-    </div>
-  `
-}
-
-function resolveClosestNode(target: unknown, selector: string): HTMLElement | null {
-  if (!target || typeof target !== 'object') return null
-  const maybe = target as { closest?: (selector: string) => HTMLElement | null }
-  if (typeof maybe.closest === 'function') {
-    return maybe.closest(selector)
-  }
-  if ('dataset' in maybe) return maybe as HTMLElement
-  return null
-}
-
-function resolveFieldValue(target: Element): { value: string; checked: boolean } {
-  const input = target as HTMLInputElement & HTMLSelectElement
-  return {
-    value: 'value' in input ? input.value : '',
-    checked: 'checked' in input ? Boolean(input.checked) : false,
-  }
-}
-
-function syncDefaultBarcodeSelection(materialId: string): void {
-  const skuRecords = listMaterialSkuRecordsByMaterialId(materialId)
-  if (state.barcode.selectedSkuIds.length === 0 && skuRecords.length > 0) {
-    state.barcode.selectedSkuIds = [skuRecords[0].materialSkuId]
-  }
-}
-
-function submitCreate(): void {
-  if (!state.create.materialName.trim()) {
-    state.notice = '请先填写物料名称。'
-    return
-  }
-  if (!state.create.categoryName.trim()) {
-    state.notice = '请先填写分类。'
-    return
-  }
-  if (!state.create.pricingUnit.trim()) {
-    state.notice = '请先选择计价单位。'
-    return
-  }
-  if (!state.create.mainUnit.trim()) {
-    state.notice = '请先选择主单位。'
-    return
-  }
-  const auxiliaryUnits = [...new Set(state.create.auxiliaryUnits.map((unit) => unit.trim()).filter((unit) => unit && unit !== state.create.mainUnit.trim()))]
-  if (auxiliaryUnits.length === 0) {
-    state.notice = '请至少选择一个辅助单位。'
-    return
-  }
-  let created
-  try { created = createMaterialArchive({
-    kind: state.create.kind,
-    materialName: state.create.materialName.trim(),
-    materialNameEn: state.create.materialNameEn.trim(),
-    categoryName: state.create.categoryName.trim(),
-    specSummary: state.create.specSummary.trim(),
-    composition: state.create.composition.trim(),
-    processTags: splitTags(state.create.processTags),
-    widthText: state.create.widthText.trim(),
-    gramWeightText: state.create.gramWeightText.trim(),
-    pricingUnit: state.create.pricingUnit.trim(),
-    mainUnit: state.create.mainUnit.trim(),
-    auxiliaryUnits,
-    mainImageUrl: state.create.mainImageUrl.trim(),
-    barcodeTemplateCode: state.create.barcodeTemplateCode.trim(),
-    remark: state.create.remark.trim(),
-  })
-  } catch (error) {
-    state.notice = error instanceof Error ? error.message : '创建未保存，请核对物料规格。'
-    return
-  }
-  const nextKind = state.create.kind
-  resetCreateState(nextKind)
-  state.notice = `已创建 ${created.materialCode}。`
-  appStore.navigate(`/pcs/materials/${nextKind}/${created.materialId}`)
-}
-
-function submitSkuEditor(): void {
-  if (!state.skuEditor.materialId) {
-    state.notice = '未找到对应物料主档。'
-    return
-  }
-  const material = getMaterialArchiveById(state.skuEditor.materialId)
-  if (!material) {
-    state.notice = '未找到对应物料主档。'
-    return
-  }
-  const isTmf = ['织带', '绳子'].includes(material.categoryName)
-  if (!state.skuEditor.colorName.trim() || (!isTmf && !state.skuEditor.specValue.trim())) {
-    const specMeta = getMaterialSkuSpecMeta(material.kind)
-    state.notice = isTmf ? `请先补齐 ${specMeta.primaryLabel}。` : `请先补齐 ${specMeta.primaryLabel} 与 ${specMeta.secondaryLabel}。`
-    return
-  }
-
-  const payload = buildSkuEditorInput(material)
-  const result = state.skuEditor.materialSkuId
-    ? updateMaterialSkuRecord(state.skuEditor.materialSkuId, payload)
-    : createMaterialSkuRecord(material.materialId, payload)
-
-  if (!result) {
-    state.notice = state.skuEditor.materialSkuId ? '保存物料 SKU 失败。' : '新增物料 SKU 失败。'
-    return
-  }
-
-  state.detail.activeTab = 'skus'
-  state.notice = state.skuEditor.materialSkuId
-    ? `已更新 ${result.materialSkuCode}。`
-    : `已新增 ${result.materialSkuCode}。`
-  resetSkuEditor()
-}
-
-function updateFilterField(field: string, value: string): boolean {
-  const searchMatch = field.match(/^filter-search-(fabric|accessory|yarn|consumable|parts)$/)
-  if (searchMatch) {
-    state.draftFilters[searchMatch[1] as MaterialArchiveKind].search = value
-    return true
-  }
-  const statusMatch = field.match(/^filter-status-(fabric|accessory|yarn|consumable|parts)$/)
-  if (statusMatch) {
-    state.draftFilters[statusMatch[1] as MaterialArchiveKind].status = (value || 'all') as 'all' | MaterialArchiveStatus
-    return true
-  }
-  return false
-}
-
-function handleArchiveListAction(kind: MaterialArchiveKind, action: string, node: HTMLElement): boolean {
-  const { listState, columns, controller } = archiveList(kind)
-
-  if (action === 'query') {
-    state.filters[kind] = { ...state.draftFilters[kind] }
-    listState.currentPage = 1
-    state.notice = null
-    refreshArchiveFeedback(kind)
-    refreshArchiveList(kind)
-    return true
-  }
-  if (action === 'reset') {
-    state.filters[kind] = { search: '', status: 'all' }
-    state.draftFilters[kind] = { search: '', status: 'all' }
-    listState.currentPage = 1
-    listState.sort = null
-    state.notice = null
-    refreshArchiveFilters(kind)
-    refreshArchiveFeedback(kind)
-    refreshArchiveList(kind)
-    return true
-  }
-  if (action === 'export') {
-    // Deferred like the list controller's own shell import: list-export pulls the
-    // shell, which the type-stripped check runners cannot resolve statically.
-    const fileName = `${KIND_META[kind].label.replace(/[\\/:*?"<>|\s]/g, '_')}`
-    const rows = getArchiveRows(kind)
-    void import('../components/ui/list-export.ts').then(({ exportStandardListRows }) => {
-      exportStandardListRows({ fileName, columns, rows })
-    }).catch(() => {
-      state.notice = '导出组件加载失败，请检查网络后重试。'
-      refreshArchiveFeedback(kind)
-    })
-    return true
-  }
-  if (action === 'prev-page' || action === 'next-page') {
-    controller.stepPage(action === 'prev-page' ? -1 : 1)
-    controller.refresh()
-    return true
-  }
-  if (action === 'sort-column') {
-    controller.cycleSort(node.dataset.columnKey || '')
-    controller.refresh()
-    return true
-  }
-  if (action === 'open-column-settings' || action === 'close-column-settings') {
-    listState.showColumnSettings = action === 'open-column-settings'
-    controller.refresh({ table: false, pagination: false, overlays: true })
-    return true
-  }
-  if (action === 'toggle-column-visibility' || action === 'toggle-column-freeze') {
-    const columnKey = node.dataset.pcsMaterialArchiveColumnKey
-      || node.closest<HTMLElement>('[data-pcs-material-archive-column-key]')?.dataset.pcsMaterialArchiveColumnKey
-      || ''
-    controller.updateColumnPreference(
-      action,
-      columnKey,
-      node instanceof HTMLInputElement ? node.checked : undefined,
-    )
-    controller.refresh({ table: false, pagination: false, overlays: true })
-    controller.refresh()
-    return true
-  }
-  if (action === 'restore-column-settings') {
-    controller.restorePreferences()
-    controller.refresh({ table: false, pagination: false, overlays: true })
-    controller.refresh()
-    return true
-  }
-  return false
-}
-
-export function handlePcsMaterialArchiveInput(target: Element): boolean {
-  const fieldNode = resolveClosestNode(target, '[data-pcs-material-archive-field]')
-  if (!fieldNode) return false
-  const field = fieldNode.dataset.pcsMaterialArchiveField || ''
-  const { value, checked } = resolveFieldValue(target)
-
-  if (updateFilterField(field, value)) return true
-
-  if (field === 'pageSize') {
-    const { controller } = archiveList(state.activeKind)
-    controller.setPageSize(Number(value))
-    controller.refresh()
-    return true
-  }
-
-  switch (field) {
-    case 'create-material-name':
-      state.create.materialName = value
-      return true
-    case 'create-material-name-en':
-      state.create.materialNameEn = value
-      return true
-    case 'create-category-name':
-      state.create.categoryName = value
-      return true
-    case 'create-spec-summary':
-      state.create.specSummary = value
-      return true
-    case 'create-composition':
-      state.create.composition = value
-      return true
-    case 'create-process-tags':
-      state.create.processTags = value
-      return true
-    case 'create-width-text':
-      state.create.widthText = value
-      return true
-    case 'create-gram-weight-text':
-      state.create.gramWeightText = value
-      return true
-    case 'create-main-unit':
-      state.create.mainUnit = value
-      state.create.auxiliaryUnits = state.create.auxiliaryUnits.filter((unit) => unit !== value)
-      if (!state.create.pricingUnit.trim()) {
-        state.create.pricingUnit = value
-      }
-      return true
-    case 'create-auxiliary-unit': {
-      const unit = fieldNode.dataset.value || value
-      state.create.auxiliaryUnits = checked
-        ? [...new Set([...state.create.auxiliaryUnits, unit])].filter((item) => item !== state.create.mainUnit)
-        : state.create.auxiliaryUnits.filter((item) => item !== unit)
-      return true
-    }
-    case 'create-pricing-unit':
-      state.create.pricingUnit = value
-      return true
-    case 'create-main-image-url':
-      state.create.mainImageUrl = value
-      return true
-    case 'create-barcode-template-code':
-      state.create.barcodeTemplateCode = value
-      return true
-    case 'create-remark':
-      state.create.remark = value
-      return true
-    case 'sku-editor-color-name':
-      state.skuEditor.colorName = value
-      return true
-    case 'sku-editor-pantone-code':
-      state.skuEditor.pantoneCode = value
-      return true
-    case 'sku-editor-pattern-code':
-      state.skuEditor.patternCode = value
-      return true
-    case 'sku-editor-spec-value':
-      state.skuEditor.specValue = value
-      return true
-    case 'sku-editor-cost-price':
-      state.skuEditor.costPrice = value
-      return true
-    case 'sku-editor-freight-cost':
-      state.skuEditor.freightCost = value
-      return true
-    case 'sku-editor-image-url':
-      state.skuEditor.skuImageUrl = value
-      return true
-    case 'sku-editor-barcode':
-      state.skuEditor.barcode = value
-      return true
-    case 'sku-editor-weight-kg':
-      state.skuEditor.weightKg = value
-      return true
-    case 'sku-editor-length-cm':
-      state.skuEditor.lengthCm = value
-      return true
-    case 'sku-editor-width-cm':
-      state.skuEditor.widthCm = value
-      return true
-    case 'sku-editor-height-cm':
-      state.skuEditor.heightCm = value
-      return true
-    case 'barcode-quantity':
-      state.barcode.quantity = value
-      return true
-    case 'barcode-sku': {
-      const skuId = fieldNode.dataset.value || value
-      state.barcode.selectedSkuIds = checked
-        ? [...new Set([...state.barcode.selectedSkuIds, skuId])]
-        : state.barcode.selectedSkuIds.filter((item) => item !== skuId)
-      return true
-    }
-    default:
-      return false
-  }
-}
-
-function dispatchArchiveAction(target: HTMLElement): boolean {
-  const actionNode = resolveClosestNode(target, '[data-pcs-material-archive-action]')
-  if (!actionNode) return false
-  const action = actionNode.dataset.pcsMaterialArchiveAction || ''
-  if (handleArchiveListAction(state.activeKind, action, actionNode)) return true
-
-  switch (action) {
-    case 'close-notice':
-      state.notice = null
-      return true
-    case 'open-create': {
-      const kind = (actionNode.dataset.kind as MaterialArchiveKind) || 'fabric'
-      resetCreateState(kind)
-      state.notice = null
-      state.create.open = true
-      return true
-    }
-    case 'submit-create':
-      submitCreate()
-      return true
-    case 'open-sku-create': {
-      const materialId = actionNode.dataset.materialId || ''
-      return openSkuEditor(materialId)
-    }
-    case 'open-sku-edit': {
-      const materialId = actionNode.dataset.materialId || ''
-      const materialSkuId = actionNode.dataset.materialSkuId || ''
-      return openSkuEditor(materialId, materialSkuId || null)
-    }
-    case 'submit-sku-editor':
-      submitSkuEditor()
-      return true
-    case 'open-barcode':
-      state.barcode.open = true
-      state.barcode.materialId = actionNode.dataset.materialId || ''
-      state.barcode.selectedSkuIds = []
-      state.barcode.quantity = '1'
-      syncDefaultBarcodeSelection(state.barcode.materialId)
-      return true
-    case 'confirm-barcode-print':
-      state.notice = `已加入 ${state.barcode.selectedSkuIds.length || 0} 个物料 SKU 的条码打印任务。`
-      state.barcode.open = false
-      return true
-    case 'open-log':
-      state.log.open = true
-      state.log.materialId = actionNode.dataset.materialId || ''
-      return true
-    case 'set-detail-tab':
-      state.detail.activeTab = (actionNode.dataset.value as MaterialDetailTabKey) || 'overview'
-      return true
-    case 'create-base-variant': {
-      const materialId = actionNode.dataset.materialId || ''
-      const baseSkuCode = actionNode.dataset.baseSkuCode || ''
-      if (!materialId || !baseSkuCode) return false
-      const result = createMaterialVariant({
-        materialId,
-        baseSkuCode,
-        chainCategory: 'plain',
-        remark: '详情页创建基础态变种',
-      })
-      state.notice = result.ok
-        ? `已创建基础态变种 ${result.variant!.variantCode}`
-        : result.message || '创建变种失败。'
-      return true
-    }
-    case 'close-drawers':
-      state.create.open = false
-      resetSkuEditor()
-      state.barcode.open = false
-      state.log.open = false
-      return true
-    default:
-      return false
-  }
-}
-
-const ARCHIVE_LIST_CHANGING_ACTIONS = new Set(['submit-sku-editor', 'confirm-barcode-print'])
-
-export function handlePcsMaterialArchiveEvent(target: HTMLElement): boolean {
-  const action = resolveClosestNode(target, '[data-pcs-material-archive-action]')?.dataset.pcsMaterialArchiveAction || ''
-  if (!dispatchArchiveAction(target)) return false
-
-  const kind = state.activeKind
-  // The list page opts out of whole-page rerenders, so its own regions refresh
-  // locally; the detail page has no such opt-out and rerenders as before.
-  if (typeof document !== 'undefined' && document.querySelector(`[data-pcs-material-archive-page="${kind}"]`)) {
-    refreshArchiveDrawers(kind)
-    refreshArchiveFeedback(kind)
-    if (ARCHIVE_LIST_CHANGING_ACTIONS.has(action)) refreshArchiveList(kind)
-  }
-  return true
-}
-
-export function isPcsMaterialArchiveDialogOpen(): boolean {
-  return state.create.open || state.skuEditor.open || state.barcode.open || state.log.open
-    || archiveList(state.activeKind).listState.showColumnSettings
-}
-
-export function renderPcsFabricArchiveListPage(): string {
-  return renderListPage('fabric')
-}
-
-export function renderPcsFabricArchiveCreatePage(): string {
-  resetCreateState('fabric')
-  state.create.open = true
-  return renderListPage('fabric')
-}
-
-export function renderPcsAccessoryArchiveListPage(): string {
-  return renderListPage('accessory')
-}
-
-export function renderPcsAccessoryArchiveCreatePage(): string {
-  resetCreateState('accessory')
-  state.create.open = true
-  return renderListPage('accessory')
-}
-
-export function renderPcsYarnArchiveListPage(): string {
-  return renderListPage('yarn')
-}
-
-export function renderPcsYarnArchiveCreatePage(): string {
-  resetCreateState('yarn')
-  state.create.open = true
-  return renderListPage('yarn')
-}
-
-export function renderPcsConsumableArchiveListPage(): string {
-  return renderListPage('consumable')
-}
-
-export function renderPcsConsumableArchiveCreatePage(): string {
-  resetCreateState('consumable')
-  state.create.open = true
-  return renderListPage('consumable')
-}
-
-export function renderPcsPartsArchiveListPage(): string {
-  return renderListPage('parts')
-}
-
-export function renderPcsPartsArchiveCreatePage(): string {
-  resetCreateState('parts')
-  state.create.open = true
-  return renderListPage('parts')
-}
-
-export function renderPcsMaterialArchiveDetailPage(kind: MaterialArchiveKind, materialId: string): string {
-  return renderDetailPage(kind, materialId)
-}
+  return `${field(key,label,value(key),f.type==='number'?'number':'text',f.options?.length?options(f.options):undefined,'form',locked&&f.identity)}${f.help?`<p class="text-xs text-slate-500">${h(f.help)}</p>`:''}`
+ }).join('')
+}
+function templateValues(fields:MaterialTemplateField[],level:'root'|'sku'):MaterialSpecValues {
+ return Object.fromEntries(fields.filter(f=>f.level===level&&f.key!=='color'&&f.type!=='composition').map(f=>{
+  const raw=value('attr.'+f.key)
+  if(f.valueShape==='namedDimensions')return[f.key,dimensionsValues()]
+  if(f.valueShape==='equipmentCompatibility')return[f.key,equipmentValues().map(item=>item.equipmentTypeName)]
+  if(f.requiredWhen==='button-hole'&&value('attr.fastening')==='脚式')return[f.key,null]
+  if(raw.trim()&&f.type==='number'&&(!Number.isFinite(Number(raw))||(f.minimum!==undefined?Number(raw)<f.minimum:Number(raw)<=0)))throw new Error(`${f.label}必须为${f.minimum===0?'非负数':'正值'}；未维护可留空。`)
+  if(raw.trim()&&f.integer&&!Number.isInteger(Number(raw)))throw new Error(`${f.label}必须为整数。`)
+  return [f.key,f.type==='number'?nullable('attr.'+f.key):f.type==='multiSelect'?raw.split(/[、,，]/).map(x=>x.trim()).filter(Boolean):raw]
+ }))
+}
+function imageEditor(key='mainImageUrl'):string{return `<div class="space-y-3">${image(value(key),'物料识别图','h-28 w-28')}<label class="block text-sm text-slate-600">${key==='patternImageUrl'?'选择花型展示图':'选择实物识别图'}<input class="mt-2 block text-sm" type="file" accept="image/*" data-${PREFIX}-field="image-file" data-image-target="${key}" data-skip-page-rerender="true" /></label><p class="text-xs text-slate-400">选择后预览，保存资料时一并保存图片。</p></div>`}
+function compositionCount():number{return Math.max(4,Number(value('compositionCount'))||0,...Object.keys(state.form).filter(key=>/^comp\.\d+\./.test(key)).map(key=>Number(key.split('.')[1])+1))}
+function compositionEditor():string {return `<div class="space-y-3"><p class="text-xs text-slate-500">成分比例合计 100%</p>${Array.from({length:compositionCount()},(_,i)=>i).map(i=>`<div class="grid grid-cols-2 gap-3">${field(`comp.${i}.name`,'成分',value(`comp.${i}.name`),'text',listConfigDimensionOptions('compositions').filter(x=>x.status==='ENABLED').map(x=>({value:x.name_zh,label:x.name_zh})))}${field(`comp.${i}.percentage`,'比例（%）',value(`comp.${i}.percentage`),'number')}</div>`).join('')}${button('增加成分项','composition-add')}</div>`}
+function compositionValues(){const items=Array.from({length:compositionCount()},(_,i)=>i).map(i=>({component:value(`comp.${i}.name`),percentage:Number(value(`comp.${i}.percentage`))})).filter(x=>x.component);if(items.length&&items.some(x=>!Number.isFinite(x.percentage)||x.percentage<0||x.percentage>100))throw new Error('每种成分比例需在 0 至 100% 之间。');return items}
+function galleryEditor():string{return `<div class="mt-6 border-t pt-5"><h3 class="mb-3 text-sm font-medium">物料图片</h3><div class="flex flex-wrap gap-3">${value('galleryImageUrls').split('\n').filter(Boolean).map((url,index)=>`<div class="space-y-2">${image(url,'物料附图','h-20 w-20')}${button('移除','remove-gallery',`data-index="${index}"`)}</div>`).join('')}</div><input class="mt-4 block text-sm" type="file" accept="image/*" multiple data-${PREFIX}-field="gallery-files" /></div>`}
+function footer(back:string,label='保存资料',action='save-form'):string{return `<footer class="sticky bottom-0 z-10 flex items-center justify-between gap-4 border-t bg-white px-5 py-4"><span class="text-xs text-slate-500">${state.saving?'正在保存…':state.dirty?'有未保存修改':'资料保存后才生效'}</span><div class="flex gap-2">${button('取消','cancel-edit',`data-path="${h(back)}"`)}${button(label,action,'',true)}</div></footer>`}
+export function renderPcsMaterialArchiveEditPage(kind:MaterialArchiveKind,materialId?:string):string {
+ state.kind=kind;state.detailId=materialId||'';state.skuId='';const root=materialId?getMaterialArchiveById(materialId):null
+ if(materialId&&(!root||root.kind!==kind))return card('物料不存在',nav('返回',rootPath(kind)))
+ const initial:Record<string,unknown>={...root,categoryName:root?.categoryName||getMaterialArchiveCategoryOptions(kind)[0]?.value||'',firstMainUnit:kind==='fabric'?'M':kind==='yarn'?'KG':'PCS',firstColor:'',firstSpec:'',galleryImageUrls:(root?.galleryImageUrls||[]).join('\n')}
+ Object.entries(root?.categoryAttributes||{}).forEach(([k,v])=>initial['attr.'+k]=v)
+ root?.compositionItems?.forEach((item,i)=>{initial[`comp.${i}.name`]=item.component;initial[`comp.${i}.percentage`]=item.percentage})
+ ensureForm(`root:${kind}:${materialId||'new'}`,initial)
+ const template=root?.templateId&&root.categoryName===value('categoryName')?getMaterialTemplateByVersion(root.templateId,root.templateVersion||1):getMaterialTemplate(kind,value('categoryName')),locked=root?.approvalStatus==='APPROVED',back=rootPath(kind,materialId),hasComposition=template.fields.some(f=>f.type==='composition')
+ let content=''
+ if(state.formTab==='basic')content=card('基本资料',grid(field('materialCode','物料根码（留空自动生成）',value('materialCode'),'text',undefined,'form',locked)+field('materialName','物料名称 *',value('materialName'))+field('materialNameEn','英文名称',value('materialNameEn'))+field('categoryName','子类 *',value('categoryName'),'text',getMaterialArchiveCategoryOptions(kind),'form',locked)+field('specSummary','规格摘要',value('specSummary'))+field('barcodeTemplateCode','默认条码模板',value('barcodeTemplateCode')||'material-label-r1','text',[{value:'material-label-r1',label:'标准物料标签'},{value:'material-label-detail-r1',label:'带加工信息物料标签'}])+field('remark','备注',value('remark'),'textarea')))
+ else if(state.formTab==='technical')content=card('技术属性',`<p class="mb-5 text-xs text-slate-500">${h(template.name)} · v${template.version}${locked?' · 已审核身份属性锁定':''}</p>${grid(templateFields(template.fields,'root',locked))}${hasComposition?`<div class="mt-6 max-w-2xl">${locked?rows([['成分',root?.compositionItems?.map(x=>`${x.component} ${x.percentage}%`).join('、')||root?.composition]]):compositionEditor()}</div>`:''}`)
+ else if(state.formTab==='first')content=card('首个基础 SKU',grid((template.fields.some(f=>f.key==='color')?field('firstColor','颜色',value('firstColor'),'text',colorOptions()):'')+field('firstSpec','规格名称',value('firstSpec'))+field('firstMainUnit','主计量单位 *',value('firstMainUnit'),'text',units())+templateFields(template.fields,'sku'))+`<p class="mt-4 text-xs text-slate-500">新建主档与首个基础 SKU 一并保存。更多规格在主档的 SKU Tab 新增。</p>`)
+ else content=card('识别图片',imageEditor()+galleryEditor())
+ const tabItems:Array<[string,string]>=[['basic','基本资料'],['technical','技术属性'],...(!root?[['first','首个 SKU']as[string,string]]:[]),['images','图片']]
+ return `<div class="space-y-4 p-4" data-pcs-material-edit>${header(root?'编辑物料资料':`新建${names[kind]}`,`${names[kind]}档案 / ${root?.materialCode||'新建'}`,back)}${note()}${tabs(tabItems,state.formTab,'form-tab')}${content}${footer(back)}${renderOverlay()}</div>`
+}
+function skuInitial(sku:MaterialSkuRecord|null,root:MaterialArchiveRecord):Record<string,unknown>{const cost=sku?listMaterialCostVersions(sku.materialSkuId).at(-1):null;return{...sku,mainUnit:sku?.mainUnit||(root.kind==='fabric'?'M':root.kind==='yarn'?'KG':'PCS'),pricingUnit:sku?.pricingUnit||(root.kind==='fabric'?'M':root.kind==='yarn'?'KG':'PCS'),skuImageUrl:sku?.skuImageUrl||root.mainImageUrl,relationStatus:'ACTIVE',relationBasis:'SPECIFICATION',relationUses:'PURCHASE,PRICING,ISSUE',packageType:'包',packageContentUnit:sku?.mainUnit||'PCS',volumeSource:'DIMENSIONS',pricingUnitRelationId:cost?.pricingUnitRelationId,purchaseStandardCny:cost?.purchaseStandardCny,transportStandardCny:cost?.transportStandardCny,processStandardCny:cost?.processStandardCny,purchaseIncludesTransport:cost?.purchaseIncludesTransport?'yes':'no',...Object.fromEntries(Object.entries(sku?.identityValues||{}).map(([k,v])=>['attr.'+k,v]))}}
+export function renderPcsMaterialSkuEditPage(kind:MaterialArchiveKind,materialId:string,skuId?:string,process=false):string {
+ state.kind=kind;state.detailId=materialId;state.skuId=skuId||'';const root=getMaterialArchiveById(materialId),sku=skuId?getMaterialSkuRecordById(skuId):null
+ if(!root||root.kind!==kind||skuId&&(!sku||sku.materialId!==materialId))return card('物料不存在',nav('返回',rootPath(kind)))
+ ensureForm(`${process?'process':'sku'}:${materialId}:${skuId||'new'}`,process?{inputSkuId:skuId,processType:'DYEING',mainUnit:sku?.mainUnit,pricingUnit:sku?.pricingUnit,pantoneSystem:'TCX',printSide:'A',penetration:'no',skuImageUrl:'',processVersionId:'1',...Object.fromEntries(Object.entries(sku?.effectiveSpecValues||{}).map(([k,v])=>['effective.'+k,v])),...copyProcess,...Object.fromEntries(Object.entries(copyProcess?.effectiveSpecValues||{}).map(([k,v])=>['effective.'+k,v]))}:skuInitial(sku||(!skuId&&copySeed?.materialId===materialId?copySeed:null),root))
+ if(copyProcess){state.form.inputConfirmed='';state.form.penetration=copyProcess.penetration?'yes':'no';copyProcess=null;state.dirty=true}
+ if(!skuId&&copySeed){copySeed=null;state.dirty=true}
+ const back=skuId?skuPath(kind,materialId,skuId):rootPath(kind,materialId),template=getMaterialTemplateByVersion(root.templateId!,root.templateVersion||1),locked=Boolean(sku?.approvalStatus==='APPROVED'||sku?.inputSkuId)&&!process
+ if(process)return renderProcessEditor(root,sku!,back)
+ if(sku)applyEditRequest(sku)
+ let content=''
+ if(state.formTab==='basic')content=card('规格资料',grid(field('materialName','SKU 名称',value('materialName')||root.materialName)+field('barcodeAliases','旧码 / 条码别名（逗号分隔）',value('barcodeAliases'))+(template.fields.some(f=>f.key==='color')?field('colorName','颜色',value('colorName'),'text',colorOptions(),'form',locked)+field('colorCode','颜色编码',value('colorCode'),'text',undefined,'form',locked):'')+field('specName','规格名称',value('specName'),'text',undefined,'form',locked)+field('mainUnit','主计量单位 *',value('mainUnit'),'text',units(),'form',locked||Boolean(sku?.mainUnitUsed))+templateFields(template.fields,'sku',locked))+`<div class="mt-6">${imageEditor('skuImageUrl')}</div>`)
+ else if(state.formTab==='units')content=renderUnitEditor(sku)
+ else if(state.formTab==='cost')content=renderCostEditor(sku)
+ else if(state.formTab==='pack')content=renderPackEditor(sku)
+ else content=card('资料',sku?renderAssets(root,sku):'<p class="text-sm text-slate-500">请先保存基础 SKU，再关联技术资料。</p>')
+ const tabItems:Array<[string,string]>=[['basic','规格与图片'],...(sku?[['units','计量单位'],['cost','标准成本'],['pack','包装物流'],['assets','资料']]as Array<[string,string]>:[])]
+ return `<div class="space-y-4 p-4" data-pcs-material-sku-edit>${header(sku?'编辑 SKU 资料':'新增基础 SKU',`${root.materialCode} / ${sku?.materialSkuCode||'基础规格'}`,back)}${note()}${tabs(tabItems,state.formTab,'form-tab')}${content}${state.formTab==='assets'?'':footer(back,state.formTab==='cost'?'预览成本影响':'保存资料',state.formTab==='cost'?'preview-cost':'save-form')}${renderOverlay()}</div>`
+}
+function relationOptions(sku:MaterialSkuRecord,forPricing=false):Array<{value:string;label:string}>{return listMaterialUnitRelations(sku.materialSkuId).filter(r=>!forPricing||r.uses.includes('PRICING')).map(r=>({value:r.relationId,label:`${r.auxUnitId}${r.packageSpecId?'（'+r.mainQtyPerAux+' '+sku.mainUnit+'）':''} · 1 = ${r.mainQtyPerAux} ${sku.mainUnit} · v${r.version}`}))}
+function unitUsesEditor(key:string,label:string):string {const selected=value(key).split(/[、,，]/);return `<fieldset><legend class="mb-3 text-xs text-slate-600">${h(label)}</legend><div class="flex gap-4">${Object.entries({PURCHASE:'采购',PRICING:'计价',ISSUE:'发料'}).map(([id,name])=>`<label class="text-sm"><input type="checkbox" data-${PREFIX}-field="${key}" data-material-multi="true" data-option-value="${id}" data-skip-page-rerender="true" ${selected.includes(id)?'checked':''} /> ${name}</label>`).join('')}</div></fieldset>`}
+function renderUnitEditor(sku:MaterialSkuRecord|null):string {if(!sku)return'';const fixed=fixedMaterialFactor(value('relationUnit'),sku.mainUnit!);return card('辅助计量关系',grid(field('relationUnit','辅助单位 *',value('relationUnit'),'text',units())+field('relationFactor',`1 辅助单位 = 多少 ${sku.mainUnit} *`,fixed===null?value('relationFactor'):String(fixed),'number',undefined,'form',fixed!==null)+field('relationBasis','依据类型 *',fixed!==null?'FIXED':value('relationBasis'),'text',[{value:'FIXED',label:'固定物理换算'},{value:'SPECIFICATION',label:'规格依据'},{value:'PACKAGE',label:'包装规格'}],'form',fixed!==null)+field('relationReference','换算依据 *',value('relationReference'))+field('relationPackageId','包装规格',value('relationPackageId'),'text',listMaterialPackageSpecs(sku.materialSkuId).map(x=>({value:x.packageSpecId,label:`${x.packageTypeId}（${x.contentQty} ${x.contentUnitId}）`})))+unitUsesEditor('relationUses','适用用途 *')+unitUsesEditor('relationDefaults','默认用途')+field('relationStatus','状态',value('relationStatus'),'text',[{value:'ACTIVE',label:'启用'},{value:'INACTIVE',label:'停用'}])+field('relationReason','调整原因',value('relationReason')))+`<p class="mt-5 text-xs text-slate-500">${h(sku.materialSkuCode)} · 主单位 ${h(sku.mainUnit)}。包装单位必须选择具体包装规格，跨量纲换算必须有规格依据。</p>`)}
+function renderCostEditor(sku:MaterialSkuRecord|null):string {if(!sku)return'';return card(sku.inputSkuId?'本道加工标准':'基础采购与运输标准',grid((sku.inputSkuId?field('processStandardCny','含税加工费（RMB，已含辅材）',value('processStandardCny'),'number'):field('purchaseStandardCny','人工标准采购成本（RMB，含税）',value('purchaseStandardCny'),'number')+field('transportStandardCny','基础运输成本（RMB，含税）',value('transportStandardCny'),'number')+field('purchaseIncludesTransport','采购价格已含基础运输',value('purchaseIncludesTransport'),'text',[{value:'no',label:'否，另计基础运输'},{value:'yes',label:'是，不重复累计'}]))+field('pricingUnit','产出计价单位 *',value('pricingUnit'),'text',units())+field('pricingUnitRelationId','采用的计量关系',value('pricingUnitRelationId'),'text',relationOptions(sku,true))+field('costReason','调整原因 *',value('costReason')))+`<p class="mt-5 text-xs text-slate-500">留空表示未维护，0 表示已确认零值。保存后当前下游标准自动采用，已确认业务快照保持原值。</p><details class="mt-6"><summary class="cursor-pointer text-sm text-slate-600">按原币报价归一标准</summary><div class="mt-4">${grid(field('sourceAmount','原始金额',value('sourceAmount'),'number')+field('sourceCurrency','原币',value('sourceCurrency'),'text',options(['CNY','IDR','USD']))+field('sourceUnit','原报价单位',value('sourceUnit'),'text',units())+field('sourceFx','1 原币 = 多少 CNY',value('sourceFx'),'number')+field('sourceBasis','归一依据',value('sourceBasis')))}</div></details>`)}
+function boundMaterialField(root:MaterialArchiveRecord,level:'package'|'process',property:string,key:string,label:string,current:string,type='text',choices?:Array<{value:string;label:string}>):string {
+ const template=getMaterialTemplateByVersion(root.templateId!,root.templateVersion||1),spec=getMaterialBoundFields(template,level).find(item=>item.modelBinding===`${level}.${property}`)
+ const required=spec?materialFieldRequired(spec,{},value('processType')):false
+ const title=spec?`${spec.label}${spec.unit?`（${spec.unit}）`:''}${required?' *':''}`:label
+ return field(key,title,current,type,choices)+(spec?.help?`<p class="mt-1 text-xs text-slate-500">${h(spec.help)}</p>`:'')
+}
+function renderPackEditor(sku:MaterialSkuRecord|null):string {
+ if(!sku)return''
+ const root=getMaterialArchiveById(sku.materialId)!,f=(property:string,key:string,label:string,type='number',choices?:Array<{value:string;label:string}>)=>boundMaterialField(root,'package',property,key,label,value(key),type,choices)
+ return card('包装物流',grid(f('netWeightPerMainKg','netWeightPerMainKg',`每 ${sku.mainUnit} 净重（KG）`)+f('packageTypeId','packageType','包装类型 *','text',units().filter(x=>materialUnitDimension(x.value)==='包装'))+f('contentQty','packageContent','标准包装含量 *')+f('contentUnitId','packageContentUnit','含量单位 *','text',units())+f('grossWeightKg','grossWeight','每包装毛重（KG）')+f('lengthCm','packageLength','长（cm）')+f('widthCm','packageWidth','宽（cm）')+f('heightCm','packageHeight','高（cm）')+field('volumeSource','体积依据',value('volumeSource'),'text',[{value:'DIMENSIONS',label:'由长宽高计算'},{value:'CONFIRMED',label:'已确认体积'},{value:'UNKNOWN',label:'暂未维护'}])+f('volumeM3','packageVolume','确认体积（m³）')+f('measurementBasis','packageBasis','计量依据 *','text'))+`<p class="mt-5 text-xs text-slate-500">净重按每 ${h(sku.mainUnit)} 表示。每种包装含量独立保存，例如“包（100 PCS）”与“包（600 PCS）”。包装改变不新增 SKU。</p>`)
+}
+function processDraft():MaterialProcessDraft{return{inputSkuId:value('inputSkuId'),processType:value('processType')as MaterialProcessType,objectType:'MATERIAL',colorCode:value('colorCode'),colorName:value('colorName'),pantoneSystem:value('pantoneSystem'),pantoneCode:value('pantoneCode'),patternId:value('patternId'),patternCode:value('patternCode'),patternVersionId:value('patternVersionId'),patternImageUrl:value('patternImageUrl'),backPatternId:value('printSide')==='AB'?(value('backPatternId')||value('patternId')):undefined,backPatternCode:value('printSide')==='AB'?(value('backPatternCode')||value('patternCode')):undefined,backPatternVersionId:value('printSide')==='AB'?(value('backPatternVersionId')||value('patternVersionId')):undefined,printSide:value('printSide')as'A'|'AB',penetration:value('penetration')==='yes',processVersionId:value('processVersionId'),deliveryRevisionSegment:value('deliveryRevisionSegment'),skuImageUrl:value('skuImageUrl'),executionAssetIds:value('executionAssetIds').split(',').filter(Boolean),mainUnit:value('mainUnit'),pricingUnit:value('pricingUnit'),unitBridgeVersionId:value('unitBridgeVersionId')||undefined,processStandardCny:nullable('processStandardCny'),effectiveSpecValues:Object.fromEntries(Object.entries(state.form).filter(([k,v])=>k.startsWith('effective.')&&v).map(([k,v])=>[k.slice(10),Number.isFinite(Number(v))?Number(v):v]))}}
+function patternFields(back=false,root?:MaterialArchiveRecord):string {
+ const idKey=back?'backPatternId':'patternId',versionKey=back?'backPatternVersionId':'patternVersionId',codeKey=back?'backPatternCode':'patternCode',label=back?'背面':'正面'
+ const choices=listMaterialPatternChoices().map(item=>({value:item.id,label:`${item.pattern_code} · ${item.pattern_name}`})),versions=listMaterialPatternVersionChoices(value(idKey)).map(item=>({value:item.id,label:`${item.version_no} · ${item.original_filename}`}))
+ return (root&&!back?boundMaterialField(root,'process','patternId',idKey,'花型 *',value(idKey),'text',choices):field(idKey,back?'背面花型（留空为正反同花）':'花型 *',value(idKey),'text',choices))+(root&&!back?boundMaterialField(root,'process','patternVersionId',versionKey,label+'花型版本 *',value(versionKey),'text',versions):field(versionKey,label+'花型版本 *',value(versionKey),'text',versions))+field(codeKey,label+'花型编号',value(codeKey),'text',undefined,'form',true)
+}
+function renderProcessEditor(root:MaterialArchiveRecord,input:MaterialSkuRecord,back:string):string {
+ const type=value('processType'),pattern=type!=='DYEING',pf=(property:string,key:string,label:string,current:string,type='text',choices?:Array<{value:string;label:string}>)=>boundMaterialField(root,'process',property,key,label,current,type,choices);let content=''
+ if(state.formTab==='basic')content=card('投入与工艺',`${identity(input.materialSkuCode,input.materialName,input.skuImageUrl,back)}<div class="mt-6">${grid(pf('processType','processType','本道加工类型 *',type,'text',listMaterialProcessConfigurations().filter(x=>x.enabled&&x.material).map(x=>({value:x.id,label:x.name})))+pf('processVersionId','processVersionId','工艺资料版本 *',value('processVersionId'))+pf('inputSkuId','inputConfirmed','确认直接投入 *',value('inputConfirmed'),'text',[{value:'yes',label:input.materialSkuCode}]))}</div><p class="mt-5 text-xs text-slate-500">只从当前投入生成下一阶段 SKU。裁片加工与横机成片由工艺路线和生产对象管理。</p>`)
+ else if(state.formTab==='spec')content=card('交付规格',`${grid(pattern?patternFields(false,root)+(type==='PRINTING'?field('printSide','印花面别 *',value('printSide'),'text',[{value:'A',label:'A · 单面'},{value:'AB',label:'AB · 双面'}])+field('penetration','渗透印 *',value('penetration'),'text',[{value:'no',label:'普通印花'},{value:'yes',label:'ST · 渗透印'}])+(value('printSide')==='AB'?patternFields(true,root):''):''):field('colorName','颜色名称 *',value('colorName'),'text',colorOptions())+field('colorCode','颜色编码 *',value('colorCode'))+field('pantoneSystem','Pantone 体系 *',value('pantoneSystem'),'text',options(['TCX','TPX']))+pf('pantoneCode','pantoneCode','Pantone 色号 *',value('pantoneCode'),'text',listConfigDimensionOptions('pantone').filter(x=>x.status==='ENABLED'&&x.code.toUpperCase().includes(value('pantoneSystem'))).map(x=>({value:x.code.replace(/^(TCX|TPX)[ -]?/i,'').replace(/[ -]?(TCX|TPX)$/i,''),label:x.name_zh}))))}<div class="mt-6">${pattern&&value('patternImageUrl')?`<div class="mb-5">${image(value('patternImageUrl'),'所选花型展示图','h-28 w-28')}<p class="mt-2 text-xs text-slate-500">花型展示图 · 执行资料单独关联</p></div>`:''}${grid(getMaterialTemplateByVersion(root.templateId!,root.templateVersion||1).fields.filter(item=>item.type==='number'&&['width','gramWeight','diameter','thickness','length'].includes(item.key)).map(item=>field('effective.'+item.key,`加工后${item.label}（${item.unit}）`,value('effective.'+item.key),'number')).join('')+pf('deliveryRevisionSegment','deliveryRevisionSegment','交付版次（身份变化时）',value('deliveryRevisionSegment')))}</div>`)
+ else if(state.formTab==='cost')content=card('加工标准',grid(field('mainUnit','产出主单位 *',value('mainUnit'),'text',units())+field('pricingUnit','产出计价单位 *',value('pricingUnit'),'text',units())+pf('unitBridgeVersionId','unitBridgeVersionId','投入到产出的计量关系',value('unitBridgeVersionId'),'text',relationOptions(input))+field('processStandardCny','本道含税加工费（RMB，含辅材）',value('processStandardCny'),'number'))+`<p class="mt-4 text-xs text-slate-500">基础采购与基础运输沿前驱自动承接；本道只增加加工费。</p>`)
+ else if(state.formTab==='images')content=card('识别与执行资料',`${imageEditor('skuImageUrl')}${pattern?`<div class="mt-6 border-t pt-5"><h3 class="mb-3 text-sm font-medium">花型展示图</h3>${imageEditor('patternImageUrl')}<p class="mt-2 text-xs text-slate-500">关联所选花型版本的真实展示图；花型库暂无真实预览时，请补充该版本的图片。</p></div>`:''}<div class="mt-5">${pf('executionAssetIds','executionAssetIds','已关联的执行资料',value('executionAssetIds'),'text',listMaterialAssets(root.materialId).filter(a=>a.role===(type==='PRINTING'?'PRINT_FILE':type==='EMBROIDERY'?'EMBROIDERY_FILE':type==='HEAT_TRANSFER'?'HEAT_TRANSFER_FILE':'' )).map(a=>({value:a.assetId,label:a.name})))}</div><p class="mt-3 text-xs text-slate-500">保存草稿后可继续上传执行资料；提交审核前必须补齐。</p>`)
+ else {let code='';try{code=buildProcessedMaterialCode(input.materialSkuCode,processDraft())}catch(e){code=e instanceof Error?e.message:'请补齐交付规格'}content=card('生成结果预览',rows([['投入 SKU',input.materialSkuCode],['本道工艺',MATERIAL_PROCESS_NAMES[type as MaterialProcessType]],['产出编码',code],['产出单位',value('mainUnit')],['计价单位',value('pricingUnit')]])+`<div class="mt-5 break-all rounded-lg border bg-slate-50 p-4 text-sm text-slate-700">${h(code)}</div>`)}
+ return `<div class="space-y-4 p-4" data-pcs-material-process-edit>${header('新增加工 SKU',`${root.materialCode} / ${MATERIAL_PROCESS_NAMES[type as MaterialProcessType]}`,back)}${note()}${tabs([['basic','投入与工艺'],['spec','交付规格'],['cost','标准费用'],['images','识别与资料'],['preview','编码预览']],state.formTab,'form-tab')}${content}${footer(back,'保存加工 SKU')}${renderOverlay()}</div>`
+}
+
+let editRequest:{section:string;relationId?:string;packageId?:string}|null=null
+function goto(path:string):void{window.history.pushState({},'',path);window.dispatchEvent(new PopStateEvent('popstate'))}
+function costInput(sku:MaterialSkuRecord):Partial<MaterialStandardCostVersion>&{changeReason:string}{return{...(sku.inputSkuId?{processStandardCny:nullable('processStandardCny')}:{purchaseStandardCny:nullable('purchaseStandardCny'),transportStandardCny:nullable('transportStandardCny'),purchaseIncludesTransport:value('purchaseIncludesTransport')==='yes'}),pricingUnit:value('pricingUnit'),pricingUnitRelationId:value('pricingUnitRelationId')||undefined,changeReason:value('costReason'),...(value('sourceAmount')?{sourceMoney:{amount:value('sourceAmount'),currency:value('sourceCurrency'),unit:value('sourceUnit'),cnyPerSourceCurrency:value('sourceFx'),normalizationBasis:value('sourceBasis')}}:{})}}
+function skuDraft(root:MaterialArchiveRecord):MaterialSkuDraftInput {const template=getMaterialTemplateByVersion(root.templateId!,root.templateVersion||1),existing=state.skuId?getMaterialSkuRecordById(state.skuId):null;return{materialName:value('materialName').trim()||root.materialName,barcodeAliases:value('barcodeAliases').split(/[、,，\n]/).map(item=>item.trim()).filter(Boolean),colorName:value('colorName'),colorCode:value('colorCode'),pantoneSystem:existing?.pantoneSystem,pantoneCode:existing?.pantoneCode,patternCode:existing?.patternCode,specName:value('specName'),sizeName:value('sizeName'),skuImageUrl:value('skuImageUrl'),mainUnit:value('mainUnit'),pricingUnit:existing?.pricingUnit||value('mainUnit'),identityValues:existing&&(existing.approvalStatus==='APPROVED'||existing.inputSkuId)?existing.identityValues:templateValues(template.fields,'sku'),costPrice:existing?.costPrice||0,freightCost:existing?.freightCost||0,purchaseStandardCny:null,transportStandardCny:null,weightKg:existing?.weightKg||0,lengthCm:existing?.lengthCm||0,widthCm:existing?.widthCm||0,heightCm:existing?.heightCm||0,barcode:existing?.barcode||''}}
+export function buildMaterialRootEditorDraft():MaterialArchiveDraft {const old=state.detailId?getMaterialArchiveById(state.detailId):null,template=old?.templateId&&old.categoryName===value('categoryName')?getMaterialTemplateByVersion(old.templateId,old.templateVersion||1):getMaterialTemplate(state.kind,value('categoryName')),attrs=old?.approvalStatus==='APPROVED'?old.categoryAttributes||{}:templateValues(template.fields,'root'),comps=old?.approvalStatus==='APPROVED'?old.compositionItems:compositionValues();return{kind:state.kind,materialCode:value('materialCode')||undefined,galleryImageUrls:value('galleryImageUrls').split('\n').filter(Boolean),materialName:value('materialName'),materialNameEn:value('materialNameEn'),categoryName:value('categoryName'),specSummary:value('specSummary'),composition:comps?.map(x=>`${x.component} ${x.percentage}%`).join('、')||old?.composition||'',compositionItems:comps,categoryAttributes:attrs,equipmentCompatibility:Array.isArray(attrs.equipment)?attrs.equipment.filter((item):item is string=>typeof item==='string'):[],equipmentCompatibilityDetails:old?.approvalStatus==='APPROVED'?old.equipmentCompatibilityDetails:template.fields.some(item=>item.valueShape==='equipmentCompatibility')?equipmentValues():old?.equipmentCompatibilityDetails,widthText:attrs[value('categoryName')==='绳子'?'diameter':'width']==null?old?.widthText||'':`${attrs[value('categoryName')==='绳子'?'diameter':'width']} ${template.fields.find(x=>x.key===(value('categoryName')==='绳子'?'diameter':'width'))?.unit||'cm'}`,gramWeightText:attrs.gramWeight===undefined?old?.gramWeightText||'':`${attrs.gramWeight} g/m²`,processTags:old?.processTags||[],pricingUnit:old?.pricingUnit||value('firstMainUnit'),mainImageUrl:value('mainImageUrl'),barcodeTemplateCode:value('barcodeTemplateCode')||'material-label-r1',remark:value('remark'),templateId:template.templateId,templateVersion:template.version,...(old?.approvalStatus==='APPROVED'?{composition:old.composition,compositionItems:old.compositionItems,categoryAttributes:old.categoryAttributes,equipmentCompatibility:old.equipmentCompatibility,equipmentCompatibilityDetails:old.equipmentCompatibilityDetails,widthText:old.widthText,gramWeightText:old.gramWeightText,templateId:old.templateId,templateVersion:old.templateVersion}:{}),...(!old?{firstSku:{colorName:value('firstColor'),specName:value('firstSpec'),sizeName:'',mainUnit:value('firstMainUnit'),pricingUnit:value('firstMainUnit'),identityValues:templateValues(template.fields,'sku'),skuImageUrl:value('mainImageUrl'),purchaseStandardCny:null,transportStandardCny:null,costPrice:0,freightCost:0,weightKg:0,lengthCm:0,widthCm:0,heightCm:0,barcode:''}}:{})}}
+async function command<T>(recipe:()=>T,prepare?:()=>Promise<void>):Promise<T>{if(state.saving)throw new Error('正在保存，请勿重复操作。');state.saving=true;try{await prepare?.();const result=await runPcsRecordCommand(recipe,state.operationId||crypto.randomUUID());state.operationId=crypto.randomUUID();return result}finally{state.saving=false}}
+async function runBatchApproval(action:'SUBMIT'|'APPROVE'):Promise<void> {
+ const current=listState(state.kind),ids=[...current.selected]
+ if(!ids.length)throw new Error('请先选择档案。')
+ approvalBatch.kind=state.kind;approvalBatch.action=action;approvalBatch.selectedCount=ids.length;approvalBatch.results=[];approvalBatch.open=true
+ state.saving=true
+ try {
+  approvalBatch.results=await runMaterialApprovalBatch(ids,action,crypto.randomUUID())
+  for(const item of approvalBatch.results)if(item.ok)current.selected.delete(item.id)
+  const saved=approvalBatch.results.filter(item=>item.ok).length
+  state.notice=`本次处理 ${ids.length} 项：已保存 ${saved} 项，未保存 ${ids.length-saved} 项。请查看逐项结果。`
+ }finally{state.saving=false}
+}
+async function saveForm():Promise<void>{
+ const root=state.detailId?getMaterialArchiveById(state.detailId):null,sku=state.skuId?getMaterialSkuRecordById(state.skuId):null
+ if(state.formKey.startsWith('root:')){const input=buildMaterialRootEditorDraft(),saved=await command(()=>root?updateMaterialArchive(root.materialId,input):createMaterialArchive(input));state.dirty=false;state.formKey='';goto(rootPath(state.kind,saved.materialId));return}
+ if(!root)throw new Error('物料主档不存在。')
+ if(state.formKey.startsWith('process:')){if(value('inputConfirmed')!=='yes')throw new Error('请在投入与工艺视图确认直接投入 SKU。');const input=processDraft();if(input.processType!=='DYEING'){const front=getMaterialPatternReference(input.patternId||'',input.patternVersionId);Object.assign(input,{...front,patternImageUrl:input.patternImageUrl||front.patternImageUrl});if(input.printSide==='AB'){const back=getMaterialPatternReference(input.backPatternId||front.patternId,input.backPatternVersionId||front.patternVersionId);Object.assign(input,{backPatternId:back.patternId,backPatternCode:back.patternCode,backPatternVersionId:back.patternVersionId})}}const saved=await command(()=>createProcessedMaterialSku(input));state.dirty=false;state.formKey='';goto(skuPath(state.kind,root.materialId,saved.materialSkuId));return}
+ if(state.formTab==='units'&&sku){const fixed=fixedMaterialFactor(value('relationUnit'),sku.mainUnit!);await command(()=>saveMaterialUnitRelation(sku.materialSkuId,{relationId:value('relationId')||undefined,auxUnitId:value('relationUnit'),mainQtyPerAux:fixed??Number(value('relationFactor')),basisType:fixed!==null?'FIXED':value('relationBasis')as MaterialUnitRelation['basisType'],basisReference:fixed!==null?'固定物理换算':value('relationReference'),packageSpecId:value('relationPackageId')||undefined,uses:value('relationUses').split(/[、,，]/).filter(Boolean)as MaterialUnitRelation['uses'],isDefaultForUse:value('relationDefaults').split(/[、,，]/).filter(Boolean)as MaterialUnitRelation['uses'],status:value('relationStatus')as'ACTIVE'|'INACTIVE',changeReason:value('relationReason')}));state.skuTab='units'}
+ else if(state.formTab==='pack'&&sku){const input={packageSpecId:value('packageSpecId')||undefined,packageTypeId:value('packageType'),contentQty:Number(value('packageContent')),contentUnitId:value('packageContentUnit'),grossWeightKg:nullable('grossWeight'),lengthCm:nullable('packageLength'),widthCm:nullable('packageWidth'),heightCm:nullable('packageHeight'),volumeM3:nullable('packageVolume'),volumeSource:value('volumeSource')as'DIMENSIONS'|'CONFIRMED'|'UNKNOWN',measurementBasis:value('packageBasis'),status:'ACTIVE'as const};const net=nullable('netWeightPerMainKg');await command(()=>{if(value('packageContent').trim())saveMaterialPackageSpec(sku.materialSkuId,input);updateMaterialSkuRecord(sku.materialSkuId,{...sku,netWeightPerMainKg:net})});state.skuTab='pack'}
+ else if(state.formTab==='cost'&&sku){const input=costInput(sku);await command(()=>saveMaterialStandardCost(sku.materialSkuId,input));state.skuTab='cost';state.form.costPreview=''}
+ else{const draft=skuDraft(root),saved=await command(()=>sku?updateMaterialSkuRecord(sku.materialSkuId,draft):createMaterialSkuRecord(root.materialId,draft),sku?()=>assertMaterialMainUnitChangeAllowed(sku,draft.mainUnit):undefined);if(!saved)throw new Error('该物料不存在。');state.skuId=saved.materialSkuId;state.skuTab='spec'}
+ state.dirty=false;state.formKey='';goto(skuPath(state.kind,root.materialId,state.skuId))
+}
+function renderOverlay():string {
+ if(transfer.open)return renderTransfer()
+ if(approvalBatch.open)return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-5" role="dialog" aria-modal="true" aria-label="批量审核结果"><section class="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"><header class="flex shrink-0 items-center justify-between border-b px-5 py-4"><h2 class="text-lg font-semibold">${approvalBatch.action==='SUBMIT'?'批量提交审核':'批量审核通过'}结果</h2>${button('关闭','close-batch-results')}</header><div class="min-h-0 overflow-auto p-5">${state.saving?'<p class="text-sm text-slate-500">正在逐项保存，请稍候。</p>':renderMaterialApprovalBatchResults(approvalBatch.results,approvalBatch.selectedCount)}</div><footer class="flex shrink-0 justify-end border-t px-5 py-4">${button('关闭','close-batch-results')}</footer></section></div>`
+ if(state.image)return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-8" ${attr('close-overlay')}><img class="max-h-full max-w-full object-contain" src="${h(state.image)}" alt="物料大图" /><button class="absolute right-6 top-6 rounded bg-white px-4 py-2 text-sm">关闭</button></div>`
+ if(state.form.costPreview==='yes'&&state.skuId){let impacts:Array<{materialSkuId:string;before:number|null;after:number|null}>=[];let error='';try{impacts=previewMaterialCostChange(state.skuId,costInput(getMaterialSkuRecordById(state.skuId)!))}catch(e){error=e instanceof Error?e.message:'请核对标准'}return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6"><section class="w-full max-w-3xl rounded-lg bg-white p-5 shadow-xl"><h2 class="text-lg font-semibold">确认标准成本影响</h2><p class="my-3 text-sm text-slate-500">当前标准自动向后生效；已确认业务单据继续保留原快照。</p><div class="max-h-96 overflow-auto">${error?h(error):simpleTable(['物料 SKU','调整前 RMB','调整后 RMB'],impacts.map(x=>[h(getMaterialSkuRecordById(x.materialSkuId)?.materialSkuCode),h(x.before??'未维护'),h(x.after??'未维护')]))}</div><div class="mt-5 flex justify-end gap-2">${button('返回修改','close-overlay')}${!error?button('确认并生效','confirm-cost','',true):''}</div></section></div>`}
+ if(state.printMaterialId){const skus=state.printSkuIds.map(getMaterialSkuRecordById).filter((x):x is MaterialSkuRecord=>Boolean(x));return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6"><section class="w-full max-w-3xl rounded-lg bg-white p-5 shadow-xl"><div class="flex justify-between"><h2 class="text-lg font-semibold">物料识别标签</h2>${button('关闭','close-overlay')}</div><div class="my-5 grid gap-4 md:grid-cols-2">${field('labelTemplate','标签模板',state.labelTemplate,'text',[{value:'standard',label:'标准识别标签'},{value:'detailed',label:'含加工资料的详细标签'}],'print')}${field('printQuantity','每个 SKU 打印份数',state.printQuantity,'number',undefined,'print')}</div><details class="mb-4"><summary class="cursor-pointer text-sm">选择 SKU（已选 ${skus.length} 项）</summary><div class="mt-3 max-h-36 space-y-2 overflow-auto">${listMaterialSkuRecordsByMaterialId(state.printMaterialId).map(item=>`<label class="flex gap-2 text-sm"><input type="checkbox" data-${PREFIX}-field="printSkuSelection" data-sku-id="${h(item.materialSkuId)}" ${state.printSkuIds.includes(item.materialSkuId)?'checked':''}/><span class="break-all">${h(item.materialSkuCode)}</span></label>`).join('')}</div></details><div id="pcs-material-labels" class="max-h-96 space-y-3 overflow-auto">${skus.map(sku=>`<div class="flex gap-4 border p-4">${renderRealQrPlaceholder({value:sku.materialSkuId,size:96,title:sku.materialSkuCode})}<div class="min-w-0 flex-1"><div class="break-all font-semibold">${h(sku.materialSkuCode)}</div><div class="mt-2 text-sm">${h(sku.materialName)} · ${h(sku.colorName)} · ${h(sku.mainUnit)}</div><div class="mt-2 text-xs">${h([sku.pantoneSystem,sku.pantoneCode,sku.patternCode].filter(Boolean).join(' / '))}</div>${state.labelTemplate==='detailed'?`<div class="mt-2 break-all text-xs">${h(MATERIAL_PROCESS_LABELS[sku.stage||'BASE'])} · ${h(sku.specName)}${sku.inputSkuId?`<br/>投入：${h(getMaterialSkuRecordById(sku.inputSkuId)?.materialSkuCode)}`:''}</div>`:''}</div>${image(sku.skuImageUrl,sku.materialName,'h-20 w-20')}</div>`).join('')}</div><div class="mt-5 flex justify-end">${button('打印','print-now','',true)}</div></section></div>`}return''
+}
+function downloadMaterialCsv(csv:string,name:string):void{const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),link=document.createElement('a');link.href=url;link.download=name;link.click();URL.revokeObjectURL(url)}
+export function renderMaterialImportResults(results:readonly MaterialImportCommitResult[],requestedPage=1):string {
+ const saved=results.filter(row=>row.ok).length,pages=Math.max(1,Math.ceil(results.length/100)),page=Math.max(1,Math.min(pages,requestedPage))
+ const pagination=pages>1?`<div class="mt-4 flex items-center justify-between text-sm"><span>每页 100 组 · 第 ${page} / ${pages} 页</span><div class="flex gap-2">${button('上一页','transfer-results-page',`data-page="${page-1}" ${page===1?'disabled':''}`)}${button('下一页','transfer-results-page',`data-page="${page+1}" ${page===pages?'disabled':''}`)}</div></div>`:''
+ return card('保存结果',`<p class="mb-3 text-sm">共 ${results.length} 组，已保存 ${saved} 组，未保存 ${results.length-saved} 组。成功组不会重复提交。</p>${simpleTable(['主档 / SKU','源文件行号','结果','说明'],results.slice((page-1)*100,page*100).map(row=>[h(row.key),h(row.lineNumbers.join('、')),row.ok?'已保存':'未保存',h(row.message)]))}${pagination}`)
+}
+function renderTransfer():string {
+ const savedKeys=new Set(transfer.results.filter(row=>row.ok).map(row=>row.key)),pendingGroups=transfer.preview?.groups.filter(group=>!group.errors.length&&!savedKeys.has(group.key)).length||0
+ const preview=transfer.preview,description=transfer.mode==='archives'?'同一物料编码的主档和所有基础/加工 SKU 一组保存；已有主档只新增规格。加工行必须排在直接投入行之后。':transfer.mode==='units'?'按 SKU 维护关系版本。主计量单位不在导入范围；包装换算引用已存在的具体包装规格。':'含税、按产出计价单位；留空是未维护，0 是真实零值。加工 SKU 只增加本道加工费。'
+ return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-5"><section class="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"><header class="flex shrink-0 items-center justify-between border-b px-5 py-4"><h2 class="text-lg font-semibold">${h(names[state.kind])}业务导入 / 导出</h2>${button('关闭','transfer-close')}</header><div class="min-h-0 space-y-5 overflow-auto p-5">${note()}${field('transferMode','业务对象',transfer.mode,'text',Object.entries(MATERIAL_TRANSFER_LABELS).map(([value,label])=>({value,label})),'transfer')}<p class="text-sm text-slate-600">${h(description)}</p><div class="flex gap-3">${button('下载业务模板','transfer-template')}${button('导出当前全部筛选结果','transfer-export')}</div><details class="text-xs text-slate-500"><summary class="cursor-pointer">字段和填写规则</summary><p class="mt-3 break-words">${h(materialTransferHeaders(transfer.mode).join(' · '))}</p><p class="mt-2">JSON 列使用对象/数组；工艺类型：BASE、DYEING、PRINTING、EMBROIDERY、HEAT_TRANSFER；单位关系用途：PURCHASE、PRICING、ISSUE；依据：FIXED、SPECIFICATION、PACKAGE；状态：ACTIVE、INACTIVE。币种金额与单位按列名填写；图像只接收现有文件引用或静态资料地址。</p></details><label class="block text-sm">选择 CSV 文件<input class="mt-2 block text-sm" type="file" accept=".csv,text/csv" data-${PREFIX}-field="transferFile" data-skip-page-rerender="true"/></label>${transfer.text?`<p class="text-xs text-slate-500">已读取业务文件（${transfer.text.length.toLocaleString()} 字符），尚未保存。</p>`:''}<div>${button('校验并预览','transfer-preview','',true)}</div>${preview?`<section><p class="mb-3 text-sm">${preview.rows.length} 行，${preview.groups.length} 组；${preview.validGroups} 组可保存，${preview.failedRows} 行需修正。含错误的整个物料组不保存；每个通过组单独保存，同一主档及其 SKU 一起成功或一起失败，一组失败不影响其他组。</p>${simpleTable(['行号','物料 / SKU','预期对象','校验'],preview.rows.slice(0,100).map(row=>[h(row.line),h(row.key),h(row.description),h(row.errors.join('；')||'通过')]))}${preview.rows.length>100?'<p class="mt-2 text-xs text-slate-500">表格仅展示前 100 行，所有行均已校验。</p>':''}</section>`:''}${transfer.results.length?renderMaterialImportResults(transfer.results,transfer.resultPage):''}</div><footer class="flex shrink-0 justify-end gap-2 border-t p-4">${button('关闭','transfer-close')}${preview&&pendingGroups?button(state.saving?'正在保存…':transfer.results.length?`重试未保存的 ${pendingGroups} 组`:`确认保存通过的 ${pendingGroups} 组`,'transfer-confirm',state.saving?'disabled':'',true):''}</footer></section></div>`
+}
+async function confirmMaterialTransfer():Promise<void>{
+ const preview=transfer.preview;if(!preview)throw new Error('请先校验并预览业务文件。')
+ state.saving=true
+ try{
+  transfer.results=await runMaterialBusinessImportBatch(preview,transfer.batchId,transfer.results)
+  const saved=transfer.results.filter(row=>row.ok).length
+  state.notice=`导入完成：${saved} 组已保存，${transfer.results.length-saved} 组未保存。`
+ }finally{state.saving=false}
+}
+function applyEditRequest(sku:MaterialSkuRecord):void{if(!editRequest)return;state.formTab=editRequest.section;if(editRequest.relationId){const r=listMaterialUnitRelations(sku.materialSkuId).find(x=>x.relationId===editRequest!.relationId);if(r)Object.assign(state.form,{relationId:r.relationId,relationUnit:r.auxUnitId,relationFactor:String(r.mainQtyPerAux),relationBasis:r.basisType,relationReference:r.basisReference,relationPackageId:r.packageSpecId||'',relationUses:r.uses.join(','),relationDefaults:r.isDefaultForUse.join(','),relationStatus:r.status,relationReason:''})}if(editRequest.packageId){const pack=listMaterialPackageSpecs(sku.materialSkuId).find(x=>x.packageSpecId===editRequest!.packageId);if(pack)Object.assign(state.form,{packageSpecId:pack.packageSpecId,packageType:pack.packageTypeId,packageContent:String(pack.contentQty),packageContentUnit:pack.contentUnitId,grossWeight:String(pack.grossWeightKg??''),packageLength:String(pack.lengthCm??''),packageWidth:String(pack.widthCm??''),packageHeight:String(pack.heightCm??''),packageVolume:String(pack.volumeM3??''),volumeSource:pack.volumeSource,packageBasis:pack.measurementBasis})}editRequest=null}
+export function handlePcsMaterialArchiveInput(target:Element):boolean {
+ const element=target.closest<HTMLInputElement|HTMLSelectElement>(`[data-${PREFIX}-field]`);if(!element)return false
+ const key=element.getAttribute(`data-${PREFIX}-field`)!,scope=element.dataset.fieldScope,ls=listState(state.kind)
+ if(state.saving&&(scope==='transfer'||key==='transferFile')){element.removeAttribute('data-skip-page-rerender');return true}
+ if(element.dataset.materialMulti){const values=value(key).split(/[、,，]/).filter(Boolean),option=element.dataset.optionValue!;state.form[key]=((element as HTMLInputElement).checked?[...new Set([...values,option])]:values.filter(x=>x!==option)).join('、');state.dirty=true;return true}
+ if(key==='selection'){const id=element.dataset.value!;(element as HTMLInputElement).checked?ls.selected.add(id):ls.selected.delete(id);return true}
+ if(key==='pageSize'){ls.prefs.pageSize=Number(element.value);ls.page=1;savePrefs();return true}
+ if(scope==='transfer'){if(key==='transferMode'){transfer.mode=element.value as MaterialTransferMode;transfer.preview=null;transfer.results=[];transfer.resultPage=1}else{transfer.text=element.value;transfer.preview=null;transfer.results=[];transfer.resultPage=1}element.removeAttribute('data-skip-page-rerender');return true}
+ if(key==='transferFile'){const file=(element as HTMLInputElement).files?.[0];if(file){if(file.size>10*1024*1024){state.notice='业务 CSV 请控制在 10 MB 以内。';return true}void file.text().then(text=>{transfer.text=text;transfer.preview=null;transfer.results=[];transfer.resultPage=1;window.dispatchEvent(new Event('higood:request-render'))}).catch(error=>{state.notice='业务文件未读取：'+String(error);window.dispatchEvent(new Event('higood:request-render'))});element.removeAttribute('data-skip-page-rerender')}return true}
+ if(scope==='filter'){ls.draft[key as keyof Filters]=element.value;return true}
+ if(scope==='print'){if(key==='labelTemplate')state.labelTemplate=element.value;else state.printQuantity=element.value;element.removeAttribute('data-skip-page-rerender');return true}
+ if(key==='printSkuSelection'){const id=element.dataset.skuId!;state.printSkuIds=(element as HTMLInputElement).checked?[...new Set([...state.printSkuIds,id])]:state.printSkuIds.filter(x=>x!==id);return true}
+ if(key==='assetFile'){state.assetFile=(element as HTMLInputElement).files?.[0]||null;state.dirty=Boolean(state.assetFile)||state.dirty;return true}
+ if(key==='image-file'||key==='gallery-files'){
+  const files=Array.from((element as HTMLInputElement).files||[]);if(!files.length)return true
+  if(files.some(file=>!file.type.startsWith('image/')||file.size>15*1024*1024)){state.notice='请选择不超过 15 MB 的实物图片。';return true}
+  const targetKey=key==='gallery-files'?'galleryImageUrls':element.dataset.imageTarget||'mainImageUrl'
+  if(key==='image-file'&&pendingFiles.has(targetKey))releasePcsPendingFile(pendingFiles.get(targetKey)!)
+  const refs=files.map(file=>registerPcsFile(file));refs.forEach((ref,index)=>pendingFiles.set(key==='gallery-files'?ref.url:targetKey,ref.fileId))
+  state.form[targetKey]=key==='gallery-files'?[...value(targetKey).split('\n').filter(Boolean),...refs.map(ref=>ref.url)].join('\n'):refs[0].url
+  state.dirty=true;element.removeAttribute('data-skip-page-rerender');return true
+ }
+ state.form[key]=element.value;state.dirty=true
+ if(['patternId','patternVersionId','backPatternId','backPatternVersionId'].includes(key)){
+  const back=key.startsWith('back'),idKey=back?'backPatternId':'patternId',versionKey=back?'backPatternVersionId':'patternVersionId',codeKey=back?'backPatternCode':'patternCode'
+  if(key===idKey)state.form[versionKey]=''
+  try{if(value(idKey)){const selected=getMaterialPatternReference(value(idKey),value(versionKey)||undefined);state.form[codeKey]=selected.patternCode;state.form[versionKey]=selected.patternVersionId;if(!back)state.form.patternImageUrl=selected.patternImageUrl}else{state.form[codeKey]='';state.form[versionKey]='';if(!back)state.form.patternImageUrl=''}}catch(error){state.notice=error instanceof Error?error.message:'请重新选择花型。'}
+  element.removeAttribute('data-skip-page-rerender');return true
+ }
+ if(key==='colorName'||key==='firstColor'){const color=listConfigDimensionOptions('colors').find(x=>x.name_zh===element.value);if(color)state.form.colorCode=color.code}
+ if(key.startsWith('equipment.')&&key.endsWith('.type')){state.form[key.replace(/\.type$/,'.model')]='';element.removeAttribute('data-skip-page-rerender');return true}
+ if(key==='attr.fastening'){if(element.value==='脚式')state.form['attr.holeCount']='';element.removeAttribute('data-skip-page-rerender');return true}
+ if(key==='categoryName'||key==='processType'||key==='printSide'||key==='pantoneSystem'||key==='relationUnit'){element.removeAttribute('data-skip-page-rerender');return true}
+ return true
+}
+const preferenceStorage={getItem:(key:string)=>{try{return typeof window==='undefined'?null:window.localStorage.getItem(key)}catch{return null}},setItem:(key:string,value:string)=>{try{if(value.length<12000)window.localStorage.setItem(key,value)}catch{/* bounded optional UI preference */}}}
+function savePrefs(){const ls=listState(state.kind);saveListColumnPreferences(preferenceStorage,`pcs-material-r1-${state.kind}-${ls.view}`,ls.prefs)}
+export async function handlePcsMaterialArchiveEvent(target:HTMLElement,event?:Event):Promise<boolean>{
+ if(event?.type==='drop'){
+  const drop=target.closest<HTMLElement>(`[data-pcs-material-archive-page] [data-standard-list-column-drag]`)
+  const source=(event as DragEvent&{higoodStandardListColumnKey?:string}).higoodStandardListColumnKey,targetKey=drop?.dataset.dropTarget,ls=listState(state.kind)
+  if(!source||!targetKey||source===targetKey)return false
+  const order=ls.prefs.order.filter(key=>key!==source),at=order.indexOf(targetKey)
+  if(at<0||['select','actions'].includes(source)||['select','actions'].includes(targetKey))return false
+  event.preventDefault();order.splice(at,0,source);ls.prefs=normalizeListColumnPreferences(listColumns(state.kind),{...ls.prefs,order},[20,50,100]);savePrefs();return true
+ }
+ if(event?.type.startsWith('drag'))return false
+ const el=target.closest<HTMLElement>(`[data-${PREFIX}-action]`);if(!el)return false;const action=el.getAttribute(`data-${PREFIX}-action`)!,ls=listState(state.kind),id=el.dataset.id||''
+ if(state.saving)return true
+ try{
+  if(action==='transfer-open'){transfer.open=true;transfer.preview=null;transfer.results=[];transfer.resultPage=1;transfer.batchId=crypto.randomUUID()}
+  else if(action==='transfer-close')transfer.open=false
+  else if(action==='transfer-template')downloadMaterialCsv(buildMaterialBusinessTemplate(state.kind,transfer.mode),`${names[state.kind]}-${MATERIAL_TRANSFER_LABELS[transfer.mode]}-模板.csv`)
+  else if(action==='transfer-export')downloadMaterialCsv(exportMaterialBusinessRows(transfer.mode,filteredSkus(state.kind).map(x=>x.materialSkuId),listState(state.kind).view==='root'?filteredRoots(state.kind).map(x=>x.materialId):[]),`${names[state.kind]}-${MATERIAL_TRANSFER_LABELS[transfer.mode]}-筛选结果.csv`)
+  else if(action==='transfer-preview'){transfer.preview=previewMaterialBusinessImport(state.kind,transfer.mode,transfer.text);transfer.results=[];transfer.resultPage=1;transfer.batchId=crypto.randomUUID()}
+  else if(action==='transfer-confirm'){await confirmMaterialTransfer()}
+  else if(action==='transfer-results-page'){transfer.resultPage=Number(el.dataset.page)||1}
+  else if(action==='list-view'){ls.view=el.dataset.value as 'root'|'sku';ls.page=1;ls.prefs.order=[];ls.selected.clear()}
+  else if(action==='query'){ls.filters={...ls.draft};ls.page=1;ls.selected.clear()}
+  else if(action==='reset'){ls.filters=emptyFilters();ls.draft=emptyFilters();ls.page=1;ls.selected.clear()}
+  else if(action==='more')ls.more=!ls.more
+  else if(action==='columns')ls.settings=true
+  else if(action==='close-column-settings')ls.settings=false
+  else if(action==='restore-column-settings'){ls.prefs.order=[];ls.prefs.visibleKeys=[];ls.prefs.frozenKeys=['identity']}
+  else if(action==='toggle-column-visibility'||action==='toggle-column-freeze'){const key=el.getAttribute(`data-${PREFIX}-column-key`)!;const list=action==='toggle-column-visibility'?'visibleKeys':'frozenKeys';ls.prefs[list]=(el as HTMLInputElement).checked?[...ls.prefs[list],key]:ls.prefs[list].filter(x=>x!==key);savePrefs()}
+  else if(action==='sort-column'){const key=el.dataset.columnKey!;ls.sort=ls.sort?.key!==key?{key,direction:'asc'}:ls.sort.direction==='asc'?{key,direction:'desc'}:null}
+  else if(action==='prev-page')ls.page=Math.max(1,ls.page-1)
+  else if(action==='next-page')ls.page++
+  else if(action==='root-tab')state.detailTab=el.dataset.value!
+  else if(action==='sku-tab')state.skuTab=el.dataset.value!
+  else if(action==='dimension-add'){state.form.dimensionCount=String(dimensionCount()+1);state.dirty=true}
+  else if(action==='equipment-add'){state.form.equipmentCount=String(equipmentCount()+1);state.dirty=true}
+  else if(action==='composition-add'){state.form.compositionCount=String(compositionCount()+1);state.dirty=true}
+  else if(action==='form-tab')state.formTab=el.dataset.value!
+  else if(action==='image')state.image=el.dataset.url||''
+  else if(action==='close-overlay'){state.image='';state.printSkuIds=[];state.printMaterialId='';state.form.costPreview=''}
+  else if(action==='export')downloadMaterialCsv(exportMaterialBusinessRows('archives',filteredSkus(state.kind).map(x=>x.materialSkuId)),`${names[state.kind]}-筛选结果.csv`)
+  else if(action==='cost-currency')state.costCurrency=el.dataset.value as'CNY'|'IDR'|'USD'
+  else if(action==='edit-section'){editRequest={section:el.dataset.section!,relationId:el.dataset.relationId,packageId:el.dataset.packageId};state.formKey='';goto(el.dataset.path!)}
+  else if(action==='cancel-edit'){if(!state.dirty||window.confirm('放弃尚未保存的修改？')){releasePendingFiles();state.formKey='';state.dirty=false;goto(el.dataset.path!)}}
+  else if(action==='save-form')await saveForm()
+  else if(action==='preview-cost'){const sku=getMaterialSkuRecordById(state.skuId)!;const input=costInput(sku);if(!input.changeReason.trim())throw new Error('请填写调整原因。');previewMaterialCostChange(sku.materialSkuId,input);state.form.costPreview='yes'}
+  else if(action==='confirm-cost')await saveForm()
+  else if(action==='submit'||action==='approve'||action==='reject'){const reason=action==='reject'?window.prompt('填写驳回原因')||'':'';if(action==='reject'&&!reason)return true;await command(()=>setMaterialApproval(id,action==='submit'?'SUBMIT':action==='approve'?'APPROVE':'REJECT',reason));state.notice='审核状态已保存。'}
+  else if(action==='batch-submit'||action==='batch-approve')await runBatchApproval(action==='batch-submit'?'SUBMIT':'APPROVE')
+  else if(action==='batch-results')approvalBatch.open=true
+  else if(action==='close-batch-results')approvalBatch.open=false
+  else if(action==='use-status'){if(window.confirm(`确认${el.dataset.status==='ACTIVE'?'启用':el.dataset.status==='ARCHIVED'?'归档':'停用'}此档案？${el.dataset.status==='ARCHIVED'?'存在活动引用时不可归档。':''}`)){await command(()=>setMaterialUseStatus(id,el.dataset.status as 'ACTIVE'|'INACTIVE'|'ARCHIVED'));state.notice='使用状态已保存。'}}
+  else if(action==='remove-gallery'){const urls=value('galleryImageUrls').split('\n').filter(Boolean);urls.splice(Number(el.dataset.index),1);state.form.galleryImageUrls=urls.join('\n');state.dirty=true}
+  else if(action==='copy-sku'){const source=getMaterialSkuRecordById(el.dataset.skuId!);if(!source)throw new Error('来源 SKU 不存在。');state.formKey='';if(source.inputSkuId){const definition=getMaterialProcessDefinition(source.materialSkuId)!;copyProcess={...definition,skuImageUrl:source.skuImageUrl,mainUnit:source.mainUnit,pricingUnit:source.pricingUnit,effectiveSpecValues:source.effectiveSpecValues,processStandardCny:null};goto(skuPath(state.kind,source.materialId,source.inputSkuId)+'/process')}else{copySeed=source;goto(rootPath(state.kind,source.materialId)+'/skus/new')}}
+  else if(action==='copy-root'){const result=await command(()=>copyMaterialArchive(id));goto(`${rootPath(state.kind,result.materialId)}/edit`)}
+  else if(action==='save-asset'){const file=state.assetFile;if(!file)throw new Error('请选择资料文件。');if(pendingFiles.has('asset'))releasePcsPendingFile(pendingFiles.get('asset')!);const role=(value('assetRole')||'IDENTIFICATION')as MaterialAsset['role'];validateMaterialAssetFile({fileName:file.name,mimeType:file.type,sizeBytes:file.size,role});const ref=registerPcsFile(file);pendingFiles.set('asset',ref.fileId);await command(()=>{const asset=addMaterialAsset({materialId:el.dataset.materialId!,materialSkuId:el.dataset.skuId||undefined,role,name:value('assetName')||file.name,url:ref.url,fileId:ref.fileId,fileName:file.name,mimeType:file.type||'application/octet-stream',sizeBytes:file.size});const process=el.dataset.skuId?getMaterialProcessDefinition(el.dataset.skuId):null;if(process&&['PRINT_FILE','EMBROIDERY_FILE','HEAT_TRANSFER_FILE'].includes(role))reviseMaterialProcessAssets(el.dataset.skuId!,[...process.executionAssetIds,asset.assetId],value('assetProcessVersion')||(process.executionAssetIds.length?process.processVersionId+'-修订1':process.processVersionId))});state.assetFile=null;state.dirty=false;releasePendingFiles();state.notice='资料已保存。'}
+  else if(action==='print-label'){state.printMaterialId=el.dataset.materialId||getMaterialSkuRecordById(el.dataset.skuId||'')?.materialId||state.detailId;state.printSkuIds=el.dataset.skuId?[el.dataset.skuId]:listMaterialSkuRecordsByMaterialId(state.detailId).map(x=>x.materialSkuId);state.printQuantity='1';state.labelTemplate=getMaterialArchiveById(state.printMaterialId)?.barcodeTemplateCode==='material-label-detail-r1'?'detailed':'standard'}
+  else if(action==='print-now'){if(!state.printSkuIds.length)throw new Error('请至少选择一个 SKU。');const qty=Number(state.printQuantity);if(!Number.isInteger(qty)||qty<1||qty>100)throw new Error('每个 SKU 的打印份数应为 1–100。');const host=document.getElementById('pcs-material-labels');if(!host||!host.querySelector('svg'))throw new Error('二维码正在生成，请稍后打印。');const win=window.open('','_blank');if(!win)throw new Error('请允许打开打印窗口。');win.document.write(`<html><head><title>物料识别标签</title><style>body{font-family:Arial,sans-serif}body>div{break-inside:avoid;border:1px solid #ddd;padding:12px;margin:8px;display:flex;gap:12px}img{width:70px;height:70px;object-fit:cover}svg{width:96px;height:96px}button{border:0;background:white}button img{width:70px}</style></head><body>${Array.from({length:qty},()=>host.innerHTML).join('')}</body></html>`);win.document.close();win.focus();win.print()}
+  else if(action==='purchase'){goto(materialPurchaseHandoffPath(el.dataset.skuId!))}
+  else if(action==='process-order'){goto(materialProcessHandoffPath(el.dataset.skuId!))}
+  else return false
+ }catch(error){state.notice=`本次未保存：${error instanceof Error?error.message:'请重试。'}`}
+ return true
+}
+export function isPcsMaterialArchiveDialogOpen():boolean{return Boolean(approvalBatch.open||transfer.open||state.image||state.printMaterialId||state.form.costPreview==='yes')}
+export function isPcsMaterialArchiveDirty():boolean{return state.dirty}
+export function resetPcsMaterialArchiveState():void{approvalBatch.open=false;approvalBatch.results=[];approvalBatch.selectedCount=0;transfer.open=false;transfer.preview=null;transfer.results=[];transfer.resultPage=1;releasePendingFiles();copySeed=null;copyProcess=null;state.image='';state.printSkuIds=[];state.printMaterialId='';state.notice='';state.formKey='';state.form={};state.dirty=false;state.detailId='';state.skuId='';state.detailTab='basic';state.skuTab='spec';state.assetFile=null;for(const ls of lists.values()){ls.settings=false;ls.selected.clear()}}
+export const renderPcsFabricArchiveListPage=()=>renderListPage('fabric')
+export const renderPcsAccessoryArchiveListPage=()=>renderListPage('accessory')
+export const renderPcsYarnArchiveListPage=()=>renderListPage('yarn')
+export const renderPcsConsumableArchiveListPage=()=>renderListPage('consumable')
+export const renderPcsPartsArchiveListPage=()=>renderListPage('parts')
+export const renderPcsFabricArchiveCreatePage=()=>renderPcsMaterialArchiveEditPage('fabric')
+export const renderPcsAccessoryArchiveCreatePage=()=>renderPcsMaterialArchiveEditPage('accessory')
+export const renderPcsYarnArchiveCreatePage=()=>renderPcsMaterialArchiveEditPage('yarn')
+export const renderPcsConsumableArchiveCreatePage=()=>renderPcsMaterialArchiveEditPage('consumable')
+export const renderPcsPartsArchiveCreatePage=()=>renderPcsMaterialArchiveEditPage('parts')
+
+registerPcsUnsavedChanges('pcs-material-archive',{isDirty:isPcsMaterialArchiveDirty,discard:resetPcsMaterialArchiveState})

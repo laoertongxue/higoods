@@ -1,193 +1,59 @@
+import test, { beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
+import { pcsRecordStore } from '../src/data/pcs-record-runtime.ts'
+import * as catalog from '../src/data/pcs-channel-catalog.ts'
+import * as sync from '../src/data/pcs-channel-sync.ts'
+import { listSkuArchives } from '../src/data/pcs-sku-archive-repository.ts'
 
-import { getProjectStepDefinition } from '../src/data/pcs-project-domain-contract.ts'
-import {
-  buildProjectChannelProductChainSummary,
-  createProjectChannelProductFromListingNode,
-  launchProjectChannelProductListing,
-  listProjectChannelProductsByProjectId,
-  resetProjectChannelProductRepository,
-} from '../src/data/pcs-channel-product-project-repository.ts'
-import {
-  createProjectImageAssetRecords,
-  resetProjectImageAssets,
-  upsertProjectImageAssets,
-} from '../src/data/pcs-project-image-repository.ts'
-import { listProjects, resetProjectRepository } from '../src/data/pcs-project-repository.ts'
+const baseline = catalog.getPcsChannelCatalogSnapshot()
+const styleId = 'style_r1_wms_tee', internalSkuId = 'sku_r1_wms_tee_black_s'
+beforeEach(() => { pcsRecordStore.setItem(catalog.PCS_CHANNEL_CATALOG_KEY, JSON.stringify(baseline)); catalog.resetPcsChannelCatalogCache() })
+function create(storeId = 'ST-001', count = 2) { return catalog.createChannelListing({ storeId, styleId, internalSkuIds: Array(count).fill(internalSkuId), initialPrice: 149000, content: { title: '同款多个独立刊登' } }) }
+function publish(id: string) {
+  catalog.reviewChannelListing(id, '提交审核'); catalog.reviewChannelListing(id, '审核通过')
+  const operation = sync.submitChannelSync(id, '发布'), receipt = sync.demoChannelReceipt(operation.id)
+  assert.equal(sync.receiveChannelReceipt(receipt).result, '成功')
+  return catalog.getChannelListing(id)!
+}
 
-resetProjectRepository()
-resetProjectChannelProductRepository()
-resetProjectImageAssets()
+test('R1 one current store allows multiple PIDs of the same SPU, each with multiple external instances of one internal SKU', () => {
+  const first = create(), second = create(), anotherStore = create('ST-007', 1)
+  assert.notEqual(first.id, second.id); assert.equal(first.platformProductId, ''); assert.equal(second.platformProductId, '')
+  const published = [first, second, anotherStore].map(item => publish(item.id))
+  assert.equal(new Set(published.map(item => item.platformProductId)).size, 3)
+  for (const listing of published) {
+    const variants = catalog.listChannelVariants(listing.id)
+    assert.equal(listing.styleId, styleId); assert.equal(new Set(variants.map(item => item.internalSkuId)).size, 1)
+    assert.equal(new Set(variants.map(item => item.platformVariantId)).size, variants.length)
+    assert.ok(variants.every(item => item.internalSkuId === internalSkuId && item.platformVariantId && !item.platformVariantId.includes(internalSkuId)))
+  }
+  const reverse = catalog.listChannelMappingsBySkuId(internalSkuId)
+  for (const listing of published) assert.ok(reverse.some(item => item.listingId === listing.id), '内部 SKU 能反查每个 PID 的平台实例')
+})
 
-const baseSpecLines = [
-  { colorName: '黑色', sizeName: 'M', priceAmount: 279, currencyCode: 'IDR', stockQty: 12 },
-  { colorName: '黑色', sizeName: 'L', priceAmount: 279, currencyCode: 'IDR', stockQty: 10 },
-]
+test('R1 same-store default prices are shared across PIDs, external-instance overrides remain independent', () => {
+  const first = create(), second = create(), rows = [...catalog.listChannelVariants(first.id), ...catalog.listChannelVariants(second.id)]
+  const price = { storeId: 'ST-001', internalSkuId, priceType: 'regular' as const, validFrom: '', validTo: '' }
+  catalog.saveChannelPrice({ ...price, externalVariantId: '', amount: 149000 })
+  assert.deepEqual(rows.map(row => catalog.resolveChannelPrice(row).amount), [149000, 149000, 149000, 149000])
+  catalog.saveChannelPrice({ ...price, externalVariantId: rows[1].id, amount: 159000 })
+  catalog.saveChannelPrice({ ...price, externalVariantId: '', amount: 169000 })
+  assert.deepEqual(rows.map(row => catalog.resolveChannelPrice(row).amount), [169000, 159000, 169000, 169000])
+  assert.equal(catalog.resolveChannelPrice(rows[1]).mode, '独立覆盖')
+  catalog.followChannelDefaultPrice(rows[1].id, 'regular')
+  assert.deepEqual(rows.map(row => catalog.resolveChannelPrice(row).amount), [169000, 169000, 169000, 169000])
+})
 
-const contract = getProjectStepDefinition('CHANNEL_PRODUCT_LISTING')
-assert.equal(contract.capabilities.canMultiInstance, true, '商品上架节点应支持多实例')
-assert.equal(contract.capabilities.canParallel, true, '商品上架节点应支持并行执行')
-assert.ok(
-  contract.fieldDefinitions.some((field) => field.fieldKey === 'targetChannelCodes'),
-  '商品上架节点应展示项目目标渠道池',
-)
-assert.ok(
-  !contract.fieldDefinitions.some((field) => field.fieldKey === 'listingScopeRule'),
-  '商品上架节点不得保留旧的实例粒度说明字段',
-)
-
-const project = listProjects().find((item) => item.projectCode === 'PRJ-202603-006')
-assert.ok(project, '应存在 PRJ-202603-006 演示项目')
-
-const createdImages = createProjectImageAssetRecords(
-  project!,
-  [
-    {
-      imageUrl: 'mock://listing-image/multi-01',
-      imageName: '多实例主图 1',
-      imageType: '上架图',
-      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
-      sourceRecordId: 'test-multi-01',
-      sourceType: '商品上架',
-      usageScopes: ['商品上架', '项目资料归档'],
-      imageStatus: '可用于上架',
-      mainFlag: true,
-      sortNo: 1,
-    },
-    {
-      imageUrl: 'mock://listing-image/multi-02',
-      imageName: '多实例主图 2',
-      imageType: '上架图',
-      sourceNodeCode: 'CHANNEL_PRODUCT_LISTING',
-      sourceRecordId: 'test-multi-02',
-      sourceType: '商品上架',
-      usageScopes: ['商品上架', '项目资料归档'],
-      imageStatus: '可用于上架',
-      mainFlag: false,
-      sortNo: 2,
-    },
-  ],
-  '测试用户',
-  '2026-04-20T10:30:00.000Z',
-)
-upsertProjectImageAssets(createdImages)
-
-const initialActiveRecords = listProjectChannelProductsByProjectId(project.projectId).filter(
-  (item) => item.channelProductStatus !== '已作废',
-)
-assert.equal(initialActiveRecords.length, 1, '演示项目初始应只有 1 条有效渠道商品实例')
-
-const tiktokMainStoreResult = createProjectChannelProductFromListingNode(
-  project.projectId,
-  {
-    targetChannelCode: 'tiktok',
-    targetStoreId: 'store-tiktok-01',
-    listingTitle: '印尼风格碎花连衣裙 TikTok 主店测款款',
-    defaultPriceAmount: 279,
-    currencyCode: 'IDR',
-    listingMainImageId: createdImages[0].imageId,
-    listingImageIds: [createdImages[0].imageId],
-    specLines: baseSpecLines.map((line) => ({ ...line, productImageId: createdImages[0].imageId })),
-  },
-  '测试用户',
-)
-assert.equal(tiktokMainStoreResult.ok, true, '应允许在第二个渠道创建新的商品上架实例')
-
-const tiktokSecondStoreResult = createProjectChannelProductFromListingNode(
-  project.projectId,
-  {
-    targetChannelCode: 'tiktok',
-    targetStoreId: 'ST-002',
-    listingTitle: '印尼风格碎花连衣裙 TikTok 越南店测款款',
-    defaultPriceAmount: 289,
-    currencyCode: 'VND',
-    listingMainImageId: createdImages[1].imageId,
-    listingImageIds: [createdImages[1].imageId],
-    specLines: [
-      { productImageId: createdImages[1].imageId, colorName: '白色', sizeName: 'M', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
-      { productImageId: createdImages[1].imageId, colorName: '白色', sizeName: 'L', priceAmount: 289, currencyCode: 'VND', stockQty: 8 },
-    ],
-  },
-  '测试用户',
-)
-assert.equal(tiktokSecondStoreResult.ok, true, '应允许同一渠道在第二个店铺创建新的商品上架实例')
-
-const duplicateStoreResult = createProjectChannelProductFromListingNode(
-  project.projectId,
-  {
-    targetChannelCode: 'tiktok',
-    targetStoreId: 'store-tiktok-01',
-    listingTitle: '印尼风格碎花连衣裙 TikTok 重复店铺测款款',
-    defaultPriceAmount: 299,
-    currencyCode: 'MYR',
-    listingMainImageId: createdImages[0].imageId,
-    listingImageIds: [createdImages[0].imageId],
-    specLines: [{ productImageId: createdImages[0].imageId, colorName: '卡其', sizeName: 'M', priceAmount: 299, currencyCode: 'MYR', stockQty: 6 }],
-  },
-  '测试用户',
-)
-assert.equal(duplicateStoreResult.ok, false, '同一渠道同一店铺不应重复创建有效实例')
-assert.match(duplicateStoreResult.message, /同一渠道、同一店铺/, '重复创建时应提示同店铺冲突')
-
-const invalidChannelStoreResult = createProjectChannelProductFromListingNode(
-  project.projectId,
-  {
-    targetChannelCode: 'shopee',
-    targetStoreId: 'ST-002',
-    listingTitle: '非法渠道店铺组合',
-    defaultPriceAmount: 309,
-    currencyCode: 'VND',
-    listingMainImageId: createdImages[0].imageId,
-    listingImageIds: [createdImages[0].imageId],
-    specLines: [{ productImageId: createdImages[0].imageId, colorName: '灰色', sizeName: 'M', priceAmount: 309, currencyCode: 'VND', stockQty: 6 }],
-  },
-  '测试用户',
-)
-assert.equal(invalidChannelStoreResult.ok, false, '错误的渠道店铺组合不应允许创建')
-assert.match(invalidChannelStoreResult.message, /目标测款渠道/, '应明确提示渠道不在项目范围')
-
-assert.ok(tiktokMainStoreResult.record, '创建成功后应返回新实例')
-assert.ok(tiktokSecondStoreResult.record, '创建成功后应返回新实例')
-const firstLaunchResult = launchProjectChannelProductListing(tiktokMainStoreResult.record!.channelProductId, '测试用户')
-const secondLaunchResult = launchProjectChannelProductListing(tiktokSecondStoreResult.record!.channelProductId, '测试用户')
-assert.equal(firstLaunchResult.ok, true, '第一条新增批次应允许上传')
-assert.equal(secondLaunchResult.ok, true, '第二条新增批次应允许上传')
-
-const activeRecords = listProjectChannelProductsByProjectId(project.projectId).filter(
-  (item) => item.channelProductStatus !== '已作废',
-)
-assert.equal(activeRecords.length, 3, '当前项目应支持 3 条有效渠道商品实例并行存在')
-assert.ok(
-  activeRecords.some((item) => item.channelCode === 'shopee' && item.storeId === 'store-shopee-01'),
-  '应保留原有 虾皮 店铺实例',
-)
-assert.ok(
-  activeRecords.some((item) => item.channelCode === 'tiktok' && item.storeId === 'store-tiktok-01'),
-  '应新增 TikTok 主店实例',
-)
-assert.ok(
-  activeRecords.some((item) => item.channelCode === 'tiktok' && item.storeId === 'ST-002'),
-  '应新增 TikTok 第二店铺实例',
-)
-assert.ok(
-  activeRecords.every((item) => item.upstreamProductId || item.upstreamChannelProductCode),
-  '上传后，每条有效批次都应拥有上游款式商品编号',
-)
-assert.ok(
-  activeRecords
-    .filter((item) => item.channelCode === 'tiktok')
-    .every((item) => item.specLines.every((line) => Boolean(line.upstreamSkuId))),
-  '上传后，每条规格都应回填上游规格编号',
-)
-assert.ok(
-  activeRecords
-    .filter((item) => item.channelCode === 'tiktok')
-    .every((item) => item.listingBatchStatus === '已上传待确认'),
-  '上传成功后，新增批次应处于已上传待确认状态',
-)
-
-const chainSummary = buildProjectChannelProductChainSummary(project.projectId)
-assert.ok(chainSummary, '应能生成项目渠道商品链路摘要')
-assert.match(chainSummary!.summaryText, /3 个有效渠道店铺商品实例/, '链路摘要应体现多渠道多店铺并行实例数量')
-
-console.log('pcs-channel-product-listing-multi-instance.spec.ts PASS')
+test('R1 cardinality never relaxes the single-SPU rule, current operating scope or external identity constraints', () => {
+  const otherSku = listSkuArchives().find(item => item.styleId !== styleId && catalog.isChannelSkuSelectable(item))!
+  assert.ok(otherSku)
+  const before = catalog.getPcsChannelCatalogSnapshot()
+  assert.throws(() => catalog.createChannelListing({ storeId: 'ST-001', styleId, internalSkuIds: [internalSkuId, otherSku.skuId], initialPrice: 149000 }), /当前款式/)
+  assert.throws(() => create('ST-002'), /当前启用/); assert.throws(() => create('ST-003'), /当前启用/)
+  assert.deepEqual(catalog.getPcsChannelCatalogSnapshot(), before)
+  const listing = publish(create().id), row = catalog.listChannelVariants(listing.id)[0]
+  assert.throws(() => catalog.saveChannelVariant({ ...row, internalSkuId: otherSku.skuId }, row.version, '测试', '跨款错误'), /同一款式/)
+  assert.throws(() => catalog.saveChannelVariant({ ...row, platformVariantId: 'manually-forged-id' }, row.version), /平台回执/)
+  assert.equal(catalog.listChannelVariants(listing.id)[0].internalSkuId, internalSkuId)
+  assert.equal(catalog.listChannelVariants(listing.id)[0].platformVariantId, row.platformVariantId)
+})

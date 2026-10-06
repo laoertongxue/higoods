@@ -26,7 +26,7 @@ import {
   updateTechnicalDataVersionContent,
 } from '../../src/data/pcs-technical-data-version-repository.ts'
 import { findStyleArchiveByCode, getStyleArchiveById } from '../../src/data/pcs-style-archive-repository.ts'
-import { createMaterialArchive, createMaterialSkuRecord } from '../../src/data/pcs-material-archive-repository.ts'
+import { createMaterialArchive, createMaterialSkuRecord, getMaterialStandardCost } from '../../src/data/pcs-material-archive-repository.ts'
 import { productionDemands } from '../../src/data/fcs/production-demands.ts'
 import { buildProductionOrderFromDemand, productionOrders } from '../../src/data/fcs/production-orders.ts'
 import {
@@ -123,9 +123,13 @@ function preparePublishedVersion(styleCode: string, specsOverride?: (versionId: 
   })
   const sku = createMaterialSkuRecord(material.materialId, {
     colorName: '本白', specName: '20mm', sizeName: '-', skuImageUrl: '', costPrice: 10, freightCost: 0,
+    // R1 的主单位和计价单位由具体物料 SKU 维护，根档案字段不再代替 SKU 前置。
+    mainUnit: 'M', pricingUnit: 'M',
     weightKg: 0, lengthCm: 0, widthCm: 0, heightCm: 0, barcode: '',
   })
   assert.ok(sku, '链测试织带 SKU 必须创建成功')
+  assert.equal(sku.mainUnit, 'M', 'BOM 的米用量必须对应物料 SKU 的长度单位')
+  assert.equal(getMaterialStandardCost(sku.materialSkuId).totalStandardCny, 10, '发布采用场景需具备完整的含税综合标准成本')
   const webbingMaterial = { code: sku.materialCode, skuId: sku.materialSkuId, name: material.materialName }
 
   const versionId = `tdv_tmf_pcs_chain_${Date.now()}`

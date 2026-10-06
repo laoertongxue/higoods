@@ -1,6 +1,5 @@
 import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset, hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
 import { createTaskRelationBootstrapSnapshot } from './pcs-task-bootstrap.ts'
-import { createProjectChannelProductRelationBootstrapSnapshot } from './pcs-channel-product-project-repository.ts'
 import {
   buildLiveProductLineProjectRelation,
   buildVideoRecordProjectRelation,
@@ -67,31 +66,11 @@ function seedSnapshot(): ProjectRelationStoreSnapshot {
     }
   }
   const taskSnapshot = createTaskRelationBootstrapSnapshot()
-  const channelSnapshot = createProjectChannelProductRelationBootstrapSnapshot()
-  const currentTestingRelations = channelSnapshot.records.flatMap((record) => {
-    const relations: ProjectRelationRecord[] = []
-    if (record.linkedLiveLineId) {
-      const liveLine = getLiveProductLineById(record.linkedLiveLineId)
-      const liveResult = liveLine
-        ? buildLiveProductLineProjectRelation(liveLine, record.projectId)
-        : null
-      if (liveResult?.relation) relations.push(liveResult.relation)
-    }
-    if (record.linkedVideoRecordId) {
-      const videoRecord = getVideoTestRecordById(record.linkedVideoRecordId)
-      const videoResult = videoRecord
-        ? buildVideoRecordProjectRelation(videoRecord, record.projectId)
-        : null
-      if (videoResult?.relation) relations.push(videoResult.relation)
-    }
-    return relations
-  })
+  // 渠道刊登独立建档，不再从渠道对象反推项目、直播或视频归属。
   return normalizeRelationSnapshot({
     version: PROJECT_RELATION_STORE_VERSION,
     relations: dedupeRelations([
       ...taskSnapshot.relations,
-      ...channelSnapshot.relations,
-      ...currentTestingRelations,
     ]),
     pendingItems: [],
   })

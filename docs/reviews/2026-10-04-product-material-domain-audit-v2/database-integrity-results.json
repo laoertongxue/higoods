@@ -1,0 +1,1518 @@
+[
+  {
+    "database": "higood",
+    "sql": "SELECT TABLE_NAME,INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME,SUB_PART FROM information_schema.statistics WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('td_fcs_pantone_color_map','td_fcs_process','td_fcs_process_station','td_fitting','td_fitting_images','td_fitting_sku','td_pcs_pattern_library','td_pcs_shelves','td_pcs_shelves_sku','td_pcs_site','td_product_fabric_spu','td_products','td_products_attrs','td_products_collection','td_products_cost','td_products_extend','td_products_extra','td_products_images','td_products_sku','td_products_supplier','td_tcategory','td_tcategory_shopee','td_tcategory_tiktok_v2','td_spu_print_dye_price') ORDER BY TABLE_NAME,INDEX_NAME,SEQ_IN_INDEX",
+    "rows": [
+      {
+        "TABLE_NAME": "td_fcs_pantone_color_map",
+        "INDEX_NAME": "idx_color_no",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "color_no",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_pantone_color_map",
+        "INDEX_NAME": "idx_color_no_segment",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "color_no_segment",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_pantone_color_map",
+        "INDEX_NAME": "idx_create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_pantone_color_map",
+        "INDEX_NAME": "idx_pantone_no",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pantone_no",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_pantone_color_map",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process",
+        "INDEX_NAME": "idx_process_station_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "process_station_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process",
+        "INDEX_NAME": "idx_status_delete",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "status",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process",
+        "INDEX_NAME": "idx_status_delete",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "is_delete",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process",
+        "INDEX_NAME": "uk_code",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "code",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process_station",
+        "INDEX_NAME": "idx_is_delete",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "is_delete",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process_station",
+        "INDEX_NAME": "idx_process_group",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "process_group",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process_station",
+        "INDEX_NAME": "idx_status",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "status",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fcs_process_station",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting",
+        "INDEX_NAME": "create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting",
+        "INDEX_NAME": "primary_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "primary_sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting",
+        "INDEX_NAME": "update_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "update_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting_images",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting_sku",
+        "INDEX_NAME": "idx_create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting_sku",
+        "INDEX_NAME": "idx_p_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "f_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting_sku",
+        "INDEX_NAME": "idx_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting_sku",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_fitting_sku",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_pattern_library",
+        "INDEX_NAME": "idx_name",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pattern_name",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_pattern_library",
+        "INDEX_NAME": "no",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pattern_no",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_pattern_library",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_pattern_library",
+        "INDEX_NAME": "update_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "update_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves",
+        "INDEX_NAME": "idx_product",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "products_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves",
+        "INDEX_NAME": "idx_pub_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pub_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves",
+        "INDEX_NAME": "idx_site",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "site_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves_sku",
+        "INDEX_NAME": "idx_pub_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pub_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves_sku",
+        "INDEX_NAME": "idx_pub_sku_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pub_sku_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves_sku",
+        "INDEX_NAME": "idx_pub_sku_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "site_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_shelves_sku",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_pcs_site",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "idx_hot_grade",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "hot_grade",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "idx_top_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "cate_top_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "primary_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "primary_sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "seller_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "seller_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "update_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_attrs",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_pc",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pc_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_sku_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_cost",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_cost",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extend",
+        "INDEX_NAME": "idx_p_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "p_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extend",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "primary_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "primary_sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "p_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "p_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_images",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_dx_code",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "dx_code",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_p_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "p_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_supplier",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_product_fabric_spu",
+        "INDEX_NAME": "idx_product_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "product_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_product_fabric_spu",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_product_fabric_spu",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_product_fabric_spu",
+        "INDEX_NAME": "uk_product_spu",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "product_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_product_fabric_spu",
+        "INDEX_NAME": "uk_product_spu",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_spu_print_dye_price",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_spu_print_dye_price",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_tcategory",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_tcategory_shopee",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_tcategory_tiktok_v2",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      }
+    ]
+  },
+  {
+    "database": "higood",
+    "sql": "SELECT TABLE_NAME,CONSTRAINT_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.key_column_usage WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('td_fcs_pantone_color_map','td_fcs_process','td_fcs_process_station','td_fitting','td_fitting_images','td_fitting_sku','td_pcs_pattern_library','td_pcs_shelves','td_pcs_shelves_sku','td_pcs_site','td_product_fabric_spu','td_products','td_products_attrs','td_products_collection','td_products_cost','td_products_extend','td_products_extra','td_products_images','td_products_sku','td_products_supplier','td_tcategory','td_tcategory_shopee','td_tcategory_tiktok_v2','td_spu_print_dye_price') AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME,CONSTRAINT_NAME,ORDINAL_POSITION",
+    "rows": []
+  },
+  {
+    "database": "higood",
+    "sql": "SELECT EVENT_OBJECT_TABLE,TRIGGER_NAME,EVENT_MANIPULATION,ACTION_TIMING FROM information_schema.triggers WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE IN ('td_fcs_pantone_color_map','td_fcs_process','td_fcs_process_station','td_fitting','td_fitting_images','td_fitting_sku','td_pcs_pattern_library','td_pcs_shelves','td_pcs_shelves_sku','td_pcs_site','td_product_fabric_spu','td_products','td_products_attrs','td_products_collection','td_products_cost','td_products_extend','td_products_extra','td_products_images','td_products_sku','td_products_supplier','td_tcategory','td_tcategory_shopee','td_tcategory_tiktok_v2','td_spu_print_dye_price') ORDER BY EVENT_OBJECT_TABLE,TRIGGER_NAME",
+    "rows": []
+  },
+  {
+    "database": "higood",
+    "sql": "SELECT product_type,stock_type,is_yarn,status,audit_status,COUNT(*) n FROM td_fitting GROUP BY product_type,stock_type,is_yarn,status,audit_status ORDER BY n DESC LIMIT 100",
+    "rows": [
+      {
+        "product_type": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "status": 1,
+        "audit_status": 2,
+        "n": 116
+      },
+      {
+        "product_type": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "status": 1,
+        "audit_status": 2,
+        "n": 71
+      },
+      {
+        "product_type": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "status": 1,
+        "audit_status": 1,
+        "n": 9
+      },
+      {
+        "product_type": 1,
+        "stock_type": 0,
+        "is_yarn": 1,
+        "status": 1,
+        "audit_status": 2,
+        "n": 9
+      },
+      {
+        "product_type": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "status": 1,
+        "audit_status": 1,
+        "n": 8
+      },
+      {
+        "product_type": 1,
+        "stock_type": 0,
+        "is_yarn": 1,
+        "status": 1,
+        "audit_status": 1,
+        "n": 1
+      },
+      {
+        "product_type": 3,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "status": 1,
+        "audit_status": 2,
+        "n": 1
+      }
+    ]
+  },
+  {
+    "database": "higood",
+    "sql": "SELECT primary_sku,COUNT(*) n FROM td_fitting GROUP BY primary_sku HAVING COUNT(*)>1 ORDER BY n DESC LIMIT 20",
+    "rows": []
+  },
+  {
+    "database": "higood",
+    "sql": "SELECT COUNT(*) n,SUM(primary_sku IS NULL OR primary_sku='') blank_code,SUM(fabric_composition IS NULL OR fabric_composition='') blank_composition,SUM(cost_price=0) zero_cost FROM td_fitting",
+    "rows": [
+      {
+        "n": 215,
+        "blank_code": "0",
+        "blank_composition": "150",
+        "zero_cost": "1"
+      }
+    ]
+  },
+  {
+    "database": "higood",
+    "sql": "SELECT tag,COUNT(*) n,SUM(supplier_id IS NULL OR supplier_id=0) missing_supplier_id FROM td_products_supplier GROUP BY tag LIMIT 20",
+    "rows": [
+      {
+        "tag": 1,
+        "n": 1961,
+        "missing_supplier_id": "1961"
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT TABLE_NAME,INDEX_NAME,NON_UNIQUE,SEQ_IN_INDEX,COLUMN_NAME,SUB_PART FROM information_schema.statistics WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('td_attr','td_attr_plate','td_attr_value','td_dm1','td_dm2','td_products','td_products_collection','td_products_cost','td_products_extra','td_products_sku','td_tcategory','td_tcategory_shopee') ORDER BY TABLE_NAME,INDEX_NAME,SEQ_IN_INDEX",
+    "rows": [
+      {
+        "TABLE_NAME": "td_attr",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_attr_plate",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_attr_value",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_dm1",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_dm2",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "idx_hot_grade",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "hot_grade",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "idx_top_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "cate_top_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "primary_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "primary_sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "product_type",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "product_type",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "seller_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "seller_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "supplier_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "supplier_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "supplier_url",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "supplier_url",
+        "SUB_PART": 255
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "update_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "update_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products",
+        "INDEX_NAME": "update_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 2,
+        "COLUMN_NAME": "sku_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_pc",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "pc_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "idx_sku_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_collection",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_cost",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_cost",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "primary_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "primary_sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_extra",
+        "INDEX_NAME": "p_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "p_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_create_time",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "create_time",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_dx_code",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "dx_code",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_p_id",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "p_id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_sku",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "sku",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "idx_spu",
+        "NON_UNIQUE": 1,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "spu",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_products_sku",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_tcategory",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      },
+      {
+        "TABLE_NAME": "td_tcategory_shopee",
+        "INDEX_NAME": "PRIMARY",
+        "NON_UNIQUE": 0,
+        "SEQ_IN_INDEX": 1,
+        "COLUMN_NAME": "id",
+        "SUB_PART": null
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT TABLE_NAME,CONSTRAINT_NAME,COLUMN_NAME,REFERENCED_TABLE_NAME,REFERENCED_COLUMN_NAME FROM information_schema.key_column_usage WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('td_attr','td_attr_plate','td_attr_value','td_dm1','td_dm2','td_products','td_products_collection','td_products_cost','td_products_extra','td_products_sku','td_tcategory','td_tcategory_shopee') AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_NAME,CONSTRAINT_NAME,ORDINAL_POSITION",
+    "rows": []
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT EVENT_OBJECT_TABLE,TRIGGER_NAME,EVENT_MANIPULATION,ACTION_TIMING FROM information_schema.triggers WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE IN ('td_attr','td_attr_plate','td_attr_value','td_dm1','td_dm2','td_products','td_products_collection','td_products_cost','td_products_extra','td_products_sku','td_tcategory','td_tcategory_shopee') ORDER BY EVENT_OBJECT_TABLE,TRIGGER_NAME",
+    "rows": []
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT product_type,status,audit_status,stock_type,is_yarn,COUNT(*) n FROM td_products GROUP BY product_type,status,audit_status,stock_type,is_yarn ORDER BY n DESC LIMIT 150",
+    "rows": [
+      {
+        "product_type": 0,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 152697
+      },
+      {
+        "product_type": 0,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 11899
+      },
+      {
+        "product_type": 2,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 3605
+      },
+      {
+        "product_type": 1,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 984
+      },
+      {
+        "product_type": 4,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 322
+      },
+      {
+        "product_type": 0,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 223
+      },
+      {
+        "product_type": 2,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 197
+      },
+      {
+        "product_type": 0,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 170
+      },
+      {
+        "product_type": 1,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 138
+      },
+      {
+        "product_type": 2,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 85
+      },
+      {
+        "product_type": 3,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 71
+      },
+      {
+        "product_type": 2,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 57
+      },
+      {
+        "product_type": 0,
+        "status": 0,
+        "audit_status": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 33
+      },
+      {
+        "product_type": 2,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 19
+      },
+      {
+        "product_type": 1,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 19
+      },
+      {
+        "product_type": 4,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 10
+      },
+      {
+        "product_type": 1,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 1,
+        "is_yarn": 1,
+        "n": 9
+      },
+      {
+        "product_type": 1,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 8
+      },
+      {
+        "product_type": 1,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 7
+      },
+      {
+        "product_type": 2,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 6
+      },
+      {
+        "product_type": 2,
+        "status": 0,
+        "audit_status": 1,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 5
+      },
+      {
+        "product_type": 1,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 2
+      },
+      {
+        "product_type": 4,
+        "status": 1,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 2
+      },
+      {
+        "product_type": 4,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 2
+      },
+      {
+        "product_type": 4,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 2
+      },
+      {
+        "product_type": 2,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 2
+      },
+      {
+        "product_type": 2,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 1
+      },
+      {
+        "product_type": 3,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 1
+      },
+      {
+        "product_type": 1,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 1,
+        "is_yarn": 0,
+        "n": 1
+      },
+      {
+        "product_type": 1,
+        "status": 3,
+        "audit_status": 2,
+        "stock_type": 0,
+        "is_yarn": 0,
+        "n": 1
+      },
+      {
+        "product_type": 3,
+        "status": 1,
+        "audit_status": 1,
+        "stock_type": 2,
+        "is_yarn": 0,
+        "n": 1
+      },
+      {
+        "product_type": 1,
+        "status": 3,
+        "audit_status": 1,
+        "stock_type": 1,
+        "is_yarn": 1,
+        "n": 1
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT freight,COUNT(*) n FROM td_products GROUP BY freight ORDER BY n DESC LIMIT 50",
+    "rows": [
+      {
+        "freight": "0.00",
+        "n": 170579
+      },
+      {
+        "freight": "0.01",
+        "n": 1
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT status,is_delete,price_type,COUNT(*) n FROM td_products_sku GROUP BY status,is_delete,price_type ORDER BY n DESC LIMIT 80",
+    "rows": [
+      {
+        "status": 0,
+        "is_delete": 0,
+        "price_type": 0,
+        "n": 1046676
+      },
+      {
+        "status": 1,
+        "is_delete": 0,
+        "price_type": 0,
+        "n": 7330
+      },
+      {
+        "status": 0,
+        "is_delete": 1,
+        "price_type": 0,
+        "n": 3399
+      },
+      {
+        "status": 0,
+        "is_delete": 0,
+        "price_type": 2,
+        "n": 625
+      },
+      {
+        "status": 0,
+        "is_delete": 0,
+        "price_type": 1,
+        "n": 414
+      },
+      {
+        "status": 0,
+        "is_delete": 0,
+        "price_type": 4,
+        "n": 302
+      },
+      {
+        "status": 1,
+        "is_delete": 1,
+        "price_type": 0,
+        "n": 9
+      },
+      {
+        "status": 0,
+        "is_delete": 0,
+        "price_type": 3,
+        "n": 9
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT COUNT(*) n,SUM(primary_sku IS NULL OR primary_sku='') blank_code,SUM(vendor IS NULL OR vendor='') blank_vendor,SUM(supplier_id IS NULL OR supplier_id=0) missing_supplier_id FROM td_products",
+    "rows": [
+      {
+        "n": 170580,
+        "blank_code": "0",
+        "blank_vendor": "27",
+        "missing_supplier_id": "170580"
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT primary_sku,COUNT(*) n FROM td_products WHERE primary_sku IS NOT NULL AND primary_sku<>'' GROUP BY primary_sku HAVING COUNT(*)>1 ORDER BY n DESC LIMIT 20",
+    "rows": [
+      {
+        "primary_sku": "YSSZAW122101",
+        "n": 6
+      },
+      {
+        "primary_sku": "ALSZWT120206",
+        "n": 3
+      },
+      {
+        "primary_sku": "FADAH25033110",
+        "n": 3
+      },
+      {
+        "primary_sku": "ALHH081104",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALJY082711",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALJY110802",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALJY112204",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALQR112702",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSP112403",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSP112705",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZAW011101",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZGY072701",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZKL072701",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZKL072702",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZKL120101",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZQQ010401",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZQQ010801",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZQQ041201",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZQR120603",
+        "n": 2
+      },
+      {
+        "primary_sku": "ALSZSM072604",
+        "n": 2
+      }
+    ]
+  },
+  {
+    "database": "poemfuture_test",
+    "sql": "SELECT sku,COUNT(*) n FROM td_products_sku WHERE sku IS NOT NULL AND sku<>'' GROUP BY sku HAVING COUNT(*)>1 ORDER BY n DESC LIMIT 20",
+    "rows": [
+      {
+        "sku": "BTSZIDKL24070406-ECD1-44CA-AF42-9584F8BEA2A9&shareUniqueId=27415",
+        "n": 5
+      },
+      {
+        "sku": "BTSZIDOE050704",
+        "n": 5
+      },
+      {
+        "sku": "BTSZIDSM24060803",
+        "n": 5
+      },
+      {
+        "sku": "PDSZYL081621",
+        "n": 4
+      },
+      {
+        "sku": "FADAH25033110-sameasphoto-2xl",
+        "n": 3
+      },
+      {
+        "sku": "FADAH25033110-sameasphoto-l",
+        "n": 3
+      },
+      {
+        "sku": "FADAH25033110-sameasphoto-m",
+        "n": 3
+      },
+      {
+        "sku": "FADAH25033110-sameasphoto-s",
+        "n": 3
+      },
+      {
+        "sku": "FADAH25033110-sameasphoto-xl",
+        "n": 3
+      },
+      {
+        "sku": "PDSZNM23101001",
+        "n": 3
+      },
+      {
+        "sku": "ALHH081004-1-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081004-2-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081004-3-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081004-4-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081004-5-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081004-6-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081005-1-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081005-2-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081005-3-",
+        "n": 2
+      },
+      {
+        "sku": "ALHH081005-4-",
+        "n": 2
+      }
+    ]
+  }
+]

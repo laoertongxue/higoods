@@ -6,7 +6,7 @@ import type {
 
 function cloneLine(line: EngineeringBomMaterialLineDraft): EngineeringBomMaterialLineDraft {
   return {
-    ...line,
+    ...structuredClone(line),
     applicableSkuIds: [...(line.applicableSkuIds || [])],
     linkedPatternResultIds: [...(line.linkedPatternResultIds || [])],
   }
@@ -137,7 +137,7 @@ export function copyEngineeringBomDraftVersion(input: {
     completedConfirmedAt: '',
     completedConfirmedBy: '',
     applicableSkuIds: [...(input.source.applicableSkuIds || [])],
-    materialLines: input.source.materialLines.map(cloneLine),
+    materialLines: input.source.materialLines.map(line => ({ ...cloneLine(line), costReferenceMode: 'CURRENT' })),
     customCosts: input.source.customCosts.map((item) => ({ ...item })),
     lineDiffs: [],
     customCostDiffs: [],

@@ -59,7 +59,7 @@ import {
   type EngineeringUploadedFile,
   type EngineeringUploadPurpose,
 } from '../data/pcs-engineering-file-upload.ts'
-import { getMaterialArchiveById, getMaterialSkuRecordById, listMaterialArchives, listMaterialSkuRecordsByMaterialId } from '../data/pcs-material-archive-repository.ts'
+import { getMaterialArchiveById, getMaterialSkuRecordById, listMaterialSkuLineage, listMaterialArchives, listMaterialSkuRecordsByMaterialId } from '../data/pcs-material-archive-repository.ts'
 import { getLatestPcsExchangeRate } from '../data/pcs-exchange-rate-config.ts'
 import { getStyleArchiveById, listStyleArchives } from '../data/pcs-style-archive-repository.ts'
 import { localProductFixtureImageUrl } from '../data/pcs-product-archive-fixtures.ts'
@@ -749,7 +749,7 @@ function renderSearchableMaterialPicker(selected: string): string {
 }
 
 function materialSkuOptions(selected = ''): string {
-  return listMaterialArchives().filter((archive) => archive.status === 'ACTIVE').flatMap((archive) => listMaterialSkuRecordsByMaterialId(archive.materialId).filter((sku) => sku.status === 'ACTIVE' && sku.costPrice > 0 && (Boolean(sku.designRevisionProcesses) || sku.materialSkuId === selected)).map((sku) => `<option value="${escapeHtml(sku.materialSkuId)}" ${sku.materialSkuId === selected ? 'selected' : ''}>${escapeHtml(sku.materialSkuCode)} · ${escapeHtml(archive.materialName)}${sku.designRevisionProcesses?.length ? ` · ${sku.designRevisionProcesses.includes('PRINTING') ? '仅印花' : '仅染色'}` : ''}</option>`)).join('')
+  return listMaterialArchives().filter((archive) => archive.status === 'ACTIVE').flatMap((archive) => listMaterialSkuRecordsByMaterialId(archive.materialId).filter((sku) => sku.status === 'ACTIVE' && sku.approvalStatus === 'APPROVED').map((sku) => `<option value="${escapeHtml(sku.materialSkuId)}" ${sku.materialSkuId === selected ? 'selected' : ''}>${escapeHtml(sku.materialSkuCode)} · ${escapeHtml(archive.materialName)}${sku.inputSkuId ? ` · ${listMaterialSkuLineage(sku.materialSkuId).map(item => ({ DYEING: '染色', PRINTING: '印花', EMBROIDERY: '绣花', HEAT_TRANSFER: '烫画', BASE: '基础' })[item.stage || 'BASE']).join(' → ')}` : ' · 基础'}</option>`)).join('')
 }
 
 function dependencyNames(record: EngineeringIndependentSamplingRecord, task: EngineeringIndependentProfessionalTask): string {

@@ -438,6 +438,12 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const page = await import('./pages/process-dye-orders.ts')
     return page.handleProcessDyeOrdersEvent(eventTarget, event)
   }
+  if (pagePath.startsWith('/fcs/process/material-plans')) {
+    const page = await import('./pages/process-work-orders/material-process-plans.ts')
+    return event?.type === 'input' || event?.type === 'change' || event?.type === 'compositionend'
+      ? page.handleFcsMaterialProcessPlanInput(eventTarget)
+      : page.handleFcsMaterialProcessPlanEvent(eventTarget, event)
+  }
   if (pagePath === '/fcs/process/print-orders') {
     const page = await import('./pages/process-print-orders.ts')
     return page.handleProcessPrintOrdersEvent(eventTarget, event)
@@ -865,8 +871,9 @@ function includeTmfStorageWarning(pageContent: string): string {
 let productionEntryHydration: Promise<void> | undefined
 let cuttingEntryHydration: Promise<void> | undefined
 async function preparePageRouteEntry(normalizedPathname: string): Promise<void> {
-  // 商品档案独立读取 PCS 记录；生产准备等依赖正式生产事实的页面仍走下面的初始化。
-  if (/^\/pcs\/products\/(styles|specifications)(\/|$)/.test(normalizedPathname)) {
+  // 档案、渠道和基础配置独立读取 PCS 记录。引用核查与仓储可售各自
+  // 准备所需来源；生产准备等消费正式生产事实的页面仍走下面的初始化。
+  if (/^\/pcs\/(?:products\/(?:styles|specifications|channel-products)|materials|channels\/stores|settings\/config-workspace)(\/|$)/.test(normalizedPathname)) {
     previousRenderedPagePathname = normalizedPathname
     return
   }
@@ -957,12 +964,10 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       || /^\/fcs\/production\/changes(\/|$)/.test(normalizedPathname)
       || /^\/fcs\/pda\/(task-receive|exec|handover|factory-receipts)(\/|$)/.test(normalizedPathname)
       || (normalizedPathname === '/fcs/print/preview' && new URLSearchParams(pathname.split('?')[1] || '').get('documentType') === 'PRINTING_ROLL_LABEL')) {
-      const [{ ensurePcsRecordState }, { mountPcsLocalData }] = await Promise.all([
-        import('./data/pcs-record-runtime.ts'), import('./pages/pcs-local-data.ts'),
-      ])
-      mountPcsLocalData()
-      try { await ensurePcsRecordState() } catch {
-        return '<div class="rounded border border-amber-300 bg-amber-50 p-6"><h1 class="text-xl font-semibold">本机资料暂时无法读取</h1><p>请通过右下角“本机数据”查看原因并重试。原有资料已保留。</p></div>'
+      const { ensurePcsRecordState } = await import('./data/pcs-record-runtime.ts')
+      try { await ensurePcsRecordState() } catch (error) {
+        const { renderPcsStorageError } = await import('./pages/pcs-storage-error.ts')
+        return renderPcsStorageError(error)
       }
     }
     const woolExecution = normalizedPathname.match(/^\/fcs\/pda\/exec\/([^/]+)$/)
@@ -1128,6 +1133,11 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
     return await resolvePage(pathname)
   } catch (error) {
     if (error && typeof error === 'object' && 'code' in error && ['PRODUCTION_CONTEXT_RECOVERY', 'PART_TICKET_RECOVERY'].includes(String(error.code))) {
+      const failedPath = normalizePathname(pathname)
+      if (failedPath === '/pcs' || failedPath.startsWith('/pcs/')) {
+        const { renderPcsStorageError } = await import('./pages/pcs-storage-error.ts')
+        return renderPcsStorageError(new Error('关联的生产资料暂时无法读取。'))
+      }
       const recovery = await import('./pages/production-context-recovery.ts')
       return recovery.renderProductionContextRecovery(error instanceof Error ? error.message : String(error))
     }
@@ -1977,6 +1987,11 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  if (target.closest('[data-pcs-storage-retry]')) {
+    event.preventDefault()
+    window.location.reload()
+    return
+  }
   if (target.closest('[data-production-context-migrate]')) {
     event.preventDefault()
     const recovery = await import('./pages/production-context-recovery.ts')

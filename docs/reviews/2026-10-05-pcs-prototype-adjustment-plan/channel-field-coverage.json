@@ -1,0 +1,5205 @@
+{
+  "document": "PCS R1 渠道、店铺、平台规格、价格与同步字段逐项实现索引",
+  "date": "2026-10-05",
+  "prepared_by": "Codex /root/r1_channels",
+  "git_head": "88324f65506f47c678b17d1b51879f8fd7c2488a",
+  "working_tree": "/Users/laoer/Documents/higoods",
+  "scope": {
+    "dictionary": "docs/reviews/2026-10-05-pcs-prototype-adjustment-plan/field-dictionary.csv",
+    "dictionary_sha256": "608620827885c3292ce809b5706231a0ca9ee5112d979a8e392a16cf21249787",
+    "field_count": 87,
+    "prefix_counts": {
+      "CONTENT": 12,
+      "STORE": 15,
+      "LIST": 16,
+      "EXT": 15,
+      "PRICE": 12,
+      "SYNC": 17
+    },
+    "missing_field_ids": [],
+    "owned_implementation_gap_count": 0
+  },
+  "evidence_policy": [
+    "所有87项保留已实现待验证；只有实际存在的字段、入口及精确测试名纳入。",
+    "当前轮只执行新增与直接相邻专项，没有用测试总数将每个字段自动判通过。",
+    "字段字典的ID可由已保存聚合容器ID和版本组成；若为内联身份逐项说明，不声称存在独立内容实体。",
+    "当前分支的浏览器、IndexedDB刷新/故障/多标签和性能由主代理集成验收；本代理未操作浏览器或执行build。",
+    "所有同步为原型演示，未接真实平台API。OMS缺少实际订单消费者，保留订单引用及复制，不造假路由。"
+  ],
+  "execution_evidence": {
+    "prior-full-rules-pass": {
+      "command": "node --import tsx --test tests/pcs-r1-channel-rules.test.ts tests/pcs-r1-channel-performance.test.ts",
+      "result": "前一轮36条规则与2个Node性能场景通过；并非本次新模板修改后的全量回归。",
+      "log": "/tmp/pcs-r1-channel-parent-qualification.log",
+      "current_final_tree_full_rerun": false
+    },
+    "targeted-first-six": {
+      "command": "node --import tsx --test --test-name-pattern='CONTENT-011|LIST-006/007/008|CONTENT-005|CONTENT-010|CHAN-006 unpublished|read optimizations' tests/pcs-r1-channel-rules.test.ts",
+      "result": "6/6通过；随后又增加条件媒体/规格门禁，相关新门禁另有最终运行。"
+    },
+    "targeted-store-copy-receipt": {
+      "command": "node --import tsx --test --test-name-pattern='STORE-011/012|CHAN-019|SYNC-011 immutable|LIST-006/007/008' tests/pcs-r1-channel-rules.test.ts",
+      "result": "4/4通过。"
+    },
+    "targeted-final-six": {
+      "command": "node --import tsx --test --test-name-pattern='CONTENT-008/EXT|CONTENT-011|LIST-006/007/008|SYNC-009/010 same internal|CHAN-012 historic|SYNC-011 immutable' tests/pcs-r1-channel-rules.test.ts",
+      "result": "其中文件引用的5项通过；新增media/spec测试因测试按数组位置选错被save重排的实例失败，按实体ID修正后单项通过。",
+      "passed_test_aliases": [
+        "base",
+        "template",
+        "shared",
+        "import",
+        "receipt"
+      ]
+    },
+    "targeted-final-media-rerun": {
+      "command": "node --import tsx --test --test-name-pattern='CONTENT-008/EXT' tests/pcs-r1-channel-rules.test.ts",
+      "result": "1/1通过；验证草稿、模板媒体、逐实例必填与已审缓存不能绕过发布。"
+    },
+    "targeted-initial-mapping": {
+      "command": "node --import tsx --test --test-name-pattern='CONTENT-010|CHAN-014/015/016|STORE-011/012|SYNC-011 immutable' tests/pcs-r1-channel-rules.test.ts",
+      "result": "映射/字段来源/人员3项通过；receipt的undefined序列化差异测试修正后单独通过，之后receipt已有最终重验。"
+    }
+  },
+  "browser_and_performance_pending": {
+    "status": "待主代理当前版本证据",
+    "devices": [
+      "1366x768",
+      "1280x720"
+    ],
+    "routes": [
+      "/pcs/products/channel-products",
+      "/pcs/products/channel-products/new",
+      "/pcs/products/channel-products/:id",
+      "/pcs/products/channel-products/:id/edit",
+      "/pcs/channels/stores",
+      "/pcs/channels/stores/:id",
+      "/pcs/channels/stores/:id/edit",
+      "/pcs/channels/stores/sync",
+      "/pcs/testing/orders/:id"
+    ],
+    "required_scenarios": [
+      "详情/编辑按Tab分层，平台模板长信息折叠，不平铺",
+      "实际保存、刷新和直达后模板/内容版本/回执/映射历史仍一致",
+      "店铺经营配置必填模板变更后，渠道编辑应用再发布",
+      "测款第8步选择店铺及同款PID，回执准确回填原动作，完整回执后完成第8步",
+      "OMS历史订单复制真实保存的引用号，页面明确入口未接入",
+      "当前2000PID/10000规格列表、导出、同步工作台与100/1000行预览性能"
+    ],
+    "node_performance_entry": "tests/pcs-r1-channel-performance.test.ts",
+    "helpers": [
+      "getChannelArchiveCounts():档案计数只遍历不克隆全量内容",
+      "buildChannelFilteredExport():全筛选范围导出",
+      "previewChannelImport():只读预览"
+    ]
+  },
+  "explicit_boundaries": [
+    {
+      "field_ids": [
+        "EXT-012",
+        "EXT-013"
+      ],
+      "boundary": "OMS 无订单页面/搜索消费者；PCS保留旧接单映射快照、订单引用、复制订单号与生效版本。未声称完成跨系统新订单接入/移交。",
+      "parent_confirmed": "主代理明确要求无消费者不造假入口，跨系统页面不在本次。"
+    },
+    {
+      "field_ids": [
+        "CONTENT-011"
+      ],
+      "boundary": "无法从旧数据证明其历史基础销售语言/版本时不倒造；页面明确旧记录未登记。新建、演示seed、业务导入均有版本引用。"
+    },
+    {
+      "field_ids": [
+        "LIST-003",
+        "EXT-003",
+        "SYNC-010",
+        "SYNC-011",
+        "SYNC-014"
+      ],
+      "boundary": "demo回执/共享可售观测为原型行为，无真实平台API。"
+    }
+  ],
+  "source_files": [
+    {
+      "file": "src/data/pcs-channel-catalog.ts",
+      "sha256": "51aa7eab469fae071505105a78046df2d4bdfdb1c5b4ff728ec4bda8c8204e0c"
+    },
+    {
+      "file": "src/data/pcs-channel-catalog-types.ts",
+      "sha256": "c2d7913eefbe4000dd9b22180e47e1c3ed29ebd90d04e84d7d23764b395e76ed"
+    },
+    {
+      "file": "src/data/pcs-channel-store-repository.ts",
+      "sha256": "1ce239eda907b53459b31247016702c3e7d49ea776d52495d35aafe4e4c5ec83"
+    },
+    {
+      "file": "src/data/pcs-channel-platform-template.ts",
+      "sha256": "a3a22eb5129b28461c6924b087ee5b7b8ef633659a0c2d3ccb3b3f64bb06f8b2"
+    },
+    {
+      "file": "src/data/pcs-channel-sync.ts",
+      "sha256": "037f93551fad626d08890ea5aeac732b8892803b8acbfe8a6291b85d325216a6"
+    },
+    {
+      "file": "src/data/pcs-channel-commands.ts",
+      "sha256": "e0c0371e7571c1658ba38bfff3cb77eba6ca2cc085009398838a202452f126a3"
+    },
+    {
+      "file": "src/data/pcs-channel-wms-projection.ts",
+      "sha256": "a215f7cb5c176ba097450aad0161c555e94ccead08d7f1804f12a0844ce36fce"
+    },
+    {
+      "file": "src/data/pcs-channel-legacy-conversion.ts",
+      "sha256": "ee1f46c362545e6b360678076bba3a038c9947437e3e0d5adc56009c23654a24"
+    },
+    {
+      "file": "src/pages/pcs-channel-products.ts",
+      "sha256": "a8ea08b2b2fe0f2e368bb26ad530dccdc95ff305b82d10951577af173b8df29b"
+    },
+    {
+      "file": "src/pages/pcs-channel-stores.ts",
+      "sha256": "17e60baa8aab084ad06c178a80b6f4ffacacaa016e4a4c7ab15dc9e8bc38145c"
+    },
+    {
+      "file": "src/pages/pcs-channel-ui.ts",
+      "sha256": "1717cdb486397e9d6579d7d6ad5af68fec6f453813c36f7179f6d168604ec2c4"
+    },
+    {
+      "file": "src/data/pcs-testing-order-repository.ts",
+      "sha256": "b324e6245589d7dca11a6ddc8ee6311c8d81e6eb376f24f37b8dee38f6b38221"
+    },
+    {
+      "file": "src/pages/pcs-testing-order-detail.ts",
+      "sha256": "61f2e39266c2f2fc28e6a9649eee77815b4c02b88d9bf0209ca6b2bfdb2ea1ba"
+    },
+    {
+      "file": "src/data/pcs-style-archive-types.ts",
+      "sha256": "691f77d24d34ab149d9494ffef7f8d1c73f4d0f2923feaa8fcfebd0cad7539eb"
+    }
+  ],
+  "fields": [
+    {
+      "field_id": "CONTENT-001",
+      "object": "基础销售内容",
+      "declared_field": "contentId",
+      "label": "内容ID",
+      "required": "是",
+      "rule": "引用内容版本",
+      "actual_fields": [
+        "ChannelListing.id",
+        "ChannelListing.contentVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog-types.ts",
+          "symbol": "ChannelListing",
+          "line": 29
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelContent",
+          "line": 202
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "read optimizations preserve immutable object boundaries and no-op content does not create versions",
+          "line": 389,
+          "proved_assertions": "无实际修改不增加内容版本，返回对象不污染已存资料",
+          "execution_evidence": "targeted-first-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "渠道内容作为 PID 容器的内联对象，以 (listing.id, contentVersion) 组成地址与版本身份；未另建内容记录事实源。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-002",
+      "object": "基础销售内容",
+      "declared_field": "ownerId",
+      "label": "所属SPU或渠道商品",
+      "required": "是",
+      "rule": "基础与店铺内容明确分属",
+      "actual_fields": [
+        "StyleArchiveShellRecord.styleId / salesContents[]",
+        "ChannelListing.id / content"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-style-archive-types.ts",
+          "symbol": "StyleArchiveShellRecord",
+          "line": 5
+        },
+        {
+          "file": "src/data/pcs-channel-catalog-types.ts",
+          "symbol": "ChannelListing",
+          "line": 29
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+          "line": 98,
+          "proved_assertions": "渠道内容修改不回写内部款式或其他店铺",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "基础内容属于 SPU，店铺内容属于独立 PID 容器，两个 owner 由各自聚合容器承载。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-003",
+      "object": "基础销售内容",
+      "declared_field": "languageCode",
+      "label": "语言",
+      "required": "是",
+      "rule": "按真实内容语言保存",
+      "actual_fields": [
+        "ChannelContent.languageCode"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "contentForChannelStore",
+          "line": 31
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelBaseContentReference",
+          "line": 26
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-011 base sales references retain exact language and version; published references advance only by explicit application",
+          "line": 125,
+          "proved_assertions": "马来店引用 ms 第3版，明确保存语言及版本；id 内容不串入",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-004",
+      "object": "基础销售内容",
+      "declared_field": "title",
+      "label": "标题",
+      "required": "是",
+      "rule": "渠道覆盖不反写SPU",
+      "actual_fields": [
+        "ChannelContent.title"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "contentFromStyle",
+          "line": 18
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelContent",
+          "line": 202
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+          "line": 98,
+          "proved_assertions": "本店标题与内部款式、其他店铺独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-005",
+      "object": "基础销售内容",
+      "declared_field": "descriptionHtml",
+      "label": "商品描述",
+      "required": "发布前是",
+      "rule": "保留HTML语义；渲染清理危险内容",
+      "actual_fields": [
+        "ChannelContent.description"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "assertChannelDescriptionReady",
+          "line": 175
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/pages/pcs-channel-ui.ts",
+          "symbol": "renderChannelDescription",
+          "line": 13
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-005 incomplete description drafts save but review and cached-approved publication are blocked",
+          "line": 111,
+          "proved_assertions": "空描述草稿可保存；审核和绕过缓存审核的发布均阻断；补齐后可提交",
+          "execution_evidence": "targeted-first-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "sales description preview retains text/table/list/image semantics and drops executable attributes",
+          "line": 415,
+          "proved_assertions": "保留表格/列表/图片等 HTML 语义，剔除脚本与可执行属性",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-006",
+      "object": "基础销售内容",
+      "declared_field": "sellingPoints",
+      "label": "卖点",
+      "required": "否",
+      "rule": "共同内容可初始化渠道",
+      "actual_fields": [
+        "ChannelContent.sellingPoints"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "contentFromStyle",
+          "line": 18
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "projectInheritedContent",
+          "line": 140
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-006 unpublished untouched fields follow base sales; published stays explicit",
+          "line": 105,
+          "proved_assertions": "未发布基础内容变化跟随，已发布内容保持",
+          "execution_evidence": "targeted-first-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-002/003 platform merge never approves a different pending PCS field; conflict choice sends only its field",
+          "line": 331,
+          "proved_assertions": "平台非冲突卖点正常自动合并，不顺带批准其他草稿字段",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "以多行文本存储卖点，不与品类、风格等商品属性混用。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-007",
+      "object": "基础销售内容",
+      "declared_field": "mediaRefs",
+      "label": "图片视频序列",
+      "required": "发布前按渠道规则",
+      "rule": "文件本体不塞入JSON",
+      "actual_fields": [
+        "ChannelContent.media[].id/fileId/url/role/sort"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog-types.ts",
+          "symbol": "ChannelMedia",
+          "line": 23
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "validateChannelContent",
+          "line": 170
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "主图、尺码图等用途可按模板分别要求，缺失不能审核或发布",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "legacy conversion is pure, preserves many external IDs per same SKU and rejects unmatched lines",
+          "line": 352,
+          "proved_assertions": "旧媒体引用与主图身份从原资料保留",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "图片和视频通过引用及用途/序号维护；页面上传调用已有 registerPcsFile，文件字节不写入业务 JSON。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-008",
+      "object": "基础销售内容",
+      "declared_field": "sizeChartAssetId",
+      "label": "销售尺码图",
+      "required": "按渠道类目要求",
+      "rule": "引用技术尺寸版本",
+      "actual_fields": [
+        "ChannelContent.media[role=尺码图].id",
+        "ChannelStore.platformTemplate.requiredMediaRoles"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "contentFromStyle",
+          "line": 18
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板要求尺码图时无图阻断，补齐对应媒体后可继续",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-008 sales size chart source links to an actual same-style technical version and rejects foreign versions",
+          "line": 405,
+          "proved_assertions": "尺码图来源引用实际同款技术版本，外款来源被拒绝",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-009",
+      "object": "基础销售内容",
+      "declared_field": "sizeChartSourceVersionId",
+      "label": "尺码图技术来源",
+      "required": "有技术来源图时",
+      "rule": "渠道不改工厂尺寸",
+      "actual_fields": [
+        "ChannelContent.sizeChartSourceVersion",
+        "ChannelMedia.sourceVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "validateChannelContent",
+          "line": 170
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-008 sales size chart source links to an actual same-style technical version and rejects foreign versions",
+          "line": 405,
+          "proved_assertions": "只能引用当前款式的技术尺寸版本，页面保留技术来源直达",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "只引用技术资料；渠道不修改工厂尺寸。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-010",
+      "object": "基础销售内容",
+      "declared_field": "inheritanceMode",
+      "label": "继承/覆盖状态",
+      "required": "渠道内容是",
+      "rule": "平台改动形成店铺覆盖",
+      "actual_fields": [
+        "ChannelListing.contentOverrides[]",
+        "channelContentFieldOrigin(listing,field)"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelContentFieldOrigin",
+          "line": 239
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-010 detail labels each inherited field, store override and published snapshot separately",
+          "line": 184,
+          "proved_assertions": "逐字段区分继承、店铺覆盖和发布基础快照",
+          "execution_evidence": "targeted-first-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-001/002 normal two-way changes synchronize immediately without asking to adopt",
+          "line": 256,
+          "proved_assertions": "正常平台变更自动成为店铺内容，内部身份不变",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-011",
+      "object": "基础销售内容",
+      "declared_field": "baseContentVersionId",
+      "label": "基础内容版本",
+      "required": "继承时",
+      "rule": "已发布不因基础变化直接覆盖",
+      "actual_fields": [
+        "ChannelListing.baseContentReference.id/styleId/language/version/source/styleUpdatedAt"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelBaseContentReference",
+          "line": 26
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "projectInheritedContent",
+          "line": 140
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "applyStyleContent",
+          "line": 218
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-011 base sales references retain exact language and version; published references advance only by explicit application",
+          "line": 125,
+          "proved_assertions": "基础语言和版本精确引用；即使 style.updatedAt 未变，基础版本变化可识别；已发布须显式应用；店铺覆盖不伪造引用新版",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "旧记录没有可证明的销售语言/版本时页面明确未登记，不据当前档案倒造过去引用；新记录和新导入记录均登记。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "CONTENT-012",
+      "object": "基础销售内容",
+      "declared_field": "contentVersion",
+      "label": "内容版本",
+      "required": "是",
+      "rule": "每次实际内容变更递增",
+      "actual_fields": [
+        "ChannelListing.contentVersion",
+        "ChannelListing.approvedVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelContent",
+          "line": 202
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 渠道内容；独立编辑 / 渠道内容",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "read optimizations preserve immutable object boundaries and no-op content does not create versions",
+          "line": 389,
+          "proved_assertions": "无差异保存不增版本",
+          "execution_evidence": "targeted-first-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/005 late receipt cannot overwrite new content, own event cannot loop",
+          "line": 268,
+          "proved_assertions": "旧回执不覆盖更新后的内容",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-001",
+      "object": "店铺",
+      "declared_field": "storeId",
+      "label": "店铺ID",
+      "required": "是",
+      "rule": "归并项目店铺与店铺主档的重复身份",
+      "actual_fields": [
+        "ChannelStore.id"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-002",
+      "object": "店铺",
+      "declared_field": "storeCode",
+      "label": "内部店铺编码",
+      "required": "是",
+      "rule": "唯一且使用后稳定",
+      "actual_fields": [
+        "ChannelStore.storeCode"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "该字段的独立空值/唯一性或文本 ID 边界没有单独测试断言；本索引不把相邻店铺场景当作这些边界已验证。"
+      ],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-003",
+      "object": "店铺",
+      "declared_field": "storeName",
+      "label": "店铺名称",
+      "required": "是",
+      "rule": "保留实际名称",
+      "actual_fields": [
+        "ChannelStore.storeName"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "该字段的独立空值/唯一性或文本 ID 边界没有单独测试断言；本索引不把相邻店铺场景当作这些边界已验证。"
+      ],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-004",
+      "object": "店铺",
+      "declared_field": "channelCode",
+      "label": "经营渠道",
+      "required": "是",
+      "rule": "其他渠道仅历史查询",
+      "actual_fields": [
+        "ChannelStore.channelCode"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-005",
+      "object": "店铺",
+      "declared_field": "externalStoreId",
+      "label": "外部店铺ID",
+      "required": "正式连接是",
+      "rule": "不转数值；不能用内部名称冒充",
+      "actual_fields": [
+        "ChannelStore.externalStoreId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "该字段的独立空值/唯一性或文本 ID 边界没有单独测试断言；本索引不把相邻店铺场景当作这些边界已验证。"
+      ],
+      "notes": "平台店铺 ID 按字符串保存；原型无真实连接行为，不收集密钥。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-006",
+      "object": "店铺",
+      "declared_field": "marketCode",
+      "label": "经营市场",
+      "required": "是",
+      "rule": "一店一个默认市场",
+      "actual_fields": [
+        "ChannelStore.marketCode"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-007",
+      "object": "店铺",
+      "declared_field": "salesCurrency",
+      "label": "销售币种",
+      "required": "是",
+      "rule": "不得读取结算币种代替",
+      "actual_fields": [
+        "ChannelStore.salesCurrency"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-008",
+      "object": "店铺",
+      "declared_field": "settlementCurrency",
+      "label": "结算币种",
+      "required": "是",
+      "rule": "独立保存",
+      "actual_fields": [
+        "ChannelStore.settlementCurrency"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-009",
+      "object": "店铺",
+      "declared_field": "languageCode",
+      "label": "默认销售语言",
+      "required": "是",
+      "rule": "实际内容语言明确",
+      "actual_fields": [
+        "ChannelStore.languageCode"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "该字段的独立空值/唯一性或文本 ID 边界没有单独测试断言；本索引不把相邻店铺场景当作这些边界已验证。"
+      ],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-010",
+      "object": "店铺",
+      "declared_field": "timeZone",
+      "label": "店铺时区",
+      "required": "是",
+      "rule": "不使用浏览器时间覆盖业务时间",
+      "actual_fields": [
+        "ChannelStore.timeZone"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-017 clearance uses store time zone and expires into daily price",
+          "line": 206,
+          "proved_assertions": "限时价按店铺时区换算，结束后参考日常价",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-011",
+      "object": "店铺",
+      "declared_field": "teamId",
+      "label": "运营团队",
+      "required": "否",
+      "rule": "不是开发项目",
+      "actual_fields": [
+        "ChannelStore.teamId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "STORE-011/012 store responsibility uses existing IDs and logs original and changed owner/team",
+          "line": 38,
+          "proved_assertions": "只接受已有人员/团队 ID；日志包含变更前后两组身份、操作人和时间；页面显示名称",
+          "execution_evidence": "targeted-store-copy-receipt",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-012",
+      "object": "店铺",
+      "declared_field": "ownerId",
+      "label": "负责人",
+      "required": "是",
+      "rule": "变更留痕",
+      "actual_fields": [
+        "ChannelStore.ownerId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "STORE-011/012 store responsibility uses existing IDs and logs original and changed owner/team",
+          "line": 38,
+          "proved_assertions": "只接受已有人员/团队 ID；日志包含变更前后两组身份、操作人和时间；页面显示名称",
+          "execution_evidence": "targeted-store-copy-receipt",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-013",
+      "object": "店铺",
+      "declared_field": "operatingStatus",
+      "label": "经营状态",
+      "required": "是",
+      "rule": "停用不等于平台已下架",
+      "actual_fields": [
+        "ChannelStore.operatingStatus"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "setChannelStoreOperatingStatus",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "当前经营渠道/市场与历史只读、销售/结算币种分离、停用不当作平台下架",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-014",
+      "object": "店铺",
+      "declared_field": "inventorySource",
+      "label": "可售规则来源",
+      "required": "是",
+      "rule": "删除手工库存/店铺分配模式",
+      "actual_fields": [
+        "ChannelStore.inventorySource"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 same internal availability is shared observations, not multiplied or written to inventory",
+          "line": 311,
+          "proved_assertions": "同内部 SKU 的所有外部实例共享同一数量观测，不新增可编辑库存",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-014 legacy channel projection has no project identity or inventory, historical relations read canonical PID cardinality",
+          "line": 237,
+          "proved_assertions": "旧渠道读适配器不再暴露 stockQty",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "STORE-015",
+      "object": "店铺",
+      "declared_field": "connectionDescription",
+      "label": "渠道连接描述",
+      "required": "否",
+      "rule": "原型不收集真实密钥；不假装已连接生产",
+      "actual_fields": [
+        "ChannelStore.connectionDescription"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "getChannelStore",
+          "line": 50
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "店铺列表、详情基本资料 / 经营配置、独立编辑",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "storeTab",
+            "line": 47
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreEditPage",
+            "line": 62
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "page structure has independent list/detail/edit and explicit demo sync, no inventory editor or browser maintenance",
+          "line": 359,
+          "proved_assertions": "页面说明原型回执，无真实 API 连接或浏览器维护工具",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "自由文本连接说明，UI 明示演示；不存 API Key。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-001",
+      "object": "渠道PID容器",
+      "declared_field": "listingId",
+      "label": "内部渠道商品ID",
+      "required": "是",
+      "rule": "上传批次不能替代它",
+      "actual_fields": [
+        "ChannelListing.id"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "createChannelListing",
+          "line": 178
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "detailHeader",
+            "line": 89
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "同一内部 SKU 可产生独立外部实例和容器 UUID",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "内部 ID 与上传/同步操作 ID 不混用。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-002",
+      "object": "渠道PID容器",
+      "declared_field": "storeId",
+      "label": "所属店铺",
+      "required": "是",
+      "rule": "渠道/市场从店铺引用",
+      "actual_fields": [
+        "ChannelListing.storeId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "createChannelListing",
+          "line": 178
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "detailHeader",
+            "line": 89
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "映射容器有确定店铺，内部关系不按 SKU 去重",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-003",
+      "object": "渠道PID容器",
+      "declared_field": "platformProductId",
+      "label": "外部PID",
+      "required": "平台分配后是",
+      "rule": "渠道+店铺+PID唯一；不截断/不伪造",
+      "actual_fields": [
+        "ChannelListing.platformProductId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "previewChannelImport",
+          "line": 367
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "detailHeader",
+            "line": 89
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-012 historic imports preserve string IDs and reject incomplete mapping without partial formal records",
+          "line": 215,
+          "proved_assertions": "超长外部 ID 保留为文本",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007/CHAN-005 incomplete or nontext external identity never becomes a successful formal publication",
+          "line": 448,
+          "proved_assertions": "缺失、非字符串或不完整外部身份不形成成功发布",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "平台 ID 只从原始导入或明确演示回执取得；demo 前缀表明原型。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-004",
+      "object": "渠道PID容器",
+      "declared_field": "styleId",
+      "label": "唯一款式",
+      "required": "是",
+      "rule": "全部外部规格只能映射本SPU",
+      "actual_fields": [
+        "ChannelListing.styleId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "validateChannelMapping",
+          "line": 157
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "createChannelListing",
+          "line": 178
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "detailHeader",
+            "line": 89
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "单 PID 跨 SPU 保存被拒绝",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004 stopped parent SPU blocks new PID and new mappings while existing listing stays maintainable",
+          "line": 59,
+          "proved_assertions": "父款停用阻止新增，保留已有维护",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-005",
+      "object": "渠道PID容器",
+      "declared_field": "contentVersionId",
+      "label": "渠道内容版本",
+      "required": "是",
+      "rule": "发布指定版本",
+      "actual_fields": [
+        "ChannelListing.contentVersion",
+        "ChannelSyncItem.fieldVersion",
+        "ChannelSyncOperation.submittedVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "detailHeader",
+            "line": 89
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelContentTab",
+            "line": 111
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/005 late receipt cannot overwrite new content, own event cannot loop",
+          "line": 268,
+          "proved_assertions": "回执按字段提交版本处理，不能覆盖新内容",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "内容版本用容器 ID + contentVersion 引用；同步另保存当次提交值。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-006",
+      "object": "渠道PID容器",
+      "declared_field": "platformCategoryId",
+      "label": "平台类目",
+      "required": "发布按平台规则",
+      "rule": "不同于内部正式类目",
+      "actual_fields": [
+        "ChannelContent.platformCategoryId",
+        "ChannelStore.defaultCategoryId",
+        "ChannelStore.platformTemplate.categoryMappings"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "initializeChannelPlatformContent",
+          "line": 26
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道内容；编辑渠道内容；店铺经营配置的平台模板折叠区",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderStorePlatformTemplate",
+            "line": 55
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "LIST-006/007/008 configured store mappings initialize content and current template requirements gate review and actual publish",
+          "line": 143,
+          "proved_assertions": "明确内部类目 ID → 平台类目 ID 初始化；空必填类目在审核/实际发布受阻",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-007",
+      "object": "渠道PID容器",
+      "declared_field": "platformBrandId",
+      "label": "平台品牌",
+      "required": "平台要求时",
+      "rule": "不改SPU品牌身份",
+      "actual_fields": [
+        "ChannelContent.platformBrandId",
+        "ChannelStore.platformTemplate.brandMappings/defaultBrandId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "initializeChannelPlatformContent",
+          "line": 26
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道内容；编辑渠道内容；店铺经营配置的平台模板折叠区",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderStorePlatformTemplate",
+            "line": 55
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "LIST-006/007/008 configured store mappings initialize content and current template requirements gate review and actual publish",
+          "line": 143,
+          "proved_assertions": "平台品牌 ID 按映射初始化和必填校验，不改内部品牌",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-008",
+      "object": "渠道PID容器",
+      "declared_field": "platformAttributes",
+      "label": "平台属性",
+      "required": "平台必填项是",
+      "rule": "保留原始字段/单位和版本",
+      "actual_fields": [
+        "ChannelContent.platformAttributes/platformAttributeUnits/platformAttributeSchemaVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "initializeChannelPlatformContent",
+          "line": 26
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        },
+        {
+          "file": "src/data/pcs-channel-store-repository.ts",
+          "symbol": "saveChannelStore",
+          "line": 51
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道内容；编辑渠道内容；店铺经营配置的平台模板折叠区",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderStorePlatformTemplate",
+            "line": 55
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "LIST-006/007/008 configured store mappings initialize content and current template requirements gate review and actual publish",
+          "line": 143,
+          "proved_assertions": "属性映射、默认值、单位与模板版本均保存；模板后改也在真实提交入口重新校验",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "配置在店铺经营配置折叠区。模板规则为原型配置，不声称是在线平台官方规范。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-009",
+      "object": "渠道PID容器",
+      "declared_field": "handle",
+      "label": "Handle",
+      "required": "平台适用时",
+      "rule": "只属于渠道内容",
+      "actual_fields": [
+        "ChannelContent.handle"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "channelFieldSupported",
+          "line": 10
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道内容；编辑渠道内容；店铺经营配置的平台模板折叠区",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderStorePlatformTemplate",
+            "line": 55
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "平台模板的动态必填校验共用路径",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-008 unsupported fields remain explicit, never success",
+          "line": 308,
+          "proved_assertions": "不支持的同步字段不能记为成功",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "Handle 可按店铺模板要求；模板测试未独立断言 Handle 的空值分支。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-010",
+      "object": "渠道PID容器",
+      "declared_field": "sourceTestingOrderId",
+      "label": "可选测款单",
+      "required": "否",
+      "rule": "无开发项目必填",
+      "actual_fields": [
+        "ChannelListing.sourceTestingOrderId",
+        "ChannelListing.testingReferences[].testingOrderId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "bindChannelListingToTesting",
+          "line": 409
+        },
+        {
+          "file": "src/data/pcs-testing-order-repository.ts",
+          "symbol": "prepareTestingOrderChannelListing",
+          "line": 511
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 测款关联；测款单第8步渠道上架",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-013/SYNC-011 test order selection uses canonical listing and precise action; passing production stays independent",
+          "line": 320,
+          "proved_assertions": "独立建档和测款入口共用 canonical listing，测款关联精确到单据",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-011",
+      "object": "渠道PID容器",
+      "declared_field": "testingListingActionId",
+      "label": "测款上架动作",
+      "required": "测款发起时",
+      "rule": "返回对应动作结果不串单",
+      "actual_fields": [
+        "ChannelListing.testingListingActionId",
+        "ChannelListing.testingReferences[].testingListingActionId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "bindChannelListingToTesting",
+          "line": 409
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "getTestingChannelListingResults",
+          "line": 266
+        },
+        {
+          "file": "src/data/pcs-testing-order-repository.ts",
+          "symbol": "completeTestingOrderChannelListing",
+          "line": 539
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 测款关联；测款单第8步渠道上架",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-013/SYNC-011 test order selection uses canonical listing and precise action; passing production stays independent",
+          "line": 320,
+          "proved_assertions": "第8步未获完整回执不能推进；准确动作读到本 listing，另一个 action 读不到；复用同款 PID 绑定新动作",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "已有专项未直接断言成功回执后第8步推进至 live-testing；该正向点击、刷新回填待主代理浏览器验证。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-012",
+      "object": "渠道PID容器",
+      "declared_field": "platformStatus",
+      "label": "平台实际状态",
+      "required": "有观测时",
+      "rule": "本地请求不冒充已在售",
+      "actual_fields": [
+        "ChannelListing.platformStatus"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-002/004 platform status-only observations are current facts and older status cannot overwrite them",
+          "line": 276,
+          "proved_assertions": "仅平台状态观测更新实际状态，旧观测不覆盖新状态",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007 first publish unknown reuses same operation and duplicate submission does not mint two PIDs",
+          "line": 303,
+          "proved_assertions": "提交/超时不冒充已发布",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-013",
+      "object": "渠道PID容器",
+      "declared_field": "platformRawStatus",
+      "label": "平台原状态",
+      "required": "有回执时",
+      "rule": "保留来源码不直接作中文界面文案",
+      "actual_fields": [
+        "ChannelListing.platformRawStatus",
+        "ChannelSyncReceiptSnapshot.rawStatus"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-011 immutable per-receipt external identity and raw status survive partial retry and later changes",
+          "line": 288,
+          "proved_assertions": "当次原始状态快照在重试与后续平台状态变化后仍保留",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "普通页面用中文业务状态；原始码仅在回执详情作为技术来源展示。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-014",
+      "object": "渠道PID容器",
+      "declared_field": "syncStatus",
+      "label": "同步状态",
+      "required": "只读",
+      "rule": "当前版本全范围成功才一致",
+      "actual_fields": [
+        "ChannelListing.syncStatus"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "recalculateSyncState",
+          "line": 40
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-006 partial failures retry exactly failed items, preserve successful external IDs",
+          "line": 282,
+          "proved_assertions": "全部失败项恢复后才一致",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-002/003 platform merge never approves a different pending PCS field; conflict choice sends only its field",
+          "line": 331,
+          "proved_assertions": "别的未批准草稿不被正常平台合并误判通过",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-015",
+      "object": "渠道PID容器",
+      "declared_field": "lastSuccessAt",
+      "label": "最近成功同步时间",
+      "required": "有成功时",
+      "rule": "不以尝试时间代替",
+      "actual_fields": [
+        "ChannelListing.lastSuccessAt"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情固定摘要 / 渠道内容 / 发布与同步",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-013/SYNC-011 test order selection uses canonical listing and precise action; passing production stays independent",
+          "line": 320,
+          "proved_assertions": "测款完成判断要求对应 listing 有完整在售成功回执",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007 first publish unknown reuses same operation and duplicate submission does not mint two PIDs",
+          "line": 303,
+          "proved_assertions": "未知结果不填写成功身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "最近成功时间不是发起时间；专项未单独断言每一种失败组合的时间戳。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "LIST-016",
+      "object": "渠道PID容器",
+      "declared_field": "sourceIdentity",
+      "label": "来源身份",
+      "required": "迁入是",
+      "rule": "历史必须完整映射内部SKU",
+      "actual_fields": [
+        "ChannelListing.sourceIdentity"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-legacy-conversion.ts",
+          "symbol": "convertLegacyChannelSnapshot",
+          "line": 22
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "importChannelRows",
+          "line": 392
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 记录",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "legacy conversion is pure, preserves many external IDs per same SKU and rejects unmatched lines",
+          "line": 352,
+          "proved_assertions": "纯转换保留来源身份、多外部实例与完整内部映射",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-012 historic imports preserve string IDs and reject incomplete mapping without partial formal records",
+          "line": 215,
+          "proved_assertions": "不完整导入不产生部分正式数据",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "记录 Tab 明示来源身份；历史迁入不生成开发项目身份。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-001",
+      "object": "平台规格实例",
+      "declared_field": "externalVariantId",
+      "label": "内部平台规格记录ID",
+      "required": "是",
+      "rule": "同内部SKU可多条",
+      "actual_fields": [
+        "ChannelVariant.id"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "validateChannelMapping",
+          "line": 157
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "同款规则和多个实例的独立内部身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-002",
+      "object": "平台规格实例",
+      "declared_field": "listingId",
+      "label": "父渠道商品",
+      "required": "是",
+      "rule": "唯一父容器",
+      "actual_fields": [
+        "ChannelVariant.listingId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "validateChannelMapping",
+          "line": 157
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "同款规则和多个实例的独立内部身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-003",
+      "object": "平台规格实例",
+      "declared_field": "platformVariantId",
+      "label": "平台规格ID",
+      "required": "分配后是",
+      "rule": "渠道+店铺+PID+规格ID唯一",
+      "actual_fields": [
+        "ChannelVariant.platformVariantId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007/CHAN-005 incomplete or nontext external identity never becomes a successful formal publication",
+          "line": 448,
+          "proved_assertions": "外部规格 ID 必须为完整字符串，实例级 ID 不拼造",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-006 partial failures retry exactly failed items, preserve successful external IDs",
+          "line": 282,
+          "proved_assertions": "重试保留已取得的外部规格 ID",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-004",
+      "object": "平台规格实例",
+      "declared_field": "sellerSku",
+      "label": "商家SKU文本",
+      "required": "平台要求时",
+      "rule": "不等于外部规格ID；可有不同文本",
+      "actual_fields": [
+        "ChannelVariant.sellerSku"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板可要求 sellerSku/颜色/尺码/花型/图片/任意规格属性；逐实例在审核和发布检查",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-005",
+      "object": "平台规格实例",
+      "declared_field": "internalSkuId",
+      "label": "内部SKU映射",
+      "required": "正式保存是",
+      "rule": "必须属父SPU；不按此字段去重",
+      "actual_fields": [
+        "ChannelVariant.internalSkuId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "validateChannelMapping",
+          "line": 157
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "同款规则和多个实例的独立内部身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-006",
+      "object": "平台规格实例",
+      "declared_field": "displayColor",
+      "label": "平台颜色显示",
+      "required": "平台要求时",
+      "rule": "回传改名不改内部颜色",
+      "actual_fields": [
+        "ChannelVariant.displayColor"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板可要求 sellerSku/颜色/尺码/花型/图片/任意规格属性；逐实例在审核和发布检查",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+          "line": 98,
+          "proved_assertions": "平台显示文本修改不改内部规格身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-007",
+      "object": "平台规格实例",
+      "declared_field": "displaySize",
+      "label": "平台尺码显示",
+      "required": "平台要求时",
+      "rule": "不创建市场尺码体系",
+      "actual_fields": [
+        "ChannelVariant.displaySize"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板可要求 sellerSku/颜色/尺码/花型/图片/任意规格属性；逐实例在审核和发布检查",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+          "line": 98,
+          "proved_assertions": "平台显示文本修改不改内部规格身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-008",
+      "object": "平台规格实例",
+      "declared_field": "displayPattern",
+      "label": "平台花型显示",
+      "required": "适用时",
+      "rule": "展示与身份分离",
+      "actual_fields": [
+        "ChannelVariant.displayPattern"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板可要求 sellerSku/颜色/尺码/花型/图片/任意规格属性；逐实例在审核和发布检查",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-006/007/008 store content, display names and technical source do not rewrite internal identities",
+          "line": 98,
+          "proved_assertions": "平台显示文本修改不改内部规格身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-009",
+      "object": "平台规格实例",
+      "declared_field": "platformAttributeValues",
+      "label": "平台规格属性",
+      "required": "平台要求时",
+      "rule": "按实际外部实例保存",
+      "actual_fields": [
+        "ChannelVariant.platformAttributeValues"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板可要求 sellerSku/颜色/尺码/花型/图片/任意规格属性；逐实例在审核和发布检查",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "每个实例单独保存属性、可选单位和模板版本；编辑以键值行维护属性。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-010",
+      "object": "平台规格实例",
+      "declared_field": "imageId",
+      "label": "平台规格图片",
+      "required": "平台要求时",
+      "rule": "用途和版本明确",
+      "actual_fields": [
+        "ChannelVariant.imageId / imageUrl"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-platform-template.ts",
+          "symbol": "assertChannelPlatformContentReady",
+          "line": 35
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CONTENT-008/EXT-004/006/007/009/010 template media and per-instance requirements gate review and cached-approved publish",
+          "line": 163,
+          "proved_assertions": "模板可要求 sellerSku/颜色/尺码/花型/图片/任意规格属性；逐实例在审核和发布检查",
+          "execution_evidence": "targeted-final-media-rerun",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "图片身份与 URL 保存于平台规格；用途为平台规格图，资料变更随实例 version 递增；不写内层 SKU 图片。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-011",
+      "object": "平台规格实例",
+      "declared_field": "mappingVersion",
+      "label": "映射版本",
+      "required": "是",
+      "rule": "改正保留旧订单快照",
+      "actual_fields": [
+        "ChannelVariant.mappingVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelMappingHistoryRows",
+          "line": 245
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-014/015/016 mapping correction versions preserve old fulfillment snapshots",
+          "line": 221,
+          "proved_assertions": "更正保存映射版本/时间/人/原因和原→新 SKU，履约中订单仍保留旧版本快照",
+          "execution_evidence": "targeted-initial-mapping",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-012",
+      "object": "平台规格实例",
+      "declared_field": "mappingEffectiveAt",
+      "label": "映射生效时间",
+      "required": "是",
+      "rule": "新订单采用新版本",
+      "actual_fields": [
+        "ChannelVariant.mappingEffectiveAt"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelMappingHistoryRows",
+          "line": 245
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-014/015/016 mapping correction versions preserve old fulfillment snapshots",
+          "line": 221,
+          "proved_assertions": "更正保存映射版本/时间/人/原因和原→新 SKU，履约中订单仍保留旧版本快照",
+          "execution_evidence": "targeted-initial-mapping",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "PCS 提供当前映射生效时间与不可变旧订单引用；新订单采用当前版本是 OMS 消费职责，本仓库没有对应创建订单入口。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-013",
+      "object": "平台规格实例",
+      "declared_field": "mappingReason",
+      "label": "映射更正原因",
+      "required": "更正是",
+      "rule": "同SPU更正；未完履约移交OMS",
+      "actual_fields": [
+        "ChannelVariant.mappingReason"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelMappingHistoryRows",
+          "line": 245
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-014/015/016 mapping correction versions preserve old fulfillment snapshots",
+          "line": 221,
+          "proved_assertions": "更正保存映射版本/时间/人/原因和原→新 SKU，履约中订单仍保留旧版本快照",
+          "execution_evidence": "targeted-initial-mapping",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "OMS 当前无可用订单页/搜索消费者：保留订单号、历史引用和复制动作，不造假跳转。真实订单移交不在本 PCS 原型实现范围。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-014",
+      "object": "平台规格实例",
+      "declared_field": "defaultPriceGroupId",
+      "label": "默认价组",
+      "required": "是",
+      "rule": "同SKU初始相同价",
+      "actual_fields": [
+        "ChannelVariant.defaultPriceGroupId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "同店同 SKU 的五类默认价共用，已覆盖实例不随默认价变动",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "EXT-015",
+      "object": "平台规格实例",
+      "declared_field": "active",
+      "label": "规格启停",
+      "required": "是",
+      "rule": "外部下架回执独立；不删历史映射",
+      "actual_fields": [
+        "ChannelVariant.active"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelVariant",
+          "line": 249
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 规格映射（更正历史折叠）；独立编辑 / 规格映射",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelMappingTab",
+            "line": 117
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-004/005 new container cannot cross SPUs, duplicate internal SKU has independent external records",
+          "line": 52,
+          "proved_assertions": "实例均独立保存 active；不会按内部 SKU 去重",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "既有测试未单独断言每一种规格停用/重新启用组合；页面操作与外部下架独立待浏览器验收。"
+      ],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-001",
+      "object": "渠道价格",
+      "declared_field": "priceId",
+      "label": "价格记录ID",
+      "required": "是",
+      "rule": "默认与覆盖关系可追溯",
+      "actual_fields": [
+        "ChannelPrice.id"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-002",
+      "object": "渠道价格",
+      "declared_field": "storeId",
+      "label": "价格店铺范围",
+      "required": "是",
+      "rule": "市场币种由店铺配置",
+      "actual_fields": [
+        "ChannelPrice.storeId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-003",
+      "object": "渠道价格",
+      "declared_field": "internalSkuId",
+      "label": "默认价所属SKU",
+      "required": "默认价是",
+      "rule": "同店铺同SKU同类型默认共用",
+      "actual_fields": [
+        "ChannelPrice.internalSkuId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-004",
+      "object": "渠道价格",
+      "declared_field": "externalVariantId",
+      "label": "覆盖对象",
+      "required": "覆盖价是",
+      "rule": "按外部实例独立",
+      "actual_fields": [
+        "ChannelPrice.externalVariantId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-005",
+      "object": "渠道价格",
+      "declared_field": "priceType",
+      "label": "价格类型",
+      "required": "是",
+      "rule": "保留五类语义，不复用单值",
+      "actual_fields": [
+        "ChannelPrice.priceType"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-006",
+      "object": "渠道价格",
+      "declared_field": "amount",
+      "label": "价格金额",
+      "required": "该价已设置时",
+      "rule": "非负；发布日常价大于0；空与0分开",
+      "actual_fields": [
+        "ChannelPrice.amount"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "日常价必须大于0，其余允许0，未设置为null",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-001 clearing an optional supported price publishes null instead of retaining a stale platform amount",
+          "line": 340,
+          "proved_assertions": "清空可选同步价格以null传出，不留下旧平台金额",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-007",
+      "object": "渠道价格",
+      "declared_field": "currency",
+      "label": "币种",
+      "required": "是",
+      "rule": "不使用结算币种自动替换",
+      "actual_fields": [
+        "ChannelPrice.currency"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-001/002/003/018 current scopes, separate MYR sales/CNY settlement, inactive is not platform offline",
+          "line": 31,
+          "proved_assertions": "MY 销售 MYR、结算 CNY 分开",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-008",
+      "object": "渠道价格",
+      "declared_field": "mode",
+      "label": "跟随或覆盖",
+      "required": "是",
+      "rule": "改默认不覆盖已独立值",
+      "actual_fields": [
+        "ChannelPrice.mode"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-009",
+      "object": "渠道价格",
+      "declared_field": "validFrom",
+      "label": "起始时间",
+      "required": "限时价需要",
+      "rule": "与结束成对校验",
+      "actual_fields": [
+        "ChannelPrice.validFrom"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelLocalDateToIso",
+          "line": 283
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-017 clearance uses store time zone and expires into daily price",
+          "line": 206,
+          "proved_assertions": "时间按店铺时区转换，起止成对、结束更晚，到期参考日常价",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-010",
+      "object": "渠道价格",
+      "declared_field": "validTo",
+      "label": "结束时间",
+      "required": "限时价需要",
+      "rule": "大于开始；到期参考日常价",
+      "actual_fields": [
+        "ChannelPrice.validTo"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "channelLocalDateToIso",
+          "line": 283
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-017 clearance uses store time zone and expires into daily price",
+          "line": 206,
+          "proved_assertions": "时间按店铺时区转换，起止成对、结束更晚，到期参考日常价",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-011",
+      "object": "渠道价格",
+      "declared_field": "origin",
+      "label": "变更来源",
+      "required": "是",
+      "rule": "平台改单实例价形成覆盖",
+      "actual_fields": [
+        "ChannelPrice.origin"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "CHAN-009/010/011 five price types, defaults affect followers only and platform price overrides one instance",
+          "line": 198,
+          "proved_assertions": "五类价格独立保存，默认价与实例覆盖相互独立",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-001/002 normal two-way changes synchronize immediately without asking to adopt",
+          "line": 256,
+          "proved_assertions": "平台正常修改单实例价格回传为该实例的覆盖来源",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "PRICE-012",
+      "object": "渠道价格",
+      "declared_field": "version",
+      "label": "价格版本",
+      "required": "是",
+      "rule": "同步按提交版本处理",
+      "actual_fields": [
+        "ChannelPrice.version"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "saveChannelPrice",
+          "line": 290
+        },
+        {
+          "file": "src/data/pcs-channel-catalog.ts",
+          "symbol": "resolveChannelPrice",
+          "line": 323
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "fieldVersion",
+          "line": 22
+        }
+      ],
+      "page": {
+        "tab_or_surface": "渠道商品详情 / 价格（五类型切换）；独立编辑 / 价格；来源和修改在记录 Tab",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderDetailTab",
+            "line": 98
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderEditor",
+            "line": 159
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/005 late receipt cannot overwrite new content, own event cannot loop",
+          "line": 268,
+          "proved_assertions": "提交时按字段版本保存，迟到回执不覆盖新资料",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "价格版本由保存递增，并用于同步项 fieldVersion；现有迟到回执专项主要直接断言标题，价格专门的迟到回执负例尚未独立执行。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-001",
+      "object": "发布与同步记录",
+      "declared_field": "operationId",
+      "label": "业务操作ID",
+      "required": "是",
+      "rule": "重复提交/重试复用；不会再建另一PID",
+      "actual_fields": [
+        "ChannelSyncOperation.id"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007 first publish unknown reuses same operation and duplicate submission does not mint two PIDs",
+          "line": 303,
+          "proved_assertions": "同次操作复用 ID、未知首发不能重复建 PID",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/007 late first-creation receipt preserves external identity without overwriting newer content",
+          "line": 440,
+          "proved_assertions": "迟到首建回执仍保留外部身份但不覆盖新内容",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-002",
+      "object": "发布与同步记录",
+      "declared_field": "listingId",
+      "label": "渠道商品",
+      "required": "是",
+      "rule": "按对象记录",
+      "actual_fields": [
+        "ChannelSyncOperation.listingId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-006 partial failures retry exactly failed items, preserve successful external IDs",
+          "line": 282,
+          "proved_assertions": "对象级回执区分成功/失败，重试只包含失败项",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-003",
+      "object": "发布与同步记录",
+      "declared_field": "targetVariantIds",
+      "label": "目标规格",
+      "required": "涉及规格时",
+      "rule": "部分失败只重试失败项",
+      "actual_fields": [
+        "ChannelSyncOperation.targetVariantIds"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "retryChannelFailedItems",
+          "line": 151
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-006 partial failures retry exactly failed items, preserve successful external IDs",
+          "line": 282,
+          "proved_assertions": "只重试失败的对象与字段，已成功身份保持",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-004",
+      "object": "发布与同步记录",
+      "declared_field": "action",
+      "label": "动作",
+      "required": "是",
+      "rule": "动作意图和平台结果分开",
+      "actual_fields": [
+        "ChannelSyncOperation.action"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-001/002 normal two-way changes synchronize immediately without asking to adopt",
+          "line": 256,
+          "proved_assertions": "正常 PCS→平台/平台→PCS 都合并，操作和结果分别记录",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 same internal availability is shared observations, not multiplied or written to inventory",
+          "line": 311,
+          "proved_assertions": "WMS→平台仅共享可售观测",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-005",
+      "object": "发布与同步记录",
+      "declared_field": "direction",
+      "label": "方向",
+      "required": "是",
+      "rule": "字段责任不混用",
+      "actual_fields": [
+        "ChannelSyncOperation.direction"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-001/002 normal two-way changes synchronize immediately without asking to adopt",
+          "line": 256,
+          "proved_assertions": "正常 PCS→平台/平台→PCS 都合并，操作和结果分别记录",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 same internal availability is shared observations, not multiplied or written to inventory",
+          "line": 311,
+          "proved_assertions": "WMS→平台仅共享可售观测",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-006",
+      "object": "发布与同步记录",
+      "declared_field": "fieldScope",
+      "label": "字段范围",
+      "required": "是",
+      "rule": "不支持字段不能报已同步",
+      "actual_fields": [
+        "ChannelSyncOperation.fieldScope"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "channelFieldSupported",
+          "line": 10
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-008 unsupported fields remain explicit, never success",
+          "line": 308,
+          "proved_assertions": "不支持字段明确失败/不支持，不记已成功",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-007",
+      "object": "发布与同步记录",
+      "declared_field": "baseVersion",
+      "label": "共同基线版本",
+      "required": "是",
+      "rule": "同字段并发检测依据",
+      "actual_fields": [
+        "ChannelSyncOperation.baseVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-003 concurrent same field requires resolution; different fields merge",
+          "line": 262,
+          "proved_assertions": "同基线同字段并发需选择，不同字段自动合并",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "操作层 baseVersion 与每字段 baseValue/fieldVersion 共同记录；冲突判断按目标+字段执行。",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-008",
+      "object": "发布与同步记录",
+      "declared_field": "submittedVersion",
+      "label": "提交版本",
+      "required": "PCS发送时是",
+      "rule": "旧回执不能覆盖新资料",
+      "actual_fields": [
+        "ChannelSyncOperation.submittedVersion"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/005 late receipt cannot overwrite new content, own event cannot loop",
+          "line": 268,
+          "proved_assertions": "迟到回执不覆盖较新内容",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/007 late first-creation receipt preserves external identity without overwriting newer content",
+          "line": 440,
+          "proved_assertions": "旧版本的首建回执只承接合法外部身份",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-009",
+      "object": "发布与同步记录",
+      "declared_field": "sourceEventId",
+      "label": "来源变更ID",
+      "required": "回传时是",
+      "rule": "防止自己回传形成循环",
+      "actual_fields": [
+        "ChannelSyncOperation.sourceEventId"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-004/005 late receipt cannot overwrite new content, own event cannot loop",
+          "line": 268,
+          "proved_assertions": "自己的来源事件回传不会形成循环",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-010",
+      "object": "发布与同步记录",
+      "declared_field": "result",
+      "label": "结果",
+      "required": "是",
+      "rule": "有相应回执才成功",
+      "actual_fields": [
+        "ChannelSyncOperation.result"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007 first publish unknown reuses same operation and duplicate submission does not mint two PIDs",
+          "line": 303,
+          "proved_assertions": "未知结果保留待核实，不能记成功",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-006 partial failures retry exactly failed items, preserve successful external IDs",
+          "line": 282,
+          "proved_assertions": "部分成功与全部一致分开",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-011",
+      "object": "发布与同步记录",
+      "declared_field": "receipt",
+      "label": "逐对象回执",
+      "required": "有返回时",
+      "rule": "保存外部ID/状态和字段结果",
+      "actual_fields": [
+        "ChannelSyncOperation.receiptSnapshots / items"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelPlatformChange",
+          "line": 188
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "recordSharedChannelAvailability",
+          "line": 250
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-011 immutable per-receipt external identity and raw status survive partial retry and later changes",
+          "line": 288,
+          "proved_assertions": "每次回执保存不可变 PID、规格 ID、原始状态与字段结果；后来重试/状态更新不改旧事实",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 same internal availability is shared observations, not multiplied or written to inventory",
+          "line": 311,
+          "proved_assertions": "共享可售演示也保存当次外部身份、数量、单位和来源版本",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-012",
+      "object": "发布与同步记录",
+      "declared_field": "errorReason",
+      "label": "失败原因",
+      "required": "失败时",
+      "rule": "说明对象、可重试动作；不让用户清缓存",
+      "actual_fields": [
+        "ChannelSyncOperation.errorReason / items[].error"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-006 partial failures retry exactly failed items, preserve successful external IDs",
+          "line": 282,
+          "proved_assertions": "对象错误与失败项可重试",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-008 unsupported fields remain explicit, never success",
+          "line": 308,
+          "proved_assertions": "不支持不进入无意义重试",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-013",
+      "object": "发布与同步记录",
+      "declared_field": "conflictingValues",
+      "label": "双方并发值",
+      "required": "真实同字段冲突时",
+      "rule": "仅并发边界人工选最终值",
+      "actual_fields": [
+        "ChannelSyncOperation.conflicts[]"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "resolveChannelSyncConflict",
+          "line": 227
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-003 concurrent same field requires resolution; different fields merge",
+          "line": 262,
+          "proved_assertions": "真正同字段并发留双方值，指定选择后才解除",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-002/003 platform merge never approves a different pending PCS field; conflict choice sends only its field",
+          "line": 331,
+          "proved_assertions": "只确认冲突字段，不顺便批准其他未审内容",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-014",
+      "object": "发布与同步记录",
+      "declared_field": "observedAvailability",
+      "label": "平台可售观测值",
+      "required": "数量同步时",
+      "rule": "不是PCS可编辑库存或档案摘要",
+      "actual_fields": [
+        "ChannelSyncOperation.observedAvailability[]"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-wms-projection.ts",
+          "symbol": "getChannelWmsAvailability",
+          "line": 8
+        },
+        {
+          "file": "src/data/pcs-channel-wms-projection.ts",
+          "symbol": "synchronizeChannelWmsAvailability",
+          "line": 16
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "recordSharedChannelAvailability",
+          "line": 250
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 same internal availability is shared observations, not multiplied or written to inventory",
+          "line": 311,
+          "proved_assertions": "多个外部实例共享相同数量，不能求和，不写PCS库存",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 fixed shared SKU reads the exact WLS source across two PIDs and three external instances",
+          "line": 372,
+          "proved_assertions": "精确匹配现有 WLS SKU 身份，两个 PID 三个实例同一来源",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-015",
+      "object": "发布与同步记录",
+      "declared_field": "wmsSourceRef",
+      "label": "WMS共享可售来源",
+      "required": "数量同步时",
+      "rule": "不建店铺分配量",
+      "actual_fields": [
+        "ChannelSyncOperation.wmsSourceRef"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-wms-projection.ts",
+          "symbol": "getChannelWmsAvailability",
+          "line": 8
+        },
+        {
+          "file": "src/data/pcs-channel-wms-projection.ts",
+          "symbol": "synchronizeChannelWmsAvailability",
+          "line": 16
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "recordSharedChannelAvailability",
+          "line": 250
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 same internal availability is shared observations, not multiplied or written to inventory",
+          "line": 311,
+          "proved_assertions": "多个外部实例共享相同数量，不能求和，不写PCS库存",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-009/010 fixed shared SKU reads the exact WLS source across two PIDs and three external instances",
+          "line": 372,
+          "proved_assertions": "精确匹配现有 WLS SKU 身份，两个 PID 三个实例同一来源",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-016",
+      "object": "发布与同步记录",
+      "declared_field": "startedAt",
+      "label": "发起时间",
+      "required": "是",
+      "rule": "不等于成功时间",
+      "actual_fields": [
+        "ChannelSyncOperation.startedAt"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007 first publish unknown reuses same operation and duplicate submission does not mint two PIDs",
+          "line": 303,
+          "proved_assertions": "待核实的首发与完成有确定回执分开",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-011 immutable per-receipt external identity and raw status survive partial retry and later changes",
+          "line": 288,
+          "proved_assertions": "回执接收时间与原始快照保留",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "时间字段分别写入代码已绑定；没有用单独时钟假体穷举所有成功/失败时间组合，浏览器记录页待验。"
+      ],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    },
+    {
+      "field_id": "SYNC-017",
+      "object": "发布与同步记录",
+      "declared_field": "completedAt",
+      "label": "完成时间",
+      "required": "收到确定结果时",
+      "rule": "结果待核实不能填成功时间",
+      "actual_fields": [
+        "ChannelSyncOperation.completedAt"
+      ],
+      "implementation": [
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "submitChannelSync",
+          "line": 53
+        },
+        {
+          "file": "src/data/pcs-channel-sync.ts",
+          "symbol": "receiveChannelReceipt",
+          "line": 81
+        }
+      ],
+      "page": {
+        "tab_or_surface": "发布与同步 Tab / 同步工作台；逐操作详情与当次回执折叠",
+        "implementation": [
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelSyncPanel",
+            "line": 127
+          },
+          {
+            "file": "src/pages/pcs-channel-products.ts",
+            "symbol": "renderChannelReceiptSnapshots",
+            "line": 123
+          },
+          {
+            "file": "src/pages/pcs-channel-stores.ts",
+            "symbol": "renderPcsChannelStoreSyncPage",
+            "line": 73
+          }
+        ]
+      },
+      "automation": [
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-007 first publish unknown reuses same operation and duplicate submission does not mint two PIDs",
+          "line": 303,
+          "proved_assertions": "待核实的首发与完成有确定回执分开",
+          "execution_evidence": "prior-full-rules-pass",
+          "current_round_rerun": false
+        },
+        {
+          "file": "tests/pcs-r1-channel-rules.test.ts",
+          "test_name": "SYNC-011 immutable per-receipt external identity and raw status survive partial retry and later changes",
+          "line": 288,
+          "proved_assertions": "回执接收时间与原始快照保留",
+          "execution_evidence": "targeted-final-six",
+          "current_round_rerun": true
+        }
+      ],
+      "implementation_gaps": [],
+      "verification_gaps": [
+        "时间字段分别写入代码已绑定；没有用单独时钟假体穷举所有成功/失败时间组合，浏览器记录页待验。"
+      ],
+      "notes": "",
+      "browser_pending": true,
+      "status": "已实现待验证"
+    }
+  ]
+}

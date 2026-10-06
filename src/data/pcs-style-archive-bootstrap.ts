@@ -294,6 +294,18 @@ export function createStyleArchiveBootstrapSnapshot(version: number, withProduct
     ...EXTRA_STYLE_ARCHIVE_RECORDS,
     ...listProjectTestingStyleArchives(),
   ]
+  // R1 shared-availability and delivery examples reuse explicit identities, never inventory amounts.
+  const template = records[0]
+  if (template) for (const [styleId, styleCode, styleName, deliveryMode] of [
+    ['style_r1_wms_tee', 'SPU-GC-1001', '基础T恤 A款', 'SINGLE'],
+    ['style_r1_physical_set', 'SPU-2026-900002', '休闲衬衫长裤实物套装', 'PHYSICAL_SET'],
+    ['style_r1_virtual_bundle', 'SPU-2026-900003', '基础T恤双色组合', 'VIRTUAL_BUNDLE'],
+  ] as const) records.push({ ...template, styleId, styleCode, styleName, styleNameEn: styleName, styleNumber: styleCode, identitySource: 'HISTORY', deliveryMode,
+    approvalStatus: 'APPROVED', lifecycleStatus: 'ACTIVE', archiveStatus: 'ACTIVE', specificationCount: deliveryMode === 'SINGLE' ? 2 : 1,
+    mainImageUrl: deliveryMode === 'PHYSICAL_SET' ? '/materials/pcs-reviewed/shirt-black.jpg' : '/materials/pcs-reviewed/tee-black.jpg', galleryImageUrls: [],
+    sourceProjectId: '', sourceProjectCode: '', sourceProjectName: '', sourceProjectNodeId: '',
+    currentTechPackVersionId: '', currentTechPackVersionCode: '', currentTechPackVersionLabel: '', currentTechPackVersionStatus: '', currentTechPackVersionActivatedAt: '', currentTechPackVersionActivatedBy: '', techPackVersionCount: 0, costVersionCount: 0, channelProductCount: 0,
+    techPackStatus: '未建立', costPricingStatus: '未建立', generatedAt: '2026-10-05 09:00:00', updatedAt: '2026-10-05 09:00:00', generatedBy: '演示资料', updatedBy: '演示资料', remark: '原型演示资料', archiveLogs: [] })
   const recordById = new Map(records.map((record) => [record.styleId, record]))
   const projects = createBootstrapProjectSnapshot().projects
   const productContext = withProductInformation ? createStyleProductInformationContext() : undefined

@@ -2,7 +2,7 @@ import type { PcsProjectChannelProductRecord } from './pcs-project-domain-contra
 import type { StyleArchiveShellRecord } from './pcs-style-archive-types.ts'
 import type { TechnicalDataVersionRecord } from './pcs-technical-data-version-types.ts'
 
-export type StyleArchiveBusinessStatusKey = 'WAITING_BASE_INFO' | 'WAITING_TECH_PACK' | 'ACTIVE' | 'ARCHIVED'
+export type StyleArchiveBusinessStatusKey = 'WAITING_BASE_INFO' | 'NOT_ENABLED' | 'INACTIVE' | 'ACTIVE' | 'ARCHIVED'
 export type TechPackAggregateStatusKey = 'UNCREATED' | 'DRAFT' | 'PUBLISHED_PENDING' | 'ACTIVE' | 'ARCHIVED'
 export type TechPackVersionBusinessStatusKey = 'DRAFT' | 'PUBLISHED_PENDING' | 'ACTIVE' | 'ARCHIVED'
 export type ChannelProductBusinessStatusKey =
@@ -32,23 +32,24 @@ export const STYLE_ARCHIVE_STATUS_RULES: Record<StyleArchiveBusinessStatusKey, L
     key: 'WAITING_BASE_INFO',
     label: '待完善',
     className: 'border-amber-200 bg-amber-50 text-amber-700',
-    scene: '商品项目已建立商品档案草稿，但基础资料尚未补齐，不能进入正式建档。',
-    operations: ['完善款式资料', '查看来源项目', '查看渠道店铺商品'],
+    scene: '款式档案处于草稿或审核过程中，可继续完善资料。',
+    operations: ['完善款式资料', '提交审核', '查看渠道店铺商品'],
   },
-  WAITING_TECH_PACK: {
-    key: 'WAITING_TECH_PACK',
-    label: '已建档待技术包',
+  NOT_ENABLED: {
+    key: 'NOT_ENABLED',
+    label: '未启用',
     className: 'border-sky-200 bg-sky-50 text-sky-700',
-    scene: '款式基础资料已完成正式建档，但还没有当前生效技术包版本，暂不能视为正式启用。',
+    scene: '档案资料已建立，审核通过后可启用；技术包按其自身业务规则管理。',
     operations: ['查看技术包版本', '查看来源任务', '查看渠道店铺商品'],
   },
   ACTIVE: {
     key: 'ACTIVE',
     label: '已启用',
     className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    scene: '已具备当前生效技术包版本，可被生产与下游模块正式读取和消费。',
+    scene: '商品档案已启用；生产使用条件由对应技术与生产业务判断。',
     operations: ['查看当前生效技术包', '查看规格档案', '查看渠道店铺商品', '归档'],
   },
+  INACTIVE: { key: 'INACTIVE', label: '停用', className: 'border-slate-200 bg-slate-50 text-slate-600', scene: '停止新业务使用，历史引用保留。', operations: ['启用', '查看历史资料'] },
   ARCHIVED: {
     key: 'ARCHIVED',
     label: '已归档',
@@ -77,7 +78,7 @@ export const TECH_PACK_AGGREGATE_STATUS_RULES: Record<TechPackAggregateStatusKey
     key: 'PUBLISHED_PENDING',
     label: '已发布待启用',
     className: 'border-blue-200 bg-blue-50 text-blue-700',
-    scene: '技术包版本已发布，但还没有被设为当前生效版本，因此款式仍不能按已启用处理。',
+    scene: '技术包版本已发布，但还没有被设为当前生效版本，由技术资料启用规则继续处理，不改变商品档案的审核与使用状态。',
     operations: ['查看已发布版本', '启用为当前生效版本', '归档历史版本'],
   },
   ACTIVE: {
@@ -142,53 +143,8 @@ export const CHANNEL_PRODUCT_STATUS_RULES: Record<ChannelProductBusinessStatusKe
 }
 
 export const STYLE_ARCHIVE_CONTROLLED_FIELD_RULES: ControlledFieldRuleGroup[] = [
-  {
-    title: '正式建档前维护字段',
-    description: '以下字段必须在正式建档前补齐，正式建档后不再允许页面直接修改。',
-    fields: [
-      '款式名称',
-      '款号',
-      '商品类型',
-      '品牌',
-      '一级类目',
-      '二级类目',
-      '年份',
-      '季节标签',
-      '风格标签',
-      '目标人群',
-      '目标渠道',
-      '价格带',
-      '款式主图',
-      '卖点摘要',
-      '详情描述',
-    ],
-  },
-  {
-    title: '正式建档后受控变更字段',
-    description: '当前不做审批流程，这些字段先按只读处理；后续若接审批，再按受控变更方式开放。',
-    fields: [
-      '款式名称',
-      '款号',
-      '商品类型',
-      '品牌',
-      '一级类目',
-      '二级类目',
-      '年份',
-      '季节标签',
-      '风格标签',
-      '目标人群',
-      '目标渠道',
-      '价格带',
-      '款式主图',
-      '卖点摘要',
-      '详情描述',
-    ],
-  },
-  {
-    title: '正式建档后可直接补充字段',
-    description: '正式建档完成后，当前仅保留少量补充说明字段可继续维护。',
-    fields: ['包装信息', '备注'],
-  },
+  { title: '档案身份', description: '审核通过后款式编码和交付方式锁定，交付身份变化建立新档案。', fields: ['款式编码', '交付方式'] },
+  { title: '资料维护', description: '展示内容、分类属性、图片和说明可由资料维护人更新并留下记录。', fields: ['款式名称', '品牌', '正式类目', '品类', '风格', '品类编号', '图片', '销售基础内容', '备注'] },
 ]
 
 export function isStyleArchiveFormalized(style: Pick<StyleArchiveShellRecord, 'baseInfoStatus'>): boolean {
@@ -196,11 +152,12 @@ export function isStyleArchiveFormalized(style: Pick<StyleArchiveShellRecord, 'b
 }
 
 export function resolveStyleArchiveBusinessStatus(
-  style: Pick<StyleArchiveShellRecord, 'archiveStatus' | 'currentTechPackVersionId' | 'baseInfoStatus'>,
+  style: Pick<StyleArchiveShellRecord, 'archiveStatus' | 'currentTechPackVersionId' | 'baseInfoStatus' | 'lifecycleStatus' | 'approvalStatus'>,
 ): StyleArchiveBusinessStatusKey {
-  if (style.archiveStatus === 'ARCHIVED') return 'ARCHIVED'
-  if (style.archiveStatus === 'ACTIVE' || style.currentTechPackVersionId) return 'ACTIVE'
-  if (isStyleArchiveFormalized(style)) return 'WAITING_TECH_PACK'
+  if (style.lifecycleStatus === 'ARCHIVED' || style.archiveStatus === 'ARCHIVED') return 'ARCHIVED'
+  if (style.lifecycleStatus === 'INACTIVE') return 'INACTIVE'
+  if (style.lifecycleStatus === 'ACTIVE' || (!style.lifecycleStatus && style.archiveStatus === 'ACTIVE')) return 'ACTIVE'
+  if (style.approvalStatus === 'APPROVED' || isStyleArchiveFormalized(style)) return 'NOT_ENABLED'
   return 'WAITING_BASE_INFO'
 }
 

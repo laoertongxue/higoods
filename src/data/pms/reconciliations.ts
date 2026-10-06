@@ -114,7 +114,7 @@ export interface PmsMaterialReconciliation {
   materialCode: string
   materialName: string
   purchaseOrderNos: string[]
-  currency: 'RMB' | 'USD'
+  currency: 'RMB' | 'USD' | 'IDR'
   orderedQty: number
   estimatedUnitPrice: number
   purchaseAmount: number

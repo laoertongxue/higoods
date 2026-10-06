@@ -8,16 +8,56 @@ import {
 import { markPmsProductPurchaseOrderMaterialPushed } from './product-purchase-orders.ts'
 import { appendPmsLog, listPmsLogs, nextPmsSequence, PmsDomainError, roundPmsQty, type PmsActorRole, type PmsOperationLog } from './runtime.ts'
 import { PMS_MATERIAL_IMAGES, PMS_STYLE_IMAGES } from './images.ts'
-import { PMS_STORES, pmsAll, pmsDelete, pmsGet, pmsPut, pmsTx } from './idb-storage.ts'
+import { PMS_STORES, getPmsDb, pmsAll, pmsDelete, pmsGet, pmsPut, pmsTx, broadcastPmsDataChanged } from './idb-storage.ts'
+import { getMaterialArchiveById, getMaterialSkuRecordById, listMaterialUnitRelations, isMaterialSkuAvailableForNewUse } from '../pcs-material-archive-repository.ts'
+import { listPmsSuppliers } from './suppliers.ts'
 import {
   getTmfPurchaseState, listTmfSupplyPurchaseProjections, listTmfMaterialPurchases, getTmfMaterialPurchase, releaseTmfMaterialPurchase,
   confirmTmfPurchaseSupplier, reviseTmfMaterialPurchase, cancelTmfMaterialPurchaseAfterDisposition, type TmfPurchaseActor,
 } from './tmf-material-purchases.ts'
 import { assertTmfTipMaterialMaster } from './tmf-master-registry.ts'
 
-export type PmsMaterialPurchaseOrderStatus = '待采购' | '已采购' | '部分到货' | '已到货' | '已入库' | '已关闭'
+export type PmsMaterialPurchaseOrderStatus = '草稿' | '待采购' | '已采购' | '部分到货' | '已到货' | '已入库' | '已关闭'
+
+export interface PmsPcsMaterialPurchaseSource {
+  source: 'PCS_MATERIAL_SKU'
+  materialId: string
+  materialSkuId: string
+  materialSkuCode: string
+  returnPath: string
+  mainUnit: string
+  mainUnitVersion: number
+  purchaseUnit: string
+  mainQtyPerPurchaseUnit: number
+  relationId: string | null
+  relationVersion: number | null
+  basis: string
+  capturedAt: string
+}
+
+export interface PmsPcsMaterialPurchaseDraftInput {
+  materialSkuId: string
+  unitRelationId: string | null
+  quantity: number
+  supplierCode: string
+  purchaseRegion: string
+  unitPrice: number
+  currency: 'RMB' | 'IDR' | 'USD'
+  warehouse: string
+  expectedArrivalDate: string
+  buyerName: string
+  remark: string
+  purchaseOrderNo?: string
+  expectedVersion?: number
+}
 
 export interface PmsMaterialPurchaseOrder {
+  pcsSource?: PmsPcsMaterialPurchaseSource
+  draftVersion?: number
+  supplierCode?: string
+  purchaseRegion?: string
+  taxIncluded?: true
+  mainUnitQuantity?: number
   tmfTipSource?: { demandId: string; materialBomItemId: string; productionOrderNo: string; snapshotId: string; versionId: string; operationId: string; signature: string; masterRef?: { masterId: string; code: string; name: string; source: string } }
 
   purchaseOrderNo: string
@@ -37,7 +77,7 @@ export interface PmsMaterialPurchaseOrder {
   orderedQty: number
   receivedQty: number
   unitPrice: number
-  currency: 'RMB'
+  currency: 'RMB' | 'IDR' | 'USD'
   status: PmsMaterialPurchaseOrderStatus
   orderDate: string
   expectedArrivalDate: string
@@ -86,6 +126,144 @@ interface PmsMaterialPurchaseRuntime {
 
 let runtime: PmsMaterialPurchaseRuntime | null = null
 let orderSequence = 8
+
+// R1 §7: PCS supplies identity and a unit reference; the purchase and actual price belong to PMS.
+const pcsPurchaseDrafts = new Map<string, PmsMaterialPurchaseOrder>()
+const pcsPurchaseLogs = new Map<string, PmsOperationLog>()
+let pcsPurchaseReadPromise: Promise<void> | null = null
+let hydratedPurchaseOrders: PmsMaterialPurchaseOrder[] | null = null
+
+export function getPmsPcsPurchaseUnitOptions(materialSkuId: string): PmsPcsMaterialPurchaseSource[] {
+  const sku = getMaterialSkuRecordById(materialSkuId)
+  const root = sku && getMaterialArchiveById(sku.materialId)
+  if (!sku || !root) throw new PmsDomainError('MPO_SOURCE_MISSING', '来源物料不存在，请返回物料档案重新选择。')
+  const mainUnit = sku.mainUnit || sku.pricingUnit
+  const base: PmsPcsMaterialPurchaseSource = {
+    source: 'PCS_MATERIAL_SKU', materialId: sku.materialId, materialSkuId,
+    materialSkuCode: sku.materialSkuCode,
+    returnPath: `/pcs/materials/${root.kind}/${sku.materialId}/skus/${materialSkuId}`,
+    mainUnit, mainUnitVersion: sku.mainUnitVersion || 1, purchaseUnit: mainUnit,
+    mainQtyPerPurchaseUnit: 1, relationId: null, relationVersion: null,
+    basis: '物料 SKU 主计量单位', capturedAt: '',
+  }
+  return [base, ...listMaterialUnitRelations(materialSkuId)
+    .filter(relation => relation.status === 'ACTIVE' && relation.uses.includes('PURCHASE'))
+    .map(relation => ({ ...base, purchaseUnit: relation.auxUnitId,
+      mainQtyPerPurchaseUnit: relation.mainQtyPerAux, relationId: relation.relationId,
+      relationVersion: relation.version, basis: relation.basisReference || relation.basisType }))]
+}
+
+/** Read-only hydration: no seed copies, no legacy source deletion, no fallback writes. */
+export function hydratePmsMaterialPurchaseOrdersFromIdb(force = false): Promise<void> {
+  if (pcsPurchaseReadPromise && !force) return pcsPurchaseReadPromise
+  const reading = Promise.all([
+    pmsAll<PmsMaterialPurchaseOrder>(PMS_STORES.pmsMaterialPurchaseOrderDeltas),
+    pmsAll<PmsOperationLog>(PMS_STORES.pmsOperationLogs),
+  ]).then(([orders, logs]) => {
+    hydratedPurchaseOrders = orders
+    for (const order of orders) {
+      if (order.pcsSource) {
+        const previous = pcsPurchaseDrafts.get(order.purchaseOrderNo)
+        if (!previous || (order.draftVersion || 0) >= (previous.draftVersion || 0)) pcsPurchaseDrafts.set(order.purchaseOrderNo, order)
+      } else if (runtime) mergeSavedUpdates(runtime, [order])
+    }
+    logs.filter(log => log.id.startsWith('PMS-PCS-PURCHASE:')).forEach(log => pcsPurchaseLogs.set(log.id, log))
+  }).catch(error => { pcsPurchaseReadPromise = null; throw error })
+  pcsPurchaseReadPromise = reading
+  return reading
+}
+
+/** One strict PMS transaction for the draft, its log and the idempotency receipt. */
+export async function savePmsPcsMaterialPurchaseDraft(
+  input: PmsPcsMaterialPurchaseDraftInput,
+  actor: { id: string; name: string; role: PmsActorRole },
+  operationId: string,
+): Promise<PmsMaterialPurchaseOrder> {
+  if (!['采购员', '采购主管'].includes(actor.role) || !actor.id.trim() || !actor.name.trim()) throw new PmsDomainError('MPO_ROLE_BLOCKED', '当前角色不能维护采购草稿。')
+  if (!operationId.trim()) throw new PmsDomainError('MPO_OPERATION_REQUIRED', '缺少本次保存标识，请重新打开采购表单。')
+  const normalized = { ...input, materialSkuId: input.materialSkuId.trim(), unitRelationId: input.unitRelationId || null,
+    supplierCode: input.supplierCode.trim(), purchaseRegion: input.purchaseRegion.trim(), warehouse: input.warehouse.trim(),
+    expectedArrivalDate: input.expectedArrivalDate.trim(), buyerName: input.buyerName.trim(), remark: input.remark.trim() }
+  if (!Number.isFinite(normalized.quantity) || normalized.quantity <= 0) throw new PmsDomainError('MPO_QUANTITY_INVALID', '采购数量必须大于 0。')
+  if (!Number.isFinite(normalized.unitPrice) || normalized.unitPrice < 0) throw new PmsDomainError('MPO_PRICE_INVALID', '请填写非负的实际含税采购单价。')
+  if (!['RMB', 'IDR', 'USD'].includes(normalized.currency)) throw new PmsDomainError('MPO_CURRENCY_INVALID', '请选择采购币种。')
+  if (![normalized.purchaseRegion, normalized.warehouse, normalized.buyerName].every(Boolean)) throw new PmsDomainError('MPO_FIELDS_REQUIRED', '请填写采购区域、收货仓和采购负责人。')
+  const arrival = new Date(`${normalized.expectedArrivalDate}T00:00:00Z`)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized.expectedArrivalDate) || Number.isNaN(arrival.getTime()) || arrival.toISOString().slice(0, 10) !== normalized.expectedArrivalDate) throw new PmsDomainError('MPO_DATE_INVALID', '请填写有效的预计到货日期。')
+  const sku = getMaterialSkuRecordById(normalized.materialSkuId)
+  const previous = normalized.purchaseOrderNo ? pcsPurchaseDrafts.get(normalized.purchaseOrderNo) : undefined
+  if (normalized.purchaseOrderNo && (!previous?.pcsSource || previous.status !== '草稿')) throw new PmsDomainError('MPO_DRAFT_NOT_FOUND', '采购草稿不存在或已不允许修改，请重新读取。')
+  if (!sku || (previous?.pcsSource?.materialSkuId !== sku.materialSkuId && !isMaterialSkuAvailableForNewUse(sku))) throw new PmsDomainError('MPO_SOURCE_INACTIVE', '物料 SKU 及其主档须已审核并启用，才能新增选用。')
+  const supplier = listPmsSuppliers().find(item => item.supplierCode === normalized.supplierCode && item.status === '已启用')
+  if (!supplier) throw new PmsDomainError('MPO_SUPPLIER_REQUIRED', '请选择已启用的供应商。')
+  const selected = previous?.pcsSource?.materialSkuId === sku.materialSkuId && previous.pcsSource.relationId === normalized.unitRelationId
+    ? previous.pcsSource
+    : getPmsPcsPurchaseUnitOptions(sku.materialSkuId).find(option => option.relationId === normalized.unitRelationId)
+  if (!selected || !Number.isFinite(selected.mainQtyPerPurchaseUnit) || selected.mainQtyPerPurchaseUnit <= 0) throw new PmsDomainError('MPO_UNIT_INVALID', '所选采购单位关系不可用，请重新选择物料的采购单位。')
+  if (!Number.isFinite(normalized.quantity * selected.mainQtyPerPurchaseUnit) || !Number.isFinite(normalized.quantity * normalized.unitPrice)) throw new PmsDomainError('MPO_QUANTITY_INVALID', '采购数量或金额超出可计算范围。')
+  const now = new Date().toISOString(), year = now.slice(0, 4)
+  const source = { ...selected, capturedAt: selected.capturedAt || now }
+  const materialType = getMaterialArchiveById(sku.materialId)?.categoryName || ''
+  const signature = JSON.stringify({ input: normalized, actor: actor.id })
+  const receiptKey = `MPO:PCS:OP:${operationId}`, sequenceKey = `MPO:PCS:SEQUENCE:${year}`
+  const db = await getPmsDb()
+  let committedLog: PmsOperationLog | undefined
+  const committed = await new Promise<PmsMaterialPurchaseOrder>((resolve, reject) => {
+    const tx = db.transaction([PMS_STORES.pmsMaterialPurchaseOrderDeltas, PMS_STORES.pmsOperationLogs, PMS_STORES.pmsVersionSnapshots], 'readwrite')
+    const orders = tx.objectStore(PMS_STORES.pmsMaterialPurchaseOrderDeltas), receipts = tx.objectStore(PMS_STORES.pmsVersionSnapshots)
+    let result: PmsMaterialPurchaseOrder | undefined, failure: Error | undefined
+    const stop = (message: string) => { failure = new PmsDomainError('MPO_DRAFT_CONFLICT', message); tx.abort() }
+    tx.oncomplete = () => result ? resolve(result) : reject(new PmsDomainError('MPO_DRAFT_FAILED', '采购草稿未保存，请重试。'))
+    tx.onabort = () => reject(failure || new PmsDomainError('MPO_DRAFT_FAILED', '采购草稿未保存，原有记录保持不变。请保留当前输入并重试。'))
+    tx.onerror = () => { failure ||= new PmsDomainError('MPO_DRAFT_FAILED', `采购草稿未保存：${tx.error?.message || '存储不可用'}。请保留当前输入并重试。`) }
+    const operation = receipts.get(receiptKey)
+    operation.onsuccess = () => {
+      const receipt = operation.result as { signature: string; purchaseOrderNo: string } | undefined
+      if (receipt) {
+        if (receipt.signature !== signature) { stop('同一次保存的内容已变化，请重新保存。'); return }
+        const existing = orders.get(receipt.purchaseOrderNo)
+        existing.onsuccess = () => { result = existing.result; if (!result) stop('已保存草稿无法读取，请重新读取采购单。') }
+        return
+      }
+      const target = normalized.purchaseOrderNo ? orders.get(normalized.purchaseOrderNo) : receipts.get(sequenceKey)
+      target.onsuccess = () => {
+        const existing = normalized.purchaseOrderNo ? target.result as PmsMaterialPurchaseOrder | undefined : undefined
+        if (normalized.purchaseOrderNo && (!existing?.pcsSource || existing.status !== '草稿' || existing.draftVersion !== normalized.expectedVersion)) { stop('采购草稿已被其他页面修改，请重新读取后再保存。'); return }
+        const sequence = Number(target.result?.sequence || 0) + 1
+        const purchaseOrderNo = normalized.purchaseOrderNo || `CGF-${year}-P${String(sequence).padStart(5, '0')}`
+        result = {
+          purchaseOrderNo, requirementNo: '', sourceRequirementLineNo: '', sourceProductPurchaseOrderNo: '',
+          materialCode: sku.materialSkuCode, materialName: sku.materialName,
+          materialType,
+          // User image bytes and their ownership remain in PCS; the PMS view resolves the source SKU.
+          materialImageUrl: /^(blob:|pcs-file:|data:)/.test(sku.skuImageUrl) ? '' : sku.skuImageUrl,
+          unit: source.purchaseUnit, styleCode: '', styleName: '', styleImageUrl: '',
+          supplierCode: supplier.supplierCode, supplierName: supplier.supplierName,
+          warehouse: normalized.warehouse, purchaseRegion: normalized.purchaseRegion,
+          orderedQty: normalized.quantity, mainUnitQuantity: roundPmsQty(normalized.quantity * source.mainQtyPerPurchaseUnit, 6),
+          receivedQty: 0, unitPrice: normalized.unitPrice, currency: normalized.currency, taxIncluded: true,
+          status: '草稿', orderDate: existing?.orderDate || now.slice(0, 10), expectedArrivalDate: normalized.expectedArrivalDate,
+          buyerName: normalized.buyerName, supplierConfirmed: false, supplierConfirmedAt: '', remark: normalized.remark,
+          pcsSource: source, draftVersion: (existing?.draftVersion || 0) + 1,
+        }
+        committedLog = { id: `PMS-PCS-PURCHASE:${operationId}`, objectType: 'material-purchase-order', objectId: purchaseOrderNo,
+          action: existing ? '修改采购草稿' : '创建采购草稿', beforeValue: existing ? `草稿 V${existing.draftVersion}` : '',
+          afterValue: `${result.orderedQty} ${result.unit} · ${result.unitPrice} ${result.currency} / ${result.unit}（含税）`,
+          reason: '从物料档案发起采购', actorId: actor.id, actorName: actor.name, actorRole: actor.role,
+          occurredAt: now, timeZone: 'Asia/Jakarta', source: 'PMS' }
+        if (existing) orders.put(result)
+        else orders.add(result)
+        tx.objectStore(PMS_STORES.pmsOperationLogs).put(committedLog)
+        receipts.put({ snapshotKey: receiptKey, signature, purchaseOrderNo })
+        if (!normalized.purchaseOrderNo) receipts.put({ snapshotKey: sequenceKey, sequence })
+      }
+    }
+  })
+  pcsPurchaseDrafts.set(committed.purchaseOrderNo, committed)
+  if (committedLog) pcsPurchaseLogs.set(committedLog.id, committedLog)
+  try { broadcastPmsDataChanged(PMS_STORES.pmsMaterialPurchaseOrderDeltas, committed.purchaseOrderNo, actor.id) } catch { /* the transaction is already committed */ }
+  return structuredClone(committed)
+}
 
 function buildOrder(
   purchaseOrderNo: string,
@@ -277,7 +455,9 @@ function readSavedPurchaseUpdates(): PmsMaterialPurchaseOrder[] {
   // § 2.4.6 迁移期:同步从旧键读;hydrate 后 migrate 函数会删除旧键。
   // hydrate 完成后,运行时改读 IDB pmsMaterialPurchaseOrderDeltas。
   if (typeof window === 'undefined') return []
-  const raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY)
+  let raw: string | null
+  try { raw = window.localStorage.getItem(PMS_MATERIAL_PURCHASE_UPDATES_KEY) }
+  catch { return [] } // Unavailable legacy storage does not become a save fallback or block IDB drafts.
   if (!raw) {
     cachedRaw = null
     cachedParsed = []
@@ -323,6 +503,7 @@ export function invalidateReadSavedPurchaseUpdatesCache(): void {
  * - 严格遵守 § 2.4.3.5 "禁止静默回退 localStorage 或只更新内存后显示已保存"。
  */
 function savePurchaseUpdate(order: PmsMaterialPurchaseOrder, patch: Partial<PmsMaterialPurchaseOrder>): void {
+  if (order.pcsSource) throw new PmsDomainError('MPO_DRAFT_ACTION_BLOCKED', '该采购单当前为草稿，请通过采购草稿表单维护。')
   const next = { ...order, ...patch }
   // § 2.4.6 迁移期兼容:同步写旧键保证测试/老浏览器场景下能抛"未保存";运行期 hydrate 后会删除。
   if (typeof window !== 'undefined') {
@@ -352,7 +533,8 @@ let pendingDeltasPromise: Promise<PmsMaterialPurchaseOrder[]> | null = null
  */
 async function loadSavedPurchaseUpdates(): Promise<PmsMaterialPurchaseOrder[]> {
   if (!pendingDeltasPromise) {
-    pendingDeltasPromise = readSavedPurchaseUpdates()
+    pendingDeltasPromise = pmsAll<PmsMaterialPurchaseOrder>(PMS_STORES.pmsMaterialPurchaseOrderDeltas)
+      .catch(error => { pendingDeltasPromise = null; throw error })
   }
   return pendingDeltasPromise
 }
@@ -371,9 +553,11 @@ function getRuntime(): PmsMaterialPurchaseRuntime {
   if (!runtime) {
     listPmsMaterialRequirements()
     runtime = buildInitialRuntime()
+    if (hydratedPurchaseOrders) mergeSavedUpdates(runtime, hydratedPurchaseOrders)
     // 启动时触发 IDB 异步加载;不阻塞首次访问,失败不抛。
-    loadSavedPurchaseUpdates()
+    if (!hydratedPurchaseOrders) loadSavedPurchaseUpdates()
       .then((saved) => {
+        hydratedPurchaseOrders = saved
         if (runtime) mergeSavedUpdates(runtime, saved)
       })
       .catch((error: unknown) => {
@@ -434,7 +618,7 @@ export function createPmsTmfTipPurchase(
 
 export function listPmsMaterialPurchaseOrders(): PmsMaterialPurchaseOrder[] {
   const supplies=listTmfSupplyPurchaseProjections(),tmf=listTmfMaterialPurchases(),ids=new Set([...supplies,...tmf].map(o=>o.purchaseOrderNo))
-  return [...getRuntime().orders.filter(o=>!ids.has(o.purchaseOrderNo)), ...tmf,...supplies]
+  return [...pcsPurchaseDrafts.values(), ...getRuntime().orders.filter(o=>!ids.has(o.purchaseOrderNo) && !pcsPurchaseDrafts.has(o.purchaseOrderNo)), ...tmf,...supplies]
 }
 
 /** 原型启动时注册真实存在于 PMS 运行时的采购来源；列表页面不得用它造数。 */
@@ -449,7 +633,7 @@ export function registerPmsMaterialPurchaseOrderPrototype(order: PmsMaterialPurc
 }
 
 export function getPmsMaterialPurchaseOrder(purchaseOrderNo: string): PmsMaterialPurchaseOrder | undefined {
-  return listTmfSupplyPurchaseProjections().find(o=>o.purchaseOrderNo===purchaseOrderNo) ?? getRuntime().orders.find((order) => order.purchaseOrderNo === purchaseOrderNo) ?? getTmfMaterialPurchase(purchaseOrderNo)
+  return pcsPurchaseDrafts.get(purchaseOrderNo) ?? listTmfSupplyPurchaseProjections().find(o=>o.purchaseOrderNo===purchaseOrderNo) ?? getRuntime().orders.find((order) => order.purchaseOrderNo === purchaseOrderNo) ?? getTmfMaterialPurchase(purchaseOrderNo)
 }
 
 export function listPmsMaterialLogisticsRecords(): PmsMaterialLogisticsRecord[] {
@@ -461,7 +645,9 @@ export function getPmsMaterialLogisticsRecord(recordNo: string): PmsMaterialLogi
 }
 
 export function listPmsMaterialPurchaseLogs(purchaseOrderNo: string): PmsOperationLog[] {
-  return listPmsLogs('material-purchase-order', purchaseOrderNo)
+  const logs = new Map(listPmsLogs('material-purchase-order', purchaseOrderNo).map(log => [log.id, log]))
+  for (const log of pcsPurchaseLogs.values()) if (log.objectId === purchaseOrderNo) logs.set(log.id, log)
+  return [...logs.values()].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
 }
 
 export interface PmsRequirementPushLineInput {
@@ -572,7 +758,9 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 export function validatePmsLogisticsImportRow(row: PmsLogisticsImportRow, existingTrackingNos: Set<string>, seenTrackingNos: Set<string>): string {
   if (!row.purchaseOrderNo.trim()) return '缺少采购单号'
-  if (!getPmsMaterialPurchaseOrder(row.purchaseOrderNo.trim())) return `采购单 ${row.purchaseOrderNo} 不存在`
+  const purchase = getPmsMaterialPurchaseOrder(row.purchaseOrderNo.trim())
+  if (!purchase) return `采购单 ${row.purchaseOrderNo} 不存在`
+  if (purchase.pcsSource && purchase.status === '草稿') return '采购草稿尚未下达，不能导入物流。'
   if (!row.company.trim()) return '缺少物流公司'
   if (!row.trackingNo.trim()) return '缺少物流单号'
   if (existingTrackingNos.has(row.trackingNo.trim()) || seenTrackingNos.has(row.trackingNo.trim())) return `物流单号 ${row.trackingNo} 已存在`
@@ -744,6 +932,7 @@ export function registerPmsMaterialPurchaseArrival(
 }
 
 const MPO_STATUS_TRANSITIONS: Record<PmsMaterialPurchaseOrderStatus, PmsMaterialPurchaseOrderStatus[]> = {
+  草稿: [],
   待采购: ['已采购', '已关闭'],
   已采购: ['部分到货', '已到货', '已关闭'],
   部分到货: ['已到货', '已入库', '已关闭'],
@@ -800,6 +989,7 @@ export function batchAdvancePmsMaterialPurchaseOrders(
   actor: { id: string; name: string; role: PmsActorRole },
 ): PmsMaterialPurchaseOrder[] {
   if (purchaseOrderNos.length === 0) throw new PmsDomainError('MPO_BATCH_EMPTY', '请至少选择一张采购单')
+  if (purchaseOrderNos.some(orderNo => getPmsMaterialPurchaseOrder(orderNo)?.pcsSource)) throw new PmsDomainError('MPO_DRAFT_ACTION_BLOCKED', '采购草稿请通过草稿表单维护，本次未推进状态。')
   return purchaseOrderNos.map((purchaseOrderNo) => advancePmsMaterialPurchaseOrderStatus(purchaseOrderNo, nextStatus, actor))
 }
 
@@ -840,6 +1030,7 @@ export function closePmsMaterialPurchaseOrder(
 export function resetPmsMaterialPurchaseRuntimeForTest(): void {
   runtime = null
   orderSequence = 0
+  pcsPurchaseDrafts.clear(); pcsPurchaseLogs.clear(); pcsPurchaseReadPromise = null; pendingDeltasPromise = null; hydratedPurchaseOrders = null
   invalidateReadSavedPurchaseUpdatesCache()
 }
 

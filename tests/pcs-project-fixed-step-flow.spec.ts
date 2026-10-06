@@ -76,7 +76,7 @@ const catalog = getProjectCreateCatalog()
 const category = catalog.categories[0]
 const subCategory = category?.children[0]
 const brand = catalog.brands[0]
-const styleCode = catalog.styleCodes[0] || catalog.styles[0]
+const styleCode = catalog.categoryNumbers[0] || catalog.styles[0]
 const owner = catalog.owners[0]
 const team = catalog.teams[0]
 const draftWithoutTemplate = createEmptyProjectDraft()
@@ -93,8 +93,8 @@ const created = createProject(
     subCategoryName: subCategory?.name || '',
     brandId: brand?.id || 'brand-test',
     brandName: brand?.name || '测试品牌',
-    styleCodeId: styleCode?.id || 'style-test',
-    styleCodeName: styleCode?.name || '测试款式',
+    categoryNumberId: styleCode?.id || 'style-test',
+    categoryNumberName: styleCode?.name || '测试款式',
     styleNumber: 'TEST-STYLE-001',
     yearTag: '2026',
     priceRangeLabel: '10美元~20美元',

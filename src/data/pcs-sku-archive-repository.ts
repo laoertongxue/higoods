@@ -1,3 +1,4 @@
+import { assertProductSkuIdentity, completeProductArchiveAudit, resolveProductMainUnit } from './pcs-product-archive-rules.ts'
 import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
 import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { createStyleArchiveBootstrapSnapshot } from './pcs-style-archive-bootstrap.ts'
@@ -28,7 +29,7 @@ function canUseStorage(): boolean {
 }
 
 function cloneRecord(record: SkuArchiveRecord): SkuArchiveRecord {
-  return { ...record }
+  return { ...record, legacyValues: record.legacyValues ? structuredClone(record.legacyValues) : undefined, packageSpecs: record.packageSpecs?.map(item => ({ ...item })), packageSpecHistory: record.packageSpecHistory?.map(item => ({ ...item })), extraIdentityValues: record.extraIdentityValues ? { ...record.extraIdentityValues } : undefined, skuNameTranslations: record.skuNameTranslations ? { ...record.skuNameTranslations } : undefined, barcodeAliases: record.barcodeAliases ? [...record.barcodeAliases] : undefined, bundleComponents: record.bundleComponents?.map(item => ({ ...item })), archiveLogs: record.archiveLogs ? structuredClone(record.archiveLogs) : undefined }
 }
 
 function cloneSnapshot(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStoreSnapshot {
@@ -137,9 +138,10 @@ function resolveVolumeText(styleName: string): string {
 }
 
 function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
-  const [defaultColor = 'Black'] = getWorkspaceFallbackColors()
-  const [defaultSize = 'One Size'] = getWorkspaceFallbackSizes()
-  const fixture = buildSkuFixture(record.styleCode || record.skuCode, record.styleName || record.skuCode, record.colorName || defaultColor, record.sizeName || defaultSize)
+  const defaultColor = record.colorName || getWorkspaceFallbackColors()[0] || 'Black'
+  const defaultSize = record.sizeName || getWorkspaceFallbackSizes()[0] || 'One Size'
+  let fixture: ReturnType<typeof buildSkuFixture> | undefined
+  const fallback = () => fixture ||= buildSkuFixture(record.styleCode || record.skuCode, record.styleName || record.skuCode, defaultColor, defaultSize)
   const archiveStatus: SkuArchiveStatusCode =
     record.archiveStatus === 'INACTIVE' || record.archiveStatus === 'ARCHIVED' ? record.archiveStatus : 'ACTIVE'
   const mappingHealth: SkuArchiveMappingHealth =
@@ -147,16 +149,20 @@ function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
 
   return {
     ...cloneRecord(record),
+    approvalStatus: record.approvalStatus || 'APPROVED',
+    lifecycleStatus: record.lifecycleStatus || archiveStatus,
+    deliveryMode: record.deliveryMode || 'SINGLE', recordVersion: record.recordVersion || 1,
+    compositionId: record.deliveryMode === 'VIRTUAL_BUNDLE' ? record.compositionId || `composition:${record.skuId}` : undefined,
     archiveStatus,
     mappingHealth,
     skuName: record.skuName || `${record.styleName || record.styleCode} ${record.colorName || defaultColor}/${record.sizeName || defaultSize}`,
-    skuNameEn: record.skuNameEn || fixture.skuNameEn,
-    colorName: record.colorName || defaultColor,
-    sizeName: record.sizeName || defaultSize,
+    skuNameEn: record.skuNameEn || (record.identitySource === 'MANUAL' ? '' : fallback().skuNameEn),
+    colorName: record.identitySource === 'MANUAL' ? record.colorName : record.colorName || defaultColor,
+    sizeName: record.identitySource === 'MANUAL' ? record.sizeName : record.sizeName || defaultSize,
     printName: record.printName || '基础款',
     barcode: record.barcode || '',
-    channelTitle: record.channelTitle || fixture.channelTitle,
-    skuImageUrl: migrateProductFixtureImage(record.styleCode, record.skuImageUrl, record.colorName) || fixture.skuImageUrl,
+    channelTitle: record.channelTitle || (record.identitySource === 'MANUAL' ? '' : fallback().channelTitle),
+    skuImageUrl: record.identitySource === 'MANUAL' ? record.skuImageUrl : migrateProductFixtureImage(record.styleCode, record.skuImageUrl, record.colorName) || fallback().skuImageUrl,
     channelMappingCount: Number.isFinite(record.channelMappingCount) ? record.channelMappingCount : 0,
     listedChannelCount: Number.isFinite(record.listedChannelCount) ? record.listedChannelCount : 0,
     techPackVersionId: record.techPackVersionId || '',
@@ -164,18 +170,19 @@ function normalizeRecord(record: SkuArchiveRecord): SkuArchiveRecord {
     techPackVersionLabel: record.techPackVersionLabel || '',
     legacySystem: record.legacySystem || '',
     legacyCode: record.legacyCode || '',
-    costPrice: Number.isFinite(record.costPrice) ? record.costPrice : fixture.costPrice,
-    freightCost: Number.isFinite(record.freightCost) ? record.freightCost : fixture.freightCost,
-    suggestedRetailPrice: Number.isFinite(record.suggestedRetailPrice) ? record.suggestedRetailPrice : fixture.suggestedRetailPrice,
-    currency: record.currency || fixture.currency,
-    pricingUnit: record.pricingUnit || fixture.pricingUnit,
-    weightKg: Number.isFinite(record.weightKg) ? record.weightKg : fixture.weightKg,
-    lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : fixture.lengthCm,
-    widthCm: Number.isFinite(record.widthCm) ? record.widthCm : fixture.widthCm,
-    heightCm: Number.isFinite(record.heightCm) ? record.heightCm : fixture.heightCm,
-    packagingInfo: record.packagingInfo || fixture.packagingInfo,
-    weightText: record.weightText || `${fixture.weightKg}kg`,
-    volumeText: record.volumeText || `${fixture.lengthCm}*${fixture.widthCm}*${fixture.heightCm}cm`,
+    costPrice: Number.isFinite(record.costPrice) ? record.costPrice : fallback().costPrice,
+    freightCost: Number.isFinite(record.freightCost) ? record.freightCost : fallback().freightCost,
+    suggestedRetailPrice: Number.isFinite(record.suggestedRetailPrice) ? record.suggestedRetailPrice : fallback().suggestedRetailPrice,
+    currency: record.currency || (record.identitySource === 'MANUAL' ? '' : fallback().currency),
+    pricingUnit: record.pricingUnit || fallback().pricingUnit,
+    mainUnitId: record.mainUnitId || resolveProductMainUnit(record.pricingUnit || fallback().pricingUnit)?.id,
+    weightKg: Number.isFinite(record.weightKg) ? record.weightKg : record.identitySource === 'MANUAL' ? 0 : fallback().weightKg,
+    lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : record.identitySource === 'MANUAL' ? 0 : fallback().lengthCm,
+    widthCm: Number.isFinite(record.widthCm) ? record.widthCm : record.identitySource === 'MANUAL' ? 0 : fallback().widthCm,
+    heightCm: Number.isFinite(record.heightCm) ? record.heightCm : record.identitySource === 'MANUAL' ? 0 : fallback().heightCm,
+    packagingInfo: record.packagingInfo || (record.identitySource === 'MANUAL' ? '' : fallback().packagingInfo),
+    weightText: record.weightText || (record.identitySource === 'MANUAL' ? (record.weightKg ? `${record.weightKg}kg` : '') : `${fallback().weightKg}kg`),
+    volumeText: record.volumeText || (record.identitySource === 'MANUAL' ? (record.lengthCm && record.widthCm && record.heightCm ? `${record.lengthCm}*${record.widthCm}*${record.heightCm}cm` : '') : `${fallback().lengthCm}*${fallback().widthCm}*${fallback().heightCm}cm`),
     lastListingAt: record.lastListingAt || '',
     createdAt: record.createdAt || record.updatedAt || nowText(),
     createdBy: record.createdBy || '系统初始化',
@@ -296,6 +303,17 @@ function buildSeedRecords(styles: ReturnType<typeof listStyleArchives>): SkuArch
     .map((style, index) => [style.styleId, index]))
   return styles.flatMap((style) => {
     const styleIndex = baselineIndex.get(style.styleId) ?? 0
+    if (style.styleId.startsWith('style_r1_')) {
+      const lines = style.styleId === 'style_r1_wms_tee' ? [
+        { skuId: 'sku_r1_wms_tee_black_s', skuCode: 'SKU-GC-20001', color: '黑色', size: 'S' },
+        { skuId: 'sku_r1_tee_white_m', skuCode: 'SPU-GC-1001-white-m', color: '白色', size: 'M' },
+      ] : [{ skuId: style.styleId === 'style_r1_physical_set' ? 'sku_r1_physical_set_m' : 'sku_r1_virtual_bundle_m', skuCode: `${style.styleCode}-black-m`, color: '黑色', size: 'M' }]
+      return lines.map((line, index) => ({ ...buildSeedRecord(style, line, styleIndex, index), skuId: line.skuId, skuImageUrl: line.skuId === 'sku_r1_tee_white_m' ? '/materials/pcs-reviewed/tee-white.jpg' : style.mainImageUrl, deliveryMode: style.deliveryMode,
+        legacyCode: line.skuId === 'sku_r1_wms_tee_black_s' ? 'SKU-GC-20001' : '', approvalStatus: 'APPROVED' as const, lifecycleStatus: 'ACTIVE' as const, archiveStatus: 'ACTIVE' as const,
+        pricingUnit: style.deliveryMode === 'SINGLE' ? '件' : '套', mainUnitId: resolveProductMainUnit(style.deliveryMode === 'SINGLE' ? '件' : '套')?.id, printName: '', patternId: '', expectedMaterials: undefined,
+        ...(style.deliveryMode === 'VIRTUAL_BUNDLE' ? { compositionVersion: 1, bundleComponents: [{ skuId: 'sku_r1_wms_tee_black_s', quantity: 1 }, { skuId: 'sku_r1_tee_white_m', quantity: 1 }] } : {}),
+      }))
+    }
     const seed = seedBySpu.get(style.styleCode)
     const skuLines =
       seed?.demand.skuLines.map((item) => ({
@@ -344,26 +362,28 @@ function mergeMissingSeedData(snapshot: SkuArchiveStoreSnapshot): SkuArchiveStor
   }
 }
 
-function loadSnapshot(): SkuArchiveStoreSnapshot {
-  if (memorySnapshot) return cloneSnapshot(memorySnapshot)
+function readSnapshot(): SkuArchiveStoreSnapshot {
+  if (memorySnapshot) return memorySnapshot
   if (!canUseStorage()) {
     memorySnapshot = withPcsDemoData(() => seedSnapshot())
-    return cloneSnapshot(memorySnapshot)
+    return memorySnapshot
   }
   let raw: string | null
   try { raw = pcsRecordStore.getItem(SKU_ARCHIVE_STORAGE_KEY) }
   catch { throw new Error('已保存 SKU 档案无法读取，请允许本机数据访问后重试；未使用空档案替换。') }
   if (raw === null) {
     memorySnapshot = withPcsDemoData(() => seedSnapshot())
-    return cloneSnapshot(memorySnapshot)
+    return memorySnapshot
   }
   let parsed: Partial<SkuArchiveStoreSnapshot>
   try { parsed = JSON.parse(raw) as Partial<SkuArchiveStoreSnapshot> }
   catch { throw new Error('已保存 SKU 档案格式错误，请保留原数据并核对。') }
   if (!parsed || parsed.version !== SKU_ARCHIVE_STORE_VERSION || !Array.isArray(parsed.records)) throw new Error('已保存 SKU 档案版本或记录格式错误，请保留原数据并核对。')
   memorySnapshot = mergeMissingSeedData(hydrateSnapshot({version: SKU_ARCHIVE_STORE_VERSION, records: parsed.records}))
-  return cloneSnapshot(memorySnapshot)
+  return memorySnapshot
 }
+
+function loadSnapshot(): SkuArchiveStoreSnapshot { return cloneSnapshot(readSnapshot()) }
 
 function persistSnapshot(snapshot: SkuArchiveStoreSnapshot): void {
   memorySnapshot = hydrateSnapshot(snapshot)
@@ -383,26 +403,34 @@ function syncStyleArchiveSpecificationCount(styleId: string): void {
 }
 
 export function listSkuArchives(): SkuArchiveRecord[] {
-  return loadSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  return readSnapshot().records.map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+}
+
+/** List counters do not copy every SKU's attachments, packaging and audit history. */
+export function getSkuArchiveCountsByStyle(): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const record of readSnapshot().records) counts.set(record.styleId, (counts.get(record.styleId) || 0) + 1)
+  return counts
 }
 
 export function listSkuArchivesByStyleId(styleId: string): SkuArchiveRecord[] {
-  return listSkuArchives().filter((item) => item.styleId === styleId)
+  return readSnapshot().records.filter(item => item.styleId === styleId).map(cloneRecord).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
 }
 
 export function getSkuArchiveById(skuId: string): SkuArchiveRecord | null {
-  const record = loadSnapshot().records.find((item) => item.skuId === skuId)
+  const record = readSnapshot().records.find((item) => item.skuId === skuId)
   return record ? cloneRecord(record) : null
 }
 
 export function findSkuArchiveByCode(skuCode: string): SkuArchiveRecord | null {
-  const record = loadSnapshot().records.find((item) => item.skuCode === skuCode)
+  const record = readSnapshot().records.find((item) => item.skuCode === skuCode)
   return record ? cloneRecord(record) : null
 }
 
 export function createSkuArchive(record: SkuArchiveRecord): SkuArchiveRecord {
   const snapshot = loadSnapshot()
   const nextRecord = normalizeRecord(record)
+  assertProductSkuIdentity(nextRecord, snapshot.records)
   if (snapshot.records.some((item) => item.skuCode === nextRecord.skuCode)) {
     throw new Error('当前规格编码已存在。')
   }
@@ -416,10 +444,16 @@ export function createSkuArchive(record: SkuArchiveRecord): SkuArchiveRecord {
 }
 
 export function createSkuArchiveBatch(records: SkuArchiveRecord[]): SkuArchiveRecord[] {
-  const created = records.map((item) => createSkuArchive(item))
-  const touchedStyleIds = new Set(created.map((item) => item.styleId))
-  touchedStyleIds.forEach((styleId) => syncStyleArchiveSpecificationCount(styleId))
-  return created
+  const snapshot = loadSnapshot(), created: SkuArchiveRecord[] = []
+  for (const input of records) {
+    const next = normalizeRecord(input)
+    assertProductSkuIdentity(next, [...snapshot.records, ...created])
+    if ([...snapshot.records, ...created].some(item => item.skuId === next.skuId)) throw new Error('SKU 身份已存在。')
+    created.push(next)
+  }
+  persistSnapshot({ ...snapshot, records: [...created, ...snapshot.records] })
+  new Set(created.map(item => item.styleId)).forEach(syncStyleArchiveSpecificationCount)
+  return created.map(cloneRecord)
 }
 
 export function updateSkuArchive(skuId: string, patch: Partial<SkuArchiveRecord>): SkuArchiveRecord | null {
@@ -431,6 +465,9 @@ export function updateSkuArchive(skuId: string, patch: Partial<SkuArchiveRecord>
     ...snapshot.records[index],
     ...patch,
   })
+  assertProductSkuIdentity(nextRecord, snapshot.records, snapshot.records[index])
+  completeProductArchiveAudit(snapshot.records[index], nextRecord)
+  nextRecord.recordVersion = (snapshot.records[index].recordVersion || 1) + 1
   const nextRecords = [...snapshot.records]
   nextRecords.splice(index, 1, nextRecord)
   persistSnapshot({

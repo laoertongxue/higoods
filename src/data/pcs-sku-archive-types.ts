@@ -1,5 +1,21 @@
+import type { ArchiveApprovalStatus, ArchiveLifecycleStatus, ProductDeliveryMode, ProductArchiveLog, SalesBaseContent, ProductBundleComponent, ProductArchiveOrigin } from './pcs-product-archive-rules.ts'
 export type SkuArchiveStatusCode = 'ACTIVE' | 'INACTIVE' | 'ARCHIVED'
 export type SkuArchiveMappingHealth = 'OK' | 'MISSING' | 'CONFLICT'
+export interface ProductPackageSpec {
+  packageSpecId: string
+  ownerSkuId: string
+  packageTypeId: string
+  contentQty: number
+  contentUnitId: string
+  grossWeightKg: number | null
+  lengthCm: number | null
+  widthCm: number | null
+  heightCm: number | null
+  volumeM3: number | null
+  measurementBasis: string
+  version: number
+  status: 'ACTIVE' | 'INACTIVE'
+}
 
 /** SKU 预计用料行：1 SKU → N 物料（物料 SKU）。设计 §5.1 / §3.1 */
 export interface SkuExpectedMaterialLine {
@@ -11,7 +27,27 @@ export interface SkuExpectedMaterialLine {
   note?: string
 }
 
-export interface SkuArchiveRecord {
+export interface SkuArchiveRecord extends ProductArchiveOrigin {
+  approvalStatus?: ArchiveApprovalStatus
+  lifecycleStatus?: ArchiveLifecycleStatus
+  deliveryMode?: ProductDeliveryMode
+  archiveLogs?: ProductArchiveLog[]
+  recordVersion?: number
+  colorId?: string
+  sizeId?: string
+  patternId?: string
+  patternIdentityId?: string
+  deliveryDifference?: string
+  extraIdentityValues?: { deliveryDifference?: string }
+  bundleComponents?: ProductBundleComponent[]
+  compositionId?: string
+  compositionVersion?: number
+  packageQuantity?: number
+  packageGrossWeightKg?: number
+  packageSpecs?: ProductPackageSpec[]
+  packageSpecHistory?: ProductPackageSpec[]
+  identitySource?: 'MANUAL' | 'HISTORY'
+
   skuId: string
   skuCode: string
   styleId: string
@@ -19,10 +55,12 @@ export interface SkuArchiveRecord {
   styleName: string
   skuName: string
   skuNameEn: string
+  skuNameTranslations?: Partial<Record<'en' | 'id' | 'ms', string>>
   colorName: string
   sizeName: string
   printName: string
   barcode: string
+  barcodeAliases?: string[]
   channelTitle: string
   skuImageUrl: string
   archiveStatus: SkuArchiveStatusCode
@@ -39,6 +77,7 @@ export interface SkuArchiveRecord {
   suggestedRetailPrice: number
   currency: string
   pricingUnit: string
+  mainUnitId?: string
   weightKg: number
   lengthCm: number
   widthCm: number

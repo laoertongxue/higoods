@@ -1,0 +1,211 @@
+{
+  "viewport": {
+    "height": 844,
+    "width": 390
+  },
+  "samples": [
+    {
+      "brokenImages": 0,
+      "durationMs": 331.30000001192093,
+      "end": 331.30000001192093,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "cold",
+      "round": 1
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 275.5,
+      "end": 275.5,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "cold",
+      "round": 2
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 286.5,
+      "end": 286.5,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "cold",
+      "round": 3
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 272.60000002384186,
+      "end": 272.60000002384186,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "cold",
+      "round": 4
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 267.19999998807907,
+      "end": 267.19999998807907,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "cold",
+      "round": 5
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 248.5,
+      "end": 248.5,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "refresh",
+      "round": 1
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 252.60000002384183,
+      "end": 252.60000002384183,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "refresh",
+      "round": 2
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 253.30000001192093,
+      "end": 253.30000001192093,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "refresh",
+      "round": 3
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 258.0999999642372,
+      "end": 258.0999999642372,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "refresh",
+      "round": 4
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 259.80000001192093,
+      "end": 259.80000001192093,
+      "images": 1,
+      "label": "navigation",
+      "start": 0,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING",
+      "mode": "refresh",
+      "round": 5
+    }
+  ],
+  "dom": "- generic \"周哥毛织厂（OWN_WOOL_FACTORY）\": 周哥毛织厂\n- generic: 执行 · OWN_WOOL_FACTORY\n- button \"打开当前待办\":\n  - generic: 待办\n  - generic: \"25\"\n- button \"打开账号信息\":\n  - generic: 周\n  - generic: 周哥毛织\n- button \"← 返回\"\n- button \"查看CARDIGAN-CREAM · 奶油色针织开衫大图\":\n  - img \"奶油色针织开衫款式图片\"\n- generic: HJ260918-003\n- generic: 款号：CARDIGAN-CREAM\n- generic: 款名：奶油色针织开衫\n- generic: 内部货号：MZ2609\n- generic: 生产单：PO-MZ-003\n- heading \"可填报 SKU 与纱线\" [level=2]\n- generic: 加工中\n- article:\n  - generic: CARDIGAN-CREAM-M / 奶油色 / M\n  - generic: 可填报；累计有效填报 40件 / 上限 150件\n  - generic: 必需纱线：YARN-COTTON-MIXED；已接收：YARN-COTTON-MIXED\n- generic \"查看完整事实记录（6）\"\n- heading \"执行加工单\" [level=2]\n- button \"加工填报\"\n- generic \"其他可操作\"\n- navigation:\n  - button \"接单\":\n    - generic: 接单\n  - button \"执行\":\n    - generic: 执行\n  - button \"交接\":\n    - generic: 交接\n  - button \"仓管\":\n    - generic: 仓管\n  - button \"结算\":\n    - generic: 结算",
+  "actions": [
+    {
+      "brokenImages": 0,
+      "durationMs": 62.89999997615814,
+      "end": 58076.39999997616,
+      "images": 1,
+      "label": "PDA填报打开-0",
+      "start": 58013.5,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.69999998807907,
+      "end": 58359.69999998808,
+      "images": 1,
+      "label": "PDA填报取消-0",
+      "start": 58298,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.40000003576279,
+      "end": 58659.80000001192,
+      "images": 1,
+      "label": "PDA填报打开-1",
+      "start": 58598.39999997616,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.19999998807907,
+      "end": 58960,
+      "images": 1,
+      "label": "PDA填报取消-1",
+      "start": 58897.80000001192,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.69999998807907,
+      "end": 59260,
+      "images": 1,
+      "label": "PDA填报打开-2",
+      "start": 59198.30000001192,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62.19999998807907,
+      "end": 59559.69999998808,
+      "images": 1,
+      "label": "PDA填报取消-2",
+      "start": 59497.5,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 60.59999996423721,
+      "end": 59860.09999996424,
+      "images": 1,
+      "label": "PDA填报打开-3",
+      "start": 59799.5,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 61.69999998807907,
+      "end": 60159.89999997616,
+      "images": 1,
+      "label": "PDA填报取消-3",
+      "start": 60098.19999998808,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 62,
+      "end": 60460.09999996424,
+      "images": 1,
+      "label": "PDA填报打开-4",
+      "start": 60398.09999996424,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    },
+    {
+      "brokenImages": 0,
+      "durationMs": 64.09999996423721,
+      "end": 60744.59999996424,
+      "images": 1,
+      "label": "PDA填报取消-4",
+      "start": 60680.5,
+      "url": "/fcs/pda/exec/TASK-WOOL-STAGE-003:KNITTING"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 626.3000000119209,
+    "end": 626.3000000119209,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products",
+    "mode": "cold-cache-disabled",
+    "round": 1
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 463.199999988079,
+    "end": 463.199999988079,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products",
+    "mode": "cold-cache-disabled",
+    "round": 2
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 523.4000000357628,
+    "end": 523.4000000357628,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products",
+    "mode": "cold-cache-disabled",
+    "round": 3
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 464.199999988079,
+    "end": 464.199999988079,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products",
+    "mode": "cold-cache-disabled",
+    "round": 4
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 457.4000000357628,
+    "end": 457.4000000357628,
+    "images": 3,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/products/channel-products",
+    "mode": "cold-cache-disabled",
+    "round": 5
+  }
+]

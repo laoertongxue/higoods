@@ -1,0 +1,677 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "商品中心系统" [level=2]
+  - paragraph: PCS
+  - button "收起菜单":
+  - button "商品中心系统":
+    - generic: 商品中心系统
+  - button "商品测款":
+    - generic: 商品测款
+  - button "生产准备管理":
+    - generic: 生产准备管理
+  - button "技术资料":
+    - generic: 技术资料
+  - button "样衣管理":
+    - generic: 样衣管理
+  - button "商品&物料档案":
+    - generic: 商品&物料档案
+  - button "款式档案":
+    - text: 款式档案
+  - button "规格档案":
+    - text: 规格档案
+  - button "渠道店铺商品":
+    - text: 渠道店铺商品
+  - button "渠道店铺管理":
+    - text: 渠道店铺管理
+  - button "面料档案":
+    - text: 面料档案
+  - button "辅料档案":
+    - text: 辅料档案
+  - button "纱线档案":
+    - text: 纱线档案
+  - button "耗材档案":
+    - text: 耗材档案
+  - button "配件档案":
+    - text: 配件档案
+  - button "系统设置":
+    - generic: 系统设置
+- main:
+  - button "样衣库存"
+  - button "样衣使用申请"
+  - button "样衣流转记录"
+  - button "样衣台账"
+  - button "盘点差异追踪"
+  - button "样衣视图"
+  - button "配件档案"
+  - button "渠道店铺管理"
+  - button "款式档案"
+  - button:
+  - button "基础配置"
+  - button "面料档案"
+  - button "渠道店铺商品"
+  - button "全部关闭"
+  - heading "款式档案" [level=1]
+  - link "新增款式":
+    - /url: /pcs/products/styles/new
+  - text: 编码 / 名称 / 旧码
+  - textbox "编码 / 名称 / 旧码":
+    - /placeholder: 支持模糊查询
+  - text: 品牌
+  - combobox "品牌":
+    - option "全部品牌" [selected]
+    - option "Chicmore"
+    - option "FADFAD"
+    - option "Tendblank"
+    - option "Asaya"
+    - option "LUXME"
+    - option "MODISH"
+    - option "PRIMA"
+  - text: 审核状态
+  - combobox "审核状态":
+    - option "全部审核" [selected]
+    - option "草稿"
+    - option "待审核"
+    - option "审核通过"
+  - text: 使用状态
+  - combobox "使用状态":
+    - option "全部状态" [selected]
+    - option "未启用"
+    - option "启用"
+    - option "停用"
+    - option "归档"
+  - button "查询"
+  - button "重置"
+  - button "更多筛选"
+  - button "导出"
+  - generic: 当前结果
+  - strong: "24"
+  - generic: 待审核
+  - strong: "0"
+  - generic: 启用
+  - strong: "24"
+  - generic: 停用
+  - strong: "0"
+  - generic: 归档
+  - strong: "0"
+  - heading "款式列表" [level=2]
+  - generic: 已选 0 条
+  - button "提交审核" [disabled]
+  - button "列设置"
+  - table:
+    - rowgroup:
+      - row "选择本页 按款式升序排列 按品牌升序排列 按正式类目升序排列 按品类升序排列 按风格升序排列 按品类编号升序排列 按SKU 数升序排列 按审核升序排列 按使用状态升序排列 按更新时间升序排列 操作":
+        - columnheader "选择本页":
+          - checkbox "选择本页"
+        - columnheader "按款式升序排列":
+          - button "按款式升序排列":
+            - generic: 款式
+        - columnheader "按品牌升序排列":
+          - button "按品牌升序排列":
+            - generic: 品牌
+        - columnheader "按正式类目升序排列":
+          - button "按正式类目升序排列":
+            - generic: 正式类目
+        - columnheader "按品类升序排列":
+          - button "按品类升序排列":
+            - generic: 品类
+        - columnheader "按风格升序排列":
+          - button "按风格升序排列":
+            - generic: 风格
+        - columnheader "按品类编号升序排列":
+          - button "按品类编号升序排列":
+            - generic: 品类编号
+        - columnheader "按SKU 数升序排列":
+          - button "按SKU 数升序排列":
+            - generic: SKU 数
+        - columnheader "按审核升序排列":
+          - button "按审核升序排列":
+            - generic: 审核
+        - columnheader "按使用状态升序排列":
+          - button "按使用状态升序排列":
+            - generic: 使用状态
+        - columnheader "按更新时间升序排列":
+          - button "按更新时间升序排列":
+            - generic: 更新时间
+        - columnheader "操作"
+    - rowgroup:
+      - row "选择 SPU-GC-1001 基础T恤 A款 SPU-GC-1001 基础T恤 A款 Asaya T恤 上衣 休闲 4 2 审核通过 启用 2026-10-05 09:00:00 详情 编辑":
+        - cell "选择 SPU-GC-1001":
+          - checkbox "选择 SPU-GC-1001"
+        - cell "基础T恤 A款 SPU-GC-1001 基础T恤 A款":
+          - button "基础T恤 A款":
+            - img "基础T恤 A款"
+          - link "SPU-GC-1001":
+            - /url: /pcs/products/styles/style_r1_wms_tee
+          - generic: 基础T恤 A款
+        - cell "Asaya"
+        - cell "T恤"
+        - cell "上衣"
+        - cell "休闲"
+        - cell "4"
+        - cell "2"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-10-05 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_r1_wms_tee
+          - link "编辑":
+            - /url: /pcs/products/styles/style_r1_wms_tee/edit
+      - row "选择 SPU-2026-900002 休闲衬衫长裤实物套装 SPU-2026-900002 休闲衬衫长裤实物套装 Asaya 长裤 裤子 休闲 28 1 审核通过 启用 2026-10-05 09:00:00 详情 编辑":
+        - cell "选择 SPU-2026-900002":
+          - checkbox "选择 SPU-2026-900002"
+        - cell "休闲衬衫长裤实物套装 SPU-2026-900002 休闲衬衫长裤实物套装":
+          - button "休闲衬衫长裤实物套装":
+            - img "休闲衬衫长裤实物套装"
+          - link "SPU-2026-900002":
+            - /url: /pcs/products/styles/style_r1_physical_set
+          - generic: 休闲衬衫长裤实物套装
+        - cell "Asaya"
+        - cell "长裤"
+        - cell "裤子"
+        - cell "休闲"
+        - cell "28"
+        - cell "1"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-10-05 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_r1_physical_set
+          - link "编辑":
+            - /url: /pcs/products/styles/style_r1_physical_set/edit
+      - row "选择 SPU-2026-900003 基础T恤双色组合 SPU-2026-900003 基础T恤双色组合 Asaya T恤 上衣 休闲 4 1 审核通过 启用 2026-10-05 09:00:00 详情 编辑":
+        - cell "选择 SPU-2026-900003":
+          - checkbox "选择 SPU-2026-900003"
+        - cell "基础T恤双色组合 SPU-2026-900003 基础T恤双色组合":
+          - button "基础T恤双色组合":
+            - img "基础T恤双色组合"
+          - link "SPU-2026-900003":
+            - /url: /pcs/products/styles/style_r1_virtual_bundle
+          - generic: 基础T恤双色组合
+        - cell "Asaya"
+        - cell "T恤"
+        - cell "上衣"
+        - cell "休闲"
+        - cell "4"
+        - cell "1"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-10-05 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_r1_virtual_bundle
+          - link "编辑":
+            - /url: /pcs/products/styles/style_r1_virtual_bundle/edit
+      - row "选择 SPU-2026-018 设计款印花阔腿连体裤 SPU-2026-018 设计款印花阔腿连体裤 Asaya 连体裤 — 秀场、碎花 — 4 审核通过 启用 2026-04-01 18:20 详情 编辑":
+        - cell "选择 SPU-2026-018":
+          - checkbox "选择 SPU-2026-018"
+        - cell "设计款印花阔腿连体裤 SPU-2026-018 设计款印花阔腿连体裤":
+          - button "设计款印花阔腿连体裤":
+            - img "设计款印花阔腿连体裤"
+          - link "SPU-2026-018":
+            - /url: /pcs/products/styles/style_seed_project_018
+          - generic: 设计款印花阔腿连体裤
+        - cell "Asaya"
+        - cell "连体裤"
+        - cell "—"
+        - cell "秀场、碎花"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-04-01 18:20"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_seed_project_018
+          - link "编辑":
+            - /url: /pcs/products/styles/style_seed_project_018/edit
+      - row "选择 SPU-2024-001 春季休闲T恤 SPU-2024-001 春季休闲T恤 — 上衣 — 休闲 — 4 审核通过 启用 2026-03-16 10:05:00 详情 编辑":
+        - cell "选择 SPU-2024-001":
+          - checkbox "选择 SPU-2024-001"
+        - cell "春季休闲T恤 SPU-2024-001 春季休闲T恤":
+          - button "春季休闲T恤":
+            - img "春季休闲T恤"
+          - link "SPU-2024-001":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_001
+          - generic: 春季休闲T恤
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-16 10:05:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_001
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_001/edit
+      - row "选择 SPU-SHIRT-086 商务修身长袖衬衫 SPU-SHIRT-086 商务修身长袖衬衫 — 上衣 — 通勤 — 4 审核通过 启用 2026-03-13 08:35:00 详情 编辑":
+        - cell "选择 SPU-SHIRT-086":
+          - checkbox "选择 SPU-SHIRT-086"
+        - cell "商务修身长袖衬衫 SPU-SHIRT-086 商务修身长袖衬衫":
+          - button "商务修身长袖衬衫":
+            - img "商务修身长袖衬衫"
+          - link "SPU-SHIRT-086":
+            - /url: /pcs/products/styles/style_demand_SPU_SHIRT_086
+          - generic: 商务修身长袖衬衫
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "通勤"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-13 08:35:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_SHIRT_086
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_SHIRT_086/edit
+      - row "选择 SPU-JACKET-085 户外轻量夹克 SPU-JACKET-085 户外轻量夹克 — 开衫 — 休闲 — 4 审核通过 启用 2026-03-12 08:50:00 详情 编辑":
+        - cell "选择 SPU-JACKET-085":
+          - checkbox "选择 SPU-JACKET-085"
+        - cell "户外轻量夹克 SPU-JACKET-085 户外轻量夹克":
+          - button "户外轻量夹克":
+            - img "户外轻量夹克"
+          - link "SPU-JACKET-085":
+            - /url: /pcs/products/styles/style_demand_SPU_JACKET_085
+          - generic: 户外轻量夹克
+        - cell "—"
+        - cell "开衫"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-12 08:50:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_JACKET_085
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_JACKET_085/edit
+      - row "选择 SPU-TEE-084 毛织撞色短袖上衣 SPU-TEE-084 毛织撞色短袖上衣 — 开衫 — 休闲 — 4 审核通过 启用 2026-03-11 09:00:00 详情 编辑":
+        - cell "选择 SPU-TEE-084":
+          - checkbox "选择 SPU-TEE-084"
+        - cell "毛织撞色短袖上衣 SPU-TEE-084 毛织撞色短袖上衣":
+          - button "毛织撞色短袖上衣":
+            - img "毛织撞色短袖上衣"
+          - link "SPU-TEE-084":
+            - /url: /pcs/products/styles/style_demand_SPU_TEE_084
+          - generic: 毛织撞色短袖上衣
+        - cell "—"
+        - cell "开衫"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-11 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_TEE_084
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_TEE_084/edit
+      - row "选择 SPU-DRESS-083 春季定位印花连衣裙 SPU-DRESS-083 春季定位印花连衣裙 — 连衣裙 — 碎花 — 3 审核通过 启用 2026-03-10 09:10:00 详情 编辑":
+        - cell "选择 SPU-DRESS-083":
+          - checkbox "选择 SPU-DRESS-083"
+        - cell "春季定位印花连衣裙 SPU-DRESS-083 春季定位印花连衣裙":
+          - button "春季定位印花连衣裙":
+            - img "春季定位印花连衣裙"
+          - link "SPU-DRESS-083":
+            - /url: /pcs/products/styles/style_demand_SPU_DRESS_083
+          - generic: 春季定位印花连衣裙
+        - cell "—"
+        - cell "连衣裙"
+        - cell "—"
+        - cell "碎花"
+        - cell "—"
+        - cell "3"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-10 09:10:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_DRESS_083
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_DRESS_083/edit
+      - row "选择 SPU-HOODIE-082 连帽拉链卫衣套装 SPU-HOODIE-082 连帽拉链卫衣套装 — 上衣 — 休闲 — 4 审核通过 启用 2026-03-09 09:00:00 详情 编辑":
+        - cell "选择 SPU-HOODIE-082":
+          - checkbox "选择 SPU-HOODIE-082"
+        - cell "连帽拉链卫衣套装 SPU-HOODIE-082 连帽拉链卫衣套装":
+          - button "连帽拉链卫衣套装":
+            - img "连帽拉链卫衣套装"
+          - link "SPU-HOODIE-082":
+            - /url: /pcs/products/styles/style_demand_SPU_HOODIE_082
+          - generic: 连帽拉链卫衣套装
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-09 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_HOODIE_082
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_HOODIE_082/edit
+      - row "选择 SPU-TSHIRT-081 春季休闲印花短袖 T 恤 SPU-TSHIRT-081 春季休闲印花短袖 T 恤 — 上衣 — 碎花、休闲 — 4 审核通过 启用 2026-03-08 08:30:00 详情 编辑":
+        - cell "选择 SPU-TSHIRT-081":
+          - checkbox "选择 SPU-TSHIRT-081"
+        - cell "春季休闲印花短袖 T 恤 SPU-TSHIRT-081 春季休闲印花短袖 T 恤":
+          - button "春季休闲印花短袖 T 恤":
+            - img "春季休闲印花短袖 T 恤"
+          - link "SPU-TSHIRT-081":
+            - /url: /pcs/products/styles/style_demand_SPU_TSHIRT_081
+          - generic: 春季休闲印花短袖 T 恤
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "碎花、休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-08 08:30:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_TSHIRT_081
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_TSHIRT_081/edit
+      - row "选择 SPU-2024-017 Celana Pendek Pria SPU-2024-017 Celana Pendek Pria — 上衣 — 休闲 — 4 审核通过 启用 2026-03-06 09:00:00 详情 编辑":
+        - cell "选择 SPU-2024-017":
+          - checkbox "选择 SPU-2024-017"
+        - cell "Celana Pendek Pria SPU-2024-017 Celana Pendek Pria":
+          - button "Celana Pendek Pria":
+            - img "Celana Pendek Pria"
+          - link "SPU-2024-017":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_017
+          - generic: Celana Pendek Pria
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-06 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_017
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_017/edit
+      - row "选择 SPU-2024-015 Kemeja Linen Pria SPU-2024-015 Kemeja Linen Pria — 上衣 — 休闲 — 4 审核通过 启用 2026-03-04 14:30:00 详情 编辑":
+        - cell "选择 SPU-2024-015":
+          - checkbox "选择 SPU-2024-015"
+        - cell "Kemeja Linen Pria SPU-2024-015 Kemeja Linen Pria":
+          - button "Kemeja Linen Pria":
+            - img "Kemeja Linen Pria"
+          - link "SPU-2024-015":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_015
+          - generic: Kemeja Linen Pria
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-04 14:30:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_015
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_015/edit
+      - row "选择 SPU-2024-008 Kemeja Flanel Pria SPU-2024-008 Kemeja Flanel Pria — 上衣 — 休闲 — 4 审核通过 启用 2026-03-04 11:00:00 详情 编辑":
+        - cell "选择 SPU-2024-008":
+          - checkbox "选择 SPU-2024-008"
+        - cell "Kemeja Flanel Pria SPU-2024-008 Kemeja Flanel Pria":
+          - button "Kemeja Flanel Pria":
+            - img "Kemeja Flanel Pria"
+          - link "SPU-2024-008":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_008
+          - generic: Kemeja Flanel Pria
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-04 11:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_008
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_008/edit
+      - row "选择 SPU-2024-014 Rompi Pria Casual SPU-2024-014 Rompi Pria Casual — 上衣 — 休闲 — 4 审核通过 启用 2026-03-04 09:00:00 详情 编辑":
+        - cell "选择 SPU-2024-014":
+          - checkbox "选择 SPU-2024-014"
+        - cell "Rompi Pria Casual SPU-2024-014 Rompi Pria Casual":
+          - button "Rompi Pria Casual":
+            - img "Rompi Pria Casual"
+          - link "SPU-2024-014":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_014
+          - generic: Rompi Pria Casual
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-04 09:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_014
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_014/edit
+      - row "选择 SPU-2024-005 Jaket Hoodie Unisex SPU-2024-005 Jaket Hoodie Unisex — 开衫 — 休闲 — 4 审核通过 启用 2026-03-03 15:00:00 详情 编辑":
+        - cell "选择 SPU-2024-005":
+          - checkbox "选择 SPU-2024-005"
+        - cell "Jaket Hoodie Unisex SPU-2024-005 Jaket Hoodie Unisex":
+          - button "Jaket Hoodie Unisex":
+            - img "Jaket Hoodie Unisex"
+          - link "SPU-2024-005":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_005
+          - generic: Jaket Hoodie Unisex
+        - cell "—"
+        - cell "开衫"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-03 15:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_005
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_005/edit
+      - row "选择 SPU-2024-013 Jas Pria Formal SPU-2024-013 Jas Pria Formal — 上衣 — 通勤 — 4 审核通过 启用 2026-03-03 11:00:00 详情 编辑":
+        - cell "选择 SPU-2024-013":
+          - checkbox "选择 SPU-2024-013"
+        - cell "Jas Pria Formal SPU-2024-013 Jas Pria Formal":
+          - button "Jas Pria Formal":
+            - img "Jas Pria Formal"
+          - link "SPU-2024-013":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_013
+          - generic: Jas Pria Formal
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "通勤"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-03 11:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_013
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_013/edit
+      - row "选择 SPU-2024-004 Kaos Polos Premium SPU-2024-004 Kaos Polos Premium — 上衣 — 休闲 — 4 审核通过 启用 2026-03-02 16:00:00 详情 编辑":
+        - cell "选择 SPU-2024-004":
+          - checkbox "选择 SPU-2024-004"
+        - cell "Kaos Polos Premium SPU-2024-004 Kaos Polos Premium":
+          - button "Kaos Polos Premium":
+            - img "Kaos Polos Premium"
+          - link "SPU-2024-004":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_004
+          - generic: Kaos Polos Premium
+        - cell "—"
+        - cell "上衣"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-02 16:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_004
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_004/edit
+      - row "选择 SPU-2024-010 Celana Jogger Pria SPU-2024-010 Celana Jogger Pria — 裤子 — 休闲 — 4 审核通过 启用 2026-03-02 16:00:00 详情 编辑":
+        - cell "选择 SPU-2024-010":
+          - checkbox "选择 SPU-2024-010"
+        - cell "Celana Jogger Pria SPU-2024-010 Celana Jogger Pria":
+          - button "Celana Jogger Pria":
+            - img "Celana Jogger Pria"
+          - link "SPU-2024-010":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_010
+          - generic: Celana Jogger Pria
+        - cell "—"
+        - cell "裤子"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-02 16:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_010
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_010/edit
+      - row "选择 SPU-2024-012 Cardigan Wanita SPU-2024-012 Cardigan Wanita — 开衫 — 休闲 — 4 审核通过 启用 2026-03-02 15:00:00 详情 编辑":
+        - cell "选择 SPU-2024-012":
+          - checkbox "选择 SPU-2024-012"
+        - cell "Cardigan Wanita SPU-2024-012 Cardigan Wanita":
+          - button "Cardigan Wanita":
+            - img "Cardigan Wanita"
+          - link "SPU-2024-012":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_012
+          - generic: Cardigan Wanita
+        - cell "—"
+        - cell "开衫"
+        - cell "—"
+        - cell "休闲"
+        - cell "—"
+        - cell "4"
+        - cell "审核通过":
+          - generic: 审核通过
+        - cell "启用":
+          - generic: 启用
+        - cell "2026-03-02 15:00:00"
+        - cell "详情 编辑":
+          - link "详情":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_012
+          - link "编辑":
+            - /url: /pcs/products/styles/style_demand_SPU_2024_012/edit
+  - paragraph: 共 24 条，当前 1-20
+  - combobox:
+    - option "20 条/页" [selected]
+    - option "50 条/页"
+    - option "100 条/页"
+  - button "上一页" [disabled]
+  - generic: 1 / 2
+  - button "下一页"
+- button "查生产":

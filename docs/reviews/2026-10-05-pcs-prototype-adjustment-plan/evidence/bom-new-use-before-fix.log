@@ -1,0 +1,73 @@
+(node:45397) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ COST draft uses recursive composite standard cost and notes upstream reference changes (8.270167ms)
+✔ COST actual zero remains valid; missing standard is blocked; calculations avoid per-line early rounding (7.786083ms)
+✖ GOV-006 BOM new selection and save reject an unavailable SKU or parent without changing saved lines (15.424792ms)
+✖ GOV-006 stopping a material preserves an existing BOM line but blocks adding or replacing a line (9.044625ms)
+✖ GOV-006 technical BOM edits retain an existing stopped material while new material selection stays guarded (15.85875ms)
+✔ COST confirmed plan keeps its cost and unit versions, while copied drafts use new standards (15.707458ms)
+✔ COST technical draft page reads current standard; publish freezes once and activation reuses it after price/FX changes (17.275334ms)
+✔ UOM frozen usage conversion retains the selected unit relation version (7.785458ms)
+✔ BRIDGE multiple yarn intentions remain separate technical inputs, project once and preserve source SKU (24.541375ms)
+✔ COST failed publishing cannot leave a published record or half-frozen cost references (10.661666ms)
+✔ BRIDGE-002/003 multi-color yarn keeps both technical inputs and separates panel from garment output (4.583875ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 8
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 689.446208
+
+✖ failing tests:
+
+test at tests/pcs-r1-bom-cost.test.ts:1:4900
+✖ GOV-006 BOM new selection and save reject an unavailable SKU or parent without changing saved lines (15.424792ms)
+  AssertionError [ERR_ASSERTION]: sku/INACTIVE new selection
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-bom-cost.test.ts:79:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: Error: 未找到可用的物料 SKU，无法加入 BOM。
+        at buildEngineeringBomMaterialLine (/Users/laoer/Documents/higoods/src/data/pcs-engineering-bom-pricing.ts:226:46)
+        at <anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-bom-cost.test.ts:79:25)
+        at getActual (node:assert:580:5)
+        at strict.throws (node:assert:728:24)
+        at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-bom-cost.test.ts:79:12)
+        at Test.runInAsyncScope (node:async_hooks:226:14)
+        at Test.run (node:internal/test_runner/test:1402:25)
+        at async Test.processPendingSubtests (node:internal/test_runner/test:974:7),
+    expected: /审核|启用|停用/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/pcs-r1-bom-cost.test.ts:1:6371
+✖ GOV-006 stopping a material preserves an existing BOM line but blocks adding or replacing a line (9.044625ms)
+  AssertionError [ERR_ASSERTION]: Missing expected exception.
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-bom-cost.test.ts:97:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: /审核|启用|停用/,
+    operator: 'throws',
+    diff: 'simple'
+  }
+
+test at tests/pcs-r1-bom-cost.test.ts:1:7931
+✖ GOV-006 technical BOM edits retain an existing stopped material while new material selection stays guarded (15.85875ms)
+  Error: 未找到可用的物料 SKU，无法加入 BOM。
+      at buildEngineeringBomMaterialLine (/Users/laoer/Documents/higoods/src/data/pcs-engineering-bom-pricing.ts:226:46)
+      at <anonymous> (/Users/laoer/Documents/higoods/src/data/pcs-engineering-bom-pricing.ts:375:22)
+      at runTechnicalDataVersionRepositoryTransaction (/Users/laoer/Documents/higoods/src/data/pcs-technical-data-version-repository.ts:1355:20)
+      at saveTechnicalDataVersionBomMaterialLine (/Users/laoer/Documents/higoods/src/data/pcs-engineering-bom-pricing.ts:366:10)
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/pcs-r1-bom-cost.test.ts:106:17)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

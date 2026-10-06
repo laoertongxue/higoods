@@ -1,0 +1,529 @@
+{
+  "samples": [
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 167.39999997615814,
+      "end": 341010.09999996424,
+      "images": 1,
+      "label": "channel-update-submit",
+      "start": 340842.6999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因PID 内容渠道标题待回执—PID 内容商品描述待回执—PID 内容内容语言待回执—PID 内容卖点待回执—PID 内容多语内容待回执—PID 内容平台类目待回执—PID 内容平台品牌待回执—PID 内容商品属性待回执—PID 内容刊登媒体待回执—SPU-QC-001-01商家 SKU待回执—SPU-QC-001-01平台颜色待回执—SPU-QC-001-01平台尺码待回执—SPU-QC-001-01平台花型待回执—SPU-QC-001-01规格图片待回执—SPU-QC-001-01规格属性待回执—SPU-QC-001-01日常售价待回执—SPU-QC-001-02商家 SKU待回执—SPU-QC-001-02平台颜色待回执—SPU-QC-001-02平台尺码待回执—SPU-QC-001-02平台花型待回执—SPU-QC-001-02规格图片待回执—SPU-QC-001-02规格属性待回执—SPU-QC-001-02日常售价待回执—SPU-QC-001-01-ALT商家 SKU待回执—SPU-QC-001-01-ALT平台颜色待回执—SPU-QC-001-01-ALT平台尺码待回执—SPU-QC-001-01-ALT平台花型待回执—SPU-QC-001-01-ALT规格图片待回执—SPU-QC-001-01-ALT规格属性待回执—SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "更新 · PCS→平台提交中版本 10 · 2026/10/6 02:04:05"
+      }
+    },
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 137.19999998807907,
+      "end": 341246.59999996424,
+      "images": 0,
+      "label": "channel-partial-receipt",
+      "start": 341109.39999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "失败",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1渠道标题未提供已确认—channel-listing-demo-1商品描述未提供已确认—channel-listing-demo-1内容语言未提供已确认—channel-listing-demo-1卖点未提供已确认—channel-listing-demo-1多语内容未提供已确认—channel-listing-demo-1平台类目未提供已确认—channel-listing-demo-1平台品牌未提供已确认—channel-listing-demo-1商品属性未提供已确认—channel-listing-demo-1刊登媒体未提供已确认—channel-listing-demo-1-v1商家 SKUdemo-variant-1000已确认—channel-listing-demo-1-v1平台颜色demo-variant-1000已确认—channel-listing-demo-1-v1平台尺码demo-variant-1000已确认—channel-listing-demo-1-v1平台花型demo-variant-1000已确认—channel-listing-demo-1-v1规格图片demo-variant-1000已确认—channel-listing-demo-1-v1规格属性demo-variant-1000已确认—channel-listing-demo-1-v1日常售价demo-variant-1000已确认—channel-listing-demo-1-v2商家 SKUdemo-variant-1001已确认—channel-listing-demo-1-v2平台颜色demo-variant-1001已确认—channel-listing-demo-1-v2平台尺码demo-variant-1001已确认—channel-listing-demo-1-v2平台花型demo-variant-1001已确认—channel-listing-demo-1-v2规格图片demo-variant-1001已确认—channel-listing-demo-1-v2规格属性demo-variant-1001已确认—channel-listing-demo-1-v2日常售价demo-variant-1001已确认—channel-listing-demo-1-v3商家 SKUdemo-variant-1002已确认—channel-listing-demo-1-v3平台颜色demo-variant-1002已确认—channel-listing-demo-1-v3平台尺码demo-variant-1002已确认—channel-listing-demo-1-v3平台花型demo-variant-1002已确认—channel-listing-demo-1-v3规格图片demo-variant-1002已确认—channel-listing-demo-1-v3规格属性demo-variant-1002已确认—channel-listing-demo-1-v3日常售价demo-variant-1002未确认演示平台暂未接受此项；其他已成功项保留。",
+        "summary": "更新 · PCS→平台部分成功版本 10 · 2026/10/6 02:04:05"
+      }
+    },
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 233.5999999642372,
+      "end": 341655.2999999523,
+      "images": 1,
+      "label": "channel-retry-failed",
+      "start": 341421.6999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "重新同步 · PCS→平台提交中版本 10 · 2026/10/6 02:04:06"
+      }
+    },
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 164.30000001192093,
+      "end": 342091.6999999881,
+      "images": 0,
+      "label": "channel-success-receipt",
+      "start": 341927.39999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "一致",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1-v3日常售价demo-variant-1002已确认—",
+        "summary": "重新同步 · PCS→平台成功版本 10 · 2026/10/6 02:04:06"
+      }
+    },
+    {
+      "run": 2,
+      "brokenImages": 0,
+      "durationMs": 228.39999997615817,
+      "end": 342437.7999999523,
+      "images": 1,
+      "label": "channel-update-submit",
+      "start": 342209.39999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因PID 内容渠道标题待回执—PID 内容商品描述待回执—PID 内容内容语言待回执—PID 内容卖点待回执—PID 内容多语内容待回执—PID 内容平台类目待回执—PID 内容平台品牌待回执—PID 内容商品属性待回执—PID 内容刊登媒体待回执—SPU-QC-001-01商家 SKU待回执—SPU-QC-001-01平台颜色待回执—SPU-QC-001-01平台尺码待回执—SPU-QC-001-01平台花型待回执—SPU-QC-001-01规格图片待回执—SPU-QC-001-01规格属性待回执—SPU-QC-001-01日常售价待回执—SPU-QC-001-02商家 SKU待回执—SPU-QC-001-02平台颜色待回执—SPU-QC-001-02平台尺码待回执—SPU-QC-001-02平台花型待回执—SPU-QC-001-02规格图片待回执—SPU-QC-001-02规格属性待回执—SPU-QC-001-02日常售价待回执—SPU-QC-001-01-ALT商家 SKU待回执—SPU-QC-001-01-ALT平台颜色待回执—SPU-QC-001-01-ALT平台尺码待回执—SPU-QC-001-01-ALT平台花型待回执—SPU-QC-001-01-ALT规格图片待回执—SPU-QC-001-01-ALT规格属性待回执—SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "更新 · PCS→平台提交中版本 10 · 2026/10/6 02:04:06"
+      }
+    },
+    {
+      "run": 2,
+      "brokenImages": 0,
+      "durationMs": 154.89999997615814,
+      "end": 342683.09999996424,
+      "images": 0,
+      "label": "channel-partial-receipt",
+      "start": 342528.1999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "失败",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1渠道标题未提供已确认—channel-listing-demo-1商品描述未提供已确认—channel-listing-demo-1内容语言未提供已确认—channel-listing-demo-1卖点未提供已确认—channel-listing-demo-1多语内容未提供已确认—channel-listing-demo-1平台类目未提供已确认—channel-listing-demo-1平台品牌未提供已确认—channel-listing-demo-1商品属性未提供已确认—channel-listing-demo-1刊登媒体未提供已确认—channel-listing-demo-1-v1商家 SKUdemo-variant-1000已确认—channel-listing-demo-1-v1平台颜色demo-variant-1000已确认—channel-listing-demo-1-v1平台尺码demo-variant-1000已确认—channel-listing-demo-1-v1平台花型demo-variant-1000已确认—channel-listing-demo-1-v1规格图片demo-variant-1000已确认—channel-listing-demo-1-v1规格属性demo-variant-1000已确认—channel-listing-demo-1-v1日常售价demo-variant-1000已确认—channel-listing-demo-1-v2商家 SKUdemo-variant-1001已确认—channel-listing-demo-1-v2平台颜色demo-variant-1001已确认—channel-listing-demo-1-v2平台尺码demo-variant-1001已确认—channel-listing-demo-1-v2平台花型demo-variant-1001已确认—channel-listing-demo-1-v2规格图片demo-variant-1001已确认—channel-listing-demo-1-v2规格属性demo-variant-1001已确认—channel-listing-demo-1-v2日常售价demo-variant-1001已确认—channel-listing-demo-1-v3商家 SKUdemo-variant-1002已确认—channel-listing-demo-1-v3平台颜色demo-variant-1002已确认—channel-listing-demo-1-v3平台尺码demo-variant-1002已确认—channel-listing-demo-1-v3平台花型demo-variant-1002已确认—channel-listing-demo-1-v3规格图片demo-variant-1002已确认—channel-listing-demo-1-v3规格属性demo-variant-1002已确认—channel-listing-demo-1-v3日常售价demo-variant-1002未确认演示平台暂未接受此项；其他已成功项保留。",
+        "summary": "更新 · PCS→平台部分成功版本 10 · 2026/10/6 02:04:06"
+      }
+    },
+    {
+      "run": 2,
+      "brokenImages": 0,
+      "durationMs": 268.10000002384186,
+      "end": 343061.89999997616,
+      "images": 1,
+      "label": "channel-retry-failed",
+      "start": 342793.7999999523,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "重新同步 · PCS→平台提交中版本 10 · 2026/10/6 02:04:07"
+      }
+    },
+    {
+      "run": 2,
+      "brokenImages": 0,
+      "durationMs": 237.19999998807907,
+      "end": 343372.2999999523,
+      "images": 1,
+      "label": "channel-success-receipt",
+      "start": 343135.09999996424,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "一致",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1-v3日常售价demo-variant-1002已确认—",
+        "summary": "重新同步 · PCS→平台成功版本 10 · 2026/10/6 02:04:07"
+      }
+    },
+    {
+      "run": 3,
+      "brokenImages": 0,
+      "durationMs": 141.69999998807907,
+      "end": 343578.89999997616,
+      "images": 1,
+      "label": "channel-update-submit",
+      "start": 343437.1999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因PID 内容渠道标题待回执—PID 内容商品描述待回执—PID 内容内容语言待回执—PID 内容卖点待回执—PID 内容多语内容待回执—PID 内容平台类目待回执—PID 内容平台品牌待回执—PID 内容商品属性待回执—PID 内容刊登媒体待回执—SPU-QC-001-01商家 SKU待回执—SPU-QC-001-01平台颜色待回执—SPU-QC-001-01平台尺码待回执—SPU-QC-001-01平台花型待回执—SPU-QC-001-01规格图片待回执—SPU-QC-001-01规格属性待回执—SPU-QC-001-01日常售价待回执—SPU-QC-001-02商家 SKU待回执—SPU-QC-001-02平台颜色待回执—SPU-QC-001-02平台尺码待回执—SPU-QC-001-02平台花型待回执—SPU-QC-001-02规格图片待回执—SPU-QC-001-02规格属性待回执—SPU-QC-001-02日常售价待回执—SPU-QC-001-01-ALT商家 SKU待回执—SPU-QC-001-01-ALT平台颜色待回执—SPU-QC-001-01-ALT平台尺码待回执—SPU-QC-001-01-ALT平台花型待回执—SPU-QC-001-01-ALT规格图片待回执—SPU-QC-001-01-ALT规格属性待回执—SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "更新 · PCS→平台提交中版本 10 · 2026/10/6 02:04:08"
+      }
+    },
+    {
+      "run": 3,
+      "brokenImages": 0,
+      "durationMs": 155.19999998807907,
+      "end": 343865.39999997616,
+      "images": 0,
+      "label": "channel-partial-receipt",
+      "start": 343710.1999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "失败",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1渠道标题未提供已确认—channel-listing-demo-1商品描述未提供已确认—channel-listing-demo-1内容语言未提供已确认—channel-listing-demo-1卖点未提供已确认—channel-listing-demo-1多语内容未提供已确认—channel-listing-demo-1平台类目未提供已确认—channel-listing-demo-1平台品牌未提供已确认—channel-listing-demo-1商品属性未提供已确认—channel-listing-demo-1刊登媒体未提供已确认—channel-listing-demo-1-v1商家 SKUdemo-variant-1000已确认—channel-listing-demo-1-v1平台颜色demo-variant-1000已确认—channel-listing-demo-1-v1平台尺码demo-variant-1000已确认—channel-listing-demo-1-v1平台花型demo-variant-1000已确认—channel-listing-demo-1-v1规格图片demo-variant-1000已确认—channel-listing-demo-1-v1规格属性demo-variant-1000已确认—channel-listing-demo-1-v1日常售价demo-variant-1000已确认—channel-listing-demo-1-v2商家 SKUdemo-variant-1001已确认—channel-listing-demo-1-v2平台颜色demo-variant-1001已确认—channel-listing-demo-1-v2平台尺码demo-variant-1001已确认—channel-listing-demo-1-v2平台花型demo-variant-1001已确认—channel-listing-demo-1-v2规格图片demo-variant-1001已确认—channel-listing-demo-1-v2规格属性demo-variant-1001已确认—channel-listing-demo-1-v2日常售价demo-variant-1001已确认—channel-listing-demo-1-v3商家 SKUdemo-variant-1002已确认—channel-listing-demo-1-v3平台颜色demo-variant-1002已确认—channel-listing-demo-1-v3平台尺码demo-variant-1002已确认—channel-listing-demo-1-v3平台花型demo-variant-1002已确认—channel-listing-demo-1-v3规格图片demo-variant-1002已确认—channel-listing-demo-1-v3规格属性demo-variant-1002已确认—channel-listing-demo-1-v3日常售价demo-variant-1002未确认演示平台暂未接受此项；其他已成功项保留。",
+        "summary": "更新 · PCS→平台部分成功版本 10 · 2026/10/6 02:04:08"
+      }
+    },
+    {
+      "run": 3,
+      "brokenImages": 0,
+      "durationMs": 142.10000002384186,
+      "end": 344136,
+      "images": 0,
+      "label": "channel-retry-failed",
+      "start": 343993.89999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "重新同步 · PCS→平台提交中版本 10 · 2026/10/6 02:04:08"
+      }
+    },
+    {
+      "run": 3,
+      "brokenImages": 0,
+      "durationMs": 159.79999995231628,
+      "end": 344435.7999999523,
+      "images": 0,
+      "label": "channel-success-receipt",
+      "start": 344276,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "一致",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1-v3日常售价demo-variant-1002已确认—",
+        "summary": "重新同步 · PCS→平台成功版本 10 · 2026/10/6 02:04:08"
+      }
+    },
+    {
+      "run": 4,
+      "brokenImages": 0,
+      "durationMs": 130.0999999642372,
+      "end": 344690.7999999523,
+      "images": 1,
+      "label": "channel-update-submit",
+      "start": 344560.6999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因PID 内容渠道标题待回执—PID 内容商品描述待回执—PID 内容内容语言待回执—PID 内容卖点待回执—PID 内容多语内容待回执—PID 内容平台类目待回执—PID 内容平台品牌待回执—PID 内容商品属性待回执—PID 内容刊登媒体待回执—SPU-QC-001-01商家 SKU待回执—SPU-QC-001-01平台颜色待回执—SPU-QC-001-01平台尺码待回执—SPU-QC-001-01平台花型待回执—SPU-QC-001-01规格图片待回执—SPU-QC-001-01规格属性待回执—SPU-QC-001-01日常售价待回执—SPU-QC-001-02商家 SKU待回执—SPU-QC-001-02平台颜色待回执—SPU-QC-001-02平台尺码待回执—SPU-QC-001-02平台花型待回执—SPU-QC-001-02规格图片待回执—SPU-QC-001-02规格属性待回执—SPU-QC-001-02日常售价待回执—SPU-QC-001-01-ALT商家 SKU待回执—SPU-QC-001-01-ALT平台颜色待回执—SPU-QC-001-01-ALT平台尺码待回执—SPU-QC-001-01-ALT平台花型待回执—SPU-QC-001-01-ALT规格图片待回执—SPU-QC-001-01-ALT规格属性待回执—SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "更新 · PCS→平台提交中版本 10 · 2026/10/6 02:04:09"
+      }
+    },
+    {
+      "run": 4,
+      "brokenImages": 0,
+      "durationMs": 185.69999998807907,
+      "end": 345029.6999999881,
+      "images": 0,
+      "label": "channel-partial-receipt",
+      "start": 344844,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "失败",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1渠道标题未提供已确认—channel-listing-demo-1商品描述未提供已确认—channel-listing-demo-1内容语言未提供已确认—channel-listing-demo-1卖点未提供已确认—channel-listing-demo-1多语内容未提供已确认—channel-listing-demo-1平台类目未提供已确认—channel-listing-demo-1平台品牌未提供已确认—channel-listing-demo-1商品属性未提供已确认—channel-listing-demo-1刊登媒体未提供已确认—channel-listing-demo-1-v1商家 SKUdemo-variant-1000已确认—channel-listing-demo-1-v1平台颜色demo-variant-1000已确认—channel-listing-demo-1-v1平台尺码demo-variant-1000已确认—channel-listing-demo-1-v1平台花型demo-variant-1000已确认—channel-listing-demo-1-v1规格图片demo-variant-1000已确认—channel-listing-demo-1-v1规格属性demo-variant-1000已确认—channel-listing-demo-1-v1日常售价demo-variant-1000已确认—channel-listing-demo-1-v2商家 SKUdemo-variant-1001已确认—channel-listing-demo-1-v2平台颜色demo-variant-1001已确认—channel-listing-demo-1-v2平台尺码demo-variant-1001已确认—channel-listing-demo-1-v2平台花型demo-variant-1001已确认—channel-listing-demo-1-v2规格图片demo-variant-1001已确认—channel-listing-demo-1-v2规格属性demo-variant-1001已确认—channel-listing-demo-1-v2日常售价demo-variant-1001已确认—channel-listing-demo-1-v3商家 SKUdemo-variant-1002已确认—channel-listing-demo-1-v3平台颜色demo-variant-1002已确认—channel-listing-demo-1-v3平台尺码demo-variant-1002已确认—channel-listing-demo-1-v3平台花型demo-variant-1002已确认—channel-listing-demo-1-v3规格图片demo-variant-1002已确认—channel-listing-demo-1-v3规格属性demo-variant-1002已确认—channel-listing-demo-1-v3日常售价demo-variant-1002未确认演示平台暂未接受此项；其他已成功项保留。",
+        "summary": "更新 · PCS→平台部分成功版本 10 · 2026/10/6 02:04:09"
+      }
+    },
+    {
+      "run": 4,
+      "brokenImages": 0,
+      "durationMs": 139.69999998807907,
+      "end": 345283.09999996424,
+      "images": 0,
+      "label": "channel-retry-failed",
+      "start": 345143.39999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "重新同步 · PCS→平台提交中版本 10 · 2026/10/6 02:04:09"
+      }
+    },
+    {
+      "run": 4,
+      "brokenImages": 0,
+      "durationMs": 159.60000002384186,
+      "end": 345586,
+      "images": 0,
+      "label": "channel-success-receipt",
+      "start": 345426.39999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "一致",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1-v3日常售价demo-variant-1002已确认—",
+        "summary": "重新同步 · PCS→平台成功版本 10 · 2026/10/6 02:04:09"
+      }
+    },
+    {
+      "run": 5,
+      "brokenImages": 0,
+      "durationMs": 147.79999995231628,
+      "end": 345882.2999999523,
+      "images": 1,
+      "label": "channel-update-submit",
+      "start": 345734.5,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因PID 内容渠道标题待回执—PID 内容商品描述待回执—PID 内容内容语言待回执—PID 内容卖点待回执—PID 内容多语内容待回执—PID 内容平台类目待回执—PID 内容平台品牌待回执—PID 内容商品属性待回执—PID 内容刊登媒体待回执—SPU-QC-001-01商家 SKU待回执—SPU-QC-001-01平台颜色待回执—SPU-QC-001-01平台尺码待回执—SPU-QC-001-01平台花型待回执—SPU-QC-001-01规格图片待回执—SPU-QC-001-01规格属性待回执—SPU-QC-001-01日常售价待回执—SPU-QC-001-02商家 SKU待回执—SPU-QC-001-02平台颜色待回执—SPU-QC-001-02平台尺码待回执—SPU-QC-001-02平台花型待回执—SPU-QC-001-02规格图片待回执—SPU-QC-001-02规格属性待回执—SPU-QC-001-02日常售价待回执—SPU-QC-001-01-ALT商家 SKU待回执—SPU-QC-001-01-ALT平台颜色待回执—SPU-QC-001-01-ALT平台尺码待回执—SPU-QC-001-01-ALT平台花型待回执—SPU-QC-001-01-ALT规格图片待回执—SPU-QC-001-01-ALT规格属性待回执—SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "更新 · PCS→平台提交中版本 10 · 2026/10/6 02:04:10"
+      }
+    },
+    {
+      "run": 5,
+      "brokenImages": 0,
+      "durationMs": 175.69999998807907,
+      "end": 346196.39999997616,
+      "images": 0,
+      "label": "channel-partial-receipt",
+      "start": 346020.6999999881,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "失败",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1渠道标题未提供已确认—channel-listing-demo-1商品描述未提供已确认—channel-listing-demo-1内容语言未提供已确认—channel-listing-demo-1卖点未提供已确认—channel-listing-demo-1多语内容未提供已确认—channel-listing-demo-1平台类目未提供已确认—channel-listing-demo-1平台品牌未提供已确认—channel-listing-demo-1商品属性未提供已确认—channel-listing-demo-1刊登媒体未提供已确认—channel-listing-demo-1-v1商家 SKUdemo-variant-1000已确认—channel-listing-demo-1-v1平台颜色demo-variant-1000已确认—channel-listing-demo-1-v1平台尺码demo-variant-1000已确认—channel-listing-demo-1-v1平台花型demo-variant-1000已确认—channel-listing-demo-1-v1规格图片demo-variant-1000已确认—channel-listing-demo-1-v1规格属性demo-variant-1000已确认—channel-listing-demo-1-v1日常售价demo-variant-1000已确认—channel-listing-demo-1-v2商家 SKUdemo-variant-1001已确认—channel-listing-demo-1-v2平台颜色demo-variant-1001已确认—channel-listing-demo-1-v2平台尺码demo-variant-1001已确认—channel-listing-demo-1-v2平台花型demo-variant-1001已确认—channel-listing-demo-1-v2规格图片demo-variant-1001已确认—channel-listing-demo-1-v2规格属性demo-variant-1001已确认—channel-listing-demo-1-v2日常售价demo-variant-1001已确认—channel-listing-demo-1-v3商家 SKUdemo-variant-1002已确认—channel-listing-demo-1-v3平台颜色demo-variant-1002已确认—channel-listing-demo-1-v3平台尺码demo-variant-1002已确认—channel-listing-demo-1-v3平台花型demo-variant-1002已确认—channel-listing-demo-1-v3规格图片demo-variant-1002已确认—channel-listing-demo-1-v3规格属性demo-variant-1002已确认—channel-listing-demo-1-v3日常售价demo-variant-1002未确认演示平台暂未接受此项；其他已成功项保留。",
+        "summary": "更新 · PCS→平台部分成功版本 10 · 2026/10/6 02:04:10"
+      }
+    },
+    {
+      "run": 5,
+      "brokenImages": 0,
+      "durationMs": 148,
+      "end": 346441.39999997616,
+      "images": 0,
+      "label": "channel-retry-failed",
+      "start": 346293.39999997616,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "同步中",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标字段回执原因SPU-QC-001-01-ALT日常售价待回执—",
+        "summary": "重新同步 · PCS→平台提交中版本 10 · 2026/10/6 02:04:11"
+      }
+    },
+    {
+      "run": 5,
+      "brokenImages": 0,
+      "durationMs": 168.19999998807907,
+      "end": 346760.7999999523,
+      "images": 0,
+      "label": "channel-success-receipt",
+      "start": 346592.59999996424,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "overview": [
+          "TikTok · TikTok 印尼主店 · R1验收5",
+          "ID / IDR",
+          "demo-pid-701",
+          "SPU-QC-001",
+          "10",
+          "一致",
+          "共享 WMS 可售",
+          "在售"
+        ],
+        "rows": "目标 / 字段当次平台规格 ID当次回执结果平台原因channel-listing-demo-1-v3日常售价demo-variant-1002已确认—",
+        "summary": "重新同步 · PCS→平台成功版本 10 · 2026/10/6 02:04:11"
+      }
+    }
+  ],
+  "priorValidSamples": [
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 233.19999998807907,
+      "end": 308725.6999999881,
+      "images": 1,
+      "label": "channel-update-submit",
+      "start": 308492.5,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "rows": "目标\t字段\t回执\t原因\nPID 内容\t渠道标题\t待回执\t—\nPID 内容\t商品描述\t待回执\t—\nPID 内容\t内容语言\t待回执\t—\nPID 内容\t卖点\t待回执\t—\nPID 内容\t多语内容\t待回执\t—\nPID 内容\t平台类目\t待回执\t—\nPID 内容\t平台品牌\t待回执\t—\nPID 内容\t商品属性\t待回执\t—\nPID 内容\t刊登媒体\t待回执\t—\nSPU-QC-001-01\t商家 SKU\t待回执\t—\nSPU-QC-001-01\t平台颜色\t待回执\t—\nSPU-QC-001-01\t平台尺码\t待回执\t—\nSPU-QC-001-01\t平台花型\t待回执\t—\nSPU-QC-001-01\t规格图片\t待回执\t—\nSPU-QC-001-01\t规格属性\t待回执\t—\nSPU-QC-001-01\t日常售价\t待回执\t—\nSPU-QC-001-02\t商家 SKU\t待回执\t—\nSPU-QC-001-02\t平台颜色\t待回执\t—\nSPU-QC-001-02\t平台尺码\t待回执\t—\nSPU-QC-001-02\t平台花型\t待回执\t—\nSPU-QC-001-02\t规格图片\t待回执\t—\nSPU-QC-001-02\t规格属性\t待回执\t—\nSPU-QC-001-02\t日常售价\t待回执\t—\nSPU-QC-001-01-ALT\t商家 SKU\t待回执\t—\nSPU-QC-001-01-ALT\t平台颜色\t待回执\t—\nSPU-QC-001-01-ALT\t平台尺码\t待回执\t—\nSPU-QC-001-01-ALT\t平台花型\t待回执\t—\nSPU-QC-001-01-ALT\t规格图片\t待回执\t—\nSPU-QC-001-01-ALT\t规格属性\t待回执\t—\nSPU-QC-001-01-ALT\t日常售价\t待回执\t—",
+        "summary": "更新 · PCS→平台提交中版本 10 · 2026/10/6 02:03:33"
+      }
+    },
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 141.39999997615814,
+      "end": 308918.89999997616,
+      "images": 0,
+      "label": "channel-partial-receipt",
+      "start": 308777.5,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "rows": "",
+        "summary": "更新 · PCS→平台部分成功版本 10 · 2026/10/6 02:03:33"
+      }
+    },
+    {
+      "run": 1,
+      "brokenImages": 0,
+      "durationMs": 217.19999998807907,
+      "end": 309305.1999999881,
+      "images": 1,
+      "label": "channel-retry-failed",
+      "start": 309088,
+      "url": "/pcs/products/channel-products/channel-listing-demo-1",
+      "check": {
+        "rows": "目标\t字段\t回执\t原因\nSPU-QC-001-01-ALT\t日常售价\t待回执\t—",
+        "summary": "重新同步 · PCS→平台提交中版本 10 · 2026/10/6 02:03:33"
+      }
+    }
+  ],
+  "scope": "本地原型；5轮发布更新、部分失败、仅失败项重试、成功回执；此前3次测量等待的文案谓词错误，未形成有效结果，保留说明"
+}

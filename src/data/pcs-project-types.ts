@@ -42,8 +42,8 @@ export interface PcsProjectRecord {
   brandId: string
   brandName: string
   styleNumber: string
-  styleCodeId: string
-  styleCodeName: string
+  categoryNumberId: string
+  categoryNumberName: string
   yearTag: string
   seasonTags: string[]
   styleTags: string[]
@@ -177,8 +177,8 @@ export interface PcsProjectCreateDraft {
   brandId: string
   brandName: string
   styleNumber: string
-  styleCodeId: string
-  styleCodeName: string
+  categoryNumberId: string
+  categoryNumberName: string
   yearTag: string
   seasonTags: string[]
   styleTags: string[]
@@ -233,7 +233,7 @@ export interface ProjectCreateCatalog {
   categories: ProjectCategoryOption[]
   brands: ProjectSimpleOption[]
   styles: ProjectSimpleOption[]
-  styleCodes: ProjectSimpleOption[]
+  categoryNumbers: ProjectSimpleOption[]
   crowdPositioning: ProjectSimpleOption[]
   ages: ProjectSimpleOption[]
   crowds: ProjectSimpleOption[]

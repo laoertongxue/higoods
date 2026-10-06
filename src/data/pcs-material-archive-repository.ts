@@ -2,9 +2,12 @@ import { buildTechnicalVersionListByStyle } from './pcs-technical-data-version-v
 import { migrateMaterialMockGallery, migrateMaterialMockImage } from './pcs-reviewed-image-catalog.ts'
 import { tmfReferenceMaterials, tmfReferenceSkus, tmfReferenceMaterialLogs } from './pcs-tmf-material-reference-seeds.ts'
 import { listStyleArchives } from './pcs-style-archive-repository.ts'
-import { getTechPackReviewerById } from './pcs-tech-pack-reviewer-directory.ts'
-import { invalidateBomPriceReviewsForMaterialStandardPriceChange } from './pcs-tech-pack-bom-price-review-invalidation.ts'
-import { runTechnicalDataVersionRepositoryTransaction } from './pcs-technical-data-version-repository.ts'
+import { pcsRecordStore, registerPcsRepositoryReset, getPcsDurableFileReference, runPcsRecordCommand } from './pcs-record-runtime.ts'
+import { buildProcessedMaterialCode, canonicalMaterialUnit, checkedMaterialCode, materialCodeSegment, fixedMaterialFactor, materialMoney, materialDecimalAdd, materialDecimalMultiply, materialPackageVolume, validateMaterialRelation, MATERIAL_CODE_RULE_VERSION, MATERIAL_PROCESS_NAMES } from './pcs-material-rules.ts'
+import { addMaterialR1Demonstration } from './pcs-material-r1-seeds.ts'
+import { getMaterialTemplate, getMaterialTemplateByVersion, listMaterialTemplates, listMaterialUnitDefinitions, listMaterialProcessConfigurations } from './pcs-material-config.ts'
+import { getMaterialPatternReference } from './pcs-material-pattern.ts'
+import { materialAttributeReferences, materialDictionaryReference, materialTemplateOptionReference, validateMaterialBoundFields, validateMaterialTemplateValues, validateMaterialEquipmentPairs } from './pcs-material-attributes.ts'
 import type {
   MaterialArchiveKind,
   MaterialArchiveRecord,
@@ -14,16 +17,17 @@ import type {
   MaterialLogRecord,
   MaterialSkuRecord,
   MaterialUsageRecord,
+  MaterialProcessDraft, MaterialProcessDefinition, MaterialUnitRelation, MaterialPackageSpec, MaterialStandardCostVersion, MaterialCostSnapshot, MaterialAsset, MaterialApprovalStatus, MaterialSpecValues,
 } from './pcs-material-archive-types.ts'
 
-const MATERIAL_ARCHIVE_STORAGE_KEY = 'higood-pcs-material-archive-store-v2'
-const MATERIAL_ARCHIVE_STORE_VERSION = 4
+export const MATERIAL_ARCHIVE_STORAGE_KEY = 'higood-pcs-material-archive-store-v2'
+const MATERIAL_ARCHIVE_STORE_VERSION = 5
 
 const MATERIAL_CATEGORY_OPTIONS: Record<MaterialArchiveKind, string[]> = {
   fabric: ['毛织布', '梭织布', '经编布', '里布', '网布', '牛仔布'],
   accessory: ['花边辅料', '纽扣', '拉链', '刺绣辅料', '松紧带', '织带', '绳子', '装饰件'],
-  yarn: ['车缝线', '包缝线', '绣花线', '织带线'],
-  consumable: ['裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'],
+  yarn: ['针织用纱', '车缝线', '包缝线', '绣花线', '织带线'],
+  consumable: ['包装袋', '胶带', '油剂', '裁剪耗材', '车缝耗材', '清洁耗材', '辅助耗材'],
   parts: ['裁床配件', '缝纫机配件', '烫包设备配件', '检针设备配件', '通用设备配件'],
 }
 
@@ -78,50 +82,11 @@ const MATERIAL_UNIT_DEFAULTS: Record<MaterialArchiveKind, { mainUnit: string; au
 
 let memorySnapshot: MaterialArchiveStoreSnapshot | null = null
 
-function canUseStorage(): boolean {
-  try { return typeof localStorage !== 'undefined' } catch { return false }
-}
-
-function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
-  return {
-    ...record,
-    processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
-    auxiliaryUnits: Array.isArray(record.auxiliaryUnits) ? [...record.auxiliaryUnits] : [],
-    galleryImageUrls: Array.isArray(record.galleryImageUrls) ? [...record.galleryImageUrls] : [],
-    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
-  }
-}
-
-function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
-  return {
-    ...record,
-    pantoneCode: record.pantoneCode || '',
-    patternCode: record.patternCode || '',
-    designRevisionProcesses: [...(record.designRevisionProcesses || [])],
-    designRevisionRawSkuId: record.designRevisionRawSkuId || '',
-    designRevisionDyedSkuId: record.designRevisionDyedSkuId || '',
-    patternImageUrl: record.patternImageUrl || '',
-    unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
-  }
-}
-
-function cloneUsageRecord(record: MaterialUsageRecord): MaterialUsageRecord {
-  return { ...record }
-}
-
-function cloneLogRecord(record: MaterialLogRecord): MaterialLogRecord {
-  return { ...record }
-}
-
-function cloneSnapshot(snapshot: MaterialArchiveStoreSnapshot): MaterialArchiveStoreSnapshot {
-  return {
-    version: snapshot.version,
-    records: snapshot.records.map(cloneRecord),
-    skuRecords: snapshot.skuRecords.map(cloneSkuRecord),
-    usageRecords: snapshot.usageRecords.map(cloneUsageRecord),
-    logRecords: snapshot.logRecords.map(cloneLogRecord),
-  }
-}
+function cloneRecord(record: MaterialArchiveRecord): MaterialArchiveRecord { return structuredClone(record) }
+function cloneSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord { return structuredClone(record) }
+function cloneUsageRecord(record: MaterialUsageRecord): MaterialUsageRecord { return { ...record } }
+function cloneLogRecord(record: MaterialLogRecord): MaterialLogRecord { return { ...record } }
+function cloneSnapshot(snapshot: MaterialArchiveStoreSnapshot): MaterialArchiveStoreSnapshot { return structuredClone(snapshot) }
 
 function appendMissingByKey<T>(records: T[], seedRecords: T[], getKey: (item: T) => string): T[] {
   const existingKeys = new Set(records.map(getKey))
@@ -135,7 +100,7 @@ function nowText(): string {
 }
 
 function normalizeStatus(status: MaterialArchiveStatus): MaterialArchiveStatus {
-  return status === 'INACTIVE' || status === 'ARCHIVED' ? status : 'ACTIVE'
+  return ['INACTIVE', 'ARCHIVED', 'NOT_ENABLED'].includes(status) ? status : 'ACTIVE'
 }
 
 function normalizeUnitText(value: unknown): string {
@@ -167,12 +132,25 @@ function resolveAuxiliaryUnits(record: MaterialArchiveRecord, mainUnit: string):
   return units.length > 0 ? units : fallbackUnits
 }
 
-function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
+function normalizeRecord(record: MaterialArchiveRecord, templates = new Map<string, ReturnType<typeof getMaterialTemplateByVersion>>(), owned = false): MaterialArchiveRecord {
   const mainUnit = resolveMainUnit(record)
+  const templateKey = `${record.templateId || record.kind + ':' + record.categoryName}:${record.templateVersion || 1}`
+  let template = templates.get(templateKey)
+  if (!template) { template = record.templateId
+    ? getMaterialTemplateByVersion(record.templateId, record.templateVersion || 1)
+    : getMaterialTemplateByVersion(getMaterialTemplate(record.kind, record.categoryName).templateId, 1); templates.set(templateKey, template) }
   return {
-    ...cloneRecord(record),
+    ...(owned ? record : cloneRecord(record)),
     mainImageUrl: migrateMaterialMockImage(record.materialCode, record.mainImageUrl, 'material'),
     status: normalizeStatus(record.status),
+    approvalStatus: record.approvalStatus || 'APPROVED',
+    templateId: template.templateId,
+    templateVersion: template.version,
+    categoryAttributes: { ...(record.categoryAttributes || {}) },
+    compositionItems: [...(record.compositionItems || [])],
+    equipmentCompatibility: [...(record.equipmentCompatibility || [])],
+    widthValueCm: record.widthValueCm ?? (/cm/i.test(record.widthText || '') ? Number.parseFloat(record.widthText) || null : null),
+    gramWeightGsm: record.gramWeightGsm ?? parseMaterialGramWeightGsm(record.gramWeightText),
     materialNameEn: record.materialNameEn || record.materialName,
     processTags: Array.isArray(record.processTags) ? [...record.processTags] : [],
     galleryImageUrls: migrateMaterialMockGallery(record.materialCode, record.galleryImageUrls || []),
@@ -194,18 +172,39 @@ function normalizeRecord(record: MaterialArchiveRecord): MaterialArchiveRecord {
   }
 }
 
-function normalizeSkuRecord(record: MaterialSkuRecord): MaterialSkuRecord {
+/** Old weight text is only a standard areal mass when its unit explicitly says so. */
+export function parseMaterialGramWeightGsm(value: string | undefined): number | null {
+  const match = value?.trim().match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:g\s*\/\s*(?:m[²2]|㎡)|g\s*\/\s*平方[米公尺]+|gsm|克\s*\/\s*平方米)$/i)
+  const amount = match ? Number(match[1]) : null
+  return amount !== null && Number.isFinite(amount) && amount > 0 ? amount : null
+}
+
+function normalizedEffectiveSpecs(values: MaterialSpecValues = {}): MaterialSpecValues {
+  const result = { ...values }
+  if (result.widthCm !== undefined) { result.width = result.widthCm; delete result.widthCm }
+  if (result.gramWeightGsm !== undefined) { result.gramWeight = result.gramWeightGsm; delete result.gramWeightGsm }
+  return result
+}
+function normalizeSkuRecord(record: MaterialSkuRecord, owned = false): MaterialSkuRecord {
   return {
-    ...cloneSkuRecord(record),
+    ...(owned ? record : cloneSkuRecord(record)),
     skuImageUrl: migrateMaterialMockImage(record.materialSkuCode, record.skuImageUrl, 'sku'),
     status: normalizeStatus(record.status),
+    approvalStatus: record.approvalStatus || 'APPROVED',
+    stage: record.stage || 'BASE',
+    mainUnit: canonicalMaterialUnit(record.mainUnit || record.pricingUnit || 'PCS'),
+    mainUnitVersion: record.mainUnitVersion || 1,
+    codeRuleVersionId: record.codeRuleVersionId || 'legacy-preserved',
+    identityValues: { ...(record.identityValues || {}) },
+    effectiveSpecValues: normalizedEffectiveSpecs(record.effectiveSpecValues),
+    barcodeAliases: [...(record.barcodeAliases || [])],
     pantoneCode: record.pantoneCode || '',
     patternCode: record.patternCode || '',
     specName: record.specName || '-',
     sizeName: record.sizeName || '-',
     pricingUnit: record.pricingUnit || 'PCS',
     unitConversions: Array.isArray(record.unitConversions) ? record.unitConversions.map((item) => ({ ...item })) : [],
-    costPrice: Number.isFinite(record.costPrice) && record.costPrice > 0 ? Number(record.costPrice.toFixed(4)) : 0,
+    costPrice: Number.isFinite(record.costPrice) ? record.costPrice : 0,
     weightKg: Number.isFinite(record.weightKg) ? record.weightKg : 0,
     lengthCm: Number.isFinite(record.lengthCm) ? record.lengthCm : 0,
     widthCm: Number.isFinite(record.widthCm) ? record.widthCm : 0,
@@ -255,7 +254,7 @@ function buildUsageRecord(
   })
 }
 
-function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
+function buildLegacySeedSnapshot(): MaterialArchiveStoreSnapshot {
   const records: MaterialArchiveRecord[] = [
     {
       materialId: 'material_fabric_001',
@@ -988,511 +987,819 @@ function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
 
   return {
     version: MATERIAL_ARCHIVE_STORE_VERSION,
-    records: [...records, ...tmfReferenceMaterials].map(normalizeRecord),
-    skuRecords: [...skuRecords, ...tmfReferenceSkus].map(normalizeSkuRecord),
+    records: [...records, ...tmfReferenceMaterials].map(record => normalizeRecord(record)),
+    skuRecords: [...skuRecords, ...tmfReferenceSkus].map(record => normalizeSkuRecord(record)),
     usageRecords: usageRecords.map(normalizeUsageRecord),
     logRecords: [...logRecords, ...tmfReferenceMaterialLogs].map(normalizeLogRecord),
   }
 }
 
-function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot): MaterialArchiveStoreSnapshot {
-  const seedSnapshot = buildSeedSnapshot()
-  const records = Array.isArray(snapshot.records) ? snapshot.records.map(normalizeRecord) : []
-  const skuRecords = Array.isArray(snapshot.skuRecords) ? snapshot.skuRecords.map(normalizeSkuRecord) : []
-  const usageRecords = Array.isArray(snapshot.usageRecords) ? snapshot.usageRecords.map(normalizeUsageRecord) : []
-  const logRecords = Array.isArray(snapshot.logRecords) ? snapshot.logRecords.map(normalizeLogRecord) : []
-
-  return {
-    version: MATERIAL_ARCHIVE_STORE_VERSION,
-    records: appendMissingByKey(records, seedSnapshot.records, (item) => item.materialId),
-    skuRecords: appendMissingByKey(skuRecords, seedSnapshot.skuRecords, (item) => item.materialSkuId),
-    usageRecords: appendMissingByKey(usageRecords, seedSnapshot.usageRecords, (item) => item.usageId),
-    logRecords: appendMissingByKey(logRecords, seedSnapshot.logRecords, (item) => item.logId),
-  }
+let seedCache: MaterialArchiveStoreSnapshot | null = null
+function buildSeedSnapshot(): MaterialArchiveStoreSnapshot {
+  if (!seedCache) seedCache = hydrateSnapshot(addMaterialR1Demonstration(buildLegacySeedSnapshot()))
+  return cloneSnapshot(seedCache)
 }
-
+function hydrateSnapshot(snapshot: MaterialArchiveStoreSnapshot, owned = false): MaterialArchiveStoreSnapshot {
+  const templates = new Map<string, ReturnType<typeof getMaterialTemplateByVersion>>()
+  const records = snapshot.records.map(record => normalizeRecord(record, templates, owned))
+  const roots = new Map(records.map(root => [root.materialId, root]))
+  const skus = snapshot.skuRecords.map(raw => {
+    const root = roots.get(raw.materialId)
+    return normalizeSkuRecord({ ...raw, mainUnit: raw.mainUnit || root?.mainUnit || raw.pricingUnit,
+      effectiveSpecValues: raw.effectiveSpecValues || { widthCm: root?.widthValueCm ?? null, gramWeightGsm: root?.gramWeightGsm ?? null },
+      mainUnitUsed: raw.mainUnitUsed ?? snapshot.usageRecords.some(row => row.materialId === raw.materialId) }, owned)
+  })
+  const processes = [...(snapshot.processDefinitions || [])]
+  // The old design-revision records already carry explicit predecessor IDs. Project
+  // those references once in memory; never infer lineage by splitting a SKU code.
+  for (const sku of skus) {
+    if (sku.inputSkuId || !sku.designRevisionProcesses?.length) continue
+    const last = sku.designRevisionProcesses.at(-1)!
+    const inputId = last === 'PRINTING' && sku.designRevisionProcesses.includes('DYEING') ? sku.designRevisionDyedSkuId : sku.designRevisionRawSkuId
+    if (!inputId || !skus.some(item => item.materialSkuId === inputId)) continue
+    sku.inputSkuId = inputId; sku.stage = last; sku.processDefinitionId = `legacy-process-${sku.materialSkuId}`
+    const pantone = (sku.pantoneCode || '').trim().split(/\s+/)
+    if (last === 'DYEING') { sku.pantoneSystem = sku.pantoneSystem || pantone[1] || 'TCX'; sku.pantoneCode = pantone[0] }
+    processes.push({ processDefinitionId: sku.processDefinitionId, inputSkuId: inputId, outputSkuId: sku.materialSkuId, objectType: 'MATERIAL', processType: last,
+      colorCode: sku.colorCode || sku.colorName, colorName: sku.colorName, pantoneSystem: sku.pantoneSystem, pantoneCode: sku.pantoneCode,
+      patternCode: sku.patternCode, patternImageUrl: sku.patternImageUrl, patternVersionId: sku.patternCode ? 'legacy-preserved' : undefined,
+      printSide: last === 'PRINTING' ? 'A' : undefined, penetration: false, processVersionId: 'legacy-preserved', executionAssetIds: [], codeRuleVersionId: 'LEGACY', createdAt: sku.createdAt })
+  }
+  const costs = [...(snapshot.costVersions || [])]
+  const latestCosts = new Map(costs.map(cost => [cost.materialSkuId, cost]))
+  for (const sku of skus) {
+    if (!latestCosts.has(sku.materialSkuId)) { const cost: MaterialStandardCostVersion = {
+      costVersionId: `legacy-standard-${sku.materialSkuId}`, materialSkuId: sku.materialSkuId,
+      purchaseStandardCny: Number.isFinite(sku.costPrice) ? sku.costPrice : null,
+      transportStandardCny: Number.isFinite(sku.freightCost) ? sku.freightCost : null,
+      purchaseIncludesTransport: false, processStandardCny: null, pricingUnit: sku.pricingUnit,
+      taxIncluded: true, effectiveAt: sku.updatedAt, changeReason: '既有原型标准承接', operatorName: '原型资料',
+    }; costs.push(cost); latestCosts.set(sku.materialSkuId, cost) }
+    sku.currentCostVersionId = latestCosts.get(sku.materialSkuId)?.costVersionId
+  }
+  return { version: MATERIAL_ARCHIVE_STORE_VERSION, records, skuRecords: skus,
+    usageRecords: snapshot.usageRecords.map(normalizeUsageRecord), logRecords: snapshot.logRecords.map(normalizeLogRecord),
+    processDefinitions: processes, unitRelations: [...(snapshot.unitRelations || [])],
+    packages: [...(snapshot.packages || [])], costVersions: costs, assets: [...(snapshot.assets || [])] }
+}
+let materialMutationSnapshot: MaterialArchiveStoreSnapshot | null = null
+function ensureSnapshotLoaded(): void {
+  if (memorySnapshot) return
+  const raw = pcsRecordStore.getItem(MATERIAL_ARCHIVE_STORAGE_KEY)
+  if (!raw) { memorySnapshot = buildSeedSnapshot(); return }
+  const parsed = JSON.parse(raw) as MaterialArchiveStoreSnapshot
+  if (!Array.isArray(parsed.records) || !Array.isArray(parsed.skuRecords)) throw new Error('物料档案格式不完整，已保留原数据，请重新读取。')
+  memorySnapshot = hydrateSnapshot({ ...parsed, usageRecords: parsed.usageRecords || [], logRecords: parsed.logRecords || [] }, true)
+}
 function loadSnapshot(): MaterialArchiveStoreSnapshot {
-  if (memorySnapshot) return cloneSnapshot(memorySnapshot)
-
-  if (!canUseStorage()) {
-    memorySnapshot = buildSeedSnapshot()
-    return cloneSnapshot(memorySnapshot)
-  }
-
-  try {
-    const raw = localStorage.getItem(MATERIAL_ARCHIVE_STORAGE_KEY)
-    if (!raw) {
-      memorySnapshot = buildSeedSnapshot()
-      return cloneSnapshot(memorySnapshot)
-    }
-    const parsed = JSON.parse(raw) as Partial<MaterialArchiveStoreSnapshot>
-    if (!Array.isArray(parsed.records) || !Array.isArray(parsed.skuRecords)) {
-      memorySnapshot = buildSeedSnapshot()
-      return cloneSnapshot(memorySnapshot)
-    }
-    memorySnapshot = hydrateSnapshot({
-      version: MATERIAL_ARCHIVE_STORE_VERSION,
-      records: parsed.records as MaterialArchiveRecord[],
-      skuRecords: parsed.skuRecords as MaterialSkuRecord[],
-      usageRecords: (parsed.usageRecords || []) as MaterialUsageRecord[],
-      logRecords: (parsed.logRecords || []) as MaterialLogRecord[],
-    })
-    return cloneSnapshot(memorySnapshot)
-  } catch {
-    memorySnapshot = buildSeedSnapshot()
-    return cloneSnapshot(memorySnapshot)
-  }
+  if (materialMutationSnapshot) return materialMutationSnapshot
+  ensureSnapshotLoaded()
+  return cloneSnapshot(memorySnapshot!)
 }
-
 function persistSnapshot(snapshot: MaterialArchiveStoreSnapshot): void {
-  memorySnapshot = hydrateSnapshot(snapshot)
-  if (canUseStorage()) {
-    localStorage.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(memorySnapshot))
+  if (materialMutationSnapshot) { materialMutationSnapshot = snapshot; return }
+  const next = hydrateSnapshot(snapshot)
+  pcsRecordStore.setItem(MATERIAL_ARCHIVE_STORAGE_KEY, JSON.stringify(next))
+  memorySnapshot = next
+}
+/** Prepare a business import in memory once; the caller owns the record transaction. */
+export function withMaterialArchiveMutationBatch<T>(recipe: () => T): T {
+  if (materialMutationSnapshot) return recipe()
+  materialMutationSnapshot = loadSnapshot()
+  try {
+    const result = recipe()
+    if (result instanceof Promise) throw new Error('物料批量准备必须同步完成。')
+    const next = materialMutationSnapshot
+    materialMutationSnapshot = null
+    persistSnapshot(next)
+    return result
+  } catch (error) { materialMutationSnapshot = null; throw error }
+}
+/** New-root imports have no dependencies outside their own root. Prepare that
+ * root with the same business commands, without copying every existing record. */
+export function prepareNewMaterialArchiveGroup<T>(recipe: () => T): { result: T; snapshot: MaterialArchiveStoreSnapshot } {
+  if (materialMutationSnapshot) throw new Error('物料资料正在准备中，请稍后重试。')
+  materialMutationSnapshot = { version: MATERIAL_ARCHIVE_STORE_VERSION, records: [], skuRecords: [], usageRecords: [], logRecords: [], processDefinitions: [], unitRelations: [], packages: [], costVersions: [], assets: [] }
+  try {
+    const result = recipe()
+    if (result instanceof Promise) throw new Error('物料批量准备必须同步完成。')
+    return { result, snapshot: hydrateSnapshot(materialMutationSnapshot) }
+  } finally { materialMutationSnapshot = null }
+}
+export function getMaterialArchiveStoreSnapshot(): MaterialArchiveStoreSnapshot { return materialMutationSnapshot ? cloneSnapshot(materialMutationSnapshot) : loadSnapshot() }
+export function resetMaterialArchiveCache(): void { memorySnapshot = null; materialMutationSnapshot = null }
+registerPcsRepositoryReset(resetMaterialArchiveCache)
+export function getMaterialArchiveBaseline(): MaterialArchiveStoreSnapshot { return buildSeedSnapshot() }
+function nowId(prefix: string): string { return `${prefix}_${crypto.randomUUID()}` }
+function log(snapshot: MaterialArchiveStoreSnapshot, materialId: string, title: string, detail: string, operatorName = '商品中心管理员'): void {
+  snapshot.logRecords.unshift({ logId: nowId('material-log'), materialId, title, detail, operatorName, createdAt: nowText() })
+}
+function currentSnapshot(): MaterialArchiveStoreSnapshot { if (materialMutationSnapshot) return materialMutationSnapshot; ensureSnapshotLoaded(); return memorySnapshot! }
+/** Import uniqueness checks only need identities, not copies of every dossier. */
+export function getMaterialArchiveIdentities(): { rootCodes: Set<string>; skuCodes: Set<string> } {
+  const snapshot = currentSnapshot()
+  return { rootCodes: new Set(snapshot.records.map(row => row.materialCode)), skuCodes: new Set(snapshot.skuRecords.map(row => row.materialSkuCode)) }
+}
+/** Only existing parents named in an archive CSV are needed for validation.
+ * Never copy unrelated dossiers, cost history or logs for a new-root import. */
+export function getMaterialImportReferenceSnapshot(rootCodes: ReadonlySet<string>): Pick<MaterialArchiveStoreSnapshot, 'records' | 'skuRecords' | 'unitRelations' | 'packages' | 'processDefinitions'> {
+  const snapshot = currentSnapshot(), records = snapshot.records.filter(root => rootCodes.has(root.materialCode))
+  const ids = new Set(records.map(root => root.materialId))
+  return { records: records.map(cloneRecord), skuRecords: snapshot.skuRecords.filter(sku => ids.has(sku.materialId)).map(cloneSkuRecord), unitRelations: [], packages: [], processDefinitions: [] }
+}
+/** Read indexes belong to one immutable published snapshot. Mutable command
+ * drafts rebuild their own lookup and never reuse published calculation data. */
+function buildMaterialReadIndex(snapshot: MaterialArchiveStoreSnapshot) {
+  const skusByRoot = new Map<string, MaterialSkuRecord[]>()
+  for (const sku of snapshot.skuRecords) {
+    const items = skusByRoot.get(sku.materialId)
+    if (items) items.push(sku); else skusByRoot.set(sku.materialId, [sku])
   }
+  return { roots: new Map(snapshot.records.map(row => [row.materialId, row])),
+    rootsByCode: new Map(snapshot.records.map(row => [row.materialCode, row])),
+    skus: new Map(snapshot.skuRecords.map(row => [row.materialSkuId, row])), skusByRoot,
+    costs: new Map((snapshot.costVersions || []).map(row => [row.materialSkuId, row])),
+    calculatedCosts: new Map<string, MaterialCostSnapshot>() }
 }
-
-function buildMaterialCode(kind: MaterialArchiveKind, name: string): string {
-  const prefixMap: Record<MaterialArchiveKind, string> = {
-    fabric: 'FAB',
-    accessory: 'ACC',
-    yarn: 'YARN',
-    consumable: 'CONS',
-    parts: 'PART',
-  }
-  const prefix = prefixMap[kind]
-  const normalized = name
-    .replace(/[^\w\u4e00-\u9fa5]+/g, '')
-    .slice(0, 8)
-    .toUpperCase()
-  return `${prefix}-${normalized || 'NEW'}`
+let indexedSnapshot: MaterialArchiveStoreSnapshot | null = null
+let readIndex: ReturnType<typeof buildMaterialReadIndex> | null = null
+function materialReadIndex(snapshot = currentSnapshot()) {
+  if (snapshot !== memorySnapshot || materialMutationSnapshot) return buildMaterialReadIndex(snapshot)
+  if (indexedSnapshot !== snapshot || !readIndex) { indexedSnapshot = snapshot; readIndex = buildMaterialReadIndex(snapshot) }
+  return readIndex
 }
-
-function buildSkuToken(value: string): string {
-  const normalized = value
-    .trim()
-    .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toUpperCase()
-  return normalized || 'STD'
-}
-
-export function buildTmfSemiFinishedSkuCode(input: {
-  spuCode: string
-  pantoneCode?: string
-  colorCode: string
-  patternCode?: string
-}): string {
-  const tokens = [input.spuCode, input.pantoneCode, input.colorCode, input.patternCode]
-    .map((value) => (value || '').trim())
-    .filter(Boolean)
-  if (tokens.length < 2) throw new Error('TMF 半成品 SKU 至少需要 SPU 和颜色编码。')
-  return tokens.map(buildSkuToken).join('-')
-}
-
-function buildMaterialSkuCode(material: Pick<MaterialArchiveRecord, 'materialCode' | 'categoryName'>, skuDraft: MaterialSkuDraftInput, index: number): string {
-  if (['织带', '绳子'].includes(material.categoryName)) {
-    return buildTmfSemiFinishedSkuCode({
-      spuCode: material.materialCode,
-      pantoneCode: skuDraft.pantoneCode,
-      colorCode: skuDraft.colorName,
-      patternCode: skuDraft.patternCode,
-    })
-  }
-  return `${material.materialCode}-${buildSkuToken(skuDraft.colorName)}-${buildSkuToken(skuDraft.specName || skuDraft.sizeName || `SKU${index + 1}`)}`
-}
-
-function buildNextMaterialSkuCode(
-  material: Pick<MaterialArchiveRecord, 'materialCode' | 'categoryName'>,
-  skuDraft: MaterialSkuDraftInput,
-  existingSkuRecords: MaterialSkuRecord[],
-): string {
-  const baseCode = buildMaterialSkuCode(material, skuDraft, existingSkuRecords.length)
-  const duplicateCount = existingSkuRecords.filter(
-    (item) => item.materialSkuCode === baseCode || item.materialSkuCode.startsWith(`${baseCode}-`),
-  ).length
-  if (duplicateCount === 0) return baseCode
-  return `${baseCode}-${String(duplicateCount + 1).padStart(2, '0')}`
-}
-
 export function getMaterialArchiveCategoryOptions(kind: MaterialArchiveKind): Array<{ value: string; label: string }> {
-  return MATERIAL_CATEGORY_OPTIONS[kind].map((item) => ({ value: item, label: item }))
+  const latest = new Map<string, ReturnType<typeof listMaterialTemplates>[number]>()
+  for (const item of listMaterialTemplates().filter(item => item.kind === kind && item.status === 'APPROVED')) if (!latest.has(item.templateId) || latest.get(item.templateId)!.version < item.version) latest.set(item.templateId, item)
+  return [...new Set([...latest.values()].filter(item => item.enabled !== false).map(item => item.category))].map(value => ({ value, label: value }))
 }
-
-export function getMaterialSkuSpecMeta(kind: MaterialArchiveKind): {
-  primaryLabel: string
-  secondaryLabel: string
-  primaryPlaceholder: string
-  secondaryPlaceholder: string
-} {
-  return { ...MATERIAL_SKU_SPEC_META[kind] }
-}
-
+export function getMaterialSkuSpecMeta(kind: MaterialArchiveKind) { return { ...MATERIAL_SKU_SPEC_META[kind] } }
 export function listMaterialArchives(kind?: MaterialArchiveKind): MaterialArchiveRecord[] {
-  return (memorySnapshot ?? loadSnapshot()).records
-    .filter((item) => !kind || item.kind === kind)
-    .map(cloneRecord)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const snapshot = currentSnapshot()
+  return snapshot.records.filter(item => !kind || item.kind === kind).map(item => ({ ...cloneRecord(item), skuCount: materialReadIndex(snapshot).skusByRoot.get(item.materialId)?.length || 0 })).sort((a,b) => b.updatedAt.localeCompare(a.updatedAt))
 }
-
-export function getMaterialArchiveById(materialId: string): MaterialArchiveRecord | null {
-  const record = (memorySnapshot ?? loadSnapshot()).records.find((item) => item.materialId === materialId)
+export function getMaterialArchiveByCode(materialCode: string): MaterialArchiveRecord | null {
+  const record = materialReadIndex().rootsByCode.get(materialCode)
   return record ? cloneRecord(record) : null
 }
-
-export function listMaterialSkuRecordsByMaterialId(materialId: string): MaterialSkuRecord[] {
-  return (memorySnapshot ?? loadSnapshot()).skuRecords.filter((item) => item.materialId === materialId).map(cloneSkuRecord)
+export function getMaterialArchiveById(materialId: string): MaterialArchiveRecord | null {
+  const record = materialReadIndex().roots.get(materialId)
+  return record ? cloneRecord(record) : null
 }
-
+export function listAllMaterialSkuRecords(): MaterialSkuRecord[] { return currentSnapshot().skuRecords.map(cloneSkuRecord) }
+export function listMaterialSkuRecordsByMaterialId(materialId: string): MaterialSkuRecord[] {
+  return (materialReadIndex().skusByRoot.get(materialId) || []).map(cloneSkuRecord)
+}
 export function getMaterialSkuRecordById(materialSkuId: string): MaterialSkuRecord | null {
-  const record = (memorySnapshot ?? loadSnapshot()).skuRecords.find((item) => item.materialSkuId === materialSkuId)
+  const record = materialReadIndex().skus.get(materialSkuId)
   return record ? cloneSkuRecord(record) : null
 }
-
-export function updateMaterialUnitConversions(
-  materialId: string,
-  conversions: MaterialArchiveRecord['unitConversions'],
-  operator: { id: string; name: string },
-): MaterialArchiveRecord {
-  const reviewer = getTechPackReviewerById(operator.id)
-  if (!reviewer?.roles.includes('买手')) {
-    throw new Error('只有买手可以维护单位换算。')
-  }
-  const operatorName = reviewer.reviewerName
-  const snapshot = loadSnapshot()
-  const material = snapshot.records.find((item) => item.materialId === materialId)
-  if (!material) throw new Error('未找到对应物料主档。')
-
-  const allowedUnits = new Set(uniqueUnits([material.mainUnit, ...material.auxiliaryUnits, material.pricingUnit]))
-  const seenPairs = new Set<string>()
-  const normalizedConversions = (conversions || []).map((item) => {
-    const fromUnit = normalizeUnitText(item.fromUnit)
-    const toUnit = normalizeUnitText(item.toUnit)
-    const factor = Number(item.factor)
-    if (!allowedUnits.has(fromUnit) || !allowedUnits.has(toUnit)) {
-      throw new Error('来源单位和目标单位只能选择该物料已维护的单位。')
+export function resolveMaterialSkuIdentity(codeOrId: string): MaterialSkuRecord | null {
+  const key = codeOrId.replace(/^pcs-material-sku:/, '').trim()
+  const record = currentSnapshot().skuRecords.find(sku => [sku.materialSkuId, sku.materialSkuCode, sku.barcode, ...(sku.barcodeAliases || [])].includes(key))
+  return record ? cloneSkuRecord(record) : null
+}
+export function listMaterialUsageRecordsByMaterialId(id: string): MaterialUsageRecord[] { return currentSnapshot().usageRecords.filter(item => item.materialId === id).map(cloneUsageRecord) }
+export function listMaterialUsageRecordsByStyleCode(code: string): MaterialUsageRecord[] { return currentSnapshot().usageRecords.filter(item => item.styleCode === code).map(cloneUsageRecord) }
+export function listMaterialLogRecordsByMaterialId(id: string): MaterialLogRecord[] { return currentSnapshot().logRecords.filter(item => item.materialId === id).map(cloneLogRecord) }
+export function getMaterialStats(kind: MaterialArchiveKind) {
+  const records = currentSnapshot().records.filter(item => item.kind === kind), ids = new Set(records.map(item => item.materialId))
+  const skus = currentSnapshot().skuRecords.filter(item => ids.has(item.materialId)), usages = currentSnapshot().usageRecords.filter(item => ids.has(item.materialId))
+  return { total: records.length, active: records.filter(item => item.status === 'ACTIVE').length, skuCount: skus.length, usageCount: usages.length,
+    linkedStyleCount: new Set(usages.map(item => item.styleCode)).size, pending: records.filter(item => item.approvalStatus === 'PENDING').length + skus.filter(item => item.approvalStatus === 'PENDING').length,
+    incompleteCost: skus.filter(item => getMaterialStandardCost(item.materialSkuId).completeness.length).length }
+}
+export interface MaterialListFilter {
+  view: 'root' | 'sku'; search?: string; category?: string; stage?: string; process?: string
+  color?: string; pantone?: string; pattern?: string; approval?: string; status?: string; cost?: string
+}
+export type MaterialRootListRow = Pick<MaterialArchiveRecord, 'materialId' | 'materialCode' | 'materialName' | 'categoryName' | 'specSummary' | 'mainImageUrl' | 'skuCount' | 'approvalStatus' | 'status' | 'updatedAt'>
+export type MaterialSkuListRow = Pick<MaterialSkuRecord, 'materialId' | 'materialCode' | 'materialName' | 'materialSkuId' | 'materialSkuCode' | 'skuImageUrl' | 'colorName' | 'pantoneCode' | 'pantoneSystem' | 'patternCode' | 'stage' | 'inputSkuId' | 'mainUnit' | 'approvalStatus' | 'status' | 'updatedAt'>
+/** List/export selection is computed from one snapshot. Return scalar list
+ * projections, not whole dossiers, execution files and version histories. */
+export function queryMaterialArchiveList(kind: MaterialArchiveKind, f: MaterialListFilter) {
+  const snapshot = currentSnapshot(), index = materialReadIndex(snapshot)
+  const roots: MaterialRootListRow[] = [], skus: MaterialSkuListRow[] = []
+  let pending = 0, incompleteCost = 0
+  const search = f.search?.toLowerCase(), color = f.color?.toLowerCase()
+  const matchesText = (parts: (string | undefined)[]) => !search || parts.join(' ').toLowerCase().includes(search)
+  const hasProcess = (sku: MaterialSkuRecord) => {
+    const seen = new Set<string>()
+    let cursor: MaterialSkuRecord | undefined = sku
+    while (cursor && !seen.has(cursor.materialSkuId)) {
+      if (cursor.stage === f.process) return true
+      seen.add(cursor.materialSkuId); cursor = cursor.inputSkuId ? index.skus.get(cursor.inputSkuId) : undefined
     }
-    if (fromUnit === toUnit) {
-      throw new Error('来源单位和目标单位不能相同。')
-    }
-    if (!Number.isFinite(factor) || factor <= 0) {
-      throw new Error('换算系数必须大于 0。')
-    }
-    const pairKey = `${fromUnit}\u0000${toUnit}`
-    if (seenPairs.has(pairKey)) {
-      throw new Error('单位换算关系不能重复。')
-    }
-    seenPairs.add(pairKey)
-    return { fromUnit, toUnit, factor }
-  })
-
-  const timestamp = nowText()
-  const updatedRecord = normalizeRecord({
-    ...material,
-    unitConversions: normalizedConversions,
-    updatedAt: timestamp,
-    updatedBy: operatorName,
-  })
-  const log = normalizeLogRecord({
-    logId: `${materialId}-log-unit-conversion-${Date.now()}`,
-    materialId,
-    operatorName,
-    title: '维护单位换算',
-    detail: normalizedConversions.length > 0
-      ? `已维护 ${normalizedConversions.length} 条单位换算关系。`
-      : '已清空单位换算关系。',
-    createdAt: timestamp,
-  })
-
-  persistSnapshot({
-    ...snapshot,
-    records: snapshot.records.map((item) => (item.materialId === materialId ? updatedRecord : item)),
-    skuRecords: snapshot.skuRecords.map((item) =>
-      item.materialId === materialId
-        ? normalizeSkuRecord({ ...item, unitConversions: normalizedConversions, updatedAt: timestamp, updatedBy: operatorName })
-        : item,
-    ),
-    logRecords: [log, ...snapshot.logRecords],
-  })
-  return cloneRecord(updatedRecord)
-}
-
-export function listMaterialUsageRecordsByMaterialId(materialId: string): MaterialUsageRecord[] {
-  return loadSnapshot().usageRecords.filter((item) => item.materialId === materialId).map(cloneUsageRecord)
-}
-
-export function listMaterialUsageRecordsByStyleCode(styleCode: string): MaterialUsageRecord[] {
-  return loadSnapshot().usageRecords.filter((item) => item.styleCode === styleCode).map(cloneUsageRecord)
-}
-
-export function listMaterialLogRecordsByMaterialId(materialId: string): MaterialLogRecord[] {
-  return loadSnapshot().logRecords.filter((item) => item.materialId === materialId).map(cloneLogRecord)
-}
-
-export function getMaterialStats(kind: MaterialArchiveKind): {
-  total: number
-  active: number
-  skuCount: number
-  usageCount: number
-  linkedStyleCount: number
-} {
-  const records = listMaterialArchives(kind)
-  const materialIds = new Set(records.map((item) => item.materialId))
-  const skus = loadSnapshot().skuRecords.filter((item) => materialIds.has(item.materialId))
-  const usages = loadSnapshot().usageRecords.filter((item) => materialIds.has(item.materialId))
-  return {
-    total: records.length,
-    active: records.filter((item) => item.status === 'ACTIVE').length,
-    skuCount: skus.length,
-    usageCount: usages.length,
-    linkedStyleCount: new Set(usages.map((item) => item.styleCode)).size,
+    return false
   }
+  for (const root of snapshot.records) {
+    if (root.kind !== kind || f.category && root.categoryName !== f.category) continue
+    if (f.view === 'root' && (f.approval && root.approvalStatus !== f.approval || f.status && root.status !== f.status)) continue
+    const children = index.skusByRoot.get(root.materialId) || []
+    let matched = 0
+    for (const sku of children) {
+      if (!matchesText([sku.materialSkuCode, sku.materialName, root.materialCode, ...(root.legacyCodes || []), ...(sku.barcodeAliases || [])])
+        || f.stage && (sku.stage || 'BASE') !== f.stage || f.process && !hasProcess(sku)
+        || color && !sku.colorName.toLowerCase().includes(color) || f.pantone && !sku.pantoneCode?.includes(f.pantone)
+        || f.pattern && !sku.patternCode?.includes(f.pattern)
+        || f.view === 'sku' && (f.approval && sku.approvalStatus !== f.approval || f.status && sku.status !== f.status)) continue
+      const missingCost = calculateCost(snapshot, sku.materialSkuId, index.calculatedCosts, new Set(), index).completeness.length > 0
+      if (f.cost && (f.cost === 'complete') === missingCost) continue
+      matched++; if (missingCost) incompleteCost++; if (sku.approvalStatus === 'PENDING') pending++
+      const { materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, pantoneSystem, patternCode, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt } = sku
+      skus.push({ materialId, materialCode, materialName, materialSkuId, materialSkuCode, skuImageUrl, colorName, pantoneCode, pantoneSystem, patternCode, stage, inputSkuId, mainUnit, approvalStatus, status, updatedAt })
+    }
+    const emptyRootMatch = !children.length && f.view === 'root' && !f.stage && !f.process && !f.color && !f.pantone && !f.pattern && !f.cost && matchesText([root.materialCode, root.materialName, ...(root.legacyCodes || [])])
+    if (!matched && !emptyRootMatch) continue
+    if (root.approvalStatus === 'PENDING') pending++
+    const { materialId, materialCode, materialName, categoryName, specSummary, mainImageUrl, approvalStatus, status, updatedAt } = root
+    roots.push({ materialId, materialCode, materialName, categoryName, specSummary, mainImageUrl, skuCount: children.length, approvalStatus, status, updatedAt })
+  }
+  roots.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  skus.sort((a, b) => (index.roots.get(b.materialId)?.updatedAt || '').localeCompare(index.roots.get(a.materialId)?.updatedAt || ''))
+  return { roots, skus, stats: { total: roots.length, skuCount: skus.length, pending, incompleteCost } }
 }
-
-export function createMaterialArchive(input: {
-  kind: MaterialArchiveKind
-  materialName: string
-  materialNameEn: string
-  categoryName: string
-  specSummary: string
-  composition: string
-  processTags: string[]
-  widthText: string
-  gramWeightText: string
-  pricingUnit: string
-  mainUnit?: string
-  auxiliaryUnits?: string[]
-  unitConversions?: MaterialArchiveRecord['unitConversions']
-  mainImageUrl: string
-  barcodeTemplateCode: string
-  remark: string
-}): MaterialArchiveRecord {
-  const snapshot = loadSnapshot()
-  const timestamp = nowText()
-  const tmfKind = input.kind === 'accessory' && ['织带', '绳子'].includes(input.categoryName)
-  let dimensionMm: number | undefined
-  if (tmfKind) {
-    const dimensionText = input.categoryName === '绳子' ? input.widthText.trim().replace(/^(?:[ΦφØø⌀]|直径)\s*/, '') : input.widthText.trim()
-    const match = dimensionText.match(/^(\d+(?:\.\d+)?)\s*(mm|cm|毫米|厘米)$/i)
-    if (!match || !Number.isFinite(Number(match[1])) || Number(match[1]) <= 0) throw new Error(`请填写明确的${input.categoryName === '织带' ? '织带幅宽' : '绳子直径'}，例如 20mm 或 2cm；不能用生产截断长度或“待确认”创建正式规格。`)
-    dimensionMm = Number(match[1]) * (/^(cm|厘米)$/i.test(match[2]) ? 10 : 1)
-    if (!Number.isFinite(dimensionMm)) throw new Error('物料截面尺寸无效，请核对单位。')
-    if ((input.mainUnit || input.pricingUnit) !== '米' || input.pricingUnit !== '米') throw new Error('织带、绳子基础半成品请使用米作为主单位及计价单位；截断条数在生产加工中管理。')
+export function buildTmfSemiFinishedSkuCode(input: { spuCode: string; pantoneCode?: string; colorCode: string; patternCode?: string }): string {
+  if (!input.spuCode.trim() || !input.colorCode.trim()) throw new Error('TMF 半成品 SKU 至少需要 SPU 和颜色编码。')
+  return checkedMaterialCode([input.spuCode, input.pantoneCode, input.colorCode, input.patternCode].filter(Boolean).join('-'))
+}
+export interface MaterialArchiveDraft {
+  kind: MaterialArchiveKind; materialCode?: string; materialName: string; materialNameEn: string; categoryName: string; specSummary: string;
+  composition: string; processTags: string[]; widthText: string; gramWeightText: string; pricingUnit: string; mainUnit?: string;
+  auxiliaryUnits?: string[]; unitConversions?: MaterialArchiveRecord['unitConversions']; mainImageUrl: string; galleryImageUrls?: string[]; barcodeTemplateCode: string; remark: string;
+  categoryAttributes?: MaterialSpecValues; categoryAttributeReferences?: MaterialArchiveRecord['categoryAttributeReferences']; compositionItems?: MaterialArchiveRecord['compositionItems']; equipmentCompatibility?: string[];
+  equipmentCompatibilityDetails?: MaterialArchiveRecord['equipmentCompatibilityDetails']; subcategoryId?: string; materialNameTranslations?: Record<string,string>;
+  templateId?: string; templateVersion?: number; firstSku?: MaterialSkuDraftInput;
+}
+function validateRoot(input: MaterialArchiveDraft, previous?: MaterialArchiveRecord): void {
+  if (!input.materialName.trim() || !input.categoryName.trim()) throw new Error('请填写物料名称并选择子类。')
+  if (input.compositionItems?.length && Math.abs(input.compositionItems.reduce((a,b) => a+b.percentage, 0)-100) > .00001) throw new Error('成分比例合计必须为 100%。')
+  if (input.compositionItems?.some(item => !item.component.trim() || !Number.isFinite(item.percentage) || item.percentage < 0 || item.percentage > 100)) throw new Error('成分和比例需有效，单项比例应在 0 至 100% 之间。')
+  if (new Set(input.compositionItems?.map(item => item.componentId || item.component.trim()) || []).size !== (input.compositionItems?.length || 0)) throw new Error('同一种成分不能重复，请合并比例。')
+  if (input.kind === 'accessory' && ['织带', '绳子'].includes(input.categoryName)) {
+    const key = input.categoryName === '绳子' ? 'diameter' : 'width', value = input.categoryAttributes?.[key]
+    if (value !== undefined && value !== null && value !== '') {
+      const template = input.templateId ? getMaterialTemplateByVersion(input.templateId, input.templateVersion || 1) : getMaterialTemplate(input.kind, input.categoryName)
+      const field = template.fields.find(item => item.key === key && item.level === 'root')
+      if (!['number', 'string'].includes(typeof value) || !Number.isFinite(Number(value)) || Number(value) <= 0 || !field?.unit?.trim()) throw new Error(`${input.categoryName === '绳子' ? '绳子直径' : '织带宽度'}需填写大于 0 的数值，并采用属性模板中的明确单位。`)
+    } else {
+      // Existing TMF records kept their diameter/width in widthText. Do not
+      // reinterpret an invalid structured value using an older text value.
+      const legacyPattern = input.categoryName === '绳子'
+        ? /^(?:[ΦφØø]|直径)?\s*(-?\d+(?:\.\d+)?)\s*(mm|cm|毫米|厘米)\s*$/i
+        : /^(-?\d+(?:\.\d+)?)\s*(mm|cm|毫米|厘米)\s*$/i
+      const legacy = legacyPattern.exec((input.widthText || '').trim())
+      if (!legacy || Number(legacy[1]) <= 0) throw new Error('织带宽度／绳子直径需使用明确的正数和单位。')
+    }
   }
-  const nextId = tmfKind ? `material_accessory_tmf_${crypto.randomUUID()}` : `material_${input.kind}_${timestamp.replace(/\D/g, '')}`
-  const baseCode = buildMaterialCode(input.kind, input.materialName) + (tmfKind ? `-${input.categoryName === '织带' ? 'W' : 'D'}${dimensionMm}MM` : '')
-  let materialCode = baseCode
-  if (tmfKind) {
-    let sequence = 2
-    while (snapshot.records.some(record => record.materialCode === materialCode)) materialCode = `${baseCode}-${String(sequence++).padStart(2, '0')}`
-  }
-  const record = normalizeRecord({
-    materialId: nextId,
-    kind: input.kind,
-    materialCode,
-    materialName: input.materialName,
-    materialNameEn: input.materialNameEn || input.materialName,
-    categoryName: input.categoryName || '未分类',
-    specSummary: input.specSummary || '-',
-    composition: input.composition || '-',
-    processTags: input.processTags,
-    widthText: tmfKind ? `${input.categoryName === '绳子' ? 'Φ' : ''}${dimensionMm}mm` : input.widthText || '-',
-    gramWeightText: input.gramWeightText || '-',
-    pricingUnit: input.pricingUnit || 'PCS',
-    mainUnit: input.mainUnit || input.pricingUnit || MATERIAL_UNIT_DEFAULTS[input.kind].mainUnit,
-    auxiliaryUnits: input.auxiliaryUnits || MATERIAL_UNIT_DEFAULTS[input.kind].auxiliaryUnits,
-    unitConversions: input.unitConversions || [],
-    mainImageUrl: input.mainImageUrl || '',
-    galleryImageUrls: input.mainImageUrl ? [input.mainImageUrl] : [],
-    status: 'ACTIVE',
-    skuCount: 0,
-    usedStyleCount: 0,
-    usedTechPackCount: 0,
-    barcodeTemplateCode: input.barcodeTemplateCode || '',
-    remark: input.remark || '',
-    createdAt: timestamp,
-    createdBy: '系统演示',
-    updatedAt: timestamp,
-    updatedBy: '系统演示',
-  })
-  const log = normalizeLogRecord({
-    logId: `${nextId}-log-01`,
-    materialId: nextId,
-    operatorName: '系统演示',
-    title: '新建物料主档',
-    detail: `创建 ${record.materialCode} / ${record.materialName}，已定义 SKU 规则参数，待后续补充具体 SKU。`,
-    createdAt: timestamp,
-  })
-  persistSnapshot({
-    ...snapshot,
-    records: [record, ...snapshot.records],
-    logRecords: [log, ...snapshot.logRecords],
-  })
+  const template = input.templateId ? getMaterialTemplateByVersion(input.templateId, input.templateVersion || 1) : getMaterialTemplate(input.kind, input.categoryName)
+  validateMaterialTemplateValues(template, 'root', input.categoryAttributes || {}, false)
+  if (template.fields.some(item => item.valueShape === 'equipmentCompatibility')) validateMaterialEquipmentPairs(input.equipmentCompatibilityDetails || [], false, previous?.equipmentCompatibilityDetails)
+}
+function materialDraftReferences(input: MaterialArchiveDraft, previous?: MaterialArchiveRecord): MaterialArchiveDraft {
+  const template = input.templateId ? getMaterialTemplateByVersion(input.templateId, input.templateVersion || 1) : getMaterialTemplate(input.kind, input.categoryName)
+  return { ...input, templateId: template.templateId, templateVersion: template.version, subcategoryId: previous?.subcategoryId || template.categoryId,
+    materialNameTranslations: { ...previous?.materialNameTranslations, ...input.materialNameTranslations, zh: input.materialName, en: input.materialNameEn },
+    categoryAttributeReferences: materialAttributeReferences(template, 'root', input.categoryAttributes || {}, previous?.categoryAttributeReferences),
+    compositionItems: input.compositionItems?.map(item => { const prior = previous?.compositionItems?.find(old => old.component === item.component); return prior ? { ...item, componentId: prior.componentId } : { ...item, componentId: item.componentId || materialDictionaryReference('compositions', item.component)?.id } }) }
+}
+function requireEnabledUnit(unit: string, previousUnit?: string): void {
+  if (previousUnit && canonicalMaterialUnit(previousUnit) === canonicalMaterialUnit(unit)) return
+  if (!listMaterialUnitDefinitions().some(item => item.enabled && canonicalMaterialUnit(item.code) === canonicalMaterialUnit(unit))) throw new Error('请选择基础配置中已启用的计量单位。')
+}
+export function createMaterialArchive(input: MaterialArchiveDraft): MaterialArchiveRecord {
+  input = materialDraftReferences(input)
+  validateRoot(input)
+  const snapshot = loadSnapshot(), timestamp = nowText(), prefixes = { fabric: 'FB', accessory: 'AC', yarn: 'YN', consumable: 'CS', parts: 'EP' }
+  let sequence = snapshot.records.filter(item => item.kind === input.kind).length + 1
+  let code = input.materialCode?.trim() ? materialCodeSegment(input.materialCode, '物料根码') : `MAT-${prefixes[input.kind]}-${String(sequence).padStart(8,'0')}`
+  while (!input.materialCode && snapshot.records.some(item => item.materialCode === code)) code = `MAT-${prefixes[input.kind]}-${String(++sequence).padStart(8,'0')}`
+  if (snapshot.records.some(item => item.materialCode === code)) throw new Error('该物料编码已存在，请使用不同编码。')
+  checkedMaterialCode(code)
+  const record = normalizeRecord({ ...input, materialId: nowId(`material-${input.kind}`), materialCode: code, status: 'NOT_ENABLED', approvalStatus: 'DRAFT',
+    mainUnit: '', auxiliaryUnits: [], mainImageUrl: input.mainImageUrl, galleryImageUrls: input.galleryImageUrls || (input.mainImageUrl ? [input.mainImageUrl] : []),
+    barcodeTemplateCode: input.barcodeTemplateCode || 'material-label-r1', skuCount: 0, usedStyleCount: 0, usedTechPackCount: 0,
+    createdAt: timestamp, updatedAt: timestamp, createdBy: '商品中心管理员', updatedBy: '商品中心管理员' })
+  snapshot.records.unshift(record)
+  if (input.firstSku) snapshot.skuRecords.push(makeBaseSku(snapshot, record, input.firstSku))
+  log(snapshot, record.materialId, '新建物料主档', `${record.materialCode}；仅建立物料资料。`)
+  persistSnapshot(snapshot)
   return cloneRecord(record)
 }
-
-export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDraftInput): MaterialSkuRecord | null {
-  const snapshot = loadSnapshot()
-  const material = snapshot.records.find((item) => item.materialId === materialId)
-  if (!material) return null
-
-  const timestamp = nowText()
-  const normalizedInput: MaterialSkuDraftInput = {
-    colorName: input.colorName.trim(),
-    pantoneCode: input.pantoneCode?.trim() || '',
-    patternCode: input.patternCode?.trim() || '',
-    specName: input.specName.trim(),
-    sizeName: input.sizeName.trim(),
-    skuImageUrl: input.skuImageUrl.trim(),
-    costPrice: Number.isFinite(input.costPrice) ? input.costPrice : 0,
-    freightCost: Number.isFinite(input.freightCost) ? input.freightCost : 0,
-    weightKg: Number.isFinite(input.weightKg) ? input.weightKg : 0,
-    lengthCm: Number.isFinite(input.lengthCm) ? input.lengthCm : 0,
-    widthCm: Number.isFinite(input.widthCm) ? input.widthCm : 0,
-    heightCm: Number.isFinite(input.heightCm) ? input.heightCm : 0,
-    barcode: input.barcode.trim(),
-  }
-  if (['织带', '绳子'].includes(material.categoryName) && !normalizedInput.colorName) {
-    throw new Error('织带／绳子半成品 SKU 必须填写颜色编码；长度和端头不在 SKU 中。')
-  }
-  const existingSkuRecords = snapshot.skuRecords.filter((item) => item.materialId === materialId)
-  const materialSkuCode = buildNextMaterialSkuCode(material, normalizedInput, existingSkuRecords)
-  const record = normalizeSkuRecord({
-    materialSkuId: `${materialId}_materialLine_${String(existingSkuRecords.length + 1).padStart(3, '0')}`,
-    materialId,
-    materialCode: material.materialCode,
-    materialSkuCode,
-    materialName: material.materialName,
-    colorName: normalizedInput.colorName,
-    pantoneCode: normalizedInput.pantoneCode,
-    patternCode: normalizedInput.patternCode,
-    specName: normalizedInput.specName || normalizedInput.sizeName || '-',
-    sizeName: normalizedInput.sizeName || '-',
-    skuImageUrl: normalizedInput.skuImageUrl || material.mainImageUrl || '',
-    costPrice: normalizedInput.costPrice,
-    freightCost: normalizedInput.freightCost,
-    pricingUnit: material.pricingUnit,
-    unitConversions: material.unitConversions,
-    weightKg: normalizedInput.weightKg,
-    lengthCm: normalizedInput.lengthCm,
-    widthCm: normalizedInput.widthCm,
-    heightCm: normalizedInput.heightCm,
-    barcode: normalizedInput.barcode || materialSkuCode,
-    status: 'ACTIVE',
-    createdAt: timestamp,
-    createdBy: '系统演示',
-    updatedAt: timestamp,
-    updatedBy: '系统演示',
-  })
-
-  const updatedRecord = normalizeRecord({
-    ...material,
-    skuCount: existingSkuRecords.length + 1,
-    barcodeTemplateCode: material.barcodeTemplateCode || record.materialSkuCode,
-    updatedAt: timestamp,
-    updatedBy: '系统演示',
-  })
-  const log = normalizeLogRecord({
-    logId: `${materialId}-log-sku-${timestamp.replace(/\D/g, '')}`,
-    materialId,
-    operatorName: '系统演示',
-    title: '新增物料 SKU',
-    detail: `新增 ${record.materialSkuCode}，规格为 ${record.colorName} / ${record.specName || record.sizeName}。`,
-    createdAt: timestamp,
-  })
-
-  persistSnapshot({
-    ...snapshot,
-    records: snapshot.records.map((item) => (item.materialId === materialId ? updatedRecord : item)),
-    skuRecords: [record, ...snapshot.skuRecords],
-    logRecords: [log, ...snapshot.logRecords],
-  })
-  return cloneSkuRecord(record)
-}
-
-export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSkuDraftInput): MaterialSkuRecord | null {
-  const snapshot = loadSnapshot()
-  const skuRecord = snapshot.skuRecords.find((item) => item.materialSkuId === materialSkuId)
-  if (!skuRecord) return null
-  const material = snapshot.records.find((item) => item.materialId === skuRecord.materialId)
-  if (!material) return null
-
-  const timestamp = nowText()
-  const normalizedInput: MaterialSkuDraftInput = {
-    colorName: input.colorName.trim(),
-    pantoneCode: input.pantoneCode?.trim() || '',
-    patternCode: input.patternCode?.trim() || '',
-    specName: input.specName.trim(),
-    sizeName: input.sizeName.trim(),
-    skuImageUrl: input.skuImageUrl.trim(),
-    costPrice: Number.isFinite(input.costPrice) ? input.costPrice : 0,
-    freightCost: Number.isFinite(input.freightCost) ? input.freightCost : 0,
-    weightKg: Number.isFinite(input.weightKg) ? input.weightKg : 0,
-    lengthCm: Number.isFinite(input.lengthCm) ? input.lengthCm : 0,
-    widthCm: Number.isFinite(input.widthCm) ? input.widthCm : 0,
-    heightCm: Number.isFinite(input.heightCm) ? input.heightCm : 0,
-    barcode: input.barcode.trim(),
-  }
-  if (['织带', '绳子'].includes(material.categoryName) && !normalizedInput.colorName) {
-    throw new Error('织带／绳子半成品 SKU 必须填写颜色编码；长度和端头不在 SKU 中。')
-  }
-  const existingSkuRecords = snapshot.skuRecords.filter((item) => item.materialId === material.materialId)
-  const nextMaterialSkuCode = buildNextMaterialSkuCode(
-    material,
-    normalizedInput,
-    existingSkuRecords.filter((item) => item.materialSkuId !== materialSkuId),
-  )
-  const updatedSkuRecord = normalizeSkuRecord({
-    ...skuRecord,
-    materialSkuCode: nextMaterialSkuCode,
-    colorName: normalizedInput.colorName,
-    pantoneCode: normalizedInput.pantoneCode,
-    patternCode: normalizedInput.patternCode,
-    specName: normalizedInput.specName || normalizedInput.sizeName || '-',
-    sizeName: normalizedInput.sizeName || '-',
-    skuImageUrl: normalizedInput.skuImageUrl || material.mainImageUrl || '',
-    costPrice: normalizedInput.costPrice,
-    freightCost: normalizedInput.freightCost,
-    weightKg: normalizedInput.weightKg,
-    lengthCm: normalizedInput.lengthCm,
-    widthCm: normalizedInput.widthCm,
-    heightCm: normalizedInput.heightCm,
-    barcode: normalizedInput.barcode || nextMaterialSkuCode,
-    updatedAt: timestamp,
-    updatedBy: '系统演示',
-  })
-  const updatedRecord = normalizeRecord({
-    ...material,
-    updatedAt: timestamp,
-    updatedBy: '系统演示',
-  })
-  const log = normalizeLogRecord({
-    logId: `${material.materialId}-log-sku-edit-${timestamp.replace(/\D/g, '')}`,
-    materialId: material.materialId,
-    operatorName: '系统演示',
-    title: '编辑物料 SKU',
-    detail: `更新 ${updatedSkuRecord.materialSkuCode}，规格为 ${updatedSkuRecord.colorName} / ${updatedSkuRecord.specName || updatedSkuRecord.sizeName}。`,
-    createdAt: timestamp,
-  })
-
-  return runTechnicalDataVersionRepositoryTransaction(() => {
-    try {
-      persistSnapshot({
-        ...snapshot,
-        records: snapshot.records.map((item) => (item.materialId === material.materialId ? updatedRecord : item)),
-        skuRecords: snapshot.skuRecords.map((item) => (item.materialSkuId === materialSkuId ? updatedSkuRecord : item)),
-        logRecords: [log, ...snapshot.logRecords],
-      })
-      invalidateBomPriceReviewsForMaterialStandardPriceChange({
-        materialSkuId,
-        beforePriceCny: skuRecord.costPrice,
-        afterPriceCny: updatedSkuRecord.costPrice,
-        operator: '系统价格联动',
-      })
-      return cloneSkuRecord(updatedSkuRecord)
-    } catch (error) {
-      persistSnapshot(snapshot)
-      throw error
+export function updateMaterialArchive(materialId: string, input: MaterialArchiveDraft): MaterialArchiveRecord {
+  const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === materialId)
+  if (!root) throw new Error('物料主档不存在。')
+  input = materialDraftReferences(input, root)
+  validateRoot(input, root)
+  if (root.approvalStatus === 'APPROVED' && (input.materialCode && input.materialCode !== root.materialCode || input.categoryName !== root.categoryName || JSON.stringify(input.categoryAttributes || {}) !== JSON.stringify(root.categoryAttributes || {}))) throw new Error('审核后的编码、分类和根技术身份不能直接改变，请新增规格。')
+  if (root.approvalStatus === 'APPROVED' && ['composition', 'widthText', 'gramWeightText', 'compositionItems', 'equipmentCompatibility', 'equipmentCompatibilityDetails', 'templateId', 'templateVersion'].some(key => JSON.stringify(input[key as keyof MaterialArchiveDraft] ?? root[key as keyof MaterialArchiveRecord]) !== JSON.stringify(root[key as keyof MaterialArchiveRecord]))) throw new Error('已审核的根技术规格与模板版本已固定，请新增档案承接身份变化。')
+  const nextCode = input.materialCode?.trim() ? materialCodeSegment(input.materialCode, '物料根码') : root.materialCode
+  if (nextCode !== root.materialCode) {
+    checkedMaterialCode(nextCode)
+    if (snapshot.records.some(item => item.materialId !== materialId && item.materialCode === nextCode)) throw new Error('该物料根码已存在。')
+    const owned = snapshot.skuRecords.filter(item => item.materialId === materialId)
+    if (owned.some(item => item.approvalStatus === 'APPROVED' || item.mainUnitUsed) || snapshot.usageRecords.some(item => item.materialId === materialId)) throw new Error('已审核或已被引用的 SKU 使用该根码，不能修改。')
+    const codes = new Map<string,string>()
+    const derive = (sku: MaterialSkuRecord): string => {
+      if (codes.has(sku.materialSkuId)) return codes.get(sku.materialSkuId)!
+      const definition = snapshot.processDefinitions?.find(item => item.outputSkuId === sku.materialSkuId)
+      const parent = sku.inputSkuId ? owned.find(item => item.materialSkuId === sku.inputSkuId) : null
+      const code = definition && parent ? buildProcessedMaterialCode(derive(parent), { ...definition, skuImageUrl: sku.skuImageUrl }) : checkedMaterialCode(`${nextCode}-${sku.baseSpecSegment || sku.materialSkuCode.replace(`${root.materialCode}-`, '')}`)
+      if (snapshot.skuRecords.some(item => item.materialId !== materialId && item.materialSkuCode === code)) throw new Error('调整根码后产生重复 SKU 编码。')
+      codes.set(sku.materialSkuId, code); return code
     }
-  })
+    owned.forEach(derive)
+    for (const sku of owned) { const code = codes.get(sku.materialSkuId)!; if (sku.barcode === sku.materialSkuCode) sku.barcode = code; sku.materialSkuCode = code; sku.materialCode = nextCode }
+  }
+  Object.assign(root, input, { materialId, materialCode: nextCode, mainUnit: root.mainUnit, auxiliaryUnits: root.auxiliaryUnits, updatedAt: nowText(), updatedBy: '商品中心管理员' })
+  log(snapshot, materialId, '修改物料资料', '保存名称、资料和适用技术属性。'); persistSnapshot(snapshot); return cloneRecord(root)
+}
+export function copyMaterialArchive(materialId: string): MaterialArchiveRecord {
+  const root = getMaterialArchiveById(materialId)
+  if (!root) throw new Error('物料主档不存在。')
+  const copied = createMaterialArchive({ ...root, materialCode: undefined, materialName: `${root.materialName}（复制）`, firstSku: undefined })
+  const snapshot = loadSnapshot()
+  const assets = (snapshot.assets || []).filter(item => item.materialId === materialId)
+  snapshot.assets ||= []
+  snapshot.assets.push(...assets.map(asset => ({ ...asset, assetId: nowId('material-asset'), materialId: copied.materialId, materialSkuId: undefined, createdAt: nowText() })))
+  if (assets.length) { log(snapshot, copied.materialId, '复制素材引用', `复用 ${assets.length} 项文件引用；不复制审核或业务历史。`); persistSnapshot(snapshot) }
+  return copied
+}
+export function materialSkuIdentityFingerprint(input: { colorName?: string; colorCode?: string; pantoneCode?: string; pantoneSystem?: string; patternCode?: string; specName?: string; sizeName?: string; identityValues?: MaterialSpecValues }): string {
+  return JSON.stringify([input.colorCode || input.colorName || '', input.pantoneSystem || '', input.pantoneCode || '', input.patternCode || '', Object.entries(input.identityValues || {}).sort()])
+}
+const skuIdentity = materialSkuIdentityFingerprint
+function validateTemplateRequired(root: MaterialArchiveRecord, sku?: MaterialSkuRecord): void {
+  const template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
+  const values: MaterialSpecValues = sku ? { ...sku.identityValues, color: sku.colorName } : { ...root.categoryAttributes }
+  validateMaterialTemplateValues(template, sku ? 'sku' : 'root', values, true, sku?.stage)
+  const references = sku ? sku.identityReferences : root.categoryAttributeReferences
+  for (const field of template.fields.filter(item => item.level === (sku ? 'sku' : 'root') && (item.dictionaryId || item.enumDefinition) && item.type !== 'composition' && item.valueShape !== 'equipmentCompatibility')) {
+    const value = values[field.key], entries = Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : typeof value === 'string' && value ? [value] : []
+    if (entries.some(text => !references?.[field.key]?.some(item => [item.id, item.name, item.code].includes(text)) && !materialTemplateOptionReference(field, text))) throw new Error(`请在基础配置中维护并选择有效的${field.label}。`)
+  }
+  if (!sku && template.fields.some(field => field.type === 'composition' && field.required) && !root.compositionItems?.length) throw new Error('提交前请补齐成分与比例。')
+  if (!sku && template.fields.some(field => field.valueShape === 'equipmentCompatibility')) validateMaterialEquipmentPairs(root.equipmentCompatibilityDetails || [], true, root.equipmentCompatibilityDetails)
+}
+function materialSkuReferences(root: MaterialArchiveRecord, input: MaterialSkuDraftInput, previous?: MaterialSkuRecord): MaterialSkuDraftInput {
+  const template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
+  validateMaterialTemplateValues(template, 'sku', { ...input.identityValues, color: input.colorName }, false)
+  const color = materialDictionaryReference('colors', input.colorName, previous?.colorId ? { id: previous.colorId, name: previous.colorName, code: previous.colorCode || '' } : undefined)
+  const pantone = input.pantoneSystem && input.pantoneCode ? materialDictionaryReference('pantone', `${input.pantoneSystem} ${input.pantoneCode}`) : undefined
+  return { ...input, colorId: color?.id || (input.colorName === previous?.colorName ? previous?.colorId : undefined), pantoneId: pantone?.id || (input.pantoneCode === previous?.pantoneCode && input.pantoneSystem === previous?.pantoneSystem ? previous?.pantoneId : undefined),
+    identityReferences: materialAttributeReferences(template, 'sku', { ...input.identityValues, color: input.colorName }, previous?.identityReferences) }
+}
+function validateSkuAliases(snapshot: MaterialArchiveStoreSnapshot, aliases: string[] | undefined, materialSkuId = ''): void {
+  if (!aliases) return
+  if (aliases.some(item => typeof item !== 'string' || !item.trim()) || new Set(aliases).size !== aliases.length) throw new Error('条码别名不能为空或重复。')
+  if (snapshot.skuRecords.some(item => item.materialSkuId !== materialSkuId && aliases.some(alias => [item.materialSkuCode, item.barcode, ...(item.barcodeAliases || [])].includes(alias)))) throw new Error('条码别名已被其他 SKU 使用，不能指向多个物料。')
+}
+function makeBaseSku(snapshot: MaterialArchiveStoreSnapshot, material: MaterialArchiveRecord, input: MaterialSkuDraftInput): MaterialSkuRecord {
+  input = materialSkuReferences(material, input)
+  validateSkuAliases(snapshot, input.barcodeAliases)
+  if (!input.mainUnit?.trim() && !material.mainUnit?.trim()) throw new Error('每个物料 SKU 必须选择一个主计量单位。')
+  requireEnabledUnit(input.mainUnit || material.mainUnit)
+  const existing = snapshot.skuRecords.filter(item => item.materialId === material.materialId)
+  const duplicate = existing.find(item => (item.stage || 'BASE') === 'BASE' && skuIdentity(item) === skuIdentity(input))
+  if (duplicate) throw new Error(`该身份规格已存在：${duplicate.materialSkuCode}，请查看原 SKU。`)
+  const index = existing.filter(item => (item.stage || 'BASE') === 'BASE').length + 1
+  const segment = `B${String(index).padStart(2,'0')}`, timestamp = nowText()
+  const code = ['织带', '绳子'].includes(material.categoryName) ? buildTmfSemiFinishedSkuCode({ spuCode: material.materialCode, colorCode: input.colorCode || input.colorName, pantoneCode: input.pantoneCode, patternCode: input.patternCode }) : checkedMaterialCode(`${material.materialCode}-${segment}`)
+  const sku = normalizeSkuRecord({ ...input, materialSkuId: nowId('material-sku'), materialId: material.materialId, materialCode: material.materialCode,
+    materialSkuCode: code, materialName: input.materialName?.trim() || material.materialName, stage: 'BASE', approvalStatus: 'DRAFT', status: 'NOT_ENABLED', baseSpecSegment: segment,
+    mainUnit: canonicalMaterialUnit(input.mainUnit || material.mainUnit), mainUnitUsed: false, pricingUnit: input.pricingUnit || input.mainUnit || material.mainUnit,
+    effectiveSpecValues: input.effectiveSpecValues || { ...material.categoryAttributes, widthCm: material.widthValueCm ?? null, gramWeightGsm: material.gramWeightGsm ?? null },
+    costPrice: input.purchaseStandardCny ?? input.costPrice ?? 0, freightCost: input.transportStandardCny ?? input.freightCost ?? 0,
+    barcode: input.barcode || code, skuImageUrl: input.skuImageUrl || material.mainImageUrl, codeRuleVersionId: MATERIAL_CODE_RULE_VERSION,
+    createdAt: timestamp, updatedAt: timestamp, createdBy: '商品中心管理员', updatedBy: '商品中心管理员' })
+  snapshot.costVersions ||= []
+  snapshot.costVersions.push({ costVersionId: nowId('material-cost'), materialSkuId: sku.materialSkuId,
+    purchaseStandardCny: input.purchaseStandardCny === undefined ? materialMoney(input.costPrice) : materialMoney(input.purchaseStandardCny),
+    transportStandardCny: input.transportStandardCny === undefined ? materialMoney(input.freightCost) : materialMoney(input.transportStandardCny),
+    purchaseIncludesTransport: false, processStandardCny: null, pricingUnit: sku.pricingUnit, taxIncluded: true,
+    effectiveAt: timestamp, changeReason: '初始标准', operatorName: '商品中心管理员' })
+  return sku
+}
+export function createMaterialSkuRecord(materialId: string, input: MaterialSkuDraftInput): MaterialSkuRecord | null {
+  const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === materialId)
+  if (!root) return null
+  const sku = makeBaseSku(snapshot, root, input)
+  snapshot.skuRecords.push(sku); log(snapshot, materialId, '新增基础 SKU', sku.materialSkuCode); persistSnapshot(snapshot); return cloneSkuRecord(sku)
+}
+export function updateMaterialSkuRecord(materialSkuId: string, input: MaterialSkuDraftInput): MaterialSkuRecord | null {
+  const snapshot = loadSnapshot(), sku = snapshot.skuRecords.find(item => item.materialSkuId === materialSkuId)
+  if (!sku) return null
+  const root = snapshot.records.find(item => item.materialId === sku.materialId)!
+  input = materialSkuReferences(root, input, sku)
+  if (JSON.stringify(input.barcodeAliases) !== JSON.stringify(sku.barcodeAliases)) validateSkuAliases(snapshot, input.barcodeAliases, sku.materialSkuId)
+  if (sku.approvalStatus === 'APPROVED' && skuIdentity(input) !== skuIdentity(sku)) throw new Error('审核后交付身份已锁定；改变颜色、色号或规格请新增 SKU。')
+  if (sku.inputSkuId && skuIdentity(input) !== skuIdentity(sku)) throw new Error('加工产出的交付身份由加工定义生成；请从直接投入重新生成不同目标 SKU。')
+  if (input.mainUnit && canonicalMaterialUnit(input.mainUnit) !== canonicalMaterialUnit(sku.mainUnit || sku.pricingUnit) && (sku.mainUnitUsed || sku.approvalStatus === 'APPROVED')) throw new Error('该 SKU 已审核或已使用，主计量单位不能修改。')
+  if (input.netWeightPerMainKg !== undefined && input.netWeightPerMainKg !== null && (!Number.isFinite(input.netWeightPerMainKg) || input.netWeightPerMainKg <= 0)) throw new Error('每主单位净重应为正值；未维护请留空。')
+  if (input.mainUnit !== undefined) { if (!input.mainUnit.trim()) throw new Error('主计量单位不能为空。'); requireEnabledUnit(input.mainUnit, sku.mainUnit) }
+  if (!sku.inputSkuId && snapshot.skuRecords.some(item => item.materialSkuId !== materialSkuId && item.materialId === sku.materialId && !item.inputSkuId && skuIdentity(item) === skuIdentity(input))) throw new Error('该身份规格已存在，请使用已有 SKU。')
+  const keep = { materialSkuCode: sku.materialSkuCode, costPrice: sku.costPrice, freightCost: sku.freightCost, mainUnitUsed: sku.mainUnitUsed || input.mainUnitUsed }
+  Object.assign(sku, input, keep, { updatedAt: nowText() })
+  log(snapshot, sku.materialId, '修改 SKU 资料', sku.materialSkuCode); persistSnapshot(snapshot); return cloneSkuRecord(sku)
+}
+export function getMaterialProcessDefinition(skuId: string): MaterialProcessDefinition | null {
+  const value = currentSnapshot().processDefinitions?.find(item => item.outputSkuId === skuId)
+  return value ? structuredClone(value) : null
+}
+export function listMaterialSkuLineage(skuId: string): MaterialSkuRecord[] {
+  const byId = materialReadIndex().skus, chain: MaterialSkuRecord[] = [], seen = new Set<string>()
+  let cursor = byId.get(skuId)
+  while (cursor) {
+    if (seen.has(cursor.materialSkuId)) throw new Error('加工前驱关系不能成环。')
+    seen.add(cursor.materialSkuId); chain.unshift(cloneSkuRecord(cursor)); cursor = cursor.inputSkuId ? byId.get(cursor.inputSkuId) : undefined
+  }
+  return chain
+}
+export function createProcessedMaterialSku(input: MaterialProcessDraft): MaterialSkuRecord {
+  if (input.processType !== 'DYEING' && input.patternId) {
+    const front = getMaterialPatternReference(input.patternId, input.patternVersionId)
+    if (input.patternCode && input.patternCode !== front.patternCode) throw new Error('花型编号与所选花型不一致。')
+    input = { ...input, ...front, patternImageUrl: input.patternImageUrl || front.patternImageUrl }
+    if (input.printSide === 'AB') {
+      const back = getMaterialPatternReference(input.backPatternId || front.patternId, input.backPatternVersionId || front.patternVersionId)
+      if (input.backPatternCode && input.backPatternCode !== back.patternCode) throw new Error('背面花型编号与所选花型不一致。')
+      input = { ...input, backPatternId: back.patternId, backPatternCode: back.patternCode, backPatternVersionId: back.patternVersionId }
+    }
+  }
+  const snapshot = loadSnapshot(), parent = snapshot.skuRecords.find(item => item.materialSkuId === input.inputSkuId)
+  if (!parent) throw new Error('请选择存在的直接投入 SKU。')
+  const root = snapshot.records.find(item => item.materialId === parent.materialId)!, template = getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1)
+  validateMaterialBoundFields(template, 'process', { ...input, processVersionId: input.processVersionId || '1' }, false, input.processType)
+  validateMaterialTemplateValues(template, 'root', input.effectiveSpecValues || {}, false)
+  validateMaterialTemplateValues(template, 'sku', input.effectiveSpecValues || {}, false)
+  if (!listMaterialProcessConfigurations().some(item => item.id === input.processType && item.enabled && item.material)) throw new Error('请选择已启用且适用于物料的加工工艺。')
+  requireEnabledUnit(input.mainUnit || parent.mainUnit || parent.pricingUnit, parent.mainUnit)
+  if (input.pricingUnit) requireEnabledUnit(input.pricingUnit, parent.pricingUnit)
+  if (parent.status === 'INACTIVE' || parent.status === 'ARCHIVED') throw new Error('停用或归档的投入料不能新增选用。')
+  if (listMaterialSkuLineage(parent.materialSkuId).some(item => item.stage === input.processType)) throw new Error('同一物料对象不重复相同工艺。返工记录在执行单；裁片加工请进入裁片工艺。')
+  const code = buildProcessedMaterialCode(parent.materialSkuCode, input)
+  if (snapshot.skuRecords.some(item => item.materialSkuCode === code)) throw new Error('相同交付规格已存在，请使用已有 SKU；同目标返工不新增永久编码。')
+  const id = nowId('material-sku'), processId = nowId('material-process'), timestamp = nowText()
+  const process: MaterialProcessDefinition = { ...input, processDefinitionId: processId, outputSkuId: id, objectType: 'MATERIAL',
+    colorId: input.processType === 'DYEING' ? materialDictionaryReference('colors', input.colorName || '')?.id : undefined,
+    pantoneId: input.processType === 'DYEING' ? materialDictionaryReference('pantone', `${input.pantoneSystem} ${input.pantoneCode}`)?.id : undefined,
+    processVersionId: input.processVersionId || '1', executionAssetIds: [...(input.executionAssetIds || [])], codeRuleVersionId: MATERIAL_CODE_RULE_VERSION, createdAt: timestamp }
+  const sku = normalizeSkuRecord({ ...parent, materialSkuId: id, materialSkuCode: code, barcode: code, barcodeAliases: [],
+    inputSkuId: parent.materialSkuId, processDefinitionId: processId, stage: input.processType, approvalStatus: 'DRAFT', status: 'NOT_ENABLED',
+    colorName: input.colorName || parent.colorName, colorCode: input.colorCode || parent.colorCode, pantoneSystem: input.pantoneSystem || parent.pantoneSystem,
+    colorId: input.processType === 'DYEING' ? materialDictionaryReference('colors', input.colorName || '')?.id : parent.colorId,
+    pantoneId: input.processType === 'DYEING' ? materialDictionaryReference('pantone', `${input.pantoneSystem} ${input.pantoneCode}`)?.id : parent.pantoneId,
+    pantoneCode: input.pantoneCode || parent.pantoneCode, patternCode: input.patternCode || parent.patternCode, patternImageUrl: input.patternImageUrl || '',
+    skuImageUrl: input.skuImageUrl, effectiveSpecValues: { ...parent.effectiveSpecValues, ...input.effectiveSpecValues },
+    mainUnit: input.mainUnit || parent.mainUnit, pricingUnit: input.pricingUnit || parent.pricingUnit, mainUnitUsed: false,
+    codeRuleVersionId: MATERIAL_CODE_RULE_VERSION, costPrice: 0, freightCost: 0, createdAt: timestamp, updatedAt: timestamp })
+  snapshot.skuRecords.push(sku); snapshot.processDefinitions ||= []; snapshot.processDefinitions.push(process)
+  snapshot.costVersions ||= []; snapshot.costVersions.push({ costVersionId: nowId('material-cost'), materialSkuId: id, purchaseStandardCny: null, transportStandardCny: null,
+    purchaseIncludesTransport: false, processStandardCny: materialMoney(input.processStandardCny), pricingUnit: sku.pricingUnit, taxIncluded: true,
+    effectiveAt: timestamp, changeReason: '新增加工标准', operatorName: '商品中心管理员' })
+  log(snapshot, sku.materialId, `新增${MATERIAL_PROCESS_NAMES[input.processType]} SKU`, `${parent.materialSkuCode} → ${code}`); persistSnapshot(snapshot); return cloneSkuRecord(sku)
+}
+/** Availability belongs to both the exact SKU and its parent, and only gates new use. */
+export function isMaterialSkuAvailableForNewUse(sku: MaterialSkuRecord | null | undefined): sku is MaterialSkuRecord {
+  if (!sku || sku.status !== 'ACTIVE' || sku.approvalStatus !== 'APPROVED') return false
+  const root = getMaterialArchiveById(sku.materialId)
+  return root?.status === 'ACTIVE' && root.approvalStatus === 'APPROVED'
+}
+export function materialProcessOrderIntent(outputSkuId: string) {
+  const sku = getMaterialSkuRecordById(outputSkuId), process = getMaterialProcessDefinition(outputSkuId)
+  if (!sku || !process) throw new Error('请先完成目标 SKU 的加工定义。')
+  if (!isMaterialSkuAvailableForNewUse(sku) || !isMaterialSkuAvailableForNewUse(getMaterialSkuRecordById(process.inputSkuId))) throw new Error('直接投入、目标物料及其主档须已审核并启用，才能新建加工计划。')
+  return { inputSkuId: process.inputSkuId, outputSkuId, processDefinitionId: process.processDefinitionId, processType: process.processType,
+    executionAssetIds: [...process.executionAssetIds], processVersionId: process.processVersionId }
+}
+/** A persisted business reference locks its adopted main unit; the referenced document remains owned by its domain. */
+export function markMaterialSkuMainUnitUsed(skuIds: string[]): void {
+  const snapshot = loadSnapshot()
+  let changed = false
+  for (const id of new Set(skuIds)) {
+    const sku = snapshot.skuRecords.find(item => item.materialSkuId === id)
+    if (!sku) throw new Error('引用的物料 SKU 不存在。')
+    if (!sku.mainUnitUsed) { sku.mainUnitUsed = true; changed = true }
+  }
+  if (changed) persistSnapshot(snapshot)
+}
+export function setMaterialApproval(id: string, action: 'SUBMIT' | 'APPROVE' | 'REJECT', reason = ''): void {
+  const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
+  if (!record) throw new Error('档案不存在。')
+  if (action === 'SUBMIT') {
+    if (record.approvalStatus === 'APPROVED') throw new Error('该档案已审核通过，新增规格请单独提交审核。')
+    if (record.approvalStatus === 'PENDING') throw new Error('该档案已提交审核，请勿重复提交。')
+    const targets = root ? snapshot.skuRecords.filter(item => item.materialId === id && item.approvalStatus !== 'APPROVED') : [sku!]
+    if (root && (!root.mainImageUrl || !targets.length && !snapshot.skuRecords.some(item => item.materialId === id))) throw new Error('提交前请补齐物料主图及至少一个基础 SKU。')
+    if (root && root.approvalStatus !== 'APPROVED') validateTemplateRequired(root)
+    for (const target of targets) {
+      if (!target.skuImageUrl || !target.mainUnit) throw new Error('提交前请补齐 SKU 识别图与主计量单位。')
+      const targetRoot = snapshot.records.find(item => item.materialId === target.materialId)!
+      validateTemplateRequired(targetRoot, target)
+      const process = snapshot.processDefinitions?.find(item => item.outputSkuId === target.materialSkuId)
+      if (process?.processType === 'DYEING' && (!process.pantoneSystem || !process.pantoneCode)) throw new Error('染色必须有 Pantone 体系及色号。')
+      if (process?.processType === 'DYEING' && !process.pantoneId && !materialDictionaryReference('pantone', `${process.pantoneSystem} ${process.pantoneCode}`)) throw new Error('请先在 Pantone 字典维护对应体系及色号，再提交审核。')
+      if (process && process.processType !== 'DYEING') {
+        const front = getMaterialPatternReference(process.patternId || '', process.patternVersionId)
+        let hasSavedPatternImage = false
+        try { hasSavedPatternImage = Boolean(getPcsDurableFileReference(process.patternImageUrl || front.patternImageUrl)) } catch { /* Unattached preview cannot satisfy a formal image reference. */ }
+        if (front.patternCode !== process.patternCode || !hasSavedPatternImage) throw new Error('请关联一致的花型编号、版本及已保存的真实展示图。')
+        if (process.printSide === 'AB') {
+          const back = getMaterialPatternReference(process.backPatternId || front.patternId, process.backPatternVersionId || front.patternVersionId)
+          if (back.patternCode !== process.backPatternCode) throw new Error('背面花型与所选版本不一致。')
+        }
+        const requiredRole = process.processType === 'PRINTING' ? 'PRINT_FILE' : process.processType === 'EMBROIDERY' ? 'EMBROIDERY_FILE' : 'HEAT_TRANSFER_FILE'
+        if (!process.patternVersionId || !process.executionAssetIds.some(id => snapshot.assets?.some(asset => asset.assetId === id && asset.materialId === target.materialId && asset.role === requiredRole))) throw new Error('印花、绣花、烫画提交前须关联花型版本及对应执行工艺资料。')
+        if (process.printSide === 'AB' && process.backPatternCode !== process.patternCode && !process.backPatternVersionId) throw new Error('双面不同花必须明确背面花型版本。')
+      }
+      if (process) validateMaterialBoundFields(getMaterialTemplateByVersion(targetRoot.templateId!, targetRoot.templateVersion || 1), 'process', process as unknown as Record<string, unknown>, true, process.processType)
+      target.approvalStatus = 'PENDING'
+    }
+    record.approvalStatus = 'PENDING'
+  } else if (action === 'APPROVE') {
+    if (record.approvalStatus !== 'PENDING') throw new Error('请先提交审核。')
+    record.approvalStatus = 'APPROVED'
+    if (root) snapshot.skuRecords.filter(item => item.materialId === id && item.approvalStatus === 'PENDING').forEach(item => item.approvalStatus = 'APPROVED')
+  } else {
+    if (!reason.trim()) throw new Error('驳回请填写原因。')
+    if (record.approvalStatus !== 'PENDING') throw new Error('只有待审核档案可以驳回。')
+    record.approvalStatus = 'DRAFT'
+    if (root) snapshot.skuRecords.filter(item => item.materialId === id && item.approvalStatus === 'PENDING').forEach(item => item.approvalStatus = 'DRAFT')
+  }
+  log(snapshot, root?.materialId || sku!.materialId, action === 'SUBMIT' ? '提交审核' : action === 'APPROVE' ? '审核通过' : '驳回', reason || '身份审核不以标准成本完整为条件。')
+  persistSnapshot(snapshot)
+}
+export interface MaterialApprovalBatchResult {
+  id: string
+  materialId: string
+  code: string
+  name: string
+  objectType: '主档' | 'SKU' | '未知档案'
+  ok: boolean
+  message: string
+}
+type MaterialApprovalCommit = (recipe: () => void, operationId: string) => Promise<unknown>
+
+/** Each result is appended only after its own record transaction completes. */
+export async function runMaterialApprovalBatch(
+  ids: readonly string[],
+  action: 'SUBMIT' | 'APPROVE',
+  batchId: string,
+  commit: MaterialApprovalCommit = runPcsRecordCommand,
+): Promise<MaterialApprovalBatchResult[]> {
+  const results: MaterialApprovalBatchResult[] = []
+  for (const id of new Set(ids)) {
+    let result: MaterialApprovalBatchResult = { id, materialId: '', code: id, name: '未能读取档案', objectType: '未知档案', ok: false, message: '' }
+    try {
+      const root = getMaterialArchiveById(id), sku = root ? null : getMaterialSkuRecordById(id)
+      if (root || sku) result = { ...result, materialId: root?.materialId || sku!.materialId, code: root?.materialCode || sku!.materialSkuCode, name: root?.materialName || sku!.materialName, objectType: root ? '主档' : 'SKU' }
+      await commit(() => setMaterialApproval(id, action), `material-approval:${batchId}:${action}:${id}`)
+      result.ok = true
+      result.message = action === 'SUBMIT' ? '已提交审核并保存' : '已审核通过并保存'
+    } catch (error) {
+      result.message = error instanceof Error ? error.message : '本项未保存，请重试。'
+    }
+    results.push(result)
+  }
+  return results
+}
+export function setMaterialUseStatus(id: string, status: MaterialArchiveStatus): void {
+  const snapshot = loadSnapshot(), root = snapshot.records.find(item => item.materialId === id), sku = snapshot.skuRecords.find(item => item.materialSkuId === id), record = root || sku
+  if (!record) throw new Error('档案不存在。')
+  if (status === 'ACTIVE' && record.approvalStatus !== 'APPROVED') throw new Error('审核通过后才能启用。')
+  const materialId = root?.materialId || sku!.materialId
+  if (status === 'ARCHIVED' && (snapshot.usageRecords.some(item => item.materialId === materialId) || snapshot.skuRecords.some(item => item.inputSkuId && (root ? snapshot.skuRecords.some(s => s.materialId === materialId && s.materialSkuId === item.inputSkuId) : item.inputSkuId === id) && item.status !== 'ARCHIVED'))) throw new Error('尚有活动技术引用，不能归档。')
+  record.status = status; log(snapshot, materialId, '调整使用状态', status); persistSnapshot(snapshot)
+}
+export function listMaterialUnitRelations(skuId: string, includeHistory = false): MaterialUnitRelation[] {
+  return (currentSnapshot().unitRelations || []).filter(item => item.materialSkuId === skuId && (includeHistory || item.status === 'ACTIVE')).map(item => structuredClone(item))
+}
+export function saveMaterialUnitRelation(skuId: string, input: Omit<MaterialUnitRelation, 'materialSkuId'|'createdAt'|'version'|'relationId'> & { relationId?: string }): MaterialUnitRelation {
+  const snapshot = loadSnapshot(), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!sku) throw new Error('物料 SKU 不存在。')
+  const previous = snapshot.unitRelations?.find(item => item.relationId === input.relationId)
+  requireEnabledUnit(input.auxUnitId, previous?.auxUnitId)
+  if (previous && !input.changeReason.trim()) throw new Error('调整换算关系请填写原因。')
+  const relation: MaterialUnitRelation = { ...input, relationId: nowId('material-unit'), materialSkuId: skuId, version: (previous?.version || 0) + 1, createdAt: nowText() }
+  validateMaterialRelation(sku.mainUnit || sku.pricingUnit, relation)
+  if (relation.basisType === 'PACKAGE') { const pack = snapshot.packages?.find(p => p.packageSpecId === relation.packageSpecId && p.ownerSkuId === skuId && p.status === 'ACTIVE'); if (!pack) throw new Error('请选择当前 SKU 的有效包装规格。'); if (pack.packageTypeId !== relation.auxUnitId) throw new Error('辅助单位与包装类型不一致。') }
+  if (previous && previous.materialSkuId !== skuId) throw new Error('单位关系不属于当前 SKU。')
+  snapshot.unitRelations ||= []
+  const same = snapshot.unitRelations.filter(item => item.materialSkuId === skuId && item.status === 'ACTIVE' && canonicalMaterialUnit(item.auxUnitId) === canonicalMaterialUnit(input.auxUnitId) && (item.packageSpecId || '') === (input.packageSpecId || ''))
+  if (same.some(item => item.relationId !== previous?.relationId)) throw new Error('该辅助单位／包装规格已有有效关系，请编辑原关系以保留版本。')
+  if (input.status === 'INACTIVE' && canonicalMaterialUnit(sku.pricingUnit) === canonicalMaterialUnit(input.auxUnitId)) throw new Error('当前计价仍依赖此单位关系，请先调整计价单位。')
+  if (input.status === 'INACTIVE' && snapshot.processDefinitions?.some(process => process.inputSkuId === skuId && (process.unitBridgeVersionId === previous?.relationId || canonicalMaterialUnit(snapshot.skuRecords.find(item => item.materialSkuId === process.outputSkuId)?.pricingUnit || '') === canonicalMaterialUnit(input.auxUnitId)))) throw new Error('下游当前标准成本仍依赖此单位关系，请先调整下游计价或换算依据。')
+  if (previous) previous.status = 'INACTIVE'
+  for (const active of snapshot.unitRelations.filter(item => item.materialSkuId === skuId && item.status === 'ACTIVE')) active.isDefaultForUse = active.isDefaultForUse.filter(use => !relation.isDefaultForUse.includes(use))
+  snapshot.unitRelations.push(relation)
+  sku.unitConversions = snapshot.unitRelations.filter(item => item.materialSkuId === skuId && item.status === 'ACTIVE' && !item.packageSpecId).map(item => ({ fromUnit: item.auxUnitId, toUnit: sku.mainUnit!, factor: item.mainQtyPerAux }))
+  log(snapshot, sku.materialId, '维护 SKU 单位关系', `1 ${relation.auxUnitId} = ${relation.mainQtyPerAux} ${sku.mainUnit}；版本 ${relation.version}`)
+  persistSnapshot(snapshot); return structuredClone(relation)
+}
+/** Old root entry deliberately cannot bulk-overwrite every SKU's unit relationships. */
+export function updateMaterialUnitConversions(_materialId: string, _conversions: MaterialArchiveRecord['unitConversions'], _operator: { id: string; name: string }): MaterialArchiveRecord {
+  throw new Error('计量单位已归属各物料 SKU，请进入具体 SKU 的“计量单位”维护。')
+}
+export function getMaterialUnitFactor(skuId: string, fromUnit: string, toUnit: string, relationId?: string): number | null { return materialUnitFactorInSnapshot(currentSnapshot(), skuId, fromUnit, toUnit, relationId) }
+function materialUnitFactorInSnapshot(snapshot: MaterialArchiveStoreSnapshot, skuId: string, fromUnit: string, toUnit: string, relationId?: string): number | null {
+  const sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!sku) return null
+  const main = canonicalMaterialUnit(sku.mainUnit || sku.pricingUnit), from = canonicalMaterialUnit(fromUnit), to = canonicalMaterialUnit(toUnit)
+  const relations = (snapshot.unitRelations || []).filter(item => item.materialSkuId === skuId && (relationId || item.status === 'ACTIVE'))
+  const perMain = (unit: string): number | null => {
+    if (unit === main) return 1
+    const fixed = fixedMaterialFactor(unit, main)
+    if (fixed !== null) return fixed
+    const matches = relations.filter(item => canonicalMaterialUnit(item.auxUnitId) === unit && (!relationId || item.relationId === relationId))
+    if (matches.length === 1) return matches[0].mainQtyPerAux
+    const legacy = sku.unitConversions?.find(item => canonicalMaterialUnit(item.fromUnit) === unit && canonicalMaterialUnit(item.toUnit) === main)
+    return legacy?.factor || null
+  }
+  const a = perMain(from), b = perMain(to)
+  return a === null || b === null ? null : a / b
+}
+export function listMaterialPackageSpecs(skuId: string, history = false): MaterialPackageSpec[] {
+  return (currentSnapshot().packages || []).filter(item => item.ownerSkuId === skuId && (history || item.status === 'ACTIVE')).map(item => structuredClone(item))
+}
+export function saveMaterialPackageSpec(skuId: string, input: Omit<MaterialPackageSpec, 'ownerSkuId'|'version'|'packageSpecId'> & { packageSpecId?: string }): MaterialPackageSpec {
+  const snapshot = loadSnapshot(), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!sku) throw new Error('物料 SKU 不存在。')
+  const root = snapshot.records.find(item => item.materialId === sku.materialId)!
+  validateMaterialBoundFields(getMaterialTemplateByVersion(root.templateId!, root.templateVersion || 1), 'package', { ...input, netWeightPerMainKg: sku.netWeightPerMainKg, volumeM3: materialPackageVolume(input) }, true)
+  if (!Number.isFinite(input.contentQty) || input.contentQty <= 0 || !input.contentUnitId || !input.packageTypeId) throw new Error('请填写包装类型、正数含量及含量单位。')
+  const precision=listMaterialUnitDefinitions().find(item=>item.code===canonicalMaterialUnit(input.contentUnitId))?.precision
+  if(precision!==undefined && Math.abs(input.contentQty-Number(input.contentQty.toFixed(precision)))>1e-9)throw new Error('包装含量的小数位超过该单位允许的数量精度。')
+  if([input.lengthCm,input.widthCm,input.heightCm].some(value=>value!==null&&(!Number.isFinite(value)||value<=0)))throw new Error('已填写的包装尺寸必须为正值；未知请留空。')
+  const factor = getMaterialUnitFactor(skuId, input.contentUnitId, sku.mainUnit!)
+  if (factor === null) throw new Error('包装含量单位尚无对应主单位换算依据。')
+  const previous = snapshot.packages?.find(item => item.packageSpecId === input.packageSpecId)
+  if (previous && previous.ownerSkuId !== skuId) throw new Error('包装规格不属于当前 SKU。')
+  if (!input.measurementBasis.trim()) throw new Error('请填写包装计量依据。')
+  const pack: MaterialPackageSpec = { ...input, packageSpecId: nowId('material-package'), ownerSkuId: skuId, volumeM3: materialPackageVolume(input), version: (previous?.version || 0) + 1 }
+  if (pack.grossWeightKg !== null && (!Number.isFinite(pack.grossWeightKg) || pack.grossWeightKg <= 0)) throw new Error('包装毛重必须为正值；未知请留空。')
+  if (previous) previous.status = 'INACTIVE'
+  snapshot.packages ||= []; snapshot.packages.push(pack)
+  snapshot.unitRelations ||= []; snapshot.unitRelations.push({ relationId: nowId('material-unit'), materialSkuId: skuId, auxUnitId: pack.packageTypeId,
+    mainQtyPerAux: materialDecimalMultiply(input.contentQty, factor), basisType: 'PACKAGE', basisReference: `${pack.contentQty} ${pack.contentUnitId}/包装`, packageSpecId: pack.packageSpecId,
+    uses: ['PURCHASE', 'ISSUE'], isDefaultForUse: [], status: 'ACTIVE', version: pack.version, changeReason: '包装标准含量', createdAt: nowText() })
+  if (previous) snapshot.unitRelations.filter(item => item.packageSpecId === previous.packageSpecId).forEach(item => item.status = 'INACTIVE')
+  log(snapshot, sku.materialId, '维护包装规格', `${pack.packageTypeId}（${pack.contentQty} ${pack.contentUnitId}）；未改变 SKU 身份`); persistSnapshot(snapshot)
+  return structuredClone(pack)
+}
+export function listMaterialCostVersions(skuId: string): MaterialStandardCostVersion[] {
+  return (currentSnapshot().costVersions || []).filter(item => item.materialSkuId === skuId).map(item => structuredClone(item))
+}
+function calculateCost(snapshot: MaterialArchiveStoreSnapshot, skuId: string, memo: Map<string, MaterialCostSnapshot>, visiting = new Set<string>(), index = materialReadIndex(snapshot)): MaterialCostSnapshot {
+  const cached = memo.get(skuId); if (cached) return cached
+  if (visiting.has(skuId)) throw new Error('成本依赖出现循环，请核对加工前驱。')
+  visiting.add(skuId)
+  const sku = index.skus.get(skuId)
+  if (!sku) throw new Error('物料 SKU 不存在。')
+  const current = index.costs.get(skuId)
+  const result: MaterialCostSnapshot = { materialSkuId: skuId, costVersionId: current?.costVersionId || '', pricingUnit: current?.pricingUnit || sku.pricingUnit,
+    totalStandardCny: null, completeness: [], lines: [], adoptedVersionIds: current ? [current.costVersionId] : [], evaluatedAt: current?.effectiveAt || sku.updatedAt }
+  if (sku.inputSkuId) {
+    const upstream = calculateCost(snapshot, sku.inputSkuId, memo, visiting, index)
+    result.adoptedVersionIds = [...upstream.adoptedVersionIds, ...result.adoptedVersionIds]
+    const unitReferenceId = snapshot.processDefinitions?.find(item => item.outputSkuId === skuId)?.unitBridgeVersionId
+    const referencedRelation = unitReferenceId ? snapshot.unitRelations?.find(item => item.relationId === unitReferenceId && item.materialSkuId === sku.inputSkuId) : undefined
+    const currentRelation = referencedRelation ? snapshot.unitRelations?.find(item => item.materialSkuId === referencedRelation.materialSkuId && item.status === 'ACTIVE' && item.auxUnitId === referencedRelation.auxUnitId && (item.packageSpecId || '') === (referencedRelation.packageSpecId || '')) : undefined
+    const factor = unitReferenceId && !currentRelation ? null : materialUnitFactorInSnapshot(snapshot, sku.inputSkuId, result.pricingUnit, upstream.pricingUnit, currentRelation?.relationId)
+    if (currentRelation) result.adoptedVersionIds.push(`unit:${currentRelation.relationId}`)
+    else if (!unitReferenceId) {
+      const main = snapshot.skuRecords.find(item => item.materialSkuId === sku.inputSkuId)?.mainUnit
+      for (const unit of [result.pricingUnit, upstream.pricingUnit]) {
+        const used = snapshot.unitRelations?.filter(item => item.materialSkuId === sku.inputSkuId && item.status === 'ACTIVE' && canonicalMaterialUnit(item.auxUnitId) === canonicalMaterialUnit(unit)) || []
+        if (main && fixedMaterialFactor(unit, main) === null && used.length === 1) result.adoptedVersionIds.push(`unit:${used[0].relationId}`)
+      }
+    }
+    if (upstream.completeness.length) result.completeness.push('上道成本不完整')
+    if (factor === null) result.completeness.push('缺单位关系')
+    result.lines = upstream.lines.map(line => ({ ...line, amountCny: line.amountCny !== null && factor !== null ? materialDecimalMultiply(line.amountCny, factor) : null, pricingUnit: result.pricingUnit }))
+    const fee = current?.processStandardCny ?? null
+    if (fee === null) result.completeness.push('缺加工费')
+    result.lines.push({ materialSkuId: skuId, costVersionId: current?.costVersionId || '', title: `${MATERIAL_PROCESS_NAMES[sku.stage as keyof typeof MATERIAL_PROCESS_NAMES] || '加工'}费（含辅材）`, amountCny: fee, pricingUnit: result.pricingUnit, kind: 'PROCESS' })
+    if (!result.completeness.length && upstream.totalStandardCny !== null && factor !== null && fee !== null) result.totalStandardCny = materialDecimalAdd(materialDecimalMultiply(upstream.totalStandardCny, factor), fee)
+  } else {
+    const purchase = current?.purchaseStandardCny ?? null, transport = current?.purchaseIncludesTransport ? 0 : current?.transportStandardCny ?? null
+    if (purchase === null) result.completeness.push('缺采购价')
+    if (transport === null) result.completeness.push('缺基础运输')
+    result.lines = [ { materialSkuId: skuId, costVersionId: current?.costVersionId || '', title: '人工标准采购成本', amountCny: purchase, pricingUnit: result.pricingUnit, kind: 'PURCHASE' },
+      { materialSkuId: skuId, costVersionId: current?.costVersionId || '', title: current?.purchaseIncludesTransport ? '基础运输（采购价已含）' : '基础标准运输成本', amountCny: transport, pricingUnit: result.pricingUnit, kind: 'TRANSPORT' } ]
+    if (purchase !== null && transport !== null) result.totalStandardCny = materialDecimalAdd(purchase, transport)
+  }
+  visiting.delete(skuId); memo.set(skuId, result); return result
+}
+export function getMaterialStandardCost(skuId: string): MaterialCostSnapshot { const snapshot = currentSnapshot(), index = materialReadIndex(snapshot); return structuredClone(calculateCost(snapshot, skuId, index.calculatedCosts, new Set(), index)) }
+export function freezeMaterialCostSnapshot(skuId: string): MaterialCostSnapshot { return getMaterialStandardCost(skuId) }
+export function readMaterialCostReference(skuId: string, frozen?: MaterialCostSnapshot, frozenVersion = false) {
+  if (frozenVersion && frozen) return { ...structuredClone(frozen), changed: false, frozen: true }
+  const current = getMaterialStandardCost(skuId)
+  return { ...current, changed: Boolean(frozen && JSON.stringify(frozen.adoptedVersionIds) !== JSON.stringify(current.adoptedVersionIds)), frozen: false }
+}
+export function materialStandardCostDisplay(skuId: string, currency: 'CNY'|'IDR'|'USD', rate?: number) {
+  const cost = getMaterialStandardCost(skuId)
+  if (currency !== 'CNY' && (!rate || !Number.isFinite(rate) || rate <= 0)) return { ...cost, displayCurrency: currency, displayAmount: null, message: '未配置汇率' }
+  return { ...cost, displayCurrency: currency, displayAmount: cost.totalStandardCny === null ? null : materialDecimalMultiply(cost.totalStandardCny, currency === 'CNY' ? 1 : rate!), message: '' }
+}
+function prepareMaterialStandardCost(snapshot: MaterialArchiveStoreSnapshot, sku: MaterialSkuRecord, input: Partial<MaterialStandardCostVersion>, costVersionId: string): MaterialStandardCostVersion {
+  const skuId = sku.materialSkuId
+  const previous = snapshot.costVersions?.filter(item => item.materialSkuId === skuId).at(-1)
+  const next: MaterialStandardCostVersion = { costVersionId: costVersionId, materialSkuId: skuId,
+    purchaseStandardCny: materialMoney(input.purchaseStandardCny === undefined ? previous?.purchaseStandardCny : input.purchaseStandardCny),
+    transportStandardCny: materialMoney(input.transportStandardCny === undefined ? previous?.transportStandardCny : input.transportStandardCny),
+    processStandardCny: materialMoney(input.processStandardCny === undefined ? previous?.processStandardCny : input.processStandardCny),
+    purchaseIncludesTransport: input.purchaseIncludesTransport ?? previous?.purchaseIncludesTransport ?? false,
+    pricingUnit: input.pricingUnit || previous?.pricingUnit || sku.pricingUnit, pricingUnitRelationId: input.pricingUnitRelationId || (input.pricingUnit && canonicalMaterialUnit(input.pricingUnit) !== canonicalMaterialUnit(previous?.pricingUnit || '') || !snapshot.unitRelations?.some(item=>item.relationId===previous?.pricingUnitRelationId&&item.status==='ACTIVE') ? undefined : previous?.pricingUnitRelationId),
+    sourceMoney: input.sourceMoney, taxIncluded: true, effectiveAt: nowText(), changeReason: input.changeReason || '预览', operatorName: input.operatorName || '商品中心管理员' }
+  next.pricingUnitRelationId = resolveMaterialPricingRelation(snapshot, sku, next.pricingUnit, next.pricingUnitRelationId)
+  if (sku.inputSkuId && (input.purchaseStandardCny !== undefined && input.purchaseStandardCny !== null || input.transportStandardCny !== undefined && input.transportStandardCny !== null)) throw new Error('加工阶段只维护本道加工费，采购和基础运输承接前驱；后段运输不纳入。')
+  if (materialUnitFactorInSnapshot(snapshot, skuId, next.pricingUnit, sku.mainUnit || sku.pricingUnit, next.pricingUnitRelationId) === null) throw new Error('计价单位缺少有效换算关系。')
+  if (next.sourceMoney) {
+    const amount = Number(next.sourceMoney.amount), fx = Number(next.sourceMoney.cnyPerSourceCurrency)
+    if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(fx) || fx <= 0 || !next.sourceMoney.normalizationBasis.trim()) throw new Error('原币金额需保留有效金额、固定折算率及归一依据。')
+    const unitFactor = materialUnitFactorInSnapshot(snapshot, skuId, next.pricingUnit, next.sourceMoney.unit)
+    if (unitFactor === null) throw new Error('原报价单位缺少换算依据。')
+    const normalized = materialDecimalMultiply(materialDecimalMultiply(amount, fx), unitFactor)
+    if (sku.inputSkuId) next.processStandardCny = normalized; else next.purchaseStandardCny = normalized
+  }
+  if (next.purchaseIncludesTransport) next.transportStandardCny = 0
+  return next
+}
+function resolveMaterialPricingRelation(snapshot: MaterialArchiveStoreSnapshot, sku: MaterialSkuRecord, pricingUnit: string, relationId?: string): string | undefined {
+  const main = canonicalMaterialUnit(sku.mainUnit || sku.pricingUnit), unit = canonicalMaterialUnit(pricingUnit)
+  if (relationId) {
+    const selected = snapshot.unitRelations?.find(item => item.relationId === relationId && item.materialSkuId === sku.materialSkuId)
+    if (!selected || selected.status !== 'ACTIVE' || !selected.uses.includes('PRICING') || canonicalMaterialUnit(selected.auxUnitId) !== unit) throw new Error('请选择属于本 SKU、已启用且适用于当前计价单位的计价关系。')
+    return selected.relationId
+  }
+  if (unit === main || fixedMaterialFactor(unit, main) !== null) return undefined
+  const candidates = (snapshot.unitRelations || []).filter(item => item.materialSkuId === sku.materialSkuId && item.status === 'ACTIVE' && item.uses.includes('PRICING') && canonicalMaterialUnit(item.auxUnitId) === unit)
+  const selected = candidates.find(item => item.isDefaultForUse.includes('PRICING')) || (candidates.length === 1 ? candidates[0] : undefined)
+  if (!selected) throw new Error('计价单位缺少唯一有效的计价用途关系，请在计量单位中设置。')
+  return selected.relationId
+}
+export function getMaterialPricingRelationId(skuId: string, pricingUnit: string, relationId?: string): string | undefined {
+  const source = currentSnapshot(), sku = source.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!sku) throw new Error('物料 SKU 不存在。')
+  return resolveMaterialPricingRelation(source, sku, pricingUnit, relationId)
+}
+export function previewMaterialCostChange(skuId: string, input: Partial<MaterialStandardCostVersion>): Array<{ materialSkuId: string; before: number | null; after: number | null }> {
+  return previewMaterialCostChangeInSnapshot(currentSnapshot(), skuId, input)
+}
+/** Pure cost projection for the supplied facts; never publishes versions or changes repository state. */
+export function previewMaterialCostChangeInSnapshot(source: MaterialArchiveStoreSnapshot, skuId: string, input: Partial<MaterialStandardCostVersion>): Array<{ materialSkuId: string; before: number | null; after: number | null }> {
+  const snapshot = cloneSnapshot(source), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!sku) throw new Error('标准成本对象不存在。')
+  const next = prepareMaterialStandardCost(snapshot, sku, input, 'preview')
+  const descendants = new Map<string,string[]>()
+  for (const item of snapshot.skuRecords) if (item.inputSkuId) descendants.set(item.inputSkuId, [...(descendants.get(item.inputSkuId) || []), item.materialSkuId])
+  const ids = [skuId], seen = new Set(ids)
+  for (let index=0; index<ids.length; index++) for (const id of descendants.get(ids[index]) || []) { if(seen.has(id)) throw new Error('成本依赖出现循环，请核对加工前驱。'); seen.add(id); ids.push(id) }
+  const beforeMemo = new Map<string,MaterialCostSnapshot>(), previous = new Map(ids.map(id => [id, calculateCost(snapshot, id, beforeMemo).totalStandardCny]))
+  snapshot.costVersions ||= []; snapshot.costVersions.push(next)
+  const memo = new Map<string, MaterialCostSnapshot>()
+  return ids.map(id => ({ materialSkuId: id, before: previous.get(id) ?? null, after: calculateCost(snapshot,id,memo).totalStandardCny }))
+}
+export function saveMaterialStandardCost(skuId: string, input: Partial<MaterialStandardCostVersion> & { changeReason: string }): MaterialCostSnapshot {
+  const snapshot = loadSnapshot(), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!sku) throw new Error('物料 SKU 不存在。')
+  if (!input.changeReason.trim()) throw new Error('请填写标准成本调整原因。')
+  const next = prepareMaterialStandardCost(snapshot, sku, input, nowId('material-cost'))
+  snapshot.costVersions ||= []; snapshot.costVersions.push(next); sku.currentCostVersionId = next.costVersionId; sku.pricingUnit = next.pricingUnit
+  log(snapshot, sku.materialId, '修改标准成本', `${sku.materialSkuCode}：${input.changeReason}；保存后当前下游标准自动采用。`)
+  persistSnapshot(snapshot)
+  return getMaterialStandardCost(skuId)
+}
+export function listMaterialAssets(materialId: string, skuId?: string): MaterialAsset[] {
+  return (currentSnapshot().assets || []).filter(item => item.materialId === materialId && (!skuId || item.materialSkuId === skuId)).map(item => structuredClone(item)).sort((a,b)=>(a.sortOrder??0)-(b.sortOrder??0))
+}
+export function validateMaterialAssetFile(input: { fileName: string; mimeType: string; sizeBytes: number; role: MaterialAsset['role'] }): void {
+  const imageRole = ['IDENTIFICATION','INPUT','PATTERN','COLOR_SAMPLE'].includes(input.role), extension = input.fileName.split('.').at(-1)?.toLowerCase() || ''
+  if (!Number.isInteger(input.sizeBytes) || input.sizeBytes <= 0 || input.sizeBytes > 25 * 1024 * 1024) throw new Error('资料文件需大于 0 且不超过 25 MB。')
+  if (imageRole ? !['jpg','jpeg','png','webp','gif'].includes(extension) || !input.mimeType.startsWith('image/') : !['jpg','jpeg','png','webp','gif','svg','pdf','ai','psd','eps','tif','tiff','dst','emb','pes','dxf','plt','prj','xlsx','csv','docx','txt','zip'].includes(extension)) throw new Error(imageRole ? '识别图、花型图与确认色样请选择 JPG、PNG、WebP 或 GIF 图片。' : '请选择受支持的图片、技术文件或执行资料格式。')
+}
+export function addMaterialAsset(input: Omit<MaterialAsset,'assetId'|'version'|'createdAt'>): MaterialAsset {
+  if (!input.name.trim() || !input.url) throw new Error('资料名称与文件不可为空。')
+  getPcsDurableFileReference(input.url)
+  if (input.fileName !== undefined && input.sizeBytes !== undefined) validateMaterialAssetFile({fileName:input.fileName,mimeType:input.mimeType||'',sizeBytes:input.sizeBytes,role:input.role})
+  const snapshot = loadSnapshot()
+  if (!snapshot.records.some(root => root.materialId === input.materialId)) throw new Error('物料主档不存在。')
+  if (input.materialSkuId && !snapshot.skuRecords.some(sku => sku.materialSkuId === input.materialSkuId && sku.materialId === input.materialId)) throw new Error('资料所属 SKU 与主档不一致。')
+  const asset: MaterialAsset = { ...input, assetId: nowId('material-asset'), version: 1, sortOrder: input.sortOrder ?? (snapshot.assets || []).filter(item=>item.materialId===input.materialId&&item.materialSkuId===input.materialSkuId).length, createdAt: nowText() }
+  snapshot.assets ||= []; snapshot.assets.push(asset); log(snapshot,input.materialId,'新增资料',`${input.name}（${input.role}）`); persistSnapshot(snapshot); return asset
+}
+export function reviseMaterialProcessAssets(skuId: string, executionAssetIds: string[], processVersionId: string): void {
+  const snapshot = loadSnapshot(), process = snapshot.processDefinitions?.find(item => item.outputSkuId === skuId), sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  if (!process || !sku) throw new Error('加工定义不存在。')
+  if (!executionAssetIds.length || !processVersionId.trim()) throw new Error('请明确资料版本及执行资料。')
+  const role = process.processType === 'PRINTING' ? 'PRINT_FILE' : process.processType === 'EMBROIDERY' ? 'EMBROIDERY_FILE' : process.processType === 'HEAT_TRANSFER' ? 'HEAT_TRANSFER_FILE' : 'SPECIFICATION'
+  if (executionAssetIds.some(id => !snapshot.assets?.some(asset => asset.assetId === id && asset.materialId === sku.materialId && asset.role === role))) throw new Error('执行资料必须属于当前物料，并与该加工工艺的资料用途一致。')
+  const changed = JSON.stringify(process.executionAssetIds) !== JSON.stringify(executionAssetIds)
+  if (!changed && process.processVersionId === processVersionId) return
+  if (process.executionAssetIds.length && process.processVersionId === processVersionId) throw new Error('替换或增加执行资料时请填写新的资料版本；原版本会保留。')
+  if (process.documentHistory?.some(item => item.processVersionId === processVersionId)) throw new Error('该资料版本已经存在，请填写新的版本。')
+  if (process.executionAssetIds.length) { process.documentHistory ||= []; process.documentHistory.push({processVersionId:process.processVersionId,executionAssetIds:[...process.executionAssetIds],replacedAt:nowText()}) }
+  process.executionAssetIds = [...executionAssetIds]; process.processVersionId = processVersionId
+  log(snapshot, sku.materialId, '修正加工资料', `${sku.materialSkuCode}；交付身份不变，资料版本 ${processVersionId}`); persistSnapshot(snapshot)
 }

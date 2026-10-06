@@ -1,5 +1,5 @@
 import { hasPcsRecordSnapshot } from './pcs-record-runtime.ts'
-import { pcsRecordStore, withPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
+import { pcsRecordStore, withPcsDemoData, isPcsDemoData, registerPcsRepositoryReset } from './pcs-record-runtime.ts'
 import { cloneWebbingSpecifications } from './fcs/webbing-specifications.ts'
 import { createTechnicalDataVersionBootstrapSnapshot } from './pcs-technical-data-version-bootstrap.ts'
 import { assertEngineeringBomPricingSnapshotValid } from './pcs-engineering-bom-snapshot-validation.ts'
@@ -7,8 +7,11 @@ import { getLatestPcsExchangeRate } from './pcs-exchange-rate-config.ts'
 import { resolveEngineeringLinkedPartTemplateVersions } from './pcs-engineering-bom-snapshot-source.ts'
 import {
   MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
+  captureEngineeringBomMaterialReference,
   resolveEngineeringBomMaterialLine,
 } from './pcs-engineering-bom-material-resolver.ts'
+import { projectLegacySkuMaterialIntent } from './pcs-engineering-bom-legacy-intent.ts'
+import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
 import type { EngineeringBomPricingSnapshot } from './pcs-engineering-bom-types.ts'
 import { getEngineeringMasterOrderById } from './pcs-engineering-master-repository.ts'
 import { getStyleArchiveById } from './pcs-style-archive-repository.ts'
@@ -163,7 +166,7 @@ function cloneSizeTable(items: TechnicalSizeRow[]): TechnicalSizeRow[] {
 
 function cloneBomItems(items: TechnicalBomItem[]): TechnicalBomItem[] {
   return items.map((item) => ({
-    ...item,
+    ...structuredClone(item),
     applicableSkuCodes: [...(item.applicableSkuCodes ?? [])],
     linkedPatternIds: [...(item.linkedPatternIds ?? [])],
     usageProcessCodes: [...(item.usageProcessCodes ?? [])],
@@ -264,11 +267,11 @@ function normalizeBomPricingSnapshot(
   if (!materialPriceSnapshots) return undefined
   return {
     ...snapshot,
-    materialLines: snapshot.materialLines.map((item) => ({ ...item })),
+    materialLines: structuredClone(snapshot.materialLines),
     customCosts: snapshot.customCosts.map((item) => ({ ...item })),
     cost: { ...snapshot.cost },
     bomItems,
-    materialPriceSnapshots,
+    materialPriceSnapshots: structuredClone(materialPriceSnapshots),
     customCostsIdr: Array.isArray(snapshot.customCostsIdr)
       ? snapshot.customCostsIdr.map((item) => ({ ...item }))
       : snapshot.customCosts.map((item) => ({ ...item })),
@@ -284,6 +287,7 @@ function normalizeBomPricingSnapshot(
 function cloneContent(content: TechnicalDataVersionContent): TechnicalDataVersionContent {
   return {
     technicalVersionId: content.technicalVersionId,
+    legacySkuIntentSourceIds: [...(content.legacySkuIntentSourceIds || [])],
     patternFiles: clonePatternFiles(content.patternFiles),
     patternDesc: content.patternDesc,
     processEntries: cloneProcessEntries(content.processEntries),
@@ -571,6 +575,7 @@ function normalizeContent(content: TechnicalDataVersionContent): TechnicalDataVe
   })
   return {
     technicalVersionId: content.technicalVersionId,
+    legacySkuIntentSourceIds: [...(content.legacySkuIntentSourceIds || [])],
     patternFiles: clonePatternFiles(Array.isArray(content.patternFiles) ? content.patternFiles : []),
     patternDesc: content.patternDesc || '',
     processEntries: normalizeProcessEntries(routeMigration.entries),
@@ -874,6 +879,7 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
     }
     const parsed = JSON.parse(raw) as Partial<TechnicalDataVersionStoreSnapshot>
     if (!Array.isArray(parsed.records) || !Array.isArray(parsed.contents) || !Array.isArray(parsed.pendingItems)) {
+      if (typeof window !== 'undefined' && !isPcsDemoData()) throw new Error('技术资料格式不完整，原有资料已保留，请重新读取。')
       memorySnapshot = withPcsDemoData(() => seedSnapshot())
       return cloneSnapshot(memorySnapshot)
     }
@@ -887,7 +893,8 @@ function loadSnapshot(): TechnicalDataVersionStoreSnapshot {
       }),
     )
     return cloneSnapshot(memorySnapshot)
-  } catch {
+  } catch (error) {
+    if (typeof window !== 'undefined' && !isPcsDemoData()) throw error
     memorySnapshot = withPcsDemoData(() => seedSnapshot())
     return cloneSnapshot(memorySnapshot)
   }
@@ -953,12 +960,13 @@ export function getTechnicalDataVersionContent(technicalVersionId: string): Tech
   const content = snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId)
   if (!content) return null
   const record = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
-  if (record?.versionStatus === 'PUBLISHED') return cloneContent(content)
+  if (record?.versionStatus !== 'DRAFT') return cloneContent(content)
+  // 兼容引用只作读取投影，保存草稿时才写入；普通访问不能迁移或改写记录。
   const mapped = mapLegacyBomItemsToBaseVariants(content.bomItems)
-  if (mapped.some((item, index) => item.variantId !== content.bomItems[index]?.variantId)) {
-    return persistTechnicalDataVersionContentPatch(technicalVersionId, { bomItems: mapped })
-  }
-  return cloneContent(content)
+  const projected = record?.styleId
+    ? projectLegacySkuMaterialIntent(mapped, listSkuArchivesByStyleId(record.styleId), content.legacySkuIntentSourceIds)
+    : { bomItems: mapped, sourceIds: content.legacySkuIntentSourceIds || [] }
+  return cloneContent({ ...content, bomItems: projected.bomItems, legacySkuIntentSourceIds: projected.sourceIds })
 }
 
 export function getTechnicalDataVersionContentById(technicalVersionId: string): TechnicalDataVersionContent | null {
@@ -1128,8 +1136,8 @@ function buildPublishedTechnicalDataVersionBomPricingSnapshot(
   technicalVersionId: string,
   frozenAt: string,
   frozenBy: string,
+  snapshot: TechnicalDataVersionStoreSnapshot = loadSnapshot(),
 ): EngineeringBomPricingSnapshot {
-  const snapshot = loadSnapshot()
   const record = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
   if (
     !record
@@ -1155,6 +1163,9 @@ function buildPublishedTechnicalDataVersionBomPricingSnapshot(
       sampleQuantity: item.sampleQuantity ?? 1,
       usageUnit: item.unit || '',
       lossRate: item.lossRate,
+      materialCostReference: item.materialCostReference,
+      costReferenceMode: 'FROZEN',
+      unitConversionReference: item.unitConversionReference,
     })
     if (resolved.standardUnitPriceCny === null || resolved.materialCostCny === null) {
       throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
@@ -1221,6 +1232,13 @@ export function freezePublishedTechnicalDataVersionBomPricingSnapshot(
   frozenAt: string,
   frozenBy: string,
 ): EngineeringBomPricingSnapshot {
+  const record = getTechnicalDataVersionById(technicalVersionId)
+  if (record?.versionStatus !== 'PUBLISHED') throw new Error('只有已发布技术包才能引用正式成本快照。')
+  const existing = getTechnicalDataVersionContent(technicalVersionId)?.bomPricingSnapshot
+  if (existing) {
+    assertEngineeringBomPricingSnapshotValid(existing)
+    return structuredClone(existing)
+  }
   const bomPricingSnapshot = buildPublishedTechnicalDataVersionBomPricingSnapshot(
     technicalVersionId,
     frozenAt,
@@ -1252,13 +1270,19 @@ export function publishTechnicalDataVersionRecord(
   const snapshot = loadSnapshot()
   const target = snapshot.records.find((item) => item.technicalVersionId === technicalVersionId)
   if (!target) return null
-  const content =
-    snapshot.contents.find((item) => item.technicalVersionId === technicalVersionId) ??
-    createEmptyContent(technicalVersionId)
+  const content = getTechnicalDataVersionContent(technicalVersionId) ?? createEmptyContent(technicalVersionId)
   assertTechnicalDataReadyForPublish(content)
   if (isNewEngineeringTechnicalVersion(target) && content.bomPricingSnapshot) {
     throw new Error('新工程来源技术包存在预置正式 BOM/COST 快照，通用发布入口禁止发布。')
   }
+  if (target.versionStatus !== 'DRAFT') throw new Error('只有草稿技术包版本才能发布。')
+  const frozenContent = cloneContent(content)
+  frozenContent.bomItems = frozenContent.bomItems.map(item => {
+    if (!item.materialSkuId) return item // 保留没有新价格引用的历史技术字段。
+    const line = captureEngineeringBomMaterialReference({ materialSkuId: item.materialSkuId, usage: item.unitConsumption, sampleQuantity: item.sampleQuantity ?? 1, usageUnit: item.unit || '', lossRate: item.lossRate }, 'FROZEN')
+    if (line.materialCostReference?.totalStandardCny === null || line.materialCostReference?.completeness.length) throw new Error(MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE)
+    return { ...item, materialCostReference: line.materialCostReference, costReferenceMode: line.costReferenceMode, unitConversionReference: line.unitConversionReference }
+  })
   const nextRecords = snapshot.records.map((item) =>
     item.technicalVersionId === technicalVersionId
       ? normalizeRecord(
@@ -1270,14 +1294,15 @@ export function publishTechnicalDataVersionRecord(
             updatedAt: publishedAt,
             updatedBy: publishedBy,
           },
-          new Map([[technicalVersionId, content]]),
+          new Map([[technicalVersionId, frozenContent]]),
         )
       : item,
   )
-  persistSnapshot({
-    ...snapshot,
-    records: nextRecords,
-  })
+  const nextSnapshot = { ...snapshot, records: nextRecords, contents: snapshot.contents.map(item => item.technicalVersionId === technicalVersionId ? frozenContent : item) }
+  if (isNewEngineeringTechnicalVersion(target) && frozenContent.bomItems.some(item => item.materialSkuId)) {
+    frozenContent.bomPricingSnapshot = buildPublishedTechnicalDataVersionBomPricingSnapshot(technicalVersionId, publishedAt, publishedBy, nextSnapshot)
+  }
+  persistSnapshot(nextSnapshot)
   return getTechnicalDataVersionById(technicalVersionId)
 }
 

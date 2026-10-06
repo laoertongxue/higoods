@@ -26,8 +26,6 @@ export const routes: RouteRegistry = {
     '/pcs/production-preparation/color': () => renderers.renderPcsColorTaskPage(),
     '/pcs/production-preparation/purchase': () => renderers.renderPcsPurchaseTaskPage(),
     '/pcs/production-preparation/tech-pack': () => renderers.renderPcsTechPackTaskPage(),
-    '/pcs/channels/products': () => renderers.renderPcsChannelProductListPage(),
-    '/pcs/channels/products/store': () => renderers.renderPcsChannelProductListPage(),
     '/pcs/channels/stores': () => renderers.renderPcsChannelStoreListPage(),
     '/pcs/channels/stores/sync': () => renderers.renderPcsChannelStoreSyncPage(),
     '/pcs/samples': () => renderRouteRedirect('/pcs/samples/inventory', '正在跳转到样衣库存'),
@@ -49,6 +47,10 @@ export const routes: RouteRegistry = {
     '/pcs/pattern-library': () => renderers.renderPcsPatternLibraryPage(),
     '/pcs/pattern-library/create': () => renderers.renderPcsPatternLibraryCreatePage(),
     '/pcs/pattern-library/config': () => renderers.renderPcsPatternLibraryConfigPage(),
+    '/pcs/products/styles/new': () => renderers.renderPcsStyleArchiveEditPage(),
+    '/pcs/products/specifications/new': () => renderers.renderPcsSpecificationEditPage(),
+    '/pcs/products/channel-products/new': () => renderers.renderPcsChannelProductEditPage(),
+    '/pcs/channels/stores/new': () => renderers.renderPcsChannelStoreEditPage(),
     '/pcs/products/styles': () => renderers.renderPcsStyleArchiveListPage(),
     '/pcs/testing/orders/create': () => renderers.renderPcsTestingOrderCreatePage(),
     '/pcs/testing/orders': () => renderers.renderPcsTestingOrderListPage(),
@@ -75,6 +77,15 @@ export const routes: RouteRegistry = {
     '/pcs/settings/platforms': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
   },
   dynamicRoutes: [
+    { pattern: /^\/pcs\/products\/styles\/([^/]+)\/edit$/, render: m => renderers.renderPcsStyleArchiveEditPage(m[1]) },
+    { pattern: /^\/pcs\/products\/specifications\/([^/]+)\/edit$/, render: m => renderers.renderPcsSpecificationEditPage(m[1]) },
+    { pattern: /^\/pcs\/products\/channel-products\/([^/]+)\/edit$/, render: m => renderers.renderPcsChannelProductEditPage(m[1]) },
+    { pattern: /^\/pcs\/channels\/stores\/([^/]+)\/edit$/, render: m => renderers.renderPcsChannelStoreEditPage(m[1]) },
+    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/edit$/, render: m => renderers.renderPcsMaterialArchiveEditPage(m[1], m[2]) },
+    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/new$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2]) },
+    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)\/edit$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3]) },
+    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)\/process$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3], true) },
+    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)$/, render: m => renderers.renderPcsMaterialSkuDetailPage(m[1], m[2], m[3]) },
     {
       pattern: /^\/pcs\/technical-data\/bom-pricing\/owner\/([^/]+)\/([^/]+)$/,
       render: (match) => renderers.renderPcsTechnicalDataBomPricingPlanPage(match[1], match[2]),
@@ -102,10 +113,6 @@ export const routes: RouteRegistry = {
     {
       pattern: /^\/pcs\/production-preparation\/tech-pack\/([^/]+)$/,
       render: (match) => renderers.renderPcsTechPackTaskDetailPage(match[1]),
-    },
-    {
-      pattern: /^\/pcs\/channels\/products\/([^/]+)$/,
-      render: (match) => renderers.renderPcsChannelProductDetailPage(match[1]),
     },
     {
       pattern: /^\/pcs\/products\/channel-products\/([^/]+)$/,

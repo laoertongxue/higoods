@@ -54,11 +54,20 @@ export function refreshBomPricingWorkspaceLocally(input: {
     const line = lineByBomItemId.get(node.dataset.bomPricingRowCost || '')
     if (line) node.textContent = formatCny(line.materialCostCny)
   })
+  input.root.querySelectorAll<HTMLElement>('[data-bom-pricing-row-standard]').forEach(node => {
+    const line = lineByBomItemId.get(node.dataset.bomPricingRowStandard || '')
+    if (line) node.textContent = line.standardUnitPriceCny === null ? '-' : line.standardUnitPriceCny.toFixed(4)
+  })
   input.root.querySelectorAll<HTMLElement>('[data-bom-pricing-row-status]').forEach((node) => {
     const line = lineByBomItemId.get(node.dataset.bomPricingRowStatus || '')
     if (!line) return
-    node.textContent = line.priceStatus
+    node.textContent = line.standardCostChanged ? '参考已更新' : line.priceStatus
+    node.title = line.standardCostMessage || ''
     node.className = `rounded-full px-2 py-1 text-xs ${line.priceStatus === '有效' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`
+  })
+  input.root.querySelectorAll<HTMLElement>('[data-bom-pricing-row-reference]').forEach(node => {
+    const line = lineByBomItemId.get(node.dataset.bomPricingRowReference || '')
+    if (line) node.textContent = line.standardCostMessage || ''
   })
   updateBomPricingSummary(input.root, {
     'material-cost-cny': formatCny(input.workspace.cost.materialCostCny),
@@ -165,9 +174,9 @@ export function renderBomPricingWorkspace(input: {
                         <td class="px-3 py-2">${editor.unit}</td>
                         <td class="px-3 py-2">${escapeHtml(line.pricingUnit)}</td>
                         <td class="px-3 py-2 text-right">${line.conversionToPricingUnit > 0 ? line.conversionToPricingUnit.toFixed(4) : '-'}</td>
-                        <td class="px-3 py-2 text-right font-mono">${line.standardUnitPriceCny === null ? '-' : line.standardUnitPriceCny.toFixed(4)}</td>
+                        <td class="px-3 py-2 text-right font-mono" data-bom-pricing-row-standard="${escapeHtml(bomItemId)}">${line.standardUnitPriceCny === null ? '-' : line.standardUnitPriceCny.toFixed(4)}</td>
                         <td class="px-3 py-2 text-right font-medium" data-bom-pricing-row-cost="${escapeHtml(bomItemId)}">${formatCny(line.materialCostCny)}</td>
-                        <td class="sticky right-0 bg-card px-3 py-2"><span class="rounded-full px-2 py-1 text-xs ${line.priceStatus === '有效' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}" data-bom-pricing-row-status="${escapeHtml(bomItemId)}">${escapeHtml(line.priceStatus)}</span></td>
+                        <td class="sticky right-0 bg-card px-3 py-2"><span class="rounded-full px-2 py-1 text-xs ${line.priceStatus === '有效' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}" data-bom-pricing-row-status="${escapeHtml(bomItemId)}">${escapeHtml(line.standardCostChanged ? '参考已更新' : line.priceStatus)}</span><p class="mt-1 max-w-52 text-xs text-slate-500" data-bom-pricing-row-reference="${escapeHtml(bomItemId)}">${escapeHtml(line.standardCostMessage || '')}</p></td>
                       </tr>
                     `
                   }).join('')}

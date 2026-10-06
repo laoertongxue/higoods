@@ -1,0 +1,112 @@
+﻿id,name,type,value_count
+1,颜色,1,106
+2,尺码,1,138
+3,品类,2,35
+4,风格,2,13
+5,流行元素,2,32
+6,面料,2,24
+7,Type,5,320
+8,未发出货,3,11
+9,商品问题,4,16
+10,未收到货,3,7
+11,其他问题,3,7
+12,参数,3,77
+13,Colour,1,660
+14,Specification,1,729
+15,Size,1,364
+16,Pack Size,1,115
+17,Use,1,0
+18,Scent,1,1
+19,Set,1,0
+20,SPF,1,0
+21,Skin Type,1,0
+22,Flavour,1,0
+23,Volume,1,0
+24,Color,1,671
+25,Wattage,1,0
+26,Storage,1,0
+27,Model,1,0
+28,Edition,1,0
+29,Tool Type,1,0
+30,Twin,1,0
+31,With Battery,1,0
+32,With Maganet,1,0
+33,Power Consumption(W),1,0
+34,Battery Quantity,1,0
+35,Product Condition,1,0
+36,Battery in The Product,1,0
+37,Occasion,1,0
+38,Allergen Information,1,0
+39,Pack Type,1,0
+40,Ingredients,1,0
+41,Caution Warning,1,0
+42,Day or Night Use,1,0
+43,Franchise,1,0
+44,Magnetic,1,0
+45,Number of Batteries,1,0
+46,Adults or Kids,1,0
+47,Fit Machine Models,1,0
+48,Number of Chargers,1,0
+49,Gaming Focused,1,0
+50,Battery Capacity(mAh),1,0
+51,Storage Capacity,1,0
+52,Edge & Corner Guards Type,1,0
+53,Feature,1,0
+54,Power Consumption (W),1,0
+55,Input Voltage (V),1,0
+56,Max Recommended Weight (kg),1,0
+57,Racquet Stringing,1,0
+58,Length,1,0
+59,Sports Equipment Type,1,0
+60,Ball Size,1,0
+61,Weight,1,0
+62,Capacity,1,0
+63,Weight Capacity,1,0
+64,Min Focal Length (mm),1,0
+65,Age Warning,1,0
+66,Compatible Models,1,0
+67,With Pendant,1,0
+68,Product Dimension,1,0
+69,Clothing Type,1,0
+70,Integrated Graphics,1,0
+71,Wattage Rating,1,0
+72,Read Speed(Mb/s),1,0
+73,Hard Disk Casing Size(inches),1,0
+74,Modem Connectivity Speed(Mbps),1,0
+75,Antenna Type,1,0
+76,Number of Antennas,1,0
+77,Cable Length(m),1,0
+78,Input Voltage(V),1,0
+79,Volume Capacity(L),1,0
+80,Manufacturers,1,0
+81,Battery in Product,1,0
+82,Batteries Included,1,0
+83,Battery Capacity (mAh),1,0
+84,Bag Type,1,0
+85,Pixel,1,0
+86,Waterproof,1,0
+87,Camera Model,1,0
+88,Bundle Set,1,0
+89,Version,1,0
+90,Amplifier Type,1,0
+91,Compression Wear,1,0
+92,Power(W),1,0
+93,Smart Equipment,1,0
+94,Volume(L),1,0
+95,Helmet Size,1,0
+96,dress length,1,0
+97,khaki dress,1,0
+98,4,1,0
+99,5,1,0
+100,grey,1,0
+101,red coffee color,1,1
+102,Peacock blue,1,0
+103,Two-piece set,1,0
+104,Three-piece set,1,0
+105,537,1,0
+106,Material,6,91
+107,人群,2,3
+108,年龄,2,3
+109,定位,2,4
+110,风格编号,2,85
+111,111,1,0

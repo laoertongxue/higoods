@@ -1,0 +1,29 @@
+[
+  {
+    "brokenImages": 0,
+    "durationMs": 345.5,
+    "end": 345.5,
+    "images": 0,
+    "label": "navigation",
+    "start": 0,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 128.5,
+    "end": 17328.900000035763,
+    "images": 0,
+    "label": "物料100行:优化后预览",
+    "start": 17200.400000035763,
+    "url": "/pcs/materials/fabric"
+  },
+  {
+    "brokenImages": 0,
+    "durationMs": 551.1999999880791,
+    "end": 26669.5,
+    "images": 0,
+    "label": "物料100行:优化后完整保存",
+    "start": 26118.30000001192,
+    "url": "/pcs/materials/fabric"
+  }
+]
