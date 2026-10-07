@@ -104,3 +104,58 @@
 .pf-data-issue-actions small{margin-left:auto}
 /* An image error belongs below the modal header; it must never cover Close. */
 .pf-image-modal>.pf-image-error{position:static;inset:auto;padding:12px;border:1px solid #fecdd3;border-radius:5px;font-size:13px}
+
+/* Task review: identity and business decisions precede the complete technical network. */
+#pf-app.pf-task-detail .pf-detail-heading{padding:14px 16px;gap:16px}
+#pf-app .pf-task-identity{display:flex;align-items:center;gap:20px;min-width:0;flex:1}
+#pf-app .pf-task-identity>.pf-object{min-width:220px;max-width:330px}
+#pf-app .pf-task-identity .pf-object strong{font-size:14px;max-width:240px}
+#pf-app .pf-task-identity .pf-object small{font-size:12px}
+#pf-app.pf-task-detail .pf-detail-heading h2{font-size:17px}
+#pf-app.pf-task-detail .pf-detail-heading p{font-size:12px;line-height:1.6}
+#pf-app .pf-detail-utilities .pf-button{height:32px;min-height:32px;font-size:12px}
+#pf-app .pf-detail-utilities [data-pf-action=followup]{color:white;background:#2563eb;border-color:#2563eb}
+#pf-app .pf-detail-summary .pf-kpi{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;height:auto;min-height:86px;padding:10px 12px;gap:3px}
+#pf-app .pf-detail-summary .pf-kpi>span{white-space:normal;flex:none;width:auto;font-size:12px}
+#pf-app .pf-detail-summary .pf-kpi>b{font-size:18px;white-space:normal}
+#pf-app .pf-detail-summary .pf-kpi>small{flex:none;width:auto;font-size:11px;line-height:1.5;white-space:normal}
+#pf-app .pf-business-status{display:flex;align-items:center;justify-content:space-between;gap:18px;padding:12px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:7px;margin:12px 0;color:#1e3a5f}
+#pf-app .pf-business-status strong{font-size:15px}
+#pf-app .pf-business-status p{font-size:12px;line-height:1.7}
+#pf-app .pf-business-columns{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:14px;margin:12px 0}
+#pf-app .pf-business-card{background:white;border:1px solid #e2e8f0;border-radius:7px;min-width:0;overflow:hidden}
+#pf-app .pf-business-card>header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-bottom:1px solid #edf0f4}
+#pf-app .pf-business-card h3{font-size:14px;margin:0}
+#pf-app .pf-business-card>header>span{font-size:11px;color:#64748b}
+#pf-app .pf-review-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-bottom:1px solid #edf0f4}
+#pf-app .pf-review-item strong{font-size:13px}
+#pf-app .pf-review-item p{font-size:12px;color:#475569;line-height:1.65;margin:4px 0}
+#pf-app .pf-review-item small{font-size:11px}
+#pf-app .pf-review-item-actions{display:flex;flex-direction:column;gap:6px;flex:none}
+#pf-app .pf-review-item-actions .pf-button{height:29px;min-height:29px;font-size:11px}
+#pf-app .pf-confirmed-blocker{background:#fff7f7;border-left:3px solid #dc2626}
+#pf-app .pf-business-card>footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px}
+#pf-app .pf-confirmed-fact{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #edf0f4}
+#pf-app .pf-confirmed-fact>div{flex:1;min-width:0}
+#pf-app .pf-confirmed-fact strong{font-size:13px}
+#pf-app .pf-latest-followup{padding:12px 14px;background:#f8fafc;font-size:12px}
+#pf-app .pf-latest-followup p{overflow-wrap:anywhere}
+#pf-app .pf-business-empty{padding:16px;color:#64748b}
+#pf-app .pf-business-stage-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:12px}
+#pf-app .pf-business-stage{display:grid;grid-template-columns:34px 1fr;gap:3px 7px;text-align:left;padding:9px 10px;border:1px solid #e2e8f0;border-radius:5px;min-width:0;background:#f8fafc}
+#pf-app .pf-business-stage b{font-size:12px;line-height:1.5}
+#pf-app .pf-business-stage>span,#pf-app .pf-business-stage>small:last-child{grid-column:2;font-size:11px;color:#64748b}
+#pf-app .pf-business-stage.is-running{background:#eff6ff;border-color:#93c5fd}
+#pf-app .pf-business-caption{padding:0 14px 10px;color:#64748b;font-size:11px}
+#pf-app .pf-storage-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;padding:10px 12px;border:1px solid #fed7aa;background:#fffbeb;border-radius:6px;margin:8px 0}
+#pf-app .pf-flow-node{font-size:12px;padding:12px;line-height:1.55}
+#pf-app .pf-flow-node-head b{font-size:14px;max-width:140px}
+#pf-app .pf-flow-node-head em{font-size:11px;white-space:normal;max-width:88px;text-align:right}
+#pf-app .pf-flow-node-doc{font-size:12px;white-space:normal;min-height:36px;line-height:1.45;margin-top:5px}
+#pf-app .pf-flow-node-owner{font-size:11px}
+#pf-app .pf-flow-node-note{font-size:11px;white-space:normal;line-height:1.45}
+#pf-app .pf-dependency-scroll{height:520px;max-height:72vh}
+#pf-app .pf-business-stages{margin-bottom:12px}
+@media(max-width:1280px){#pf-app .pf-task-identity{gap:12px}#pf-app .pf-task-identity>.pf-object{min-width:185px;max-width:270px}#pf-app .pf-detail-utilities{max-width:260px}#pf-app .pf-business-columns{grid-template-columns:minmax(0,1.3fr) minmax(0,1fr)}}
+@media(max-width:1050px){#pf-app .pf-task-identity{flex-wrap:wrap}#pf-app .pf-business-columns{grid-template-columns:1fr}#pf-app .pf-business-stage-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media print{#pf-app .pf-business-status>button,#pf-app .pf-business-card button{display:none}#pf-app .pf-business-columns{display:block}#pf-app .pf-business-card{break-inside:avoid;margin-bottom:12px}}

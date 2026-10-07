@@ -1,5 +1,6 @@
 // @page-pattern: list
 import { escapeHtml } from '../../utils'
+import { getBrowserLocalStorage } from '../../data/browser-storage'
 import { renderButton } from '../../components/ui/button'
 import { renderStandardListPage } from '../../components/ui/list-page'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../components/ui/list-table'
@@ -49,7 +50,8 @@ export function renderDataTable<T>(id:string,title:string,columns:StandardListCo
   let ctx=tableContexts.get(id)
   if(!ctx){
     const defaults={order:columns.map(c=>c.key),visibleKeys:columns.map(c=>c.key),frozenKeys:columns.filter(c=>c.required&&c.freezeable).map(c=>c.key).slice(0,1),pageSize:20}
-    const preferences=typeof localStorage==='undefined'?defaults:loadListColumnPreferences(localStorage,prefsKey(id),columns,defaults,[10,20,50])
+    const storage=getBrowserLocalStorage()
+    const preferences=storage?loadListColumnPreferences(storage,prefsKey(id),columns,defaults,[10,20,50]):defaults
     ctx={id,title,columns:columns as StandardListColumn<unknown>[],rows,preferences,sort:null,page:1};tableContexts.set(id,ctx)
   }
   ctx.columns=columns as StandardListColumn<unknown>[];ctx.rows=rows;ctx.title=title
@@ -71,5 +73,5 @@ export function renderColumns(id:string):string {
   order.forEach((key,i)=>{const title=ctx.columns.find(c=>c.key===key)?.title??key;settings=settings.replace(`${e(title)}</span>`,`${e(title)}</span>${button('↑','column-up',`data-key="${e(key)}" aria-label="${e(title)}上移" ${i===0?'disabled':''}`)}`)})
   return settings.replaceAll('duration-200','duration-0').replaceAll('animate-in','').replaceAll('slide-in-from-right','').replace('</h2>','</h2><p class="text-xs">必需识别列不可隐藏。可拖拽，或使用各行上移按钮调整顺序。</p>')
 }
-export function saveTablePreferences(ctx:PFTableContext):void {if(typeof localStorage!=='undefined')saveListColumnPreferences(localStorage,prefsKey(ctx.id),ctx.preferences)}
+export function saveTablePreferences(ctx:PFTableContext):void {const storage=getBrowserLocalStorage();if(storage?.setItem)saveListColumnPreferences({setItem:(key,value)=>storage.setItem!(key,value)},prefsKey(ctx.id),ctx.preferences)}
 export function resetTablePages():void {tableContexts.forEach(ctx=>{ctx.page=1})}

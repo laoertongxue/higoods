@@ -12,6 +12,13 @@ import { bindProductionTaskSources, projectProductionSourceTask, productionSourc
 
 const demand:ProductionDemand={...productionDemands[0],demandId:'SOURCE-DEMAND-1',legacyOrderNo:'SOURCE-PURCHASE-1',spuCode:'STYLE-A',spuName:'来源款式A',requiredQtyTotal:100,createdAt:'2026-09-01 10:00:00',updatedAt:'2026-09-17 10:00:00',productionOrderId:'SOURCE-PO-1',hasProductionOrder:true,skuLines:[{skuCode:'STYLE-A-BLACK-M',size:'M',color:'Black',qty:100}]}
 const at='2026-09-17T10:00:00+08:00'
+test('来源需求交期保留为独立事实，不能自动变成管理截止或发货期限',()=>{
+ const task=projectProductionSourceTask({demand:{...demand,requiredDeliveryDate:'2026-09-20'},at})
+ assert.equal(task.demandRequiredDeliveryDate,'2026-09-20')
+ assert.equal(task.effectiveDueAt,null)
+ assert.equal(task.quantityKnown,false)
+ assert.equal(task.hasActualShipmentOrderFacts,false)
+})
 function item(id:string,patch:Partial<ProductionPreparationItem>={}):ProductionPreparationItem {
   return {itemId:id,recordId:'PREP-A',itemType:'梭织基码纸样',required:true,requiredKind:'必做',selectedByMerchandiser:true,selectedAt:'2026-09-01 10:00:00',sequenceGroup:'并行准备',dependsOnItemIds:[],parallelGroup:'PATTERN',status:'待开始',ownerTeam:'版房',ownerName:'版师甲',plannedStartAt:'2026-09-01 10:00:00',plannedFinishAt:'2026-09-10 10:00:00',actualFinishAt:'',evidenceType:'工程任务事件',evidenceSummary:'来自生产准备专业任务',sourceObjectType:'生产准备单',sourceObjectNo:`task-${id}`,sourceHref:`/pcs/production-preparation/plate-making/task-${id}`,overdueHours:999,remark:'',taskId:`task-${id}`,...patch}
 }

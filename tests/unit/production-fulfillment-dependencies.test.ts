@@ -5,6 +5,8 @@ import {dependencyAnalysis,dependencyLayout,renderDependencyGraph} from '../../s
 import {renderWorkDetail,renderFormula} from '../../src/pages/production-fulfillment/task-detail.ts'
 import {ui} from '../../src/pages/production-fulfillment/ui-state.ts'
 import type {PFNode,PFTask} from '../../src/pages/production-fulfillment/model.ts'
+import {workDependencyState} from '../../src/pages/production-fulfillment/calculations.ts'
+import {workObjectLabel,releaseLabel} from '../../src/pages/production-fulfillment/work-labels.ts'
 const task=()=>structuredClone(tasks[0])
 function node(id:string,parents:string[]=[],extra:Partial<PFNode>={}):PFNode{return {...task().nodes[0],id,taskId:'test',name:id,predecessors:parents,durationDays:null,actualStartAt:null,actualEndAt:null,businessState:'待开始',timeState:'待判定',actualOverdueDays:0,predictedDelayDays:null,sourceDocumentId:'DOC-'+id,includedInProductionDuration:true,...extra}}
 function chain(nodes:PFNode[]):PFTask{return {...task(),id:'test',nodes}}
@@ -94,4 +96,25 @@ test('暂停或受阻工作不因遗留结束时间而放行下游',()=>{
  const t=chain([node('A',[],{businessState:state,actualEndAt:'2026-09-01T10:00:00+08:00'}),node('B',['A'])])
  assert.deepEqual(dependencyAnalysis(t).pendingParents(t.nodes[1]).map(n=>n.id),['A']);assert.equal(dependencyAnalysis(t).blockers[0].node.id,'A')
  }
+})
+
+test('只有工艺定义的前置未确认，不能把下游标为现场等待',()=>{
+ const t=chain([node('dye',[],{origin:'route',businessState:'执行进度待关联'}),node('print',['dye'],{origin:'route',businessState:'执行进度待关联'})])
+ assert.equal(workDependencyState(t,t.nodes[1]).status,'执行进度待核实')
+ assert.equal(workDependencyState(t,t.nodes[1]).waiting,false)
+ const html=renderDependencyGraph(t,ui)
+ assert.doesNotMatch(html,/pf-flow-waiting/)
+ assert.match(html,/执行进度待核实/)
+})
+test('执行任务的前置未知须核实；已有明确阻断仍为卡点',()=>{
+ const t=chain([node('unknown',[],{origin:'route',businessState:'执行进度待关联'}),node('execution',['unknown']),node('blocked',['unknown'],{businessState:'已阻断',blocker:'机器停机'})])
+ assert.equal(workDependencyState(t,t.nodes[1]).status,'前置进度待核实')
+ assert.deepEqual(dependencyAnalysis(t).blockers.map(b=>b.node.id),['blocked'])
+})
+test('多工艺实例保留分支；缺少对象不可编造名称或默认整批放行',()=>{
+ const t=chain([node('A',[],{name:'染色',origin:'route',inputObjectType:'面料'}),node('B',[],{name:'染色',origin:'route',inputObjectType:'面料'})])
+ assert.match(workObjectLabel(t,t.nodes[0]),/分支 1.*对象明细待核实/)
+ assert.match(workObjectLabel(t,t.nodes[1]),/分支 2/)
+ assert.match(releaseLabel(node('next',['A'])),/放行条件待确认/)
+ assert.match(releaseLabel(node('next',['A'],{releaseMode:'分批',releaseRequiredQty:200,unit:'片'})),/分批.*200 片/)
 })

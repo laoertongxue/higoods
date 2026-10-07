@@ -21,6 +21,25 @@ export const isWorkReleased = (node: PFNode) => !/取消|终止|作废|不合格
 const done = isWorkReleased
 
 export const isWorkTerminal = (node:PFNode) => isWorkReleased(node)||/已取消|已终止|已作废/.test(node.businessState)
+/** A route definition and a missing timestamp are not evidence of shop-floor waiting. */
+export function isExecutionProgressUnknown(node:PFNode):boolean {
+  return !isWorkTerminal(node)&&!node.actualStartAt&&!node.actualEndAt
+    && (node.origin==='route'&&node.sourceDocumentType!=='工序执行任务'
+      || /待关联|待同步|来源待确认|完成时刻待补/.test(node.businessState)
+      || !node.sourceDocumentId)
+}
+export function workDependencyState(task:PFTask,node:PFNode):{status:string;note:string;waiting:boolean;unknown:boolean} {
+  const parents=node.predecessors.map(id=>task.nodes.find(n=>n.id===id))
+  const pending=parents.filter((p):p is PFNode=>!!p&&!isWorkReleased(p))
+  const unknown=parents.some(p=>!p||isExecutionProgressUnknown(p))
+  const ownUnknown=isExecutionProgressUnknown(node)
+  if(isWorkTerminal(node))return {status:node.businessState,note:node.predecessors.length?'保留来源前置关系':'无已记录前置',waiting:false,unknown:false}
+  if(/阻塞|阻断|受阻|暂停|不合格|异议/.test(node.businessState))return {status:node.businessState,note:node.blocker||'已确认异常，查看来源处理',waiting:false,unknown:false}
+  if(node.actualStartAt)return {status:node.businessState,note:pending.length?`已开工，${pending.length} 项前置状态待核对`:'已确认实际开始',waiting:false,unknown:false}
+  if(ownUnknown||unknown)return {status:ownUnknown?'执行进度待核实':'前置进度待核实',note:pending.length?`${pending.length} 项前置未确认放行；请核实现场进度`:'需核实执行单据与现场进度',waiting:false,unknown:true}
+  const waiting=pending.length>0
+  return {status:waiting?'等待前置':node.businessState,note:waiting?`已确认 ${pending.length} 项前置未放行`:node.predecessors.length?'前置已放行，实际开始待核实':'按来源执行状态跟进',waiting,unknown:false}
+}
 export interface WorkBlocker { node:PFNode; kind:'逾期'|'阻塞'|'风险'; reason:string; downstream:string[] }
 export function dependencyAnalysis(task:PFTask) {
   const byId=new Map(task.nodes.map(n=>[n.id,n]))
@@ -30,11 +49,11 @@ export function dependencyAnalysis(task:PFTask) {
   const blockers:WorkBlocker[]=task.nodes.filter(n=>!isWorkTerminal(n)&&n.sourceDocumentId).flatMap(n=>{
     // Missing a start timestamp is not proof that work never happened: an
     // inspection result can already exist and still block downstream release.
-    const waiting=!n.actualStartAt&&!n.actualEndAt&&pendingParents(n).length>0
+    const waiting=workDependencyState(task,n).waiting
     const overdue=n.actualOverdueDays>0
     const blocked=/阻塞|阻断|受阻|暂停|不合格|异议/.test(n.businessState)
     const risk=(n.predictedDelayDays??0)>0||/预计逾期|风险/.test(n.timeState)
-    if(waiting||!overdue&&!blocked&&!risk)return []
+    if(waiting&&!blocked&&!risk||!overdue&&!blocked&&!risk)return []
     const kind=overdue?'逾期':blocked?'阻塞':'风险'
     const reason=overdue?`超过本项责任截止 ${n.actualOverdueDays.toLocaleString('zh-CN',{maximumFractionDigits:2})} 自然日`:blocked?n.blocker||n.dependencyNote||'来源工作处于阻塞状态':`预计超过本项截止 ${(n.predictedDelayDays??0).toLocaleString('zh-CN',{maximumFractionDigits:2})} 自然日`
     return [{node:n,kind,reason,downstream:descendants(n.id).filter(id=>!isWorkTerminal(byId.get(id)!))} as WorkBlocker]

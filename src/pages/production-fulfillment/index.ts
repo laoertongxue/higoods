@@ -7,9 +7,11 @@ import { filterTasks, assessTask, projectManualForecast, restoreManualForecasts 
 import { ui, base, sections, emptyFilters } from './ui-state'
 import { e, dt, fmt, select, field, button, card, renderColumns, tableContexts, setActiveTable, activeTableId, saveTablePreferences, resetTablePages, anchor } from './common'
 import { renderTasks, renderWorkItems, workRows } from './tasks'
-import { renderTaskDetail, renderWorkDetail, writeFollowup } from './task-detail'
+import { renderTaskDetail, renderWorkDetail } from './task-detail'
 import { renderOverview, renderTeams, renderFulfillment, fulfillmentRows } from './dashboards'
 import { renderConfiguration, handleConfigurationAction, handleConfigurationField, setConfigurationTaskSource, applyPublishedInTransitOverrides } from './configuration'
+import { loadFollowups, saveFollowup, readForecasts, readForecastHistory, migrateLegacyFollowups } from './followup-storage'
+import { workLabel } from './work-labels'
 import type { PFTask, PFFilters } from './model'
 import { dependencyAnalysis } from './dependency-graph'
 import { renderExamples } from './examples'
@@ -31,10 +33,10 @@ let overlayKind='',overlayTask='',overlayNode='',lastFocus:HTMLElement|null=null
 let enteredPath=''
 const routeViews=new Map<string,Partial<typeof ui>>()
 let pendingTaskFilters:PFFilters|null=null
-function restoreForecasts():void {
-  let records:unknown=[]
-  try {records=JSON.parse(localStorage.getItem('dds-pf-forecasts-v1')||'[]')}catch{return}
-  projectedTasks=restoreManualForecasts(projectedTasks,records)
+function restoreForecasts():void {projectedTasks=restoreManualForecasts(projectedTasks,readForecastHistory())}
+let followupsStarted=false
+function reloadFollowups():void {
+  void loadFollowups().then(()=>{refreshSources();refreshPF()})
 }
 let restored=false
 export function currentTasks():PFTask[]{return projectedTasks}
@@ -69,6 +71,7 @@ function body():string {
 }
 export function renderProductionFulfillmentPage(path:string):string {
   if(!restored){refreshSources();restored=true}
+  if(!followupsStarted){followupsStarted=true;reloadFollowups()}
   const relative=path.replace(base,'').split('?')[0].split('/').filter(Boolean),section=relative[0]||'overview'
   if(enteredPath!==path){
     if(enteredPath)routeViews.set(enteredPath,{filters:{...ui.filters},draft:{...ui.draft},more:ui.more,overviewTab:ui.overviewTab,teamTab:ui.teamTab,analysisView:ui.analysisView,detailTab:ui.detailTab,detailSubTab:ui.detailSubTab,collapsed:[...ui.collapsed],timelineMode:ui.timelineMode,timelineScale:ui.timelineScale,timelineTeam:ui.timelineTeam,timelineBasis:ui.timelineBasis,showChildren:ui.showChildren,showDependencies:ui.showDependencies,exampleId:ui.exampleId})
@@ -108,7 +111,7 @@ function closeOverlay():void {const el=document.querySelector('#pf-overlays');if
 function followupForm(estimate:boolean):string {
   const task=projectedTasks.find(t=>t.id===overlayTask)!,node=task.nodes.find(n=>n.id===overlayNode)
   const permitted=task.nodes;const candidates=permitted.filter(n=>!n.actualEndAt)
-  return `<form class="pf-form" onsubmit="return false"><p>${e(task.id)} · ${estimate?'本地预测会沿依赖传播；原基线与生效截止保持不变。':'保存本地跟进记录，不发送消息。'}</p><label>关联工作<select name="nodeId" data-pf-field="form-nodeId">${!estimate?'<option value="">任务整体</option>':''}${(estimate?candidates:permitted).map(n=>`<option value="${e(n.id)}" ${n.id===node?.id?'selected':''}>${e(n.id)} ${e(n.name)}</option>`).join('')}</select></label><label>原因（必填）<textarea name="reason" data-pf-field="form-reason" required placeholder="例如：当前合格回货400件，分配产能不足"></textarea></label><label>跟进动作（必填）<textarea name="action" data-pf-field="form-action" required placeholder="明确处理动作、责任人及下次反馈"></textarea></label><label>负责人预计结束${estimate?'（必填）':'（可选）'}<input type="datetime-local" name="expectedAt" data-pf-field="form-expectedAt" ${estimate?'required':''}></label><p class="pf-subtitle">预计时间不修改实际结束事实。</p><div class="pf-form-error" hidden></div><div class="pf-actions">${button(estimate?'保存本地预测':'保存跟进','save-followup')}${button('取消','close')}</div></form>`
+  return `<form class="pf-form" data-operation-id="${crypto.randomUUID()}" data-operation-at="${new Date().toISOString()}" data-forecast-versions="${e(JSON.stringify(Object.fromEntries(readForecasts().filter(row=>row.taskId===task.id).map(row=>[row.nodeId,row.version]))))}" onsubmit="return false"><p>${e(task.id)} · ${estimate?'本地预测会沿依赖传播；原基线与生效截止保持不变。':'保存本地跟进记录，不发送消息。'}</p><label>关联工作<select name="nodeId" data-pf-field="form-nodeId">${!estimate?'<option value="">任务整体</option>':''}${(estimate?candidates:permitted).map(n=>`<option value="${e(n.id)}" ${n.id===node?.id?'selected':''}>${e(workLabel(task,n))}</option>`).join('')}</select></label><label>原因（必填）<textarea name="reason" data-pf-field="form-reason" required placeholder="说明本次已核实情况或待核实问题"></textarea></label><label>跟进动作（必填）<textarea name="action" data-pf-field="form-action" required placeholder="明确处理动作、责任人及下次反馈"></textarea></label><label>负责人预计结束${estimate?'（必填）':'（可选）'}<input type="datetime-local" name="expectedAt" data-pf-field="form-expectedAt" ${estimate?'required':''}></label><p class="pf-subtitle">预计时间不修改实际结束事实；未保存的输入在刷新或离开后不会保留。</p><div class="pf-form-error" hidden></div><div class="pf-actions">${button(estimate?'保存本地预测':'保存跟进','save-followup')}${button('取消','close')}</div></form>`
 }
 function sourceBindingForm(task:PFTask):string {
   const current=task.sourceContext
@@ -227,18 +230,41 @@ export function handleProductionFulfillmentClick(target:Element):boolean {
   }
   if(action==='save-followup'){
     if(ui.role==='只读查看者'){notice('当前角色无写入权限');return true}
-    const form=document.querySelector<HTMLFormElement>('#pf-overlays form');if(!form)return true
+    const form=document.querySelector<HTMLFormElement>('#pf-overlays form');if(!form||form.dataset.saving==='true')return true
     const fd=new FormData(form),reason=String(fd.get('reason')||'').trim(),actionText=String(fd.get('action')||'').trim(),value=String(fd.get('expectedAt')||''),nodeId=String(fd.get('nodeId')||''),endAt=value?value+':00+08:00':''
-    if(ui.role==='工厂主管'&&nodeId&&projectedTasks.find(t=>t.id===overlayTask)?.nodes.find(n=>n.id===nodeId)?.team!=='车缝厂A'){notice('保存已阻断：不能修改其他团队的负责人预计或工作记录。');return true}
-    let error=!reason||!actionText?'请填写原因和跟进动作':overlayKind==='estimate'&&!value?'请填写负责人预计结束时间':''
+    const task=projectedTasks.find(t=>t.id===overlayTask),node=task?.nodes.find(n=>n.id===nodeId),estimate=overlayKind==='estimate'
+    if(!task||nodeId&&!node){notice('对应任务或工作不存在，请重新读取');return true}
+    if(ui.role==='工厂主管'&&nodeId&&node?.team!=='车缝厂A'){notice('保存已阻断：不能修改其他团队的负责人预计或工作记录。');return true}
+    let error=!reason||!actionText?'请填写原因和跟进动作':estimate&&!value?'请填写负责人预计结束时间':estimate&&(!node||node.actualEndAt)?'请选择尚未结束的工作':''
     if(value&&(!Number.isFinite(Date.parse(endAt))||Date.parse(endAt)<Date.parse(currentSnapshot())))error='预计结束不得早于当前数据时点'
-    if(error){const feedback=form.querySelector<HTMLElement>('.pf-form-error');if(feedback){feedback.hidden=false;feedback.textContent=error}return true}
-    if(overlayKind==='estimate'){
-      const i=projectedTasks.findIndex(t=>t.id===overlayTask)
-      try{projectedTasks[i]=projectManualForecast(projectedTasks[i],nodeId,endAt);const records=JSON.parse(localStorage.getItem('dds-pf-forecasts-v1')||'[]') as unknown[];records.push({taskId:overlayTask,nodeId,endAt});localStorage.setItem('dds-pf-forecasts-v1',JSON.stringify(records))}catch(err){notice('预测未保存：'+String(err));return true}
-    }
-    writeFollowup({id:globalThis.crypto?.randomUUID?.()??`PF-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,taskId:overlayTask,nodeId,author:ui.user,at:new Date().toISOString(),reason,action:actionText,expectedAt:endAt,kind:overlayKind==='estimate'?'本地预测调整':'跟进记录'})
-    closeOverlay();refreshPF();notice('已保存本浏览器Mock记录；原始基线与生效截止未改变');return true
+    const feedback=form.querySelector<HTMLElement>('.pf-form-error')
+    if(error){if(feedback){feedback.hidden=false;feedback.textContent=error}return true}
+    try{if(estimate)projectManualForecast(task,nodeId,endAt)}catch(err){if(feedback){feedback.hidden=false;feedback.textContent=String(err)}return true}
+    const record={id:form.dataset.operationId!,taskId:task.id,nodeId,author:ui.user,at:form.dataset.operationAt!,reason,action:actionText,expectedAt:endAt,kind:estimate?'本地预测调整':'跟进记录'}
+    const expectedVersion=(JSON.parse(form.dataset.forecastVersions||'{}') as Record<string,number>)[nodeId]||0
+    form.dataset.saving='true';(el as HTMLButtonElement).disabled=true
+    void saveFollowup(record,estimate?{endAt,expectedVersion}:undefined).then(()=>{
+      refreshSources();if(document.contains(form))closeOverlay();refreshPF();notice('跟进已保存；预计记录未修改实际进度与考核截止')
+    }).catch(err=>{if(feedback){feedback.hidden=false;feedback.textContent=String(err instanceof Error?err.message:err)}}).finally(()=>{form.dataset.saving='false';(el as HTMLButtonElement).disabled=false})
+    return true
+  }
+  if(action==='reload-followups'){reloadFollowups();return true}
+  if(action==='refresh-task'){refreshSources();reloadFollowups();return true}
+  if(action==='show-source-gaps'){const details=document.querySelector<HTMLDetailsElement>('[data-source-gaps]');if(details){details.open=true;details.scrollIntoView({block:'nearest'})}return true}
+  if(action==='overview-stage'){
+    ui.detailTab='全程时效';ui.detailSubTab='全程甘特';ui.timelineTeam='全部';ui.timelineMode='全部工作';ui.collapsed=ui.collapsed.filter(id=>id!==el.dataset.stage);refreshPF()
+    const row=document.querySelector(`[data-stage-row="${CSS.escape(el.dataset.stage||'')}"]`);if(row)row.scrollIntoView({block:'nearest'});else notice('本阶段尚未读取适用工作，请先核实工作范围')
+    return true
+  }
+  if(action==='migrate-followups'){
+    overlayKind='migration';overlay('迁移旧跟进资料',`<form class="pf-form" onsubmit="return false"><p>将旧跟进与预计记录逐条迁移，读回核对后删除对应旧资料；其他模块资料不变。</p><label><input type="checkbox" name="closed" data-pf-field="migration-closed">已关闭其他旧版本 DDS 页面，避免继续保存旧资料</label><div class="pf-form-error" hidden></div><div class="pf-actions">${button('开始迁移','migrate-followups-confirm')}${button('取消','close')}</div></form>`);return true
+  }
+  if(action==='migrate-followups-confirm'){
+    const form=document.querySelector<HTMLFormElement>('#pf-overlays form');if(!form||form.dataset.saving==='true')return true
+    const feedback=form.querySelector<HTMLElement>('.pf-form-error'),closed=Boolean(form.querySelector<HTMLInputElement>('[name="closed"]')?.checked)
+    form.dataset.saving='true';(el as HTMLButtonElement).disabled=true
+    void migrateLegacyFollowups(closed).then(()=>{refreshSources();if(document.contains(form))closeOverlay();refreshPF();notice('旧跟进资料迁移与读回核对完成')}).catch(err=>{if(feedback){feedback.hidden=false;feedback.textContent=err instanceof Error?err.message:String(err)}}).finally(()=>{form.dataset.saving='false';(el as HTMLButtonElement).disabled=false})
+    return true
   }
   if(action==='columns'){overlayKind='columns';const root=document.querySelector('#pf-overlays');if(root){lastFocus=document.activeElement as HTMLElement;root.innerHTML=renderColumns(table)}return true}
   if(['toggle-column-visibility','toggle-column-freeze','column-up','restore-column-settings'].includes(action)){
@@ -251,7 +277,7 @@ export function handleProductionFulfillmentClick(target:Element):boolean {
   }
   if(action==='sort-column'){const ctx=tableContexts.get(table),key=el.dataset.columnKey||'';if(ctx){ctx.sort={key,direction:ctx.sort?.key===key&&ctx.sort.direction==='asc'?'desc':'asc'};ctx.page=1;refreshPF()}return true}
   if(action==='prev-page'||action==='next-page'){const ctx=tableContexts.get(table);if(ctx){ctx.page+=action==='next-page'?1:-1;refreshPF()}return true}
-  if(action==='print-task'){const task=projectedTasks.find(t=>t.id===(el.dataset.taskId||ui.taskId));if(task){overlayKind='print';overlay('任务摘要打印预览',`<div class="pf-print-summary">${task.imageUrl?`<img src="${e(task.imageUrl)}" alt="${e(task.styleName)}" style="width:64px;height:64px;object-fit:contain">`:""}<p>${e(task.styleName)} · ${e(task.styleRef)}</p><h2>${e(task.id)}</h2><p>读取于 ${dt(currentSnapshot())}</p><p>规则版本${e(task.ruleVersion)} · 范围：当前任务${e(task.id)}</p><p>${e(task.follower)} · ${e(task.accountableTeam)}</p><p>起点 ${dt(task.startedAt)} / 要求${task.standardDays===null?'待配置':fmt(task.standardDays)+'天'} / 截止${dt(task.effectiveDueAt)}</p><p>预计 ${dt(task.predictedFinishAt)} / ${e(assessTask(task).health)}</p><p>已发 ${task.quantityKnown===false?'待同步':fmt(task.shippedQty)} / 需求 ${fmt(task.effectiveQty)}件</p><p>卡点：${e(dependencyAnalysis(task).blockers.map(b=>b.node.name+'（'+b.node.sourceDocumentId+'） · '+b.reason).join('；')||'没有已确认的执行卡点；来源缺口另行核对')}</p>${button('打印此摘要','print-confirm')}</div>`)}return true}
+  if(action==='print-task'){const task=projectedTasks.find(t=>t.id===(el.dataset.taskId||ui.taskId));if(task){overlayKind='print';overlay('任务摘要打印预览',`<div class="pf-print-summary">${task.imageUrl?`<img src="${e(task.imageUrl)}" alt="${e(task.styleName)}" style="width:64px;height:64px;object-fit:contain">`:""}<p>${e(task.styleName)} · ${e(task.styleRef)}</p><h2>${e(task.id)}</h2><p>读取于 ${dt(currentSnapshot())}</p><p>规则版本${e(task.ruleVersion)} · 范围：当前任务${e(task.id)}</p><p>${e(task.follower)} · ${e(task.accountableTeam)}</p><p>需求要求交期 ${e(task.demandRequiredDeliveryDate||'来源待提供')}（生产需求要求，非客户发货期限）</p><p>需求下达起点 ${dt(task.startedAt)} / 管理时效要求${task.standardDays===null?'待配置':fmt(task.standardDays)+'天'} / 截止${dt(task.effectiveDueAt)}</p><p>预计 ${dt(task.predictedFinishAt)} / ${e(assessTask(task).health)}</p><p>已发 ${task.quantityKnown===false?'待同步':fmt(task.shippedQty)} / 需求 ${fmt(task.effectiveQty)}件</p><p>卡点：${e(dependencyAnalysis(task).blockers.map(b=>b.node.name+'（'+b.node.sourceDocumentId+'） · '+b.reason).join('；')||'没有已确认的执行卡点；来源缺口另行核对')}</p>${button('打印此摘要','print-confirm')}</div>`)}return true}
   if(action==='print-confirm'){window.print();return true}
   if(action==='close'||action==='close-column-settings'||action==='backdrop'&&target===el){closeOverlay();return true}
   return true

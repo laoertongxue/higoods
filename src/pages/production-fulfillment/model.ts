@@ -14,6 +14,7 @@ export interface PFNode {
   factory?: string;
   origin?: 'preparation' | 'route' | 'execution' | 'material' | 'fulfillment' | 'decision';
   sourceEntryId?: string; inputSku?: string; outputSku?: string; dependencyNote?: string;
+  routeObjectKey?: string;
   quantityKnown?: boolean;
   requiredQuantityKnown?: boolean;
   quantityScope?: string;
@@ -37,6 +38,8 @@ export interface PFNode {
 }
 export interface PFTask {
   asOf?: string;
+  demandRequiredDeliveryDate?: string;
+  lastExecutionProgressAt?: string;
   sourceContext?: {
     preparationId?: string; preparationType?: string; preparationState?: string;
     technicalVersionId?: string; technicalVersionLabel?: string; routeStatus?: string;
