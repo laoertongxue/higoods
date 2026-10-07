@@ -1,0 +1,13 @@
+✔ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (5783.210708ms)
+✔ SAMPLE-FIX boundary 2: discard, dispose, retry and expansion (4983.179ms)
+✔ SAMPLE-FIX boundary 3: discard, dispose, retry and expansion (5119.447ms)
+✔ SAMPLE-FIX boundary 4: discard, dispose, retry and expansion (5082.577625ms)
+✔ SAMPLE-FIX boundary 5: discard, dispose, retry and expansion (5046.338334ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 26363.659

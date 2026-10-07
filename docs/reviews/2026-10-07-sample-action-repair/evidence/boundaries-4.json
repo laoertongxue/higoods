@@ -1,0 +1,202 @@
+{
+  "iteration": 4,
+  "base": "http://127.0.0.1:4206",
+  "samples": [
+    {
+      "name": "editor:unsaved-input",
+      "ms": 20
+    },
+    {
+      "name": "editor:discard-open",
+      "ms": 45.099853515625
+    },
+    {
+      "name": "editor:discard-cancel",
+      "ms": 32.400146484375
+    },
+    {
+      "name": "editor:discard-reopen",
+      "ms": 33
+    },
+    {
+      "name": "editor:discard-confirm",
+      "ms": 63.599853515625
+    },
+    {
+      "name": "detail:collapse",
+      "ms": 32.199951171875
+    },
+    {
+      "name": "detail:expand",
+      "ms": 33
+    },
+    {
+      "name": "dispose:new",
+      "ms": 32.89990234375
+    },
+    {
+      "name": "dispose:sample",
+      "ms": 47.400146484375
+    },
+    {
+      "name": "dispose:type",
+      "ms": 31.2998046875
+    },
+    {
+      "name": "dispose:create-actor",
+      "ms": 31.199951171875
+    },
+    {
+      "name": "dispose:reason",
+      "ms": 30.7001953125
+    },
+    {
+      "name": "dispose:create",
+      "ms": 98
+    },
+    {
+      "name": "dispose:drawer",
+      "ms": 32.199951171875
+    },
+    {
+      "name": "dispose:reject:open",
+      "ms": 32.800048828125
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 27.300048828125
+    },
+    {
+      "name": "dispose:note",
+      "ms": 31.39990234375
+    },
+    {
+      "name": "dispose:reject:confirm",
+      "ms": 48.699951171875
+    },
+    {
+      "name": "dispose:new",
+      "ms": 33.099853515625
+    },
+    {
+      "name": "dispose:sample",
+      "ms": 30.300048828125
+    },
+    {
+      "name": "dispose:type",
+      "ms": 31.39990234375
+    },
+    {
+      "name": "dispose:create-actor",
+      "ms": 31.900146484375
+    },
+    {
+      "name": "dispose:reason",
+      "ms": 31.199951171875
+    },
+    {
+      "name": "dispose:create",
+      "ms": 98.39990234375
+    },
+    {
+      "name": "dispose:drawer",
+      "ms": 30.7998046875
+    },
+    {
+      "name": "dispose:approve:open",
+      "ms": 33.300048828125
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 26.400146484375
+    },
+    {
+      "name": "dispose:note",
+      "ms": 31.300048828125
+    },
+    {
+      "name": "dispose:approve:saved",
+      "ms": 49.10009765625
+    },
+    {
+      "name": "dispose:execute:open",
+      "ms": 33.099853515625
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 29.300048828125
+    },
+    {
+      "name": "dispose:note",
+      "ms": 31.10009765625
+    },
+    {
+      "name": "dispose:execute:confirm",
+      "ms": 98.5
+    },
+    {
+      "name": "editor:read-failure-input",
+      "ms": 27.300048828125
+    },
+    {
+      "name": "editor:read-failure-picker",
+      "ms": 66.199951171875
+    },
+    {
+      "name": "editor:read-failure-selected",
+      "ms": 48.599853515625
+    },
+    {
+      "name": "editor:read-failure-info",
+      "ms": 32
+    },
+    {
+      "name": "editor:read-failure-confirm-open",
+      "ms": 33.10009765625
+    },
+    {
+      "name": "editor:read-failure",
+      "ms": 65.199951171875
+    },
+    {
+      "name": "editor:read-failure-continue-input",
+      "ms": 27.5
+    },
+    {
+      "name": "editor:read-retry-confirm-open",
+      "ms": 31.60009765625
+    },
+    {
+      "name": "editor:read-retry",
+      "ms": 32.699951171875
+    },
+    {
+      "name": "refresh:failed",
+      "ms": 49.099853515625
+    },
+    {
+      "name": "refresh:recover-page",
+      "ms": 248.800048828125
+    },
+    {
+      "name": "refresh:retry",
+      "ms": 65.2001953125
+    },
+    {
+      "name": "refresh:close-notice",
+      "ms": 35.300048828125
+    }
+  ],
+  "checks": [
+    "declining discard retains input",
+    "discard navigates without saving",
+    "case rejection restores original usability",
+    "dispose execution ends usability after reload",
+    "editor read failure retains selected samples and editable unsaved input; dependent commands disabled",
+    "editor recovers and discards input only after explicit confirmation",
+    "read failure/retry never changes existing records"
+  ],
+  "errors": [],
+  "pass": true,
+  "max": 248.800048828125
+}

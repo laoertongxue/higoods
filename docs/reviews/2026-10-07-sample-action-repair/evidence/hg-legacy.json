@@ -1,0 +1,64 @@
+{
+  "samples": [
+    {
+      "name": "legacy:failed-save",
+      "ms": 68.80000001192093
+    },
+    {
+      "name": "legacy:register-retry",
+      "ms": 66.09999996423721
+    },
+    {
+      "name": "legacy:missing-date-block",
+      "ms": 65.20000004768372
+    },
+    {
+      "name": "legacy:failed-save",
+      "ms": 66.09999996423721
+    },
+    {
+      "name": "legacy:register-retry",
+      "ms": 65.79999995231628
+    },
+    {
+      "name": "legacy:missing-date-block",
+      "ms": 66.30000001192093
+    },
+    {
+      "name": "legacy:failed-save",
+      "ms": 66.5
+    },
+    {
+      "name": "legacy:register-retry",
+      "ms": 66.39999997615814
+    },
+    {
+      "name": "legacy:missing-date-block",
+      "ms": 65.89999997615814
+    },
+    {
+      "name": "legacy:failed-save",
+      "ms": 66.10000002384186
+    },
+    {
+      "name": "legacy:register-retry",
+      "ms": 65.89999997615814
+    },
+    {
+      "name": "legacy:missing-date-block",
+      "ms": 66.79999995231628
+    },
+    {
+      "name": "legacy:failed-save",
+      "ms": 65.79999995231628
+    },
+    {
+      "name": "legacy:register-retry",
+      "ms": 66
+    },
+    {
+      "name": "legacy:missing-date-block",
+      "ms": 66.10000002384186
+    }
+  ]
+}

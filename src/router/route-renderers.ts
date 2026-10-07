@@ -296,6 +296,8 @@ export const renderPcsSampleApplicationPage = createAsyncRenderer(
   () => import('../pages/pcs-sample-management'),
   'renderPcsSampleApplicationPage',
 )
+export const renderPcsSampleApplicationEditPage = createAsyncRenderer(() => import('../pages/pcs-sample-management'), 'renderPcsSampleApplicationEditPage')
+export const renderPcsSampleApplicationDetailPage = createAsyncRenderer(() => import('../pages/pcs-sample-management'), 'renderPcsSampleApplicationDetailPage')
 export const renderPcsSampleTransferPage = createAsyncRenderer(
   () => import('../pages/pcs-sample-management'),
   'renderPcsSampleTransferPage',

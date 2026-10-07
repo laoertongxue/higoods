@@ -1,0 +1,21 @@
+(node:62590) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ SAMPLE-FIX-01–05/11: actual request→reserve→approve→pickup→return→receipt; stable own IDs and detached reads (997.678667ms)
+✔ SAMPLE-FIX-03/05: all invalid input blocks writes; cancellation/rejection frees only own reservation (449.318542ms)
+✔ SAMPLE-FIX-08/09/11: cases and stocktake persist independently, cannot execute twice or masquerade as adjustment (356.381791ms)
+(node:62592) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ HG-001/002/004: SKU identity survives duplicate receipts, transfers and repeats; HG resolves SKU (245.668042ms)
+✔ HG-005/006/008: printed data and bounded settings; no truncation, images or state writes (0.530125ms)
+✔ HG-002/004 regression: older receipt without identities retains its first date; raw SKU is never HG (66.247542ms)
+(node:62593) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ SAMP-001–013 Mock: receipt → all SKU tags → live/home → production/factory/department/warehouse → marketing, with adversarial gates (1268.816959ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2309.680625

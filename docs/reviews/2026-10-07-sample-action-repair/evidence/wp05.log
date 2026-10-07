@@ -1,0 +1,13 @@
+✔ SAMP browser Mock full flow 1: refreshed persistence, rollback and conflict (6044.370458ms)
+✔ SAMP browser Mock full flow 2: refreshed persistence, rollback and conflict (6113.79525ms)
+✔ SAMP browser Mock full flow 3: refreshed persistence, rollback and conflict (6046.714458ms)
+✔ SAMP browser Mock full flow 4: refreshed persistence, rollback and conflict (6239.391875ms)
+✔ SAMP browser Mock full flow 5: refreshed persistence, rollback and conflict (6252.655458ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31033.450584

@@ -204,3 +204,7 @@
 ## 2026-10-06 现场标签、款式属性与直播房间增量
 
 总体设计 §7.5、WP-STYLE-PHOTO / WP-LOS-ROOM / WP-SAMPLE-LABEL 的全部原子条款登记于 [本轮需求与证据](../reviews/2026-10-06-sample-label-and-style-attributes/requirements-and-evidence.md)。ROOM-001～012、STYLE-PHOTO-001～004 及两项性能门禁必须独立核查；HG 来源已于 2026-10-06 确认为 SKU 维度的样衣编号，按 SAMPLE-LABEL-004 单独追踪；条码和日期已确认，纸张按可调尺寸实施；新增标签编号、扫码、原子存储、打印、页面及性能原子项见 [HG 标签实施追踪](../reviews/2026-10-06-sample-hg-label/implementation-and-evidence.md)，不因房间门牌通过而关闭。旧 WP-05 的既有证据不替代本轮修改后的验证。
+
+## 2026-10-07 样衣操作修复增量矩阵
+
+总体设计 §7.6、WP-SAMPLE-ACTIONS 的逐项要求登记为 SAMPLE-FIX-01～13，需求/工作包/实现/证据/状态联查见 [本轮问题与交付矩阵](../reviews/2026-10-07-sample-action-repair/plan-and-issues.md)。由用户（2026-10-07）确认任务范围；旧 SAMP-001～014 不证明本轮申请、案件与盘点动作已经通过。

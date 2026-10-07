@@ -1,0 +1,646 @@
+1 cold:inventory
+1 reload:inventory
+1 spa:inventory
+1 cold:application
+1 reload:application
+1 spa:application
+1 cold:application/new
+1 reload:application/new
+1 spa:application/new
+1 cold:application/req-004/edit
+1 reload:application/req-004/edit
+1 spa:application/req-004/edit
+1 cold:application/req-001
+1 reload:application/req-001
+1 spa:application/req-001
+1 cold:transfer
+1 reload:transfer
+1 spa:transfer
+1 cold:return
+1 reload:return
+1 spa:return
+1 cold:ledger
+1 reload:ledger
+1 spa:ledger
+1 cold:ledger/stocktake
+1 reload:ledger/stocktake
+1 spa:ledger/stocktake
+1 cold:view
+1 reload:view
+1 spa:view
+1 cold:detail/smp-001
+1 reload:detail/smp-001
+1 spa:detail/smp-001
+1 cold:label/smp-001
+1 reload:label/smp-001
+1 spa:label/smp-001
+1 application:new-entry
+1 draft:missing-required
+1 draft:input:applicant
+1 draft:input:purpose
+1 draft:input:receiver
+1 draft:input:useStartedAt
+1 draft:input:expectedReturnAt
+1 draft:input:remark
+1 draft:select:responsibleSite
+1 draft:select:targetLocationId
+1 draft:select:returnLocationId
+1 draft:tab-samples
+1 draft:search-input
+1 draft:query
+1 draft:select-sample
+1 draft:select-sample
+1 draft:tab-info
+1 draft:quota-failure
+1 draft:saved
+1 draft:edit-entry
+1 draft:edit-input
+1 draft:edit-save
+1 request:submit:open
+1 request:actor-input
+1 request:note-input
+1 request:submit:saved
+1 request:approve:open
+1 request:actor-input
+1 request:note-input
+1 request:approve:saved
+1 request:pickup:open
+1 request:actor-input
+1 request:note-input
+1 request:pickup:saved
+1 request:return:open
+1 request:actor-input
+1 request:note-input
+1 request:return:saved
+1 request:receive:open
+1 request:actor-input
+1 request:note-input
+1 request:receive:saved
+1 request:submit:open
+1 request:actor-input
+1 request:note-input
+1 request:submit:saved
+1 request:reject:open
+1 request:actor-input
+1 request:note-input
+1 request:reject:danger-confirm
+1 request:submit:open
+1 request:actor-input
+1 request:note-input
+1 request:submit:saved
+1 request:cancel:open
+1 request:actor-input
+1 request:note-input
+1 request:cancel:danger-confirm
+1 case:new
+1 case:sample-select
+1 case:target-input
+1 case:create-save
+1 case:detail
+1 case:approve:open
+1 case:actor-input
+1 case:note-input
+1 case:approve:saved
+1 case:execute:open
+1 case:actor-input
+1 case:note-input
+1 case:execute:danger-confirm
+1 stocktake:detail
+1 stocktake:investigate:open
+1 stocktake:actor-input
+1 stocktake:note-input
+1 stocktake:investigate:saved
+1 stocktake:close:open
+1 stocktake:actor-input
+1 stocktake:note-input
+1 stocktake:close:danger-confirm
+1 inventory:refresh
+1 inventory:search
+1 inventory:reset
+1 inventory:filter:status
+1 inventory:filter-reset
+1 inventory:filter:site
+1 inventory:filter-reset
+1 inventory:filter:location-type
+1 inventory:filter-reset
+1 inventory:drawer
+FAILED 1 http://127.0.0.1:4206/pcs/samples/inventory 样衣库存
+ 
+样衣使用申请
+ 
+样衣流转记录
+ 
+样衣退货与处理
+ 
+样衣台账
+ 
+盘点差异追踪
+ 
+样衣视图
+全部关闭
+
+已重新读取样衣资料。
+
+关闭
+
+商品中心系统 / 样衣管理
+
+样衣库存
+
+管理样衣资产状态、站点位置、占用预占、在途签收和异常风险。
+
+刷新
+
+全部样衣
+
+12
+
+在库可用
+
+6
+
+预占/借出
+
+3
+
+在途待签收
+
+1
+
+异常风险
+
+3
+
+全部
+在库可用
+预占锁定
+借出占用
+在途待签收
+维修中
+待处置
+已退货
+全部
+深圳样衣间
+雅加达样衣间
+全部
+直播间
+家播
+工厂
+部门
+仓库
+重置
+库存清单
+
+共 12 条，展示样衣状态、占用、在途和异常信息。
+
+发起使用申请
+查看流转
+样衣编号/名称	样品类型	关联来源 / 用途	库存状态	可用性	当前位置	占用/预占	运单/ETA	风险	操作
+
+HG2000007
+
+SPU-QC-001-01
+
+后道验收衬衫
+
+测款样衣
+·
+S
+·
+黑色
+	营销样品	
+测款单 SKU 关联；实物来源仍以原始入库记录为准 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000008
+
+SPU-QC-001-02
+
+后道验收衬衫
+
+测款样衣
+·
+M
+·
+白色
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000002
+
+SKU-DRESS-RED-M
+
+深蓝纯色连衣裙-P1A1
+
+裙装
+·
+M
+·
+深蓝色
+	营销样品	
+历史来源待确认 · PRJ-202604-001 · 深蓝纯色连衣裙
+
+深蓝纯色连衣裙
+
+直播测款拍摄
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣仓 A-02-15
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000006
+
+SKU-TEE-WHT-M
+
+基础白色 T 恤-白-M
+
+上衣
+·
+M
+·
+白色
+	营销样品	
+历史来源待确认 · PRJ-202604-002 · 夏季基础白 T
+
+夏季基础白 T
+
+达人试穿
+
+	预占锁定	不可申请	
+深圳样衣仓
+样衣仓 B-01-03
+	
+张丽
+短视频拍摄 · 至 2026-04-14
+	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000005
+
+SKU-SHORT-DNM-S
+
+牛仔短裤工程样-S
+
+裤装
+·
+S
+·
+牛仔蓝
+	生产样品	
+历史来源待确认 · PRJ-202604-003 · 腰围放量牛仔短裤
+
+腰围放量牛仔短裤
+
+历史首单打样记录
+
+	借出占用	
+需审批	
+雅加达地点 A（演示） · JKT-A-04-002 · 402 房间（演示）
+直播间 A 拍摄位
+	
+王芳
+直播讲解 · 至 2026-04-09
+	无在途	
+归还超期	
+打印标签
+快照
+台账
+
+
+HG2000004
+
+SKU-SHIRT-BLU-L
+
+办公室衬衫样衣-L
+
+上衣
+·
+L
+·
+浅蓝
+	营销样品	
+历史来源待确认 · PRJ-202604-004 · 通勤办公室衬衫
+
+通勤办公室衬衫
+
+雅加达直播备样
+
+	在途待签收	不可申请	
+深圳样衣仓
+深圳仓 → 雅加达直播间
+	无占用	
+SF100000004
+顺丰国际 · ETA 2026-04-12
+	
+在途超时	
+打印标签
+快照
+台账
+
+
+HG2000001
+
+SKU-CARD-BGE-F
+
+米色针织开衫-F
+
+外套
+·
+F
+·
+米色
+	生产样品	
+历史来源待确认 · PRJ-202604-006 · 轻薄针织开衫
+
+轻薄针织开衫
+
+直播间备样
+
+	维修中	不可申请	
+雅加达一号厂
+维修篮 JKT-02
+	无占用	无在途	
+破损	
+打印标签
+快照
+台账
+
+
+HG2000003
+
+SKU-LACE-WHT-S
+
+蕾丝拼接连衣裙-S
+
+裙装
+·
+S
+·
+白色
+	营销样品	
+历史来源待确认 · PRJ-202604-007 · 白色蕾丝连衣裙
+
+白色蕾丝连衣裙
+
+渠道商品图补拍
+
+	借出占用	
+需审批	
+雅加达地点 B（演示） · JKT-B-03-001 · 连衣裙直播房间（演示）
+直播间 RACK-03
+	
+林小红
+直播讲解 · 至 2026-04-13
+	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000011
+
+MOCK-ACTION-2-blue-m
+
+后道验收衬衫
+
+测款样衣
+·
+-
+·
+-
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	已退货	不可申请	
+Mock 退货接收方
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000010
+
+MOCK-ACTION-1-blue-m
+
+后道验收衬衫
+
+测款样衣
+·
+-
+·
+-
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+直播试穿
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000009
+
+MOCK-ACTION-0-blue-m
+
+后道验收衬衫
+
+测款样衣
+·
+-
+·
+-
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+直播试穿
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000012
+
+MOCK-ACTION-3-blue-m
+
+后道验收衬衫
+
+测款样衣
+·
+-
+·
+-
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+样衣详情快照
+
+SPU-QC-001-01 · 后道验收衬衫
+在库可用
+可申请
+关闭
+
+品类/尺码/颜色
+
+测款样衣 · S · 黑色
+
+面料/模板
+
+- · 测款到样
+
+样品类型
+
+营销样品
+
+贴码记录
+
+HG2000007 · SKU SPU-QC-001-01 · 2026-04-12 10:00
+
+责任站点
+
+深圳样衣间
+
+当前位置
+
+深圳样衣仓 · 样衣已入样衣仓，关联库存台账。
+
+关联来源
+
+测款单 SKU 关联；实物来源仍以原始入库记录为准 · TO-0001 · 后道验收衬衫
+
+用途 / 原始环节
+
+④样衣入库
+
+占用信息
+
+无占用
+
+最近更新
+
+2026-04-12 10:00 · 仓管
+
+关联申请
+暂无关联申请
+最近台账事件
+暂无台账事件
+转为生产样品
+打开完整详情
+流转签收与类型维护
+查看完整台账
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (27149.724292ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 28463.82725
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (27149.724292ms)
+  locator.click: Timeout 10000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('[data-pcs-sample-action=close-drawers]').first()[22m
+  [2m    - locator resolved to <button type="button" aria-label="关闭样衣详情" data-pcs-sample-action="close-drawers" class="absolute inset-0 bg-slate-900/40"></button>[22m
+  [2m  - attempting click action[22m
+  [2m    2 × waiting for element to be visible, enabled and stable[22m
+  [2m      - element is visible, enabled and stable[22m
+  [2m      - scrolling into view if needed[22m
+  [2m      - done scrolling[22m
+  [2m      - <img alt="后道验收衬衫" class="h-56 w-full object-cover lg:h-full" src="/materials/pcs-reviewed/shirt-black.jpg"/> from <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-xl">…</aside> subtree intercepts pointer events[22m
+  [2m    - retrying click action[22m
+  [2m    - waiting 20ms[22m
+  [2m    2 × waiting for element to be visible, enabled and stable[22m
+  [2m      - element is visible, enabled and stable[22m
+  [2m      - scrolling into view if needed[22m
+  [2m      - done scrolling[22m
+  [2m      - <img alt="后道验收衬衫" class="h-56 w-full object-cover lg:h-full" src="/materials/pcs-reviewed/shirt-black.jpg"/> from <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-xl">…</aside> subtree intercepts pointer events[22m
+  [2m    - retrying click action[22m
+  [2m      - waiting 100ms[22m
+  [2m    19 × waiting for element to be visible, enabled and stable[22m
+  [2m       - element is visible, enabled and stable[22m
+  [2m       - scrolling into view if needed[22m
+  [2m       - done scrolling[22m
+  [2m       - <img alt="后道验收衬衫" class="h-56 w-full object-cover lg:h-full" src="/materials/pcs-reviewed/shirt-black.jpg"/> from <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-xl">…</aside> subtree intercepts pointer events[22m
+  [2m     - retrying click action[22m
+  [2m       - waiting 500ms[22m
+  
+      at click (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:17:116)
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:66:173) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('[data-pcs-sample-action=close-drawers]').first()", '    - locator resolved to <button type="button" aria-label="关闭样衣详情" data-pcs-sample-action="close-drawers" class="absolute inset-0 bg-slate-900/40"></button>', '  - attempting click action', '    2 × waiting for element to be visible, enabled and stable', '      - element is visible, enabled and stable', '      - scrolling into view if needed', '      - done scrolling', '      - <img alt="后道验收衬衫" class="h-56 w-full object-cover lg:h-full" src="/materials/pcs-reviewed/shirt-black.jpg"/> from <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-xl">…</aside> subtree intercepts pointer events', '    - retrying click action', '    - waiting 20ms', '    2 × waiting for element to be visible, enabled and stable', '      - element is visible, enabled and stable', '      - scrolling into view if needed', '      - done scrolling', '      - <img alt="后道验收衬衫" class="h-56 w-full object-cover lg:h-full" src="/materials/pcs-reviewed/shirt-black.jpg"/> from <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-xl">…</aside> subtree intercepts pointer events', '    - retrying click action', '      - waiting 100ms', '    19 × waiting for element to be visible, enabled and stable', '       - element is visible, enabled and stable', '       - scrolling into view if needed', '       - done scrolling', '       - <img alt="后道验收衬衫" class="h-56 w-full object-cover lg:h-full" src="/materials/pcs-reviewed/shirt-black.jpg"/> from <aside class="absolute right-0 top-0 flex h-full w-full max-w-3xl flex-col overflow-y-auto bg-white shadow-xl">…</aside> subtree intercepts pointer events', '     - retrying click action', '       - waiting 500ms' ]
+  }

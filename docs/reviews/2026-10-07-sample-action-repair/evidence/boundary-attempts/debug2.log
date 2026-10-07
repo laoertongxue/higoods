@@ -1,0 +1,37 @@
+样衣使用申请
+ 
+样衣退货与处理
+ 
+样衣库存
+全部关闭
+资料暂时无法读取
+
+原有资料已保留，请重新读取。若仍然失败，请联系维护人员处理。
+
+PCS 数据未保存或无法读取，请保留当前输入后重试。（UnknownError）
+
+重新读取
+✖ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (13889.162167ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 14582.900667
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-action-boundaries.test.ts:1:436
+✖ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (13889.162167ms)
+  locator.waitFor: Timeout 10000ms exceeded.
+  Call log:
+  [2m  - waiting for getByText(/重新读取失败/).first() to be visible[22m
+  
+      at <anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:163:12)
+      at click (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:45:23)
+      at async TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:159:7) {
+    name: 'TimeoutError',
+    log: [ '  - waiting for getByText(/重新读取失败/).first() to be visible' ]
+  }

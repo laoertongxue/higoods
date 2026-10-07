@@ -1,0 +1,24 @@
+✖ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (33795.654208ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 34289.899666
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-action-boundaries.test.ts:1:436
+✖ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (33795.654208ms)
+  locator.waitFor: Timeout 30000ms exceeded.
+  Call log:
+  [2m  - waiting for getByText(/重新读取失败/).first() to be visible[22m
+  
+      at <anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:162:12)
+      at click (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:44:23)
+      at async TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:158:7) {
+    name: 'TimeoutError',
+    log: [ '  - waiting for getByText(/重新读取失败/).first() to be visible' ]
+  }

@@ -1,0 +1,372 @@
+1 cold:inventory
+1 reload:inventory
+1 spa:inventory
+1 cold:application
+1 reload:application
+1 spa:application
+1 cold:application/new
+1 reload:application/new
+1 spa:application/new
+1 cold:application/req-004/edit
+1 reload:application/req-004/edit
+1 spa:application/req-004/edit
+1 cold:application/req-001
+1 reload:application/req-001
+1 spa:application/req-001
+1 cold:transfer
+1 reload:transfer
+1 spa:transfer
+1 cold:return
+1 reload:return
+1 spa:return
+1 cold:ledger
+1 reload:ledger
+1 spa:ledger
+1 cold:ledger/stocktake
+1 reload:ledger/stocktake
+1 spa:ledger/stocktake
+1 cold:view
+1 reload:view
+1 spa:view
+1 cold:detail/smp-001
+1 reload:detail/smp-001
+1 spa:detail/smp-001
+1 cold:label/smp-001
+1 reload:label/smp-001
+1 spa:label/smp-001
+1 application:new-entry
+1 draft:missing-required
+1 draft:input:applicant
+1 draft:input:purpose
+1 draft:input:receiver
+1 draft:input:useStartedAt
+1 draft:input:expectedReturnAt
+1 draft:input:remark
+1 draft:select:responsibleSite
+1 draft:select:targetLocationId
+1 draft:select:returnLocationId
+1 draft:tab-samples
+1 draft:search-input
+1 draft:query
+1 draft:next-page
+1 draft:previous-page
+FAILED 1 http://127.0.0.1:4206/pcs/samples/application/new 样衣库存
+ 
+样衣使用申请
+ 
+样衣流转记录
+ 
+样衣退货与处理
+ 
+样衣台账
+ 
+盘点差异追踪
+ 
+样衣视图
+全部关闭
+新建样衣使用申请
+返回申请列表
+重新读取
+
+未保存：请填写操作人。
+
+当前修改尚未保存
+
+申请信息
+样衣清单（0）
+查询 HG / SKU / 名称
+查询
+
+已选择 0 条样衣记录；同 SKU 的多件样衣共用 HG 编号，按当前库存记录选择。
+
+后道验收衬衫
+
+HG2000022 · MOCK-ACTION-13-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000021 · MOCK-ACTION-12-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000020 · MOCK-ACTION-11-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000019 · MOCK-ACTION-10-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000018 · MOCK-ACTION-9-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000017 · MOCK-ACTION-8-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000016 · MOCK-ACTION-7-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000015 · MOCK-ACTION-6-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000014 · MOCK-ACTION-5-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000013 · MOCK-ACTION-4-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000012 · MOCK-ACTION-3-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000011 · MOCK-ACTION-2-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+上一页
+第 1/2 页 · 共 14 条
+下一页
+取消编辑
+保存草稿
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (21901.12275ms)
+2 cold:inventory
+2 reload:inventory
+2 spa:inventory
+2 cold:application
+2 reload:application
+2 spa:application
+2 cold:application/new
+2 reload:application/new
+2 spa:application/new
+2 cold:application/req-004/edit
+2 reload:application/req-004/edit
+2 spa:application/req-004/edit
+2 cold:application/req-001
+2 reload:application/req-001
+2 spa:application/req-001
+2 cold:transfer
+2 reload:transfer
+2 spa:transfer
+2 cold:return
+2 reload:return
+2 spa:return
+2 cold:ledger
+2 reload:ledger
+2 spa:ledger
+2 cold:ledger/stocktake
+2 reload:ledger/stocktake
+2 spa:ledger/stocktake
+2 cold:view
+2 reload:view
+2 spa:view
+2 cold:detail/smp-001
+2 reload:detail/smp-001
+2 spa:detail/smp-001
+2 cold:label/smp-001
+2 reload:label/smp-001
+2 spa:label/smp-001
+2 application:new-entry
+2 draft:missing-required
+2 draft:input:applicant
+2 draft:input:purpose
+2 draft:input:receiver
+2 draft:input:useStartedAt
+2 draft:input:expectedReturnAt
+2 draft:input:remark
+2 draft:select:responsibleSite
+2 draft:select:targetLocationId
+2 draft:select:returnLocationId
+2 draft:tab-samples
+2 draft:search-input
+2 draft:query
+2 draft:next-page
+2 draft:previous-page
+FAILED 2 http://127.0.0.1:4206/pcs/samples/application/new 样衣库存
+ 
+样衣使用申请
+ 
+样衣流转记录
+ 
+样衣退货与处理
+ 
+样衣台账
+ 
+盘点差异追踪
+ 
+样衣视图
+全部关闭
+新建样衣使用申请
+返回申请列表
+重新读取
+
+未保存：请填写操作人。
+
+当前修改尚未保存
+
+申请信息
+样衣清单（0）
+查询 HG / SKU / 名称
+查询
+
+已选择 0 条样衣记录；同 SKU 的多件样衣共用 HG 编号，按当前库存记录选择。
+
+后道验收衬衫
+
+HG2000022 · MOCK-ACTION-13-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000021 · MOCK-ACTION-12-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000020 · MOCK-ACTION-11-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000019 · MOCK-ACTION-10-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000018 · MOCK-ACTION-9-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000017 · MOCK-ACTION-8-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000016 · MOCK-ACTION-7-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000015 · MOCK-ACTION-6-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000014 · MOCK-ACTION-5-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000013 · MOCK-ACTION-4-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000012 · MOCK-ACTION-3-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+后道验收衬衫
+
+HG2000011 · MOCK-ACTION-2-blue-m
+
+- · - · 深圳样衣仓 · 在库可用
+
+上一页
+第 1/2 页 · 共 14 条
+下一页
+取消编辑
+保存草稿
+✖ SAMPLE-FIX browser 2: all routes, actual actions, persistence and <=1s (21436.969667ms)
+3 cold:inventory
+3 reload:inventory
+3 spa:inventory
+3 cold:application
+3 reload:application
+3 spa:application
+3 cold:application/new
+3 reload:application/new
+3 spa:application/new
+3 cold:application/req-004/edit
+3 reload:application/req-004/edit
+3 spa:application/req-004/edit
+3 cold:application/req-001
+
+Interrupted while running:
+
+⚠ tests/browser-contracts/pcs-sample-actions.test.ts (tests/browser-contracts/pcs-sample-actions.test.ts:1:1)
+✖ tests/browser-contracts/pcs-sample-actions.test.ts (47595.848791ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 47599.077042
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (21901.12275ms)
+  locator.check: Timeout 10000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('[data-sample-workflow-field=sample][value="testing-sample-actions-0-MOCK-ACTION-0-blue-m"]')[22m
+  
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:198:82) {
+    name: 'TimeoutError',
+    log: [ `  - waiting for locator('[data-sample-workflow-field=sample][value="testing-sample-actions-0-MOCK-ACTION-0-blue-m"]')` ]
+  }
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 2: all routes, actual actions, persistence and <=1s (21436.969667ms)
+  locator.check: Timeout 10000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('[data-sample-workflow-field=sample][value="testing-sample-actions-0-MOCK-ACTION-0-blue-m"]')[22m
+  
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:198:82) {
+    name: 'TimeoutError',
+    log: [ `  - waiting for locator('[data-sample-workflow-field=sample][value="testing-sample-actions-0-MOCK-ACTION-0-blue-m"]')` ]
+  }
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:1
+✖ tests/browser-contracts/pcs-sample-actions.test.ts (47595.848791ms)
+  'Promise resolution is still pending but the event loop has already resolved'

@@ -145,3 +145,7 @@ npm run workflow:verify -- --output <tmp>/task-receipt.json --task-boundary "<WP
 | WP-STYLE-PHOTO | 列表承接现场结构化属性 → `src/pages/pcs-product-archives.ts` / `columns`、`styleAttributeLines`、`categoryNumberLabel`、`preferences`、`exportList` → 浏览器列表、列偏好、筛选导出及图片 / 性能证据 → 属性来源一致、完整编号、低分辨率内部滚动、5轮≤1秒 |
 | WP-SAMPLE-LABEL | 样衣实物标签打印 → 复用现有 Code128 及类似成衣标签模板，库存/卡片/详情入口进入独立 pcs-sample-label 预览 → HG 已确认是按内部 SKU 生成的样衣编号，同 SKU 多件共用；pcs-sample-management 的 registerSampleIdentity 登记唯一映射，流转与重复打印复用编号。条码使用 HG、日期使用该 SKU 首次登记日期；纸张宽高可调，默认 60×40mm 仅作试打。原子保存编号映射并核验扫码、打印、重复到样与刷新 → 打印字段与照片一致、打印不冒充贴码事实；实纸适配待现场尺寸校准 |
 | WP-LOS-ROOM | 唯一房间身份、多品类门牌 → LOS 房间数据 / 页面 / 路由、共享品类字典、PCS 位置投影与样衣提交、低层只读事务校验 → 地点与房间维护、启停、日志、专用预览与打印 → 5 轮浏览器维护 / 打印 / 刷新 / 唯一性 / 回滚 / 冲突 / 停用及 ≤1 秒证据 → 不复制种子、不维护双份房间、每张门牌含唯一标号 |
+
+## 2026-10-07 样衣操作修复增量工作包
+
+依据总体设计 §7.6 与用户当日要求，WP-SAMPLE-ACTIONS 承接 SAMPLE-FIX-01～13，详细工作包、负责文件、前后场景与完成条件见 [本轮实施计划及问题矩阵](../reviews/2026-10-07-sample-action-repair/plan-and-issues.md)。WP1 数据/自身ID → WP2 分层页面/实际动作 → WP3 Mock及统计 → WP4 浏览器/故障/性能/治理；先前 WP-05 证据不替代本轮验证。

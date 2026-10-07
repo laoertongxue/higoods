@@ -1,0 +1,675 @@
+{
+  "iteration": 1,
+  "base": "http://127.0.0.1:4206",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "checks": [
+    "cold:inventory: 345.69999998807907ms <=1000",
+    "reload:inventory: 231.9000000357628ms <=1000",
+    "spa:inventory: 32.39999997615814ms <=1000",
+    "cold:application: 282.10000002384186ms <=1000",
+    "reload:application: 235.39999997615814ms <=1000",
+    "spa:application: 39.30000001192093ms <=1000",
+    "cold:application/new: 248.10000002384186ms <=1000",
+    "reload:application/new: 215.60000002384186ms <=1000",
+    "spa:application/new: 32.90000003576279ms <=1000",
+    "cold:application/req-004/edit: 297.89999997615814ms <=1000",
+    "reload:application/req-004/edit: 217.5ms <=1000",
+    "spa:application/req-004/edit: 31.19999998807907ms <=1000",
+    "cold:application/req-001: 248.10000002384186ms <=1000",
+    "reload:application/req-001: 216ms <=1000",
+    "spa:application/req-001: 32.90000003576279ms <=1000",
+    "cold:transfer: 267.60000002384186ms <=1000",
+    "reload:transfer: 230ms <=1000",
+    "spa:transfer: 32.09999996423721ms <=1000",
+    "cold:return: 248.5ms <=1000",
+    "reload:return: 232.10000002384186ms <=1000",
+    "spa:return: 32.60000002384186ms <=1000",
+    "cold:ledger: 287.60000002384186ms <=1000",
+    "reload:ledger: 223.19999998807907ms <=1000",
+    "spa:ledger: 33ms <=1000",
+    "cold:ledger/stocktake: 314ms <=1000",
+    "reload:ledger/stocktake: 215.69999998807907ms <=1000",
+    "spa:ledger/stocktake: 32.89999997615814ms <=1000",
+    "cold:view: 267.19999998807907ms <=1000",
+    "reload:view: 230.19999998807907ms <=1000",
+    "spa:view: 33.09999996423721ms <=1000",
+    "cold:detail/smp-001: 348.69999998807907ms <=1000",
+    "reload:detail/smp-001: 297.30000001192093ms <=1000",
+    "spa:detail/smp-001: 32.89999997615814ms <=1000",
+    "cold:label/smp-001: 281.19999998807907ms <=1000",
+    "reload:label/smp-001: 215.69999998807907ms <=1000",
+    "spa:label/smp-001: 32.89999997615814ms <=1000",
+    "opening every route never writes seeds",
+    "application:new-entry: 38.89999997615814ms <=1000",
+    "draft:missing-required: 48.39999997615814ms <=1000",
+    "missing fields creates no request",
+    "draft:input:applicant: 26ms <=1000",
+    "draft:input:purpose: 30.899999976158142ms <=1000",
+    "draft:input:receiver: 30.200000047683716ms <=1000",
+    "draft:input:useStartedAt: 30.900000035762787ms <=1000",
+    "draft:input:expectedReturnAt: 31ms <=1000",
+    "draft:input:remark: 31.30000001192093ms <=1000",
+    "draft:select:responsibleSite: 31.5ms <=1000",
+    "draft:select:targetLocationId: 29.19999998807907ms <=1000",
+    "draft:select:returnLocationId: 29.5ms <=1000",
+    "draft:tab-samples: 45.60000002384186ms <=1000",
+    "draft:search-input: 31ms <=1000",
+    "draft:query: 32.10000002384186ms <=1000",
+    "draft:select-sample: 48.59999996423721ms <=1000",
+    "draft:select-sample: 49ms <=1000",
+    "draft:tab-info: 48.5ms <=1000",
+    "selected count stays accurate",
+    "draft:quota-failure: 60.80000001192093ms <=1000",
+    "failed save retains entered fields",
+    "failed save persisted no request",
+    "draft:saved: 77ms <=1000",
+    "draft does not reserve",
+    "draft and two sample links survive reload",
+    "draft:edit-entry: 48.59999996423721ms <=1000",
+    "draft:edit-input: 31.5ms <=1000",
+    "draft:edit-save: 71.89999997615814ms <=1000",
+    "request:submit:open: 66ms <=1000",
+    "request:actor-input: 30.599999964237213ms <=1000",
+    "request:note-input: 31.5ms <=1000",
+    "request:submit:saved: 115.80000001192093ms <=1000",
+    "request:submit:saved readable 待审批",
+    "submit survives reload",
+    "request:approve:open: 49.19999998807907ms <=1000",
+    "request:actor-input: 31.30000001192093ms <=1000",
+    "request:note-input: 31.30000001192093ms <=1000",
+    "request:approve:saved: 98.90000003576279ms <=1000",
+    "request:approve:saved readable 已批准待领用",
+    "approve survives reload",
+    "request:pickup:open: 48.90000003576279ms <=1000",
+    "request:actor-input: 31.399999976158142ms <=1000",
+    "request:note-input: 31.80000001192093ms <=1000",
+    "request:pickup:saved: 99ms <=1000",
+    "request:pickup:saved readable 使用中",
+    "pickup survives reload",
+    "request:return:open: 49.5ms <=1000",
+    "request:actor-input: 31.5ms <=1000",
+    "request:note-input: 31.599999964237213ms <=1000",
+    "request:return:saved: 98.80000001192093ms <=1000",
+    "request:return:saved readable 归还中",
+    "return survives reload",
+    "request:receive:open: 49.19999998807907ms <=1000",
+    "request:actor-input: 31.30000001192093ms <=1000",
+    "request:note-input: 31.599999964237213ms <=1000",
+    "request:receive:saved: 98.89999997615814ms <=1000",
+    "request:receive:saved readable 已完成",
+    "receive survives reload",
+    "both samples actually returned and released",
+    "request receipt reaches ledger",
+    "request:submit:open: 49.40000003576279ms <=1000",
+    "request:actor-input: 31.600000023841858ms <=1000",
+    "request:note-input: 31.5ms <=1000",
+    "request:submit:saved: 98.89999997615814ms <=1000",
+    "request:submit:saved readable 待审批",
+    "request:reject:open: 49.5ms <=1000",
+    "request:actor-input: 31.100000023841858ms <=1000",
+    "request:note-input: 31.400000035762787ms <=1000",
+    "request:reject:danger-confirm: 65.30000001192093ms <=1000",
+    "request:reject:saved readable 已驳回",
+    "request:submit:open: 48.10000002384186ms <=1000",
+    "request:actor-input: 31.200000047683716ms <=1000",
+    "request:note-input: 31.400000035762787ms <=1000",
+    "request:submit:saved: 67ms <=1000",
+    "request:submit:saved readable 待审批",
+    "request:cancel:open: 65ms <=1000",
+    "request:actor-input: 31.100000023841858ms <=1000",
+    "request:note-input: 31.299999952316284ms <=1000",
+    "request:cancel:danger-confirm: 68.89999997615814ms <=1000",
+    "request:cancel:saved readable 已取消",
+    "case:new: 49.39999997615814ms <=1000",
+    "case:sample-select: 47.89999997615814ms <=1000",
+    "case:target-input: 31ms <=1000",
+    "case:create-save: 98.90000003576279ms <=1000",
+    "case actually created",
+    "case:detail: 32.5ms <=1000",
+    "case:approve:open: 49.19999998807907ms <=1000",
+    "case:actor-input: 30.799999952316284ms <=1000",
+    "case:note-input: 31.30000001192093ms <=1000",
+    "case:approve:saved: 98.89999997615814ms <=1000",
+    "case:approve:saved readable 待执行",
+    "case:execute:open: 49.5ms <=1000",
+    "case:actor-input: 30.600000023841858ms <=1000",
+    "case:note-input: 31.399999976158142ms <=1000",
+    "case:execute:danger-confirm: 98.70000004768372ms <=1000",
+    "case:execute:saved readable 已结案",
+    "retired sample persists, no longer borrowable",
+    "stocktake:detail: 32.80000001192093ms <=1000",
+    "stocktake:investigate:open: 49.299999952316284ms <=1000",
+    "stocktake:actor-input: 31.100000023841858ms <=1000",
+    "stocktake:note-input: 31.30000001192093ms <=1000",
+    "stocktake:investigate:saved: 71.80000001192093ms <=1000",
+    "stocktake:investigate:saved readable 处理中",
+    "stocktake:close:open: 49.5ms <=1000",
+    "stocktake:actor-input: 31.5ms <=1000",
+    "stocktake:note-input: 30.5ms <=1000",
+    "stocktake:close:danger-confirm: 48.69999998807907ms <=1000",
+    "stocktake:close:saved readable 已关闭",
+    "stocktake conclusion persists",
+    "inventory:refresh: 36.89999997615814ms <=1000",
+    "inventory:search: 29.5ms <=1000",
+    "inventory:reset: 30.30000001192093ms <=1000",
+    "inventory:filter:status: 44.89999997615814ms <=1000",
+    "inventory:filter-reset: 33.60000002384186ms <=1000",
+    "inventory:filter:site: 46.19999998807907ms <=1000",
+    "inventory:filter-reset: 34.700000047683716ms <=1000",
+    "inventory:filter:location-type: 45.69999998807907ms <=1000",
+    "inventory:filter-reset: 33.80000001192093ms <=1000",
+    "inventory:drawer: 36.60000002384186ms <=1000"
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "name": "cold:inventory",
+      "ms": 345.69999998807907
+    },
+    {
+      "name": "reload:inventory",
+      "ms": 231.9000000357628
+    },
+    {
+      "name": "spa:inventory",
+      "ms": 32.39999997615814
+    },
+    {
+      "name": "cold:application",
+      "ms": 282.10000002384186
+    },
+    {
+      "name": "reload:application",
+      "ms": 235.39999997615814
+    },
+    {
+      "name": "spa:application",
+      "ms": 39.30000001192093
+    },
+    {
+      "name": "cold:application/new",
+      "ms": 248.10000002384186
+    },
+    {
+      "name": "reload:application/new",
+      "ms": 215.60000002384186
+    },
+    {
+      "name": "spa:application/new",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "cold:application/req-004/edit",
+      "ms": 297.89999997615814
+    },
+    {
+      "name": "reload:application/req-004/edit",
+      "ms": 217.5
+    },
+    {
+      "name": "spa:application/req-004/edit",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "cold:application/req-001",
+      "ms": 248.10000002384186
+    },
+    {
+      "name": "reload:application/req-001",
+      "ms": 216
+    },
+    {
+      "name": "spa:application/req-001",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "cold:transfer",
+      "ms": 267.60000002384186
+    },
+    {
+      "name": "reload:transfer",
+      "ms": 230
+    },
+    {
+      "name": "spa:transfer",
+      "ms": 32.09999996423721
+    },
+    {
+      "name": "cold:return",
+      "ms": 248.5
+    },
+    {
+      "name": "reload:return",
+      "ms": 232.10000002384186
+    },
+    {
+      "name": "spa:return",
+      "ms": 32.60000002384186
+    },
+    {
+      "name": "cold:ledger",
+      "ms": 287.60000002384186
+    },
+    {
+      "name": "reload:ledger",
+      "ms": 223.19999998807907
+    },
+    {
+      "name": "spa:ledger",
+      "ms": 33
+    },
+    {
+      "name": "cold:ledger/stocktake",
+      "ms": 314
+    },
+    {
+      "name": "reload:ledger/stocktake",
+      "ms": 215.69999998807907
+    },
+    {
+      "name": "spa:ledger/stocktake",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "cold:view",
+      "ms": 267.19999998807907
+    },
+    {
+      "name": "reload:view",
+      "ms": 230.19999998807907
+    },
+    {
+      "name": "spa:view",
+      "ms": 33.09999996423721
+    },
+    {
+      "name": "cold:detail/smp-001",
+      "ms": 348.69999998807907
+    },
+    {
+      "name": "reload:detail/smp-001",
+      "ms": 297.30000001192093
+    },
+    {
+      "name": "spa:detail/smp-001",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "cold:label/smp-001",
+      "ms": 281.19999998807907
+    },
+    {
+      "name": "reload:label/smp-001",
+      "ms": 215.69999998807907
+    },
+    {
+      "name": "spa:label/smp-001",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "application:new-entry",
+      "ms": 38.89999997615814
+    },
+    {
+      "name": "draft:missing-required",
+      "ms": 48.39999997615814
+    },
+    {
+      "name": "draft:input:applicant",
+      "ms": 26
+    },
+    {
+      "name": "draft:input:purpose",
+      "ms": 30.899999976158142
+    },
+    {
+      "name": "draft:input:receiver",
+      "ms": 30.200000047683716
+    },
+    {
+      "name": "draft:input:useStartedAt",
+      "ms": 30.900000035762787
+    },
+    {
+      "name": "draft:input:expectedReturnAt",
+      "ms": 31
+    },
+    {
+      "name": "draft:input:remark",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "draft:select:responsibleSite",
+      "ms": 31.5
+    },
+    {
+      "name": "draft:select:targetLocationId",
+      "ms": 29.19999998807907
+    },
+    {
+      "name": "draft:select:returnLocationId",
+      "ms": 29.5
+    },
+    {
+      "name": "draft:tab-samples",
+      "ms": 45.60000002384186
+    },
+    {
+      "name": "draft:search-input",
+      "ms": 31
+    },
+    {
+      "name": "draft:query",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "draft:select-sample",
+      "ms": 48.59999996423721
+    },
+    {
+      "name": "draft:select-sample",
+      "ms": 49
+    },
+    {
+      "name": "draft:tab-info",
+      "ms": 48.5
+    },
+    {
+      "name": "draft:quota-failure",
+      "ms": 60.80000001192093
+    },
+    {
+      "name": "draft:saved",
+      "ms": 77
+    },
+    {
+      "name": "draft:edit-entry",
+      "ms": 48.59999996423721
+    },
+    {
+      "name": "draft:edit-input",
+      "ms": 31.5
+    },
+    {
+      "name": "draft:edit-save",
+      "ms": 71.89999997615814
+    },
+    {
+      "name": "request:submit:open",
+      "ms": 66
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 30.599999964237213
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.5
+    },
+    {
+      "name": "request:submit:saved",
+      "ms": 115.80000001192093
+    },
+    {
+      "name": "request:approve:open",
+      "ms": 49.19999998807907
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "request:approve:saved",
+      "ms": 98.90000003576279
+    },
+    {
+      "name": "request:pickup:open",
+      "ms": 48.90000003576279
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.80000001192093
+    },
+    {
+      "name": "request:pickup:saved",
+      "ms": 99
+    },
+    {
+      "name": "request:return:open",
+      "ms": 49.5
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.5
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.599999964237213
+    },
+    {
+      "name": "request:return:saved",
+      "ms": 98.80000001192093
+    },
+    {
+      "name": "request:receive:open",
+      "ms": 49.19999998807907
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.599999964237213
+    },
+    {
+      "name": "request:receive:saved",
+      "ms": 98.89999997615814
+    },
+    {
+      "name": "request:submit:open",
+      "ms": 49.40000003576279
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.5
+    },
+    {
+      "name": "request:submit:saved",
+      "ms": 98.89999997615814
+    },
+    {
+      "name": "request:reject:open",
+      "ms": 49.5
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "request:reject:danger-confirm",
+      "ms": 65.30000001192093
+    },
+    {
+      "name": "request:submit:open",
+      "ms": 48.10000002384186
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.200000047683716
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "request:submit:saved",
+      "ms": 67
+    },
+    {
+      "name": "request:cancel:open",
+      "ms": 65
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.299999952316284
+    },
+    {
+      "name": "request:cancel:danger-confirm",
+      "ms": 68.89999997615814
+    },
+    {
+      "name": "case:new",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "case:sample-select",
+      "ms": 47.89999997615814
+    },
+    {
+      "name": "case:target-input",
+      "ms": 31
+    },
+    {
+      "name": "case:create-save",
+      "ms": 98.90000003576279
+    },
+    {
+      "name": "case:detail",
+      "ms": 32.5
+    },
+    {
+      "name": "case:approve:open",
+      "ms": 49.19999998807907
+    },
+    {
+      "name": "case:actor-input",
+      "ms": 30.799999952316284
+    },
+    {
+      "name": "case:note-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "case:approve:saved",
+      "ms": 98.89999997615814
+    },
+    {
+      "name": "case:execute:open",
+      "ms": 49.5
+    },
+    {
+      "name": "case:actor-input",
+      "ms": 30.600000023841858
+    },
+    {
+      "name": "case:note-input",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "case:execute:danger-confirm",
+      "ms": 98.70000004768372
+    },
+    {
+      "name": "stocktake:detail",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "stocktake:investigate:open",
+      "ms": 49.299999952316284
+    },
+    {
+      "name": "stocktake:actor-input",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "stocktake:note-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "stocktake:investigate:saved",
+      "ms": 71.80000001192093
+    },
+    {
+      "name": "stocktake:close:open",
+      "ms": 49.5
+    },
+    {
+      "name": "stocktake:actor-input",
+      "ms": 31.5
+    },
+    {
+      "name": "stocktake:note-input",
+      "ms": 30.5
+    },
+    {
+      "name": "stocktake:close:danger-confirm",
+      "ms": 48.69999998807907
+    },
+    {
+      "name": "inventory:refresh",
+      "ms": 36.89999997615814
+    },
+    {
+      "name": "inventory:search",
+      "ms": 29.5
+    },
+    {
+      "name": "inventory:reset",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "inventory:filter:status",
+      "ms": 44.89999997615814
+    },
+    {
+      "name": "inventory:filter-reset",
+      "ms": 33.60000002384186
+    },
+    {
+      "name": "inventory:filter:site",
+      "ms": 46.19999998807907
+    },
+    {
+      "name": "inventory:filter-reset",
+      "ms": 34.700000047683716
+    },
+    {
+      "name": "inventory:filter:location-type",
+      "ms": 45.69999998807907
+    },
+    {
+      "name": "inventory:filter-reset",
+      "ms": 33.80000001192093
+    },
+    {
+      "name": "inventory:drawer",
+      "ms": 36.60000002384186
+    }
+  ],
+  "max": 348.69999998807907,
+  "pass": false
+}

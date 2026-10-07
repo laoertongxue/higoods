@@ -1,6 +1,8 @@
+import { renderSampleWorkflowModal, renderSampleRequestControls, renderSampleCaseControls, renderSampleStocktakeControls, sampleWorkflowImage, handleSampleWorkflowAction, handleSampleWorkflowInput, sampleWorkflowDialogOpen, closeSampleWorkflowDialog } from './pcs-sample-workflows.ts'
+export { renderPcsSampleApplicationEditPage, renderPcsSampleApplicationDetailPage } from './pcs-sample-workflows.ts'
 import { handlePcsSampleLabelInput, handlePcsSampleLabelAction } from './pcs-sample-label.ts'
 import { getPcsSampleLabelIdentity } from '../data/pcs-sample-management.ts'
-import { runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
+import { retryPcsRecordState, ensurePcsRecordState, runPcsRecordCommand } from '../data/pcs-record-runtime.ts'
 import { ensureLosLiveRoomState, liveRoomTransferGuards } from '../data/los-live-room-master.ts'
 import { renderBadge } from '../components/ui/badge.ts'
 import { renderButton } from '../components/ui/button.ts'
@@ -66,7 +68,6 @@ interface SampleManagementState {
   selectedReturnCaseId: string | null
   selectedLedgerEventId: string | null
   selectedStocktakeDiffId: string | null
-  createRequestOpen: boolean
   flowOpen: boolean
   flowSampleId: string
   flowTarget: string
@@ -94,7 +95,6 @@ const state: SampleManagementState = {
   selectedReturnCaseId: null,
   selectedLedgerEventId: null,
   selectedStocktakeDiffId: null,
-  createRequestOpen: false,
   flowOpen: false,
   flowSampleId: '',
   flowTarget: '',
@@ -150,6 +150,7 @@ function renderSampleTableSurface<T>(columns: TableColumn<T>[], rows: T[], optio
 }
 
 function sampleSourceText(record: { projectCode: string; projectName?: string; source?: PcsSampleRecord['source'] }): string {
+  if ('requestId' in record && !record.projectCode) return '样衣使用申请'
   const source = getPcsSampleSource(record)
   return `${source.note} · ${source.code}${source.name ? ` · ${source.name}` : ''}`
 }
@@ -227,14 +228,15 @@ function renderPageShell(title: string, description: string, body: string, actio
               label: '刷新',
               icon: 'refresh-cw',
               variant: 'secondary',
-              action: { prefix: 'pcsSample', action: 'mock-action' },
+              action: { prefix: 'pcsSample', action: 'reload' },
               className: 'border-slate-200 bg-white text-slate-700',
-            }).replace('data-pcs-sample-action="mock-action"', 'data-pcs-sample-action="mock-action" data-message="已刷新样衣管理演示数据"')}
+            })}
             ${actions}
           </div>
         </div>
       </section>
       ${body}
+      ${renderSampleWorkflowModal()}
     </div>
   `
 }
@@ -298,7 +300,7 @@ function renderSampleCell(sample: PcsSampleRecord): string {
   return `
     <div class="flex min-w-[240px] items-center gap-3">
       <button type="button" class="shrink-0 cursor-zoom-in overflow-hidden rounded-lg border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
-        <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-14 w-14 object-cover" />
+        <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-14 w-14 object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="p-2 text-xs text-red-700">图片加载失败</span>
       </button>
       <div>
         <button type="button" class="text-left font-medium text-blue-700 hover:underline" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">${escapeHtml(getPcsSampleLabelIdentity(sample.skuCode)?.hgCode || '编号待生成')}</button><p class="mt-1 break-all text-xs text-slate-500">${escapeHtml(sample.skuCode)}</p>
@@ -424,7 +426,7 @@ function renderSampleDetailDrawer(): string {
         <div class="space-y-4 px-5 py-5">
           <section class="grid gap-4 lg:grid-cols-[180px,1fr]">
             <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
-              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-56 w-full object-cover lg:h-full" />
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-56 w-full object-cover lg:h-full" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="p-2 text-xs text-red-700">图片加载失败</span>
             </button>
             <div class="grid gap-3 sm:grid-cols-2">
               ${renderInfoItem('品类/尺码/颜色', `${sample.category} · ${sample.size} · ${sample.color}`)}
@@ -468,7 +470,7 @@ function renderSampleDetailDrawer(): string {
               )
               .join('')}
             <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">打开完整详情</button>
-            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-sample-action="mock-action" data-message="已模拟标记 ${escapeHtml(sample.sampleCode)} 的库存动作">模拟库存动作</button>
+            <a class="rounded border px-3 py-2 text-sm text-blue-700" data-nav="/pcs/samples/detail/${escapeHtml(sample.sampleId)}" href="/pcs/samples/detail/${escapeHtml(sample.sampleId)}">流转签收与类型维护</a>
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger">查看完整台账</button>
           </section>
         </div>
@@ -531,12 +533,12 @@ export function renderPcsSampleInventoryPage(): string {
 
 function renderRequestTable(requests: PcsSampleUseRequest[]): string {
   const columns: TableColumn<PcsSampleUseRequest>[] = [
-    { key: 'requestCode', title: '申请单号', width: '150px', render: (request) => `<button type="button" class="font-medium text-blue-700 hover:underline" data-pcs-sample-action="select-request" data-request-id="${escapeHtml(request.requestId)}">${escapeHtml(request.requestCode)}</button>` },
+    { key: 'requestCode', title: '申请单号', width: '150px', render: (request) => `<button type="button" class="break-all font-medium text-blue-700 hover:underline" data-pcs-sample-action="select-request" data-request-id="${escapeHtml(request.requestId)}">${escapeHtml(request.requestCode)}</button>` },
     { key: 'status', title: '状态', width: '130px', render: (request) => renderBadge(request.status, REQUEST_STATUS_TONE[request.status]) },
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
     { key: 'sampleIds', title: '样衣数量', width: '90px', render: (request) => `<span class="font-medium">${escapeHtml(request.sampleIds.length)}</span>` },
     { key: 'expectedReturnAt', title: '预计归还', width: '150px' },
-    { key: 'projectName', title: '关联来源 / 用途', minWidth: '220px', render: (request) => `<div><div class="font-medium text-slate-900">${escapeHtml(sampleSourceText(request))}</div><div class="mt-1 text-sm text-slate-500">${escapeHtml(request.sourceStepName)}</div></div>` },
+    { key: 'projectName', title: '关联来源 / 用途', minWidth: '220px', render: (request) => `<div><div class="font-medium text-slate-900">${escapeHtml(sampleSourceText(request))}</div><div class="mt-1 text-sm text-slate-500">${escapeHtml(request.purpose || request.sourceStepName)}</div></div>` },
     { key: 'applicant', title: '申请人', width: '100px' },
     { key: 'keeper', title: '审批/仓管', width: '120px', render: (request) => `${escapeHtml(request.approver || '-')} / ${escapeHtml(request.keeper || '-')}` },
     { key: 'updatedAt', title: '更新时间', width: '150px' },
@@ -572,46 +574,11 @@ function renderRequestDrawer(): string {
             ${renderInfoItem('预计归还', request.expectedReturnAt)}
             ${renderInfoItem('更新时间', request.updatedAt)}
           </section>
-          ${renderMiniList('样衣清单', samples.map((sample) => `${sample.sampleCode} · ${sample.name} · ${sample.status}`), '暂无样衣')}
+          <section class="space-y-3 rounded border p-4"><h3 class="font-semibold">样衣清单</h3>${samples.map(sampleWorkflowImage).join('')}</section>
           ${renderMiniList('处理记录', request.timeline.map((item) => `${item.time} · ${item.action} · ${item.operator}${item.remark ? ` · ${item.remark}` : ''}`), '暂无记录')}
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="mock-action" data-message="已模拟推进 ${escapeHtml(request.requestCode)} 的申请流程">推进流程</button>
+            <a class="rounded border px-3 py-2 text-sm text-blue-700" href="/pcs/samples/application/${escapeHtml(request.requestId)}" data-nav="/pcs/samples/application/${escapeHtml(request.requestId)}">打开完整申请详情</a>${renderSampleRequestControls(request)}
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger">查看台账回写</button>
-          </div>
-        </div>
-      </aside>
-    </div>
-  `
-}
-
-function renderCreateRequestDrawer(): string {
-  if (!state.createRequestOpen) return ''
-  const availableSamples = listPcsSampleRecords().filter((sample) => sample.availability !== '不可申请').slice(0, 5)
-  return `
-    <div class="fixed inset-0 z-50">
-      <button type="button" class="absolute inset-0 bg-slate-900/40" data-pcs-sample-action="close-drawers" aria-label="关闭新建申请"></button>
-      <aside class="absolute right-0 top-0 flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-white shadow-xl">
-        <header class="border-b px-5 py-4">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <p class="text-xs text-slate-500">样衣使用申请</p>
-              <h2 class="mt-1 text-xl font-semibold text-slate-900">新建申请</h2>
-              <p class="mt-1 text-sm text-slate-500">演示预占校验、同站点规则、预计归还时间和样衣清单。</p>
-            </div>
-            <button type="button" class="inline-flex h-9 items-center rounded-md border px-3 text-sm" data-pcs-sample-action="close-drawers">关闭</button>
-          </div>
-        </header>
-        <div class="space-y-4 px-5 py-5">
-          <section class="grid gap-3 sm:grid-cols-2">
-            ${renderInfoItem('申请用途', '直播拍摄 / 达人试穿 / 工程评审')}
-            ${renderInfoItem('校验规则', '所选样衣必须同责任站点，且不可处于不可申请状态。')}
-            ${renderInfoItem('预计归还', '默认需要填写到小时，超期会进入风险提醒。')}
-            ${renderInfoItem('台账回写', '提交后预占，确认领用后出库，归还后入库。')}
-          </section>
-          ${renderMiniList('可选样衣', availableSamples.map((sample) => `${sample.sampleCode} · ${sample.name} · ${sample.responsibleSite} · ${sample.availability}`), '暂无可选样衣')}
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="submit-create-request">保存为草稿</button>
-            <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-pcs-sample-action="close-drawers">取消</button>
           </div>
         </div>
       </aside>
@@ -622,7 +589,7 @@ function renderCreateRequestDrawer(): string {
 export function renderPcsSampleApplicationPage(): string {
   const requests = listPcsSampleRequests().filter((request) => {
     if (state.filters.requestStatus !== '全部' && request.status !== state.filters.requestStatus) return false
-    return matchesKeyword([request.requestCode, request.projectCode, request.projectName, request.sourceStepName, request.applicant], state.filters.search)
+    return matchesKeyword([request.requestCode, request.projectCode, request.projectName, request.sourceStepName, request.applicant, request.purpose, ...request.sampleIds.flatMap(id=>{const sample=getPcsSampleById(id);return sample?[sample.skuCode,getPcsSampleLabelIdentity(sample.skuCode)?.hgCode||'']:[]})], state.filters.search)
   })
   const stats = {
     total: listPcsSampleRequests().length,
@@ -636,13 +603,13 @@ export function renderPcsSampleApplicationPage(): string {
       { label: '待审批', value: stats.pending, tone: 'text-amber-600' },
       { label: '使用中', value: stats.active, tone: 'text-emerald-600' },
       { label: '归还中', value: stats.returning, tone: 'text-purple-600' },
-      { label: '超期未归还', value: 1, tone: 'text-rose-600' },
+      { label: '超期未归还', value: listPcsSampleRequests().filter(r => ['使用中','归还中'].includes(r.status) && Date.parse(r.expectedReturnAt.replace(' ', 'T')) < Date.now()).length, tone: 'text-rose-600' },
     ])}
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
-      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto]">
+      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto_auto]">
         ${renderTextInput('search', state.filters.search, '申请单号/样衣编号/关联来源/用途 / 原始环节/申请人')}
         ${renderSelect('request-status', state.filters.requestStatus, ['全部', '草稿', '待审批', '已批准待领用', '使用中', '归还中', '已完成', '已驳回', '已取消'])}
-        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="open-create-request">新建申请</button>
+        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border px-4 text-sm" data-pcs-sample-action="reset-filters">重置</button><button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="open-create-request">新建申请</button>
       </div>
     </section>
     <section class="rounded-xl border bg-white shadow-sm">
@@ -653,7 +620,7 @@ export function renderPcsSampleApplicationPage(): string {
       ${renderRequestTable(requests)}
     </section>
     ${renderRequestDrawer()}
-    ${renderCreateRequestDrawer()}
+
   `
   return renderPageShell('样衣使用申请', '管理借用申请流程，串联预占锁定、领用出库、归还入库。', body)
 }
@@ -714,6 +681,7 @@ export function renderPcsSampleTransferPage(): string {
         ${renderTextInput('search', state.filters.search, '搜索样衣/关联来源/运单/发出方/接收方')}
         ${renderSelect('transfer-category', state.filters.transferCategory, ['全部', '站点调拨', '借用流转', '归还入库', '退货流转', '维修流转'])}
         ${renderSelect('location-type', state.filters.locationType, ['全部', ...Object.values(PCS_SAMPLE_LOCATION_TYPE_LABELS)])}
+        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-pcs-sample-action="reset-filters">重置</button>
       </div>
     </section>
     <section class="rounded-xl border bg-white shadow-sm">${renderTransferTable(records)}</section>
@@ -724,11 +692,11 @@ export function renderPcsSampleTransferPage(): string {
 
 function renderReturnCaseTable(records: PcsSampleReturnCase[]): string {
   const columns: TableColumn<PcsSampleReturnCase>[] = [
-    { key: 'caseCode', title: '案件编号', width: '150px', render: (record) => `<button type="button" class="font-medium text-blue-700 hover:underline" data-pcs-sample-action="select-return-case" data-return-case-id="${escapeHtml(record.caseId)}">${escapeHtml(record.caseCode)}</button>` },
+    { key: 'caseCode', title: '案件编号', width: '150px', render: (record) => `<button type="button" class="break-all font-medium text-blue-700 hover:underline" data-pcs-sample-action="select-return-case" data-return-case-id="${escapeHtml(record.caseId)}">${escapeHtml(record.caseCode)}</button>` },
     { key: 'caseType', title: '类型', width: '90px', render: (record) => renderBadge(record.caseType, record.caseType === '退货' ? 'info' : 'warning') },
     { key: 'status', title: '状态', width: '100px', render: (record) => renderBadge(record.status, RETURN_STATUS_TONE[record.status]) },
     { key: 'responsibleSite', title: '责任站点', width: '120px' },
-    { key: 'sampleCode', title: '样衣', minWidth: '230px', render: (record) => `<div class="flex items-center gap-3"><button type="button" class="shrink-0 cursor-zoom-in overflow-hidden rounded-lg border" data-pda-image-preview-url="${escapeHtml(record.sampleImageUrl)}" data-pda-image-preview-title="${escapeHtml(`${record.sampleCode} ${record.sampleName}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(record.sampleName)}大图"><img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-12 w-12 object-cover" /></button><div><div class="font-medium text-slate-900">${escapeHtml(record.sampleCode)}</div><div class="text-sm text-slate-500">${escapeHtml(record.sampleName)}</div></div></div>` },
+    { key: 'sampleCode', title: '样衣', minWidth: '230px', render: (record) => `<div class="flex items-center gap-3"><button type="button" class="shrink-0 cursor-zoom-in overflow-hidden rounded-lg border" data-pda-image-preview-url="${escapeHtml(record.sampleImageUrl)}" data-pda-image-preview-title="${escapeHtml(`${record.sampleCode} ${record.sampleName}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(record.sampleName)}大图"><img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-12 w-12 object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="p-2 text-xs text-red-700">图片加载失败</span></button><div><div class="font-medium text-slate-900">${escapeHtml(record.sampleCode)}</div><div class="text-sm text-slate-500">${escapeHtml(record.sampleName)}</div></div></div>` },
     { key: 'inventoryStatusSnapshot', title: '样衣状态', width: '110px', render: (record) => renderStatusBadge(record.inventoryStatusSnapshot) },
     { key: 'reasonCategory', title: '原因', width: '110px' },
     { key: 'projectCode', title: '关联来源', minWidth: '220px', render: (record) => escapeHtml(sampleSourceText(record)) },
@@ -759,7 +727,7 @@ function renderReturnCaseDrawer(): string {
         <div class="space-y-4 px-5 py-5">
           <section class="grid gap-4 lg:grid-cols-[160px,1fr]">
             <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(record.sampleImageUrl)}" data-pda-image-preview-title="${escapeHtml(`${record.sampleCode} ${record.sampleName}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(record.sampleName)}大图">
-              <img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-48 w-full object-cover" />
+              <img src="${escapeHtml(record.sampleImageUrl)}" alt="${escapeHtml(record.sampleName)}" class="h-48 w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="p-2 text-xs text-red-700">图片加载失败</span>
             </button>
             <div class="grid gap-3 sm:grid-cols-2">
               ${renderInfoItem('样衣', `${record.sampleCode} · ${record.sampleName}`)}
@@ -773,7 +741,7 @@ function renderReturnCaseDrawer(): string {
           </section>
           ${renderMiniList('案件记录', record.timeline.map((item) => `${item.time} · ${item.action} · ${item.operator}${item.remark ? ` · ${item.remark}` : ''}`), '暂无记录')}
           <div class="flex flex-wrap gap-2">
-            <button type="button" class="inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="mock-action" data-message="已模拟执行 ${escapeHtml(record.caseCode)} 的${escapeHtml(record.caseType)}流程">执行流程</button>
+            ${renderSampleCaseControls(record.caseId)}
             <button type="button" class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger">查看台账事件</button>
           </div>
         </div>
@@ -796,10 +764,11 @@ export function renderPcsSampleReturnPage(): string {
       { label: '高风险', value: listPcsSampleReturnCases().filter((item) => item.riskFlag.includes('高')).length, tone: 'text-rose-600' },
     ])}
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
-      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto]">
+      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto_auto]">
         ${renderTextInput('search', state.filters.search, '搜索案件编号/样衣编号/名称/关联来源')}
         ${renderSelect('return-status', state.filters.returnStatus, ['全部', '待审批', '待执行', '执行中', '已结案', '已驳回'])}
-        <button type="button" class="inline-flex h-10 items-center justify-center rounded-md bg-blue-600 px-4 text-sm font-medium text-white hover:bg-blue-700" data-pcs-sample-action="mock-action" data-message="已打开新建退货与处理案件演示入口">新建案件</button>
+        <button class="rounded bg-blue-600 px-4 py-2 text-sm text-white" data-sample-workflow-action="create-case">新建案件</button>
+        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-pcs-sample-action="reset-filters">重置</button>
       </div>
     </section>
     <section class="rounded-xl border bg-white shadow-sm">${renderReturnCaseTable(records)}</section>
@@ -860,9 +829,10 @@ export function renderPcsSampleLedgerPage(): string {
       { label: '盘点调整', value: listPcsSampleLedgerEvents().filter((item) => item.eventType === '盘点调整').length, tone: 'text-emerald-600' },
     ])}
     <section class="rounded-xl border bg-white px-4 py-4 shadow-sm">
-      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto]">
+      <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px_auto_auto]">
         ${renderTextInput('search', state.filters.search, '搜索样衣/摘要/来源单据/关联来源/操作人')}
         ${renderSelect('ledger-type', state.filters.ledgerType, ['全部', '入库', '出库', '在途', '签收', '借出', '归还', '预占', '释放', '退货', '处置', '盘点调整', '打标', '类型互转'])}
+        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-pcs-sample-action="reset-filters">重置</button>
         <button type="button" class="inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm text-slate-700 hover:bg-slate-50" data-nav="/pcs/samples/ledger/stocktake">盘点差异追踪</button>
       </div>
     </section>
@@ -913,6 +883,7 @@ function renderStocktakeDrawer(): string {
       ['下一步', diff.nextAction],
     ],
     diff.status === '待确认' ? ['待确认'] : [],
+    `<section class="border-t bg-white p-5">${renderSampleStocktakeControls(diff.diffId)}<p class="mt-2 text-sm">${escapeHtml(diff.resolution || '')}</p>${(diff.timeline||[]).map(t=>`<p class="text-xs">${escapeHtml(t.time)} · ${escapeHtml(t.action)} · ${escapeHtml(t.operator)} · ${escapeHtml(t.remark)}</p>`).join('')}</section>`,
   )
 }
 
@@ -933,12 +904,13 @@ export function renderPcsSampleStocktakePage(): string {
       <div class="grid gap-3 lg:grid-cols-[minmax(260px,1fr)_180px]">
         ${renderTextInput('search', state.filters.search, '搜索差异编号/盘点单/样衣/负责人')}
         ${renderSelect('stocktake-status', state.filters.stocktakeStatus, ['全部', '待确认', '处理中', '已调整', '已关闭'])}
+        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-pcs-sample-action="reset-filters">重置</button>
       </div>
     </section>
     <section class="rounded-xl border bg-white shadow-sm">${renderStocktakeTable(diffs)}</section>
     ${renderStocktakeDrawer()}
   `
-  return renderPageShell('盘点差异追踪', '追踪样衣盘点短缺、盈余、原因确认、调整入账和关闭动作。', body)
+  return renderPageShell('盘点差异追踪', '追踪样衣盘点短缺、盈余、核查结论和关闭记录；本页不调整仓储库存。', body)
 }
 
 function renderSampleCards(samples: PcsSampleRecord[]): string {
@@ -948,7 +920,7 @@ function renderSampleCards(samples: PcsSampleRecord[]): string {
         <article class="overflow-hidden rounded-xl border bg-white shadow-sm">
           <div class="relative h-44 w-full overflow-hidden bg-slate-50">
             <button type="button" class="absolute inset-0 z-0 block overflow-hidden" data-pcs-sample-action="select-sample" data-pcs-sample-id="${escapeHtml(sample.sampleId)}" aria-label="打开${escapeHtml(sample.sampleCode)}详情">
-              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-full w-full object-cover transition hover:scale-105" />
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-full w-full object-cover transition hover:scale-105" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="p-2 text-xs text-red-700">图片加载失败</span>
             </button>
             <button type="button" class="absolute right-2 top-2 z-10 rounded border border-white/80 bg-white/90 px-2 py-1 text-xs text-slate-700 shadow hover:bg-white" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">大图</button>
           </div>
@@ -980,6 +952,7 @@ export function renderPcsSampleViewPage(): string {
           ${renderSelect('status', state.filters.status, ['全部', '在库可用', '预占锁定', '借出占用', '在途待签收', '维修中', '待处置', '已退货'])}
           ${renderSelect('site', state.filters.site, ['全部', '深圳样衣间', '雅加达样衣间'])}
         ${renderSelect('location-type', state.filters.locationType, ['全部', ...Object.values(PCS_SAMPLE_LOCATION_TYPE_LABELS)])}
+        <button type="button" class="rounded-md border bg-white px-4 py-2 text-sm" data-pcs-sample-action="reset-filters">重置</button>
         </div>
         <div class="flex rounded-md border border-slate-200 bg-white p-1">
           <button type="button" class="${toClassName('inline-flex h-8 items-center gap-1 rounded px-3 text-sm', state.viewMode === 'card' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-50')}" data-pcs-sample-action="set-view-mode" data-view-mode="card"><i data-lucide="layout-grid" class="h-4 w-4"></i>卡片</button>
@@ -993,7 +966,7 @@ export function renderPcsSampleViewPage(): string {
   return renderPageShell('样衣视图', '以卡片或表格查看样衣可用性、风险、责任站点和预计归还/ETA。', body)
 }
 
-function renderGenericDrawer(title: string, heading: string, items: Array<[string, string]>, risks: string[]): string {
+function renderGenericDrawer(title: string, heading: string, items: Array<[string, string]>, risks: string[], footer = ''): string {
   return `
     <div class="fixed inset-0 z-50">
       <button type="button" class="absolute inset-0 bg-slate-900/40" data-pcs-sample-action="close-drawers" aria-label="关闭详情"></button>
@@ -1011,6 +984,7 @@ function renderGenericDrawer(title: string, heading: string, items: Array<[strin
         <div class="grid gap-3 px-5 py-5 sm:grid-cols-2">
           ${items.map(([label, value]) => renderInfoItem(label, value)).join('')}
         </div>
+        ${footer}
       </aside>
     </div>
   `
@@ -1036,7 +1010,7 @@ export function renderPcsSampleDetailPage(sampleId: string): string {
       <a class="ml-3 inline-flex h-9 items-center rounded-md bg-blue-600 px-4 text-sm text-white" href="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}" data-nav="/pcs/samples/label/${encodeURIComponent(sample.sampleId)}">打印样衣标签</a>
       <div class="mt-4 grid gap-5 lg:grid-cols-[260px_1fr]">
             <button type="button" class="cursor-zoom-in overflow-hidden rounded-xl border" data-pda-image-preview-url="${escapeHtml(sample.imageUrl)}" data-pda-image-preview-title="${escapeHtml(`${sample.sampleCode} ${sample.name}`)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(sample.name)}大图">
-              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full object-contain" />
+              <img src="${escapeHtml(sample.imageUrl)}" alt="${escapeHtml(sample.name)}" class="h-80 w-full object-contain" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden class="p-2 text-xs text-red-700">图片加载失败</span>
             </button>
         <div>
           <div class="flex flex-wrap gap-2">${renderStatusBadge(sample.status)}${renderAvailabilityBadge(sample.availability)}${sample.anomaly ? renderRiskBadge(sample.anomaly.type) : ''}</div>
@@ -1110,11 +1084,11 @@ function closeDrawers(): void {
   state.selectedReturnCaseId = null
   state.selectedLedgerEventId = null
   state.selectedStocktakeDiffId = null
-  state.createRequestOpen = false
   state.flowOpen = false
 }
 
 export function handlePcsSampleManagementInput(target: Element): boolean {
+  if (handleSampleWorkflowInput(target)) return false
   if (target.closest('[data-pcs-sample-field^="label-"]')) return handlePcsSampleLabelInput(target)
   const fieldNode = target.closest<HTMLElement>('[data-pcs-sample-field]')
   if (!fieldNode) return false
@@ -1138,12 +1112,13 @@ export function handlePcsSampleManagementInput(target: Element): boolean {
 }
 
 export async function handlePcsSampleManagementEvent(target: HTMLElement): Promise<boolean> {
+  const workflow = await handleSampleWorkflowAction(target); if(workflow !== null) return workflow
   const actionNode = target.closest<HTMLElement>('[data-pcs-sample-action]')
   if (!actionNode) return false
   const action = actionNode.dataset.pcsSampleAction || ''
   if (['print-label','register-label','reset-label-size'].includes(action)) { await handlePcsSampleLabelAction(action); return false }
 
-  if (action === 'open-flow') { state.flowOpen = true; state.flowSampleId = actionNode.dataset.sampleId || ''; state.flowTarget = ''; state.flowReason = ''; return true }
+  if (action === 'open-flow') { state.notice = null; state.flowOpen = true; state.flowSampleId = actionNode.dataset.sampleId || ''; state.flowTarget = ''; state.flowReason = ''; return true }
   if (action === 'close-flow') { state.flowOpen = false; return true }
   if (action === 'save-flow') {
     try {
@@ -1174,6 +1149,7 @@ export async function handlePcsSampleManagementEvent(target: HTMLElement): Promi
     return true
   }
   if (action === 'close-drawers') {
+    if (sampleWorkflowDialogOpen() && !await closeSampleWorkflowDialog()) return false
     closeDrawers()
     return true
   }
@@ -1194,13 +1170,8 @@ export async function handlePcsSampleManagementEvent(target: HTMLElement): Promi
     return true
   }
   if (action === 'open-create-request') {
-    state.createRequestOpen = true
-    return true
-  }
-  if (action === 'submit-create-request') {
-    state.createRequestOpen = false
-    state.notice = '已保存样衣使用申请草稿，并预留后续提交、审批、领用、归还演示链路。'
-    return true
+    const a = document.createElement('a'); a.dataset.nav='/pcs/samples/application/new'; a.href='/pcs/samples/application/new'; (document.querySelector('main')||document.body).append(a); a.click(); a.remove()
+    return false
   }
   if (action === 'select-transfer') {
     state.selectedTransferId = actionNode.dataset.transferId || null
@@ -1222,8 +1193,9 @@ export async function handlePcsSampleManagementEvent(target: HTMLElement): Promi
     state.viewMode = actionNode.dataset.viewMode === 'table' ? 'table' : 'card'
     return true
   }
-  if (action === 'mock-action') {
-    state.notice = actionNode.dataset.message || '已执行样衣管理演示动作。'
+  if (action === 'reload') {
+    try { await retryPcsRecordState(); await ensurePcsRecordState([PCS_SAMPLE_STORAGE_KEY,'higood-pcs-testing-orders-v1']); await ensureLosLiveRoomState(); state.notice='已重新读取样衣资料。' }
+    catch(error){state.notice=`重新读取失败：${(error as Error).message}`}
     return true
   }
 
@@ -1232,13 +1204,13 @@ export async function handlePcsSampleManagementEvent(target: HTMLElement): Promi
 
 export function isPcsSampleManagementDialogOpen(): boolean {
   return Boolean(
-    state.selectedSampleId ||
+    sampleWorkflowDialogOpen() || state.selectedSampleId ||
       state.selectedRequestId ||
       state.selectedTransferId ||
       state.selectedReturnCaseId ||
       state.selectedLedgerEventId ||
       state.selectedStocktakeDiffId ||
-      state.createRequestOpen || state.flowOpen,
+      state.flowOpen,
   )
 }
 
@@ -1249,7 +1221,7 @@ function renderFlowDialog(): string {
   return `<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" role="dialog" aria-label="确认流转签收">
     <section class="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl">
       <h2 class="text-lg font-semibold">确认流转签收</h2>
-      ${state.notice?.includes('未保存') || state.notice?.includes('不存在') || state.notice?.includes('必须') ? `<p class="mt-2 text-sm text-rose-700" role="alert">${escapeHtml(state.notice)}</p>` : ''}
+      ${state.notice ? `<p class="mt-2 text-sm text-rose-700" role="alert">${escapeHtml(state.notice)}</p>` : ''}
       <p class="my-3 text-sm">${escapeHtml(sample.skuCode)} · ${escapeHtml(sample.currentLocation)} → 接收位置</p>
       <label class="block text-sm">接收位置<select data-pcs-sample-field="flow-target" class="mt-2 w-full rounded border p-2"><option value="">请选择</option>${listPcsSampleLocations().filter(loc => loc.enabled !== false && loc.locationId !== sample.currentLocationId).map(loc => `<option value="${escapeHtml(loc.locationId)}" ${loc.locationId === state.flowTarget ? 'selected' : ''}>${escapeHtml(PCS_SAMPLE_LOCATION_TYPE_LABELS[loc.locationType])} · ${escapeHtml(loc.locationName)}${loc.ownerName ? ` · ${escapeHtml(loc.ownerName)}` : ''}</option>`).join('')}</select></label>
       <label class="mt-3 block text-sm">流转原因<textarea data-pcs-sample-field="flow-reason" class="mt-2 w-full rounded border p-2" placeholder="说明用途；例外流转也必须填写原因">${escapeHtml(state.flowReason)}</textarea></label>

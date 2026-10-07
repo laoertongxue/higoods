@@ -1,0 +1,150 @@
+{
+  "branch": "codex/sample-action-repair",
+  "baseHead": "450ab94193f549d73061247ac8f0881ad62d3aea",
+  "service": "http://127.0.0.1:4206",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "device": "Apple macOS; Chromium headless; 1366x768 + 1280x720",
+  "browser": "149.0.7827.55",
+  "cache": "cold cleared + disabled, reload cache enabled, real SPA; isolated contexts; 14 extra labeled sample records for picker",
+  "sourceSha256": {
+    "src/data/pcs-sample-management.ts": "ccb619e3b8fd6e95049d55550fd2e607670b3c915ed1a11706cf478c6ebf39b5",
+    "src/data/pcs-record-codec.ts": "913d71b839980e1a51d31d166934b3aa61272642d01da82935d88c396eecd852",
+    "src/pages/pcs-sample-management.ts": "84ea7126770aba4fb4c789000da5b5f7cfbc5eb82fad5c63c0817572767ef324",
+    "src/pages/pcs-sample-workflows.ts": "e9cd6f5c9c438ed3ef7269758668a65c43ce596cfdd4c7f9f152ffba9b99fb59",
+    "src/router/routes-pcs.ts": "fde755a3af2a93b861b76bdf6110f2a1ea86cd601b3c5d2f8396081e711700ee",
+    "src/router/route-renderers.ts": "8c3df4321d4deb98d451125cc156092ccae6b61baa909c6ed79a7113d084df51"
+  },
+  "results": [
+    {
+      "suite": "browser",
+      "iteration": 1,
+      "pass": true,
+      "count": 194,
+      "max": 378.39999997615814,
+      "errors": []
+    },
+    {
+      "suite": "browser",
+      "iteration": 2,
+      "pass": true,
+      "count": 194,
+      "max": 387.80000001192093,
+      "errors": []
+    },
+    {
+      "suite": "browser",
+      "iteration": 3,
+      "pass": true,
+      "count": 194,
+      "max": 381.2999999523163,
+      "errors": []
+    },
+    {
+      "suite": "browser",
+      "iteration": 4,
+      "pass": true,
+      "count": 194,
+      "max": 362.9000000357628,
+      "errors": []
+    },
+    {
+      "suite": "browser",
+      "iteration": 5,
+      "pass": true,
+      "count": 194,
+      "max": 410.39999997615814,
+      "errors": []
+    },
+    {
+      "suite": "boundaries",
+      "iteration": 1,
+      "pass": true,
+      "count": 46,
+      "max": 265.7001953125,
+      "errors": []
+    },
+    {
+      "suite": "boundaries",
+      "iteration": 2,
+      "pass": true,
+      "count": 46,
+      "max": 244.099853515625,
+      "errors": []
+    },
+    {
+      "suite": "boundaries",
+      "iteration": 3,
+      "pass": true,
+      "count": 46,
+      "max": 249.000244140625,
+      "errors": []
+    },
+    {
+      "suite": "boundaries",
+      "iteration": 4,
+      "pass": true,
+      "count": 46,
+      "max": 248.800048828125,
+      "errors": []
+    },
+    {
+      "suite": "boundaries",
+      "iteration": 5,
+      "pass": true,
+      "count": 46,
+      "max": 332.599853515625,
+      "errors": []
+    },
+    {
+      "suite": "wp05",
+      "iteration": 1,
+      "pass": true,
+      "count": 36,
+      "max": 182.10000002384186,
+      "errors": []
+    },
+    {
+      "suite": "wp05",
+      "iteration": 2,
+      "pass": true,
+      "count": 36,
+      "max": 182.5,
+      "errors": []
+    },
+    {
+      "suite": "wp05",
+      "iteration": 3,
+      "pass": true,
+      "count": 36,
+      "max": 182.5,
+      "errors": []
+    },
+    {
+      "suite": "wp05",
+      "iteration": 4,
+      "pass": true,
+      "count": 36,
+      "max": 182.5999999642372,
+      "errors": []
+    },
+    {
+      "suite": "wp05",
+      "iteration": 5,
+      "pass": true,
+      "count": 36,
+      "max": 182.69999998807907,
+      "errors": []
+    },
+    {
+      "suite": "hg-performance",
+      "pass": true,
+      "count": 170,
+      "max": 383,
+      "errors": []
+    }
+  ],
+  "allPass": true,
+  "totalPerformanceSamples": 1550,
+  "maxMs": 410.39999997615814,
+  "servicePid": 61689
+}

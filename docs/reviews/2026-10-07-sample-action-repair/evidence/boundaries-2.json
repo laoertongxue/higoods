@@ -1,0 +1,202 @@
+{
+  "iteration": 2,
+  "base": "http://127.0.0.1:4206",
+  "samples": [
+    {
+      "name": "editor:unsaved-input",
+      "ms": 31.5
+    },
+    {
+      "name": "editor:discard-open",
+      "ms": 36.699951171875
+    },
+    {
+      "name": "editor:discard-cancel",
+      "ms": 32
+    },
+    {
+      "name": "editor:discard-reopen",
+      "ms": 32.699951171875
+    },
+    {
+      "name": "editor:discard-confirm",
+      "ms": 63.599853515625
+    },
+    {
+      "name": "detail:collapse",
+      "ms": 32.099853515625
+    },
+    {
+      "name": "detail:expand",
+      "ms": 33.10009765625
+    },
+    {
+      "name": "dispose:new",
+      "ms": 32.900146484375
+    },
+    {
+      "name": "dispose:sample",
+      "ms": 47
+    },
+    {
+      "name": "dispose:type",
+      "ms": 31.5
+    },
+    {
+      "name": "dispose:create-actor",
+      "ms": 30.89990234375
+    },
+    {
+      "name": "dispose:reason",
+      "ms": 31
+    },
+    {
+      "name": "dispose:create",
+      "ms": 98.099853515625
+    },
+    {
+      "name": "dispose:drawer",
+      "ms": 32
+    },
+    {
+      "name": "dispose:reject:open",
+      "ms": 34
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 25.60009765625
+    },
+    {
+      "name": "dispose:note",
+      "ms": 31.10009765625
+    },
+    {
+      "name": "dispose:reject:confirm",
+      "ms": 49.099853515625
+    },
+    {
+      "name": "dispose:new",
+      "ms": 32.699951171875
+    },
+    {
+      "name": "dispose:sample",
+      "ms": 30.39990234375
+    },
+    {
+      "name": "dispose:type",
+      "ms": 31.7001953125
+    },
+    {
+      "name": "dispose:create-actor",
+      "ms": 31.5
+    },
+    {
+      "name": "dispose:reason",
+      "ms": 31
+    },
+    {
+      "name": "dispose:create",
+      "ms": 98.400146484375
+    },
+    {
+      "name": "dispose:drawer",
+      "ms": 30.7998046875
+    },
+    {
+      "name": "dispose:approve:open",
+      "ms": 33.2998046875
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 26.89990234375
+    },
+    {
+      "name": "dispose:note",
+      "ms": 31
+    },
+    {
+      "name": "dispose:approve:saved",
+      "ms": 65.7001953125
+    },
+    {
+      "name": "dispose:execute:open",
+      "ms": 32.7001953125
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 29.099853515625
+    },
+    {
+      "name": "dispose:note",
+      "ms": 32.800048828125
+    },
+    {
+      "name": "dispose:execute:confirm",
+      "ms": 60.2998046875
+    },
+    {
+      "name": "editor:read-failure-input",
+      "ms": 28
+    },
+    {
+      "name": "editor:read-failure-picker",
+      "ms": 43.900146484375
+    },
+    {
+      "name": "editor:read-failure-selected",
+      "ms": 49.10009765625
+    },
+    {
+      "name": "editor:read-failure-info",
+      "ms": 32.300048828125
+    },
+    {
+      "name": "editor:read-failure-confirm-open",
+      "ms": 32.89990234375
+    },
+    {
+      "name": "editor:read-failure",
+      "ms": 47.900146484375
+    },
+    {
+      "name": "editor:read-failure-continue-input",
+      "ms": 28.7998046875
+    },
+    {
+      "name": "editor:read-retry-confirm-open",
+      "ms": 31.800048828125
+    },
+    {
+      "name": "editor:read-retry",
+      "ms": 30.300048828125
+    },
+    {
+      "name": "refresh:failed",
+      "ms": 49.199951171875
+    },
+    {
+      "name": "refresh:recover-page",
+      "ms": 244.099853515625
+    },
+    {
+      "name": "refresh:retry",
+      "ms": 65.5
+    },
+    {
+      "name": "refresh:close-notice",
+      "ms": 35.5
+    }
+  ],
+  "checks": [
+    "declining discard retains input",
+    "discard navigates without saving",
+    "case rejection restores original usability",
+    "dispose execution ends usability after reload",
+    "editor read failure retains selected samples and editable unsaved input; dependent commands disabled",
+    "editor recovers and discards input only after explicit confirmation",
+    "read failure/retry never changes existing records"
+  ],
+  "errors": [],
+  "pass": true,
+  "max": 244.099853515625
+}

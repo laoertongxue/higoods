@@ -1,0 +1,1024 @@
+{
+  "iteration": 5,
+  "base": "http://127.0.0.1:4206",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "checks": [
+    "cold:inventory: 308.89999997615814ms <=1000",
+    "reload:inventory: 231.39999997615814ms <=1000",
+    "spa:inventory: 33.10000002384186ms <=1000",
+    "cold:application: 248.5ms <=1000",
+    "reload:application: 215.80000001192093ms <=1000",
+    "spa:application: 31.799999952316284ms <=1000",
+    "cold:application/new: 249.30000001192093ms <=1000",
+    "reload:application/new: 215.80000001192093ms <=1000",
+    "spa:application/new: 33.19999998807907ms <=1000",
+    "cold:application/req-004/edit: 266.19999998807907ms <=1000",
+    "reload:application/req-004/edit: 214.5999999642372ms <=1000",
+    "spa:application/req-004/edit: 33.30000001192093ms <=1000",
+    "cold:application/req-001: 249.89999997615814ms <=1000",
+    "reload:application/req-001: 214.19999998807907ms <=1000",
+    "spa:application/req-001: 33.30000001192093ms <=1000",
+    "cold:transfer: 250.30000001192093ms <=1000",
+    "reload:transfer: 213.69999998807907ms <=1000",
+    "spa:transfer: 33.30000001192093ms <=1000",
+    "cold:return: 249.89999997615814ms <=1000",
+    "reload:return: 214.19999998807907ms <=1000",
+    "spa:return: 33.19999998807907ms <=1000",
+    "cold:ledger: 266.69999998807907ms <=1000",
+    "reload:ledger: 214.39999997615814ms <=1000",
+    "spa:ledger: 33.5ms <=1000",
+    "cold:ledger/stocktake: 266.89999997615814ms <=1000",
+    "reload:ledger/stocktake: 213.79999995231628ms <=1000",
+    "spa:ledger/stocktake: 33.19999998807907ms <=1000",
+    "cold:view: 252.30000001192093ms <=1000",
+    "reload:view: 228.89999997615814ms <=1000",
+    "spa:view: 33.5ms <=1000",
+    "cold:detail/smp-001: 258.60000002384186ms <=1000",
+    "reload:detail/smp-001: 216.60000002384186ms <=1000",
+    "spa:detail/smp-001: 33.39999997615814ms <=1000",
+    "cold:label/smp-001: 252.29999995231628ms <=1000",
+    "reload:label/smp-001: 211.89999997615814ms <=1000",
+    "spa:label/smp-001: 32.10000002384186ms <=1000",
+    "opening every route never writes seeds",
+    "application:new-entry: 36.10000002384186ms <=1000",
+    "draft:missing-required: 49.30000001192093ms <=1000",
+    "missing fields creates no request",
+    "draft:input:applicant: 29.69999998807907ms <=1000",
+    "draft:input:purpose: 30.399999976158142ms <=1000",
+    "draft:input:receiver: 31ms <=1000",
+    "draft:input:useStartedAt: 31ms <=1000",
+    "draft:input:expectedReturnAt: 30.69999998807907ms <=1000",
+    "draft:input:remark: 31.30000001192093ms <=1000",
+    "draft:select:responsibleSite: 29.099999964237213ms <=1000",
+    "draft:select:targetLocationId: 30.5ms <=1000",
+    "draft:select:returnLocationId: 33.10000002384186ms <=1000",
+    "draft:tab-samples: 47.80000001192093ms <=1000",
+    "draft:search-input: 30.600000023841858ms <=1000",
+    "draft:query: 32.30000001192093ms <=1000",
+    "draft:no-results: 32.10000002384186ms <=1000",
+    "query with no matches shows no choices",
+    "draft:restore-query: 32.10000002384186ms <=1000",
+    "draft:next-page: 31.400000035762787ms <=1000",
+    "draft:previous-page: 31.5ms <=1000",
+    "draft:select-sample: 48.80000001192093ms <=1000",
+    "draft:select-sample: 65.5ms <=1000",
+    "draft:unselect-sample: 46.80000001192093ms <=1000",
+    "draft:reselect-sample: 65.10000002384186ms <=1000",
+    "draft:stay-with-unsaved-input: 29.5ms <=1000",
+    "declining discard retains editor",
+    "draft:tab-info: 47.39999997615814ms <=1000",
+    "selected count stays accurate",
+    "draft:quota-failure: 82ms <=1000",
+    "failed save retains entered fields",
+    "failed save persisted no request",
+    "draft:saved: 74.30000001192093ms <=1000",
+    "draft does not reserve",
+    "draft and two sample links survive reload",
+    "draft:edit-entry: 48.59999996423721ms <=1000",
+    "draft:edit-input: 31.900000035762787ms <=1000",
+    "draft:edit-save: 72ms <=1000",
+    "request:submit:open: 65.5ms <=1000",
+    "request:actor-input: 31.100000023841858ms <=1000",
+    "request:note-input: 31.099999964237213ms <=1000",
+    "request:submit:saved: 98.5ms <=1000",
+    "request:submit:saved readable 待审批",
+    "submit survives reload",
+    "request:approve:open: 66ms <=1000",
+    "request:actor-input: 31.099999964237213ms <=1000",
+    "request:note-input: 30.30000001192093ms <=1000",
+    "request:approve:saved: 98.5ms <=1000",
+    "request:approve:saved readable 已批准待领用",
+    "approve survives reload",
+    "request:pickup:open: 49ms <=1000",
+    "request:actor-input: 31ms <=1000",
+    "request:note-input: 31.19999998807907ms <=1000",
+    "request:pickup:saved: 99.5ms <=1000",
+    "request:pickup:saved readable 使用中",
+    "pickup survives reload",
+    "request:return:open: 49ms <=1000",
+    "request:actor-input: 31.5ms <=1000",
+    "request:note-input: 31.19999998807907ms <=1000",
+    "request:return:saved: 98.89999997615814ms <=1000",
+    "request:return:saved readable 归还中",
+    "return survives reload",
+    "request:receive:open: 49.30000001192093ms <=1000",
+    "request:actor-input: 31.69999998807907ms <=1000",
+    "request:note-input: 31.30000001192093ms <=1000",
+    "request:receive:saved: 103.39999997615814ms <=1000",
+    "request:receive:saved readable 已完成",
+    "receive survives reload",
+    "both samples actually returned and released",
+    "request receipt reaches ledger",
+    "request:submit:open: 49.5ms <=1000",
+    "request:actor-input: 31.30000001192093ms <=1000",
+    "request:note-input: 31.600000023841858ms <=1000",
+    "request:submit:saved: 81.89999997615814ms <=1000",
+    "request:submit:saved readable 待审批",
+    "request:reject:open: 49.5ms <=1000",
+    "request:actor-input: 31.100000023841858ms <=1000",
+    "request:note-input: 31.69999998807907ms <=1000",
+    "request:reject:danger-confirm: 64.39999997615814ms <=1000",
+    "request:reject:saved readable 已驳回",
+    "request:submit:open: 48.5ms <=1000",
+    "request:actor-input: 29.299999952316284ms <=1000",
+    "request:note-input: 32.30000001192093ms <=1000",
+    "request:submit:saved: 64.90000003576279ms <=1000",
+    "request:submit:saved readable 待审批",
+    "request:disabled-room-open: 49.60000002384186ms <=1000",
+    "request:disabled-room-blocked: 49.39999997615814ms <=1000",
+    "disabled room does not allow approval",
+    "request:discard-blocked-input: 48.90000003576279ms <=1000",
+    "request:cancel:open: 49.09999996423721ms <=1000",
+    "request:actor-input: 31.099999964237213ms <=1000",
+    "request:note-input: 40.5ms <=1000",
+    "request:cancel:danger-confirm: 65.60000002384186ms <=1000",
+    "request:cancel:saved readable 已取消",
+    "case:new: 49.39999997615814ms <=1000",
+    "case:sample-select: 48ms <=1000",
+    "case:target-input: 30.5ms <=1000",
+    "case:create-save: 99ms <=1000",
+    "case actually created",
+    "case:detail: 32.5ms <=1000",
+    "case:approve:open: 49.30000001192093ms <=1000",
+    "case:actor-input: 30.69999998807907ms <=1000",
+    "case:note-input: 31.30000001192093ms <=1000",
+    "case:approve:saved: 98.5ms <=1000",
+    "case:approve:saved readable 待执行",
+    "case:execute:open: 49.39999997615814ms <=1000",
+    "case:actor-input: 31ms <=1000",
+    "case:note-input: 31.399999976158142ms <=1000",
+    "case:execute:danger-confirm: 65.10000002384186ms <=1000",
+    "case:execute:saved readable 已结案",
+    "retired sample persists, no longer borrowable",
+    "stocktake:detail: 33.10000002384186ms <=1000",
+    "stocktake:investigate:open: 49.30000001192093ms <=1000",
+    "stocktake:actor-input: 31.19999998807907ms <=1000",
+    "stocktake:note-input: 40.19999998807907ms <=1000",
+    "stocktake:investigate:saved: 49ms <=1000",
+    "stocktake:investigate:saved readable 处理中",
+    "stocktake:close:open: 49.59999996423721ms <=1000",
+    "stocktake:actor-input: 31.19999998807907ms <=1000",
+    "stocktake:note-input: 31.30000001192093ms <=1000",
+    "stocktake:close:danger-confirm: 48.700000047683716ms <=1000",
+    "stocktake:close:saved readable 已关闭",
+    "stocktake conclusion persists",
+    "inventory:refresh: 41.69999998807907ms <=1000",
+    "inventory:search: 26.299999952316284ms <=1000",
+    "inventory:reset: 34.5ms <=1000",
+    "inventory:filter:status: 43.09999996423721ms <=1000",
+    "inventory:filter-reset: 36.5ms <=1000",
+    "inventory:filter:site: 43.59999996423721ms <=1000",
+    "inventory:filter-reset: 37.80000001192093ms <=1000",
+    "inventory:filter:location-type: 42.30000001192093ms <=1000",
+    "inventory:filter-reset: 39.80000001192093ms <=1000",
+    "inventory:drawer: 43.39999997615814ms <=1000",
+    "inventory:drawer-close: 37ms <=1000",
+    "application:refresh: 49.09999996423721ms <=1000",
+    "application:search: 22.900000035762787ms <=1000",
+    "application:reset: 44.69999998807907ms <=1000",
+    "application:filter:request-status: 34.700000047683716ms <=1000",
+    "application:filter-reset: 48.19999998807907ms <=1000",
+    "application:drawer: 50.60000002384186ms <=1000",
+    "application:drawer-close: 45.19999998807907ms <=1000",
+    "transfer:refresh: 32.59999996423721ms <=1000",
+    "transfer:search: 25.80000001192093ms <=1000",
+    "transfer:reset: 33.59999996423721ms <=1000",
+    "transfer:filter:transfer-category: 29.19999998807907ms <=1000",
+    "transfer:filter-reset: 33.5ms <=1000",
+    "transfer:filter:location-type: 30ms <=1000",
+    "transfer:filter-reset: 33.10000002384186ms <=1000",
+    "transfer:drawer: 32.89999997615814ms <=1000",
+    "transfer:drawer-close: 33.09999996423721ms <=1000",
+    "return:refresh: 32.5ms <=1000",
+    "return:search: 27.899999976158142ms <=1000",
+    "return:reset: 32.5ms <=1000",
+    "return:filter:return-status: 29.399999976158142ms <=1000",
+    "return:filter-reset: 26.19999998807907ms <=1000",
+    "return:drawer: 31.80000001192093ms <=1000",
+    "return:drawer-close: 32.69999998807907ms <=1000",
+    "ledger:refresh: 33.39999997615814ms <=1000",
+    "ledger:search: 25.900000035762787ms <=1000",
+    "ledger:reset: 33.10000002384186ms <=1000",
+    "ledger:filter:ledger-type: 28.30000001192093ms <=1000",
+    "ledger:filter-reset: 34.19999998807907ms <=1000",
+    "ledger:drawer: 33.40000003576279ms <=1000",
+    "ledger:drawer-close: 36.39999997615814ms <=1000",
+    "ledger/stocktake:refresh: 32.80000001192093ms <=1000",
+    "ledger/stocktake:search: 41.69999998807907ms <=1000",
+    "ledger/stocktake:reset: 32ms <=1000",
+    "ledger/stocktake:filter:stocktake-status: 30ms <=1000",
+    "ledger/stocktake:filter-reset: 32.700000047683716ms <=1000",
+    "ledger/stocktake:drawer: 32.69999998807907ms <=1000",
+    "ledger/stocktake:drawer-close: 32.5ms <=1000",
+    "view:refresh: 37.60000002384186ms <=1000",
+    "view:search: 33.19999998807907ms <=1000",
+    "view:reset: 32.59999996423721ms <=1000",
+    "view:filter:status: 28.899999976158142ms <=1000",
+    "view:filter-reset: 33.69999998807907ms <=1000",
+    "view:filter:site: 46.30000001192093ms <=1000",
+    "view:filter-reset: 34.69999998807907ms <=1000",
+    "view:filter:location-type: 28.099999964237213ms <=1000",
+    "view:filter-reset: 37.60000002384186ms <=1000",
+    "view:drawer: 60.700000047683716ms <=1000",
+    "view:drawer-close: 30.599999964237213ms <=1000",
+    "view:table: 33.5ms <=1000",
+    "view:card: 31.400000035762787ms <=1000",
+    "draft:stale-input: 27.600000023841858ms <=1000",
+    "draft:stale-save-blocked: 49.200000047683716ms <=1000",
+    "conflict preserves current unsaved input",
+    "draft:reload-after-conflict: 32.5ms <=1000",
+    "reload shows winner without overwriting it",
+    "image:open: 31.599999964237213ms <=1000",
+    "image:close: 32.5ms <=1000",
+    "sample has a real image source",
+    "image:failure-fallback: 410.39999997615814ms <=1000",
+    "failed image displays explicit fallback",
+    "image:retry: 326.39999997615814ms <=1000",
+    "retry restores image",
+    "no uncaught browser errors"
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "name": "cold:inventory",
+      "ms": 308.89999997615814
+    },
+    {
+      "name": "reload:inventory",
+      "ms": 231.39999997615814
+    },
+    {
+      "name": "spa:inventory",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "cold:application",
+      "ms": 248.5
+    },
+    {
+      "name": "reload:application",
+      "ms": 215.80000001192093
+    },
+    {
+      "name": "spa:application",
+      "ms": 31.799999952316284
+    },
+    {
+      "name": "cold:application/new",
+      "ms": 249.30000001192093
+    },
+    {
+      "name": "reload:application/new",
+      "ms": 215.80000001192093
+    },
+    {
+      "name": "spa:application/new",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "cold:application/req-004/edit",
+      "ms": 266.19999998807907
+    },
+    {
+      "name": "reload:application/req-004/edit",
+      "ms": 214.5999999642372
+    },
+    {
+      "name": "spa:application/req-004/edit",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "cold:application/req-001",
+      "ms": 249.89999997615814
+    },
+    {
+      "name": "reload:application/req-001",
+      "ms": 214.19999998807907
+    },
+    {
+      "name": "spa:application/req-001",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "cold:transfer",
+      "ms": 250.30000001192093
+    },
+    {
+      "name": "reload:transfer",
+      "ms": 213.69999998807907
+    },
+    {
+      "name": "spa:transfer",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "cold:return",
+      "ms": 249.89999997615814
+    },
+    {
+      "name": "reload:return",
+      "ms": 214.19999998807907
+    },
+    {
+      "name": "spa:return",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "cold:ledger",
+      "ms": 266.69999998807907
+    },
+    {
+      "name": "reload:ledger",
+      "ms": 214.39999997615814
+    },
+    {
+      "name": "spa:ledger",
+      "ms": 33.5
+    },
+    {
+      "name": "cold:ledger/stocktake",
+      "ms": 266.89999997615814
+    },
+    {
+      "name": "reload:ledger/stocktake",
+      "ms": 213.79999995231628
+    },
+    {
+      "name": "spa:ledger/stocktake",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "cold:view",
+      "ms": 252.30000001192093
+    },
+    {
+      "name": "reload:view",
+      "ms": 228.89999997615814
+    },
+    {
+      "name": "spa:view",
+      "ms": 33.5
+    },
+    {
+      "name": "cold:detail/smp-001",
+      "ms": 258.60000002384186
+    },
+    {
+      "name": "reload:detail/smp-001",
+      "ms": 216.60000002384186
+    },
+    {
+      "name": "spa:detail/smp-001",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "cold:label/smp-001",
+      "ms": 252.29999995231628
+    },
+    {
+      "name": "reload:label/smp-001",
+      "ms": 211.89999997615814
+    },
+    {
+      "name": "spa:label/smp-001",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "application:new-entry",
+      "ms": 36.10000002384186
+    },
+    {
+      "name": "draft:missing-required",
+      "ms": 49.30000001192093
+    },
+    {
+      "name": "draft:input:applicant",
+      "ms": 29.69999998807907
+    },
+    {
+      "name": "draft:input:purpose",
+      "ms": 30.399999976158142
+    },
+    {
+      "name": "draft:input:receiver",
+      "ms": 31
+    },
+    {
+      "name": "draft:input:useStartedAt",
+      "ms": 31
+    },
+    {
+      "name": "draft:input:expectedReturnAt",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "draft:input:remark",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "draft:select:responsibleSite",
+      "ms": 29.099999964237213
+    },
+    {
+      "name": "draft:select:targetLocationId",
+      "ms": 30.5
+    },
+    {
+      "name": "draft:select:returnLocationId",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "draft:tab-samples",
+      "ms": 47.80000001192093
+    },
+    {
+      "name": "draft:search-input",
+      "ms": 30.600000023841858
+    },
+    {
+      "name": "draft:query",
+      "ms": 32.30000001192093
+    },
+    {
+      "name": "draft:no-results",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "draft:restore-query",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "draft:next-page",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "draft:previous-page",
+      "ms": 31.5
+    },
+    {
+      "name": "draft:select-sample",
+      "ms": 48.80000001192093
+    },
+    {
+      "name": "draft:select-sample",
+      "ms": 65.5
+    },
+    {
+      "name": "draft:unselect-sample",
+      "ms": 46.80000001192093
+    },
+    {
+      "name": "draft:reselect-sample",
+      "ms": 65.10000002384186
+    },
+    {
+      "name": "draft:stay-with-unsaved-input",
+      "ms": 29.5
+    },
+    {
+      "name": "draft:tab-info",
+      "ms": 47.39999997615814
+    },
+    {
+      "name": "draft:quota-failure",
+      "ms": 82
+    },
+    {
+      "name": "draft:saved",
+      "ms": 74.30000001192093
+    },
+    {
+      "name": "draft:edit-entry",
+      "ms": 48.59999996423721
+    },
+    {
+      "name": "draft:edit-input",
+      "ms": 31.900000035762787
+    },
+    {
+      "name": "draft:edit-save",
+      "ms": 72
+    },
+    {
+      "name": "request:submit:open",
+      "ms": 65.5
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "request:submit:saved",
+      "ms": 98.5
+    },
+    {
+      "name": "request:approve:open",
+      "ms": 66
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "request:note-input",
+      "ms": 30.30000001192093
+    },
+    {
+      "name": "request:approve:saved",
+      "ms": 98.5
+    },
+    {
+      "name": "request:pickup:open",
+      "ms": 49
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "request:pickup:saved",
+      "ms": 99.5
+    },
+    {
+      "name": "request:return:open",
+      "ms": 49
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.5
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "request:return:saved",
+      "ms": 98.89999997615814
+    },
+    {
+      "name": "request:receive:open",
+      "ms": 49.30000001192093
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.69999998807907
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "request:receive:saved",
+      "ms": 103.39999997615814
+    },
+    {
+      "name": "request:submit:open",
+      "ms": 49.5
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "request:submit:saved",
+      "ms": 81.89999997615814
+    },
+    {
+      "name": "request:reject:open",
+      "ms": 49.5
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.100000023841858
+    },
+    {
+      "name": "request:note-input",
+      "ms": 31.69999998807907
+    },
+    {
+      "name": "request:reject:danger-confirm",
+      "ms": 64.39999997615814
+    },
+    {
+      "name": "request:submit:open",
+      "ms": 48.5
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 29.299999952316284
+    },
+    {
+      "name": "request:note-input",
+      "ms": 32.30000001192093
+    },
+    {
+      "name": "request:submit:saved",
+      "ms": 64.90000003576279
+    },
+    {
+      "name": "request:disabled-room-open",
+      "ms": 49.60000002384186
+    },
+    {
+      "name": "request:disabled-room-blocked",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "request:discard-blocked-input",
+      "ms": 48.90000003576279
+    },
+    {
+      "name": "request:cancel:open",
+      "ms": 49.09999996423721
+    },
+    {
+      "name": "request:actor-input",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "request:note-input",
+      "ms": 40.5
+    },
+    {
+      "name": "request:cancel:danger-confirm",
+      "ms": 65.60000002384186
+    },
+    {
+      "name": "case:new",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "case:sample-select",
+      "ms": 48
+    },
+    {
+      "name": "case:target-input",
+      "ms": 30.5
+    },
+    {
+      "name": "case:create-save",
+      "ms": 99
+    },
+    {
+      "name": "case:detail",
+      "ms": 32.5
+    },
+    {
+      "name": "case:approve:open",
+      "ms": 49.30000001192093
+    },
+    {
+      "name": "case:actor-input",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "case:note-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "case:approve:saved",
+      "ms": 98.5
+    },
+    {
+      "name": "case:execute:open",
+      "ms": 49.39999997615814
+    },
+    {
+      "name": "case:actor-input",
+      "ms": 31
+    },
+    {
+      "name": "case:note-input",
+      "ms": 31.399999976158142
+    },
+    {
+      "name": "case:execute:danger-confirm",
+      "ms": 65.10000002384186
+    },
+    {
+      "name": "stocktake:detail",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "stocktake:investigate:open",
+      "ms": 49.30000001192093
+    },
+    {
+      "name": "stocktake:actor-input",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "stocktake:note-input",
+      "ms": 40.19999998807907
+    },
+    {
+      "name": "stocktake:investigate:saved",
+      "ms": 49
+    },
+    {
+      "name": "stocktake:close:open",
+      "ms": 49.59999996423721
+    },
+    {
+      "name": "stocktake:actor-input",
+      "ms": 31.19999998807907
+    },
+    {
+      "name": "stocktake:note-input",
+      "ms": 31.30000001192093
+    },
+    {
+      "name": "stocktake:close:danger-confirm",
+      "ms": 48.700000047683716
+    },
+    {
+      "name": "inventory:refresh",
+      "ms": 41.69999998807907
+    },
+    {
+      "name": "inventory:search",
+      "ms": 26.299999952316284
+    },
+    {
+      "name": "inventory:reset",
+      "ms": 34.5
+    },
+    {
+      "name": "inventory:filter:status",
+      "ms": 43.09999996423721
+    },
+    {
+      "name": "inventory:filter-reset",
+      "ms": 36.5
+    },
+    {
+      "name": "inventory:filter:site",
+      "ms": 43.59999996423721
+    },
+    {
+      "name": "inventory:filter-reset",
+      "ms": 37.80000001192093
+    },
+    {
+      "name": "inventory:filter:location-type",
+      "ms": 42.30000001192093
+    },
+    {
+      "name": "inventory:filter-reset",
+      "ms": 39.80000001192093
+    },
+    {
+      "name": "inventory:drawer",
+      "ms": 43.39999997615814
+    },
+    {
+      "name": "inventory:drawer-close",
+      "ms": 37
+    },
+    {
+      "name": "application:refresh",
+      "ms": 49.09999996423721
+    },
+    {
+      "name": "application:search",
+      "ms": 22.900000035762787
+    },
+    {
+      "name": "application:reset",
+      "ms": 44.69999998807907
+    },
+    {
+      "name": "application:filter:request-status",
+      "ms": 34.700000047683716
+    },
+    {
+      "name": "application:filter-reset",
+      "ms": 48.19999998807907
+    },
+    {
+      "name": "application:drawer",
+      "ms": 50.60000002384186
+    },
+    {
+      "name": "application:drawer-close",
+      "ms": 45.19999998807907
+    },
+    {
+      "name": "transfer:refresh",
+      "ms": 32.59999996423721
+    },
+    {
+      "name": "transfer:search",
+      "ms": 25.80000001192093
+    },
+    {
+      "name": "transfer:reset",
+      "ms": 33.59999996423721
+    },
+    {
+      "name": "transfer:filter:transfer-category",
+      "ms": 29.19999998807907
+    },
+    {
+      "name": "transfer:filter-reset",
+      "ms": 33.5
+    },
+    {
+      "name": "transfer:filter:location-type",
+      "ms": 30
+    },
+    {
+      "name": "transfer:filter-reset",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "transfer:drawer",
+      "ms": 32.89999997615814
+    },
+    {
+      "name": "transfer:drawer-close",
+      "ms": 33.09999996423721
+    },
+    {
+      "name": "return:refresh",
+      "ms": 32.5
+    },
+    {
+      "name": "return:search",
+      "ms": 27.899999976158142
+    },
+    {
+      "name": "return:reset",
+      "ms": 32.5
+    },
+    {
+      "name": "return:filter:return-status",
+      "ms": 29.399999976158142
+    },
+    {
+      "name": "return:filter-reset",
+      "ms": 26.19999998807907
+    },
+    {
+      "name": "return:drawer",
+      "ms": 31.80000001192093
+    },
+    {
+      "name": "return:drawer-close",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "ledger:refresh",
+      "ms": 33.39999997615814
+    },
+    {
+      "name": "ledger:search",
+      "ms": 25.900000035762787
+    },
+    {
+      "name": "ledger:reset",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "ledger:filter:ledger-type",
+      "ms": 28.30000001192093
+    },
+    {
+      "name": "ledger:filter-reset",
+      "ms": 34.19999998807907
+    },
+    {
+      "name": "ledger:drawer",
+      "ms": 33.40000003576279
+    },
+    {
+      "name": "ledger:drawer-close",
+      "ms": 36.39999997615814
+    },
+    {
+      "name": "ledger/stocktake:refresh",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "ledger/stocktake:search",
+      "ms": 41.69999998807907
+    },
+    {
+      "name": "ledger/stocktake:reset",
+      "ms": 32
+    },
+    {
+      "name": "ledger/stocktake:filter:stocktake-status",
+      "ms": 30
+    },
+    {
+      "name": "ledger/stocktake:filter-reset",
+      "ms": 32.700000047683716
+    },
+    {
+      "name": "ledger/stocktake:drawer",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "ledger/stocktake:drawer-close",
+      "ms": 32.5
+    },
+    {
+      "name": "view:refresh",
+      "ms": 37.60000002384186
+    },
+    {
+      "name": "view:search",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "view:reset",
+      "ms": 32.59999996423721
+    },
+    {
+      "name": "view:filter:status",
+      "ms": 28.899999976158142
+    },
+    {
+      "name": "view:filter-reset",
+      "ms": 33.69999998807907
+    },
+    {
+      "name": "view:filter:site",
+      "ms": 46.30000001192093
+    },
+    {
+      "name": "view:filter-reset",
+      "ms": 34.69999998807907
+    },
+    {
+      "name": "view:filter:location-type",
+      "ms": 28.099999964237213
+    },
+    {
+      "name": "view:filter-reset",
+      "ms": 37.60000002384186
+    },
+    {
+      "name": "view:drawer",
+      "ms": 60.700000047683716
+    },
+    {
+      "name": "view:drawer-close",
+      "ms": 30.599999964237213
+    },
+    {
+      "name": "view:table",
+      "ms": 33.5
+    },
+    {
+      "name": "view:card",
+      "ms": 31.400000035762787
+    },
+    {
+      "name": "draft:stale-input",
+      "ms": 27.600000023841858
+    },
+    {
+      "name": "draft:stale-save-blocked",
+      "ms": 49.200000047683716
+    },
+    {
+      "name": "draft:reload-after-conflict",
+      "ms": 32.5
+    },
+    {
+      "name": "image:open",
+      "ms": 31.599999964237213
+    },
+    {
+      "name": "image:close",
+      "ms": 32.5
+    },
+    {
+      "name": "image:failure-fallback",
+      "ms": 410.39999997615814
+    },
+    {
+      "name": "image:retry",
+      "ms": 326.39999997615814
+    }
+  ],
+  "max": 410.39999997615814,
+  "pass": true
+}

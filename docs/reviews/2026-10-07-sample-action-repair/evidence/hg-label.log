@@ -1,0 +1,10 @@
+✔ HG-001–008: Mock receipt, SKU identity, HG scans, print, refresh, transaction failures and concurrency (2679.336416ms)
+✔ HG-002/003/007/009: legacy receipt explicit registration, quota recovery and missing-date block, five samples (5560.254458ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8577.846791

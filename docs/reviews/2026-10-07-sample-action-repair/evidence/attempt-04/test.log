@@ -1,0 +1,236 @@
+1 cold:inventory
+1 reload:inventory
+1 spa:inventory
+1 cold:application
+1 reload:application
+1 spa:application
+1 cold:application/new
+1 reload:application/new
+1 spa:application/new
+1 cold:application/req-004/edit
+1 reload:application/req-004/edit
+1 spa:application/req-004/edit
+1 cold:application/req-001
+1 reload:application/req-001
+1 spa:application/req-001
+1 cold:transfer
+1 reload:transfer
+1 spa:transfer
+1 cold:return
+1 reload:return
+1 spa:return
+1 cold:ledger
+1 reload:ledger
+1 spa:ledger
+1 cold:ledger/stocktake
+1 reload:ledger/stocktake
+1 spa:ledger/stocktake
+1 cold:view
+1 reload:view
+1 spa:view
+1 cold:detail/smp-001
+1 reload:detail/smp-001
+1 spa:detail/smp-001
+1 cold:label/smp-001
+1 reload:label/smp-001
+1 spa:label/smp-001
+1 application:new-entry
+1 draft:missing-required
+1 draft:input:applicant
+1 draft:input:purpose
+1 draft:input:receiver
+1 draft:input:useStartedAt
+1 draft:input:expectedReturnAt
+1 draft:input:remark
+1 draft:select:responsibleSite
+1 draft:select:targetLocationId
+1 draft:select:returnLocationId
+1 draft:tab-samples
+1 draft:search-input
+1 draft:query
+1 draft:no-results
+1 draft:restore-query
+1 draft:next-page
+1 draft:previous-page
+1 draft:select-sample
+1 draft:select-sample
+1 draft:unselect-sample
+1 draft:reselect-sample
+1 draft:stay-with-unsaved-input
+1 draft:tab-info
+1 draft:quota-failure
+1 draft:saved
+1 draft:edit-entry
+1 draft:edit-input
+1 draft:edit-save
+1 request:submit:open
+1 request:actor-input
+1 request:note-input
+1 request:submit:saved
+1 request:approve:open
+1 request:actor-input
+1 request:note-input
+1 request:approve:saved
+1 request:pickup:open
+1 request:actor-input
+1 request:note-input
+1 request:pickup:saved
+1 request:return:open
+1 request:actor-input
+1 request:note-input
+1 request:return:saved
+1 request:receive:open
+1 request:actor-input
+1 request:note-input
+1 request:receive:saved
+1 request:submit:open
+1 request:actor-input
+1 request:note-input
+1 request:submit:saved
+1 request:reject:open
+1 request:actor-input
+1 request:note-input
+1 request:reject:danger-confirm
+1 request:submit:open
+1 request:actor-input
+1 request:note-input
+1 request:submit:saved
+1 request:disabled-room-open
+1 request:disabled-room-blocked
+1 request:discard-blocked-input
+1 request:cancel:open
+1 request:actor-input
+1 request:note-input
+1 request:cancel:danger-confirm
+1 case:new
+1 case:sample-select
+1 case:target-input
+1 case:create-save
+1 case:detail
+1 case:approve:open
+1 case:actor-input
+1 case:note-input
+1 case:approve:saved
+1 case:execute:open
+1 case:actor-input
+1 case:note-input
+1 case:execute:danger-confirm
+1 stocktake:detail
+1 stocktake:investigate:open
+1 stocktake:actor-input
+1 stocktake:note-input
+1 stocktake:investigate:saved
+1 stocktake:close:open
+1 stocktake:actor-input
+1 stocktake:note-input
+1 stocktake:close:danger-confirm
+1 inventory:refresh
+1 inventory:search
+1 inventory:reset
+1 inventory:filter:status
+1 inventory:filter-reset
+1 inventory:filter:site
+1 inventory:filter-reset
+1 inventory:filter:location-type
+1 inventory:filter-reset
+1 inventory:drawer
+1 inventory:drawer-close
+1 application:refresh
+1 application:search
+FAILED 1 http://127.0.0.1:4206/pcs/samples/application 样衣库存
+ 
+样衣使用申请
+ 
+样衣流转记录
+ 
+样衣退货与处理
+ 
+样衣台账
+ 
+盘点差异追踪
+ 
+样衣视图
+全部关闭
+
+已重新读取样衣资料。
+
+关闭
+
+商品中心系统 / 样衣管理
+
+样衣使用申请
+
+管理借用申请流程，串联预占锁定、领用出库、归还入库。
+
+刷新
+
+全部申请
+
+7
+
+待审批
+
+0
+
+使用中
+
+1
+
+归还中
+
+1
+
+超期未归还
+
+2
+
+全部
+草稿
+待审批
+已批准待领用
+使用中
+归还中
+已完成
+已驳回
+已取消
+新建申请
+申请单列表
+
+驱动预占、确认领用、发起归还、确认归还入库等台账事件。
+
+申请单号	状态	责任站点	样衣数量	预计归还	关联来源 / 用途	申请人	审批/仓管	更新时间	操作
+UR-B2AB4EBC29504B0EA657D17A52F35272	已取消	深圳样衣间	1	2099-10-08T18:00	
+历史来源待确认 ·
+边界验收
+	申请人	- / -	2026-10-07 10:22:13	查看
+UR-7BC61C9DC0284B0BA63F79611E95D626	已驳回	深圳样衣间	1	2099-10-08T18:00	
+历史来源待确认 ·
+边界验收
+	申请人	页面验收仓管 / -	2026-10-07 10:22:12	查看
+UR-D45A5BBE28734FAB9768C09A42C70E4C	已完成	深圳样衣间	2	2099-10-08T18:00	
+历史来源待确认 ·
+直播试穿
+	页面验收申请人	页面验收仓管 / 页面验收仓管	2026-10-07 10:22:11	查看
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (32337.470375ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33069.409625
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (32337.470375ms)
+  locator.click: Timeout 10000ms exceeded.
+  Call log:
+  [2m  - waiting for locator('[data-pcs-sample-action=reset-filters]').first()[22m
+  
+      at click (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:55:44)
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:407:17) {
+    name: 'TimeoutError',
+    log: [ "  - waiting for locator('[data-pcs-sample-action=reset-filters]').first()" ]
+  }

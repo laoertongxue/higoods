@@ -1,0 +1,378 @@
+样衣使用申请
+ 
+样衣退货与处理
+ 
+样衣库存
+全部关闭
+
+商品中心系统 / 样衣管理
+
+样衣库存
+
+管理样衣资产状态、站点位置、占用预占、在途签收和异常风险。
+
+刷新
+
+全部样衣
+
+10
+
+在库可用
+
+4
+
+预占/借出
+
+3
+
+在途待签收
+
+1
+
+异常风险
+
+3
+
+全部
+在库可用
+预占锁定
+借出占用
+在途待签收
+维修中
+待处置
+已退货
+全部
+深圳样衣间
+雅加达样衣间
+全部
+直播间
+家播
+工厂
+部门
+仓库
+重置
+重置
+库存清单
+
+共 10 条，展示样衣状态、占用、在途和异常信息。
+
+发起使用申请
+查看流转
+样衣编号/名称	样品类型	关联来源 / 用途	库存状态	可用性	当前位置	占用/预占	运单/ETA	风险	操作
+
+HG2000007
+
+SPU-QC-001-01
+
+后道验收衬衫
+
+测款样衣
+·
+S
+·
+黑色
+	营销样品	
+测款单 SKU 关联；实物来源仍以原始入库记录为准 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000008
+
+SPU-QC-001-02
+
+后道验收衬衫
+
+测款样衣
+·
+M
+·
+白色
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000002
+
+SKU-DRESS-RED-M
+
+深蓝纯色连衣裙-P1A1
+
+裙装
+·
+M
+·
+深蓝色
+	营销样品	
+历史来源待确认 · PRJ-202604-001 · 深蓝纯色连衣裙
+
+深蓝纯色连衣裙
+
+直播测款拍摄
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣仓 A-02-15
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000006
+
+SKU-TEE-WHT-M
+
+基础白色 T 恤-白-M
+
+上衣
+·
+M
+·
+白色
+	营销样品	
+历史来源待确认 · PRJ-202604-002 · 夏季基础白 T
+
+夏季基础白 T
+
+达人试穿
+
+	预占锁定	不可申请	
+深圳样衣仓
+样衣仓 B-01-03
+	
+张丽
+短视频拍摄 · 至 2026-04-14
+	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000005
+
+SKU-SHORT-DNM-S
+
+牛仔短裤工程样-S
+
+裤装
+·
+S
+·
+牛仔蓝
+	生产样品	
+历史来源待确认 · PRJ-202604-003 · 腰围放量牛仔短裤
+
+腰围放量牛仔短裤
+
+历史首单打样记录
+
+	借出占用	
+需审批	
+雅加达地点 A（演示） · JKT-A-04-002 · 402 房间（演示）
+直播间 A 拍摄位
+	
+王芳
+直播讲解 · 至 2026-04-09
+	无在途	
+归还超期	
+打印标签
+快照
+台账
+
+
+HG2000004
+
+SKU-SHIRT-BLU-L
+
+办公室衬衫样衣-L
+
+上衣
+·
+L
+·
+浅蓝
+	营销样品	
+历史来源待确认 · PRJ-202604-004 · 通勤办公室衬衫
+
+通勤办公室衬衫
+
+雅加达直播备样
+
+	在途待签收	不可申请	
+深圳样衣仓
+深圳仓 → 雅加达直播间
+	无占用	
+SF100000004
+顺丰国际 · ETA 2026-04-12
+	
+在途超时	
+打印标签
+快照
+台账
+
+
+HG2000001
+
+SKU-CARD-BGE-F
+
+米色针织开衫-F
+
+外套
+·
+F
+·
+米色
+	生产样品	
+历史来源待确认 · PRJ-202604-006 · 轻薄针织开衫
+
+轻薄针织开衫
+
+直播间备样
+
+	维修中	不可申请	
+雅加达一号厂
+维修篮 JKT-02
+	无占用	无在途	
+破损	
+打印标签
+快照
+台账
+
+
+HG2000003
+
+SKU-LACE-WHT-S
+
+蕾丝拼接连衣裙-S
+
+裙装
+·
+S
+·
+白色
+	营销样品	
+历史来源待确认 · PRJ-202604-007 · 白色蕾丝连衣裙
+
+白色蕾丝连衣裙
+
+渠道商品图补拍
+
+	借出占用	
+需审批	
+雅加达地点 B（演示） · JKT-B-03-001 · 连衣裙直播房间（演示）
+直播间 RACK-03
+	
+林小红
+直播讲解 · 至 2026-04-13
+	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000010
+
+DISPOSE-1
+
+后道验收衬衫
+
+测款样衣
+·
+-
+·
+-
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	已处置	不可申请	
+已处置
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+
+
+HG2000009
+
+DISPOSE-0
+
+后道验收衬衫
+
+测款样衣
+·
+-
+·
+-
+	营销样品	
+测款单入库实物 · TO-0001 · 后道验收衬衫
+
+后道验收衬衫
+
+④样衣入库
+
+	在库可用	
+可申请	
+深圳样衣仓
+样衣已入样衣仓，关联库存台账。
+	无占用	无在途	无	
+打印标签
+快照
+台账
+✖ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (4155.023959ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4484.5435
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-action-boundaries.test.ts:1:436
+✖ SAMPLE-FIX boundary 1: discard, dispose, retry and expansion (4155.023959ms)
+  AssertionError [ERR_ASSERTION]: refresh:recover-page: NaNms
+      at measure (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:41:14)
+      at async click (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:46:7)
+      at async TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-action-boundaries.test.ts:165:7)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

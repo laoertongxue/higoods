@@ -56,6 +56,10 @@ export function pcsRecordIdentity(key: string, group: string, value: unknown, po
     const id = text(materialIds[group]); if (id) return id
     throw new Error(`物料记录缺少自身编号 ${materialIds[group]}，未保存。`)
   }
+  if (key === 'higood-pcs-sample-management-v1') {
+    const ownId = ({ requests: 'requestId', returnCases: 'caseId', stocktakeDiffs: 'diffId' } as Record<string,string>)[group]
+    if (ownId) { const id = text(ownId); if (!id) throw new Error('样衣单据缺少自身编号，未保存。'); return id }
+  }
   if (text('resultVersionId')) return text('resultVersionId')!
   if ('itemId' in item && 'purpose' in item && 'taskId' in item) return `${item.taskId}:${item.itemId}:${item.purpose}`
   for (const name of ['conversionId', 'transferId', 'eventId', 'sampleId', 'id', 'batchId', 'logId', 'notificationId', 'pendingRelationId', 'pendingItemId', 'pendingId', 'recordId', 'projectRelationId', 'relationId', 'pricingPlanId', 'planId', 'samplingTaskId', 'bomDraftVersionId', 'versionId', 'bomVersionId', 'testingOrderId', 'channelProductId', 'technicalVersionId', 'skuId', 'masterOrderId', 'styleId']) {

@@ -105,6 +105,7 @@ export interface PcsSampleRecord {
   sampleType: PcsSampleType
   skuCode: string
   /** Immutable receipt date; updates and transfers never replace it. */
+  useRequestId?: string
   registeredAt?: string
   taggedAt: string | null
   responsibleSite: '深圳样衣间' | '雅加达样衣间'
@@ -134,6 +135,13 @@ export type PcsSampleRequestStatus =
 export interface PcsSampleUseRequest {
   requestId: string
   requestCode: string
+  revision?: number
+  targetLocationId?: string
+  returnLocationId?: string
+  useStartedAt?: string
+  receiver?: string
+  remark?: string
+  originLocationIds?: Record<string, string>
   status: PcsSampleRequestStatus
   responsibleSite: '深圳样衣间' | '雅加达样衣间'
   sampleIds: string[]
@@ -200,6 +208,7 @@ export interface PcsSampleReturnCase {
   trackingNo: string
   logisticsEvidence: string
   dispositionResult: string
+  executionNote?: string
   updatedAt: string
   riskFlag: string
   timeline: Array<{ time: string; action: string; operator: string; remark?: string }>
@@ -258,6 +267,9 @@ export interface PcsSampleStocktakeDiff {
   discoveredAt: string
   reason: string
   nextAction: string
+  resolution?: string
+  updatedAt?: string
+  timeline?: Array<{ time: string; action: string; operator: string; remark: string }>
 }
 
 export const PCS_SAMPLE_RECORDS: PcsSampleRecord[] = [
@@ -502,6 +514,9 @@ export const PCS_SAMPLE_TYPE_CONVERSION_LOGS: PcsSampleTypeConversionLog[] = [
 export const PCS_SAMPLE_STORAGE_KEY = 'higood-pcs-sample-management-v1'
 export interface PcsSampleLabelIdentity { id: string; skuCode: string; hgCode: string; registeredAt: string }
 interface SampleChanges {
+  requests: PcsSampleUseRequest[]
+  returnCases: PcsSampleReturnCase[]
+  stocktakeDiffs: PcsSampleStocktakeDiff[]
   identities: PcsSampleLabelIdentity[]
   lastHgNumber?: number
   records: PcsSampleRecord[]
@@ -513,6 +528,7 @@ function readSampleChanges(): SampleChanges {
   const raw = pcsRecordStore.getItem(PCS_SAMPLE_STORAGE_KEY)
   const data = raw && raw !== '[]' ? JSON.parse(raw) : { records: [], conversionLogs: [], transfers: [], ledgerEvents: [] }
   if (!data || !['records', 'conversionLogs', 'transfers', 'ledgerEvents'].every(key => Array.isArray(data[key]))) throw new Error('样衣资料格式异常，原资料已保留，请重新读取。')
+  for (const group of ['requests', 'returnCases', 'stocktakeDiffs']) { data[group] ??= []; if (!Array.isArray(data[group])) throw new Error('样衣关联资料格式异常，请重新读取。') }
   data.identities ??= []
   if (!Array.isArray(data.identities)) throw new Error('样衣编号资料格式异常，请重新读取。')
   return data
@@ -567,7 +583,7 @@ export function registerPcsSampleLabel(sampleId: string): PcsSampleLabelIdentity
   return { ...identity }
 }
 
-function sampleTime(): string { return new Date().toISOString().slice(0, 19).replace('T', ' ') }
+function sampleTime(): string { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}` }
 function ledgerFor(sample: PcsSampleRecord, eventType: PcsSampleLedgerEventType, actor: string, remark: string, from: string, to: string): PcsSampleLedgerEvent {
   return { eventId: crypto.randomUUID(), time: sample.updatedAt, site: sample.responsibleSite, sampleId: sample.sampleId,
     sampleCode: sample.skuCode, sampleName: sample.name, eventType, summary: remark,
@@ -591,7 +607,7 @@ export function convertPcsSampleType(sampleId: string, toType: PcsSampleType, ac
 }
 export function listPcsSampleTypeConversionLogs(sampleId?: string): PcsSampleTypeConversionLog[] {
   const rows = [...readSampleChanges().conversionLogs, ...PCS_SAMPLE_TYPE_CONVERSION_LOGS]
-  return sampleId ? rows.filter(row => row.sampleId === sampleId) : rows
+  return structuredClone(sampleId ? rows.filter(row => row.sampleId === sampleId) : rows)
 }
 /** A movement is confirmed only after the recipient has received the labelled sample. */
 export function transferPcsSample(sampleId: string, toLocationId: string, actor: string, reason: string): { ok: boolean; record?: PcsSampleRecord; message?: string } {
@@ -602,7 +618,9 @@ export function transferPcsSample(sampleId: string, toLocationId: string, actor:
   if (!canCompletePcsSampleTagging(original)) return { ok: false, message: '样衣尚未正确贴码，不能流转。' }
   if (from.locationId === to.locationId) return { ok: false, message: '起点与终点相同，无需流转。' }
   if (!actor.trim() || !reason.trim()) return { ok: false, message: '流转必须填写操作人与原因；例外用途也须说明。' }
+  if (original.occupancyType !== '无' || original.useRequestId || listPcsSampleRequests().some(r => ['待审批','已批准待领用','使用中','归还中'].includes(r.status) && r.sampleIds.includes(original.sampleId))) return { ok: false, message: '样衣存在有效使用申请或占用，请在申请详情执行领用、归还或取消。' }
   if (['已退货', '已处置', '在途待签收'].includes(original.status)) return { ok: false, message: '当前样衣已结束或在途，不能重复确认流转。' }
+  if (listPcsSampleReturnCases().some(r=>r.sampleId===original.sampleId&&!['已结案','已驳回'].includes(r.status))) return {ok:false,message:'样衣存在未结束的退货或处理案件，请先完成案件。'}
   const record = { ...original, currentLocationId: to.locationId, currentLocation: to.locationName,
     locationDetail: reason.trim(), updatedAt: sampleTime(), updatedBy: actor.trim(), transit: null }
   const data = readSampleChanges()
@@ -668,7 +686,8 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     requestCode: 'UR-202604-001',
     status: '已批准待领用',
     responsibleSite: '深圳样衣间',
-    sampleIds: ['smp-001', 'smp-002'],
+    sampleIds: ['smp-002'],
+    targetLocationId: 'loc-home-01', returnLocationId: 'loc-wh-01', receiver: '张丽',
     projectCode: 'PRJ-202604-001',
     projectName: '深蓝纯色连衣裙',
     sourceStepName: '直播测款拍摄',
@@ -691,6 +710,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     status: '使用中',
     responsibleSite: '雅加达样衣间',
     sampleIds: ['smp-007'],
+    targetLocationId: 'loc-live-02', returnLocationId: 'loc-wh-02', receiver: '林小红',
     projectCode: 'PRJ-202604-007',
     projectName: '白色蕾丝连衣裙',
     sourceStepName: '直播间备样',
@@ -714,6 +734,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     status: '归还中',
     responsibleSite: '深圳样衣间',
     sampleIds: ['smp-003'],
+    returnLocationId: 'loc-wh-01',
     projectCode: 'PRJ-202604-003',
     projectName: '腰围放量牛仔短裤',
     sourceStepName: '模特拍摄',
@@ -734,7 +755,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
   {
     requestId: 'req-004',
     requestCode: 'UR-202604-004',
-    status: '待审批',
+    status: '草稿',
     responsibleSite: '雅加达样衣间',
     sampleIds: ['smp-006'],
     projectCode: 'PRJ-202604-006',
@@ -748,7 +769,7 @@ export const PCS_SAMPLE_REQUESTS: PcsSampleUseRequest[] = [
     appliedAt: '2026-04-11 11:10',
     updatedAt: '2026-04-11 11:10',
     returnRequestedAt: '',
-    timeline: [{ time: '2026-04-11 11:10', action: '提交申请', operator: '周杰' }],
+    timeline: [{ time: '2026-04-11 11:10', action: '创建草稿', operator: '周杰', remark: '维修完成后再选择可用样衣并提交' }],
   },
 ]
 
@@ -1271,8 +1292,8 @@ export function associatePcsSampleTestingOrder(
 
 export function listPcsSampleRecords(): PcsSampleRecord[] {
   const orders = listTestingOrders()
-  return applyReturnHandleStatusToSamples(listBasePcsSampleRecords())
-    .map((sample) => associatePcsSampleTestingOrder(sample, orders))
+  return structuredClone(applyReturnHandleStatusToSamples(listBasePcsSampleRecords())
+    .map((sample) => associatePcsSampleTestingOrder(sample, orders)))
 }
 
 export function getPcsSampleById(sampleId: string): PcsSampleRecord | null {
@@ -1280,23 +1301,23 @@ export function getPcsSampleById(sampleId: string): PcsSampleRecord | null {
 }
 
 export function listPcsSampleRequests(): PcsSampleUseRequest[] {
-  return [...PCS_SAMPLE_REQUESTS]
+  return structuredClone(mergeSampleRows(PCS_SAMPLE_REQUESTS, readSampleChanges().requests, row => row.requestId))
 }
 
 export function listPcsSampleTransfers(): PcsSampleTransferRecord[] {
-  return [...readSampleChanges().transfers, ...PCS_SAMPLE_TRANSFERS].map(row => ({ ...row, fromEntity: getPcsSampleLocationById(row.fromLocationId)?.locationName || '位置待确认', toEntity: getPcsSampleLocationById(row.toLocationId)?.locationName || '位置待确认' }))
+  return structuredClone([...readSampleChanges().transfers, ...PCS_SAMPLE_TRANSFERS]).map(row => ({ ...row, fromEntity: getPcsSampleLocationById(row.fromLocationId)?.locationName || '位置待确认', toEntity: getPcsSampleLocationById(row.toLocationId)?.locationName || '位置待确认' }))
 }
 
 export function listPcsSampleReturnCases(): PcsSampleReturnCase[] {
-  return [...buildGeneratedSampleReturnCases(), ...PCS_SAMPLE_RETURN_CASES]
+  return structuredClone(mergeSampleRows([...buildGeneratedSampleReturnCases(), ...PCS_SAMPLE_RETURN_CASES], readSampleChanges().returnCases, row => row.caseId))
 }
 
 export function listPcsSampleLedgerEvents(): PcsSampleLedgerEvent[] {
-  return [...readSampleChanges().ledgerEvents, ...buildGeneratedSampleLedgerEvents(), ...PCS_SAMPLE_LEDGER_EVENTS]
+  return structuredClone([...readSampleChanges().ledgerEvents, ...buildGeneratedSampleLedgerEvents(), ...PCS_SAMPLE_LEDGER_EVENTS])
 }
 
 export function listPcsSampleStocktakeDiffs(): PcsSampleStocktakeDiff[] {
-  return [...PCS_SAMPLE_STOCKTAKE_DIFFS]
+  return structuredClone(mergeSampleRows(PCS_SAMPLE_STOCKTAKE_DIFFS, readSampleChanges().stocktakeDiffs, row => row.diffId))
 }
 
 export function listPcsSampleLedgerEventsBySampleId(sampleId: string): PcsSampleLedgerEvent[] {
@@ -1304,7 +1325,7 @@ export function listPcsSampleLedgerEventsBySampleId(sampleId: string): PcsSample
 }
 
 export function listPcsSampleRequestsBySampleId(sampleId: string): PcsSampleUseRequest[] {
-  return PCS_SAMPLE_REQUESTS.filter((item) => item.sampleIds.includes(sampleId))
+  return listPcsSampleRequests().filter((item) => item.sampleIds.includes(sampleId))
 }
 
 export function areTestingOrderSamplesTagged(order: TestingOrderRecord): boolean {
@@ -1315,4 +1336,129 @@ export function areTestingOrderSamplesTagged(order: TestingOrderRecord): boolean
 export function isTestingOrderSampleTagged(order: TestingOrderRecord, sku: string): boolean {
   const sample = getPcsSampleById(`testing-${order.testingOrderId}-${sku}`)
   return !!sample && canCompletePcsSampleTagging(sample)
+}
+
+function mergeSampleRows<T>(base: T[], changes: T[], id: (row: T) => string): T[] {
+  const rows = new Map(base.map(row => [id(row), row])); changes.forEach(row => rows.set(id(row), row)); return [...rows.values()]
+}
+function replaceSampleRow<T>(rows: T[], record: T, id: (row: T) => string): void {
+  const index = rows.findIndex(row => id(row) === id(record)); if (index < 0) rows.unshift(record); else rows[index] = record
+}
+function requireSampleActor(actor: string): void { if (!actor.trim()) throw Error('请填写操作人。') }
+function requireSampleLocation(id: string, warehouse = false) {
+  const loc = getPcsSampleLocationById(id)
+  if (!loc || loc.enabled === false || (warehouse && loc.locationType !== 'warehouse')) throw Error(warehouse ? '请选择启用的归还仓库。' : '请选择启用的使用位置。')
+  return loc
+}
+export function canRequestPcsSample(sample: PcsSampleRecord, requestId = ''): boolean {
+  return canCompletePcsSampleTagging(sample) && sample.status === '在库可用' && sample.availability !== '不可申请'
+    && sample.occupancyType === '无' && !sample.transit && !sample.anomaly && !!sample.currentLocationId
+    && !listPcsSampleRequests().some(row => row.requestId !== requestId && ['待审批','已批准待领用','使用中','归还中'].includes(row.status) && row.sampleIds.includes(sample.sampleId))
+}
+export type PcsSampleRequestDraft = Pick<PcsSampleUseRequest, 'requestId'|'responsibleSite'|'sampleIds'|'purpose'|'applicant'|'expectedReturnAt'> & {
+  targetLocationId: string; returnLocationId: string; useStartedAt: string; receiver: string; remark: string
+}
+export function savePcsSampleRequestDraft(input: PcsSampleRequestDraft, expectedRevision = 0): PcsSampleUseRequest {
+  const old = listPcsSampleRequests().find(row => row.requestId === input.requestId)
+  if (old && old.status !== '草稿') throw Error('只有草稿可以编辑。')
+  if ((old?.revision || 0) !== expectedRevision) throw Error('申请已被其他页面修改，请重新读取。')
+  requireSampleActor(input.applicant)
+  if (!input.requestId || !input.purpose.trim() || !input.receiver.trim()) throw Error('请填写用途和使用人。')
+  requireSampleLocation(input.targetLocationId); requireSampleLocation(input.returnLocationId, true)
+  if (!['深圳样衣间','雅加达样衣间'].includes(input.responsibleSite)) throw Error('请选择责任站点。')
+  if (!input.sampleIds.length || new Set(input.sampleIds).size !== input.sampleIds.length) throw Error('请选择样衣，且不要重复添加。')
+  if (!validSampleDate(input.useStartedAt) || !validSampleDate(input.expectedReturnAt) || Date.parse(input.expectedReturnAt) <= Date.parse(input.useStartedAt)) throw Error('请填写有效使用时间及更晚的预计归还时间。')
+  const samples = input.sampleIds.map(id => getPcsSampleById(id))
+  if (samples.some(s => !s || s.responsibleSite !== input.responsibleSite || !canRequestPcsSample(s, input.requestId))) throw Error('所选样衣必须同责任站点、已贴码且可用，不能选择在途、维修或已占用样衣。')
+  const time = sampleTime()
+  const request: PcsSampleUseRequest = { ...structuredClone(input), requestCode: old?.requestCode || `UR-${input.requestId.replace(/-/g,'').toUpperCase()}`, status: '草稿',
+    revision: expectedRevision + 1, projectCode: '', projectName: '', sourceStepName: '样衣使用', approver: '', keeper: '',
+    appliedAt: old?.appliedAt || time, updatedAt: time, returnRequestedAt: '',
+    timeline: [{ time, action: old ? '保存草稿修改' : '创建草稿', operator: input.applicant }, ...(old?.timeline || [])] }
+  const data = readSampleChanges(); replaceSampleRow(data.requests, request, row => row.requestId); saveSampleChanges(data)
+  return structuredClone(request)
+}
+function validSampleDate(value: string): boolean { return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(value) && Number.isFinite(Date.parse(value.replace(' ', 'T'))) }
+export type PcsSampleRequestAction = 'submit'|'approve'|'reject'|'cancel'|'pickup'|'return'|'receive'
+export function actPcsSampleRequest(requestId: string, action: PcsSampleRequestAction, actor: string, note = '', expectedRevision?: number): PcsSampleUseRequest {
+  requireSampleActor(actor)
+  const request = listPcsSampleRequests().find(row => row.requestId === requestId)
+  if (!request) throw Error('申请不存在。')
+  if (expectedRevision !== undefined && expectedRevision !== (request.revision || 0)) throw Error('申请已更新，请重新读取。')
+  const allowed: Record<PcsSampleRequestAction,PcsSampleRequestStatus[]> = { submit:['草稿'], approve:['待审批'], reject:['待审批'], cancel:['草稿','待审批','已批准待领用'], pickup:['已批准待领用'], return:['使用中'], receive:['归还中'] }
+  if (!allowed[action]?.includes(request.status)) throw Error('当前申请状态不允许此动作，请重新读取。')
+  if (['cancel','reject'].includes(action) && !note.trim()) throw Error('请填写取消或驳回原因。')
+  const samples = request.sampleIds.map(id => getPcsSampleById(id))
+  if (!samples.length || samples.some(row => !row)) throw Error('申请中的样衣不存在。')
+  const rows = samples as PcsSampleRecord[]
+  const target = ['submit','approve','pickup'].includes(action) ? requireSampleLocation(request.targetLocationId || '') : null
+  const warehouse = ['submit','receive'].includes(action) ? requireSampleLocation(request.returnLocationId || (request.responsibleSite === '深圳样衣间' ? 'loc-wh-01' : 'loc-wh-02'), true) : null
+  if (action === 'submit') {
+    if (!request.purpose.trim() || !request.receiver?.trim() || !validSampleDate(request.expectedReturnAt) || Date.parse(request.expectedReturnAt) <= Date.now()) throw Error('请补全用途、使用人及未来的预计归还时间。')
+    if (rows.some(row => row.responsibleSite !== request.responsibleSite || !canRequestPcsSample(row, requestId))) throw Error('样衣不满足同站点、贴码或可用条件，未预占。')
+  }
+  if (['approve','pickup'].includes(action) && rows.some(row => row.status !== '预占锁定' || !ownsRequestSample(request,row))) throw Error('申请预占与样衣状态不一致，不能审批或领用。')
+  if (['return','receive'].includes(action) && rows.some(row => row.status !== '借出占用' || !ownsRequestSample(request,row))) throw Error('样衣使用状态或占用归属不一致，不能归还。')
+  const data = readSampleChanges(), time = sampleTime()
+  const labels: Record<PcsSampleRequestAction,string> = {submit:'提交申请',approve:'审批通过',reject:'驳回申请',cancel:'取消申请',pickup:'确认实际领用',return:'发起归还',receive:'确认归还入库'}
+  if (action === 'submit') request.originLocationIds = Object.fromEntries(rows.map(row => [row.sampleId,row.currentLocationId!]))
+  for (const sample of rows) {
+    const from = sample.currentLocation, fromId = sample.currentLocationId || ''
+    let event: PcsSampleLedgerEventType | null = null
+    if (action === 'submit') { sample.status='预占锁定'; sample.availability='不可申请'; sample.occupancyType='预占'; sample.useRequestId=requestId; sample.occupiedBy=request.applicant; sample.occupiedFor=request.purpose; sample.occupiedUntil=request.expectedReturnAt; event='预占' }
+    if (['cancel','reject'].includes(action) && request.status !== '草稿') {
+      if (!ownsRequestSample(request,sample) || sample.status !== '预占锁定') throw Error('预占归属不一致，不能释放其他申请。')
+      releaseRequestSample(sample); event='释放'
+    }
+    if (action === 'pickup' || action === 'receive') {
+      const loc = action === 'pickup' ? target! : warehouse!
+      sample.currentLocationId=loc.locationId; sample.currentLocation=loc.locationName; sample.locationDetail=request.purpose
+      if(action==='pickup'){sample.status='借出占用';sample.occupancyType='占用';sample.occupiedBy=request.receiver || request.applicant;sample.useRequestId=requestId;sample.availability='不可申请';event='借出'}
+      else {releaseRequestSample(sample);sample.anomaly=null;sample.transit=null;event='归还'}
+      data.transfers.unshift({transferId:crypto.randomUUID(),time,sampleId:sample.sampleId,sampleCode:sample.skuCode,sampleName:sample.name,transferCategory:action==='pickup'?'借用流转':'归还入库',eventType:event,fromLocationId:fromId,toLocationId:loc.locationId,fromEntity:from,toEntity:loc.locationName,responsibleSite:sample.responsibleSite,trackingNo:'',carrier:'',projectCode:request.requestCode,operator:actor,riskFlags:[],remark:labels[action]})
+    }
+    if(event){sample.updatedAt=time;sample.updatedBy=actor;saveChangedSample(data,sample);data.ledgerEvents.unshift({...ledgerFor(sample,event,actor,`${labels[action]}；${note}`,from,sample.currentLocation),sourceDoc:request.requestCode,holder:sample.occupiedBy||actor})}
+  }
+  request.status=({submit:'待审批',approve:'已批准待领用',reject:'已驳回',cancel:'已取消',pickup:'使用中',return:'归还中',receive:'已完成'} as const)[action]
+  if(action==='approve'||action==='reject')request.approver=actor
+  if(action==='pickup'||action==='receive')request.keeper=actor
+  if(action==='return')request.returnRequestedAt=time
+  request.revision=(request.revision||0)+1;request.updatedAt=time;request.timeline.unshift({time,action:labels[action],operator:actor,remark:note})
+  replaceSampleRow(data.requests,request,row=>row.requestId);saveSampleChanges(data);return structuredClone(request)
+}
+function ownsRequestSample(request:PcsSampleUseRequest,sample:PcsSampleRecord):boolean { return sample.useRequestId ? sample.useRequestId===request.requestId : sample.occupiedBy===request.applicant && !listPcsSampleRequests().some(r=>r.requestId!==request.requestId&&['待审批','已批准待领用','使用中','归还中'].includes(r.status)&&r.sampleIds.includes(sample.sampleId)) }
+function releaseRequestSample(sample:PcsSampleRecord):void {sample.status='在库可用';sample.availability='可申请';sample.occupancyType='无';sample.occupiedBy='';sample.occupiedFor='';sample.occupiedUntil='';delete sample.useRequestId}
+
+export function createPcsSampleReturnCase(input:{caseId:string;sampleId:string;caseType:PcsSampleReturnCaseType;reason:string;target:string;actor:string}):PcsSampleReturnCase {
+  requireSampleActor(input.actor)
+  const existing=listPcsSampleReturnCases().find(row=>row.caseId===input.caseId);if(existing)return existing
+  const sample=getPcsSampleById(input.sampleId)
+  if(!sample||!['在库可用','维修中','待处置'].includes(sample.status)||sample.occupancyType!=='无'||listPcsSampleRequests().some(r=>['待审批','已批准待领用','使用中','归还中'].includes(r.status)&&r.sampleIds.includes(sample.sampleId)))throw Error('请选择未占用、非在途且未结束的样衣。')
+  if(!['退货','处置'].includes(input.caseType)||!input.reason.trim()||(input.caseType==='退货'&&!input.target.trim()))throw Error('请填写类型、原因及退货接收方。')
+  if(listPcsSampleReturnCases().some(r=>r.sampleId===sample.sampleId&&!['已结案','已驳回'].includes(r.status)))throw Error('该样衣已有未结束的案件。')
+  const time=sampleTime(),record:PcsSampleReturnCase={caseId:input.caseId,caseCode:`RC-${input.caseId.replace(/-/g,'').toUpperCase()}`,caseType:input.caseType,status:'待审批',responsibleSite:sample.responsibleSite,sampleId:sample.sampleId,sampleCode:sample.skuCode,sampleName:sample.name,sampleImageUrl:sample.imageUrl,inventoryStatusSnapshot:sample.status,reasonCategory:'人工登记',reasonText:input.reason,projectCode:sample.projectCode,initiatedBy:input.actor,acceptedBy:'',returnTarget:input.target,returnMethod:'',carrier:'',trackingNo:'',logisticsEvidence:'',dispositionResult:'',updatedAt:time,riskFlag:'',timeline:[{time,action:'新建案件',operator:input.actor,remark:input.reason}]}
+  const data=readSampleChanges();data.returnCases.unshift(record);sample.status='待处置';sample.availability='不可申请';sample.updatedAt=time;sample.updatedBy=input.actor;saveChangedSample(data,sample);saveSampleChanges(data);return structuredClone(record)
+}
+export function actPcsSampleReturnCase(caseId:string,action:'approve'|'reject'|'execute',actor:string,note:string):PcsSampleReturnCase {
+  if(!['approve','reject','execute'].includes(action))throw Error('案件动作不正确。')
+  requireSampleActor(actor);if(!note.trim())throw Error('请填写处理原因或执行结果。')
+  const record=listPcsSampleReturnCases().find(row=>row.caseId===caseId)
+  if(!record)throw Error('案件不存在。')
+  if((action==='execute'&&!['待执行','执行中'].includes(record.status))||(action!=='execute'&&record.status!=='待审批'))throw Error('当前案件状态不允许此动作。')
+  const sample=getPcsSampleById(record.sampleId);if(!sample||sample.occupancyType!=='无'||sample.status!=='待处置')throw Error('样衣状态已改变，不能执行案件。')
+  const data=readSampleChanges(),time=sampleTime();record.updatedAt=time;record.acceptedBy=actor
+  record.status=action==='approve'?'待执行':action==='reject'?'已驳回':'已结案'
+  const label=action==='approve'?'审批通过':action==='reject'?'驳回案件':`执行${record.caseType}`
+  record.timeline.unshift({time,action:label,operator:actor,remark:note});record.executionNote=note
+  if(action==='reject'){sample.status=record.inventoryStatusSnapshot;sample.availability=sample.status==='在库可用'?'可申请':'不可申请'}
+  if(action==='execute'){sample.status=record.caseType==='退货'?'已退货':'已处置';sample.availability='不可申请';sample.currentLocation=record.caseType==='退货'?record.returnTarget:'已处置';delete sample.currentLocationId;sample.anomaly=null;if(record.caseType==='处置')record.dispositionResult=note;else record.logisticsEvidence=note;sample.updatedAt=time;data.ledgerEvents.unshift({...ledgerFor(sample,record.caseType,actor,note,getPcsSampleById(sample.sampleId)!.currentLocation,sample.currentLocation),sourceDoc:record.caseCode})}
+  sample.updatedAt=time;sample.updatedBy=actor;saveChangedSample(data,sample);replaceSampleRow(data.returnCases,record,row=>row.caseId);saveSampleChanges(data);return structuredClone(record)
+}
+export function resolvePcsSampleStocktake(diffId:string,action:'investigate'|'close',actor:string,note:string):PcsSampleStocktakeDiff {
+  if(!['investigate','close'].includes(action))throw Error('盘点动作不正确。')
+  requireSampleActor(actor);if(!note.trim())throw Error('请填写核查原因或处理结论。')
+  const diff=listPcsSampleStocktakeDiffs().find(row=>row.diffId===diffId);if(!diff)throw Error('差异不存在。')
+  if(diff.status==='已关闭'||(action==='investigate'&&diff.status!=='待确认'))throw Error('当前状态不允许此动作。')
+  if(action==='close'&&diff.status==='待确认')throw Error('请先核查差异。')
+  const data=readSampleChanges(),time=sampleTime();diff.status=action==='investigate'?'处理中':'已关闭';diff.resolution=note;diff.owner=actor;diff.updatedAt=time;diff.nextAction=action==='close'?'已记录处理结论，未在此页面调整库存':'继续核查实际位置及来源单据';diff.timeline=[{time,action:action==='close'?'关闭差异':'开始核查',operator:actor,remark:note},...(diff.timeline||[])];replaceSampleRow(data.stocktakeDiffs,diff,row=>row.diffId);saveSampleChanges(data);return structuredClone(diff)
 }

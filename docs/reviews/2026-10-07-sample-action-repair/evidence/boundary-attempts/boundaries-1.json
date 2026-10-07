@@ -1,0 +1,155 @@
+{
+  "iteration": 1,
+  "base": "http://127.0.0.1:4206",
+  "samples": [
+    {
+      "name": "editor:unsaved-input",
+      "ms": 28.5
+    },
+    {
+      "name": "editor:discard-open",
+      "ms": 38.09999996423721
+    },
+    {
+      "name": "editor:discard-cancel",
+      "ms": 32.30000001192093
+    },
+    {
+      "name": "editor:discard-reopen",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "editor:discard-confirm",
+      "ms": 63.700000047683716
+    },
+    {
+      "name": "detail:collapse",
+      "ms": 32.10000002384186
+    },
+    {
+      "name": "detail:expand",
+      "ms": 32.80000001192093
+    },
+    {
+      "name": "dispose:new",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "dispose:sample",
+      "ms": 46.30000001192093
+    },
+    {
+      "name": "dispose:type",
+      "ms": 30.799999952316284
+    },
+    {
+      "name": "dispose:create-actor",
+      "ms": 30.69999998807907
+    },
+    {
+      "name": "dispose:reason",
+      "ms": 30.600000023841858
+    },
+    {
+      "name": "dispose:create",
+      "ms": 64.90000003576279
+    },
+    {
+      "name": "dispose:drawer",
+      "ms": 32
+    },
+    {
+      "name": "dispose:reject:open",
+      "ms": 32.19999998807907
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 28.899999976158142
+    },
+    {
+      "name": "dispose:note",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "dispose:reject:confirm",
+      "ms": 66.09999996423721
+    },
+    {
+      "name": "dispose:new",
+      "ms": 32.59999996423721
+    },
+    {
+      "name": "dispose:sample",
+      "ms": 30.099999964237213
+    },
+    {
+      "name": "dispose:type",
+      "ms": 31.600000023841858
+    },
+    {
+      "name": "dispose:create-actor",
+      "ms": 31.099999964237213
+    },
+    {
+      "name": "dispose:reason",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "dispose:create",
+      "ms": 65.69999998807907
+    },
+    {
+      "name": "dispose:drawer",
+      "ms": 31.80000001192093
+    },
+    {
+      "name": "dispose:approve:open",
+      "ms": 33.89999997615814
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 27.099999964237213
+    },
+    {
+      "name": "dispose:note",
+      "ms": 32.39999997615814
+    },
+    {
+      "name": "dispose:approve:saved",
+      "ms": 48.19999998807907
+    },
+    {
+      "name": "dispose:execute:open",
+      "ms": 32.60000002384186
+    },
+    {
+      "name": "dispose:actor",
+      "ms": 29.19999998807907
+    },
+    {
+      "name": "dispose:note",
+      "ms": 29.899999976158142
+    },
+    {
+      "name": "dispose:execute:confirm",
+      "ms": 65.39999997615814
+    },
+    {
+      "name": "refresh:failed",
+      "ms": 49
+    },
+    {
+      "name": "refresh:recover-page",
+      "ms": null
+    }
+  ],
+  "checks": [
+    "declining discard retains input",
+    "discard navigates without saving",
+    "case rejection restores original usability",
+    "dispose execution ends usability after reload"
+  ],
+  "errors": [],
+  "pass": false,
+  "max": null
+}

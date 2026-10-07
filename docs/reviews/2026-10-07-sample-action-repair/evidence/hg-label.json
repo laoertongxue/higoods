@@ -1,0 +1,24 @@
+{
+  "checks": [
+    "seed HG rendered in barcode",
+    "first label route does not persist seeds",
+    "three labels printed at selected dimensions",
+    "print has no business side effect",
+    "invalid width blocks printing",
+    "reset dimensions",
+    "receipt failure rolls back numbering, counter, sample, ledger and order",
+    "each new SKU assigned unique HG",
+    "⑤ defaults to HG",
+    "other SKU HG rejected",
+    "raw internal SKU rejected as HG",
+    "both HG tags required before buyer confirmation",
+    "direct label reload reads persisted HG",
+    "date is first receipt, not print time",
+    "type conversion and repeat receipt preserve HG/date",
+    "at least one concurrent allocator commits",
+    "concurrent allocations cannot duplicate HG",
+    "label at 1280 has no document overflow",
+    "no uncaught browser errors"
+  ],
+  "errors": []
+}

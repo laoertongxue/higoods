@@ -1,0 +1,277 @@
+{
+  "iteration": 1,
+  "base": "http://127.0.0.1:4206",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "checks": [
+    "cold:inventory: 490.9000000357628ms <=1000",
+    "reload:inventory: 265.69999998807907ms <=1000",
+    "spa:inventory: 32.69999998807907ms <=1000",
+    "cold:application: 553.6000000238419ms <=1000",
+    "reload:application: 258.80000001192093ms <=1000",
+    "spa:application: 33.09999996423721ms <=1000",
+    "cold:application/new: 264.7999999523163ms <=1000",
+    "reload:application/new: 232.5ms <=1000",
+    "spa:application/new: 33.30000001192093ms <=1000",
+    "cold:application/req-004/edit: 330.7999999523163ms <=1000",
+    "reload:application/req-004/edit: 232.5ms <=1000",
+    "spa:application/req-004/edit: 33.200000047683716ms <=1000",
+    "cold:application/req-001: 291.2000000476837ms <=1000",
+    "reload:application/req-001: 268.5999999642372ms <=1000",
+    "spa:application/req-001: 33.19999998807907ms <=1000",
+    "cold:transfer: 303.10000002384186ms <=1000",
+    "reload:transfer: 227.10000002384186ms <=1000",
+    "spa:transfer: 33.19999998807907ms <=1000",
+    "cold:return: 297.0999999642372ms <=1000",
+    "reload:return: 228.9000000357628ms <=1000",
+    "spa:return: 33ms <=1000",
+    "cold:ledger: 285.2000000476837ms <=1000",
+    "reload:ledger: 212.4000000357628ms <=1000",
+    "spa:ledger: 33.30000001192093ms <=1000",
+    "cold:ledger/stocktake: 284.30000001192093ms <=1000",
+    "reload:ledger/stocktake: 213.0999999642372ms <=1000",
+    "spa:ledger/stocktake: 33.19999998807907ms <=1000",
+    "cold:view: 316ms <=1000",
+    "reload:view: 247.4000000357628ms <=1000",
+    "spa:view: 33.299999952316284ms <=1000",
+    "cold:detail/smp-001: 268.60000002384186ms <=1000",
+    "reload:detail/smp-001: 228.5ms <=1000",
+    "spa:detail/smp-001: 33.299999952316284ms <=1000",
+    "cold:label/smp-001: 269.0999999642372ms <=1000",
+    "reload:label/smp-001: 211.5999999642372ms <=1000",
+    "spa:label/smp-001: 33.19999998807907ms <=1000",
+    "opening every route never writes seeds",
+    "application:new-entry: 68.10000002384186ms <=1000",
+    "draft:missing-required: 50ms <=1000",
+    "missing fields creates no request",
+    "draft:input:applicant: 38.39999997615814ms <=1000",
+    "draft:input:purpose: 28.899999976158142ms <=1000",
+    "draft:input:receiver: 30.19999998807907ms <=1000",
+    "draft:input:useStartedAt: 30.900000035762787ms <=1000",
+    "draft:input:expectedReturnAt: 28.600000023841858ms <=1000",
+    "draft:input:remark: 30.5ms <=1000",
+    "draft:select:responsibleSite: 28.69999998807907ms <=1000",
+    "draft:select:targetLocationId: 30.80000001192093ms <=1000",
+    "draft:select:returnLocationId: 30.100000023841858ms <=1000",
+    "draft:tab-samples: 46ms <=1000",
+    "draft:search-input: 31.5ms <=1000",
+    "draft:query: 30.5ms <=1000",
+    "draft:next-page: 46.10000002384186ms <=1000",
+    "draft:previous-page: 31.30000001192093ms <=1000"
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "name": "cold:inventory",
+      "ms": 490.9000000357628
+    },
+    {
+      "name": "reload:inventory",
+      "ms": 265.69999998807907
+    },
+    {
+      "name": "spa:inventory",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "cold:application",
+      "ms": 553.6000000238419
+    },
+    {
+      "name": "reload:application",
+      "ms": 258.80000001192093
+    },
+    {
+      "name": "spa:application",
+      "ms": 33.09999996423721
+    },
+    {
+      "name": "cold:application/new",
+      "ms": 264.7999999523163
+    },
+    {
+      "name": "reload:application/new",
+      "ms": 232.5
+    },
+    {
+      "name": "spa:application/new",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "cold:application/req-004/edit",
+      "ms": 330.7999999523163
+    },
+    {
+      "name": "reload:application/req-004/edit",
+      "ms": 232.5
+    },
+    {
+      "name": "spa:application/req-004/edit",
+      "ms": 33.200000047683716
+    },
+    {
+      "name": "cold:application/req-001",
+      "ms": 291.2000000476837
+    },
+    {
+      "name": "reload:application/req-001",
+      "ms": 268.5999999642372
+    },
+    {
+      "name": "spa:application/req-001",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "cold:transfer",
+      "ms": 303.10000002384186
+    },
+    {
+      "name": "reload:transfer",
+      "ms": 227.10000002384186
+    },
+    {
+      "name": "spa:transfer",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "cold:return",
+      "ms": 297.0999999642372
+    },
+    {
+      "name": "reload:return",
+      "ms": 228.9000000357628
+    },
+    {
+      "name": "spa:return",
+      "ms": 33
+    },
+    {
+      "name": "cold:ledger",
+      "ms": 285.2000000476837
+    },
+    {
+      "name": "reload:ledger",
+      "ms": 212.4000000357628
+    },
+    {
+      "name": "spa:ledger",
+      "ms": 33.30000001192093
+    },
+    {
+      "name": "cold:ledger/stocktake",
+      "ms": 284.30000001192093
+    },
+    {
+      "name": "reload:ledger/stocktake",
+      "ms": 213.0999999642372
+    },
+    {
+      "name": "spa:ledger/stocktake",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "cold:view",
+      "ms": 316
+    },
+    {
+      "name": "reload:view",
+      "ms": 247.4000000357628
+    },
+    {
+      "name": "spa:view",
+      "ms": 33.299999952316284
+    },
+    {
+      "name": "cold:detail/smp-001",
+      "ms": 268.60000002384186
+    },
+    {
+      "name": "reload:detail/smp-001",
+      "ms": 228.5
+    },
+    {
+      "name": "spa:detail/smp-001",
+      "ms": 33.299999952316284
+    },
+    {
+      "name": "cold:label/smp-001",
+      "ms": 269.0999999642372
+    },
+    {
+      "name": "reload:label/smp-001",
+      "ms": 211.5999999642372
+    },
+    {
+      "name": "spa:label/smp-001",
+      "ms": 33.19999998807907
+    },
+    {
+      "name": "application:new-entry",
+      "ms": 68.10000002384186
+    },
+    {
+      "name": "draft:missing-required",
+      "ms": 50
+    },
+    {
+      "name": "draft:input:applicant",
+      "ms": 38.39999997615814
+    },
+    {
+      "name": "draft:input:purpose",
+      "ms": 28.899999976158142
+    },
+    {
+      "name": "draft:input:receiver",
+      "ms": 30.19999998807907
+    },
+    {
+      "name": "draft:input:useStartedAt",
+      "ms": 30.900000035762787
+    },
+    {
+      "name": "draft:input:expectedReturnAt",
+      "ms": 28.600000023841858
+    },
+    {
+      "name": "draft:input:remark",
+      "ms": 30.5
+    },
+    {
+      "name": "draft:select:responsibleSite",
+      "ms": 28.69999998807907
+    },
+    {
+      "name": "draft:select:targetLocationId",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "draft:select:returnLocationId",
+      "ms": 30.100000023841858
+    },
+    {
+      "name": "draft:tab-samples",
+      "ms": 46
+    },
+    {
+      "name": "draft:search-input",
+      "ms": 31.5
+    },
+    {
+      "name": "draft:query",
+      "ms": 30.5
+    },
+    {
+      "name": "draft:next-page",
+      "ms": 46.10000002384186
+    },
+    {
+      "name": "draft:previous-page",
+      "ms": 31.30000001192093
+    }
+  ],
+  "max": 553.6000000238419,
+  "pass": false
+}

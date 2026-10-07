@@ -1,0 +1,85 @@
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (6967.80925ms)
+✖ SAMPLE-FIX browser 2: all routes, actual actions, persistence and <=1s (6501.563375ms)
+✖ SAMPLE-FIX browser 3: all routes, actual actions, persistence and <=1s (6282.226791ms)
+✖ SAMPLE-FIX browser 4: all routes, actual actions, persistence and <=1s (6155.233ms)
+✖ SAMPLE-FIX browser 5: all routes, actual actions, persistence and <=1s (6443.208083ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 0
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 32780.801583
+
+✖ failing tests:
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 1: all routes, actual actions, persistence and <=1s (6967.80925ms)
+  page.evaluate: Error: 本次修改尚未保存：请通过页面业务动作重试。
+      at Object.setItem (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts?t=1791338394825:181:25)
+      at saveSampleChanges (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:293:18)
+      at Module.receiveTestingOrderSamples (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:491:3)
+      at eval (eval at evaluate (:303:30), <anonymous>:1:748)
+      at Module.runPcsRecordCommand (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts:732:20)
+      at async eval (eval at evaluate (:303:30), <anonymous>:1:529)
+      at async <anonymous>:329:30
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:34:24) {
+    log: []
+  }
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 2: all routes, actual actions, persistence and <=1s (6501.563375ms)
+  page.evaluate: Error: 本次修改尚未保存：请通过页面业务动作重试。
+      at Object.setItem (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts?t=1791338394825:181:25)
+      at saveSampleChanges (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:293:18)
+      at Module.receiveTestingOrderSamples (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:491:3)
+      at eval (eval at evaluate (:303:30), <anonymous>:1:748)
+      at Module.runPcsRecordCommand (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts:732:20)
+      at async eval (eval at evaluate (:303:30), <anonymous>:1:529)
+      at async <anonymous>:329:30
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:34:24) {
+    log: []
+  }
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 3: all routes, actual actions, persistence and <=1s (6282.226791ms)
+  page.evaluate: Error: 本次修改尚未保存：请通过页面业务动作重试。
+      at Object.setItem (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts?t=1791338394825:181:25)
+      at saveSampleChanges (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:293:18)
+      at Module.receiveTestingOrderSamples (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:491:3)
+      at eval (eval at evaluate (:303:30), <anonymous>:1:748)
+      at Module.runPcsRecordCommand (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts:732:20)
+      at async eval (eval at evaluate (:303:30), <anonymous>:1:529)
+      at async <anonymous>:329:30
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:34:24) {
+    log: []
+  }
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 4: all routes, actual actions, persistence and <=1s (6155.233ms)
+  page.evaluate: Error: 本次修改尚未保存：请通过页面业务动作重试。
+      at Object.setItem (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts?t=1791338394825:181:25)
+      at saveSampleChanges (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:293:18)
+      at Module.receiveTestingOrderSamples (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:491:3)
+      at eval (eval at evaluate (:303:30), <anonymous>:1:748)
+      at Module.runPcsRecordCommand (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts:732:20)
+      at async eval (eval at evaluate (:303:30), <anonymous>:1:529)
+      at async <anonymous>:329:30
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:34:24) {
+    log: []
+  }
+
+test at tests/browser-contracts/pcs-sample-actions.test.ts:1:442
+✖ SAMPLE-FIX browser 5: all routes, actual actions, persistence and <=1s (6443.208083ms)
+  page.evaluate: Error: 本次修改尚未保存：请通过页面业务动作重试。
+      at Object.setItem (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts?t=1791338394825:181:25)
+      at saveSampleChanges (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:293:18)
+      at Module.receiveTestingOrderSamples (http://127.0.0.1:4206/src/data/pcs-sample-management.ts:491:3)
+      at eval (eval at evaluate (:303:30), <anonymous>:1:748)
+      at Module.runPcsRecordCommand (http://127.0.0.1:4206/src/data/pcs-record-runtime.ts:732:20)
+      at async eval (eval at evaluate (:303:30), <anonymous>:1:529)
+      at async <anonymous>:329:30
+      at TestContext.<anonymous> (/Users/laoer/Documents/higoods/tests/browser-contracts/pcs-sample-actions.test.ts:34:24) {
+    log: []
+  }

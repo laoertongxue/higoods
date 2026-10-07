@@ -30,6 +30,7 @@ export const routes: RouteRegistry = {
     '/pcs/channels/stores/sync': () => renderers.renderPcsChannelStoreSyncPage(),
     '/pcs/samples': () => renderRouteRedirect('/pcs/samples/inventory', '正在跳转到样衣库存'),
     '/pcs/samples/inventory': () => renderers.renderPcsSampleInventoryPage(),
+    '/pcs/samples/application/new': () => renderers.renderPcsSampleApplicationEditPage(),
     '/pcs/samples/application': () => renderers.renderPcsSampleApplicationPage(),
     '/pcs/samples/transfer': () => renderers.renderPcsSampleTransferPage(),
     '/pcs/samples/return': () => renderers.renderPcsSampleReturnPage(),
@@ -77,6 +78,8 @@ export const routes: RouteRegistry = {
     '/pcs/settings/platforms': () => renderRouteRedirect('/pcs/settings/config-workspace', '系统设置已收口到基础配置'),
   },
   dynamicRoutes: [
+    { pattern: /^\/pcs\/samples\/application\/([^/]+)\/edit$/, render: m => renderers.renderPcsSampleApplicationEditPage(decodeURIComponent(m[1])) },
+    { pattern: /^\/pcs\/samples\/application\/([^/]+)$/, render: m => renderers.renderPcsSampleApplicationDetailPage(decodeURIComponent(m[1])) },
     { pattern: /^\/pcs\/products\/styles\/([^/]+)\/edit$/, render: m => renderers.renderPcsStyleArchiveEditPage(m[1]) },
     { pattern: /^\/pcs\/products\/specifications\/([^/]+)\/edit$/, render: m => renderers.renderPcsSpecificationEditPage(m[1]) },
     { pattern: /^\/pcs\/products\/channel-products\/([^/]+)\/edit$/, render: m => renderers.renderPcsChannelProductEditPage(m[1]) },

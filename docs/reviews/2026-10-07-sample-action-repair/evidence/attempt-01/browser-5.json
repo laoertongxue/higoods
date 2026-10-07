@@ -1,0 +1,196 @@
+{
+  "iteration": 5,
+  "base": "http://127.0.0.1:4206",
+  "viewport": {
+    "width": 1366,
+    "height": 768
+  },
+  "checks": [
+    "cold:inventory: 302.2000000476837ms <=1000",
+    "reload:inventory: 232.19999998807907ms <=1000",
+    "spa:inventory: 32.90000003576279ms <=1000",
+    "cold:application: 248.19999998807907ms <=1000",
+    "reload:application: 216.19999998807907ms <=1000",
+    "spa:application: 32.69999998807907ms <=1000",
+    "cold:application/new: 315.19999998807907ms <=1000",
+    "reload:application/new: 216.0999999642372ms <=1000",
+    "spa:application/new: 32.799999952316284ms <=1000",
+    "cold:application/req-004/edit: 295.89999997615814ms <=1000",
+    "reload:application/req-004/edit: 221.10000002384186ms <=1000",
+    "spa:application/req-004/edit: 26.900000035762787ms <=1000",
+    "cold:application/req-001: 265.5999999642372ms <=1000",
+    "reload:application/req-001: 199.4000000357628ms <=1000",
+    "spa:application/req-001: 32.90000003576279ms <=1000",
+    "cold:transfer: 249.60000002384186ms <=1000",
+    "reload:transfer: 215.30000001192093ms <=1000",
+    "spa:transfer: 32.5ms <=1000",
+    "cold:return: 314.60000002384186ms <=1000",
+    "reload:return: 215.89999997615814ms <=1000",
+    "spa:return: 30.80000001192093ms <=1000",
+    "cold:ledger: 272.30000001192093ms <=1000",
+    "reload:ledger: 207.10000002384186ms <=1000",
+    "spa:ledger: 33ms <=1000",
+    "cold:ledger/stocktake: 231.5ms <=1000",
+    "reload:ledger/stocktake: 199.19999998807907ms <=1000",
+    "spa:ledger/stocktake: 33.10000002384186ms <=1000",
+    "cold:view: 253.5999999642372ms <=1000",
+    "reload:view: 227ms <=1000",
+    "spa:view: 32.90000003576279ms <=1000",
+    "cold:detail/smp-001: 249.19999998807907ms <=1000",
+    "reload:detail/smp-001: 230.69999998807907ms <=1000",
+    "spa:detail/smp-001: 33.10000002384186ms <=1000",
+    "cold:label/smp-001: 248.30000001192093ms <=1000",
+    "reload:label/smp-001: 232.39999997615814ms <=1000",
+    "spa:label/smp-001: 32.89999997615814ms <=1000",
+    "opening every route never writes seeds"
+  ],
+  "errors": [],
+  "samples": [
+    {
+      "name": "cold:inventory",
+      "ms": 302.2000000476837
+    },
+    {
+      "name": "reload:inventory",
+      "ms": 232.19999998807907
+    },
+    {
+      "name": "spa:inventory",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "cold:application",
+      "ms": 248.19999998807907
+    },
+    {
+      "name": "reload:application",
+      "ms": 216.19999998807907
+    },
+    {
+      "name": "spa:application",
+      "ms": 32.69999998807907
+    },
+    {
+      "name": "cold:application/new",
+      "ms": 315.19999998807907
+    },
+    {
+      "name": "reload:application/new",
+      "ms": 216.0999999642372
+    },
+    {
+      "name": "spa:application/new",
+      "ms": 32.799999952316284
+    },
+    {
+      "name": "cold:application/req-004/edit",
+      "ms": 295.89999997615814
+    },
+    {
+      "name": "reload:application/req-004/edit",
+      "ms": 221.10000002384186
+    },
+    {
+      "name": "spa:application/req-004/edit",
+      "ms": 26.900000035762787
+    },
+    {
+      "name": "cold:application/req-001",
+      "ms": 265.5999999642372
+    },
+    {
+      "name": "reload:application/req-001",
+      "ms": 199.4000000357628
+    },
+    {
+      "name": "spa:application/req-001",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "cold:transfer",
+      "ms": 249.60000002384186
+    },
+    {
+      "name": "reload:transfer",
+      "ms": 215.30000001192093
+    },
+    {
+      "name": "spa:transfer",
+      "ms": 32.5
+    },
+    {
+      "name": "cold:return",
+      "ms": 314.60000002384186
+    },
+    {
+      "name": "reload:return",
+      "ms": 215.89999997615814
+    },
+    {
+      "name": "spa:return",
+      "ms": 30.80000001192093
+    },
+    {
+      "name": "cold:ledger",
+      "ms": 272.30000001192093
+    },
+    {
+      "name": "reload:ledger",
+      "ms": 207.10000002384186
+    },
+    {
+      "name": "spa:ledger",
+      "ms": 33
+    },
+    {
+      "name": "cold:ledger/stocktake",
+      "ms": 231.5
+    },
+    {
+      "name": "reload:ledger/stocktake",
+      "ms": 199.19999998807907
+    },
+    {
+      "name": "spa:ledger/stocktake",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "cold:view",
+      "ms": 253.5999999642372
+    },
+    {
+      "name": "reload:view",
+      "ms": 227
+    },
+    {
+      "name": "spa:view",
+      "ms": 32.90000003576279
+    },
+    {
+      "name": "cold:detail/smp-001",
+      "ms": 249.19999998807907
+    },
+    {
+      "name": "reload:detail/smp-001",
+      "ms": 230.69999998807907
+    },
+    {
+      "name": "spa:detail/smp-001",
+      "ms": 33.10000002384186
+    },
+    {
+      "name": "cold:label/smp-001",
+      "ms": 248.30000001192093
+    },
+    {
+      "name": "reload:label/smp-001",
+      "ms": 232.39999997615814
+    },
+    {
+      "name": "spa:label/smp-001",
+      "ms": 32.89999997615814
+    }
+  ],
+  "max": 315.19999998807907,
+  "pass": true
+}
