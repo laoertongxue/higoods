@@ -1,0 +1,1580 @@
+{
+  "note": "DJh2cpKn initial checks superseded by upcoming multi-project fixture build; not final acceptance evidence",
+  "samples": [
+    {
+      "group": "cold-entry",
+      "scene": "late",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 307.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "late",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.59999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "late",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 63.69999998807907,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "late",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "late",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 78.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "late",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 58.1000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "late",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 62.20000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "late",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 84.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "late",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 64.09999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "late",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.40000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "late",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.599999994039536,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "late",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 30,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "late",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 34.400000005960464,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "late",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.599999994039536,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "late",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.799999997019768,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "normal",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 104.3999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "normal",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.29999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "normal",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.90000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "normal",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 63.400000005960464,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "normal",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 66.30000001192093,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "normal",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.19999998807907,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "normal",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "normal",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 73.29999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "normal",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "normal",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 68.8999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "normal",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 26.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "normal",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.900000005960464,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "normal",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 34,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "normal",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "normal",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 24.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "complete",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 96.90000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "complete",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 62.900000005960464,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "complete",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 66.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "complete",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 66.3999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "complete",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "complete",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "complete",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "complete",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 64.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "complete",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 71.20000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "complete",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 68,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "complete",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.200000002980232,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "complete",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.899999991059303,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "complete",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.899999991059303,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "complete",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 30.099999994039536,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "complete",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.69999998807907,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeLate",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 276.70000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeLate",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 72.20000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeLate",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 81.09999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeLate",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.90000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeLate",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.40000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeLate",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 76.40000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeLate",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 67.40000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeLate",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 66.40000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeLate",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 64.3999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeLate",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeLate",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.899999991059303,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeLate",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.900000005960464,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeLate",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 28.599999994039536,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeLate",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.099999994039536,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeLate",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.100000008940697,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeUnknown",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 105.69999998807909,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeUnknown",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.70000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeUnknown",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.59999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeUnknown",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 68.80000001192093,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "completeUnknown",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeUnknown",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 69.29999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeUnknown",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 70.29999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeUnknown",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 69.8999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeUnknown",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 70.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "completeUnknown",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 80.09999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeUnknown",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 28.899999991059303,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeUnknown",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeUnknown",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeUnknown",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 30,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "completeUnknown",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 33.8999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "partial",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 80.20000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "partial",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 69.90000000596046,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "partial",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 66.8999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "partial",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 62.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "partial",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 64.69999998807907,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "partial",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "partial",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 83.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "partial",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 64.3999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "partial",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 73.20000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "partial",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 128.09999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "partial",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.799999997019768,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "partial",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.5,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "partial",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.299999997019768,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "partial",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.200000002980232,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "partial",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.399999991059303,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "reordered",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 98,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "reordered",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 78.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "reordered",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 63.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "reordered",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 70.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "cold-entry",
+      "scene": "reordered",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 78.79999999701977,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "reordered",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 67.1000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "reordered",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 77.8999999910593,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "reordered",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 79.6000000089407,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "reordered",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 65.70000000298023,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "refresh",
+      "scene": "reordered",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 66.59999999403954,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "reordered",
+      "sample": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.799999997019768,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "reordered",
+      "sample": 1,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 28.69999998807907,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "reordered",
+      "sample": 2,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 28.900000005960464,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "reordered",
+      "sample": 3,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 29.100000008940697,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    },
+    {
+      "group": "scene-route",
+      "scene": "reordered",
+      "sample": 4,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1366,
+        768
+      ],
+      "entry": "/assets/index-DJh2cpKn.js",
+      "elapsedMs": 28.299999997019768,
+      "overflow": false,
+      "brokenImages": [],
+      "action": "route"
+    }
+  ]
+}

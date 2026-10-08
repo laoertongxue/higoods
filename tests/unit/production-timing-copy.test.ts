@@ -42,6 +42,7 @@ test('reached late milestone has zero only for that milestone, not the whole tas
  assert.doesNotMatch(html, /当前欠0件/)
  const c=getTimingCaseByScene('reachedLate'), t=c.tasks.find((t:any)=>t.factory==='B厂')!
  const detail=renderTimingNodeDetail('task:'+t.id)
+ assert.match(detail, /后道实收／本任务工厂实领/)
  assert.match(detail, /本任务尚未回/)
  assert.match(detail, /未到期.*后续累计目标|后续累计目标/)
 })
@@ -60,7 +61,8 @@ test('creation and handover clocks explain their different unfinished endpoints'
  } finally {working.clock!.end=end; working.status=status; working.handoverClock=handover}
  diagram('handoverPartial')
  const late=renderTimingNodeDetail('release')
- assert.match(late, /未确认时效要求，无法判定是否超时/)
+ assert.match(late, /交接 待收已用[^<]*要求未确认/)
+ assert.doesNotMatch(late, /交接[^<]*已超时/)
  assert.match(late, /差异待确认/)
 })
 

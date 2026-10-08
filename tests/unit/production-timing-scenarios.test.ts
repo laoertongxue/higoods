@@ -302,7 +302,7 @@ test('SCENE-20: partial factory handover retains 2400 sleeve pieces received and
   assert.match(issues[0].title, /已收2400片／余600片差异待确认/)
   const html = render('handoverPartial', true)
   assert.match(html, /部分实收 10-06 11:00 · 2400片 · 数量差异600片待确认/)
-  assert.match(html, /交接 等待接收已用22小时50分钟 · 未确认时效要求，无法判定是否超时/)
+  assert.match(html, /交接 待收已用22小时50分钟 · 要求未确认/)
   const summary = renderTimingSourceSummaryForCase(record, handover.id)
   assert.match(summary, /实收<\/small><b>2400片/)
   assert.match(summary, /数量差异<\/small><b>600片/)
@@ -338,7 +338,7 @@ test('PREP / CRAFT: auxiliary work is three days each; bulk dye/print/wash and h
   for (const transfer of transfers) {
     assert.equal(clock(transfer).sla, undefined)
     const summary = renderTimingSourceSummaryForCase(getTimingCaseByScene('live'), transfer.id)
-    assert.match(summary, /未确认时效要求，无法判定是否超时/)
+    assert.match(summary, clock(transfer).start ? /要求未确认/ : transfer.status === '尚未交出' ? /尚未交出 · 未开始计时/ : /开始时间未取得，无法计算用时/)
     assert.ok(!summary.includes('当前逾期'), transfer.no + ' must not be declared late without SLA')
   }
   assert.equal(b.releases.length, 2)
@@ -420,7 +420,7 @@ const expectedSceneText: Record<typeof SCENES[number], string[]> = {
   unknown: ['已入成衣仓数量未取得，不能按0件判断', '当前位置及历史入库待核实'],
   unassigned: ['300件任务归属待核实', '任务归属待核实'],
   sameFactory: ['B厂汇总200／500＝40%', '欠90件', '不能冲抵其他任务'],
-  handoverPartial: ['已收2400片／余600片差异待确认', '部分实收', '未确认时效要求，无法判定是否超时'],
+  handoverPartial: ['已收2400片／余600片差异待确认', '部分实收', '要求未确认'],
 }
 for (const scene of SCENES) test(`SCENE ${scene}: expanded accepted diagram retains its business nodes and source documents`, () => {
   const html = render(scene, true)

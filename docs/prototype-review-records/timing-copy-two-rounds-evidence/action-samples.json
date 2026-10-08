@@ -1,0 +1,3195 @@
+[
+  {
+    "label": "full-screen-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "full-screen-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "image-initial-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-open",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "style-image-close",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-open-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-close-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-open-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-close-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-open-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-close-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 52
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-open-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 52
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-close-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 52
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 61.900000005960464
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-open-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 52
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 61.900000005960464
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  },
+  {
+    "label": "post-document-close-final",
+    "brokenImages": [],
+    "entry": "/assets/index-CB9bGVLs.js",
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 92.79999999701975
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.20000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.900000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.6000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.29999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.70000000298023
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.400000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 43.1000000089407
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.8999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.099999994039536
+      },
+      {
+        "action": "diagram-click",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.099999994039536
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 65.70000000298023
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.3999999910593
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 47.80000001192093
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 49.099999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 59
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 52
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 42.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 61.900000005960464
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.29999999701977
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 58.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+    "viewport": [
+      1366,
+      768
+    ]
+  }
+]

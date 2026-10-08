@@ -10,6 +10,7 @@ export interface TimingDocument {
  times:Record<string,string|null>;quantities?:Record<string,number|null>;
  executor:string;receiver:string;production:string|null;style:string;related:string[];
  clock?:{kind:string;start:string|null;end:string|null;days?:number};module?:string;note?:string;ownerId?:string;
+ taskId?:string;batchId?:string;executionScope?:string;processingLocation?:string;processItems?:string[];sourceType?:string;
  [key:string]:any
 }
 export interface TimingCase {
@@ -29,6 +30,14 @@ export function getTimingIssues(order:TimingCase):any[]{return entries.find(e=>e
 export function timingCaseHref(order:TimingCase):string{return '/dds/supply-chain/production-fulfillment/'+(order.order?'orders/':'pending-purchases/')+encodeURIComponent(order.id)}
 export function timingMs(value:string):number{return Date.parse(value.replace(' ','T')+(value.length===16?':00':'')+'+08:00')}
 export function timingDuration(value:number):string{const minutes=Math.floor(Math.abs(value)/60000),days=Math.floor(minutes/1440),hours=Math.floor(minutes%1440/60),rest=minutes%60;return (days?days+'天':'')+(hours?hours+'小时':'')+(rest?rest+'分钟':'')||'不足1分钟'}
+/** Completion is the clock's own endpoint: handing goods out does not complete receipt. */
+export function timingClockHasCompletionFact(document:{status:string;clock?:{kind:string;start:string|null;end:string|null}},clock=document.clock):boolean{
+ if(!clock)return false
+ if(clock.end)return true
+ if(/交接|调拨/.test(clock.kind))return /已接收|已全部接收|已入库|接收入库|交接完成/.test(document.status)
+ if(/采购到仓/.test(clock.kind))return /已入仓|已入库|入库完成|已收齐入库/.test(document.status)
+ return /已完成|加工完成|车缝完成|烫包完成|质检完成|复检完成|已质检|已复检|裁剪完成|制作完成|后道完成/.test(document.status)
+}
 export function timingReceiptTotal(task:TimingCase['tasks'][number]):number{return task.receipts.filter((r:any)=>timingMs(r.at)<=timingMs(TIMING_AS_OF)).reduce((sum:number,r:any)=>sum+r.qty,0)}
 export function getTimingFacts(c:TimingCase):any{
  const required=c.purchases.reduce((s,p)=>s+p.qty,0),first=c.purchases.slice().sort((a,b)=>timingMs(a.at)-timingMs(b.at))[0],deadline=timingMs(first.at)+28*DAY,held=c.tasks.reduce((s,t)=>s+t.held,0),received=c.tasks.reduce((s,t)=>s+timingReceiptTotal(t),0)
@@ -69,6 +78,10 @@ export function timingDocumentHref(id:string):string{
  }
  let path='/fcs/production/records'
  if(d.type==='生产单')path='/fcs/production/orders'
+ else if(['车缝执行单','承包裁剪执行单','工厂烫包执行单'].includes(d.type))path='/fcs/sewing-outsourcing/tasks'
+ else if(d.type==='后道质检单')path='/fcs/craft/post-finishing/qc-orders'
+ else if(d.type==='后道复检单')path='/fcs/craft/post-finishing/recheck-orders'
+ else if(d.type==='后道交货单')path='/fcs/craft/post-finishing/outbound-orders'
  else if(d.type==='后道实收记录')path='/fcs/craft/post-finishing/factory-returns'
  else if(d.type==='商品采购单')path='/pms/product-purchase-orders'
  else if(d.type==='中转仓接收单')path='/wls/transit/receive-manage'
@@ -100,4 +113,21 @@ export function getTimingDiagramBranch(order:TimingCase):TimingBranch|null{
  if(order.key==='unknown')return null
  const b=getTimingBranch(order);if(!b)return null
  return {...b,docs:new Proxy(b.docs,{get(target,key:string){return target[key]??Object.values(target).find(d=>d.id.endsWith('/'+key))}})}
+}
+
+/** Current garment position labels are shared by the monitoring graph and native document pages. */
+export function timingPostPositionLabel(position: string, processingStatus?:string): string {
+  if(position==='processing'&&processingStatus==='待后道')return '待后道加工'
+  return ({ qc: '待质检／质检中', processing: '后道加工中', recheck: '待复检／复检中', delivery: '已交出待入仓', warehouse: '成衣仓已入库', unknown: '后道位置待核实' } as Record<string, string>)[position] ?? '后道位置待核实'
+}
+
+/** No actual start is expected for an explicitly recorded future work state. */
+export function timingClockHasNotStartedFact(document: {status: string; clock?: {start: string|null}}, clock = document.clock): boolean {
+  return !!clock && !clock.start && /^(尚未开始|未开始|待质检|待复检|待后道|尚未交出)$/.test(document.status)
+}
+
+/** Display the actual work being timed without changing its recorded clock kind. */
+export function timingClockWorkLabel(document: {type?:string}, clock: {kind:string}): string {
+ if(clock.kind !== '制作')return clock.kind
+ return ({后道质检单:'质检',后道复检单:'数量与条码复核',车缝执行单:'车缝',承包裁剪执行单:'裁剪',工厂烫包执行单:'烫包'} as Record<string,string>)[document.type ?? ''] ?? clock.kind
 }

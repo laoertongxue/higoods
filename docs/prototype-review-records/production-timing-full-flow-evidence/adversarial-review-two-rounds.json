@@ -1,0 +1,35 @@
+{
+  "baselineHead": "8a7407989fd06753e57527306e9b06d74ec98fac",
+  "rounds": [
+    {
+      "round": 1,
+      "newP1": 0,
+      "newP2": 2,
+      "findings": [
+        "原模块位置输出qc等英文",
+        "数量守恒把质检、加工、复检汇总称为后道加工"
+      ],
+      "resolution": [
+        "中文位置同源映射",
+        "后道处理中作为数量汇总"
+      ]
+    },
+    {
+      "round": 2,
+      "newP1": 0,
+      "newP2": 2,
+      "findings": [
+        "明确待开始工作被分类为资料未知",
+        "原模块把尚未发生的实际开始时间写为缺失"
+      ],
+      "resolution": [
+        "counts与rail共用未开始判断",
+        "图、弹窗、native明确尚未开始或尚未交出、未开始计时、尚未发生"
+      ],
+      "targetedRecheck": "全部修正定点复核通过"
+    }
+  ],
+  "finalOpenP1": 0,
+  "finalOpenP2": 0,
+  "scope": "源码与20场景静态事实；浏览器由主代理另验"
+}

@@ -1,0 +1,542 @@
+{
+  "baselineHead": "8a7407989fd06753e57527306e9b06d74ec98fac",
+  "finalEntry": "/assets/index-imm39fIJ.js",
+  "fixtureSHA256": "7208489948a66e32899c852541df71f9c13a519b64000a3d44b7b338d46facaf",
+  "componentBoundary": "末次实质修改仅 source-document-detail.ts 的旧数量与待仓收展示；主图、数据、事件、样式未修改。主图完整矩阵原样有效，最终构建追加三尺寸20场景和全部原模块冷开/刷新及定点回归。",
+  "sources": {
+    "raw-browser-before-legacy-compat.jsonl": {
+      "rows": 4865,
+      "validSamples": 4865,
+      "excludedMissingMeasurement": 0,
+      "maxMs": 957.6125830002129,
+      "groups": {
+        "cold-entry": {
+          "samples": 300,
+          "maxMs": 274.90000000596046
+        },
+        "refresh": {
+          "samples": 300,
+          "maxMs": 189.70000000298023
+        },
+        "scene-switch": {
+          "samples": 300,
+          "maxMs": 41.70000000298023
+        },
+        "sewing-expand": {
+          "samples": 300,
+          "maxMs": 35.6000000089407
+        },
+        "sewing-collapse": {
+          "samples": 300,
+          "maxMs": 35.70000000298023
+        },
+        "post-expand": {
+          "samples": 300,
+          "maxMs": 39.19999998807907
+        },
+        "post-collapse": {
+          "samples": 300,
+          "maxMs": 37.1000000089407
+        },
+        "all-expand": {
+          "samples": 300,
+          "maxMs": 51.3999999910593
+        },
+        "all-collapse": {
+          "samples": 300,
+          "maxMs": 35.3999999910593
+        },
+        "summary-allocation": {
+          "samples": 300,
+          "maxMs": 35.30000001192093
+        },
+        "summary-allocation-collapse": {
+          "samples": 300,
+          "maxMs": 37.099999994039536
+        },
+        "summary-sewing": {
+          "samples": 300,
+          "maxMs": 35.900000005960464
+        },
+        "summary-sewing-collapse": {
+          "samples": 300,
+          "maxMs": 36
+        },
+        "summary-post": {
+          "samples": 300,
+          "maxMs": 37.900000005960464
+        },
+        "summary-post-collapse": {
+          "samples": 300,
+          "maxMs": 35.400000005960464
+        },
+        "modal-车缝任务分配合同": {
+          "samples": 5,
+          "maxMs": 35.099999994039536
+        },
+        "modal-车缝任务分配合同-close": {
+          "samples": 5,
+          "maxMs": 35
+        },
+        "native-new-tab-车缝任务分配合同": {
+          "samples": 5,
+          "maxMs": 315.59999999403954
+        },
+        "modal-车缝执行单": {
+          "samples": 5,
+          "maxMs": 35.29999999701977
+        },
+        "modal-车缝执行单-close": {
+          "samples": 5,
+          "maxMs": 35.29999999701977
+        },
+        "native-new-tab-车缝执行单": {
+          "samples": 5,
+          "maxMs": 304
+        },
+        "modal-承包裁剪执行单": {
+          "samples": 5,
+          "maxMs": 33.29999999701977
+        },
+        "modal-承包裁剪执行单-close": {
+          "samples": 5,
+          "maxMs": 35.29999999701977
+        },
+        "native-new-tab-承包裁剪执行单": {
+          "samples": 5,
+          "maxMs": 271.29999999701977
+        },
+        "modal-工厂烫包执行单": {
+          "samples": 5,
+          "maxMs": 35.19999998807907
+        },
+        "modal-工厂烫包执行单-close": {
+          "samples": 5,
+          "maxMs": 35.70000000298023
+        },
+        "native-new-tab-工厂烫包执行单": {
+          "samples": 5,
+          "maxMs": 305.79999999701977
+        },
+        "modal-后道质检单": {
+          "samples": 5,
+          "maxMs": 35.400000005960464
+        },
+        "modal-后道质检单-close": {
+          "samples": 5,
+          "maxMs": 33.400000005960464
+        },
+        "native-new-tab-后道质检单": {
+          "samples": 5,
+          "maxMs": 380.20000000298023
+        },
+        "modal-后道加工单": {
+          "samples": 5,
+          "maxMs": 33.29999999701977
+        },
+        "modal-后道加工单-close": {
+          "samples": 5,
+          "maxMs": 34.80000001192093
+        },
+        "native-new-tab-后道加工单": {
+          "samples": 5,
+          "maxMs": 275
+        },
+        "modal-后道复检单": {
+          "samples": 5,
+          "maxMs": 33.30000001192093
+        },
+        "modal-后道复检单-close": {
+          "samples": 5,
+          "maxMs": 35.70000000298023
+        },
+        "native-new-tab-后道复检单": {
+          "samples": 5,
+          "maxMs": 339.6000000089407
+        },
+        "modal-后道交货单": {
+          "samples": 5,
+          "maxMs": 33.29999999701977
+        },
+        "modal-后道交货单-close": {
+          "samples": 5,
+          "maxMs": 33.400000005960464
+        },
+        "native-new-tab-后道交货单": {
+          "samples": 5,
+          "maxMs": 258.3999999910593
+        },
+        "modal-成衣仓入库单": {
+          "samples": 5,
+          "maxMs": 35.20000000298023
+        },
+        "modal-成衣仓入库单-close": {
+          "samples": 5,
+          "maxMs": 33.29999999701977
+        },
+        "native-new-tab-成衣仓入库单": {
+          "samples": 5,
+          "maxMs": 265.90000000596046
+        },
+        "native-cold-entry-车缝任务分配合同": {
+          "samples": 5,
+          "maxMs": 121
+        },
+        "native-refresh-车缝任务分配合同": {
+          "samples": 5,
+          "maxMs": 122.20000000298025
+        },
+        "native-route-switch-车缝任务分配合同": {
+          "samples": 5,
+          "maxMs": 46.5
+        },
+        "native-cold-entry-车缝执行单": {
+          "samples": 5,
+          "maxMs": 121.79999999701975
+        },
+        "native-refresh-车缝执行单": {
+          "samples": 5,
+          "maxMs": 123
+        },
+        "native-route-switch-车缝执行单": {
+          "samples": 5,
+          "maxMs": 49.3999999910593
+        },
+        "native-cold-entry-承包裁剪执行单": {
+          "samples": 5,
+          "maxMs": 119.70000000298025
+        },
+        "native-refresh-承包裁剪执行单": {
+          "samples": 5,
+          "maxMs": 121.09999999403954
+        },
+        "native-route-switch-承包裁剪执行单": {
+          "samples": 5,
+          "maxMs": 47.400000005960464
+        },
+        "native-cold-entry-工厂烫包执行单": {
+          "samples": 5,
+          "maxMs": 119.8999999910593
+        },
+        "native-refresh-工厂烫包执行单": {
+          "samples": 5,
+          "maxMs": 125.5
+        },
+        "native-route-switch-工厂烫包执行单": {
+          "samples": 5,
+          "maxMs": 47.6000000089407
+        },
+        "native-cold-entry-后道质检单": {
+          "samples": 5,
+          "maxMs": 125.90000000596046
+        },
+        "native-refresh-后道质检单": {
+          "samples": 5,
+          "maxMs": 129
+        },
+        "native-route-switch-后道质检单": {
+          "samples": 5,
+          "maxMs": 47.599999994039536
+        },
+        "native-cold-entry-后道加工单": {
+          "samples": 10,
+          "maxMs": 199.19999998807907
+        },
+        "native-refresh-后道加工单": {
+          "samples": 10,
+          "maxMs": 142.29999999701977
+        },
+        "native-route-switch-后道加工单": {
+          "samples": 10,
+          "maxMs": 47.70000000298023
+        },
+        "native-cold-entry-后道复检单": {
+          "samples": 10,
+          "maxMs": 121.09999999403954
+        },
+        "native-refresh-后道复检单": {
+          "samples": 10,
+          "maxMs": 124.5
+        },
+        "native-route-switch-后道复检单": {
+          "samples": 10,
+          "maxMs": 47.6000000089407
+        },
+        "native-cold-entry-后道交货单": {
+          "samples": 5,
+          "maxMs": 121.29999999701975
+        },
+        "native-refresh-后道交货单": {
+          "samples": 5,
+          "maxMs": 120.8999999910593
+        },
+        "native-route-switch-后道交货单": {
+          "samples": 5,
+          "maxMs": 47.80000001192093
+        },
+        "native-cold-entry-成衣仓入库单": {
+          "samples": 5,
+          "maxMs": 119.3999999910593
+        },
+        "native-refresh-成衣仓入库单": {
+          "samples": 5,
+          "maxMs": 122.79999999701975
+        },
+        "native-route-switch-成衣仓入库单": {
+          "samples": 5,
+          "maxMs": 46.70000000298023
+        },
+        "print-PDF": {
+          "samples": 5,
+          "maxMs": 957.6125830002129
+        },
+        "style-image-preview": {
+          "samples": 5,
+          "maxMs": 33.29999999701977
+        },
+        "style-image-preview-close": {
+          "samples": 5,
+          "maxMs": 33.400000005960464
+        },
+        "allocation-node-drawer": {
+          "samples": 5,
+          "maxMs": 33.5
+        },
+        "allocation-node-drawer-close": {
+          "samples": 5,
+          "maxMs": 35.29999999701977
+        },
+        "qc-node-drawer": {
+          "samples": 5,
+          "maxMs": 33.29999999701977
+        },
+        "qc-node-drawer-close": {
+          "samples": 5,
+          "maxMs": 34
+        },
+        "processing-node-drawer": {
+          "samples": 5,
+          "maxMs": 35.099999994039536
+        },
+        "processing-node-drawer-close": {
+          "samples": 5,
+          "maxMs": 33.400000005960464
+        },
+        "recheck-node-drawer": {
+          "samples": 5,
+          "maxMs": 33.5
+        },
+        "recheck-node-drawer-close": {
+          "samples": 5,
+          "maxMs": 33.400000005960464
+        },
+        "delivery-node-drawer": {
+          "samples": 5,
+          "maxMs": 33.400000005960464
+        },
+        "delivery-node-drawer-close": {
+          "samples": 5,
+          "maxMs": 33.30000001192093
+        }
+      },
+      "failures": []
+    },
+    "raw-browser-final.jsonl": {
+      "rows": 540,
+      "validSamples": 540,
+      "excludedMissingMeasurement": 0,
+      "maxMs": 158.09999999403954,
+      "groups": {
+        "cold-entry": {
+          "samples": 50,
+          "maxMs": 158.09999999403954
+        },
+        "refresh": {
+          "samples": 50,
+          "maxMs": 142
+        },
+        "scene-switch": {
+          "samples": 50,
+          "maxMs": 37.80000001192093
+        },
+        "sewing-expand": {
+          "samples": 50,
+          "maxMs": 35.19999998807907
+        },
+        "sewing-collapse": {
+          "samples": 50,
+          "maxMs": 35.5
+        },
+        "post-expand": {
+          "samples": 50,
+          "maxMs": 35.29999999701977
+        },
+        "post-collapse": {
+          "samples": 50,
+          "maxMs": 35.29999999701977
+        },
+        "all-expand": {
+          "samples": 50,
+          "maxMs": 48.900000005960464
+        },
+        "all-collapse": {
+          "samples": 50,
+          "maxMs": 35.29999999701977
+        },
+        "summary-allocation": {
+          "samples": 15,
+          "maxMs": 35.20000000298023
+        },
+        "summary-allocation-collapse": {
+          "samples": 15,
+          "maxMs": 34.900000005960464
+        },
+        "summary-sewing": {
+          "samples": 15,
+          "maxMs": 37.29999999701977
+        },
+        "summary-sewing-collapse": {
+          "samples": 15,
+          "maxMs": 35
+        },
+        "summary-post": {
+          "samples": 15,
+          "maxMs": 49.900000005960464
+        },
+        "summary-post-collapse": {
+          "samples": 15,
+          "maxMs": 35.29999999701977
+        }
+      },
+      "failures": []
+    },
+    "raw-browser-native-closeout.jsonl": {
+      "rows": 247,
+      "validSamples": 187,
+      "excludedMissingMeasurement": 60,
+      "maxMs": 775.2090420000022,
+      "groups": {
+        "native-closeout-legacy-post-cold-entry": {
+          "samples": 5,
+          "maxMs": 147.59999999403954
+        },
+        "native-closeout-legacy-post-refresh": {
+          "samples": 5,
+          "maxMs": 143.29999999701977
+        },
+        "native-closeout-warehouse-awaiting-cold-entry": {
+          "samples": 5,
+          "maxMs": 147.40000000596046
+        },
+        "native-closeout-warehouse-awaiting-refresh": {
+          "samples": 5,
+          "maxMs": 143.79999999701977
+        },
+        "native-closeout-single-post-current-cold-entry": {
+          "samples": 5,
+          "maxMs": 136.5
+        },
+        "native-closeout-single-post-current-refresh": {
+          "samples": 5,
+          "maxMs": 143.79999999701977
+        },
+        "final-parent-smoke": {
+          "samples": 60,
+          "maxMs": 244.29999999701977
+        },
+        "native-current-车缝任务分配合同-cold-entry": {
+          "samples": 5,
+          "maxMs": 138.70000000298023
+        },
+        "native-current-车缝任务分配合同-refresh": {
+          "samples": 5,
+          "maxMs": 154.79999999701977
+        },
+        "native-current-车缝执行单-cold-entry": {
+          "samples": 5,
+          "maxMs": 135.20000000298023
+        },
+        "native-current-车缝执行单-refresh": {
+          "samples": 5,
+          "maxMs": 149.70000000298023
+        },
+        "native-current-承包裁剪执行单-cold-entry": {
+          "samples": 5,
+          "maxMs": 256.20000000298023
+        },
+        "native-current-承包裁剪执行单-refresh": {
+          "samples": 5,
+          "maxMs": 146.80000001192093
+        },
+        "native-current-工厂烫包执行单-cold-entry": {
+          "samples": 5,
+          "maxMs": 131.09999999403954
+        },
+        "native-current-工厂烫包执行单-refresh": {
+          "samples": 5,
+          "maxMs": 146.8999999910593
+        },
+        "native-current-后道质检单-cold-entry": {
+          "samples": 5,
+          "maxMs": 132.20000000298023
+        },
+        "native-current-后道质检单-refresh": {
+          "samples": 5,
+          "maxMs": 151.40000000596046
+        },
+        "native-current-后道加工单-cold-entry": {
+          "samples": 5,
+          "maxMs": 143.5
+        },
+        "native-current-后道加工单-refresh": {
+          "samples": 5,
+          "maxMs": 152.5
+        },
+        "native-current-后道复检单-cold-entry": {
+          "samples": 5,
+          "maxMs": 131.20000000298023
+        },
+        "native-current-后道复检单-refresh": {
+          "samples": 5,
+          "maxMs": 151.79999999701977
+        },
+        "native-current-后道交货单-cold-entry": {
+          "samples": 5,
+          "maxMs": 148
+        },
+        "native-current-后道交货单-refresh": {
+          "samples": 5,
+          "maxMs": 144.80000001192093
+        },
+        "native-current-成衣仓入库单-cold-entry": {
+          "samples": 5,
+          "maxMs": 143.70000000298023
+        },
+        "native-current-成衣仓入库单-refresh": {
+          "samples": 5,
+          "maxMs": 145
+        },
+        "print-current-PDF": {
+          "samples": 5,
+          "maxMs": 775.2090420000022
+        },
+        "actual-new-tab-current-single-post": {
+          "samples": 1,
+          "maxMs": 478.3403330000001
+        },
+        "actual-new-tab-current-smoke": {
+          "samples": 1,
+          "maxMs": 339.69999998807907
+        }
+      },
+      "failures": []
+    }
+  },
+  "finalComponentHashes": {
+    "src/pages/production-fulfillment/production-order-diagrams.ts": "6ddd41c593a968c4730053cd12bb209caf6d12cec56475df24950f1497c1bcab",
+    "src/pages/production-fulfillment/full-flow-diagrams.ts": "5c83a465d25fbcba0761186c7ded9f60dd7e34a64e086aae47527551da63c29c",
+    "src/pages/production-fulfillment/production-order-diagrams.css": "dd352e141c7ce22746cecae216ad63ab1224b22bce14ae6c2f92a3633db5c623",
+    "src/pages/production-fulfillment/index.ts": "638143c8d3119ab7a7810bf5747b27a4722b1b32f0884eac89f6777ee5cefd19",
+    "src/pages/production-fulfillment/source-document-detail.ts": "e0557f717735948f5e93516289b23e0804fe799874b5001daaadaf47ab79a2c2"
+  }
+}

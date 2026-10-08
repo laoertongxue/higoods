@@ -1,0 +1,56 @@
+{
+  "fixtureSHA256": "7208489948a66e32899c852541df71f9c13a519b64000a3d44b7b338d46facaf",
+  "scope": "current post factory model and changed mock/native/diagram",
+  "reviewer": "sewing_post_native_documents",
+  "round1": {
+    "P1": 0,
+    "P2": 3,
+    "issues": [
+      {
+        "id": "POST-R1-01",
+        "finding": "缺待后道已生成未开始",
+        "resolution": "normal0090 A04-processing-5 150件无开始，未生成后续单"
+      },
+      {
+        "id": "POST-R1-02",
+        "finding": "把SKU数量与条码复核表述为二次质量检验",
+        "resolution": "应交出/复核交出/数量差异，条码正确或待扫描，无质量计数"
+      },
+      {
+        "id": "POST-R1-03",
+        "finding": "成衣仓尚未接收占位误用缺资料",
+        "resolution": "待入仓/前置未完成/未知分别表达"
+      }
+    ]
+  },
+  "round2": {
+    "openP1": 0,
+    "openP2": 0,
+    "closed": [
+      "POST-R1-01",
+      "POST-R1-02",
+      "POST-R1-03"
+    ],
+    "counts": {
+      "POST": 37,
+      "后道完成": 30,
+      "待后道": 1,
+      "后道中": 6,
+      "复检完成": 27,
+      "待复检": 3,
+      "QCdirect": 13
+    }
+  },
+  "boundary": "source review only; final browser evidence recorded separately",
+  "finalIncrementAudit": {
+    "newP1": 0,
+    "foundP2": 2,
+    "openP2": 0,
+    "closed": [
+      "原10张旧POST数量兼容",
+      "已交出待仓收原模块前置文案"
+    ],
+    "reviewer": "sewing_post_native_documents",
+    "verification": "只读定点渲染；最终自动化及浏览器证据另列"
+  }
+}

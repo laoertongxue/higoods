@@ -1,6 +1,6 @@
 // @page-pattern: detail
 import { escapeHtml } from '../../utils'
-import { findTimingDocument, timingDocumentHref, timingCaseHref, TIMING_AS_OF, timingDuration, timingReceiptTotal, type TimingCase } from '../../data/production-timing/source'
+import { findTimingDocument, timingDocumentHref, timingCaseHref, TIMING_AS_OF, timingDuration, timingReceiptTotal, timingClockHasCompletionFact, timingPostPositionLabel, timingClockHasNotStartedFact, timingClockWorkLabel, type TimingCase } from '../../data/production-timing/source'
 import { calculateSewingReturnDeadlineDate, SEWING_RETURN_COUNTING_DAYS } from '../../data/fcs/sewing-return-calendar'
 import { connectTimingSourceHandlers, timingRouteStart, timingEventStart } from './events'
 import { materialFigure } from './material-image-view'
@@ -19,7 +19,8 @@ interface SourceDocument {
   quantities?: Record<string, number | null>; executor: string; receiver: string
   production: string; style: string; module?: string; related: string[]; note?: string
   ownerId?: string; clock?: SourceClock; handoverClock?: SourceClock
-  roles?: Record<string, string>; qc?: string
+  taskId?: string; batchId?: string; executionScope?: string; processingLocation?: string
+  roles?: Record<string, string>; qc?: string; processItems?: string[]; sourceType?: string
   sampleTiming?: { due: string | null; late: boolean; done: boolean }
 }
 interface SourceProcess { work: string; leg?: { id: string } | null }
@@ -48,6 +49,19 @@ interface SourceOrder {
   id?: string; key: string; order: string; style: string; imageUrl?: string; styleImageUrl?: string
   purchases: { id: string; at: string; qty: number; documentId?: string }[]; tasks: SourceTask[]; merch: string; coordinator: string
   warehouse: number | null; warehouseAt: string | null; verifiedAt?: string; productionOrderId?: string | null
+  fullFlow?: {
+    allocationStatus: string; allocationDocuments: string[]
+    execution: { taskId: string; type: string; steps: { kind: string; documentId: string }[] }[]
+    postStatus: string
+    batches: SourcePostBatch[]
+    unlocatedQty: number | null
+  }
+}
+interface SourcePostBatch {
+  id: string; taskId: string; qty: number; position: string
+  receiveDocumentId?: string | null; qcDocumentId?: string | null
+  processingDocumentId?: string | null
+  recheckDocumentId?: string | null; outboundDocumentId?: string | null; inboundDocumentId?: string | null
 }
 interface SourceMatch { document: SourceDocument; order: SourceOrder; branch: SourceBranch | null }
 
@@ -126,30 +140,35 @@ function header({ document: d, order }: SourceMatch): string {
 
 function facts(d: SourceDocument): string {
   const fields = d.quantities ?? { 数量: d.quantity }
-  const quantities = `<dl class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">${Object.entries(fields).map(([label, q]) => `<div class="rounded border border-slate-200 bg-slate-50 p-3"><dt class="text-xs text-slate-500">${e(label)}</dt><dd class="mt-1 text-lg font-semibold text-slate-900">${e(quantity(q, d.unit))}</dd></div>`).join('')}</dl>`
-  return section('单据事实与时间', quantities + table(['业务事实', '实际时间'], Object.entries(d.times).map(([label, at]) => [e(d.type === '生产准备单' && label === '关闭' ? '准备完成 / 单据关闭' : label), e(value(at))])))
+  const quantities = ['后道加工单','后道质检单','后道复检单','后道交货单'].includes(d.type) ? '' : `<dl class="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">${Object.entries(fields).map(([label, q]) => `<div class="rounded border border-slate-200 bg-slate-50 p-3"><dt class="text-xs text-slate-500">${e(d.type==='后道加工单'&&label==='未处理'?'已确认未处理':label)}</dt><dd class="mt-1 text-lg font-semibold text-slate-900">${e(quantity(q, d.unit))}</dd></div>`).join('')}</dl>`
+  return section('单据事实与时间', quantities + table(['业务事实', '实际时间'], Object.entries(d.times).map(([label, at]) => [e(d.type === '生产准备单' && label === '关闭' ? '准备完成 / 单据关闭' : label), e(at || (timingClockHasNotStartedFact(d) ? '尚未发生' : value(at)))])))
 }
 
 function clocks(d: SourceDocument): string {
   const rows = [d.clock, d.handoverClock].flatMap(clock => {
     if (!clock) return []
+    const workLabel = timingClockWorkLabel(d,clock)
     const start = wallTime(clock.start), end = wallTime(clock.end), current = wallTime(AS_OF)
     const sla = clock.sla ?? clock.days
     const completionUnverified = !clock.end && /执行结果待取得|资料待取得|待核实/.test(d.status)
-    const used = start == null || (end ?? current) == null ? '开始时间缺失，耗时无法计算' : duration((end ?? current)! - start)
+    const notStarted = timingClockHasNotStartedFact(d, clock)
+    const pending = /交接|调拨/.test(clock.kind) ? '尚未交出' : '尚未开始'
+    const finishedWithoutTime = !clock.end && timingClockHasCompletionFact(d, clock)
+    const used = notStarted ? '未开始计时' : finishedWithoutTime ? '完成时间未取得，实际耗时无法判定' : start == null || (end ?? current) == null ? '开始时间缺失，耗时无法计算' : duration((end ?? current)! - start)
     const deadline = start == null || sla == null ? null : start + sla * DAY
     const late = deadline == null || (end ?? current) == null ? null : Math.max(0, (end ?? current)! - deadline)
     const finished = /交接|调拨/.test(clock.kind) ? '已全部接收' : /采购到仓/.test(clock.kind) ? '已入面辅料仓' : '已完成', unfinished = /交接|调拨/.test(clock.kind) ? '尚未全部接收' : /采购到仓/.test(clock.kind) ? '尚未全部入面辅料仓' : '未完成'
-    const result = completionUnverified && deadline != null ? `完成事实待取得 · ${late ? '截止已过，是否超时待核实' : '截止未到'}` : start == null ? `${clock.kind}开始时间缺失 · 时效无法判定` : sla == null ? `${clock.kind}时效要求未确认 · 无法判定是否超时` : late ? `${end == null ? unfinished + ' · 已超时' : finished + ' · 晚'}${duration(late)}` : end == null ? `${unfinished} · 截止未到` : `${finished} · 按期`
-    const due = deadline == null ? start == null ? '开始时间缺失，无法计算' : '时效要求未确认，截止无法计算' : new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(deadline)
-    return [[e(clock.kind), e(value(clock.start)), e(clock.end || (/交接|调拨/.test(clock.kind) ? '尚无实际接收时间' : '尚无实际完成时间')), e(sla == null ? '时效要求未确认' : `${sla}自然日`), e(due), e(completionUnverified ? `从开始至查看时点${used}；实际完成耗时待核实` : used), badge(result)]]
+    const result = notStarted ? `${pending} · 未开始计时${sla == null ? ' · 时效要求未确认' : ''}` : finishedWithoutTime ? `${finished} · ${/交接|调拨/.test(clock.kind) ? '实际接收' : /采购到仓/.test(clock.kind) ? '实际入仓' : '实际完成'}时间待核实 · 耗时无法判定${sla == null ? ' · 时效要求未确认' : ' · 是否按期待核实'}` : completionUnverified && deadline != null ? `完成事实待取得 · ${late ? '截止已过，是否超时待核实' : '截止未到'}` : start == null ? `${workLabel}开始时间缺失 · 时效无法判定` : sla == null ? `${workLabel}时效要求未确认 · 无法判定是否超时` : late ? `${end == null ? unfinished + ' · 已超时' : finished + ' · 晚'}${duration(late)}` : end == null ? `${unfinished} · 截止未到` : `${finished} · 按期`
+    const due = notStarted ? '尚未开始，暂无计时截止' : deadline == null ? start == null ? '开始时间缺失，无法计算' : '时效要求未确认，截止无法计算' : new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).format(deadline)
+    const missingEnd = notStarted ? '尚未发生' : /交接|调拨/.test(clock.kind) ? finishedWithoutTime ? '已接收，实际接收时间待核实' : '尚无实际接收时间' : finishedWithoutTime ? '已完成，实际完成时间待核实' : '尚无实际完成时间'
+    return [[e(workLabel), e(notStarted ? pending : value(clock.start)), e(clock.end || missingEnd), e(sla == null ? '时效要求未确认' : `${sla}自然日`), e(due), e(!finishedWithoutTime && completionUnverified ? `从开始至查看时点${used}；实际完成耗时待核实` : used), badge(result)]]
   })
-  return rows.length ? section('本单据时效（制作、加工、采购到仓与交接分别计时）', table(['计时对象', '实际开始 / 上游交出', '实际完成 / 下游接收', '时效要求', '应完成 / 接收截止', '本项已用时间', '本项时效结果'], rows), '未完成且超过截止才是当前需催办的超时；已完成但晚于截止保留延误结果，耗时停止增加。交接从上游实际交出计至下游实际接收；未配置标准时只记录耗时，不判正常或超时。') : ''
+  return rows.length ? section('本单据时效', table(['计时对象', '实际开始 / 上游交出', '实际完成 / 下游接收', '时效要求', '应完成 / 接收截止', '本项已用时间', '本项时效结果'], rows), '加工与交接分别计时；未确认时效要求只记录耗时。') : ''
 }
 
 function responsibility(d: SourceDocument): string {
   const roles = d.roles ?? { 执行负责人: d.executor, 交出确认责任: d.executor, 下游接收确认责任: d.receiver }
-  return section('执行与交接责任', `<dl class="grid gap-3 sm:grid-cols-3">${Object.entries(roles).map(([label, person]) => `<div class="rounded border border-slate-200 p-3"><dt class="text-xs text-slate-500">${e(label)}</dt><dd class="mt-1 font-medium text-slate-900">${e(value(person))}</dd></div>`).join('')}</dl>${d.qc ? `<div class="mt-3 rounded border border-blue-100 bg-blue-50 p-3"><strong class="text-sm">质检交接结果</strong><p class="mt-1 text-sm text-slate-700">${e(d.qc)}</p></div>` : ''}`)
+  return section('执行与交接责任', `<dl class="grid gap-3 sm:grid-cols-3">${Object.entries(roles).map(([label, person]) => `<div class="rounded border border-slate-200 p-3"><dt class="text-xs text-slate-500">${e(label)}</dt><dd class="mt-1 font-medium text-slate-900">${e(value(person))}</dd></div>`).join('')}</dl>${d.qc && !['后道质检单','后道复检单'].includes(d.type) ? `<div class="mt-3 rounded border border-blue-100 bg-blue-50 p-3"><strong class="text-sm">${d.type==='后道复检单'?'数量与条码核对':'质检交接结果'}</strong><p class="mt-1 text-sm text-slate-700">${e(d.qc)}</p></div>` : ''}`)
 }
 
 function bomDetails(branch: SourceBranch | null): string {
@@ -183,6 +202,10 @@ function materialDetails(match: SourceMatch): string {
 
 function workDetails(match: SourceMatch): string {
   const { document: d, branch } = match
+  if(d.type==='后道加工单' && d.quantities?.应处理 != null){
+    const q=d.quantities??{},pending=q.应处理!=null&&q.已处理!=null&&q.未处理!=null?Math.max(0,q.应处理-q.已处理-q.未处理):null
+    return section('整单后道处理结果',table(['加工对象 / 范围','应处理','已处理','已确认未处理','尚待记录处理结果','单据状态'],[[e(d.object),e(quantity(q.应处理,d.unit)),e(quantity(q.已处理,d.unit)),e(quantity(q.未处理,d.unit)),e(quantity(pending,d.unit)),badge(d.status)]]),'项目共用本单数量；尚待记录处理结果与已确认未处理分别展示，未处理不等于加工剩余量。')
+  }
   const part = branch?.parts.find(p => p.cutDoc === d.id || p.process.some(process => process.work === d.id || process.leg?.id === d.id))
   const required = d.quantities?.应加工 ?? d.quantities?.应裁 ?? d.quantity
   const completed = d.quantities?.已完成 ?? d.quantities?.已裁
@@ -201,7 +224,48 @@ function handoverDetails(d: SourceDocument): string {
 }
 
 function contractTask(match: SourceMatch): SourceTask | undefined {
-  return match.order.tasks.find(task => match.document.id.endsWith(task.id) || match.document.object.includes(task.id))
+  return match.order.tasks.find(task => match.document.taskId === task.id || match.document.id.endsWith(task.id) || match.document.object.includes(task.id))
+}
+
+function executionDetails(match: SourceMatch): string {
+  const { document: d, order, branch } = match
+  const task = contractTask(match)
+  const scope = task ? task.type === 'full' ? '裁剪＋车缝＋烫包' : task.type === 'combined' ? '车缝＋烫包' : '独立车缝' : '合同范围待核实'
+  const execution = order.fullFlow?.execution.find(item => item.taskId === (task?.id ?? d.taskId))
+  const records = documents(branch, execution?.steps.map(step => step.documentId) ?? [d.id])
+  return section('本合同具体执行工作', table(['对应车缝任务', '承担工厂', '合同范围', '本单执行范围', '实际加工地点', '当前状态'], [[e(task?.id ?? value(d.taskId)), e(task?.factory ?? '工厂关联待核实'), e(scope), e(d.executionScope ?? d.type.replace(/执行单$/, '')), e(value(d.processingLocation)), badge(d.status)]]), '任务分配与具体执行分别展示；合同累计回货节点仍从业务分配日期起算。承包裁剪、车缝及工厂烫包分别记录实际完成事实。')
+    + section('同一合同内执行单据', table(['单据', '执行对象 / 范围', '状态', '数量', '执行负责人', '接收确认责任'], documentRows(records)), '车缝＋烫包、裁剪＋车缝＋烫包合同中的工厂烫包只计作承担工厂的执行工作；后道继续记录实际收货、质检、适用加工、复检及交货。')
+    + workDetails(match)
+    + contractDetails(match)
+}
+
+function postBatchDocuments(batch: SourcePostBatch): (string | null | undefined)[] {
+  return [batch.receiveDocumentId, batch.qcDocumentId, batch.processingDocumentId, batch.recheckDocumentId, batch.outboundDocumentId, batch.inboundDocumentId]
+}
+
+function postDetails(match: SourceMatch): string {
+  const { document: d, order, branch } = match
+  const batches = order.fullFlow?.batches.filter(batch => batch.id === d.batchId || postBatchDocuments(batch).includes(d.id)) ?? []
+  const task = contractTask(match)
+  const scope = task ? task.type === 'full' ? '裁剪＋车缝＋烫包' : task.type === 'combined' ? '车缝＋烫包' : '独立车缝' : '合同范围待核实'
+  const context = section('后道任务与批次归属', table(['对应车缝任务', '本批次', '批次数量', '当前数量位置', '合同范围', '实际加工地点'], batches.length ? batches.map(batch => [e(batch.taskId), e(batch.id), e(quantity(batch.qty, '件')), e(timingPostPositionLabel(batch.position,branch?.docs[batch.processingDocumentId!]?.status)), e(scope), e(value(d.processingLocation))]) : [[e(task?.id ?? value(d.taskId)), e(value(d.batchId)), e(quantity(d.quantity, d.unit)), '当前数量位置待核实', e(scope), e(value(d.processingLocation))]]), '各批仅计入一个当前位置。')
+  const projectSummary=d.type==='后道加工单' && d.processItems?section('本批后道加工单',`<div class="rounded border border-blue-100 bg-blue-50 p-3"><strong>本单后道项目：</strong>${e(d.processItems.join('、'))}<p class="mt-2 text-sm">来源：${e(value(d.sourceType))}</p></div>`):''
+  const stage = d.type==='后道复检单'
+    ? section('处理后交出复核（复检）',table(['复核对象 / 范围','SKU数量复核','条码 / 数量核对记录','执行负责人','交出确认责任'],[[e(d.object),Object.entries(d.quantities??{数量:d.quantity}).map(([name,qty])=>`${e(name)}：${e(quantity(qty,d.unit))}`).join('<br>'),e(value(d.qc)),e(d.executor),e(d.receiver)]]),'本单只复核SKU数量与条码，不再进行质量检验；复核完成才生成后道交货单。')
+    : d.type==='后道质检单'
+    ? section('本批次后道质检结果',table(['检验对象 / 范围','实际检验数量与结果','已记录检验结论','检验负责人','结果接手确认'],[[e(d.object),Object.entries(d.quantities??{数量:d.quantity}).map(([name,qty])=>`${e(name)}：${e(quantity(qty,d.unit))}`).join('<br>'),e(value(d.qc)),e(d.executor),e(d.receiver)]]),'检验结果沿用本单实际记录；未取得检验结果不视为通过，未确认时效要求不自行判定超时。')
+    : d.type==='后道交货单'?handoverDetails(d):/加工单/.test(d.type)?workDetails(match):handoverDetails(d)
+  const chain = batches.map(batch => {
+    let steps: { title: string; id?: string | null; location?: string }[] = [{ title: '后道实际收货', id: batch.receiveDocumentId }, { title: '后道质检', id: batch.qcDocumentId }, { title: '后道加工单', id: batch.processingDocumentId, location: '后道厂' }, { title: '后道复检', id: batch.recheckDocumentId }, { title: '后道交货', id: batch.outboundDocumentId }, { title: '成衣仓接收', id: batch.inboundDocumentId }]
+    const qc=documents(branch,[batch.qcDocumentId])[0],direct=!!qc?.clock?.end&&!batch.processingDocumentId&&batch.position!=='unknown'
+    if(direct)steps=steps.filter(step=>!['后道加工单','后道复检'].includes(step.title))
+    return section(`本批次后道单据链 · ${batch.id}`, table(['工作', '原始单据', '当前状态', '本项数量', '已记录实际时间', '执行 / 接收责任', '加工地点'], steps.map(step => {
+      const record = documents(branch, [step.id])[0]
+      const waitingWarehouse = !record && step.title === '成衣仓接收' && batch.position === 'delivery'
+      return [e(step.title), record?link(record):batch.position==='unknown'?'单据资料待核实':'—', record ? badge(record.status) : (batch.position==='unknown'?'对应单据资料待核实':waitingWarehouse?'成衣仓尚未接收，入库单尚未生成':'前置尚未完成，单据尚未生成'), waitingWarehouse?`待接收 ${e(quantity(batch.qty,'件'))}`:e(quantity(record?.quantity, record?.unit ?? '件')), record ? Object.entries(record.times).map(([name, at]) => `${e(name)}：${e(at || (timingClockHasNotStartedFact(record)?'尚未发生':value(at)))}`).join('<br>') : batch.position==='unknown'?'实际时间待核实':'尚未发生', record ? e(`${record.executor} → ${record.receiver}`) : '责任待核实', e(value(record?.processingLocation ?? step.location))]
+    })), direct?'本批无需我方加工，不生成加工单和处理后交出复核单，质检直接生成面向成衣仓的交接单；后道实际交出计至成衣仓实际接收。':'每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。')
+  }).join('')
+  return context + projectSummary + stage + chain
 }
 
 function contractDetails(match: SourceMatch): string {
@@ -251,6 +315,8 @@ function warehouseDetails(match: SourceMatch): string {
 
 function specificDetails(match: SourceMatch): string {
   const type = match.document.type
+  if (['车缝执行单', '承包裁剪执行单', '工厂烫包执行单'].includes(type)) return executionDetails(match)
+  if (['后道质检单', '后道复检单', '后道交货单', '后道加工单'].includes(type) || type === '后道实收记录' && match.order.fullFlow) return postDetails(match)
   if (type === '生产准备单' || /BOM/.test(type)) return preparationDetails(match)
   if (/车缝任务分配|合同/.test(type)) return contractDetails(match)
   if (/工厂产前/.test(type)) return sampleDetails(match)
@@ -264,7 +330,7 @@ function specificDetails(match: SourceMatch): string {
 
 function relatedDetails(match: SourceMatch): string {
   const records = documents(match.branch, match.document.related)
-  return section('关联原始单据', table(['单据', '对象 / 范围', '状态', '数量', '执行负责人', '接收确认责任'], documentRows(records)), '本页为完整单据详情；点击关联单据进入其所在模块的详情页。监控图中的单据先打开简要信息弹窗，选择查看详情才新建标签页；各页面读取同一份演示记录。')
+  return section('关联原始单据', table(['单据', '对象 / 范围', '状态', '数量', '执行负责人', '接收确认责任'], documentRows(records)), '点击单据查看其所属模块详情。')
 }
 
 /** Resolves only registered timing source records at their canonical native path. */

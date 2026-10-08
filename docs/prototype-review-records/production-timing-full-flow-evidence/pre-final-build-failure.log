@@ -1,0 +1,813 @@
+
+> higoods-vanilla-clone@1.0.0 build
+> npm run typecheck:engineering && npm test && vite build
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:engineering
+> npm run typecheck:entrypoints && npm run typecheck:scopes
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:entrypoints
+> tsc --project tsconfig.engineering.json
+
+
+> higoods-vanilla-clone@1.0.0 typecheck:scopes
+> node scripts/check-typescript-scope.mjs src/domain/ src/components/ui/ src/state/
+
+TypeScript 全量既有错误：3
+本次渐进检查范围：src/domain/、src/components/ui/、src/state/
+范围内错误：0
+范围外既有错误保留在全量 typecheck 中继续分批治理。
+
+> higoods-vanilla-clone@1.0.0 test
+> npm run test:unit
+
+
+> higoods-vanilla-clone@1.0.0 test:unit
+> node --import tsx --test tests/unit/*.test.ts
+
+✔ 浏览器存储封装保持读写删除语义 (0.395916ms)
+✔ 浏览器存储不可用或抛错时保持静默降级 (0.082166ms)
+(node:65603) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 独立裁剪整任务改派保留数量和执行历史，旧有效分配失效，新范围唯一 (51.869292ms)
+✔ 裁床改派回原工厂且回填同一业务日期，不复用旧票范围；普通审计不改身份 (0.121333ms)
+(node:65604) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 交出列表省略详情路线读取时保留全部输出字段 (291.317208ms)
+(node:65605) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ MIG-001/002/006: management entry and handlers belong to FCS; PFOS keeps execution (1.536625ms)
+✔ MIG-003/007: prep and execution read the same early order identities, quantities and match status (553.702292ms)
+✔ MIG-004/009: migrated dialogs retain candidate fields, actual material image and task outputs (0.827959ms)
+✔ MIG-011: management and execution use the same seven business display columns (9.404459ms)
+✔ MIG-007: early dye/print creation and cancellation survive reload (2272.472208ms)
+✔ BOM working-copy write failure preserves prior state; retry succeeds (147.544166ms)
+✔ existing production preparation data does not trigger demo writes on entry (1384.810417ms)
+✔ rollback of an unchanged saved BOM does not perform another failing write (22.440792ms)
+✔ BOM dictionary preserves old JSON and all snapshot values without mutating input (4.52875ms)
+✔ BOM dictionary rejects missing references instead of replacing data silently (0.208584ms)
+(node:65609) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA顶栏计数与实际完整待办相同，覆盖各任务工厂及管理员/员工角色 (1708.631834ms)
+✔ 解析带标签、小数和空格的长度数量 (0.485375ms)
+✔ 解析卷数并对不合法文本返回 0 (0.116167ms)
+✔ 证据文件标识把连续空白收口为单个连字符 (0.151792ms)
+(node:65612) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款可成批生成染色和印花加工单，且完整投影来源与上下游 (1049.209375ms)
+✔ 设计改款加工单生成幂等，重复请求不增加单据 (44.784958ms)
+✔ 同一设计改款任务的不同颜色和 BOM 行分别生成加工单 (67.188125ms)
+✔ 成批提交失败时染色与印花加工单一起回滚 (15.814459ms)
+✔ 设计改款来源缺关键引用或来源未知时必须阻断 (0.176084ms)
+(node:65613) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 设计改款染后印花必须先分配印花厂，染色交出不能误送中央工厂 (264.714833ms)
+✔ 仅染与仅印分别创建一张加工单和一条仓库首道调拨计划 (16.606458ms)
+✔ 辅料染色单创建后已有辅料仓调拨计划，分厂时自动落实原单但不冒充实发 (9.3975ms)
+✔ 历史双工艺加工单仍可追溯原有染印交接 (406.991459ms)
+✔ 先染后印目标 SKU 创建两段加工单，印花只接收本行染后物料而不能跳过染色 (1304.089042ms)
+✔ 单独印花 SKU 从仓库发印厂并完成样衣归档 (1400.623792ms)
+✔ 印花实际交出生成中央工厂待接收原单，实收回写原交接并允许完成加工单 (526.885ms)
+✔ 专业成果没有真实附件时保持未绑定 (9.566833ms)
+(node:65614) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 可打印不等于可建交出单，必须完成真实标签打印 (0.470583ms)
+✔ 卷规格无效时不可建交出单，且不改变原可打印判定语义 (0.0695ms)
+✔ 人工完成印花加工单不再自动填充操作人 (197.283209ms)
+(node:65616) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 非 KOL PDA 导入不生成 KOL 领交料；首次 KOL 访问生成完整且幂等的演示记录 (174.02175ms)
+✔ PDA 单任务读取保持普通任务、测试工厂与 KOL 任务内容和查找优先级 (2.207666ms)
+(node:65617) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 可编辑的演示唛架保存后优先读取用户记录，刷新不恢复原备注和状态 (372.228334ms)
+✔ 日报窗口含截止日7天，重点日均独立使用前6天 (0.482333ms)
+✔ 未知采购不填0，未BOM不输出完整确定订单需求 (0.107792ms)
+✔ 突变必须绝对量与比例同时达到阈值 (0.057292ms)
+✔ 截止日突变示例与未完结日不判定 (0.056333ms)
+✔ 共享商品按SPU去重而不按关联行累加销量 (0.090917ms)
+✔ 预选不产生确定用料；BOM需求保留物料归属 (0.12075ms)
+✔ 同料BOM优先于预选，不重复关系及需量 (0.064666ms)
+✔ 两个业务页具有独立容器、标准分页与证据边界 (16.482875ms)
+✔ 未进入物料页面时 bridge 不加载业务；加载失败重试后首次渲染即已注册 (3.32075ms)
+✔ click 分组顺序、短路、选择器范围保持原行为，重新注册替换旧处理器 (0.552583ms)
+✔ 备料写入守卫读取实时角色与水位，阻断时不调用业务处理器 (0.322458ms)
+✔ input/change/keyboard 原入口、筛选范围和 change 优先级完整保留 (0.283667ms)
+✔ health groups are exhaustive and mutually exclusive in demo (1.04325ms)
+✔ coverage and baseline use same inventory plus transit but distinct demand windows (0.07ms)
+✔ zero demand is unavailable rather than infinity and huge finite quotient stays finite (0.086542ms)
+✔ date selects different consistent snapshot (0.087917ms)
+✔ threshold changes alter classification without changing facts (0.064292ms)
+✔ health view carries core P1 business sections and mock caveat (12.5565ms)
+✔ AT16 rules do not substitute brand, size or packaging method (0.836167ms)
+✔ AT24 equal priority conflict blocks resolution and identifies rules (0.687ms)
+✔ higher explicit priority resolves a lower priority overlap (0.115666ms)
+✔ plans distinguish garments and parcels and add loss once (0.268542ms)
+✔ AT18 white pendant stock only allocated once (0.161542ms)
+✔ event duplicate and old revision do not add consumption; reprints are activity only (0.221ms)
+✔ conflicting same revision fails instead of silently choosing a payload (0.115667ms)
+✔ AT17/19/20 panel states unresolved ASAYA, independent kit80 and unknown ribbon (0.466ms)
+✔ trigger distinct from target, existing supply produces explainable zero (0.56175ms)
+✔ missing mapping or usage and incompatible raw unit block unsafe generation (0.166334ms)
+✔ generation reserves remaining once and shared raw pool across target rules (0.863666ms)
+✔ production does not increase stock; actual SKU and output bound partial receipts (0.146958ms)
+✔ cancelled suggestion releases commitment and raw allocation (0.067416ms)
+✔ AT05 committed greige is not available for a second allocation (0.476541ms)
+✔ AT06 partial receipt reduces expected supply; checking and qualified never duplicate (0.324666ms)
+✔ AT07 unmapped target preserves quantities but gives no target coverage (0.078542ms)
+✔ §7.2 loss reduces future supply; rejected receipts never become usable (0.05275ms)
+✔ §7.3 unit/yield/route and conservation gaps block deterministic supply (0.660583ms)
+✔ §7.3 candidate comparison reports remaining shortage and respects arrival deadline (0.131209ms)
+✔ §7.3 zero gap stays zero and nonfinite inputs cannot produce advice (0.044083ms)
+✔ panel uses owned local handlers and discloses mock and missing images (1.961291ms)
+✔ P2 coefficients and coverage exclude transit (12.975458ms)
+✔ P2 coverage buckets have exclusive shared boundaries (0.470084ms)
+✔ P2 partial receipts and completed batches count remaining only (0.061042ms)
+✔ P2 latest overdue selected only if no future batch; today included (0.055084ms)
+✔ P2 search transit and ETA filters compose (0.126458ms)
+✔ P2 zero demand and missing BOM preserve distinct nulls; micro demand excluded (0.060917ms)
+✔ P2 standard table renders and limits initial rows to first page (5.584708ms)
+✔ AT01/02 internal reservation stays in coverage while external reservation is deducted (10.728959ms)
+✔ AT03 quality segments are not usable (0.150291ms)
+✔ AT04 partial receipt leaves remaining supply only (0.164417ms)
+✔ AT08/38 late supply never erases earlier shortage (0.137083ms)
+✔ AT09 intermediate deficit determines net need rather than positive closing balance (0.124542ms)
+✔ AT10 MOQ and pack rounding, zero stays zero (0.110333ms)
+✔ AT11 horizon begins at cutoff and is not expanded by lead time (0.132542ms)
+✔ AT12 forecast covered by confirmed demand is excluded before coefficient (0.114833ms)
+✔ AT13 no demand has no numeric coverage (0.098708ms)
+✔ AT14 cancelling demand does not change stock (0.13175ms)
+✔ AT15 latest event revision only (0.439334ms)
+✔ AT16/17 directory preserves bag sizes and ASAYA duplicated input is one unresolved SKU (0.098ms)
+✔ AT18 three brands draw from one shared pool (0.153417ms)
+✔ AT19/20 kit capacity respects minimum and missing conversion (0.0685ms)
+✔ AT21 inactive/unusable stock remains physically visible (0.09875ms)
+✔ AT23 affected order identifiers are unique (0.083083ms)
+✔ AT25/26 draft does not mutate active and invalidates trial (0.056875ms)
+✔ AT26/28 publish requires role and exact trial; history retained (0.175167ms)
+✔ AT31 risk cannot close with remaining shortage or skip verification (0.159417ms)
+✔ AT37 invalid dates, unknown timezone, bad numeric values rejected (0.097083ms)
+✔ duplicate supply chain does not double count and blocks deterministic advice (0.077833ms)
+✔ warehouse catalogue includes 17 locations and two garment warehouses (0.035625ms)
+✔ candidate comparison retains pre-arrival risk (0.257583ms)
+✔ SKU-specific policy wins and duplicate rules block publish (0.11675ms)
+(node:65627) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 逐票与逐打印任务保持原结构，变更一条只保存一条 (2.3385ms)
+✔ 草稿按原映射键保存；手工票与操作记录分离，删除票保留审计 (0.246709ms)
+✔ 拒绝损坏JSON且不冒充空数据 (0.123625ms)
+✔ 拒绝空字符串且不冒充空数据 (0.0545ms)
+✔ 拒绝错误根且不冒充空数据 (0.054666ms)
+✔ 拒绝重复票号身份且不冒充空数据 (0.049167ms)
+✔ 拒绝缺少票号且不冒充空数据 (0.045667ms)
+✔ 拒绝错误状态且不冒充空数据 (0.039667ms)
+✔ 拒绝打印关联缺失且不冒充空数据 (0.05125ms)
+✔ 拒绝草稿身份缺失且不冒充空数据 (0.081292ms)
+✔ 拒绝手工日志缺失且不冒充空数据 (0.0585ms)
+✔ 拒绝手工二维码缺失且不冒充空数据 (0.041ms)
+✔ 已保存实体与备份身份校验，不接受伪造集合或迁移元数据 (0.414542ms)
+✔ 袋账派生绑定锁，无需持久化派生票快照；关闭周转解除旧快照锁 (385.719042ms)
+✔ 唛架来源和铺布单逐实体保存，保留卷明细、层序及来源引用 (0.420458ms)
+✔ 指定保存对象不复制重复静态唛架，也不覆盖其他已保存铺布单 (0.459209ms)
+✔ 旧袋账按实体保留绑定与历史，局部动作不复制静态袋档案 (1.1685ms)
+✔ 专用打印来源保留原票身份、数量、状态、袋锁及打印对象，不查询全量PDA与库存摘要 (940.480542ms)
+✔ 实际输出首打保持原身份与数量；动态与普通来源均可打印，失效来源阻断，重复首打不新增 (74.57925ms)
+✔ 唛架引用读取失败明确阻断，不将迁移或读取错误伪装成空铺布来源 (0.820375ms)
+✔ 用户唛架方案逐ID迁移保留床次和占用，修改一张不重写其它方案 (0.178584ms)
+✔ PDA及手工票专用唛架定义与原完整投影等价，保留床次、数量和可铺布资格 (387.477375ms)
+✔ 裁床配料按真实生产单范围读取与全量结果逐字段相等，保留库存、领取、状态与任务链接 (392.333333ms)
+✔ PDA铺布目标直接携带真实已保存铺布单的裁床与负责人，不另算整套列表 (342.670083ms)
+✔ 铺布投影复用唛架定义仍保留已保存session的卷明细、裁床、负责人和实际裁剪数量 (306.26975ms)
+✔ 路由标准化移除 query 与 hash，但不改动路径 (0.348833ms)
+✔ 只匹配路由根或其子路径，不误匹配相似前缀 (0.100875ms)
+✔ 可在多个合法根路径中匹配一个 (0.072458ms)
+✔ 只把完整生产确认单打印路由识别为命中 (0.102375ms)
+✔ 专业任务必须全部有效明细通过且保留成果与审核事实 (1.2585ms)
+✔ 纸样名称或物料关联不能替代可读取原文件 (20.509875ms)
+(node:65630) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 目标 SKU 的四种加工组合、前序实物和 BOM Q 均按已建档字段读取 (1.385416ms)
+✔ 整单总量口径保存后仍按一次总量计算，不被样衣件数重复放大 (1412.346125ms)
+✔ 一张设计改款 BOM 同时有 Yard 面料和 PCS 辅料时，各行独立计量且辅料无需加工调拨 (55.168458ms)
+✔ 复用既有纸样与参照 BOM 的无印染任务可直接提交样衣并自动完成；复制只生成草稿 (1180.966667ms)
+✔ 批量复制保留物料、费用和样衣安排为独立可编辑草稿，不生成工作 (113.654375ms)
+✔ 单页创建同时保存物料、费用与样衣要求；失败不留下空任务 (50.06675ms)
+✔ 加工按物料行及实际阶段执行：纯染行与先染后印行独立串联 (182.171959ms)
+✔ 旧设计任务移除线下工作和依赖，保留加工单身份、样衣成果及原始输入 (1251.164458ms)
+✔ 任务汇总排除未启用，待前置只列出未完成依赖，关闭单不继续催办 (0.893625ms)
+✔ 筛选覆盖关键词、状态、跟单、待办、类型、团队和日期边界，统计范围一致 (0.276ms)
+✔ CSV包含全部匹配行和任务责任计划，不含操作列，特殊文字正确转义 (0.427209ms)
+✔ 生产准备必须读取测款最终通过事实，保存时重新校验且失败不生成主单 (1284.704208ms)
+✔ PATTERN_ARTWORK 多明细全部有效项通过才完成，同SKU不同要求不合并 (0.507125ms)
+✔ COLOR_FABRIC 多明细全部有效项通过才完成，同SKU不同要求不合并 (0.072875ms)
+✔ COLOR_YARN 多明细全部有效项通过才完成，同SKU不同要求不合并 (0.059917ms)
+✔ 多辅料分单覆盖，第一张下单不足以完成，失效单不能提供覆盖 (0.206167ms)
+✔ 专业列表业务字段查询与责任、来源、计划边界组合，未登记计划不误入日期结果 (0.673834ms)
+(node:65636) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ targeted PCS baseline reads return independent records without cloning unrelated collections (167.041875ms)
+✔ PCS 前插多个新记录保留全部既有位置，重复保存不产生位置变化 (1.15375ms)
+✔ PCS 单条置顶、居中插入、删除保持实际顺序且不移动其余记录 (0.113625ms)
+✔ PCS 图片按款号和颜色固定，尺码不改变照片，未知对象没有随机图片 (0.697291ms)
+✔ 历史 Mock 只替换登记的旧图，保留用户图片及未知款式 (0.407375ms)
+✔ 后道 QC 来源 SKU 保留原身份和数量，五种颜色分别绑定对应实拍 (0.07825ms)
+✔ 后道历史快照只迁移准确 SKU 的旧示意图，质检数量与用户图不变 (0.185084ms)
+(node:65639) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ SAMPLE-FIX-01–05/11: actual request→reserve→approve→pickup→return→receipt; stable own IDs and detached reads (899.734958ms)
+✔ SAMPLE-FIX-03/05: all invalid input blocks writes; cancellation/rejection frees only own reservation (473.280791ms)
+✔ SAMPLE-FIX-08/09/11: cases and stocktake persist independently, cannot execute twice or masquerade as adjustment (533.934334ms)
+(node:65640) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ HG-001/002/004: SKU identity survives duplicate receipts, transfers and repeats; HG resolves SKU (238.873917ms)
+✔ HG-005/006/008: printed data and bounded settings; no truncation, images or state writes (0.977916ms)
+✔ HG-002/004 regression: older receipt without identities retains its first date; raw SKU is never HG (81.256ms)
+(node:65641) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ SAMP-001–013 Mock: receipt → all SKU tags → live/home → production/factory/department/warehouse → marketing, with adversarial gates (1159.87125ms)
+(node:65642) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA 列表轻量摘要与详情的归属、数量、物料和下一步一致 (969.085375ms)
+(node:65643) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 按工厂投影不改变全能力、印花、染色、中央与裁片演示账号可见任务 (933.847083ms)
+(node:65647) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 接单工厂范围保留全量投影中本厂每个任务的身份、数量、状态及接单/中标结果 (2528.067625ms)
+(node:65648) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA order/task link indexes preserve all full-index candidates without constructing unrelated material rows (551.242375ms)
+✔ ordinary sewing direct lookup keeps every field and factory permission from the complete canonical projection (483.437959ms)
+✔ runtime sewing overrides and legacy/missing IDs retain the complete projection result (525.087833ms)
+✔ one fresh read-only object snapshot preserves readiness, context and unknown references without refreshing per miss (429.322625ms)
+✔ PDA handlers wait for part-ticket hydration, and the real detail is not mounted before both dependencies complete (53.632792ms)
+✔ ordinary sewing detail leaves unrelated PMS initialization pending until a normal module entry (36.149167ms)
+✔ same-navigation sewing preload discovers actual bundle entries and static closure without evaluating modules (48.655708ms)
+✔ preview compression includes the same sewing static chunks and retains existing assets without broad lazy-route output (11.23875ms)
+(node:65650) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 中转袋交出与实际入仓使用同一浏览器本地业务时间，不把 UTC 当作本地时间 (3.631708ms)
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+✔ 物流商新增字段保存回显并写入操作日志 (7.227416ms)
+✔ 物流商数字字段非负校验与运输方式枚举校验 (0.27125ms)
+✔ 渠道新增字段保存回显，条件计费字段按计费方式保留 (1.017416ms)
+✔ 整柜渠道不要求新增计费字段，仍要求四箱型完整配置 (0.305417ms)
+✔ 渠道数字字段非负与时效区间校验 (0.273792ms)
+✔ 头程批次聚合展示总箱数、总重量、总体积与转运天数 (0.994583ms)
+✔ 工序链按保存顺序生效，合法工序集合固定，非法或重复工序被拒 (3.1385ms)
+✔ 坯布 SKU 必填，坯布库存为 0 时调拨资格被拒，补足后恢复 (0.695709ms)
+✔ 采购单按勾选 SKU 生成明细，数量与枚举非法被拒 (0.302458ms)
+✔ 调拨单可选择调出仓库与调入目标，同步生成加工单号链 (0.402833ms)
+✔ 批量刷新库存更新全部监控行与刷新时间并写日志 (0.420167ms)
+✔ 手动添加监控 SKU 校验 SKU 必填与重复，添加后进入列表 (0.509708ms)
+✔ 物料申报扩展字段保存回显，26 项特殊属性按数组保存 (1.577917ms)
+✔ 报关扩展：法定第二计量单位与数值，不报关分支跳过必填校验 (0.178333ms)
+✔ BOM 业务选项与价格/成本、工厂、布料字段保存回显 (0.648375ms)
+✔ 主体经营 9 项成本明细加调整重算总成本，数据缺失提醒可消除 (0.326375ms)
+✔ 供应商从草稿到启用遵循状态机，名称唯一 (4.302ms)
+✔ 供货档案包装换算与快照版本 (0.411459ms)
+✔ 物料全部有真实图片，采购补充信息可更新且不新增删除 (0.652584ms)
+✔ 成衣与样衣 SKU 只读列表数据完整 (0.141375ms)
+✔ 仓库同步更新时间，单位字典唯一且不可删除只可启停 (0.563792ms)
+✔ BOM 用量可修改，说明可保存，发布后可生成面辅料需求 (2.821666ms)
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0001' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0007' }
+✔ 面辅料需求种子就绪且可按物料行下推采购单 (8.310084ms)
+✔ 快递信息导入校验采购单存在、单号唯一、日期与数量合法 (0.840584ms)
+✔ 国内签收、加入头程、状态推进与到仓自动签收 (2.000459ms)
+✔ 供应商确认单需标签齐备，确认后回写采购单 (2.044542ms)
+✔ 整柜渠道必须完整配置四个箱型，物流商可启停 (0.737041ms)
+✔ 面辅料采购单可带原因关闭，关闭后不能再登记到货 (0.465541ms)
+✔ 库存监控触发线与建议量公式，规则异常阻断建单 (2.363916ms)
+✔ 建单数量不得超过建议量，调拨与采购资格分别阻断 (0.32025ms)
+✔ 中转看板指标、分布与筛选跳转规则 (0.365208ms)
+✔ 生产单校验与配料任务只读数据完整，系统设置结果为 8/6/10 (0.095166ms)
+✔ 种子采购单按 SRM 生成器规律补齐单据级与明细级字段 (0.73925ms)
+✔ 新建做货采购单保存采购专员、加急、首单、区域与明细字段并可回显 (1.796917ms)
+✔ 未传新增字段时沿用默认值并保持既有命令兼容 (0.119084ms)
+✔ 采购专员必填、做货必须选区域、重量非负均抛出中文 PmsDomainError (0.313792ms)
+✔ 编辑采购单保存新增字段并回显，非法输入被阻断 (0.263833ms)
+✔ BOM 状态与 bomMatched 一致，未发布 BOM 的做货明细为未匹配 (0.160167ms)
+✔ 行采购金额使用 roundPmsQty 且汇总等于逐行金额之和 (0.1135ms)
+✔ 采购建议按缺口公式与折扣计算，并计入有效 KOL 申请 (0.671709ms)
+✔ KOL 草稿与已驳回不计入建议缺口 (0.092459ms)
+✔ 建议转采购单后写回已转数量与部分生成状态 (1.722208ms)
+✔ 面辅料需求按 BOM 用量与损耗扣减库存和采购中 (0.518083ms)
+✔ 重复生成、草稿采购单与非做货采购单均被阻断 (0.110125ms)
+✔ KOL 单条超量需要二次确认，超过申请量直接阻断 (0.286042ms)
+✔ 驳回 KOL 需求后不再计入建议缺口 (0.117ms)
+✔ 关闭采购单必须填写原因且已关闭不可重复关闭 (0.164125ms)
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_SAVE_FAILED] 创建请款单 IDB 写入失败 {
+  requestNo: 'PAY-M-2026-0006',
+  message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。',
+  degraded: 'memory-only'
+}
+[PMS_IDB_SAVE_FAILED] 创建请款单 IDB 写入失败 {
+  requestNo: 'PAY-L-2026-0004',
+  message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。',
+  degraded: 'memory-only'
+}
+[PMS_IDB_SAVE_FAILED] 作废请款单 IDB 写入失败 {
+  requestNo: 'PAY-L-2026-0004',
+  message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。',
+  degraded: 'memory-only'
+}
+✔ 主体经营明细总成本、毛利与毛利率公式 (0.705291ms)
+✔ 面辅料对账：预计/实际双层公式，费用项与差异双重门禁 (6.341209ms)
+✔ 面辅料费用项部分确认、批量确认与编辑失效 (0.478292ms)
+✔ 请款草稿跨页创建、请款与付款上限、编辑范围 (0.814334ms)
+✔ 物流实际费用 12 列导入校验、不自动确认与确认后锁定 (0.450625ms)
+✔ 请款单作废释放来源对账，已有付款不能作废 (0.324042ms)
+✔ 供应商账单 9 列导入覆盖实际层且不自动确认 (0.264084ms)
+✔ 金额大写按 RMB 规则输出并覆盖跨节零 (0.124208ms)
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0005' }
+✔ 生成卷号按前缀、每卷米数、重量与起始序号生成并写入包装明细 (9.226917ms)
+✔ 生成卷号时尾卷承载剩余数量，卷数按采购数量与每卷米数自动取整 (1.2815ms)
+✔ 非法卷号参数被拒绝并抛出中文域错误 (0.497083ms)
+✔ 生成标签后二维码内容包含卷号与箱规，参与打印 (0.359333ms)
+✔ 箱规新增自动计算体积，重复箱号与非法尺寸被拒，删除后计数正确 (0.964292ms)
+✔ 包装明细可新增与删除，非法输入被拒且删除后计数正确 (0.357542ms)
+✔ 被包装明细引用的箱规不能删除 (0.08725ms)
+✔ 供应商枚举与 SRM 完全一致，旧枚举不再出现 (0.705583ms)
+✔ 种子字段满足 SRM 枚举且协同指标为数字 (0.128ms)
+✔ 新增字段保存并回显，成功命令写入操作日志 (1.358167ms)
+✔ 编辑保存新增字段并保持状态机与事件名不变 (0.223625ms)
+✔ 非法或缺失输入抛 PmsDomainError 且不写入数据 (0.29925ms)
+✔ 详情与列表展示新增字段、SRM 枚举与协同指标 (20.0445ms)
+(node:65662) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ CONTRACT-002: business allocation day is day 1 and every calendar day counts, including Sunday (1.938333ms)
+✔ CONTRACT-002: the three contracts retain 4/8/9, 5/9/10 and 6/9/12 calendar-day milestones (0.757083ms)
+✔ CONTRACT-002: invalid calendar dates and counting days still fail without creating deadlines (0.833792ms)
+(node:65663) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 实际耗时跨周日仍按真实时间差；没有可靠时间不造耗时 (0.448375ms)
+✔ 每任务都达成才结束；同一来源去重，作废明细不影响主表 (0.154875ms)
+✔ 耗时页 Mock 至少覆盖九张生产单和全部节点，且下游事实不会越过未完成的前置节点 (485.687583ms)
+✔ 裁片放行按一张放行单内的多次放行展示并选取节点起止时间 (45.037792ms)
+(node:65664) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ EXC-001—004: a reference mark cannot change debt, strict kits or final task responsibility (2.977541ms)
+(node:65665) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 派单新增主档工厂可登记承接关系，未知工厂仍阻断 (3.500959ms)
+✔ 专属任务保留整单身份、数量和接收方，工艺分支保留全部前置关系 (1.019458ms)
+✔ 原生产单车缝任务仍可被 PPIC 分配与责任移交识别，SKU 总量完整 (9.107ms)
+✔ PRINT-HISTORY-001: demo identities remain fixed and reject another factory or task (0.907542ms)
+✔ PRINT-HISTORY-002: DYE-GOTO-GLOBAL historical slot 09 survives independent reloads without overwriting (2160.037666ms)
+✔ PRINT-HISTORY-002: ID-FAC-001165 historical slot 09 survives independent reloads without overwriting (2112.619834ms)
+(node:65667) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: dispatch reads keep all documents and independent copies without projecting unrelated business views (196.197708ms)
+✔ frozen printing images are losslessly stored once across orders, tasks and attachments (7.33925ms)
+✔ missing or malformed image references fail rather than silently replacing frozen evidence (0.481209ms)
+(node:65670) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PERF-002/004: scoped receiving reads preserve direct receipts and allocations, without exposing mutable facts (18.728833ms)
+✔ PERF-002/004: a synchronous relation read matches independent reads and releases its scope after errors (628.953166ms)
+✔ PERF-004: batched print list reviews and handovers equal independently read facts (324.35475ms)
+✔ PERF-004: scoped handovers keep canonical sorting and task point reads preserve identity (14.666166ms)
+✔ PERF-004: reusing warehouse documents preserves each dye order source, quantity and receiver (262.609792ms)
+(node:65671) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ craft source selection preserves all previous source choices and isolated snapshots (13.615208ms)
+✔ source eligibility is re-evaluated after a source order changes (0.113667ms)
+(node:65672) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 生产单创建来源只覆盖旧匹配事实，不复活已取消或覆盖更新后的匹配 (0.794708ms)
+✔ 提前来源随PO唯一保存，重复生成不会追加第二份事实；查询投影不反向写PO (0.631083ms)
+✔ 失败和嵌套投影后创建stage标记恢复，不影响后续染印执行保存 (0.396666ms)
+✔ 备份拒绝错误归属、重复、未知状态和缺少正式冻结来源的匹配 (0.280125ms)
+(node:65673) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 验收数据至少包含 5 张染色和 5 张印花提前加工单，并覆盖全部匹配状态 (388.935541ms)
+✔ 印花专业成果把多张图片和多个文件统一保存在同一附件集合 (0.134084ms)
+✔ 同一生产需求可手动选择具体专业任务，创建结果保存所选任务与全部成果附件 (31.465834ms)
+✔ 创建提前加工单必须选择所属专业任务并明确加工厂 (4.9905ms)
+✔ 计划加工数量包含损耗率，且染色印花投入与产出 SKU 必须不同 (0.303125ms)
+✔ 专业成果未审核通过时不可创建提前加工单 (0.2275ms)
+✔ 多个生产需求合并为一张生产单时，可匹配多张提前染色加工单 (30.756083ms)
+✔ 等待技术包的提前单在技术包就绪后可由同一匹配服务自动重试 (13.826542ms)
+✔ 合并生产单中只有部分需求有提前单时，只为未覆盖需求补建剩余数量 (42.448ms)
+✔ 已有提前单但正式 BOM 或 SKU 不一致时进入异常，且不重复补建同一工艺单 (41.278916ms)
+✔ 取消后重建保留旧单，并建立双向替代关系 (3.764583ms)
+✔ 没有提前加工单的需求仍保留正式加工单快照 (4.404208ms)
+✔ 查生产入口只在合法系统路由显示，并在打印与 PDA 路由隐藏 (0.578708ms)
+✔ 相似前缀和相似打印段不会被当成合法路由 (0.070458ms)
+(node:65677) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 静态生产单更新任务状态时保留原冻结资料，不强造不存在的技术版本 (0.738583ms)
+✔ 沿用静态资料的例外不能用于新单、篡改快照或错误技术版本 (0.547209ms)
+(node:65680) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PERF-001: runtime snapshot and all nine subsets preserve every production order value and caller isolation (26.783ms)
+✔ PERF-001: a subset read does not traverse or clone unrelated snapshot sections (0.207625ms)
+✔ PERF-001: paper pattern binding strips and nested craft arrays remain isolated after mutation (0.237375ms)
+✔ PERF-001: replacing or updating the bound snapshot is visible immediately without a stale cache (0.144375ms)
+✔ PERF-001: missing production order keeps null and empty-list contracts (0.070375ms)
+✔ finished preparation and purchase keep their delay without claiming current work is on time (5.877917ms)
+✔ absence of applicable records and missing timing inputs are not healthy or not-yet-due (1.20525ms)
+✔ inbound quantity and final time completeness produce distinct business results (0.396125ms)
+✔ reached late milestone has zero only for that milestone, not the whole task (4.800625ms)
+✔ creation and handover clocks explain their different unfinished endpoints (1.790292ms)
+✔ all current scenes avoid ambiguous headline defaults and literal unknown numbers (15.196875ms)
+✔ contract graph with missing allocation date or actual holdings cannot assert not-yet-due or achieved (1.114458ms)
+✔ opening a follow-up modal only reads, and empty inputs never appear saved (4.942792ms)
+✔ save waits for completion and readback, rejects double-click writes, and stores realtime feedback without a forecast (14.531958ms)
+✔ failed save retains all inputs and retries the exact same operation ID (3.193791ms)
+✔ commit followed by readback failure remains unconfirmed until a read proves the same record (2.524583ms)
+✔ work must belong to the current production order and expected time must be valid (2.32225ms)
+✔ read failure retains a draft and does not treat unavailable records as a normal empty history (1.791084ms)
+✔ old logs are retained, but never assigned to a new production order by inference (2.16025ms)
+✔ FLOW graph late: full lifecycle keeps allocation, execution and four post stages (3.652458ms)
+✔ FLOW graph normal: full lifecycle keeps allocation, execution and four post stages (2.969ms)
+✔ FLOW graph complete: full lifecycle keeps allocation, execution and four post stages (1.249667ms)
+✔ FLOW graph completeLate: full lifecycle keeps allocation, execution and four post stages (4.722333ms)
+✔ FLOW graph completeUnknown: full lifecycle keeps allocation, execution and four post stages (1.093583ms)
+✔ FLOW graph partial: full lifecycle keeps allocation, execution and four post stages (1.469583ms)
+✔ FLOW graph reordered: full lifecycle keeps allocation, execution and four post stages (1.79175ms)
+✔ FLOW graph reachedLate: full lifecycle keeps allocation, execution and four post stages (3.32875ms)
+✔ FLOW graph positioning: full lifecycle keeps allocation, execution and four post stages (0.630208ms)
+✔ FLOW graph prepPending: full lifecycle keeps allocation, execution and four post stages (0.690958ms)
+✔ FLOW graph sampleLate: full lifecycle keeps allocation, execution and four post stages (2.465541ms)
+✔ FLOW graph samplePending: full lifecycle keeps allocation, execution and four post stages (2.257375ms)
+✔ FLOW graph fullContract: full lifecycle keeps allocation, execution and four post stages (2.236125ms)
+✔ FLOW graph materialBatches: full lifecycle keeps allocation, execution and four post stages (0.323666ms)
+✔ FLOW graph materialPartial: full lifecycle keeps allocation, execution and four post stages (0.264333ms)
+✔ FLOW graph live: full lifecycle keeps allocation, execution and four post stages (1.47025ms)
+✔ FLOW graph unknown: full lifecycle keeps allocation, execution and four post stages (0.335708ms)
+✔ FLOW graph unassigned: full lifecycle keeps allocation, execution and four post stages (1.151708ms)
+✔ FLOW graph sameFactory: full lifecycle keeps allocation, execution and four post stages (1.417208ms)
+✔ FLOW graph handoverPartial: full lifecycle keeps allocation, execution and four post stages (0.332959ms)
+✔ FLOW live: QC, processing, recheck quantities have distinct current positions while history remains (0.2135ms)
+✔ FLOW full contract: scopes and execution documents stay distinct from cumulative contract milestones (0.079292ms)
+✔ FLOW delivery: outgoing without warehouse receipt keeps waiting clock active (0.053958ms)
+✔ FLOW multi-project post work keeps actual project order and each document visible (0.189917ms)
+✔ FLOW summary cards distinguish pending, unknown, historical and current states without invented SLA (3.504958ms)
+✔ FLOW mixed QC, processing and recheck quantities are summarized as post handling rather than processing (0.933125ms)
+✔ FLOW pending inspection and recheck are not started rather than unknown, consistently with rails (0.220459ms)
+✔ FLOW pending document cards and summaries describe unstarted clocks rather than missing times (1.2005ms)
+✔ FLOW-MOCK-001: all 20 accepted scenarios retain every pre-existing source fact and document (32.069042ms)
+✔ FLOW-MOCK-002: every early-stage scenario has an honest full-flow skeleton and unknown purchase has no invented work (0.514833ms)
+✔ FLOW-MOCK-003: allocation and actual sewing are distinct and each of the three contract scopes has only its applicable steps (0.417417ms)
+✔ FLOW-MOCK-004: batches partition original receipts within each task and each source receipt exactly once (0.304042ms)
+✔ FLOW-MOCK-005: actual positions preserve warehouse, delivery, processing aggregate amounts and explicit unknown remainder (0.190375ms)
+✔ FLOW-MOCK-006: current QC, processing, recheck, delivery and warehouse positions have distinct document facts (0.412292ms)
+✔ FLOW-MOCK-007: batch event chronology is ordered and all recorded actual events precede the fixed viewing time (1.157417ms)
+✔ FLOW-MOCK-008: completed orders keep complete post history and missing last inbound time is never fabricated (0.0945ms)
+✔ FLOW-MOCK-009: factory-contracted packing is not assigned again in post, and the no-post-processing route is explicit (0.272792ms)
+✔ FLOW-MOCK-010: every new document is task scoped, batch scoped when applicable, and has valid same-scene relationships (1.402792ms)
+✔ FLOW-MOCK-011: independent sewing has a multi-project post batch with completed predecessors and a later unfinished process (0.37575ms)
+✔ every sewing and post-finishing document type opens its actual native module detail (106.291125ms)
+✔ sewing task execution preserves the matching contract rather than entering the allocation workbench (2.848042ms)
+✔ post-finishing QC and recheck retain their own task results, batches, and downstream documents (22.298708ms)
+✔ post delivery shows actual outgoing and finished-goods receipt separately (16.951875ms)
+✔ completed orders retain the recorded post-finishing document history (2.669458ms)
+✔ unknown or wrongly routed full-flow documents do not produce invented detail pages (0.267375ms)
+✔ recorded finished-goods receipt without its time stops the handover clock rather than creating current waiting (0.505416ms)
+✔ clock completion matches its own final business event across work and handover (0.107584ms)
+✔ native post document uses the same Chinese current-position label as the diagram (17.697542ms)
+✔ explicitly pending work is not mislabeled as missing actual start time in native clocks (3.238417ms)
+✔ completed late work and unfinished overdue work remain different in management and the actual source detail (42.999792ms)
+✔ a late reached contract is a ended node, and future unreached targets are not current debt (48.262292ms)
+✔ missing allocation date or factory actual pickup keeps unknown distinct from an on-time contract (29.333167ms)
+✔ source contract deadline uses allocation day as day 1 even when business date contains a clock time (24.40825ms)
+✔ full warehouse quantities without last receipt time never imply an on-time result or enter the rate denominator (31.448167ms)
+✔ purchase association unknown never asserts that production has not been created or begun (0.832625ms)
+✔ sample timing is by actual handout date and remains separate from approval result (22.394209ms)
+✔ completed whole-order elapsed time stops at final warehouse receipt; export names quantities and states precisely (35.409375ms)
+✔ zero actual pickup is a known zero awaiting a contract denominator, not a missing value or automatic achievement (30.892083ms)
+✔ missing execution evidence does not imply that material has not arrived or that work is confirmed overdue (11.65425ms)
+✔ PAGE-001 / SCENE-17 / 20: 19 unique production orders plus one purchase awaiting association preserve the 19 accepted base scenes (1.557541ms)
+✔ MASTER-001 / SCENE-07: reversing purchase order input retains earliest precise start and 28-day deadline (0.260416ms)
+✔ MASTER-002: full warehouse completion at the exact deadline is timely; one minute later is late (0.157584ms)
+✔ SCENE-03—05: warehouse facts establish completion separately from final timestamp and stale upstream records (0.1665ms)
+✔ SCENE-06 / 16 / 18: quantity positions conserve pieces while missing position and task ownership remain distinct (5.463542ms)
+✔ CONTRACT-002 / SCENE-13: three return contracts use calendar days including Sunday and their actual held quantities (1.615041ms)
+✔ SCENE-19: B factory total 40% cannot cover the independently overdue B01 task (0.962125ms)
+✔ SCENE-02 / 08: timely returns and late reached milestone differ from a currently overdue unmet milestone (0.7975ms)
+✔ SCENE-09 / 10: preparation is a parallel four/five-day stage with separately recorded production and handover (3.853833ms)
+✔ SCENE-11 / 12: sample date is pickup plus three; failed or unsubmitted sample does not move the return deadline (4.352625ms)
+✔ SCENE-14: stock 600 meters advances before the independent 900-meter purchase batch, with three work/handover records each (3.266416ms)
+✔ SCENE-15: known 600-meter receipt is preserved while the 900-meter purchase remains unknown and currently late (1.266ms)
+✔ SCENE-20: partial factory handover retains 2400 sleeve pieces received and 600 disputed without closing the handover or converting to garments (1.571417ms)
+✔ SCENE-01: completed preparation/material delays remain history while sleeve work has a current 600-piece gap (1.412ms)
+✖ PREP / CRAFT: auxiliary work is three days each; bulk dye/print/wash and handovers have no invented SLA (6.071958ms)
+✔ SOURCE / UI: document IDs, related ownership, native routes and source summaries are coherent without read mutation (27.295416ms)
+✔ SOURCE: there are no future actual events or reversed processing/handover times in the fixed demonstration (3.665542ms)
+✔ SCENE late: expanded accepted diagram retains its business nodes and source documents (0.898125ms)
+✔ SCENE normal: expanded accepted diagram retains its business nodes and source documents (1.184792ms)
+✔ SCENE complete: expanded accepted diagram retains its business nodes and source documents (0.778834ms)
+✔ SCENE completeLate: expanded accepted diagram retains its business nodes and source documents (1.323542ms)
+✔ SCENE completeUnknown: expanded accepted diagram retains its business nodes and source documents (0.719792ms)
+✔ SCENE partial: expanded accepted diagram retains its business nodes and source documents (0.825125ms)
+✔ SCENE reordered: expanded accepted diagram retains its business nodes and source documents (0.940375ms)
+✔ SCENE reachedLate: expanded accepted diagram retains its business nodes and source documents (0.857792ms)
+✔ SCENE positioning: expanded accepted diagram retains its business nodes and source documents (0.289042ms)
+✔ SCENE prepPending: expanded accepted diagram retains its business nodes and source documents (0.314333ms)
+✔ SCENE sampleLate: expanded accepted diagram retains its business nodes and source documents (0.866791ms)
+✔ SCENE samplePending: expanded accepted diagram retains its business nodes and source documents (0.864834ms)
+✔ SCENE fullContract: expanded accepted diagram retains its business nodes and source documents (0.927417ms)
+✔ SCENE materialBatches: expanded accepted diagram retains its business nodes and source documents (0.474583ms)
+✔ SCENE materialPartial: expanded accepted diagram retains its business nodes and source documents (1.026583ms)
+✔ SCENE live: expanded accepted diagram retains its business nodes and source documents (1.722375ms)
+✔ SCENE unknown: expanded accepted diagram retains its business nodes and source documents (0.240166ms)
+✔ SCENE unassigned: expanded accepted diagram retains its business nodes and source documents (2.447125ms)
+✔ SCENE sameFactory: expanded accepted diagram retains its business nodes and source documents (2.230375ms)
+✔ SCENE handoverPartial: expanded accepted diagram retains its business nodes and source documents (1.532458ms)
+✔ PREP-005: supplemental scene retains disabled and change-ended documents without creating active clocks or blocking valid preparation (0.637375ms)
+✔ timing documents resolve directly at their native route with the same shared static facts (428.759542ms)
+✔ source detail does not resolve unrelated records or a registered record at a wrong module path (0.156375ms)
+✔ a handover belongs to its original outgoing work rather than a linked next process (0.115417ms)
+✔ contract details retain natural-day deadlines and late achievement history (1.835334ms)
+✔ partially received material retains unknown purchase receipt instead of inventing zero or full stock (0.301125ms)
+✔ production preparation details include parallel requirements and BOM quantities (0.564083ms)
+✔ work remaining quantity follows known required and completed quantities in the same unit (0.624792ms)
+✔ missing factory sample uses the recorded requirement date and keeps sample approval outside return milestones (0.154666ms)
+✔ purchase-only scenario resolves to the existing merchandise purchase and pending-purchase backlink (0.113875ms)
+✔ finished-goods detail distinguishes latest partial receipt from full completion time (0.342625ms)
+✔ unknown timing standard is amber verification, never a red confirmed-overdue result (0.227ms)
+✔ MIGRATE-001: direct production/pending detail paths have their own active tab identity; discarded tasks/examples/team details are absent (0.515083ms)
+✔ MIGRATE-001: stored DDS tabs prune discarded addresses, retain unrelated tabs and correct the live production title without touching input (0.476875ms)
+(node:65691) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ VERIFY-003: scoped reads preserve pending/voided sources and defensive copies (3.864667ms)
+✔ VERIFY-003: metadata lookup reflects registry changes and returns independent locations (5.490417ms)
+✔ 备份恢复不能借原票编号伪造另一种面料的交出回执 (0.7475ms)
+✔ 换片布固定演示：四个新增生产单覆盖部分打印、补打、交出备用及失效票 (0.914334ms)
+✔ 部位票缓存感知已提交事件版本，重复读取同一版本不失效 (0.438334ms)
+✔ 按名称排朴，空名拒绝，同名不同编码/颜色保留独立身份 (0.512584ms)
+✔ 初始每面料一张，重复分配幂等；新增与补打不混淆 (0.593417ms)
+✔ 改派未交票失效，已交历史不抹除，新范围递增序号 (1.729292ms)
+✔ 部分出纸仅确认勾选票；重复确认不增加次数，内容变化拒绝 (0.302625ms)
+✔ 整个批次多袋并集检查，非本次袋不可借用，顺序无关 (0.592542ms)
+✔ 同任务同工厂历史可满足；不同任务或换厂必须另交 (0.208833ms)
+✔ 三方自行裁剪排除，资料缺失与无需面料分开判断 (0.065ms)
+✔ 混装按类型和单位分项，换片布不能拆成非5 Yard (0.127625ms)
+✔ 局域网 HTTP 的摘要与原生 SHA-256 相同，既有票号不变化 (10.4375ms)
+(node:65698) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 混装打印保留裁片矩阵，捆条和换片布独立附页，不合并单位 (1.186417ms)
+✔ 纯换片布袋可生成货物标识，不制造尺码和部位 (0.133667ms)
+✔ 混装标签拒绝换片布错误长度、作废票和混生产单 (0.256333ms)
+✔ 旧业务存储不可读时仍用已提交的原装袋周期打印三类货物 (0.453792ms)
+✔ 生产单按单记录；变更一单不重写其他单和任务 (2.75475ms)
+✔ 运行任务独立保存覆盖、拆分、合并、改派及序号，往返保留身份 (0.455875ms)
+✔ 有效分配索引、独立记录、审计及序号完整往返，拒绝重复身份和损坏格式 (0.720916ms)
+✔ 拒绝空字符串，不吞掉损坏记录 (0.136875ms)
+✔ 拒绝数组根，不吞掉损坏记录 (0.093917ms)
+✔ 拒绝生产单数组实体，不吞掉损坏记录 (0.081583ms)
+✔ 拒绝生产单空编号，不吞掉损坏记录 (0.105125ms)
+✔ 拒绝生产单损坏快照，不吞掉损坏记录 (0.151083ms)
+✔ 拒绝任务覆盖数组，不吞掉损坏记录 (0.16625ms)
+✔ 拒绝任务覆盖身份，不吞掉损坏记录 (0.291875ms)
+✔ 拒绝拆分来源身份，不吞掉损坏记录 (0.099959ms)
+✔ 拒绝拆分子项损坏，不吞掉损坏记录 (0.281083ms)
+✔ 拒绝合并明细损坏，不吞掉损坏记录 (0.114375ms)
+✔ 拒绝改派任务身份，不吞掉损坏记录 (0.077667ms)
+✔ 拒绝不安全序号，不吞掉损坏记录 (0.065291ms)
+✔ 拒绝重复Map键，不吞掉损坏记录 (0.104125ms)
+✔ 拒绝current非数组，不吞掉损坏记录 (0.060709ms)
+✔ 拒绝current孤儿，不吞掉损坏记录 (0.060583ms)
+✔ 拒绝current跨任务，不吞掉损坏记录 (0.054042ms)
+✔ 拒绝current重复引用，不吞掉损坏记录 (0.056584ms)
+✔ 拒绝审计孤儿，不吞掉损坏记录 (0.05525ms)
+✔ 已保存实体损坏编号、缺少meta或重复meta不能伪造正常空源 (0.411375ms)
+✔ 未登记key及空白JSON拒绝；null明确代表没有覆盖 (0.114417ms)
+✔ 备份校验拒绝未知来源集合、伪造迁移身份及丢失检查点实体 (1.934958ms)
+✔ 四类静态运行任务的删除标记完整往返，拒绝混入业务字段或假删除 (0.516667ms)
+✔ 分配副产物按实体保存；合同、样衣及PPIC责任保留独立序号 (1.46475ms)
+✔ 拒绝缺失渲染必需快照的合同，防止迁移清源后才暴露损坏 (0.080542ms)
+✔ 关联实体损坏拒绝 unknown:X (0.051208ms)
+✔ 关联实体损坏拒绝 material-context:A (0.031583ms)
+✔ 关联实体损坏拒绝 return-sequence:value (0.033958ms)
+✔ 关联实体损坏拒绝 sla-current:T (0.026916ms)
+✔ 生产创建匹配来源按生产单身份校验并完整恢复 (0.220125ms)
+✔ 工厂结束事实只允许明确任务、操作人和时间 (0.767958ms)
+✔ 既有招标定标记录保留真实来源编号并校验价格与操作人 (0.168125ms)
+✔ 开工交出单头只包含首次零交出事实，拒绝伪造数量和身份 (0.171875ms)
+(node:65700) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 同分配的同名 A/B 面料分别新增和打印；第二面料不被第一范围替代 (76.886459ms)
+(node:65701) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 分配 SKU 的需料不同；多尺码共料去重，名称含朴排除 (3.0945ms)
+✔ 完整但全是朴为空集合；缺颜色映射或空名称属于资料错误 (0.417916ms)
+✔ 同名不同编码面料不混并；BOM 身份歧义阻断 (0.217042ms)
+✔ 交出回执从快照保留三种明细，Yard 与米不进入裁片数量 (0.65075ms)
+✔ 回执任务读取保持数组身份；只在事实变更后重新投影 (0.231208ms)
+✔ 款式需料读取的配置查询只返回独立副本，不能污染下次来源读取 (0.813958ms)
+✔ 来源读取失败时不能把不可用哨兵值当作稳定分配继续保存 (0.350833ms)
+✔ 历史裁片实交保留原数量与归属，其他集合不混入 (1.030625ms)
+✔ 历史缺原版本、交错明细、负数量或记录身份错误均阻断恢复 (0.569875ms)
+✔ 面辅料单不可写入退役裁片历史，未完成迁移标记不可恢复 (0.240292ms)
+✔ 并发调用复用同一个模块加载 Promise，成功后继续复用结果 (0.652125ms)
+✔ 模块加载失败后清空缓存，下一次调用可以重试 (0.242792ms)
+(node:65704) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ CONTRACT-005: native legacy task fixture exposes the actual missing allocation date at PDA and progress board entries (1054.843ms)
+(node:65705) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ CONTRACT-002: later factory acceptance retains its fact without postponing business allocation deadlines (0.767541ms)
+✔ CONTRACT-002: missing business allocation time produces a visible verification gap instead of acceptance-based deadlines (0.1525ms)
+✔ CONTRACT-002: historical acceptance-based snapshots remain intact but cannot establish current contract deadlines (0.434958ms)
+✔ CONTRACT-002: shared PDA and progress board show missing allocation dates without claiming zero-receipt tasks are complete (1.13675ms)
+✔ CONTRACT-002: confirmed dates still show the next contractual node and complete only after all 100 pieces are received (0.364ms)
+✔ CONTRACT-002: outsourcing tracking uses allocation dates for tender tasks and marks missing dates as unverified (16.4695ms)
+(node:65706) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 刷新时静态样衣命令重建不重放到已移交的持久用户状态，构造失败恢复输入 (4.523125ms)
+✔ 独立打印外壳只命中完整生产确认单打印路由 (0.515583ms)
+✔ 既有固定打印路由仍使用独立打印外壳 (0.090834ms)
+(node:65709) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ TP-ID-002: FCS live hydration cannot change the static 26 identities or their numeric sequence (8.376875ms)
+✔ TP-DATA-001: baseline has 20 actual complete formal versions and three plus three draft review states (1.282542ms)
+✔ TP-ROUTE-001: all twenty formal routes have three resolvable dye→print→wash chains and five two-craft pieces (172.928125ms)
+✔ TP-ID-001: ID is persisted independent of ordering and next identity uses the global maximum (1.238792ms)
+✔ TP-LEGACY-001: exact old static copies project read-only, preserve source identities and preserve changed records or content (3.304416ms)
+✔ TP-LEGACY-002: repository reads old demo without writes; new legacy-source creation is rejected (325.941ms)
+✔ TP-LEGACY-003: early release content upgrades after person maintenance but genuine technical edits remain intact (8.261792ms)
+✔ TP-PAGE-001: route rendering preserves stored IDs and hides objects without additional processing (106.908458ms)
+✔ TP-PERSON-001: valid maintenance retains published content, records a log, and rejects wrong-role candidates (332.954709ms)
+✔ technical version working-copy reads do not write and failed staging preserves data (first visit) (314.418167ms)
+✔ technical version working-copy reads do not write and failed staging preserves data (saved data) (387.376042ms)
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+✔ 五类页面共享采购到交出的串联 Mock，重复初始化不重置执行事实 (227.661041ms)
+✔ 补齐串联 Mock 时压缩历史大签名，避免浏览器存储接近上限导致页面路由失败 (218.389958ms)
+✔ 三个中央工厂在组织目录与执行工厂中身份一致且仅出现一次 (0.433416ms)
+✔ 花边角色与采购映射归属TMF但供应方仍保留独立身份 (0.069666ms)
+✔ 橡筋定长切割仍归SPF，不成为TMF织带截断任务 (0.086ms)
+✔ 旧浏览器组织记录迁移后不与权威TMF并存且保留已有联系人 (2.366291ms)
+(node:65714) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 连续织带实际650米交出→648+2实收→染色可用650，仓库和用料保持米制且无公斤换算 (12.34675ms)
+✔ 连续长度口径不可用于纱线/码制，普通辅料仍要求实际称重 (4.163208ms)
+✔ 原生连续辅料染色650→640：实际工厂实收及用料驱动加工，使用对象对应蓝色织带参考图 (420.37275ms)
+✔ 织带与绳子参考档案接入实际物料库，保留图片来源和未确认尺寸，不替换橡筋 (140.257792ms)
+✔ 同分钟新建不同幅宽织带和绳径主档不共用 SPU 身份，SKU 保持各自父档与主单位 (23.88ms)
+✔ TMF半成品SKU按SPU→潘通色号→颜色→花型生成，长度和端头不进入SKU (0.156667ms)
+(node:65719) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ TMF发布采用链：技术包发布门禁→审核发布→启用→生产单采用→生成织带加工需求 (1514.817333ms)
+✔ TMF发布门禁：含织带截断工序但规格未补齐的采用版本不能发布 (423.354959ms)
+✔ 正式生产路线只关联相邻同BOM同SKU的染色→印花，不生成数量或修改来源 (0.8405ms)
+✔ 跨单/版本/工序/用途/SKU/单位、缺工厂与已有其他接收单都不能接续 (0.248708ms)
+✔ 印花连续辅料仅接同版本同BOM的直接截断节点，不修改SKU和数量 (0.64025ms)
+✔ 染色来源已绑定印花时拒绝直接截断，不读取不存在的顶层字段 (0.875875ms)
+✔ TMF V1 原型范围、工厂身份和现场默认参数已冻结 (0.644ms)
+✔ TMF 风险动作默认要求主管与二次确认，采购行身份不可丢失 (0.059916ms)
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0007' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0009' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0009' }
+{"scenario":"N02","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":1300,"productionReceived":1000,"warehouseContinuousM":30,"netCutM":1260,"lossM":10,"headUnit":"个","headReceived":2020,"headRemaining":15}
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0010' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0010' }
+{"scenario":"N03","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":60,"productionReceived":100,"warehouseContinuousM":9,"netCutM":50,"lossM":1,"headUnit":"个","headReceived":202,"headRemaining":1}
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0011' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0011' }
+{"scenario":"N04","scope":"业务动作主链含纱线重量账；含端头辅材采购实收；不含PCS发布采用页面、纱线采购上游","purchaseReceived":100,"productionReceived":50,"warehouseContinuousM":34,"netCutM":65,"lossM":1,"headUnit":"kg","headReceived":0.2,"headRemaining":0.04}
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0012' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0012' }
+{"scenario":"B06","scope":"规范数量动作链；塑料头从仓库实收事实开始，补购基础生产未虚构纱线配方；不代表全部页面验收","continuous":9,"productionReceived":1000,"scrapped":100,"scrappedMeters":120,"loss":11,"metalRemaining":15,"plasticRemaining":2}
+{"scenario":"N05","mergedBatch":"FULL-N05-MERGED","purchaseReceivedM":120,"mergedIssuedM":102,"mergedProducedPieces":200,"productionReceivedByOrder":[100,100],"warehouseContinuousM":19,"lossM":1,"returnedM":1}
+{"scenario":"B17","mergedBatch":"FULL-B17-MERGED","purchaseReceivedM":120,"mergedIssuedM":102,"mergedProducedPieces":200,"productionReceivedByOrder":[100,100],"warehouseContinuousM":19,"lossM":1,"returnedM":1}
+{"scenario":"N01","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":1000}
+{"scenario":"N02","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":1300}
+{"scenario":"N03","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":60}
+{"scenario":"N04","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":100}
+{"scenario":"N05","rawReceivedKg":12,"consumedKg":10,"returnedKg":1,"factoryRemainingKg":1,"semiFinishedReceivedM":120}
+{"scenario":"PRINTBACK-source-fixture","nativePrint":{"inputM":650,"outputM":630,"lossM":20,"outputImage":"MISSING_BLOCKED"},"sourceDispatched":630,"actualReceived":630,"cutMeters":620,"lossMeters":2,"returnedMeters":8,"baseLeftMeters":350,"scope":"原生印花650→630已独立重放；下游630米交出仍为专项夹具，不替代缺图正式交出或N01完整上游"}
+{"scenario":"B09-downstream-recovery","basePhysicalM":350,"otherReservedM":350,"baseAvailableM":0,"processedReturnM":8,"productionPieces":[400,600],"scope":"含实际占用失败、释放、发料及印花回料后全链；原生印染20米损耗未执行，不是完整B09通过"}
+{"scenario":"B05-cut-recovery","received":[400,600],"frozenPieces":10,"frozenLengthMm":500,"continuous":2.5,"cutLoss":2.5,"upstreamScope":"印花630米已交出为外部专项夹具，不冒充原生印染20米损耗或全N01"}
+(node:65723) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N01～N05：通过现有 PMS 入口下达，每条采购链从零执行到仓库实收；交出不提前增加库存 (12.283542ms)
+✔ 半成品加工没有原料实收和足量耗用时禁止产出，补齐同一原料链后才能填报 (4.1565ms)
+✔ MOCK-007：规范场景使用同一采购行、基础单和生产需求身份，不复制孤立页面 Mock (2.597584ms)
+✔ MOCK-009：重置只重载隔离的运行态，不清除用户浏览器数据 (0.34025ms)
+✔ B01/B03：短收保留在途和采购缺口；重复扫描、生成和刷新不双记 (2.01125ms)
+✔ B02/B04：多收、错 SKU、错仓和无权限动作不改变任意下游数量；恢复后正常收齐 (2.448583ms)
+✔ OVR-001～003：超产与超收须主管二次确认，计划不扩、幂等且下游一致 (5.243416ms)
+✔ MASTER-001～003/005：采购与端头采购映射原型内建主档，缺失阻断且身份稳定 (8.474834ms)
+✔ MASTER-004：映射前历史记录保留原快照与未映射标记，不批量改写 (0.583458ms)
+✔ TERM-001～005：取消后终止处置台逐项决定，未处置不得结案且数量对账守恒 (13.0275ms)
+✔ 终止连续余料：实物余量只扣一次报废，拒绝超量且剩余数量可继续处置 (8.303042ms)
+✔ GAP-TERM-004：上游未收与生产在途分别确认去向，不可重复登记 (0.727625ms)
+✔ DYE-001～003：染色直交织带厂按实际交出分配实收，追溯原染色单且不重复扣料 (408.659792ms)
+✔ 采购追加：未开始同步计划，已执行保留原计划和实物并处理变更 (5.574292ms)
+✔ B21：保存失败不报成功、不留部分库存；成功后刷新读取同一采购和收货事实 (1.356375ms)
+✔ 采购→两种规格截断→拆包回仓→分配发料→生产实收：短收保留缺口，库存及采购不双记 (23.253292ms)
+✔ B09：其他需求占用400米时不能再占650；释放50后恢复，错误发料不改变库存 (5.39575ms)
+✔ 需求来源：同尺码不同成衣SKU分别保留，BOM适用范围生效，错误快照和重复工序阻断 (0.431208ms)
+✔ 待打头条料不计合格产出；超公差实物记不良且照实扣下料当量，未实收不可截断 (32.453333ms)
+✔ N04：采购100米→单端硅胶按kg实耗→回仓发料→生产实收50根，连续料剩34米 (32.755417ms)
+✔ B15：截断后取消保留1000根在制和1260米当量，释放未发占用并只退连续余料 (24.831458ms)
+✔ 已回仓部分发料后取消：释放未发分配，冻结实存，已发在途保留且实收不恢复需求 (17.278875ms)
+✔ N02规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (79.068708ms)
+✔ N03规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (59.455292ms)
+✔ N04规范数值：采购→实际加工→生产实收及米料/辅材退仓整链 (66.016916ms)
+✔ B06规范恢复：误装100根报废→补购100米并补做→生产实收1000根，三套实物账守恒 (132.704292ms)
+✔ N05合并批：120米采购→102米合并投入→两生产单各实收100，B17独立副本拆100为40+60 (86.6205ms)
+✔ B17合并批：120米采购→102米合并投入→两生产单各实收100，B17独立副本拆100为40+60 (106.2775ms)
+✔ N01～N05基础原料重量账：源仓实收→发出→工厂实收→耗用/余料→原仓实收，与米制产出独立 (236.777958ms)
+✔ 主生产单暂停/取消直接限制织带执行，已发实收保留且取消处置释放未发占用 (67.571958ms)
+✔ 冷启动及旧标签页均读取已保存主单限制，损坏来源不默许执行 (0.304416ms)
+✔ 印花交出按两种长度分配，原单分次实收唯一记账，随后截断/回仓/领料守恒 (390.496792ms)
+✔ 主单离页保存保留其他页取消及新增单，同单并发编辑和存储失败不覆盖 (2.8725ms)
+✔ 技术包换版后旧规格冻结，已交出的仓库及生产在途可实收且不改旧长度 (62.449834ms)
+✔ 未发料换版释放旧占用，新需求从备料至生产实收，旧预览和已执行重算阻断 (99.594208ms)
+✔ 已加工换版：旧200条冻结并释放未发分配，新550/700mm需求实收1000条，旧预览失效且库存守恒 (124.640625ms)
+✔ B05实际410/590错配：短条余量冻结，连续余料8米补10条700mm至两规格生产实收 (233.036375ms)
+✔ 加工计划时间独立保存：明确时区、并发版本阻断、实际节点不倒推开完工且库存不变 (25.870083ms)
+✔ 加工单费用按技术包需求计价：单位、币种和版本可追溯，库存与实收不被费用动作改变 (21.650959ms)
+✔ 织带加工单没有接单或开工门禁，投入实收后可直接加工填报 (52.376541ms)
+✔ B23未执行采购1000减900：版本留痕、旧预览阻断、重新确认接受后900实际生产实收 (55.362875ms)
+✔ B24实收1000退100：仓库交出与TMF分次实收独立，原收保留且净900后减量 (89.741958ms)
+✔ 采购取消门禁：无执行事实可取消，已收货或已生产必须先处置不能直接结案 (49.253542ms)
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0007' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0007' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0007' }
+[PMS_IDB_UNAVAILABLE] put 跳过,数据仅保留在内存 { store: 'pmsMaterialPurchaseOrderDeltas', key: 'CGF-2026-0007' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+[PMS_IDB_LOAD_FAILED] { message: '当前浏览器不支持 IndexedDB,PMS 业务数据无法持久化。' }
+✔ PMS采购实际仓库实收与原料库存一次保存；分批、刷新、原料使用和退回均不重复履约 (151.675167ms)
+✔ 历史手工到货及不支持的单位不能直接变成投入料可用库存 (1.135292ms)
+✔ 首次实收前供应商确认与关闭可刷新恢复，保存失败和损坏存储不会覆盖状态 (0.863667ms)
+✔ N01采用路线按染色→印花关联原单，多尺码不重复列工序，不修改印染数量 (1.166291ms)
+✔ 旧版本、错误SKU、码制单位、取消或变更待处理均不作为有效关联 (0.252917ms)
+✔ 同号不同生产单或BOM不得关联，重复来源不静默选择，混合快照阻断 (0.269875ms)
+✔ 编辑器按尺码保留规格，截断打头不新建SKU，重复保存沿用节点身份 (2.964834ms)
+✔ 无印染要求时 TMF 路线只生成截断节点，不凭空生成染色或印花节点 (0.229125ms)
+✔ 前序印染产出SKU作为截断投入；保留独立橡筋工艺，移除打头后下游连接截断 (0.664125ms)
+✔ 未明确打头、错误辅料BOM、无半成品和不合法前序不能生成可执行路线 (0.2635ms)
+(node:65727) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ N01：400 条 50CM 和 600 条 70CM 分行计算，共 620 米；未增加 SKU (2.304667ms)
+✔ 缺少尺码数量、非整数条数、公差或测量条件时不猜测需求 (0.879625ms)
+✔ B07：未选择打头、缺少端头方式或辅材不能确认；支持两端不同端头 (0.511917ms)
+✔ N04/B08：硅胶按重量且必须有覆盖长度，不作为独立金属头计数 (0.175584ms)
+✔ B18：打头只能承接对应截断条料，不能换 SKU、换长度或重新领连续料 (0.552667ms)
+✔ N05：规格相同可以合并，但尺码、用途和需求身份不靠物理规格键代替 (0.120208ms)
+✔ B14：修改后续版本端头要求不能污染生产单历史快照 (0.561625ms)
+✔ 发布门禁：含织带截断工序的技术包必须规格完整且规格仍关联当前 BOM (0.167708ms)
+(node:65728) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 已提交新周期可由真实袋档案进入历史，错误袋和未知周期仍拒绝 (0.93475ms)
+(node:65729) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ REPLACEMENT_FABRIC 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (21.585458ms)
+✔ REPLACEMENT_FABRIC 未绑定票不猜任务，可由用户明确同批加入 (6.646833ms)
+✔ REPLACEMENT_FABRIC old-factory 旧绑定不可作为当前任务沿用 (6.032833ms)
+✔ REPLACEMENT_FABRIC other-order 旧绑定不可作为当前任务沿用 (6.342917ms)
+✔ BINDING_STRIP 已绑定有效同生产单任务保留归属，不按部位裁片SKU消除 (6.135042ms)
+✔ BINDING_STRIP 未绑定票不猜任务，可由用户明确同批加入 (6.024666ms)
+✔ BINDING_STRIP old-factory 旧绑定不可作为当前任务沿用 (5.827417ms)
+✔ BINDING_STRIP other-order 旧绑定不可作为当前任务沿用 (7.458541ms)
+ℹ tests 600
+ℹ suites 0
+ℹ pass 599
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 13499.985
+
+✖ failing tests:
+
+test at tests/unit/production-timing-scenarios.test.ts:1:19361
+✖ PREP / CRAFT: auxiliary work is three days each; bulk dye/print/wash and handovers have no invented SLA (6.071958ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /开始时间未取得，无法计算用时/. Input:
+  
+  '<div class="doc-heading"><div><span class="demo-label">演示单据</span><h2>后道交货单 · 演示FF-post-SWT-A-01-0086-A-04-qc-4-delivery</h2><p>PFOS · 后道</p></div><span class="badge warn">尚未交出</span></div><div class="doc-identity"><strong>PO-202610-0086</strong><span>演示款蓝白印花衬衫 · SPU-SHIRT-086</span><span>对象／范围：A厂 SWT-A-01-0086 · 批次 A-04-qc-4</span></div><div class="doc-quantities"><div><small>应交</small><b>50件</b></div><div><small>实交</small><b>0件</b></div><div><small>实收</small><b>0件</b></div></div><div class="table-wrap"><table><thead><tr><th>关键事实</th><th>时间</th></tr></thead><tbody><tr><td>后道交出</td><td>尚未发生</td></tr><tr><td>成衣仓接收</td><td>尚未发生</td></tr></tbody></table></div><div class="clock-summary">交接尚未交出 · 未开始计时<br><small>尚未开始计时；时效要求未确认时不判断正常或超时</small></div><div class="fact"><strong>执行与交接确认</strong>后道李梅 → 成衣仓周婷</div><div class="fact"><strong>业务说明</strong>交货指后道交给成衣仓，交出与接收分别记录；不跟进消费者发货。交接标准未确认，仅展示用时。</div><div class="doc-related"><strong>关联单据</strong><div><button class="doc-link" data-document="PO-202610-0086/full-flow/post-SWT-A-01-0086-A-04-qc-4-recheck" aria-label="查看单据 演示FF-post-SWT-A-01-0086-A-04-qc-4-recheck">▤ 后道复检单 · 演示FF-post-SWT-A-01-0086-A-04-qc-4-recheck</button></div></div><div class="fact"><strong>任务与加工范围</strong>SWT-A-01-0086 · A-04-qc-4 · 车缝＋烫包 · 后道厂</div>'
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/production-timing-scenarios.test.ts:341:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '<div class="doc-heading"><div><span class="demo-label">演示单据</span><h2>后道交货单 · 演示FF-post-SWT-A-01-0086-A-04-qc-4-delivery</h2><p>PFOS · 后道</p></div><span class="badge warn">尚未交出</span></div><div class="doc-identity"><strong>PO-202610-0086</strong><span>演示款蓝白印花衬衫 · SPU-SHIRT-086</span><span>对象／范围：A厂 SWT-A-01-0086 · 批次 A-04-qc-4</span></div><div class="doc-quantities"><div><small>应交</small><b>50件</b></div><div><small>实交</small><b>0件</b></div><div><small>实收</small><b>0件</b></div></div><div class="table-wrap"><table><thead><tr><th>关键事实</th><th>时间</th></tr></thead><tbody><tr><td>后道交出</td><td>尚未发生</td></tr><tr><td>成衣仓接收</td><td>尚未发生</td></tr></tbody></table></div><div class="clock-summary">交接尚未交出 · 未开始计时<br><small>尚未开始计时；时效要求未确认时不判断正常或超时</small></div><div class="fact"><strong>执行与交接确认</strong>后道李梅 → 成衣仓周婷</div><div class="fact"><strong>业务说明</strong>交货指后道交给成衣仓，交出与接收分别记录；不跟进消费者发货。交接标准未确认，仅展示用时。</div><div class="doc-related"><strong>关联单据</strong><div><button class="doc-link" data-document="PO-202610-0086/full-flow/post-SWT-A-01-0086-A-04-qc-4-recheck" aria-label="查看单据 演示FF-post-SWT-A-01-0086-A-04-qc-4-recheck">▤ 后道复检单 · 演示FF-post-SWT-A-01-0086-A-04-qc-4-recheck</button></div></div><div class="fact"><strong>任务与加工范围</strong>SWT-A-01-0086 · A-04-qc-4 · 车缝＋烫包 · 后道厂</div>',
+    expected: /开始时间未取得，无法计算用时/,
+    operator: 'match',
+    diff: 'simple'
+  }

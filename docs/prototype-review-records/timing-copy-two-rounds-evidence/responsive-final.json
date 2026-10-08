@@ -1,0 +1,1682 @@
+[
+  {
+    "scenario": "late",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 88.90000000596046
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 88.90000000596046
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.29999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "normal",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.5
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 42.29999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "complete",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 111.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 111.5
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 46.400000005960464
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "completeLate",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 117.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 117.5
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.8999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "completeUnknown",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 127.90000000596046
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 127.90000000596046
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 47.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "partial",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.70000000298025
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.70000000298025
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.400000005960464
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "reordered",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 54.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "reachedLate",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0096",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.5
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 51.6000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0096",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "positioning",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 125.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0097",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 125.1000000089407
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0097",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "prepPending",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 111.90000000596046
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0098",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 111.90000000596046
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0098",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "sampleLate",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 89.3999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0099",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 89.3999999910593
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 51.19999998807907
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0099",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "samplePending",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 110.19999998807909
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0100",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 110.19999998807909
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 50.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0100",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "fullContract",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 119.70000000298025
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 119.70000000298025
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 52.8999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "materialBatches",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 95.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0102",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 95.5
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.099999994039536
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0102",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "materialPartial",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 118.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0103",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 118.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0103",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "live",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.20000000298025
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0086",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 124.20000000298025
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 54.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0086",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "unknown",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 129.3999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/pending-purchases/240776",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 129.3999999910593
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/pending-purchases/240776",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "unassigned",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 99.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0087",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 99.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 52.80000001192093
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0087",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "sameFactory",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 118.59999999403954
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0088",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 118.59999999403954
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 43.8999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0088",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "handoverPartial",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 191.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0105",
+      "viewport": [
+        1280,
+        720
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 191.70000000298023
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 44.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0105",
+      "viewport": [
+        1280,
+        720
+      ]
+    }
+  },
+  {
+    "scenario": "late",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 92.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 92.1000000089407
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.900000005960464
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "normal",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 107.09999999403954
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 107.09999999403954
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 51.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "complete",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 123
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 123
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 44.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "completeLate",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 94.40000000596046
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 94.40000000596046
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 49.3999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "completeUnknown",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 111.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 111.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.79999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "partial",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 94.59999999403954
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 94.59999999403954
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.8999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "reordered",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 105.79999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 105.79999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 44.3999999910593
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "reachedLate",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 141.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0096",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 141.1000000089407
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 53.29999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0096",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "positioning",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 97.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0097",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 97.1000000089407
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0097",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "prepPending",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0098",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 44.400000005960464
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0098",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "sampleLate",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 127.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0099",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 127.1000000089407
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 51.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0099",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "samplePending",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 113
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0100",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 113
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 53.79999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0100",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "fullContract",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 140.79999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 140.79999999701977
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 43.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "materialBatches",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0102",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.900000005960464
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0102",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "materialPartial",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 114.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0103",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 114.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.29999999701977
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0103",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "live",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 108.29999999701975
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0086",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 108.29999999701975
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 52.599999994039536
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0086",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "unknown",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 125.09999999403954
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/pending-purchases/240776",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 125.09999999403954
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.70000000298023
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/pending-purchases/240776",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "unassigned",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 157.5
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0087",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 157.5
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 53.1000000089407
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0087",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "sameFactory",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 100.19999998807909
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0088",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 100.19999998807909
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 55.400000005960464
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0088",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  },
+  {
+    "scenario": "handoverPartial",
+    "collapsed": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.40000000596046
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0105",
+      "viewport": [
+        1024,
+        768
+      ]
+    },
+    "expanded": {
+      "brokenImages": [],
+      "entry": "/assets/index-CB9bGVLs.js",
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 126.40000000596046
+        },
+        {
+          "action": "phase-expand",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 45.80000001192093
+        }
+      ],
+      "overflow": false,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0105",
+      "viewport": [
+        1024,
+        768
+      ]
+    }
+  }
+]

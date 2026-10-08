@@ -1,0 +1,5322 @@
+[
+  {
+    "type": "大货染色加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 153.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 136.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 138.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 137.70000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 133.80000001192093
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 131.69999998807907
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 132.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货染色加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 133.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0101%2Fwo-F01-dye",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 187.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 138.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.19999998807907
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "大货印花加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.19999998807907
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/printing/work-orders/PO-202610-0101%2Fwo-F01-print",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 176.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 133.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "水洗加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/washing/work-orders/PO-202610-0101%2Fwo-F01-wash",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 151.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁剪单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-orders/PO-202610-0101%2Fcut-CUT-F-01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 152
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.19999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.19999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 189.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "绣花加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0101%2Faux-CUT-F-01-emb",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 151.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "打揽加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0101%2Faux-CUT-F-01-smock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 152.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "模版机加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0101%2Faux-CUT-S-01-template",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 151.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "裁片放行记录",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/cutting/cut-piece-release/PO-202610-0101%2Frel-1000",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 152.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.69999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝任务分配合同",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/dispatch/workbench/PO-202610-0101%2Ftaskdoc-SWT-A-01-0101",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 130.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 125.69999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "车缝执行单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-sew",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 129.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.69999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "工厂烫包执行单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-A-01-0101-pack",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 158.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 113.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "承包裁剪执行单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/sewing-outsourcing/tasks/PO-202610-0101%2Ffull-flow%2Fexecution-SWT-B-01-0101-cut",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 150.19999998807907
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.69999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道实收记录",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/factory-returns/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-receive",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 152.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 191.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 157.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.30000001192091
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.30000001192091
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 153.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 151.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "成衣仓入库单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/finished-inbound/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-%E5%B7%B2%E5%85%A5%E5%BA%93-2-inbound",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 125.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 140.80000001192093
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 145.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 141.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 140.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 140.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 144.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 140.19999998807907
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 140.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "生产准备单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 140.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fprep-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 172.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 145.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139.80000001192093
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 139.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "BOM物料明细",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 138.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0101%2Fbom-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 151.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 117.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "设计改款任务",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/design-revision/PO-202610-0101%2Fdr-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 143.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 117.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "首单样衣任务",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/first-sample/PO-202610-0101%2Fsample-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 142.79999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.80000001192091
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 117.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/plate-making/PO-202610-0101%2Fsize-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 114.79999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 122.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.40000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 117.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 118.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "技术包确认任务",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-task-086",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 116.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 121.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 143.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 117.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 120.19999998807909
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.20000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "正式技术包",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 119.6000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pcs/production-preparation/tech-pack/PO-202610-0101%2Ftp-086-v11",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 172
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 137.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 166.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 136.70000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 143.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.30000001192093
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 136.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 136.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料调拨单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 128.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/stock/fabric-transfer/PO-202610-0101%2Ftr-F01-stock",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 204.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 123.70000000298025
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 133.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 124.5
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.20000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "物料采购单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.09999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0101%2Fmp-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 152.1000000089407
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 136.70000000298023
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.90000000596046
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "cold HTTP cache disabled",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.59999999403954
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "refresh",
+    "sample": 1,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 125.29999999701975
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "refresh",
+    "sample": 2,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.8999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "refresh",
+    "sample": 3,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 134.3999999910593
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "refresh",
+    "sample": 4,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  },
+  {
+    "type": "原料入库单",
+    "mode": "refresh",
+    "sample": 5,
+    "brokenImages": [],
+    "entry": "/assets/index-7LvFuhsC.js",
+    "measurements": [
+      {
+        "action": "native-route",
+        "elapsedMs": 135.29999999701977
+      }
+    ],
+    "overflow": false,
+    "url": "http://localhost:4179/wls/raw/inbound-list/PO-202610-0101%2Fin-F01",
+    "viewport": [
+      1280,
+      720
+    ]
+  }
+]

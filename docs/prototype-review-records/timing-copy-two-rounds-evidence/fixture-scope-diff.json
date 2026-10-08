@@ -1,0 +1,946 @@
+[
+  {
+    "path": "/12/branch/craftScope",
+    "before": null,
+    "after": "主裁床1000件对应裁片（A800＋C200）；B500承包裁剪见具体车缝执行"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-B-01-emb/object",
+    "before": "CUT-B-01 后片 · M/L/XL",
+    "after": "CUT-B-01 后片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-B-01-emb/quantities/已完成",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-B-01-emb/quantities/应加工",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-B-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-emb/object",
+    "before": "CUT-F-01 前片 · M/L/XL",
+    "after": "CUT-F-01 前片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-emb/quantities/已完成",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-emb/quantities/应加工",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-smock/object",
+    "before": "CUT-F-01 前片 · M/L/XL",
+    "after": "CUT-F-01 前片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-smock/quantities/已完成",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-smock/quantities/应加工",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-F-01-smock/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-emb/object",
+    "before": "CUT-S-01 袖片 · M/L/XL",
+    "after": "CUT-S-01 袖片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-emb/quantities/已完成",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-emb/quantities/应加工",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-emb/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-template/object",
+    "before": "CUT-S-01 袖片 · M/L/XL",
+    "after": "CUT-S-01 袖片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-template/quantities/已完成",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-template/quantities/应加工",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/aux-CUT-S-01-template/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-B-01/object",
+    "before": "CUT-B-01 · 后片 · M/L/XL",
+    "after": "CUT-B-01 · 后片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-B-01/quantities/已裁",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-B-01/quantities/应裁",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-B-01/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-C-01/object",
+    "before": "CUT-C-01 · 领片 · M/L/XL",
+    "after": "CUT-C-01 · 领片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-C-01/quantities/已裁",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-C-01/quantities/应裁",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-C-01/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-F-01/object",
+    "before": "CUT-F-01 · 前片 · M/L/XL",
+    "after": "CUT-F-01 · 前片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-F-01/quantities/已裁",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-F-01/quantities/应裁",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-F-01/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-S-01/object",
+    "before": "CUT-S-01 · 袖片 · M/L/XL",
+    "after": "CUT-S-01 · 袖片 · M/L/XL · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-S-01/quantities/已裁",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-S-01/quantities/应裁",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/cut-CUT-S-01/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-emb/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-emb/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-emb/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-emb/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-first/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-first/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-first/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-first/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-B-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-emb/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-emb/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-emb/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-emb/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-first/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-first/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-first/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-first/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-smock/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-smock/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-smock/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-smock/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-F-01-smock/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-emb/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-emb/quantities/实交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-emb/quantities/实收",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-emb/quantities/应交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-emb/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-first/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-first/quantities/实交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-first/quantities/实收",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-first/quantities/应交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-first/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-template/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-template/quantities/实交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-template/quantities/实收",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-template/quantities/应交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/ho-CUT-S-01-template/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-emb/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-emb/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-emb/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-first/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-first/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-first/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-B-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-emb/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-emb/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-emb/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-first/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-first/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-first/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-smock/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-smock/quantities/实交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-smock/quantities/应交",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-F-01-smock/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-emb/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-emb/quantities/实交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-emb/quantities/应交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-emb/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-first/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-first/quantities/实交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-first/quantities/应交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-first/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-template/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-template/quantities/实交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-template/quantities/应交",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/out-CUT-S-01-template/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/pickup-SWT-B-01-0101/note",
+    "before": null,
+    "after": "工厂实领500件为合同回货分母；实际按米、粒、个分拨的物料明细待核实。"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-emb/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-emb/quantities/交出核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-emb/quantities/接收核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-first/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-first/quantities/交出核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-first/quantities/接收核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-B-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-emb/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-emb/quantities/交出核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-emb/quantities/接收核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-first/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-first/quantities/交出核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-first/quantities/接收核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-smock/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-smock/quantities/交出核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-smock/quantities/接收核对",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-F-01-smock/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-emb/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-emb/quantities/交出核对",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-emb/quantities/接收核对",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-emb/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-first/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-first/quantities/交出核对",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-first/quantities/接收核对",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-first/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-template/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-template/quantities/交出核对",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-template/quantities/接收核对",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/qc-CUT-S-01-template/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-B-01-emb/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-B-01-emb/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-B-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-B-01-first/object",
+    "before": "CUT-B-01 后片",
+    "after": "CUT-B-01 后片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-B-01-first/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-B-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-emb/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-emb/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-emb/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-first/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-first/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-first/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-smock/object",
+    "before": "CUT-F-01 前片",
+    "after": "CUT-F-01 前片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-smock/quantities/实收",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-F-01-smock/quantity",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-emb/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-emb/quantities/实收",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-emb/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-first/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-first/quantities/实收",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-first/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-template/object",
+    "before": "CUT-S-01 袖片",
+    "after": "CUT-S-01 袖片 · 主裁床A800＋C200对应范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-template/quantities/实收",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rcv-CUT-S-01-template/quantity",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rel-1000/note",
+    "before": "包括各适用部位的对应裁片；片数不相加为成衣件数。业务人员人工放行，监控只读取，不自动按齐套放行。",
+    "after": "仅放行主裁床已完成的1000件对应裁片；B厂500件由裁剪＋车缝＋烫包合同执行，未完成承包裁剪，不计入本次裁片放行。"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rel-1000/object",
+    "before": "本单1000件成衣对应裁片范围",
+    "after": "SWT-A-01-0101 800件＋SWT-C-01-0101 200件对应裁片范围"
+  },
+  {
+    "path": "/12/branch/docs/PO-202610-0101/rel-500",
+    "before": {
+      "id": "PO-202610-0101/rel-500",
+      "no": "演示REL-500-101",
+      "type": "裁片放行记录",
+      "status": "已人工放行",
+      "object": "本单其余500件成衣对应裁片范围",
+      "quantity": 500,
+      "unit": "件成衣对应范围",
+      "times": {
+        "人工放行": "2026-10-01 09:00",
+        "接手确认": "2026-10-01 09:10"
+      },
+      "executor": "跟单陈静",
+      "receiver": "PPIC王明",
+      "production": "PO-202610-0101",
+      "style": "演示款蓝白印花衬衫 · SPU-SHIRT-086",
+      "related": [
+        "PO-202610-0101/cut-CUT-F-01",
+        "PO-202610-0101/cut-CUT-B-01",
+        "PO-202610-0101/cut-CUT-S-01",
+        "PO-202610-0101/cut-CUT-C-01"
+      ],
+      "module": "FCS · 裁片放行管理",
+      "note": "在原裁片放行管理办理；后续任务按各自业务分配日期起算回货节点。"
+    },
+    "after": null
+  },
+  {
+    "path": "/12/branch/materialAllocationNote",
+    "before": null,
+    "after": "整单原料已集中接收；各合同实际物料分拨明细待核实。"
+  },
+  {
+    "path": "/12/branch/parts/0/first/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/0/process/0/leg/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/0/process/1/leg/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/0/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/1/first/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/1/process/0/leg/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/1/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/parts/2/first/qty",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/parts/2/process/0/leg/qty",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/parts/2/process/1/leg/qty",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/parts/2/qty",
+    "before": 3000,
+    "after": 2000
+  },
+  {
+    "path": "/12/branch/parts/3/qty",
+    "before": 1500,
+    "after": 1000
+  },
+  {
+    "path": "/12/branch/releases",
+    "before": [
+      "PO-202610-0101/rel-1000",
+      "PO-202610-0101/rel-500"
+    ],
+    "after": [
+      "PO-202610-0101/rel-1000"
+    ]
+  }
+]

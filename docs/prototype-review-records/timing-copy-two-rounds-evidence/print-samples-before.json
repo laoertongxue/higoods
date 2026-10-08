@@ -1,0 +1,32 @@
+[
+  {
+    "sample": 1,
+    "elapsedMs": 1272,
+    "entry": "/assets/index-7LvFuhsC.js",
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101"
+  },
+  {
+    "sample": 2,
+    "elapsedMs": 904,
+    "entry": "/assets/index-7LvFuhsC.js",
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101"
+  },
+  {
+    "sample": 3,
+    "elapsedMs": 811,
+    "entry": "/assets/index-7LvFuhsC.js",
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101"
+  },
+  {
+    "sample": 4,
+    "elapsedMs": 811,
+    "entry": "/assets/index-7LvFuhsC.js",
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101"
+  },
+  {
+    "sample": 5,
+    "elapsedMs": 826,
+    "entry": "/assets/index-7LvFuhsC.js",
+    "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0101"
+  }
+]

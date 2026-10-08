@@ -1,0 +1,52 @@
+{
+  "finalEntry": "/assets/index-CB9bGVLs.js",
+  "copyEntry": "/assets/index-7LvFuhsC.js",
+  "head": "8a7407989fd06753e57527306e9b06d74ec98fac",
+  "branch": "codex/dds-task-business-review",
+  "worktree": "/Users/laoer/.codex/worktrees/d29f/higoods",
+  "browser": "Codex in-app Chromium",
+  "data": "20 cases, 2048 shared documents",
+  "cache": "cold Network.setCacheDisabled; refresh enabled; no user storage cleared",
+  "sampling": "20 routes each three modes five samples at1366; each20 additional 1280 and1024 collapsed/expanded views;28 native types cold/refresh5; each interaction kind5",
+  "measurement": "navigation/event start to application readiness, required image decode and two animation frames; complete dataset measurements. PDF response including full bytes",
+  "unaffectedEvidence": "Copy actions and native detail artifacts7Lv remain valid after the only subsequent edit: scoped @media print CSS. FinalCB route300, responsive40, fullscreen/image/post-modal5 repeated. TS templates/source/fixtures did not change after7Lv.",
+  "renderIssues": [],
+  "finalRoutes": {
+    "samples": 300,
+    "maxMs": 225.29999999701977,
+    "failures": 0
+  },
+  "copyActions": {
+    "samples": 835,
+    "maxMs": 127.79999999701975,
+    "failures": 0
+  },
+  "finalActions": {
+    "samples": 31,
+    "maxMs": 61.900000005960464,
+    "failures": 0
+  },
+  "nativeDetails": {
+    "samples": 280,
+    "maxMs": 204.5,
+    "failures": 0
+  },
+  "printing": {
+    "samples": 5,
+    "maxMs": 935,
+    "failures": 0,
+    "pages": 22
+  },
+  "priorPrintFailure": {
+    "entry": "7LvFuhsC",
+    "maxMs": 1272,
+    "artifact": "print-samples-before.json",
+    "fix": "scoped print CSS compact layout; all quantities, timestamps, documents retained"
+  },
+  "toolDiagnostics": [
+    "Modal batch30s tool timeout reset;95 completed action samples retained and remaining resumed; actual app max128ms, no dropped slow samples",
+    "Queue-close locator corrected from guessed short name to observed 收起完整跟进清单",
+    "Fullscreen-close locator corrected to observed 退出全屏",
+    "Fixed-closure measurement helper held older expected asset; recreated helpers before final sampling, no mixed-build samples accepted"
+  ]
+}
