@@ -1,0 +1,7 @@
+{
+  "kind": "harness-selector-error",
+  "expected": "true",
+  "actual": "node-open",
+  "applicationReady": true,
+  "detail": "完成标记存储动作名；改为已存在的 data-timing-ready 检查，保留超时观察。"
+}

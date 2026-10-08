@@ -1,0 +1,540 @@
+{
+  "version": {
+    "entry": "index-DSPY5QtO.js",
+    "htmlSha256": "f1c7dc5e8b80e9e9415042bfb39da3132c7b922dfb37bdac703ca1ed8d19a898",
+    "tests": 532
+  },
+  "scope": "已知业务分配日期4/8/9自然日合同回归，不代表旧PDA交接等于正式后道实收",
+  "samples": [
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 384.19999999552965,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 384.19999999552965,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 251.60000000149012,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 251.60000000149012,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 271.30000000447035,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 271.30000000447035,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 282,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 282,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 300.1000000014901,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 300.1000000014901,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 287.5,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 287.5,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 275.70000000298023,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 275.70000000298023,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 271.29999999701977,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 271.29999999701977,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 279.8999999985099,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 279.8999999985099,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 272.1000000014901,
+      "click": null,
+      "text": "TASKGEN-202603-0015-002__ORDER\n复制\n生产单号\nPO14673\n需求单号\nDEM-202603-0018\n售卖类型\nJKT复购\nSPU-2024-001 / 春季休闲T恤\n\t\n车缝\n生产阶段 · 1400 件\n工序节点：车缝\n派单\n已派单\n\t\n加工中\n内部：进行中\n\t\n工厂内部加工中\n任务逾期\n\t\n等待工厂完成加工后交出\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n0 / 1400 件\n0%\n下一节点 30%\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 272.1000000014901,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 420.09999999403954,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 420.09999999403954,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 397.20000000298023,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 397.20000000298023,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 391.70000000298023,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 391.70000000298023,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 447,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 447,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 406.79999999701977,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 406.79999999701977,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 418.29999999701977,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 418.29999999701977,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 409.1000000014901,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 409.1000000014901,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 405.59999999403954,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 405.59999999403954,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 407.30000000447035,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 407.30000000447035,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 404.70000000298023,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n加工中\n\nTASKGEN-202603-0015-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO14673\n\nPO14673\n\n任务明细\nSKU-001-L-BLK\nSKU-001-M-WHT\nSKU-001-S-WHT\nSKU-001-XL-BLK\n前置任务项\n裁片 TASKGEN-202603-0015-001\n裁片 · 对象按加工单明细 · 1400 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0015-002__ORDER\n\n生产单号\n\nPO-202603-0015\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n加工中\n\n工厂内部状态\n\n进行中\n\n风险提示\n\n工厂内部加工中\n\n下一步动作\n\n等待工厂完成加工后交出\n\n任务对象与单位\n\n1400 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 404.70000000298023,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 513,
+      "click": {
+        "atMs": 467.40000000596046,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n0%\n分配量：1400 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n30% 节点\t420 件\t2026-07-04 23:59:59\t未达标\t已逾期未达标\t—\n70% 节点\t980 件\t2026-07-08 23:59:59\t未达标\t已逾期未达标\t—\n100% 节点\t1400 件\t2026-07-09 23:59:59\t未达标\t已逾期未达标\t—",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 45.599999994039536,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 1088.5,
+      "click": {
+        "atMs": 1053.2000000029802,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n0%\n分配量：1400 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n30% 节点\t420 件\t2026-07-04 23:59:59\t未达标\t已逾期未达标\t—\n70% 节点\t980 件\t2026-07-08 23:59:59\t未达标\t已逾期未达标\t—\n100% 节点\t1400 件\t2026-07-09 23:59:59\t未达标\t已逾期未达标\t—",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 35.29999999701977,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 1657.2000000029802,
+      "click": {
+        "atMs": 1621.4000000059605,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n0%\n分配量：1400 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n30% 节点\t420 件\t2026-07-04 23:59:59\t未达标\t已逾期未达标\t—\n70% 节点\t980 件\t2026-07-08 23:59:59\t未达标\t已逾期未达标\t—\n100% 节点\t1400 件\t2026-07-09 23:59:59\t未达标\t已逾期未达标\t—",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 35.79999999701977,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 2253.60000000149,
+      "click": {
+        "atMs": 2219.7000000029802,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n0%\n分配量：1400 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n30% 节点\t420 件\t2026-07-04 23:59:59\t未达标\t已逾期未达标\t—\n70% 节点\t980 件\t2026-07-08 23:59:59\t未达标\t已逾期未达标\t—\n100% 节点\t1400 件\t2026-07-09 23:59:59\t未达标\t已逾期未达标\t—",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 33.899999998509884,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0015-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 2834.3000000044703,
+      "click": {
+        "atMs": 2801.9000000059605,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n0%\n分配量：1400 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n30% 节点\t420 件\t2026-07-04 23:59:59\t未达标\t已逾期未达标\t—\n70% 节点\t980 件\t2026-07-08 23:59:59\t未达标\t已逾期未达标\t—\n100% 节点\t1400 件\t2026-07-09 23:59:59\t未达标\t已逾期未达标\t—",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 32.399999998509884,
+      "pass": true,
+      "mode": "click"
+    }
+  ]
+}

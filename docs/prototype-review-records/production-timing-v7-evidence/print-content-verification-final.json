@@ -1,0 +1,200 @@
+{
+  "method": "pypdf text extract + NFKC; page size read, not screen CSS assumption",
+  "checks": [
+    {
+      "file": "production-timing-print-0Tz-live-1.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-2.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-3.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-4.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-5.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-1.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "裁剪＋车缝＋烫包"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-2.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "裁剪＋车缝＋烫包"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-3.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "裁剪＋车缝＋烫包"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-4.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "裁剪＋车缝＋烫包"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-5.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "裁剪＋车缝＋烫包"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-1.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "历史晚"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-2.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "历史晚"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-3.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "历史晚"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-4.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "历史晚"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-5.pdf",
+      "pages": 3,
+      "landscape": true,
+      "missing": [
+        "历史晚"
+      ],
+      "quantityAndBusinessTextPreserved": false
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-1.pdf",
+      "pages": 2,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-2.pdf",
+      "pages": 2,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-3.pdf",
+      "pages": 2,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-4.pdf",
+      "pages": 2,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-5.pdf",
+      "pages": 2,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-1.pdf",
+      "pages": 13,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-2.pdf",
+      "pages": 13,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-3.pdf",
+      "pages": 13,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-4.pdf",
+      "pages": 13,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-5.pdf",
+      "pages": 13,
+      "landscape": true,
+      "missing": [],
+      "quantityAndBusinessTextPreserved": true
+    }
+  ]
+}

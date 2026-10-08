@@ -1,0 +1,6 @@
+{
+  "kind": "harness-selector",
+  "invalid": "[data-pf-field=query]",
+  "actual": "getByRole textbox named 生产单 / 采购单 / 款式 / 任务",
+  "firstTwoActionsSucceeded": true
+}

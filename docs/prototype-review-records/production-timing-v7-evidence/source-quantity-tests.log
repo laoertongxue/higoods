@@ -1,0 +1,17 @@
+✔ timing documents resolve directly at their native route with the same shared static facts (212.56175ms)
+✔ source detail does not resolve unrelated records or a registered record at a wrong module path (0.121834ms)
+✔ a handover belongs to its original outgoing work rather than a linked next process (0.0755ms)
+✔ contract details retain natural-day deadlines and late achievement history (0.294083ms)
+✔ partially received material retains unknown purchase receipt instead of inventing zero or full stock (0.163ms)
+✔ production preparation details include parallel requirements and BOM quantities (0.425459ms)
+✔ work remaining quantity follows known required and completed quantities in the same unit (0.499459ms)
+✔ missing factory sample uses the recorded requirement date and keeps sample approval outside return milestones (0.112792ms)
+✔ purchase-only scenario resolves to the existing merchandise purchase and pending-purchase backlink (0.103ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 350.5275

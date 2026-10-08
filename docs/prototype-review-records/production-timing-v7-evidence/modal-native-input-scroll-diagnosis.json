@@ -1,0 +1,207 @@
+{
+  "rect": {
+    "bottom": 372.765625,
+    "height": 22.84375,
+    "left": 319,
+    "right": 432.59375,
+    "top": 349.921875,
+    "width": 113.59375,
+    "x": 319,
+    "y": 349.921875
+  },
+  "before": {
+    "branches": [],
+    "height": 768,
+    "images": [
+      {
+        "alt": "演示款蓝白印花衬衫实图",
+        "ok": true
+      }
+    ],
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 77.60000000149012
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.19999999552965
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.39999999850989
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.30000000447035
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.600000001490116
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.19999999552965
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 33.20000000298023
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 35.399999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.600000001490116
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.20000000298023
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.60000000149011
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.200000002980232
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.099999994039536
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.599999994039536
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.5
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.200000002980232
+      },
+      {
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 32.899999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.900000005960464
+      }
+    ],
+    "navMs": 77.60000000149012,
+    "overflow": false,
+    "overlayHidden": true,
+    "scroll": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "id": "",
+        "y": 625.5
+      }
+    ],
+    "tabTitles": [],
+    "width": 1366
+  },
+  "open": {
+    "branches": [
+      "branch-prep",
+      "branch-supply",
+      "branch-craft"
+    ],
+    "count": 26,
+    "height": 768,
+    "overflow": false,
+    "overlayHidden": false,
+    "row": {
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.700000002980232
+    },
+    "scroll": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "y": 625.5
+      }
+    ],
+    "width": 1366
+  },
+  "close": {
+    "branches": [
+      "branch-prep",
+      "branch-supply",
+      "branch-craft"
+    ],
+    "count": 27,
+    "height": 768,
+    "overflow": false,
+    "overlayHidden": true,
+    "row": {
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 30.600000001490116
+    },
+    "scroll": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "y": 625.5
+      }
+    ],
+    "width": 1366
+  }
+}

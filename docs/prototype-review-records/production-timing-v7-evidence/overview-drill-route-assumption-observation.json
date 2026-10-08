@@ -1,0 +1,14 @@
+{
+  "error": "Harness expected a route change but implemented drill filters the existing overview list in place",
+  "actual": {
+    "kpis": [
+      "范围内生产单\n3",
+      "在制生产单\n0",
+      "当前工作逾期\n0",
+      "已全部入库\n3",
+      "资料待核实\n1"
+    ],
+    "table": "timing-overview",
+    "url": "/dds/supply-chain/production-fulfillment/overview"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "initial": {
+    "beforeTop": 726,
+    "afterTop": 592.5
+  },
+  "diagnosis": {
+    "before": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "top": 592.5
+      }
+    ],
+    "open": {
+      "label": "scroll-diagnose-open",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 43.39999999850989
+    },
+    "during": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "top": 592.5
+      }
+    ],
+    "close": {
+      "label": "scroll-diagnose-close",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.89999999850989
+    },
+    "after": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "top": 592.5
+      }
+    ]
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "failure": "Harness selected the already active intermediary scene; same-route navigation performs no render. Subsequent actual navigation is measured separately.",
+  "partialRuns": [
+    {
+      "scene": "late",
+      "i": 0,
+      "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+      "elapsedMs": 39.19999999552965,
+      "failedImages": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089"
+    },
+    {
+      "scene": "late",
+      "i": 1,
+      "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+      "elapsedMs": 32.70000000298023,
+      "failedImages": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089"
+    },
+    {
+      "scene": "late",
+      "i": 2,
+      "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+      "elapsedMs": 22.399999998509884,
+      "failedImages": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089"
+    },
+    {
+      "scene": "late",
+      "i": 3,
+      "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+      "elapsedMs": 19.799999997019768,
+      "failedImages": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089"
+    },
+    {
+      "scene": "late",
+      "i": 4,
+      "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+      "elapsedMs": 29.80000000447035,
+      "failedImages": 0,
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0089"
+    }
+  ]
+}

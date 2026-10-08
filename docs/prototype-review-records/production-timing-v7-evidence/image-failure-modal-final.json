@@ -1,0 +1,38 @@
+{
+  "build": [
+    "http://localhost:4179/assets/index-VIsb9cR6.js"
+  ],
+  "probe": "Network.setBlockedURLs only F02 static image, not a storage fault",
+  "runs": [
+    {
+      "run": 1,
+      "elapsedUpperBoundMs": 422.19999999552965,
+      "visibleMessage": true,
+      "f02": true
+    },
+    {
+      "run": 2,
+      "elapsedUpperBoundMs": 302.6000000014901,
+      "visibleMessage": true,
+      "f02": true
+    },
+    {
+      "run": 3,
+      "elapsedUpperBoundMs": 289.79999999701977,
+      "visibleMessage": true,
+      "f02": true
+    },
+    {
+      "run": 4,
+      "elapsedUpperBoundMs": 295.79999999701977,
+      "visibleMessage": true,
+      "f02": true
+    },
+    {
+      "run": 5,
+      "elapsedUpperBoundMs": 289.8999999985099,
+      "visibleMessage": true,
+      "f02": true
+    }
+  ]
+}

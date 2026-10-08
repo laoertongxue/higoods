@@ -1,0 +1,375 @@
+{
+  "method": "Actual pypdf extraction; NFKC + printed CJK radical che -> 车; expected reachedLate actual graphic label 晚12小时 and 当前欠0件; previous nonexistent 历史晚 expectation recorded, not app defect",
+  "checks": [
+    {
+      "file": "production-timing-print-0Tz-live-1.pdf",
+      "scene": "live",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-2.pdf",
+      "scene": "live",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-3.pdf",
+      "scene": "live",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-4.pdf",
+      "scene": "live",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-live-5.pdf",
+      "scene": "live",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-1.pdf",
+      "scene": "fullContract",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "480",
+        "1500",
+        "裁剪+车缝+烫包",
+        "SWT-C-01"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-2.pdf",
+      "scene": "fullContract",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "480",
+        "1500",
+        "裁剪+车缝+烫包",
+        "SWT-C-01"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-3.pdf",
+      "scene": "fullContract",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "480",
+        "1500",
+        "裁剪+车缝+烫包",
+        "SWT-C-01"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-4.pdf",
+      "scene": "fullContract",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "480",
+        "1500",
+        "裁剪+车缝+烫包",
+        "SWT-C-01"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-fullContract-5.pdf",
+      "scene": "fullContract",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "480",
+        "1500",
+        "裁剪+车缝+烫包",
+        "SWT-C-01"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-1.pdf",
+      "scene": "reachedLate",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "750",
+        "1500",
+        "逾期达成",
+        "晚12小时",
+        "当前欠0件",
+        "实收达成10-0512:00"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-2.pdf",
+      "scene": "reachedLate",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "750",
+        "1500",
+        "逾期达成",
+        "晚12小时",
+        "当前欠0件",
+        "实收达成10-0512:00"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-3.pdf",
+      "scene": "reachedLate",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "750",
+        "1500",
+        "逾期达成",
+        "晚12小时",
+        "当前欠0件",
+        "实收达成10-0512:00"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-4.pdf",
+      "scene": "reachedLate",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "750",
+        "1500",
+        "逾期达成",
+        "晚12小时",
+        "当前欠0件",
+        "实收达成10-0512:00"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-reachedLate-5.pdf",
+      "scene": "reachedLate",
+      "pages": 3,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "750",
+        "1500",
+        "逾期达成",
+        "晚12小时",
+        "当前欠0件",
+        "实收达成10-0512:00"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-1.pdf",
+      "scene": "completeUnknown",
+      "pages": 2,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-2.pdf",
+      "scene": "completeUnknown",
+      "pages": 2,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-3.pdf",
+      "scene": "completeUnknown",
+      "pages": 2,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-4.pdf",
+      "scene": "completeUnknown",
+      "pages": 2,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-completeUnknown-5.pdf",
+      "scene": "completeUnknown",
+      "pages": 2,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-1.pdf",
+      "scene": "late-expanded",
+      "pages": 13,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-2.pdf",
+      "scene": "late-expanded",
+      "pages": 13,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-3.pdf",
+      "scene": "late-expanded",
+      "pages": 13,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-4.pdf",
+      "scene": "late-expanded",
+      "pages": 13,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "missing": [],
+      "pass": true
+    },
+    {
+      "file": "production-timing-print-0Tz-late-expanded-5.pdf",
+      "scene": "late-expanded",
+      "pages": 13,
+      "landscape": true,
+      "requiredBusinessFacts": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "missing": [],
+      "pass": true
+    }
+  ]
+}

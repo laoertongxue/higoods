@@ -1,0 +1,324 @@
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -1006,6 +1006,12 @@
+       // Generic water/cutting detail initialization is unrelated to this task.
+       return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true })
+     }
++    if (/^\/fcs\/pda\/exec\/[^/]+$/.test(normalizedPathname)) {
++      // Handler dependencies read part tickets during module evaluation. Start
++      // them only after the required records are hydrated, alongside the detail.
++      const [pageContent] = await Promise.all([resolvePage(pathname), getPdaHandlersModule()])
++      return pageContent
++    }
+     if (normalizedPathname === '/fcs/pda/warehouse/inbound-records' || normalizedPathname === '/fcs/pda/warehouse/outbound-records') {
+       const [page, session] = await Promise.all([
+         import('./pages/pda-wool-warehouse-flows.ts'),
+--- a/src/pages/pda-exec-detail.ts
++++ b/src/pages/pda-exec-detail.ts
+@@ -109,7 +109,7 @@
+   renderProductionObjectCodeButton,
+   type ProductionObjectCodeType,
+ } from '../data/fcs/production-order-identity.ts'
+-import { resolveProductionObjectRequest } from '../data/fcs/production-object-overview.ts'
++import { getProductionObjectSearchIndex, resolveProductionObjectRequest, type ProductionObjectSearchIndex } from '../data/fcs/production-object-overview.ts'
+ import {
+   getPrintingWorkflowFacts,
+   getPrintingWorkOrderById,
+@@ -527,6 +527,22 @@
+   refreshWaterSolubleOverlay()
+ }
+ 
++let currentDetailObjectRequests: Map<string, ReturnType<typeof resolveProductionObjectRequest>> | null = null
++let currentDetailObjectSearchIndex: readonly ProductionObjectSearchIndex[] | null = null
++
++function resolveDetailObjectRequest(request: Parameters<typeof resolveProductionObjectRequest>[0]): ReturnType<typeof resolveProductionObjectRequest> {
++  if (!currentDetailObjectRequests) return resolveProductionObjectRequest(request)
++  const key = JSON.stringify(request)
++  const cached = currentDetailObjectRequests.get(key)
++  if (cached) return cached
++  // Every request in this render uses one freshly read source snapshot. An
++  // unknown document or fallback context cannot rebuild the full index again.
++  currentDetailObjectSearchIndex ??= getProductionObjectSearchIndex(true)
++  const resolved = resolveProductionObjectRequest(request, currentDetailObjectSearchIndex)
++  currentDetailObjectRequests.set(key, resolved)
++  return resolved
++}
++
+ function renderPdaObjectCode({
+   objectType,
+   objectId,
+@@ -549,10 +565,10 @@
+   // without constructing the unrelated production/material search index.
+   if (sourceType === 'DESIGN_REVISION') return escapeHtml(objectCode)
+ 
+-  const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
++  const preferred = resolveDetailObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
+   const resolved = preferred.status === 'READY' || !relatedProductionOrderNo
+     ? preferred
+-    : resolveProductionObjectRequest({ objectType, objectId: targetId })
++    : resolveDetailObjectRequest({ objectType, objectId: targetId })
+   // Only render clickable IDs that open a real overview; unresolved PDA refs stay plain text.
+   if (resolved.status !== 'READY') return escapeHtml(objectCode)
+ 
+@@ -3366,6 +3382,29 @@
+   return renderSpecialCraftFocusedDetailPage(task, workOrderId)
+ }
+ 
++function measurePdaExecDetailReady(renderToken: string): void {
++  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
++  let settling = false
++  const observer = new MutationObserver(check)
++  const timeout = window.setTimeout(() => observer.disconnect(), 15000)
++  function check(): void {
++    const host = document.querySelector<HTMLElement>(`[data-pda-exec-render-token="${renderToken}"]`)
++    if (!host || settling || Array.from(host.querySelectorAll('[data-real-qr]')).some(node => !node.querySelector('svg[role="img"]'))) return
++    settling = true
++    observer.disconnect()
++    window.clearTimeout(timeout)
++    void Promise.all(Array.from(host.querySelectorAll('img')).map(image => image.decode()))
++      .then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
++        if (!host.isConnected) return
++        host.dataset.pdaExecReadyAtMs = String(performance.now())
++        host.dataset.pdaExecReady = 'true'
++      })))
++      .catch(() => { if (host.isConnected) host.dataset.pdaExecReady = 'image-error' })
++  }
++  observer.observe(document.documentElement, { childList: true, subtree: true })
++  check()
++}
++
+ export function renderPdaExecDetailPage(taskId: string): string {
+   syncWaterActionScope(taskId)
+   syncPdaStartRiskAndExceptions()
+@@ -3764,8 +3803,11 @@
+ 
+   const designRevisionSource = (dyeWorkOrder || printWorkOrder)?.sourceSnapshot
+   const isDesignRevisionTask = designRevisionSource?.sourceType === 'DESIGN_REVISION'
++  const renderToken = String(performance.now()).replace('.', '-')
++  currentDetailObjectRequests = new Map()
++  try {
+   const content = `
+-    <div class="space-y-4 bg-background p-4 pb-6">
++    <div class="space-y-4 bg-background p-4 pb-6" data-pda-exec-task-id="${escapeHtml(task.taskId)}" data-pda-exec-render-token="${renderToken}">
+       ${accessNotice}
+       <div class="flex items-center gap-2">
+         <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
+@@ -4250,7 +4292,13 @@
+     </div>
+   `
+ 
+-  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
++  const framed = renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
++  queueMicrotask(() => measurePdaExecDetailReady(renderToken))
++  return framed
++  } finally {
++    currentDetailObjectRequests = null
++    currentDetailObjectSearchIndex = null
++  }
+ }
+ 
+ function buildDyeHandoverConfirmationKey(order: DyeWorkOrder): string {
+--- a/src/data/fcs/process-mobile-task-binding.ts
++++ b/src/data/fcs/process-mobile-task-binding.ts
+@@ -10,6 +10,7 @@
+   type DyeWorkOrder,
+ } from './dyeing-task-domain.ts'
+ import {
++  getPdaTaskFlowTaskById,
+   listPdaTaskFlowTasks,
+   type PdaTaskFlowProjectedTask,
+ } from './pda-cutting-execution-source.ts'
+@@ -460,6 +461,17 @@
+   }
+   const specialCraftOrder = getSpecialCraftTaskOrderById(taskId)
+   if (specialCraftOrder) return mapSpecialCraftTaskOrderToMobileTask(specialCraftOrder, 1)
++  if (taskId.startsWith('TASK-SEW-')) {
++    applyPendingDispatchAutoAcceptance()
++    const projected = getPdaTaskFlowTaskById(taskId)
++    // These ordinary sewing fixtures use this same task-flow projection in the
++    // complete list. Do not construct unrelated preparation/craft domains just
++    // to find one fixture; specialized and disabled records retain the full path.
++    if (projected && 'mockProcessKey' in projected && projected.mockProcessKey === 'SEWING'
++      && projected.executionEnabled !== false && getMobileTaskProcessType(projected) === 'SEWING') {
++      return structuredClone(getRuntimeTaskById(taskId) || projected) as ProcessTask
++    }
++  }
+   return listPdaMobileExecutionTasks().find((task) => task.taskId === taskId) ?? null
+ }
+ 
+--- a/src/data/fcs/production-object-overview.ts
++++ b/src/data/fcs/production-object-overview.ts
+@@ -1054,9 +1054,9 @@
+   objectType: ProductionObjectType
+   objectId: string
+   relatedProductionOrderNo?: string | null
+-}): ProductionObjectRequestResult {
+-  let exactMatches = getProductionObjectSearchIndex().filter((item) => matchesRequestObject(item, objectType, objectId))
+-  if (!exactMatches.length && (objectType === 'QC_ORDER' || objectType === 'PRODUCTION_ORDER' || objectType === 'PROCESS_DOC')) {
++}, readOnlySnapshot?: readonly ProductionObjectSearchIndex[]): ProductionObjectRequestResult {
++  let exactMatches = (readOnlySnapshot ?? getProductionObjectSearchIndex()).filter((item) => matchesRequestObject(item, objectType, objectId))
++  if (!readOnlySnapshot && !exactMatches.length && (objectType === 'QC_ORDER' || objectType === 'PRODUCTION_ORDER' || objectType === 'PROCESS_DOC')) {
+     productionObjectSearchIndexCache = buildSearchIndex()
+     exactMatches = productionObjectSearchIndexCache.filter((item) => matchesRequestObject(item, objectType, objectId))
+   }
+@@ -3083,7 +3083,8 @@
+ 
+ let productionObjectSearchIndexCache: ProductionObjectSearchIndex[] | null = null
+ 
+-export function getProductionObjectSearchIndex(): ProductionObjectSearchIndex[] {
++export function getProductionObjectSearchIndex(refresh = false): ProductionObjectSearchIndex[] {
++  if (refresh) productionObjectSearchIndexCache = buildSearchIndex()
+   return productionObjectSearchIndexCache ??= buildSearchIndex()
+ }
+ 
+--- /dev/null
++++ b/tests/unit/pda-sewing-detail-canonical-task.test.ts
+@@ -0,0 +1,148 @@
++import assert from 'node:assert/strict'
++import test from 'node:test'
++import { readFileSync } from 'node:fs'
++import ts from 'typescript'
++import {
++  getMobileTaskAccessResult,
++  getMobileTaskProcessType,
++  getPdaMobileExecutionTaskById,
++  listPdaMobileExecutionTasks,
++} from '../../src/data/fcs/process-mobile-task-binding.ts'
++import { getRuntimeTaskById, listRuntimeProcessTasks } from '../../src/data/fcs/runtime-process-tasks.ts'
++import {
++  getProductionObjectSearchIndex,
++  resolveProductionObjectRequest,
++  type ProductionObjectSearchIndex,
++} from '../../src/data/fcs/production-object-overview.ts'
++
++test('ordinary sewing direct lookup keeps every field and factory permission from the complete canonical projection', () => {
++  const all = listPdaMobileExecutionTasks()
++  const sewing = all.filter(task => task.taskId.startsWith('TASK-SEW-') && getMobileTaskProcessType(task) === 'SEWING')
++  assert.equal(sewing.length, 11)
++  const statuses = new Set<string>()
++  for (const expected of sewing) {
++    const actual = getPdaMobileExecutionTaskById(expected.taskId)
++    assert.deepEqual(actual, expected, expected.taskId)
++    for (const factory of [expected.assignedFactoryId!, 'F090', 'another-factory']) {
++      assert.deepEqual(getMobileTaskAccessResult(actual, factory), getMobileTaskAccessResult(expected, factory), `${expected.taskId}/${factory}`)
++    }
++    statuses.add(expected.status || 'NOT_STARTED')
++  }
++  assert.ok(statuses.size >= 3, 'comparison covers distinct execution states')
++  const target = getPdaMobileExecutionTaskById('TASK-SEW-000513-F090-3')!
++  assert.equal(target.qty, 940)
++  assert.equal(target.dispatchedAt, '2026-03-28 07:30:00')
++  assert.equal(target.acceptedAt, '2026-03-28 08:05:00')
++  assert.equal(target.status, 'NOT_STARTED')
++  assert.equal(getMobileTaskAccessResult(target, 'F090').canExecuteInMobile, true)
++  assert.equal(getMobileTaskAccessResult(target, 'another-factory').canExecuteInMobile, false)
++})
++
++test('runtime sewing overrides and legacy/missing IDs retain the complete projection result', () => {
++  const all = listPdaMobileExecutionTasks()
++  const runtimeSewing = listRuntimeProcessTasks().filter(task => getMobileTaskProcessType(task) === 'SEWING')
++  assert.ok(runtimeSewing.length > 0)
++  for (const task of runtimeSewing) {
++    const expected = all.find(candidate => candidate.taskId === task.taskId) ?? null
++    assert.deepEqual(getPdaMobileExecutionTaskById(task.taskId), expected, task.taskId)
++    if (expected) assert.deepEqual(expected, getRuntimeTaskById(task.taskId), `${task.taskId} retains the runtime override`)
++  }
++  for (const id of ['TASK-SEW-missing-task', 'PDA-EXEC-legacy-missing-task', '']) {
++    assert.equal(getPdaMobileExecutionTaskById(id), null, id)
++  }
++})
++
++test('one fresh read-only object snapshot preserves readiness, context and unknown references without refreshing per miss', () => {
++  const previous = getProductionObjectSearchIndex()
++  const snapshot = getProductionObjectSearchIndex(true)
++  assert.notEqual(snapshot, previous, 'a new render must refresh actual source records once')
++  assert.deepEqual(snapshot, previous, 'refresh cannot change unchanged source facts')
++  const actualRequests = [
++    { objectType: 'PROCESS_DOC' as const, objectId: 'TASK-SEW-000513-F090-3', relatedProductionOrderNo: 'PO-20260328-131' },
++    { objectType: 'PROCESS_DOC' as const, objectId: 'TASK-SEW-000513-F090-3' },
++    { objectType: 'PRODUCTION_ORDER' as const, objectId: 'PO-20260328-131' },
++  ]
++  for (const request of actualRequests) {
++    assert.deepEqual(resolveProductionObjectRequest(request, snapshot), resolveProductionObjectRequest(request))
++    assert.equal(resolveProductionObjectRequest(request, snapshot).status, 'UNLINKED', 'unregistered IDs stay plain text')
++  }
++  const ready = snapshot.find(row => row.objectType === 'PRODUCTION_ORDER' && row.relatedProductionOrderNo)!
++  assert.ok(ready)
++  for (const relatedProductionOrderNo of [ready.relatedProductionOrderNo, 'WRONG-CONTEXT']) {
++    const request = { objectType: ready.objectType, objectId: ready.primaryNo, relatedProductionOrderNo }
++    assert.deepEqual(resolveProductionObjectRequest(request, snapshot), resolveProductionObjectRequest(request))
++  }
++
++  // Two known matches with the same document number must still require an
++  // explicit production order, and an unrelated context must remain unlinked.
++  const row: ProductionObjectSearchIndex = {
++    id: 'snapshot-known-doc', objectType: 'PROCESS_DOC', primaryNo: 'SNAPSHOT-DOC',
++    displayTitle: '已登记工艺单', keywords: [], sourceDomain: 'FCS',
++    relatedProductionOrderNo: 'SNAPSHOT-PO-A', routePath: '/fcs/process-orders/SNAPSHOT-DOC',
++  }
++  const duplicateSnapshot = Object.freeze([row, { ...row, id: 'snapshot-known-doc-b', relatedProductionOrderNo: 'SNAPSHOT-PO-B' }])
++  const currentSourceIndex = getProductionObjectSearchIndex()
++  const noContext = resolveProductionObjectRequest({ objectType: 'PROCESS_DOC', objectId: row.primaryNo }, duplicateSnapshot)
++  assert.equal(noContext.status, 'MULTIPLE_MATCHES')
++  if (noContext.status === 'MULTIPLE_MATCHES') assert.deepEqual(noContext.candidates, duplicateSnapshot)
++  const withContext = resolveProductionObjectRequest({ objectType: 'PROCESS_DOC', objectId: row.primaryNo, relatedProductionOrderNo: 'SNAPSHOT-PO-B' }, duplicateSnapshot)
++  assert.equal(withContext.status, 'READY')
++  if (withContext.status === 'READY') assert.equal(withContext.indexItem.relatedProductionOrderNo, 'SNAPSHOT-PO-B')
++  assert.equal(resolveProductionObjectRequest({ objectType: 'PROCESS_DOC', objectId: row.primaryNo, relatedProductionOrderNo: 'UNKNOWN' }, duplicateSnapshot).status, 'UNLINKED')
++  assert.equal(resolveProductionObjectRequest({ objectType: 'PROCESS_DOC', objectId: 'NOT-IN-SNAPSHOT' }, duplicateSnapshot).status, 'UNLINKED')
++  assert.equal(getProductionObjectSearchIndex(), currentSourceIndex, 'snapshot misses never replace the current source index')
++})
++
++test('PDA handlers wait for part-ticket hydration, and the real detail is not mounted before both dependencies complete', async () => {
++  const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
++  const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
++  const functions = ast.statements.filter(node => ts.isFunctionDeclaration(node)
++    && ['renderCurrentPageContent', 'render'].includes(node.name?.text || ''))
++  assert.equal(functions.length, 2)
++  // Execute the actual routing/render control flow with bounded module loaders.
++  // Replacing import syntax lets the test reproduce the observed module read
++  // gate without opening or altering any browser/business store.
++  const script = functions.map(node => node.getText(ast)).join('\n').replaceAll('import(', 'loadModule(')
++  const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
++  let releasePreparation!: () => void
++  let releaseHandler!: () => void
++  let prepared = false
++  const preparation = new Promise<void>(resolve => { releasePreparation = resolve })
++  const handlers = new Promise<void>(resolve => { releaseHandler = resolve })
++  const events: string[] = []
++  let mounted = ''
++  const dependencies = {
++    renderSerial: 0,
++    appStore: { getState: () => ({ pathname: '/fcs/pda/exec/TASK-SEW-000513-F090-3' }) },
++    ensureInitialPdaLoadingShell: () => {},
++    startPmsInitialization: () => {},
++    loadModule: async () => ({ ensurePcsRecordState: async () => { events.push('PCS ready') } }),
++    preparePageRouteEntry: async () => { events.push('preparation started'); await preparation; prepared = true; events.push('part tickets ready') },
++    resolvePage: async () => { assert.equal(prepared, true); events.push('detail ready'); return '<article>Actual task 940</article>' },
++    getPdaHandlersModule: async () => { assert.equal(prepared, true, 'warehouse handler module may read part tickets only after hydration'); events.push('handler requested'); await handlers; events.push('handler ready') },
++    isPdaPath: () => true,
++    root: { get innerHTML() { return mounted }, set innerHTML(html: string) { mounted = html; events.push('mounted') }, querySelector: () => null },
++    renderAppShell: (_state: unknown, html: string) => html,
++    includeTmfStorageWarning: (html: string) => html,
++    schedulePdaMainTabPreload: () => {},
++    hydrateIcons: () => {},
++    hydrateRealQRCodes: () => {},
++    dynamicModuleReloadScheduled: false,
++    clearPreloadReloadFlag: () => {},
++  }
++  const execute = new Function('dependencies', `with (dependencies) { ${javascript}; return render() }`)
++  const rendering = execute(dependencies) as Promise<void>
++  await new Promise(resolve => setImmediate(resolve))
++  assert.equal(events.includes('handler requested'), false)
++  assert.equal(mounted, '')
++  releasePreparation()
++  await new Promise(resolve => setImmediate(resolve))
++  assert.equal(events.includes('detail ready'), true)
++  assert.equal(events.includes('handler requested'), true)
++  assert.equal(mounted, '', 'Loading/partial data must not count as the operative DOM')
++  releaseHandler()
++  await rendering
++  assert.equal(mounted, '<article>Actual task 940</article>')
++  assert.ok(events.indexOf('part tickets ready') < events.indexOf('handler requested'))
++  assert.ok(events.indexOf('handler ready') < events.indexOf('mounted'))
++})

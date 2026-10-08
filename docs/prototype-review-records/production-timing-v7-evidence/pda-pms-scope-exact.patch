@@ -1,0 +1,66 @@
+--- a/src/main.ts
++++ b/src/main.ts
+@@ -966,7 +966,9 @@
+       const sourcePage = resolveTimingSourceDetail(normalizedPathname)
+       if (sourcePage) return sourcePage
+     }
+-    startPmsInitialization()
++    // Ordinary sewing execution reads PCS/FCS records below. Leave unrelated
++    // PMS initialization pending until its original module entry is visited.
++    if (!/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname)) startPmsInitialization()
+     // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
+     const pcsFirstScreenImages = normalizedPathname === '/pcs/production-preparation/design-revision'
+       ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
+--- a/tests/unit/pda-sewing-detail-canonical-task.test.ts
++++ b/tests/unit/pda-sewing-detail-canonical-task.test.ts
+@@ -146,3 +146,50 @@
+   assert.ok(events.indexOf('part tickets ready') < events.indexOf('handler requested'))
+   assert.ok(events.indexOf('handler ready') < events.indexOf('mounted'))
+ })
++
++test('ordinary sewing detail leaves unrelated PMS initialization pending until a normal module entry', async () => {
++  const source = readFileSync(new URL('../../src/main.ts', import.meta.url), 'utf8')
++  const ast = ts.createSourceFile('main.ts', source, ts.ScriptTarget.Latest, true)
++  const routeFunction = ast.statements.find(node => ts.isFunctionDeclaration(node)
++    && node.name?.text === 'renderCurrentPageContent')!
++  const script = routeFunction.getText(ast).replaceAll('import(', 'loadModule(')
++  const javascript = ts.transpileModule(script, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText
++  const execute = new Function('dependencies', 'pathname', `with (dependencies) { ${javascript}; return renderCurrentPageContent(pathname) }`)
++  function createSession() {
++    const events: string[] = []
++    let pmsInitializationStarted = false
++    const dependencies = {
++      startPmsInitialization: () => {
++        if (pmsInitializationStarted) return
++        pmsInitializationStarted = true
++        events.push('PMS started')
++      },
++      loadModule: async () => ({ ensurePcsRecordState: async () => { events.push('PCS ready') } }),
++      preparePageRouteEntry: async () => { events.push('FCS and part tickets ready') },
++      resolvePage: async (pathname: string) => { events.push(`page ${pathname}`); return `<article>${pathname}</article>` },
++      getPdaHandlersModule: async () => { events.push('PDA handler ready') },
++    }
++    return { events, dependencies, isPmsStarted: () => pmsInitializationStarted }
++  }
++  const session = createSession()
++  const sewingPath = '/fcs/pda/exec/TASK-SEW-000513-F090-3'
++  for (const pathname of [sewingPath, `${sewingPath}?returnTo=%2Ffcs%2Fpda%2Fexec&action=start`]) {
++    assert.equal(await execute(session.dependencies, pathname), `<article>${pathname}</article>`)
++    assert.equal(session.isPmsStarted(), false)
++  }
++  assert.equal(session.events.filter(event => event === 'PCS ready').length, 2)
++  assert.equal(session.events.filter(event => event === 'FCS and part tickets ready').length, 2)
++  assert.equal(session.events.filter(event => event === 'PDA handler ready').length, 2)
++  assert.ok(session.events.indexOf('PCS ready') < session.events.indexOf('FCS and part tickets ready'))
++  assert.ok(session.events.indexOf('FCS and part tickets ready') < session.events.indexOf('PDA handler ready'))
++  await execute(session.dependencies, '/pms/product-purchase-orders')
++  assert.equal(session.isPmsStarted(), true, 'entering PMS still starts its original initialization')
++  assert.equal(session.events.filter(event => event === 'PMS started').length, 1)
++
++  for (const pathname of ['/fcs/pda/exec/TASK-PRINT-000714', '/fcs/progress/board']) {
++    const other = createSession()
++    assert.equal(await execute(other.dependencies, pathname), `<article>${pathname}</article>`)
++    assert.equal(other.isPmsStarted(), true, pathname)
++    assert.equal(other.events.filter(event => event === 'PMS started').length, 1)
++  }
++})

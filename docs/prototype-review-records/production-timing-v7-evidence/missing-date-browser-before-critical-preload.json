@@ -1,0 +1,9 @@
+{
+  "version": {
+    "entry": "index-DxE041Pq.js",
+    "htmlSha256": "e7e74026591f0b2c3c8aef024deae754350b2bc3e2e08137a1d8d79c4d3e28c2",
+    "tests": 532
+  },
+  "thresholdMs": 1000,
+  "samples": []
+}

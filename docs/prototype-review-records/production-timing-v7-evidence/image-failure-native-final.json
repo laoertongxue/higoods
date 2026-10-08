@@ -1,0 +1,70 @@
+{
+  "url": "http://localhost:4179/fcs/craft/dyeing/work-orders/PO-202610-0089%2Fwo-F02-dye",
+  "runs": [
+    {
+      "run": 1,
+      "broken": [
+        "原型捆条布原料效果图；藏青C02仍是染色目标。"
+      ],
+      "build": [
+        "http://localhost:4179/assets/index-VIsb9cR6.js"
+      ],
+      "elapsedMs": 307.29999999701977,
+      "errorText": [
+        "图片读取失败，请重新加载当前页面。"
+      ]
+    },
+    {
+      "run": 2,
+      "broken": [
+        "原型捆条布原料效果图；藏青C02仍是染色目标。"
+      ],
+      "build": [
+        "http://localhost:4179/assets/index-VIsb9cR6.js"
+      ],
+      "elapsedMs": 172.40000000596046,
+      "errorText": [
+        "图片读取失败，请重新加载当前页面。"
+      ]
+    },
+    {
+      "run": 3,
+      "broken": [
+        "原型捆条布原料效果图；藏青C02仍是染色目标。"
+      ],
+      "build": [
+        "http://localhost:4179/assets/index-VIsb9cR6.js"
+      ],
+      "elapsedMs": 171.89999999850988,
+      "errorText": [
+        "图片读取失败，请重新加载当前页面。"
+      ]
+    },
+    {
+      "run": 4,
+      "broken": [
+        "原型捆条布原料效果图；藏青C02仍是染色目标。"
+      ],
+      "build": [
+        "http://localhost:4179/assets/index-VIsb9cR6.js"
+      ],
+      "elapsedMs": 198.5,
+      "errorText": [
+        "图片读取失败，请重新加载当前页面。"
+      ]
+    },
+    {
+      "run": 5,
+      "broken": [
+        "原型捆条布原料效果图；藏青C02仍是染色目标。"
+      ],
+      "build": [
+        "http://localhost:4179/assets/index-VIsb9cR6.js"
+      ],
+      "elapsedMs": 118.30000000447036,
+      "errorText": [
+        "图片读取失败，请重新加载当前页面。"
+      ]
+    }
+  ]
+}

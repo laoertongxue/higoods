@@ -1,0 +1,20 @@
+{
+  "at": "2026-10-08T14:09:05.608Z",
+  "userReport": "两个地址已解除限制，CDP 已开启",
+  "globalFullCdpEnabled": true,
+  "sessionDeniedOrigins": [
+    "http://localhost:61122",
+    "http://127.0.0.1:4179"
+  ],
+  "baselineRetry": {
+    "blocked": true,
+    "reason": "Error: Browser Use rejected this action due to browser security policy. Reason: A saved user permission setting blocks this action. Browser use cannot use raw CDP on http://localhost:61122 because the user has a saved preference that blocks it. The agent must not attempt to achieve the same outcome via workaround, indirect execution, raw CDP or browser commands, alternate browser surfaces, or policy circumvention. Proceed only with a materially safer alternative that does not require this blocked browser action; if none exists, stop and request user input."
+  },
+  "storageRetry": {
+    "blocked": true,
+    "hookInstalled": false,
+    "reason": "Error: Browser Use rejected this action due to browser security policy. Reason: A saved user permission setting blocks this action. Browser use cannot use raw CDP on http://127.0.0.1:4179 because the user has a saved preference that blocks it. The agent must not attempt to achieve the same outcome via workaround, indirect execution, raw CDP or browser commands, alternate browser surfaces, or policy circumvention. Proceed only with a materially safer alternative that does not require this blocked browser action; if none exists, stop and request user input."
+  },
+  "quotaHookInstalled": false,
+  "permissionFilesEdited": false
+}

@@ -1,0 +1,210 @@
+{
+  "version": {
+    "entry": "index-DSPY5QtO.js",
+    "htmlSha256": "f1c7dc5e8b80e9e9415042bfb39da3132c7b922dfb37bdac703ca1ed8d19a898",
+    "tests": 532
+  },
+  "scope": "仅已知业务分配日及下一合同节点回归；旧交接420不等于正式后道实收",
+  "samples": [
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 667.1999999955297,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "cold",
+      "index": 1,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 732.0999999940395,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "cold",
+      "index": 2,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 619.5,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "cold",
+      "index": 3,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 627.3000000044703,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "cold",
+      "index": 4,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 628.6999999955297,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "cold",
+      "index": 5,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 596.2000000029802,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "refresh",
+      "index": 1,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 628.2000000029802,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "refresh",
+      "index": 2,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 612.7999999970198,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "refresh",
+      "index": 3,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 628,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "refresh",
+      "index": 4,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0015-002__ORDER",
+      "readyAtMs": 614.2000000029802,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0015-002__ORDER",
+      "cardText": "交付进度\n分配量\n1400 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n1400 件\n下一节点\n30% · 420 件\n剩余时间\n已超时 2303 小时",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-SLA-DELAY-DEMO-001\n状态\n已部分交出\n已交出\n420 件\n已收货\n420 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "kind": "refresh",
+      "index": 5,
+      "pass": true
+    }
+  ]
+}

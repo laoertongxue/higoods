@@ -1,0 +1,81 @@
+{
+  "asset": "http://localhost:4179/assets/index-0TzAP8hY.js",
+  "method": "Actual Chromium Page.printToPDF; end-to-end tool response wall clock upper bound; physical printer and OS dialog not submitted",
+  "runs": [
+    {
+      "scene": "live",
+      "iteration": 1,
+      "elapsedMs": 807,
+      "bytes": 850035,
+      "file": "production-timing-print-final-live-1.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 2,
+      "elapsedMs": 539,
+      "bytes": 850035,
+      "file": "production-timing-print-final-live-2.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 3,
+      "elapsedMs": 497,
+      "bytes": 850035,
+      "file": "production-timing-print-final-live-3.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 4,
+      "elapsedMs": 506,
+      "bytes": 850035,
+      "file": "production-timing-print-final-live-4.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 5,
+      "elapsedMs": 482,
+      "bytes": 850035,
+      "file": "production-timing-print-final-live-5.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    }
+  ]
+}

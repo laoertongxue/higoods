@@ -1,0 +1,1137 @@
+{
+  "scope": "Only the actual PDA sewing consumer TASK-SEW-000513-F090-3; original failures retained verbatim",
+  "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+  "originalEvidence": "native-fcs-browser.json:pdaActualTaskCheck",
+  "originalFailure": {
+    "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+    "taskId": "TASK-SEW-000513-F090-3",
+    "productionOrder": "PO-20260328-131",
+    "factory": "F090 全能力测试工厂",
+    "quantity": "940件",
+    "status": "待开工",
+    "visibleDispatchAt": "2026-03-28 07:30:00",
+    "visibleAcceptanceAt": "2026-03-28 08:05:00",
+    "taskDeadline": "2026-03-30 20:00:00",
+    "sewingReturnSlaVisible": false,
+    "gap": "现存F090车缝任务没有SLA事实记录，详情未渲染回货区块。缺业务分配日期分支需保留专项单位渲染断言，未创建数据。",
+    "entry": "index-VIsb9cR6.js",
+    "samples": [
+      {
+        "repeat": 1,
+        "badImages": [],
+        "body": "全能力测试工厂\n执行 · F090\n待办\n81\n全\n全能力测\n返回执行列表\n任务详情\nTASK-SEW-000513-F090-3\n待开工\n生产单号\nPO-20260328-131\n加工单 / 来源单号\n—\n原始任务\nTASK-SEW-000513-F090-3\n当前工序\n车缝\n覆盖工序\n车缝\n所在列表\n待开工\n本单成衣件数（件）\n本单成衣件数：940 件\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\n我方后道工厂\n任务截止时间\n2026-03-30 20:00:00\n时限状态:\n执行逾期\n任务二维码\nTASK-SEW-000513-F090-3\n操作\n开工\n操作日志\nACCEPT\n2026-03-28 08:05:00\n\n工厂确认接单\n\nDISPATCH\n2026-03-28 07:30:00\n\n车缝已接单待开工\n\n接单\n执行\n交接\n仓管\n结算",
+        "elapsedMs": 1454,
+        "entry": "http://localhost:4179/assets/index-VIsb9cR6.js",
+        "headings": [
+          "任务详情",
+          "操作",
+          "\n                    \n                    操作日志\n                  "
+        ],
+        "navStart": 0,
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "pass": false
+      },
+      {
+        "repeat": 2,
+        "badImages": [],
+        "body": "全能力测试工厂\n执行 · F090\n待办\n81\n全\n全能力测\n返回执行列表\n任务详情\nTASK-SEW-000513-F090-3\n待开工\n生产单号\nPO-20260328-131\n加工单 / 来源单号\n—\n原始任务\nTASK-SEW-000513-F090-3\n当前工序\n车缝\n覆盖工序\n车缝\n所在列表\n待开工\n本单成衣件数（件）\n本单成衣件数：940 件\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\n我方后道工厂\n任务截止时间\n2026-03-30 20:00:00\n时限状态:\n执行逾期\n任务二维码\nTASK-SEW-000513-F090-3\n操作\n开工\n操作日志\nACCEPT\n2026-03-28 08:05:00\n\n工厂确认接单\n\nDISPATCH\n2026-03-28 07:30:00\n\n车缝已接单待开工\n\n接单\n执行\n交接\n仓管\n结算",
+        "elapsedMs": 1269.60000000149,
+        "entry": "http://localhost:4179/assets/index-VIsb9cR6.js",
+        "headings": [
+          "任务详情",
+          "操作",
+          "\n                    \n                    操作日志\n                  "
+        ],
+        "navStart": 0,
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "pass": false
+      },
+      {
+        "repeat": 3,
+        "badImages": [],
+        "body": "全能力测试工厂\n执行 · F090\n待办\n81\n全\n全能力测\n返回执行列表\n任务详情\nTASK-SEW-000513-F090-3\n待开工\n生产单号\nPO-20260328-131\n加工单 / 来源单号\n—\n原始任务\nTASK-SEW-000513-F090-3\n当前工序\n车缝\n覆盖工序\n车缝\n所在列表\n待开工\n本单成衣件数（件）\n本单成衣件数：940 件\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\n我方后道工厂\n任务截止时间\n2026-03-30 20:00:00\n时限状态:\n执行逾期\n任务二维码\nTASK-SEW-000513-F090-3\n操作\n开工\n操作日志\nACCEPT\n2026-03-28 08:05:00\n\n工厂确认接单\n\nDISPATCH\n2026-03-28 07:30:00\n\n车缝已接单待开工\n\n接单\n执行\n交接\n仓管\n结算",
+        "elapsedMs": 1322.6999999955297,
+        "entry": "http://localhost:4179/assets/index-VIsb9cR6.js",
+        "headings": [
+          "任务详情",
+          "操作",
+          "\n                    \n                    操作日志\n                  "
+        ],
+        "navStart": 0,
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "pass": false
+      },
+      {
+        "repeat": 4,
+        "badImages": [],
+        "body": "全能力测试工厂\n执行 · F090\n待办\n81\n全\n全能力测\n返回执行列表\n任务详情\nTASK-SEW-000513-F090-3\n待开工\n生产单号\nPO-20260328-131\n加工单 / 来源单号\n—\n原始任务\nTASK-SEW-000513-F090-3\n当前工序\n车缝\n覆盖工序\n车缝\n所在列表\n待开工\n本单成衣件数（件）\n本单成衣件数：940 件\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\n我方后道工厂\n任务截止时间\n2026-03-30 20:00:00\n时限状态:\n执行逾期\n任务二维码\nTASK-SEW-000513-F090-3\n操作\n开工\n操作日志\nACCEPT\n2026-03-28 08:05:00\n\n工厂确认接单\n\nDISPATCH\n2026-03-28 07:30:00\n\n车缝已接单待开工\n\n接单\n执行\n交接\n仓管\n结算",
+        "elapsedMs": 1322.0999999940395,
+        "entry": "http://localhost:4179/assets/index-VIsb9cR6.js",
+        "headings": [
+          "任务详情",
+          "操作",
+          "\n                    \n                    操作日志\n                  "
+        ],
+        "navStart": 0,
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "pass": false
+      },
+      {
+        "repeat": 5,
+        "badImages": [],
+        "body": "全能力测试工厂\n执行 · F090\n待办\n81\n全\n全能力测\n返回执行列表\n任务详情\nTASK-SEW-000513-F090-3\n待开工\n生产单号\nPO-20260328-131\n加工单 / 来源单号\n—\n原始任务\nTASK-SEW-000513-F090-3\n当前工序\n车缝\n覆盖工序\n车缝\n所在列表\n待开工\n本单成衣件数（件）\n本单成衣件数：940 件\n当前工厂\n全能力测试工厂（F090）\n派发方式\n直接派发\n接收方\n我方后道工厂\n任务截止时间\n2026-03-30 20:00:00\n时限状态:\n执行逾期\n任务二维码\nTASK-SEW-000513-F090-3\n操作\n开工\n操作日志\nACCEPT\n2026-03-28 08:05:00\n\n工厂确认接单\n\nDISPATCH\n2026-03-28 07:30:00\n\n车缝已接单待开工\n\n接单\n执行\n交接\n仓管\n结算",
+        "elapsedMs": 1373.7000000029802,
+        "entry": "http://localhost:4179/assets/index-VIsb9cR6.js",
+        "headings": [
+          "任务详情",
+          "操作",
+          "\n                    \n                    操作日志\n                  "
+        ],
+        "navStart": 0,
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "pass": false
+      }
+    ],
+    "consoleErrors": [],
+    "screenshot": "legacy-pda-exec-sewing-VIsb9cR6-1366.png",
+    "measurement": "nav0至真实车缝详情操作DOM可见、必要图片decode完成和两帧requestAnimationFrame；含浏览器控制往返的保守上界；超过1000ms保留失败。",
+    "maxCompleteMs": 1454,
+    "performanceGatePassed": false
+  },
+  "browser": {
+    "provider": "Chrome extension 1",
+    "ownTab": "944167510",
+    "viewport": {
+      "width": 1366,
+      "height": 768
+    },
+    "storageCleared": false
+  },
+  "diagnosis": {
+    "originalResourceTimelineMs": [
+      {
+        "asset": "index-VIsb9cR6.js",
+        "request": 15.2,
+        "responseEnd": 98.3
+      },
+      {
+        "asset": "pcs-record-bootstrap-QR2AG7rt.js",
+        "request": 237.9,
+        "responseEnd": 245.8
+      },
+      {
+        "asset": "production-context-actions-BzbvNrJu.js",
+        "request": 411.7,
+        "responseEnd": 417.9
+      },
+      {
+        "asset": "routes-pda-DZzUmzzK.js",
+        "request": 519.4,
+        "responseEnd": 527.2
+      },
+      {
+        "asset": "pda-exec-detail-DRCZCMg-.js",
+        "request": 604.7,
+        "responseEnd": 612.1
+      },
+      {
+        "asset": "pda-handlers-8-1dKdSs.js",
+        "request": 1375,
+        "responseEnd": 1379.4
+      },
+      {
+        "asset": "real-qr-DaGsEE1O.js",
+        "request": 1403,
+        "responseEnd": 1405.5
+      }
+    ],
+    "diagnosticBuild": "index-DTst5n1R.js",
+    "actualRenderCumulativeMs": {
+      "synchronization": 0.29999999701976776,
+      "taskLookup": 456.79999999701977,
+      "taskAccess": 465.5,
+      "taskFacts": 472.3999999985099,
+      "detailContent": 866.1000000014901,
+      "frameContent": 906.8999999985099
+    },
+    "loadedModuleSynchronousRender": {
+      "acceptance": false,
+      "detailMs": 2533.60000000149,
+      "emptyFrameMs": 249.70000000298023,
+      "meaning": "Isolating existing synchronous renderer, without DOM commit or a business action"
+    },
+    "failedDiagnosticAttempts": [
+      {
+        "operation": "Profiler.enable",
+        "reason": "unsupported: Profiler.enable was not found"
+      },
+      {
+        "operation": "Three loaded-module render pairs",
+        "reason": "Runtime.evaluate 5000ms timeout; not a navigation sample or a passing result"
+      },
+      {
+        "operation": "Runtime resource query using escaped regex",
+        "count": 2,
+        "reason": "SyntaxError; repaired by literal string includes predicate"
+      }
+    ],
+    "nodeLookupBeforeMs": [
+      1060.1819999999998,
+      70.87320799999998,
+      88.76274999999987
+    ],
+    "nodeTodoBeforeMs": [
+      80.37566700000025,
+      74.14675000000034,
+      72.93866600000001
+    ],
+    "singleTaskProjectionBeforeMs": 32.22087499999998,
+    "directRuntimeRejected": "Actual ordinary sewing fixture is absent in runtime and task-chain stores; a raw runtime shortcut would lose this task.",
+    "causes": [
+      "Ordinary sewing getter built every preparation/craft domain then searched the complete list, instead of reusing its existing single-task snapshot projection.",
+      "Three occurrences of the same unresolved task code repeatedly rebuilt the production-object index. Request memoization is now confined to one synchronous render and cleared in finally.",
+      "Handler import was previously serial after page render. A pre-hydration parallel attempt failed actual part-ticket read gate, so final concurrency begins after the prerequisite record hydration, alongside detail module/render."
+    ],
+    "temporaryProfileRemoved": true,
+    "businessChanges": false
+  },
+  "measurement": {
+    "endpoint": "actual operation DOM mounted after page+handler awaits, real task QR SVG, all img.decode, then 2 requestAnimationFrame callbacks",
+    "coldStart": "navigation time origin 0",
+    "spaStart": "in-page capture phase actual click timestamp",
+    "toolRoundTripsExcludedFromClock": true,
+    "gateMs": 1000,
+    "loadingShellCountsAsComplete": false
+  },
+  "finalReplay": {
+    "asset": "index-DPSy6o-k.js",
+    "detailAsset": "pda-exec-detail-C_UdglPz.js",
+    "initial": {
+      "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+      "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "readyAtMs": 1401.5,
+      "taskId": "TASK-SEW-000513-F090-3",
+      "status": "待开工",
+      "quantity940": true,
+      "dispatchAt": true,
+      "acceptedAt": true,
+      "deadline": true,
+      "slaVisible": false,
+      "canStart": true,
+      "qrCount": 1,
+      "badImages": [],
+      "imageCount": 0
+    },
+    "cold": [
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1066.3000000044703,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "cold",
+        "repeat": 1,
+        "elapsedMs": 1066.3000000044703,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1023.6000000014901,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "cold",
+        "repeat": 2,
+        "elapsedMs": 1023.6000000014901,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1002.5,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "cold",
+        "repeat": 3,
+        "elapsedMs": 1002.5,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 999.7000000029802,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "cold",
+        "repeat": 4,
+        "elapsedMs": 999.7000000029802,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1071,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "cold",
+        "repeat": 5,
+        "elapsedMs": 1071,
+        "pass": false
+      }
+    ],
+    "refresh": [
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1146.8999999985099,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "refresh",
+        "repeat": 1,
+        "elapsedMs": 1146.8999999985099,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1291.3999999985099,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "refresh",
+        "repeat": 2,
+        "elapsedMs": 1291.3999999985099,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1003,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "refresh",
+        "repeat": 3,
+        "elapsedMs": 1003,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 1045.1999999955297,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "refresh",
+        "repeat": 4,
+        "elapsedMs": 1045.1999999955297,
+        "pass": false
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 985.2000000029802,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "mode": "refresh",
+        "repeat": 5,
+        "elapsedMs": 985.2000000029802,
+        "pass": true
+      }
+    ],
+    "spa": [
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 32685.20000000298,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 32276.10000000149,
+        "visibilityState": "visible",
+        "mode": "spa",
+        "repeat": 1,
+        "elapsedMs": 409.1000000014901,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 33568.5,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 33189.39999999851,
+        "visibilityState": "visible",
+        "mode": "spa",
+        "repeat": 2,
+        "elapsedMs": 379.1000000014901,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 34436.20000000298,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 34056.80000000447,
+        "visibilityState": "visible",
+        "mode": "spa",
+        "repeat": 3,
+        "elapsedMs": 379.3999999985099,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 35368.5,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 34973.60000000149,
+        "visibilityState": "visible",
+        "mode": "spa",
+        "repeat": 4,
+        "elapsedMs": 394.8999999985099,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "readyAtMs": 36268.60000000149,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 35889.80000000447,
+        "visibilityState": "visible",
+        "mode": "spa",
+        "repeat": 5,
+        "elapsedMs": 378.79999999701977,
+        "pass": true
+      }
+    ],
+    "openStartDialog": [
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec&action=start",
+        "readyAtMs": 50069.10000000149,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 49741.89999999851,
+        "mode": "open-start-dialog",
+        "repeat": 1,
+        "elapsedMs": 327.20000000298023,
+        "dialogVisible": true,
+        "submitted": false,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec&action=start",
+        "readyAtMs": 82735.10000000149,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 82471.80000000447,
+        "dialogVisible": true,
+        "visibilityState": "visible",
+        "mode": "open-start-dialog",
+        "repeat": 2,
+        "elapsedMs": 263.29999999701977,
+        "submitted": false,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec&action=start",
+        "readyAtMs": 83618.5,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 83354.70000000298,
+        "dialogVisible": true,
+        "visibilityState": "visible",
+        "mode": "open-start-dialog",
+        "repeat": 3,
+        "elapsedMs": 263.79999999701977,
+        "submitted": false,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec&action=start",
+        "readyAtMs": 84435.10000000149,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 84172.89999999851,
+        "dialogVisible": true,
+        "visibilityState": "visible",
+        "mode": "open-start-dialog",
+        "repeat": 4,
+        "elapsedMs": 262.20000000298023,
+        "submitted": false,
+        "pass": true
+      },
+      {
+        "entry": "http://localhost:4179/assets/index-DPSy6o-k.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec&action=start",
+        "readyAtMs": 85251.80000000447,
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "clickStartMs": 84990.39999999851,
+        "dialogVisible": true,
+        "visibilityState": "visible",
+        "mode": "open-start-dialog",
+        "repeat": 5,
+        "elapsedMs": 261.40000000596046,
+        "submitted": false,
+        "pass": true
+      }
+    ],
+    "finalBrowserFacts": {
+      "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "visibilityState": "visible",
+      "width": 1366,
+      "height": 768,
+      "asset": "http://localhost:4179/assets/index-DPSy6o-k.js",
+      "qrCount": 1,
+      "imageCount": 0,
+      "status": "待开工",
+      "operationLogUnchanged": true,
+      "startSubmitted": false
+    },
+    "cleanup": {
+      "cacheDisabled": false,
+      "viewport": "reset",
+      "closedOwnTab": "944167510",
+      "userTabsChanged": false,
+      "businessStartSubmitted": false
+    },
+    "measurementContract": {
+      "coldAndRefreshStart": "performance.timeOrigin/navigation 0, includes record reads, handler await, actual DOM, all HTML images decoded, real QR SVG, two requestAnimationFrame",
+      "spaAndDialogStart": "actual DOM capture-phase click performance.now; subtract from completion timestamp of newly mounted detail token",
+      "limitMs": 1000,
+      "device": "Chrome 1 / 1366x768",
+      "imageScope": "actual task has 0 HTML images; necessary QR has actual SVG, not a Loading placeholder",
+      "noBusinessActions": "start dialog opened and canceled 5 times; no confirmation or file upload"
+    },
+    "summary": {
+      "sampleCount": 20,
+      "passCount": 12,
+      "failCount": 8,
+      "maxMs": 1291.3999999985099,
+      "functionalFieldsPass": true,
+      "performanceGatePassed": false,
+      "initialAdditionalFailureMs": 1401.5
+    }
+  },
+  "tests": {
+    "log": "pda-exec-performance-tests.txt",
+    "passed": 12,
+    "failed": 0,
+    "snapshotBeforeFix": "pda-snapshot-before.txt: actual expected failure for fresh snapshot identity"
+  },
+  "sourceHashes": {
+    "src/main.ts": "b96b8b7ccf81b923c0a44cbd8b1e2f44a9d3a9c58aba63dacbed8b0de806340b",
+    "src/pages/pda-exec-detail.ts": "7892e7e41757455347040c4c9ff4903c82b91e29e52feb71d755e5087a32dfe4",
+    "src/data/fcs/process-mobile-task-binding.ts": "0daa0e8f3a0ab6d85fea8758de82953bde4a29fe6867024ec660c813a231b530",
+    "src/data/fcs/production-object-overview.ts": "4e5d449cbef8883b6319a894ca0fc11a6f6a1f91d48c3b44b872f5babcad94c3",
+    "tests/unit/pda-sewing-detail-canonical-task.test.ts": "effbb3f506c8db8791232e6d0c6ce6813da97e791d92a1e605b58a3be8e45847"
+  },
+  "exactDiff": "pda-exec-performance-exact.patch",
+  "candidateFailure": {
+    "entry": "index-BlcZ5H2_.js",
+    "operation": "first reload before planned final replay",
+    "ready": false,
+    "visibleBody": "接单\n执行\n交接\n仓管\n结算",
+    "error": "部位票数据尚未读取，请重新进入页面；未使用空记录代替已有数据。",
+    "stack": "part-ticket-records-CQoado7K.js -> warehouse-runtime-C9X-JWRj.js module evaluation",
+    "handlerRequestAtMs": 128.79999999701977,
+    "pcsBaselineResponseEndMs": 379.5,
+    "meaning": "Handler module is not independent of prerequisite hydration; no Loading-as-complete result counted",
+    "fix": "Promise.all only after await preparePageRouteEntry: both page module/render and handler evaluated against hydrated part-ticket/production/PCS records; retain render mount await gate"
+  },
+  "resolverActualBrowserDiagnostic": {
+    "asset": "index-0TzAP8hY.js",
+    "module": "production-object-overview-CShMFlj0.js",
+    "measurement": "page-local performance.now around existing resolveProductionObjectRequest export; no UI mutation or business write",
+    "queries": [
+      {
+        "repeat": 1,
+        "request": {
+          "objectType": "PROCESS_DOC",
+          "objectId": "TASK-SEW-000513-F090-3",
+          "relatedProductionOrderNo": "PO-20260328-131"
+        },
+        "status": "UNLINKED",
+        "elapsedMs": 377.19999999552965
+      },
+      {
+        "repeat": 1,
+        "request": {
+          "objectType": "PROCESS_DOC",
+          "objectId": "TASK-SEW-000513-F090-3"
+        },
+        "status": "UNLINKED",
+        "elapsedMs": 400.20000000298023
+      },
+      {
+        "repeat": 1,
+        "request": {
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-20260328-131"
+        },
+        "status": "UNLINKED",
+        "elapsedMs": 462.6000000014901
+      },
+      {
+        "repeat": 2,
+        "request": {
+          "objectType": "PROCESS_DOC",
+          "objectId": "TASK-SEW-000513-F090-3",
+          "relatedProductionOrderNo": "PO-20260328-131"
+        },
+        "status": "UNLINKED",
+        "elapsedMs": 374.5
+      },
+      {
+        "repeat": 2,
+        "request": {
+          "objectType": "PROCESS_DOC",
+          "objectId": "TASK-SEW-000513-F090-3"
+        },
+        "status": "UNLINKED",
+        "elapsedMs": 408.8999999985099
+      },
+      {
+        "repeat": 2,
+        "request": {
+          "objectType": "PRODUCTION_ORDER",
+          "objectId": "PO-20260328-131"
+        },
+        "status": "UNLINKED",
+        "elapsedMs": 363.8999999985099
+      }
+    ]
+  },
+  "snapshotRootCauseFix": {
+    "sharedSource": "src/data/fcs/production-object-overview.ts",
+    "publicApi": "getProductionObjectSearchIndex(refresh=false); resolveProductionObjectRequest(request,readOnlySnapshot?)",
+    "scope": "PDA render lazily gets once-fresh full canonical index and reuses for all object requests, finally clears; all other call behavior unchanged",
+    "business": "unregistered references remain UNLINKED/plain IDs; no fabricated documents or quantities"
+  },
+  "candidateReplays": [
+    {
+      "asset": "index-0TzAP8hY.js",
+      "status": "failed-cold-perf-continued-diagnosis",
+      "initialRead": {
+        "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+        "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+        "taskId": "TASK-SEW-000513-F090-3",
+        "status": "待开工",
+        "quantity940": true,
+        "dispatchAt": true,
+        "acceptedAt": true,
+        "deadline": true,
+        "slaVisible": false,
+        "canStart": true,
+        "qrCount": 1,
+        "badImages": [],
+        "imageCount": 0,
+        "readyAtMs": 1597.6000000014901,
+        "pass": false
+      },
+      "cold": [
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "cold",
+          "repeat": 1,
+          "readyAtMs": 1225,
+          "elapsedMs": 1225,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "cold",
+          "repeat": 2,
+          "readyAtMs": 1177.1000000014901,
+          "elapsedMs": 1177.1000000014901,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "cold",
+          "repeat": 3,
+          "readyAtMs": 1214.3999999985099,
+          "elapsedMs": 1214.3999999985099,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "cold",
+          "repeat": 4,
+          "readyAtMs": 1272.2999999970198,
+          "elapsedMs": 1272.2999999970198,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "cold",
+          "repeat": 5,
+          "readyAtMs": 1136.7999999970198,
+          "elapsedMs": 1136.7999999970198,
+          "pass": false
+        }
+      ],
+      "refresh": [
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "refresh",
+          "repeat": 1,
+          "readyAtMs": 1336.5,
+          "elapsedMs": 1336.5,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "refresh",
+          "repeat": 2,
+          "readyAtMs": 1184.6999999955297,
+          "elapsedMs": 1184.6999999955297,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "refresh",
+          "repeat": 3,
+          "readyAtMs": 1186,
+          "elapsedMs": 1186,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "refresh",
+          "repeat": 4,
+          "readyAtMs": 1221,
+          "elapsedMs": 1221,
+          "pass": false
+        },
+        {
+          "entry": "http://localhost:4179/assets/index-0TzAP8hY.js",
+          "url": "http://localhost:4179/fcs/pda/exec/TASK-SEW-000513-F090-3?returnTo=%2Ffcs%2Fpda%2Fexec",
+          "taskId": "TASK-SEW-000513-F090-3",
+          "status": "待开工",
+          "quantity940": true,
+          "dispatchAt": true,
+          "acceptedAt": true,
+          "deadline": true,
+          "slaVisible": false,
+          "canStart": true,
+          "qrCount": 1,
+          "badImages": [],
+          "imageCount": 0,
+          "mode": "refresh",
+          "repeat": 5,
+          "readyAtMs": 1207.6999999955297,
+          "elapsedMs": 1207.6999999955297,
+          "pass": false
+        }
+      ],
+      "spa": [],
+      "openStartDialog": [],
+      "visibilityState": "visible",
+      "method": "actual operative DOM, all images decoded (0 on actual task), real QR SVG, two requestAnimationFrame; cold from timeorigin"
+    }
+  ],
+  "finalConclusion": {
+    "status": "implemented-performance-not-verified",
+    "evidence": "pda-exec-final-raw.json",
+    "result": "Functional fields and actual QR pass 20/20. Cold 4/5 and normal refresh 4/5 exceed 1000ms; SPA5/5 and dialog5/5 pass. Cold/refresh must remain unverified. No further PDA scope expansion after last approved minimal fix.",
+    "remaining": "Fresh record/import/index initial workload remains above the uniform limit on cold/refresh. Shared resolver now reads one new snapshot per render, but not enough for a stable <=1000ms guarantee.",
+    "factLimitation": "Existing TASK-SEW-000513-F090-3 has no sewing return SLA source record; current real route cannot prove pending-business-allocation SLA branch. Dedicated render/unit evidence remains separately required."
+  },
+  "finalRawSha256": "7dc952bffaf4879582db3377960bd41d02af416e9f0014826538ec9bb8ddda06",
+  "screenshot": "pda-exec-DPSy6o-k-1366.jpg",
+  "pmsInitializationScopeFix": {
+    "files": [
+      "src/main.ts",
+      "tests/unit/pda-sewing-detail-canonical-task.test.ts"
+    ],
+    "route": "^/fcs/pda/exec/TASK-SEW-[^/]+$",
+    "behavior": "Do not start unrelated full PMS hydration/migration for this route. Keep all PCS/FCS records, handler gates and real object resolution. The flag stays false; visiting PMS or other original entry then starts normally.",
+    "evidence": [
+      "pda-pms-scope-before.txt",
+      "pda-pms-scope-tests.txt",
+      "pda-pms-scope-exact.patch"
+    ],
+    "unitPass": 13,
+    "unitFail": 0,
+    "browserStatus": "pending next root build, all previous real failures retained",
+    "staticImportAudit": {
+      "entryCount": 7,
+      "staticModules": 454,
+      "pmsStaticDependencies": 0,
+      "dynamicModuleCount": 880,
+      "pmsDynamicPaths": "other routed events: dyeing receipts/TMF or login/router/PCS reference check, not normal sewing detail startup"
+    }
+  },
+  "pendingSourceHashes": {
+    "src/main.ts": "fe77c23a06570eade3489d2f4cc3cbb527f80345171671dc7617b7aedbc33c09",
+    "tests/unit/pda-sewing-detail-canonical-task.test.ts": "45fa934c8d5a9b3b9148d6d3727c8798aae9cd68478651167e28c7530137b2e2"
+  },
+  "pmsInitializationScopeFinalReplay": {
+    "asset": "index-I65TnVlZ.js",
+    "source": "pda-exec-pms-scope-final-raw.json",
+    "formalSamples": 20,
+    "formalPerformancePass": 20,
+    "formalFieldPass": 20,
+    "maxFormalMs": 904.8000000044703,
+    "extraInitialFailureMs": 1663.6000000014901,
+    "extraInitialFailurePreserved": true,
+    "cleanup": {
+      "cacheDisabled": false,
+      "viewportReset": true,
+      "ownTabClosed": true,
+      "userTabsUntouched": true
+    },
+    "conclusion": "The formal cold/refresh/SPA/dialog samples pass. The first new-tab direct extra sample remains a performance failure; final overall gate decision requires it to remain visible."
+  },
+  "preloadFinalReplay": {
+    "raw": "pda-exec-preload-final-raw.json",
+    "diagnostics": "pda-exec-preload-final-navigation-diagnostics.json",
+    "screenshot": "pda-exec-preload-final-1366.jpg",
+    "version": {
+      "entry": "index-I65TnVlZ.js",
+      "css": "index-BysvPE4E.css",
+      "htmlSha256": "74ba206bb32a8b95fc21a3bff0cad6c8ebb97c36e4bb1b3a6b24a0ff912d033c",
+      "buildTests": 530,
+      "source": "parent frozen build /tmp/timing-preload-final-build.txt"
+    },
+    "summary": {
+      "formalSamples": 25,
+      "performancePass": 20,
+      "performanceFail": 5,
+      "fieldPass": 25,
+      "maxFormalMs": 1572.7999999970198,
+      "modulePreloadPresent": true,
+      "modulePreloadCount": 144
+    },
+    "additionalAttemptsRetained": 5,
+    "conclusion": "Performance gate remains incomplete: 4/5 new-tab first navigations and 1/5 normal refreshes exceeded 1000ms. No failed sample was replaced or ignored.",
+    "cleanup": {
+      "cacheDisabled": false,
+      "viewportReset": true,
+      "allOwnTabsClosed": true,
+      "userTabsUntouched": true
+    }
+  },
+  "linkIndexFinalReplay": {
+    "raw": "pda-exec-link-index-final-raw.json",
+    "diagnostics": "pda-exec-link-index-final-navigation-diagnostics.json",
+    "screenshot": "pda-exec-link-index-final-1366.jpg",
+    "version": {
+      "entry": "index-ArcJUalF.js",
+      "css": "index-BysvPE4E.css",
+      "htmlSha256": "a028286453243d63479a1d50ae42a4fc3e34b0e361007fa55f4f19278903732e",
+      "expectedHtmlSha256": "a028286453243d63479a1d50ae42a4fc3e34b0e361007fa55f4f19278903732e",
+      "htmlShaMatches": true,
+      "buildTests": 531,
+      "source": "parent frozen build"
+    },
+    "summary": {
+      "formalSamples": 25,
+      "performancePass": 25,
+      "performanceFail": 0,
+      "fieldPass": 25,
+      "maxFormalMs": 884.1999999955297,
+      "modulePreloadPresent": true,
+      "modulePreloadCount": 144
+    },
+    "conclusion": "This frozen version passes all 25 actual-page performance and business-field samples, including five separate fresh-tab first navigations. Earlier candidate failures remain unchanged. Acceptance is limited to this named task and device route.",
+    "cleanup": {
+      "cacheDisabled": false,
+      "viewportReset": true,
+      "allOwnTabsClosed": true,
+      "userTabsUntouched": true
+    }
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "build": [
+    "http://localhost:4179/assets/index-DTst5n1R.js"
+  ],
+  "runs": [
+    {
+      "run": 1,
+      "ms": 835.9242079998367,
+      "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/production-timing-print-optimized-1.pdf",
+      "bytes": 868605
+    },
+    {
+      "run": 2,
+      "ms": 599.5254160000477,
+      "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/production-timing-print-optimized-2.pdf",
+      "bytes": 868605
+    },
+    {
+      "run": 3,
+      "ms": 604.3448749999516,
+      "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/production-timing-print-optimized-3.pdf",
+      "bytes": 868605
+    },
+    {
+      "run": 4,
+      "ms": 607.9261249999981,
+      "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/production-timing-print-optimized-4.pdf",
+      "bytes": 868605
+    },
+    {
+      "run": 5,
+      "ms": 499.4797920000274,
+      "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/production-timing-print-optimized-5.pdf",
+      "bytes": 868605
+    }
+  ]
+}

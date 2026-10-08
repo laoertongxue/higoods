@@ -1,0 +1,13 @@
+{
+  "globalFullCdpEnabled": true,
+  "currentSessionDeniedOrigins": [
+    "http://localhost:61122",
+    "http://127.0.0.1:4179"
+  ],
+  "browserServiceSha256": "ba719c06f15841b23afb40d439b906a5e1d7c60b6570cfb011a314806dff0b93",
+  "decisionSourceSnippet": "nction At(t){try{let e=CI?.(t());e!=null&&Promise.resolve(e).catch(()=>{})}catch{}}function jt(t,e,r,n,o){At(()=>({...n,backend:e?.browserBackend,browserFamily:e?.browserFamily,check:t,durationMs:o,outcome:\"success\",permissionSource:r}))}function Oe({audit:t,check:e,durationMs:r,options:n,permissionSource:o,reason:i},s,a){let l=new pt(i,s,a===void 0?void 0:{cause:a});throw At(()=>({...t,backend:n?.browserBackend,browserFamily:n?.browserFamily,check:e,durationMs:r,outcome:l.retryable?\"error_fail_closed\":\"denied\",permissionSource:o,reason:i})),l}function Rt(t,e,r,n,o,i,s){let a,l;switch(e){case\"browser-use-persisted-state\":a=\"persisted_user_denied\",l=\"the user has a saved preference that blocks it.\";break;case\"browser-use-persisted-state-unavailable\":a=\"approval_unavailable\",l=\"saved browser permissions could not be verified. Please try aga",
+  "supportedResetUiFound": false,
+  "filesEdited": false,
+  "sourceIssue": "https://github.com/openai/codex/issues/50789",
+  "sourceOfficialDoc": "https://learn.chatgpt.com/docs/browser?surface=app"
+}

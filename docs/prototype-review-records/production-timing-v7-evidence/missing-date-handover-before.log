@@ -1,0 +1,29 @@
+(node:29208) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✖ CONTRACT-005: native legacy task fixture exposes the actual missing allocation date at PDA and progress board entries (561.025792ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1326.20125
+
+✖ failing tests:
+
+test at tests/unit/sewing-missing-business-date-demo.test.ts:1:1315
+✖ CONTRACT-005: native legacy task fixture exposes the actual missing allocation date at PDA and progress board entries (561.025792ms)
+  AssertionError [ERR_ASSERTION]: An unstarted planned return document must not fabricate an actual factory handout
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/sewing-missing-business-date-demo.test.ts:41:10)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

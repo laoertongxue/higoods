@@ -1,6 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync, createReadStream, statSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { brotliCompressSync, constants, gzipSync } from 'node:zlib'
+import type { OutputBundle } from 'rollup'
 import { defineConfig, type Plugin } from 'vite'
 
 function ensureStaticPlaceholderAsset(root: string): void {
@@ -30,9 +31,27 @@ function ensureStaticPlaceholderPlugin(): Plugin {
   }
 }
 
-// Discover this route's modules during HTML parsing, rather than after the shell
+function routeStaticChunks(bundle: OutputBundle, sources: string[]): string[] {
+  const files = new Set<string>()
+  const visit = (file: string): void => {
+    if (files.has(file)) return
+    const chunk = bundle[file]
+    if (!chunk || chunk.type !== 'chunk') return
+    files.add(file)
+    chunk.imports.forEach(visit)
+  }
+  for (const source of sources) {
+    const entry = Object.values(bundle).find(item => item.type === 'chunk'
+      && Object.keys(item.modules).some(id => id.endsWith(source)))
+    if (entry?.type === 'chunk') visit(entry.fileName)
+  }
+  return [...files]
+}
+
+// Discover these routes' modules during HTML parsing, rather than after the shell
 // has downloaded and executed. This happens inside the measured navigation;
-// no module is fetched on other routes and no data is rendered before it is ready.
+// preload only fetches/compiles modules. Existing route hydration still gates
+// evaluation and operative DOM; no module is fetched on other routes.
 function preloadProductionTimelinessRoute(): Plugin {
   return {
     name: 'preload-production-timeliness-route',
@@ -41,20 +60,14 @@ function preloadProductionTimelinessRoute(): Plugin {
       handler(_html, context) {
         const bundle = context.bundle
         if (!bundle) return
-        const entry = Object.values(bundle).find(item => item.type === 'chunk'
-          && Object.keys(item.modules).some(id => id.endsWith('/src/pages/production-fulfillment/index.ts')))
-        if (!entry || entry.type !== 'chunk') return
-        const files = new Set<string>()
-        const visit = (file: string): void => {
-          if (files.has(file)) return
-          const chunk = bundle[file]
-          if (!chunk || chunk.type !== 'chunk') return
-          files.add(file)
-          chunk.imports.forEach(visit)
-        }
-        visit(entry.fileName)
+        const files = routeStaticChunks(bundle, ['/src/pages/production-fulfillment/index.ts'])
+        const sewingFiles = routeStaticChunks(bundle, [
+          '/src/pages/pda-exec-detail.ts', '/src/main-handlers/pda-handlers.ts',
+          '/src/components/real-qr.ts', '/src/data/pcs-record-runtime.ts', '/src/data/pcs-record-bootstrap.ts',
+        ])
+        if (!files.length && !sewingFiles.length) return
         return [{ tag: 'script', injectTo: 'head-prepend', children:
-          `if(/^\\/dds\\/supply-chain\\/production-fulfillment(?:\\/|$)/.test(location.pathname)){${JSON.stringify([...files])}.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)})}` }]
+          `if(/^\\/dds\\/supply-chain\\/production-fulfillment(?:\\/|$)/.test(location.pathname)){${JSON.stringify(files)}.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)})}else if(/^\\/fcs\\/pda\\/exec\\/(?:TASK-SEW-|TASKGEN-)[^/]+$/.test(location.pathname)){${JSON.stringify(sewingFiles)}.forEach(function(file){var link=document.createElement('link');link.rel='modulepreload';link.href='/'+file;document.head.appendChild(link)})}` }]
       },
     },
   }
@@ -109,9 +122,13 @@ function compressedPreviewAssets(): Plugin {
     name: 'compressed-preview-assets',
     writeBundle(options, bundle) {
       if (!options.dir) return
+      const sewingFiles = new Set(routeStaticChunks(bundle, [
+        '/src/pages/pda-exec-detail.ts', '/src/main-handlers/pda-handlers.ts',
+        '/src/components/real-qr.ts', '/src/data/pcs-record-runtime.ts', '/src/data/pcs-record-bootstrap.ts',
+      ]))
       for (const item of Object.values(bundle)) {
         const selected = item.type === 'chunk'
-          ? item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
+          ? sewingFiles.has(item.fileName) || item.fileName.includes('/production-timeliness-') || item.fileName.includes('/production-source-shared-') || item.fileName.includes('/app-shared-') || item.fileName.includes('/pcs-record-bootstrap-') || item.fileName.includes('/pcs-archive-shared-') || item.isEntry
           : item.fileName.endsWith('.css') || /pcs-record-baseline-.*\.json$/.test(item.fileName)
         if (!selected) continue
         const path = resolve(options.dir, item.fileName)

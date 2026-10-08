@@ -1,0 +1,253 @@
+{
+  "asset": "http://localhost:4179/assets/index-0TzAP8hY.js",
+  "method": "Existing stores readonly getAll and SHA256 before/after; no creation of missing databases, no writes, no clear, no fault injection",
+  "before": {
+    "legacy": [
+      {
+        "bytes": 0,
+        "key": "dds-pf-followups-v1",
+        "present": false,
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      {
+        "bytes": 0,
+        "key": "dds-pf-forecasts-v1",
+        "present": false,
+        "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      }
+    ],
+    "origin": "http://localhost:4179",
+    "stores": [
+      {
+        "count": 0,
+        "legacyDemand": 0,
+        "name": "followups",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "count": 0,
+        "legacyDemand": 0,
+        "name": "forecast-events",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "count": 0,
+        "legacyDemand": 0,
+        "name": "forecasts",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    ]
+  },
+  "runs": [
+    {
+      "iteration": 1,
+      "after": {
+        "legacy": [
+          {
+            "bytes": 0,
+            "key": "dds-pf-followups-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "bytes": 0,
+            "key": "dds-pf-forecasts-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          }
+        ],
+        "origin": "http://localhost:4179",
+        "stores": [
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "followups",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecast-events",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecasts",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        ]
+      },
+      "pass": true,
+      "navigationMs": 186.80000000447035
+    },
+    {
+      "iteration": 2,
+      "after": {
+        "legacy": [
+          {
+            "bytes": 0,
+            "key": "dds-pf-followups-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "bytes": 0,
+            "key": "dds-pf-forecasts-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          }
+        ],
+        "origin": "http://localhost:4179",
+        "stores": [
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "followups",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecast-events",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecasts",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        ]
+      },
+      "pass": true,
+      "navigationMs": 73.69999999552965
+    },
+    {
+      "iteration": 3,
+      "after": {
+        "legacy": [
+          {
+            "bytes": 0,
+            "key": "dds-pf-followups-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "bytes": 0,
+            "key": "dds-pf-forecasts-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          }
+        ],
+        "origin": "http://localhost:4179",
+        "stores": [
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "followups",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecast-events",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecasts",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        ]
+      },
+      "pass": true,
+      "navigationMs": 100.09999999403954
+    },
+    {
+      "iteration": 4,
+      "after": {
+        "legacy": [
+          {
+            "bytes": 0,
+            "key": "dds-pf-followups-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "bytes": 0,
+            "key": "dds-pf-forecasts-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          }
+        ],
+        "origin": "http://localhost:4179",
+        "stores": [
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "followups",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecast-events",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecasts",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        ]
+      },
+      "pass": true,
+      "navigationMs": 94.19999999552964
+    },
+    {
+      "iteration": 5,
+      "after": {
+        "legacy": [
+          {
+            "bytes": 0,
+            "key": "dds-pf-followups-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          },
+          {
+            "bytes": 0,
+            "key": "dds-pf-forecasts-v1",
+            "present": false,
+            "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          }
+        ],
+        "origin": "http://localhost:4179",
+        "stores": [
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "followups",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecast-events",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          },
+          {
+            "count": 0,
+            "legacyDemand": 0,
+            "name": "forecasts",
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+          }
+        ]
+      },
+      "pass": true,
+      "navigationMs": 70.80000000447035
+    }
+  ]
+}

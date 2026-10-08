@@ -1,0 +1,29 @@
+(node:12450) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA顶栏计数与实际完整待办相同，覆盖各任务工厂及管理员/员工角色 (1247.763375ms)
+(node:12451) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ 按工厂投影不改变全能力、印花、染色、中央与裁片演示账号可见任务 (734.006375ms)
+(node:12452) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ ordinary sewing direct lookup keeps every field and factory permission from the complete canonical projection (501.611166ms)
+✔ runtime sewing overrides and legacy/missing IDs retain the complete projection result (800.153167ms)
+✔ one fresh read-only object snapshot preserves readiness, context and unknown references without refreshing per miss (275.205084ms)
+✔ PDA handlers wait for part-ticket hydration, and the real detail is not mounted before both dependencies complete (42.326834ms)
+✔ ordinary sewing detail leaves unrelated PMS initialization pending until a normal module entry (12.656708ms)
+(node:12453) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ CONTRACT-002: later factory acceptance retains its fact without postponing business allocation deadlines (0.971292ms)
+✔ CONTRACT-002: missing business allocation time produces a visible verification gap instead of acceptance-based deadlines (0.213667ms)
+✔ CONTRACT-002: historical acceptance-based snapshots remain intact but cannot establish current contract deadlines (0.368291ms)
+✔ CONTRACT-002: shared PDA and progress board show missing allocation dates without claiming zero-receipt tasks are complete (1.135333ms)
+✔ CONTRACT-002: confirmed dates still show the next contractual node and complete only after all 100 pieces are received (0.4675ms)
+✔ CONTRACT-002: outsourcing tracking uses allocation dates for tender tasks and marks missing dates as unverified (9.026541ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 13
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2805.555792

@@ -1,0 +1,115 @@
+{
+  "version": {
+    "entry": "index-DxE041Pq.js",
+    "htmlSha256": "d934743ca69213842f46b2c65ba8028c3c5c567d32fcbe80fa728f753aad6f34",
+    "tests": 532
+  },
+  "thresholdMs": 1000,
+  "samples": [
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0007-002__ORDER?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "readyAtMs": 58012.40000000596,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0007-002__ORDER",
+      "cardText": "交付进度\n\n业务分配日期待核实，回货时效暂不能判定\n\n分配量\n800 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n待核实\n下一节点\n待核实\n剩余时间\n待核实\n\n分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-0007002ORDER\n状态\n已创建\n已交出\n0 件\n已收货\n0 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "clickAtMs": 57623.10000000149,
+      "scripts": [
+        "http://localhost:4179/assets/index-DxE041Pq.js"
+      ],
+      "index": 1,
+      "elapsedMs": 389.30000000447035,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0007-002__ORDER?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "readyAtMs": 58562.5,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0007-002__ORDER",
+      "cardText": "交付进度\n\n业务分配日期待核实，回货时效暂不能判定\n\n分配量\n800 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n待核实\n下一节点\n待核实\n剩余时间\n待核实\n\n分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-0007002ORDER\n状态\n已创建\n已交出\n0 件\n已收货\n0 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "clickAtMs": 58231.80000000447,
+      "scripts": [
+        "http://localhost:4179/assets/index-DxE041Pq.js"
+      ],
+      "index": 2,
+      "elapsedMs": 330.69999999552965,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0007-002__ORDER?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "readyAtMs": 59112.5,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0007-002__ORDER",
+      "cardText": "交付进度\n\n业务分配日期待核实，回货时效暂不能判定\n\n分配量\n800 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n待核实\n下一节点\n待核实\n剩余时间\n待核实\n\n分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-0007002ORDER\n状态\n已创建\n已交出\n0 件\n已收货\n0 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "clickAtMs": 58783,
+      "scripts": [
+        "http://localhost:4179/assets/index-DxE041Pq.js"
+      ],
+      "index": 3,
+      "elapsedMs": 329.5,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0007-002__ORDER?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "readyAtMs": 59662.5,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0007-002__ORDER",
+      "cardText": "交付进度\n\n业务分配日期待核实，回货时效暂不能判定\n\n分配量\n800 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n待核实\n下一节点\n待核实\n剩余时间\n待核实\n\n分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-0007002ORDER\n状态\n已创建\n已交出\n0 件\n已收货\n0 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "clickAtMs": 59332.90000000596,
+      "scripts": [
+        "http://localhost:4179/assets/index-DxE041Pq.js"
+      ],
+      "index": 4,
+      "elapsedMs": 329.59999999403954,
+      "pass": true
+    },
+    {
+      "url": "http://localhost:4179/fcs/pda/exec/TASKGEN-202603-0007-002__ORDER?returnTo=%2Ffcs%2Fpda%2Fexec",
+      "readyAtMs": 60228.30000000447,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "taskId": "TASKGEN-202603-0007-002__ORDER",
+      "cardText": "交付进度\n\n业务分配日期待核实，回货时效暂不能判定\n\n分配量\n800 件\n已交\n0 件\n后道最终确认\n0 件\n还差\n待核实\n下一节点\n待核实\n剩余时间\n待核实\n\n分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。",
+      "qr": true,
+      "images": [],
+      "handoverText": "交出单\n交出单号\nHDO-0007002ORDER\n状态\n已创建\n已交出\n0 件\n已收货\n0 件\n差异\n0 件\n异议\n0 条\n待收货\n0 条",
+      "login": false,
+      "clickAtMs": 59899.80000000447,
+      "scripts": [
+        "http://localhost:4179/assets/index-DxE041Pq.js"
+      ],
+      "index": 5,
+      "elapsedMs": 328.5,
+      "pass": true
+    }
+  ]
+}

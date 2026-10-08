@@ -1,0 +1,4930 @@
+{
+  "build": "index-ArcJUalF.js",
+  "samples": [
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 1,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 83.69999999552965
+        }
+      ],
+      "navMs": 83.69999999552965,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 2,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 72.79999999701977
+        }
+      ],
+      "navMs": 72.79999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 3,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 67.29999999701977
+        }
+      ],
+      "navMs": 67.29999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 4,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 79.5
+        }
+      ],
+      "navMs": 79.5,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 5,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 70.29999999701977
+        }
+      ],
+      "navMs": 70.29999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 1,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 58.400000005960464
+        }
+      ],
+      "navMs": 58.400000005960464,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 2,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 78.89999999850988
+        }
+      ],
+      "navMs": 78.89999999850988,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 3,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 62
+        }
+      ],
+      "navMs": 62,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 4,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 57.099999994039536
+        }
+      ],
+      "navMs": 57.099999994039536,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 5,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 77.60000000149012
+        }
+      ],
+      "navMs": 77.60000000149012,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 1,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 2,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.19999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 2,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 3,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 3,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 4,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 4,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 5,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 5,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 6,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 7,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.39999999850989
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 8,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.30000000447035
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 9,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.600000001490116
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 10,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 11,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 12,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.19999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 13,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 33.20000000298023
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 14,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 35.399999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 15,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.600000001490116
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 16,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.20000000298023
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 29,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.200000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 30,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.700000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 31,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27.099999994039536
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 32,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 33,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 20.19999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 34,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 35,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 36,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.399999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 37,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 22.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 38,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.200000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 39,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 31.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 40,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 20.399999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 41,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 42,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 23.899999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 43,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 21.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 44,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 23.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 45,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.400000005960464
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 46,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 25.799999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 47,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27.700000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 48,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 25.099999994039536
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 49,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.69999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 50,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 18.30000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 51,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 52,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 18.80000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 53,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.200000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 54,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 18.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 55,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.80000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 56,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 17.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 57,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 58,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.200000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1366
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "cold",
+      "index": 1,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 76.90000000596046
+        }
+      ],
+      "navMs": 76.90000000596046,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "cold",
+      "index": 2,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 61.099999994039536
+        }
+      ],
+      "navMs": 61.099999994039536,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "cold",
+      "index": 3,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 73.10000000149012
+        }
+      ],
+      "navMs": 73.10000000149012,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "cold",
+      "index": 4,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 67.70000000298023
+        }
+      ],
+      "navMs": 67.70000000298023,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "cold",
+      "index": 5,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 90.29999999701975
+        }
+      ],
+      "navMs": 90.29999999701975,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "refresh",
+      "index": 1,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 65.60000000149012
+        }
+      ],
+      "navMs": 65.60000000149012,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "refresh",
+      "index": 2,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 71.5
+        }
+      ],
+      "navMs": 71.5,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "refresh",
+      "index": 3,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 63.60000000149011
+        }
+      ],
+      "navMs": 63.60000000149011,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "refresh",
+      "index": 4,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 77.60000000149012
+        }
+      ],
+      "navMs": 77.60000000149012,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "refresh",
+      "index": 5,
+      "branches": [],
+      "height": 720,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 57.599999994039536
+        }
+      ],
+      "navMs": 57.599999994039536,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-prep",
+      "index": 1,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 2,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-prep",
+      "index": 2,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 3,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.799999997019768
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-prep",
+      "index": 3,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 4,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-prep",
+      "index": 4,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 5,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-prep",
+      "index": 5,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 6,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.69999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-supply",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 7,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 32.20000000298023
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2971.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-supply",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 8,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2971.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-supply",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 9,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2971.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-supply",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 10,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.19999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2971.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-supply",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 11,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.5
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2971.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-craft",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 12,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.69999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6341.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-craft",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 13,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.399999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6341.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-craft",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 14,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.700000002980232
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6341.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-craft",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 15,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.19999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6341.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "focus-craft",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 16,
+      "height": 720,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.5
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6341.5
+        }
+      ],
+      "width": 1280
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-button",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 18,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 32.29999999701977
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 19,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-button",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 20,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 25.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 21,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-button",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 22,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 31.19999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 23,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.899999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-button",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 24,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.899999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 25,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.099999994039536
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-button",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 26,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.899999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 27,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.69999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-escape",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 28,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 21.19999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 29,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 23
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-escape",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 30,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.799999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 31,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 23.69999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-escape",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 32,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27.700000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 33,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 25.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-escape",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 34,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.19999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 35,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 24.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-escape",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 36,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 37,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 18.200000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-backdrop",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 38,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.900000005960464
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 39,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 18.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-backdrop",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 40,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.399999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 41,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-backdrop",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 42,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 43,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 31.600000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-backdrop",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 44,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.30000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 45,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1280,
+        "height": 720
+      },
+      "mode": "modal-backdrop",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 625.5
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 46,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 47,
+        "height": 720,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.30000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 625.5
+          }
+        ],
+        "width": 1280
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 1,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 61.29999999701977
+        }
+      ],
+      "navMs": 61.29999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 2,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 70.20000000298023
+        }
+      ],
+      "navMs": 70.20000000298023,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 3,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 76.5
+        }
+      ],
+      "navMs": 76.5,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 4,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 85.39999999850988
+        }
+      ],
+      "navMs": 85.39999999850988,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 5,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 82.69999999552965
+        }
+      ],
+      "navMs": 82.69999999552965,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 1,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 84.19999999552965
+        }
+      ],
+      "navMs": 84.19999999552965,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 2,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 70.5
+        }
+      ],
+      "navMs": 70.5,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 3,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 66
+        }
+      ],
+      "navMs": 66,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 4,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 61.30000000447035
+        }
+      ],
+      "navMs": 61.30000000447035,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 5,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 72.69999999552965
+        }
+      ],
+      "navMs": 72.69999999552965,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 1,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 2,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 685
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 2,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 3,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.799999997019768
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 685
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 3,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 4,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.5
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 685
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 4,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 5,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.200000002980232
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 685
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 5,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 6,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 685
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 7,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.799999997019768
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 3736.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 8,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 3736.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 9,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.599999994039536
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 3736.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 10,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 3736.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 11,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.599999994039536
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 3736.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 12,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.20000000298023
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 7261.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 13,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 32.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 7261.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 14,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.399999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 7261.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 15,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.399999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 7261.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 16,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 33
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 7261.5
+        }
+      ],
+      "width": 1024
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 18,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 26.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 19,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.80000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 20,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 21,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.700000002980232
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 22,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 23,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 31.80000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 24,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 22.30000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 25,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-button",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 26,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 32.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 27,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 28,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 17.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 29,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 20.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 30,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 31,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 22.80000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 32,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 33,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 24.399999998509884
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 34,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 27.30000000447035
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 35,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 25.19999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-escape",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 36,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 37,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "escape-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 25
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 1,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 38,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.69999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 39,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.100000001490116
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 2,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 40,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 22.799999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 41,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 17.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 3,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 42,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 29.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 43,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 4,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 44,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 28.299999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 45,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 18.799999997019768
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    },
+    {
+      "dims": {
+        "width": 1024,
+        "height": 768
+      },
+      "mode": "modal-backdrop",
+      "index": 5,
+      "input": "coordinate at observed document button center; avoids tool auto-scroll",
+      "beforeScroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "id": "",
+          "y": 685
+        }
+      ],
+      "opened": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 46,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 30.19999999552965
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      },
+      "closed": {
+        "branches": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "count": 47,
+        "height": 768,
+        "overflow": false,
+        "overlayHidden": true,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 19.5
+        },
+        "scroll": [
+          {
+            "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+            "y": 685
+          }
+        ],
+        "width": 1024
+      }
+    }
+  ],
+  "screens": [
+    "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/final-1366x768-ArcJUalF.png",
+    "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/final-1280x720-ArcJUalF.png",
+    "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/final-1024x768-ArcJUalF.png"
+  ]
+}

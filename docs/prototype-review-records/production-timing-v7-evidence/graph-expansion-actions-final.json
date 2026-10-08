@@ -1,0 +1,122 @@
+[
+  {
+    "label": "展开全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.900000005960464
+  },
+  {
+    "label": "收起全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 47.400000005960464
+  },
+  {
+    "label": "跟进清单展开",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 47.400000005960464
+  },
+  {
+    "label": "跟进清单收起",
+    "action": "diagram-click",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 39.10000000149011
+  },
+  {
+    "label": "展开全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 38.099999994039536
+  },
+  {
+    "label": "收起全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 46.39999999850989
+  },
+  {
+    "label": "跟进清单展开",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 46.39999999850989
+  },
+  {
+    "label": "跟进清单收起",
+    "action": "diagram-click",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 39.39999999850989
+  },
+  {
+    "label": "展开全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 45
+  },
+  {
+    "label": "收起全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 43.69999999552965
+  },
+  {
+    "label": "跟进清单展开",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 43.69999999552965
+  },
+  {
+    "label": "跟进清单收起",
+    "action": "diagram-click",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 37.29999999701977
+  },
+  {
+    "label": "展开全部阶段",
+    "action": "diagram-click",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 37.29999999701977
+  },
+  {
+    "label": "收起全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 46.10000000149011
+  },
+  {
+    "label": "跟进清单展开",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 46.10000000149011
+  },
+  {
+    "label": "跟进清单收起",
+    "action": "diagram-click",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 41.20000000298023
+  },
+  {
+    "label": "展开全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 46.30000000447035
+  },
+  {
+    "label": "收起全部阶段",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.39999999850989
+  },
+  {
+    "label": "跟进清单展开",
+    "action": "phase-expand",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.39999999850989
+  },
+  {
+    "label": "跟进清单收起",
+    "action": "diagram-click",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 41.70000000298023
+  }
+]

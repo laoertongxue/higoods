@@ -1,0 +1,11 @@
+{
+  "version": {
+    "entry": "index-DxE041Pq.js",
+    "htmlSha256": "d934743ca69213842f46b2c65ba8028c3c5c567d32fcbe80fa728f753aad6f34",
+    "tests": 532
+  },
+  "thresholdMs": 1000,
+  "browser": "Codex IAB 3",
+  "cache": "Network cache disabled for cold navigation; no clearing of browser data or compiled cache",
+  "samples": []
+}

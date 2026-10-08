@@ -808,12 +808,12 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       { key: 'material-configuration', title: '规则与配置', icon: 'BarChart3', href: '/dds/supply-chain/materials/configuration' },
     ] }, { key: 'production-fulfillment', title: '生产与履约时效', icon: 'Timer', children: [
       { key: 'production-fulfillment-overview', title: '时效总览', icon: 'BarChart3', href: '/dds/supply-chain/production-fulfillment/overview' },
-      { key: 'production-fulfillment-tasks', title: '生产任务', icon: 'ListChecks', href: '/dds/supply-chain/production-fulfillment/tasks' },
+      { key: 'production-fulfillment-orders', title: '生产单监控', icon: 'ListChecks', href: '/dds/supply-chain/production-fulfillment/orders' },
       { key: 'production-fulfillment-follow-up', title: '我的跟单', icon: 'UserRound', href: '/dds/supply-chain/production-fulfillment/follow-up' },
       { key: 'production-fulfillment-work-items', title: '工作项监控', icon: 'Activity', href: '/dds/supply-chain/production-fulfillment/work-items' },
       { key: 'production-fulfillment-teams', title: '团队与工厂', icon: 'Factory', href: '/dds/supply-chain/production-fulfillment/teams' },
-      { key: 'production-fulfillment-fulfillment', title: '订单履约分析', icon: 'Truck', href: '/dds/supply-chain/production-fulfillment/fulfillment' },
-      { key: 'production-fulfillment-configuration', title: '规则与配置', icon: 'Settings', href: '/dds/supply-chain/production-fulfillment/configuration' },
+      { key: 'production-fulfillment-inbound-analysis', title: '入库时效分析', icon: 'Truck', href: '/dds/supply-chain/production-fulfillment/inbound-analysis' },
+      { key: 'production-fulfillment-configuration', title: '时效口径与配置', icon: 'Settings', href: '/dds/supply-chain/production-fulfillment/configuration' },
     ] }] },
     {
       title: '数据分析',

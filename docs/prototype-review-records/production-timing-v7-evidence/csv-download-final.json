@@ -1,0 +1,642 @@
+[
+  {
+    "label": "filtered-orders",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-filtered-orders-1.csv",
+    "upperBoundMs": 304,
+    "bytes": 671,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "filtered-orders",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-filtered-orders-2.csv",
+    "upperBoundMs": 278,
+    "bytes": 671,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "filtered-orders",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-filtered-orders-3.csv",
+    "upperBoundMs": 298,
+    "bytes": 671,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "filtered-orders",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-filtered-orders-4.csv",
+    "upperBoundMs": 289,
+    "bytes": 671,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "filtered-orders",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (5).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-filtered-orders-5.csv",
+    "upperBoundMs": 274,
+    "bytes": 671,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "all-orders",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (6).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-all-orders-1.csv",
+    "upperBoundMs": 288,
+    "bytes": 4007,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "all-orders",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (7).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-all-orders-2.csv",
+    "upperBoundMs": 288,
+    "bytes": 4007,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "all-orders",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (8).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-all-orders-3.csv",
+    "upperBoundMs": 283,
+    "bytes": 4007,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "all-orders",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (9).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-all-orders-4.csv",
+    "upperBoundMs": 290,
+    "bytes": 4007,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "all-orders",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-orders-20261007 (10).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-all-orders-5.csv",
+    "upperBoundMs": 289,
+    "bytes": 4007,
+    "state": {
+      "heading": "生产单监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "overview",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-overview-20261007.csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-overview-1.csv",
+    "upperBoundMs": 277,
+    "bytes": 4007,
+    "state": {
+      "heading": "时效总览",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "overview",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-overview-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-overview-2.csv",
+    "upperBoundMs": 290,
+    "bytes": 4007,
+    "state": {
+      "heading": "时效总览",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "overview",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-overview-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-overview-3.csv",
+    "upperBoundMs": 292,
+    "bytes": 4007,
+    "state": {
+      "heading": "时效总览",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "overview",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-overview-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-overview-4.csv",
+    "upperBoundMs": 289,
+    "bytes": 4007,
+    "state": {
+      "heading": "时效总览",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "overview",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-overview-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-overview-5.csv",
+    "upperBoundMs": 324,
+    "bytes": 4007,
+    "state": {
+      "heading": "时效总览",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "pending-purchases",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-pending-purchases-20261007.csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-pending-purchases-1.csv",
+    "upperBoundMs": 286,
+    "bytes": 563,
+    "state": {
+      "heading": "采购待关联",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "pending-purchases",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-pending-purchases-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-pending-purchases-2.csv",
+    "upperBoundMs": 293,
+    "bytes": 563,
+    "state": {
+      "heading": "采购待关联",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "pending-purchases",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-pending-purchases-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-pending-purchases-3.csv",
+    "upperBoundMs": 278,
+    "bytes": 563,
+    "state": {
+      "heading": "采购待关联",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "pending-purchases",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-pending-purchases-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-pending-purchases-4.csv",
+    "upperBoundMs": 274,
+    "bytes": 563,
+    "state": {
+      "heading": "采购待关联",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "pending-purchases",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-pending-purchases-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-pending-purchases-5.csv",
+    "upperBoundMs": 291,
+    "bytes": 563,
+    "state": {
+      "heading": "采购待关联",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：1条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "follow-up",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-follow-up-20261007.csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-follow-up-1.csv",
+    "upperBoundMs": 287,
+    "bytes": 4007,
+    "state": {
+      "heading": "我的跟单",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "follow-up",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-follow-up-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-follow-up-2.csv",
+    "upperBoundMs": 294,
+    "bytes": 4007,
+    "state": {
+      "heading": "我的跟单",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "follow-up",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-follow-up-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-follow-up-3.csv",
+    "upperBoundMs": 273,
+    "bytes": 4007,
+    "state": {
+      "heading": "我的跟单",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "follow-up",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-follow-up-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-follow-up-4.csv",
+    "upperBoundMs": 290,
+    "bytes": 4007,
+    "state": {
+      "heading": "我的跟单",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "follow-up",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-follow-up-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-follow-up-5.csv",
+    "upperBoundMs": 277,
+    "bytes": 4007,
+    "state": {
+      "heading": "我的跟单",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：20条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "work-items",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-work-items-20261007.csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-work-items-1.csv",
+    "upperBoundMs": 284,
+    "bytes": 194048,
+    "state": {
+      "heading": "工作项监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：959条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "work-items",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-work-items-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-work-items-2.csv",
+    "upperBoundMs": 285,
+    "bytes": 194048,
+    "state": {
+      "heading": "工作项监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：959条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "work-items",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-work-items-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-work-items-3.csv",
+    "upperBoundMs": 272,
+    "bytes": 194048,
+    "state": {
+      "heading": "工作项监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：959条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "work-items",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-work-items-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-work-items-4.csv",
+    "upperBoundMs": 279,
+    "bytes": 194048,
+    "state": {
+      "heading": "工作项监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：959条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "work-items",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-work-items-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-work-items-5.csv",
+    "upperBoundMs": 367,
+    "bytes": 194048,
+    "state": {
+      "heading": "工作项监控",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：959条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "teams",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-teams-20261007.csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-teams-1.csv",
+    "upperBoundMs": 363,
+    "bytes": 12164,
+    "state": {
+      "heading": "团队与工厂",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：29条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "teams",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-teams-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-teams-2.csv",
+    "upperBoundMs": 282,
+    "bytes": 12164,
+    "state": {
+      "heading": "团队与工厂",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：29条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "teams",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-teams-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-teams-3.csv",
+    "upperBoundMs": 276,
+    "bytes": 12164,
+    "state": {
+      "heading": "团队与工厂",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：29条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "teams",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-teams-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-teams-4.csv",
+    "upperBoundMs": 275,
+    "bytes": 12164,
+    "state": {
+      "heading": "团队与工厂",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：29条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "teams",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-teams-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-teams-5.csv",
+    "upperBoundMs": 279,
+    "bytes": 12164,
+    "state": {
+      "heading": "团队与工厂",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：29条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "inbound-analysis",
+    "index": 1,
+    "path": "/Users/laoer/Downloads/生产单时效-inbound-analysis-20261007.csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-inbound-analysis-1.csv",
+    "upperBoundMs": 308,
+    "bytes": 3835,
+    "state": {
+      "heading": "入库时效分析",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：19条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "inbound-analysis",
+    "index": 2,
+    "path": "/Users/laoer/Downloads/生产单时效-inbound-analysis-20261007 (1).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-inbound-analysis-2.csv",
+    "upperBoundMs": 287,
+    "bytes": 3835,
+    "state": {
+      "heading": "入库时效分析",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：19条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "inbound-analysis",
+    "index": 3,
+    "path": "/Users/laoer/Downloads/生产单时效-inbound-analysis-20261007 (2).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-inbound-analysis-3.csv",
+    "upperBoundMs": 278,
+    "bytes": 3835,
+    "state": {
+      "heading": "入库时效分析",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：19条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "inbound-analysis",
+    "index": 4,
+    "path": "/Users/laoer/Downloads/生产单时效-inbound-analysis-20261007 (3).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-inbound-analysis-4.csv",
+    "upperBoundMs": 297,
+    "bytes": 3835,
+    "state": {
+      "heading": "入库时效分析",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：19条。"
+      ],
+      "width": 1366
+    }
+  },
+  {
+    "label": "inbound-analysis",
+    "index": 5,
+    "path": "/Users/laoer/Downloads/生产单时效-inbound-analysis-20261007 (4).csv",
+    "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/csv-inbound-analysis-5.csv",
+    "upperBoundMs": 304,
+    "bytes": 3835,
+    "state": {
+      "heading": "入库时效分析",
+      "height": 768,
+      "notice": [
+        "已导出当前查询全部结果：19条。"
+      ],
+      "width": 1366
+    }
+  }
+]

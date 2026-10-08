@@ -1,0 +1,93 @@
+{
+  "head": "3ba8e323d12c7cf4f8f524bb908e5d95b8a54417",
+  "branch": "codex/dds-task-business-review",
+  "worktree": "/Users/laoer/.codex/worktrees/d29f/higoods",
+  "version": {
+    "entry": "index-DSPY5QtO.js",
+    "htmlSha256": "f1c7dc5e8b80e9e9415042bfb39da3132c7b922dfb37bdac703ca1ed8d19a898",
+    "tests": 532
+  },
+  "scope": "CONTRACT-005 native missing business allocation date PDA and progress board; known calendar-only regression",
+  "task": "TASKGEN-202603-0007-002__ORDER",
+  "staticDemo": true,
+  "fixtureQty": 800,
+  "pickupQty": "unknown, no records",
+  "formalReceiptQty": 0,
+  "handedOutQty": 0,
+  "sampleCount": 85,
+  "results": [
+    {
+      "file": "missing-date-pda-final.json",
+      "samples": 10,
+      "maxMs": 842.8999999985099,
+      "allPass": true
+    },
+    {
+      "file": "missing-date-pda-spa-final.json",
+      "samples": 5,
+      "maxMs": 310.5,
+      "allPass": true
+    },
+    {
+      "file": "missing-date-known-calendar-pda-final.json",
+      "samples": 10,
+      "maxMs": 732.0999999940395,
+      "allPass": true
+    },
+    {
+      "file": "missing-date-board-final.json",
+      "samples": 25,
+      "maxMs": 489,
+      "allPass": true
+    },
+    {
+      "file": "missing-date-known-calendar-board-final.json",
+      "samples": 25,
+      "maxMs": 447,
+      "allPass": true
+    },
+    {
+      "file": "missing-date-board-spa-final.json",
+      "samples": 10,
+      "maxMs": 177,
+      "allPass": true
+    }
+  ],
+  "overallPassed": true,
+  "permissionGatesClosed": false,
+  "earlierCurrentBuildFirstLoad": {
+    "toolReturnedMs": 985.5,
+    "pass": true,
+    "provenance": "CUA returned timing summary before array-binding writer diagnosis; not included among 85 complete raw samples"
+  },
+  "retainedFailures": [
+    {
+      "build": "index-BR5cdoRq.js",
+      "toolReturnedMs": 1078.4
+    },
+    {
+      "build": "index-BR5cdoRq.js",
+      "toolReturnedMs": 1009.5,
+      "profiler": true
+    },
+    {
+      "build": "index-Bc48vUzK.js",
+      "toolReturnedMs": 1062.6
+    }
+  ],
+  "knownLegacyBoundary": "HDO-SLA-DELAY-DEMO-001 420-piece PDA Mock is not a formal downstream receipt; normal-date regression does not verify quantity reconciliation",
+  "noBusinessActionsSubmitted": true,
+  "noStorageCleared": true,
+  "faultHookInstalled": false,
+  "temporaryProbeStopped": true,
+  "viewportReset": true,
+  "cacheOverrideReset": true,
+  "blockedActions": [
+    "original V7 equal-content-width resize/screenshot comparison",
+    "127-origin storage failure injection"
+  ],
+  "permissionEvidence": [
+    "permission-after-user-settings.json",
+    "permission-conversation-diagnosis.json"
+  ]
+}

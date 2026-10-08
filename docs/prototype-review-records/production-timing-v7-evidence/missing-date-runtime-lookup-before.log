@@ -1,0 +1,31 @@
+(node:34769) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ PDA order/task link indexes preserve all full-index candidates without constructing unrelated material rows (318.904667ms)
+✔ ordinary sewing direct lookup keeps every field and factory permission from the complete canonical projection (223.194083ms)
+✖ runtime sewing overrides and legacy/missing IDs retain the complete projection result (707.682917ms)
+✔ one fresh read-only object snapshot preserves readiness, context and unknown references without refreshing per miss (262.166208ms)
+✔ PDA handlers wait for part-ticket hydration, and the real detail is not mounted before both dependencies complete (24.5045ms)
+✔ ordinary sewing detail leaves unrelated PMS initialization pending until a normal module entry (11.150792ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 5
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2449.54725
+
+✖ failing tests:
+
+test at tests/unit/pda-sewing-detail-canonical-task.test.ts:1:2991
+✖ runtime sewing overrides and legacy/missing IDs retain the complete projection result (707.682917ms)
+  Error: single sewing detail enumerated unrelated factory domains
+      at Object.listPdaMobileExecutionTasks (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/pda-sewing-detail-canonical-task.test.ts:82:48)
+      at getPdaMobileExecutionTaskById (eval at <anonymous> (file:///Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/pda-sewing-detail-canonical-task.test.ts:1:4267), <anonymous>:29:12)
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/pda-sewing-detail-canonical-task.test.ts:84:56)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)

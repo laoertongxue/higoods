@@ -1,7 +1,7 @@
 import {buildEffectiveAssignmentStaticFixture} from './effective-task-assignments.ts'
 import {buildSewingSampleStaticFixture} from './sewing-sample-approval-suggestion.ts'
 import { getProductionOrderTechPackSnapshot } from './production-order-tech-pack-runtime.ts'
-import { getSewingDeliverySlaSnapshot } from './sewing-delivery-sla.ts'
+import { getSewingDeliverySlaSnapshot, getSewingReturnBusinessTiming } from './sewing-delivery-sla.ts'
 import { SEWING_RETURN_RULE_VERSION, calculateSewingReturnDeadlineDate } from './sewing-return-calendar.ts'
 import {
   POST_FINISHING_ACCEPTANCE_ACTORS,
@@ -48,6 +48,9 @@ export interface SewingOutsourcingReturnTrackingRow {
   productionOrder: Pick<PostFinishingAcceptanceProductionOrder, 'productionOrderId' | 'productionOrderNo' | 'sewingTaskNo' | 'styleNo' | 'styleName' | 'skus' | 'sewingTaskType'>
   taskType: PostFinishingSewingTaskType
   acceptedAt: string
+  businessAssignedAt: string
+  timingStatus: 'CONFIRMED' | 'PENDING_BUSINESS_ASSIGNMENT'
+  timingMessage: string
   ppicId: string
   ppicName: string
   declaredQty: number
@@ -241,7 +244,10 @@ export function listSewingOutsourcingReturnTrackingRows(
       skus: assignment.skuLines.map((sku) => ({ skuId: sku.skuCode, skuCode: sku.skuCode, spuCode: techPack?.styleCode || '', spuName: techPack?.styleName || '', colorName: sku.color, sizeName: sku.size, imageUrl: techPack?.imageSnapshot.productImages[0] || techPack?.imageSnapshot.styleImages[0] || '', barcode: '', plannedQty: sku.qty, qtyUnit: '件' as const })),
     }
     const sla = getSewingDeliverySlaSnapshot(assignment.runtimeTaskId)
-    const acceptedAt = assignment.source === 'DIRECT_DISPATCH' ? assignment.businessAssignedAt : sla?.active && sla.factoryId === assignment.factoryId && sla.acceptedAt >= assignment.businessAssignedAt ? sla.acceptedAt : ''
+    const acceptedAt = sla?.active && sla.factoryId === assignment.factoryId
+      ? sla.acceptedAt
+      : assignment.source === 'DIRECT_DISPATCH' ? assignment.businessAssignedAt : ''
+    const timing = getSewingReturnBusinessTiming(assignment.businessAssignedAt)
     const responsibility = getCurrentSewingTaskResponsibility(assignment.runtimeTaskId)
     const deliveries = listPostFinishingFactoryReturns().filter((delivery) => delivery.assignmentId === assignment.assignmentId)
     const confirmationVersions = listPostFinishingReturnConfirmationVersions({ assignmentId: assignment.assignmentId })
@@ -250,15 +256,15 @@ export function listSewingOutsourcingReturnTrackingRows(
       ? []
       : listSewingReturnResponsibilityVersions(assignment.assignmentId).filter((version) => version.sourceKind === 'HANDOVER_CONFIRMED')
     const policy = policyFor(taskType)
-    // 直接派单即自动接单；竞价任务只认工厂确认接单。缺少有效接单时不伪造期限。
+    // 接单与分配是不同事实；回货节点仅按业务分配日期起算，不因晚接单而延期。
     const snapshot = {
-      snapshotId: sla?.snapshotId || `PENDING-ACCEPTANCE-${assignment.assignmentId}`,
+      snapshotId: `RETURN-TRACKING-${SEWING_RETURN_RULE_VERSION}-${assignment.assignmentId}`,
       assignmentId: assignment.assignmentId, runtimeTaskId: assignment.runtimeTaskId,
       productionOrderId: assignment.productionOrderId, factoryId: assignment.factoryId, factoryName: assignment.factoryName,
-      assignedQty: assignment.assignedQty, assignmentDate: acceptedAt.slice(0, 10),
+      assignedQty: assignment.assignedQty, assignmentDate: timing.timingStatus === 'CONFIRMED' ? timing.businessAssignedAt.slice(0, 10) : '',
       fulfillmentRuleCode: policy.fulfillmentRuleCode as 'SEWING_ONLY' | 'SEWING_TO_IRON_PACK' | 'CUTTING_TO_IRON_PACK',
       active: true, ruleVersion: SEWING_RETURN_RULE_VERSION,
-      milestones: acceptedAt ? policy.milestones.map((node) => { const deadlineDate = calculateSewingReturnDeadlineDate(acceptedAt, node.naturalDay); return { ratio: node.ratio, naturalDay: node.naturalDay, targetQty: Math.ceil(assignment.assignedQty * node.ratio), deadlineAt: `${deadlineDate} 23:59:59`, deadlineDate } }) : [],
+      milestones: timing.timingStatus === 'CONFIRMED' ? policy.milestones.map((node) => { const deadlineDate = calculateSewingReturnDeadlineDate(timing.businessAssignedAt, node.naturalDay); return { ratio: node.ratio, naturalDay: node.naturalDay, targetQty: Math.ceil(assignment.assignedQty * node.ratio), deadlineAt: `${deadlineDate} 23:59:59`, deadlineDate } }) : [],
     }
     const returnProjection = projectProductionReturnFulfillment({
       snapshot,
@@ -273,6 +279,7 @@ export function listSewingOutsourcingReturnTrackingRows(
     return {
       assignment,
       acceptedAt,
+      ...timing,
       productionOrder,
       taskType: productionOrder.sewingTaskType,
       ppicId: responsibility?.ppicId || assignment.ppicId || '',

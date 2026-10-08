@@ -1,0 +1,32 @@
+{
+  "reviewer": "root and one read-only independent agent",
+  "noBlockingSourceFindings": true,
+  "reviewedFiles": [
+    "src/data/fcs/runtime-process-tasks.ts",
+    "src/data/fcs/warehouse-material-execution.ts",
+    "src/data/fcs/pda-handover-events.ts",
+    "src/data/fcs/process-mobile-task-binding.ts",
+    "src/main.ts",
+    "vite.config.ts",
+    "src/pages/pda-exec-detail.ts",
+    "src/pages/progress-board/task-domain.ts",
+    "tests/unit/pda-sewing-detail-canonical-task.test.ts",
+    "tests/unit/sewing-missing-business-date-demo.test.ts",
+    "tests/unit/sewing-return-business-start.test.ts",
+    "tests/unit/pda-sewing-route-preload.test.ts"
+  ],
+  "sourceConclusions": [
+    "PLANNED returns do not fabricate prepared/handed-out quantities",
+    "TASKGEN independent enabled sewing uses the same runtime clone as full canonical projection",
+    "PCS/FCS hydration and necessary handlers finish before detail mounting",
+    "PDA frame authentication, factory permissions and query interpretation remain in existing renderer",
+    "missing, disabled, other process and merged tasks preserve original fallback; boundary confirmed by source, not standalone new tests",
+    "known-date regression is calendar-only; legacy PDA handover Mock does not become formal downstream receipt"
+  ],
+  "businessFixtureScope": "one existing native task, no extra V7 diagram scenario or first-read seed write",
+  "version": {
+    "entry": "index-DSPY5QtO.js",
+    "htmlSha256": "f1c7dc5e8b80e9e9415042bfb39da3132c7b922dfb37bdac703ca1ed8d19a898",
+    "tests": 532
+  }
+}

@@ -85,7 +85,7 @@ function getStoredTabs(): AllSystemTabs {
       }
     }
 
-    const migrated = pruneRemovedPfosTabs(
+    const migrated = pruneProductionTimingTabs(pruneRemovedPfosTabs(
       migrateCraftTabsToPfos(
         migratePcsTabs(
           pruneRemovedFcsTabs(
@@ -93,7 +93,7 @@ function getStoredTabs(): AllSystemTabs {
           ),
         ),
       ),
-    )
+    ))
     writeBrowserStorageItem(browserLocalStorage, TABS_STORAGE_KEY, JSON.stringify(migrated))
     return migrated
   } catch {
@@ -513,13 +513,27 @@ function findMenuItemByPath(pathname: string): MenuItem | null {
   const groups = menusBySystem[systemId] ?? []
   const item = flattenMenus(groups).find((menu) => menu.href === normalizedPathname)
   if (item) return item
-  if (normalizedPathname === '/dds/supply-chain/production-fulfillment/examples') return { key: 'production-fulfillment-examples', title: '规则验证示例', href: normalizedPathname }
-  const timingDetail = /^\/dds\/supply-chain\/production-fulfillment\/(tasks|teams)\/([^/]+)$/.exec(normalizedPathname)
+  if (normalizedPathname === '/dds/supply-chain/production-fulfillment/pending-purchases') return { key: 'production-fulfillment-pending-purchases', title: '采购待关联', href: normalizedPathname }
+  const timingDetail = /^\/dds\/supply-chain\/production-fulfillment\/(orders|pending-purchases)\/([^/]+)$/.exec(normalizedPathname)
   if (timingDetail) {
     const id = decodeURIComponent(timingDetail[2])
-    return { key: `production-fulfillment-${timingDetail[1]}-${id}`, title: `${timingDetail[1] === 'tasks' ? '任务' : '团队'} · ${id}`, href: normalizedPathname }
+    return { key: `production-fulfillment-${timingDetail[1]}-${id}`, title: `${timingDetail[1] === 'orders' ? '生产单' : '采购待关联'} · ${id}`, href: normalizedPathname }
   }
   return null
+}
+
+// Only this module's discarded UI tabs are removed. Business records and
+// other systems' tabs are outside this preference migration.
+function pruneProductionTimingTabs(allTabs: AllSystemTabs): AllSystemTabs {
+  const current = allTabs.dds
+  if (!current) return allTabs
+  const tabs = current.tabs.flatMap(tab => {
+    if (!normalizePathname(tab.href).startsWith('/dds/supply-chain/production-fulfillment/')) return [tab]
+    const item = findMenuItemByPath(tab.href)
+    return item ? [{ ...tab, key: item.key, title: item.title, href: item.href! }] : []
+  })
+  const activeKey = tabs.find(tab => tab.key === current.activeKey)?.key ?? tabs[0]?.key ?? ''
+  return { ...allTabs, dds: { ...current, tabs, activeKey } }
 }
 
 function readSidebarCollapsed(): boolean {

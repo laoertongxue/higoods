@@ -1,0 +1,73 @@
+[
+  {
+    "label": "factory-specific-task-open-1",
+    "action": "document-open",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 42.29999999701977,
+    "task": "SWT-B-01-0088",
+    "held": 300,
+    "received": 0
+  },
+  {
+    "label": "factory-specific-task-close-1",
+    "action": "dialog-close",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.60000000149011
+  },
+  {
+    "label": "factory-specific-task-open-2",
+    "action": "document-open",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 43.89999999850989,
+    "held": 300,
+    "received": 0
+  },
+  {
+    "label": "factory-specific-task-close-2",
+    "action": "dialog-close",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 45.80000000447035
+  },
+  {
+    "label": "factory-specific-task-open-3",
+    "action": "document-open",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.69999999552965,
+    "held": 300,
+    "received": 0
+  },
+  {
+    "label": "factory-specific-task-close-3",
+    "action": "dialog-close",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.400000005960464
+  },
+  {
+    "label": "factory-specific-task-open-4",
+    "action": "document-open",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 43.30000000447035,
+    "held": 300,
+    "received": 0
+  },
+  {
+    "label": "factory-specific-task-close-4",
+    "action": "dialog-close",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.19999999552965
+  },
+  {
+    "label": "factory-specific-task-open-5",
+    "action": "document-open",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.60000000149011,
+    "held": 300,
+    "received": 0
+  },
+  {
+    "label": "factory-specific-task-close-5",
+    "action": "dialog-close",
+    "at": "2026-10-07 09:00",
+    "elapsedMs": 44.39999999850989
+  }
+]

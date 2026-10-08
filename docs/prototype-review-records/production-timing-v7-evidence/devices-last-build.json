@@ -1,0 +1,47 @@
+[
+  {
+    "bodyWidth": 1366,
+    "contentWidth": 1078,
+    "graphWidth": 1078,
+    "height": 768,
+    "images": [
+      {
+        "naturalWidth": 2250,
+        "src": "/images/production-timing/shirt-086.jpg"
+      }
+    ],
+    "ready": "route",
+    "width": 1366,
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-deliverable-1366x768.png"
+  },
+  {
+    "bodyWidth": 1280,
+    "contentWidth": 992,
+    "graphWidth": 992,
+    "height": 720,
+    "images": [
+      {
+        "naturalWidth": 2250,
+        "src": "/images/production-timing/shirt-086.jpg"
+      }
+    ],
+    "ready": "route",
+    "width": 1280,
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-deliverable-1280x720.png"
+  },
+  {
+    "bodyWidth": 1024,
+    "contentWidth": 736,
+    "graphWidth": 736,
+    "height": 768,
+    "images": [
+      {
+        "naturalWidth": 2250,
+        "src": "/images/production-timing/shirt-086.jpg"
+      }
+    ],
+    "ready": "route",
+    "width": 1024,
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-deliverable-1024x768.png"
+  }
+]

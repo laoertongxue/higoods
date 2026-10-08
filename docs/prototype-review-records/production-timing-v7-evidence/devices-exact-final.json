@@ -1,0 +1,62 @@
+[
+  {
+    "device": {
+      "width": 1280,
+      "height": 720
+    },
+    "metrics": {
+      "bodyOverflow": false,
+      "chart": [
+        {
+          "scrollWidth": 932,
+          "width": 932
+        }
+      ],
+      "root": {
+        "bottom": 1834.421875,
+        "height": 1717.421875,
+        "left": 264,
+        "right": 1256,
+        "top": 117,
+        "width": 992,
+        "x": 264,
+        "y": 117
+      },
+      "viewport": {
+        "height": 720,
+        "width": 1280
+      }
+    },
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-final-exact-1280x720.png"
+  },
+  {
+    "device": {
+      "width": 1024,
+      "height": 768
+    },
+    "metrics": {
+      "bodyOverflow": false,
+      "chart": [
+        {
+          "scrollWidth": 688,
+          "width": 688
+        }
+      ],
+      "root": {
+        "bottom": 1863.90625,
+        "height": 1746.90625,
+        "left": 264,
+        "right": 1000,
+        "top": 117,
+        "width": 736,
+        "x": 264,
+        "y": 117
+      },
+      "viewport": {
+        "height": 768,
+        "width": 1024
+      }
+    },
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-final-exact-1024x768.png"
+  }
+]

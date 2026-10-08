@@ -1,0 +1,34 @@
+(node:12394) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ ordinary sewing direct lookup keeps every field and factory permission from the complete canonical projection (480.567041ms)
+✔ runtime sewing overrides and legacy/missing IDs retain the complete projection result (1114.062833ms)
+✔ one fresh read-only object snapshot preserves readiness, context and unknown references without refreshing per miss (327.471167ms)
+✔ PDA handlers wait for part-ticket hydration, and the real detail is not mounted before both dependencies complete (45.432375ms)
+✖ ordinary sewing detail leaves unrelated PMS initialization pending until a normal module entry (13.367041ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 4
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2837.379583
+
+✖ failing tests:
+
+test at tests/unit/pda-sewing-detail-canonical-task.test.ts:1:8518
+✖ ordinary sewing detail leaves unrelated PMS initialization pending until a normal module entry (13.367041ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  true !== false
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/pda-sewing-detail-canonical-task.test.ts:178:12)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

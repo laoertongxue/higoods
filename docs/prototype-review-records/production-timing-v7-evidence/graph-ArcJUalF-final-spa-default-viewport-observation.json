@@ -1,0 +1,1614 @@
+{
+  "version": {
+    "js": "index-ArcJUalF.js",
+    "css": "index-BysvPE4E.css",
+    "htmlSha256": "a028286453243d63479a1d50ae42a4fc3e34b0e361007fa55f4f19278903732e"
+  },
+  "samples": [
+    {
+      "scene": "late",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 64.70000000298023
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 64.70000000298023,
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 19.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 19.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31,
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.600000001490116
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 29.600000001490116,
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 18.69999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 18.69999999552965,
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.399999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.399999998509884,
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 24.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 24.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.299999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 30.299999997019768,
+      "pass": true
+    },
+    {
+      "scene": "complete",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22,
+      "pass": true
+    },
+    {
+      "scene": "complete",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 29.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "complete",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 30.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "complete",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "complete",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 19.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 19.5,
+      "pass": true
+    },
+    {
+      "scene": "completeLate",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.400000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.400000005960464,
+      "pass": true
+    },
+    {
+      "scene": "completeLate",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.30000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.30000000447035,
+      "pass": true
+    },
+    {
+      "scene": "completeLate",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.5,
+      "pass": true
+    },
+    {
+      "scene": "completeLate",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28,
+      "pass": true
+    },
+    {
+      "scene": "completeLate",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26,
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.700000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 25.700000002980232,
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 19.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 19.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "partial",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "partial",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "partial",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "partial",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.299999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.299999997019768,
+      "pass": true
+    },
+    {
+      "scene": "partial",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.400000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.400000005960464,
+      "pass": true
+    },
+    {
+      "scene": "reordered",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31,
+      "pass": true
+    },
+    {
+      "scene": "reordered",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 24.30000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 24.30000000447035,
+      "pass": true
+    },
+    {
+      "scene": "reordered",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 25.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "reordered",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "reordered",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.299999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 29.299999997019768,
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 37.70000000298023
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 37.70000000298023,
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 29.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.70000000298023
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.70000000298023,
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 23.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 23.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.399999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.399999998509884,
+      "pass": true
+    },
+    {
+      "scene": "positioning",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "positioning",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.099999994039536
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.099999994039536,
+      "pass": true
+    },
+    {
+      "scene": "positioning",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "positioning",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.900000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.900000005960464,
+      "pass": true
+    },
+    {
+      "scene": "positioning",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.099999994039536
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.099999994039536,
+      "pass": true
+    },
+    {
+      "scene": "prepPending",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.900000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.900000005960464,
+      "pass": true
+    },
+    {
+      "scene": "prepPending",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 25,
+      "pass": true
+    },
+    {
+      "scene": "prepPending",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 19.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 19.5,
+      "pass": true
+    },
+    {
+      "scene": "prepPending",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 19.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 19.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "prepPending",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "sampleLate",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "sampleLate",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.700000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.700000002980232,
+      "pass": true
+    },
+    {
+      "scene": "sampleLate",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 33.900000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 33.900000005960464,
+      "pass": true
+    },
+    {
+      "scene": "sampleLate",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.399999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 30.399999998509884,
+      "pass": true
+    },
+    {
+      "scene": "sampleLate",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.099999994039536
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.099999994039536,
+      "pass": true
+    },
+    {
+      "scene": "samplePending",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 36,
+      "pass": true
+    },
+    {
+      "scene": "samplePending",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "samplePending",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.399999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.399999998509884,
+      "pass": true
+    },
+    {
+      "scene": "samplePending",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "samplePending",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 37
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 37,
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 39.30000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 39.30000000447035,
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.299999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.299999997019768,
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 32.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 32.5,
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.400000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.400000005960464,
+      "pass": true
+    },
+    {
+      "scene": "materialBatches",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 29.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "materialBatches",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.700000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.700000002980232,
+      "pass": true
+    },
+    {
+      "scene": "materialBatches",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.400000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.400000005960464,
+      "pass": true
+    },
+    {
+      "scene": "materialBatches",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 30.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "materialBatches",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.100000001490116
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.100000001490116,
+      "pass": true
+    },
+    {
+      "scene": "materialPartial",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.600000001490116
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.600000001490116,
+      "pass": true
+    },
+    {
+      "scene": "materialPartial",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.399999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.399999998509884,
+      "pass": true
+    },
+    {
+      "scene": "materialPartial",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.700000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.700000002980232,
+      "pass": true
+    },
+    {
+      "scene": "materialPartial",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "materialPartial",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.399999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.399999998509884,
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.5,
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.299999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.299999997019768,
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.400000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.400000005960464,
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.29999999701977
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 34.29999999701977,
+      "pass": true
+    },
+    {
+      "scene": "unknown",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.100000001490116
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.100000001490116,
+      "pass": true
+    },
+    {
+      "scene": "unknown",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 24.799999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 24.799999997019768,
+      "pass": true
+    },
+    {
+      "scene": "unknown",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 19.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 19.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "unknown",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 31.200000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 31.200000002980232,
+      "pass": true
+    },
+    {
+      "scene": "unknown",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.700000002980232
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.700000002980232,
+      "pass": true
+    },
+    {
+      "scene": "unassigned",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.100000001490116
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.100000001490116,
+      "pass": true
+    },
+    {
+      "scene": "unassigned",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 29.5,
+      "pass": true
+    },
+    {
+      "scene": "unassigned",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.400000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.400000005960464,
+      "pass": true
+    },
+    {
+      "scene": "unassigned",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.5
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 28.5,
+      "pass": true
+    },
+    {
+      "scene": "unassigned",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.79999999701977
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 36.79999999701977,
+      "pass": true
+    },
+    {
+      "scene": "sameFactory",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.60000000149011
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.60000000149011,
+      "pass": true
+    },
+    {
+      "scene": "sameFactory",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 32
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 32,
+      "pass": true
+    },
+    {
+      "scene": "sameFactory",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 18.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 18.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "sameFactory",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 36.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "sameFactory",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.19999999552965
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 22.19999999552965,
+      "pass": true
+    },
+    {
+      "scene": "handoverPartial",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.899999998509884,
+      "pass": true
+    },
+    {
+      "scene": "handoverPartial",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.80000000447035
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 27.80000000447035,
+      "pass": true
+    },
+    {
+      "scene": "handoverPartial",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.299999997019768
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 26.299999997019768,
+      "pass": true
+    },
+    {
+      "scene": "handoverPartial",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.900000005960464
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 20.900000005960464,
+      "pass": true
+    },
+    {
+      "scene": "handoverPartial",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "imageFailures": 0,
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.100000001490116
+      },
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 21.100000001490116,
+      "pass": true
+    }
+  ],
+  "deviceObservation": {
+    "width": 976,
+    "height": 978,
+    "status": "extra samples; viewport had been reset by preceding browser cleanup; not counted as a standard device acceptance"
+  }
+}

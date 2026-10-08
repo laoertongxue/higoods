@@ -1054,9 +1054,9 @@ export function resolveProductionObjectRequest({
   objectType: ProductionObjectType
   objectId: string
   relatedProductionOrderNo?: string | null
-}): ProductionObjectRequestResult {
-  let exactMatches = getProductionObjectSearchIndex().filter((item) => matchesRequestObject(item, objectType, objectId))
-  if (!exactMatches.length && (objectType === 'QC_ORDER' || objectType === 'PRODUCTION_ORDER' || objectType === 'PROCESS_DOC')) {
+}, readOnlySnapshot?: readonly ProductionObjectSearchIndex[]): ProductionObjectRequestResult {
+  let exactMatches = (readOnlySnapshot ?? getProductionObjectSearchIndex()).filter((item) => matchesRequestObject(item, objectType, objectId))
+  if (!readOnlySnapshot && !exactMatches.length && (objectType === 'QC_ORDER' || objectType === 'PRODUCTION_ORDER' || objectType === 'PROCESS_DOC')) {
     productionObjectSearchIndexCache = buildSearchIndex()
     exactMatches = productionObjectSearchIndexCache.filter((item) => matchesRequestObject(item, objectType, objectId))
   }
@@ -3083,8 +3083,20 @@ function buildSearchIndex(): ProductionObjectSearchIndex[] {
 
 let productionObjectSearchIndexCache: ProductionObjectSearchIndex[] | null = null
 
-export function getProductionObjectSearchIndex(): ProductionObjectSearchIndex[] {
+export function getProductionObjectSearchIndex(refresh = false): ProductionObjectSearchIndex[] {
+  if (refresh) productionObjectSearchIndexCache = buildSearchIndex()
   return productionObjectSearchIndexCache ??= buildSearchIndex()
+}
+
+// A PDA order/task code needs only its exact candidates. Use the same source
+// builders and ordering as the full index, without projecting unrelated stock
+// and material preparation. Every call reads current rows; no new cache.
+export function getProductionObjectLinkIndex(objectType: 'PRODUCTION_ORDER' | 'PROCESS_DOC'): ProductionObjectSearchIndex[] {
+  const rows = productionOrders.flatMap(order => objectType === 'PRODUCTION_ORDER'
+    ? [buildOrderIndex(order)] : buildProcessIndexes(order))
+  rows.push(...buildPostFinishingQcIndexes().filter(row => row.objectType === objectType))
+  rows.push(...buildP1DocumentIndexes().filter(row => row.objectType === objectType))
+  return rows
 }
 
 function getSearchTexts(item: ProductionObjectSearchIndex): string[] {

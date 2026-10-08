@@ -1,0 +1,802 @@
+[
+  {
+    "section": "overview",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 495.8999999985099,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 301.59999999403954,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 143,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 144.40000000596046,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 132.09999999403954,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 133.69999999552965,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 131.79999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 120.69999999552964,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 130,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "overview",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 134.30000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效总览"
+  },
+  {
+    "section": "orders",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 132.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 156.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 134.20000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 154.59999999403954,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 165.29999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 129.60000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 128,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 124.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 131,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "orders",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 115.39999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "生产单监控"
+  },
+  {
+    "section": "follow-up",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 118.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 130,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 151.30000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 130.70000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 127.70000000298025,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 132.79999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 137.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 132.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 130.69999999552965,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "follow-up",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 131.70000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "我的跟单"
+  },
+  {
+    "section": "work-items",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 160.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 148.60000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 148.60000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 145.39999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 140.70000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 150.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 140,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 148.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 142.80000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "work-items",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 135.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "工作项监控"
+  },
+  {
+    "section": "teams",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 157.70000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 157.19999999552965,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 156.79999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 168.30000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 157.30000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 158.79999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 156.70000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 164.30000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 159.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "teams",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 157.89999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "团队与工厂"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 136.30000000447035,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 132.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 138.40000000596046,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 149.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 122.70000000298025,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 115,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 127.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 148.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 134.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "inbound-analysis",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 136.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "入库时效分析"
+  },
+  {
+    "section": "configuration",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 74.19999999552965,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 59.79999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 55,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 58.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 47.79999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 67.29999999701977,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 60.099999994039536,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 64.40000000596046,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 61.70000000298023,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "configuration",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 44.5,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "时效口径与配置"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "cold",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 121.59999999403954,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "cold",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 113.60000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "cold",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 109.39999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "cold",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 108.09999999403954,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "cold",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 117.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "refresh",
+    "i": 0,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 122,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "refresh",
+    "i": 1,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 111.20000000298025,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "refresh",
+    "i": 2,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 114.10000000149012,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "refresh",
+    "i": 3,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 120.39999999850988,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  },
+  {
+    "section": "pending-purchases",
+    "mode": "refresh",
+    "i": 4,
+    "build": "http://localhost:4179/assets/index-VIsb9cR6.js",
+    "elapsedMs": 106.20000000298025,
+    "imageFailures": 0,
+    "overflow": false,
+    "title": "采购待关联"
+  }
+]

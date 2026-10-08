@@ -1,0 +1,98 @@
+- generic "CV Micro Sewing Jakarta Pusat（ID-F021）": CV Micro Sewing Jakarta Pusat
+- generic: 执行 · ID-F021
+- button "打开当前待办":
+  - generic: 待办
+  - generic: "7"
+- button "打开账号信息":
+  - generic: C
+  - generic: CV_M
+- button "返回执行列表":
+  - text: 返回执行列表
+- heading "任务详情" [level=1]
+- article:
+  - button "TASKGEN-202603-0007-002"
+  - generic: 待开工
+  - generic: 生产单号
+  - button "PO-202603-0007"
+  - generic: 加工单 / 来源单号
+  - generic: —
+  - generic: 原始任务
+  - button "TASKGEN-202603-0007-002"
+  - generic: 当前工序
+  - generic: 车缝
+  - generic: 覆盖工序
+  - generic: 车缝
+  - generic: 所在列表
+  - generic: 待开工
+  - generic: 本单成衣件数（件）
+  - generic: 本单成衣件数：800 件
+  - generic: 当前工厂
+  - generic: CV Micro Sewing Jakarta Pusat（ID-FAC-0021）
+  - generic: 派发方式
+  - generic: 直接派发
+  - generic: 接收方
+  - generic: 万隆仓库
+  - generic: 任务二维码
+  - generic: TASKGEN-202603-0007-002
+  - img "任务 TASKGEN-202603-0007-002 二维码"
+- article:
+  - heading "交出单" [level=2]:
+    - text: 交出单
+  - generic: 交出单号
+  - generic: HDO-0007002ORDER
+  - generic: 状态
+  - generic: 待收货
+  - generic: 已交出
+  - generic: 800 件
+  - generic: 已收货
+  - generic: 0 件
+  - generic: 差异
+  - generic: 0 件
+  - generic: 异议
+  - generic: 0 条
+  - generic: 待收货
+  - generic: 1 条
+- article:
+  - heading "交付进度" [level=2]
+  - status: 业务分配日期待核实，回货时效暂不能判定
+  - generic: 分配量
+  - generic: 800 件
+  - generic: 已交
+  - generic: 0 件
+  - generic: 后道最终确认
+  - generic: 0 件
+  - generic: 还差
+  - generic: 待核实
+  - generic: 下一节点
+  - generic: 待核实
+  - generic: 剩余时间
+  - generic: 待核实
+  - paragraph: 分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。
+- article:
+  - heading "操作" [level=2]
+  - button "查看来料状态（来料到仓后即可开工）":
+    - text: 查看来料状态（来料到仓后即可开工）
+- article:
+  - heading "操作日志" [level=2]:
+    - text: 操作日志
+  - article:
+    - generic: ACCEPT
+    - generic: 2026-10-07 10:15:00
+    - paragraph: 已确认接单；接单时间不代替业务分配日期。
+  - article:
+    - generic: MOCK_LEGACY_ASSIGNMENT
+    - generic: 2026-10-07 10:00:00
+    - paragraph: 演示：派单操作已记录，业务实际分配日期缺失；尚未领料，工厂实领量待核实；800件为分配量，尚无正式回货。
+  - article:
+    - generic: GENERATE
+    - generic: 2026-03-01 00:00:00
+    - paragraph: 从统一 TASK 产物生成车缝，覆盖工序：车缝
+- navigation:
+  - button "接单":
+    - generic: 接单
+  - button "执行":
+    - generic: 执行
+  - button "交接":
+    - generic: 交接
+  - button "结算":
+    - generic: 结算

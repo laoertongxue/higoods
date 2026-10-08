@@ -1869,6 +1869,7 @@ function ensureDispatchBoardSeedData(): void {
       factoryName: delayedReceiptDemoFactoryName,
       assignedQty: 1400,
       acceptedAt: delayedReceiptDemoAcceptedAt,
+      businessAssignedAt: delayedReceiptDemoAcceptedAt,
       slaKind: 'INDEPENDENT_SEWING',
     }))
   }
@@ -1881,6 +1882,53 @@ function ensureDispatchBoardSeedData(): void {
     at: delayedReceiptDemoAcceptedAt,
   }, { staticDemo: true })
   if (!registeredDelayedDemoOrder) throw new Error('含车缝接收确认延迟演示任务登记车缝工厂失败')
+
+  // 固定遗留资料场景：已知派单操作和接单时间，缺少业务实际分配日期。
+  // 复用该订单唯一的独立车缝任务，不克隆整单任务或伪造领料、正式回货事实。
+  const missingBusinessDateDemoIdentity = resolveInitialOrderRuntimeTaskIdentity('PO-202603-0007', 'SEW')
+  if (!missingBusinessDateDemoIdentity) throw new Error('缺业务分配日期演示必须有唯一车缝来源任务')
+  const missingBusinessDateDemoTaskId = missingBusinessDateDemoIdentity.runtimeTaskId
+  const missingBusinessDateDemoAcceptedAt = '2026-10-07 10:15:00'
+  seedRuntimeTaskOverride(missingBusinessDateDemoTaskId, {
+    assignmentMode: 'DIRECT',
+    assignmentStatus: 'ASSIGNED',
+    assignedFactoryId: delayedReceiptDemoFactoryId,
+    assignedFactoryName: delayedReceiptDemoFactoryName,
+    businessAssignedAt: undefined,
+    taskDeadline: undefined,
+    assignmentOperatedAt: '2026-10-07 10:00:00',
+    dispatchedAt: '2026-10-07 10:00:00',
+    dispatchedBy: '原型演示',
+    acceptanceStatus: 'ACCEPTED',
+    acceptedAt: missingBusinessDateDemoAcceptedAt,
+    acceptedBy: delayedReceiptDemoFactoryName,
+    status: 'NOT_STARTED',
+    dispatchRemark: '遗留资料演示：业务分配日期待核实；尚未领料，800件为分配量，不代表工厂实领量；尚无正式回货。',
+  }, [
+    ...getSeedBaseAuditLogs(missingBusinessDateDemoTaskId),
+    buildSeedAuditLog(missingBusinessDateDemoTaskId, 'MOCK_LEGACY_ASSIGNMENT', '演示：派单操作已记录，业务实际分配日期缺失；尚未领料，工厂实领量待核实；800件为分配量，尚无正式回货。', '原型演示', '2026-10-07 10:00:00'),
+    buildSeedAuditLog(missingBusinessDateDemoTaskId, 'ACCEPT', '已确认接单；接单时间不代替业务分配日期。', delayedReceiptDemoFactoryName, missingBusinessDateDemoAcceptedAt),
+  ])
+  if (!getSewingDeliverySlaSnapshot(missingBusinessDateDemoTaskId)) {
+    saveSewingDeliverySlaSnapshot(createSewingDeliverySlaSnapshot({
+      assignmentId: 'ASSIGN-SLA-MISSING-BUSINESS-DATE-DEMO-001',
+      runtimeTaskId: missingBusinessDateDemoTaskId,
+      productionOrderId: 'PO-202603-0007',
+      factoryId: delayedReceiptDemoFactoryId,
+      factoryName: delayedReceiptDemoFactoryName,
+      assignedQty: 800,
+      acceptedAt: missingBusinessDateDemoAcceptedAt,
+      slaKind: 'INDEPENDENT_SEWING',
+    }))
+  }
+  const registeredMissingBusinessDateDemoOrder = registerProductionOrderSewingFactory({
+    productionOrderId: 'PO-202603-0007',
+    factoryId: delayedReceiptDemoFactoryId,
+    factoryName: delayedReceiptDemoFactoryName,
+    by: '原型演示',
+    at: '2026-10-07 10:00:00',
+  }, { staticDemo: true })
+  if (!registeredMissingBusinessDateDemoOrder) throw new Error('缺业务分配日期演示登记车缝工厂失败')
 
   registerProductionOrderSewingFactory({
     productionOrderId: 'PO-202603-083',
@@ -3041,6 +3089,7 @@ export function acceptRuntimeTaskAssignment(
         factoryName: task.assignedFactoryName,
         assignedQty: task.scopeQty,
         acceptedAt: input.acceptedAt,
+        businessAssignedAt: task.businessAssignedAt,
         slaKind,
       })
     : null
@@ -3054,11 +3103,13 @@ export function acceptRuntimeTaskAssignment(
         acceptedAt: input.acceptedAt,
         acceptedBy: input.acceptedBy,
         deliverySlaSnapshotId: deliverySlaSnapshot?.snapshotId,
-        taskDeadline: deliverySlaSnapshot?.milestones.at(-1)?.deadlineAt ?? task.taskDeadline,
+        taskDeadline: deliverySlaSnapshot ? deliverySlaSnapshot.milestones.at(-1)?.deadlineAt : task.taskDeadline,
       },
       'ACCEPT_TASK',
       deliverySlaSnapshot
-        ? '中标工厂确认接单，按实际接单时间生成含车缝交付时效快照。'
+        ? deliverySlaSnapshot.timingStatus === 'CONFIRMED'
+          ? '中标工厂确认接单，按业务分配日期生成含车缝交付时效快照。'
+          : '中标工厂确认接单；业务分配日期待核实，暂不能判定回货时效。'
         : '工厂确认接单。',
       input.acceptedBy,
     )
@@ -3392,6 +3443,7 @@ export function prepareRuntimeDirectDispatchMeta(
         factoryName: input.factoryName,
         assignedQty,
         acceptedAt: businessAssignedAt,
+        businessAssignedAt,
         slaKind: sewingDeliverySlaKind,
       })
     : null
@@ -3457,7 +3509,7 @@ function commitPreparedRuntimeDirectDispatchMeta(
       assignedFactoryId: input.factoryId,
       assignedFactoryName: input.factoryName,
       acceptDeadline,
-      taskDeadline: deliverySlaSnapshot?.milestones.at(-1)?.deadlineAt ?? input.taskDeadline,
+      taskDeadline: deliverySlaSnapshot ? deliverySlaSnapshot.milestones.at(-1)?.deadlineAt : input.taskDeadline,
       dispatchRemark: input.remark.trim() || undefined,
       dispatchedAt: operatedAt,
       dispatchedBy: input.by,
@@ -3638,6 +3690,7 @@ export function reassignRuntimeSewingTask(
     factoryName: input.targetFactoryName,
     assignedQty: remainingQty,
     acceptedAt: input.businessAssignedAt,
+    businessAssignedAt: input.businessAssignedAt,
     slaKind: classifySewingDeliverySla(source)!,
   })
   try {

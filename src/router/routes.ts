@@ -313,6 +313,12 @@ export async function resolvePage(pathname: string): Promise<string> {
     return renderTmfProcessPrintPreviewPage()
   }
 
+  if (/^\/(pcs|pms|fcs|wls)\//.test(normalizedPathname) && /%2[fF]/.test(normalizedPathname)) {
+    const { resolveTimingSourceDetail } = await import('../pages/production-fulfillment/source-document-detail')
+    const sourcePage = resolveTimingSourceDetail(normalizedPathname)
+    if (sourcePage) return sourcePage
+  }
+
   if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) {
     const { renderProductionFulfillmentPage } = await import('../pages/production-fulfillment')
     return renderProductionFulfillmentPage(normalizedPathname)

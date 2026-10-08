@@ -1,0 +1,366 @@
+{
+  "asset": "index-0TzAP8hY.js",
+  "method": "Actual Chromium Page.printToPDF; end-to-end response wall clock upper bound; physical printer and OS dialog not submitted",
+  "runs": [
+    {
+      "scene": "live",
+      "iteration": 1,
+      "elapsedMs": 625,
+      "bytes": 850035,
+      "file": "production-timing-print-0Tz-live-1.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 2,
+      "elapsedMs": 502,
+      "bytes": 850035,
+      "file": "production-timing-print-0Tz-live-2.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 3,
+      "elapsedMs": 501,
+      "bytes": 850035,
+      "file": "production-timing-print-0Tz-live-3.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 4,
+      "elapsedMs": 508,
+      "bytes": 850035,
+      "file": "production-timing-print-0Tz-live-4.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "live",
+      "iteration": 5,
+      "elapsedMs": 496,
+      "bytes": 850035,
+      "file": "production-timing-print-0Tz-live-5.pdf",
+      "expectedText": [
+        "600",
+        "900",
+        "1500",
+        "成衣仓",
+        "工厂产前"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "iteration": 1,
+      "elapsedMs": 527,
+      "bytes": 874589,
+      "file": "production-timing-print-0Tz-fullContract-1.pdf",
+      "expectedText": [
+        "480",
+        "1500",
+        "裁剪＋车缝＋烫包",
+        "SWT-C-01"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "iteration": 2,
+      "elapsedMs": 513,
+      "bytes": 874589,
+      "file": "production-timing-print-0Tz-fullContract-2.pdf",
+      "expectedText": [
+        "480",
+        "1500",
+        "裁剪＋车缝＋烫包",
+        "SWT-C-01"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "iteration": 3,
+      "elapsedMs": 506,
+      "bytes": 874589,
+      "file": "production-timing-print-0Tz-fullContract-3.pdf",
+      "expectedText": [
+        "480",
+        "1500",
+        "裁剪＋车缝＋烫包",
+        "SWT-C-01"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "iteration": 4,
+      "elapsedMs": 568,
+      "bytes": 874589,
+      "file": "production-timing-print-0Tz-fullContract-4.pdf",
+      "expectedText": [
+        "480",
+        "1500",
+        "裁剪＋车缝＋烫包",
+        "SWT-C-01"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "fullContract",
+      "iteration": 5,
+      "elapsedMs": 577,
+      "bytes": 874589,
+      "file": "production-timing-print-0Tz-fullContract-5.pdf",
+      "expectedText": [
+        "480",
+        "1500",
+        "裁剪＋车缝＋烫包",
+        "SWT-C-01"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "iteration": 1,
+      "elapsedMs": 670,
+      "bytes": 792106,
+      "file": "production-timing-print-0Tz-reachedLate-1.pdf",
+      "expectedText": [
+        "750",
+        "1500",
+        "逾期达成",
+        "历史晚"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "iteration": 2,
+      "elapsedMs": 504,
+      "bytes": 792106,
+      "file": "production-timing-print-0Tz-reachedLate-2.pdf",
+      "expectedText": [
+        "750",
+        "1500",
+        "逾期达成",
+        "历史晚"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "iteration": 3,
+      "elapsedMs": 506,
+      "bytes": 792106,
+      "file": "production-timing-print-0Tz-reachedLate-3.pdf",
+      "expectedText": [
+        "750",
+        "1500",
+        "逾期达成",
+        "历史晚"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "iteration": 4,
+      "elapsedMs": 499,
+      "bytes": 792106,
+      "file": "production-timing-print-0Tz-reachedLate-4.pdf",
+      "expectedText": [
+        "750",
+        "1500",
+        "逾期达成",
+        "历史晚"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "reachedLate",
+      "iteration": 5,
+      "elapsedMs": 504,
+      "bytes": 792106,
+      "file": "production-timing-print-0Tz-reachedLate-5.pdf",
+      "expectedText": [
+        "750",
+        "1500",
+        "逾期达成",
+        "历史晚"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "iteration": 1,
+      "elapsedMs": 559,
+      "bytes": 730879,
+      "file": "production-timing-print-0Tz-completeUnknown-1.pdf",
+      "expectedText": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "iteration": 2,
+      "elapsedMs": 503,
+      "bytes": 730879,
+      "file": "production-timing-print-0Tz-completeUnknown-2.pdf",
+      "expectedText": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "iteration": 3,
+      "elapsedMs": 506,
+      "bytes": 730879,
+      "file": "production-timing-print-0Tz-completeUnknown-3.pdf",
+      "expectedText": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "iteration": 4,
+      "elapsedMs": 503,
+      "bytes": 730879,
+      "file": "production-timing-print-0Tz-completeUnknown-4.pdf",
+      "expectedText": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "completeUnknown",
+      "iteration": 5,
+      "elapsedMs": 505,
+      "bytes": 730879,
+      "file": "production-timing-print-0Tz-completeUnknown-5.pdf",
+      "expectedText": [
+        "1500",
+        "按期结果待核实",
+        "已全部入库"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "late-expanded",
+      "iteration": 1,
+      "elapsedMs": 858,
+      "bytes": 1501653,
+      "file": "production-timing-print-0Tz-late-expanded-1.pdf",
+      "expectedText": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "late-expanded",
+      "iteration": 2,
+      "elapsedMs": 704,
+      "bytes": 1501653,
+      "file": "production-timing-print-0Tz-late-expanded-2.pdf",
+      "expectedText": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "late-expanded",
+      "iteration": 3,
+      "elapsedMs": 699,
+      "bytes": 1501653,
+      "file": "production-timing-print-0Tz-late-expanded-3.pdf",
+      "expectedText": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "late-expanded",
+      "iteration": 4,
+      "elapsedMs": 624,
+      "bytes": 1501653,
+      "file": "production-timing-print-0Tz-late-expanded-4.pdf",
+      "expectedText": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "pass": true
+    },
+    {
+      "scene": "late-expanded",
+      "iteration": 5,
+      "elapsedMs": 694,
+      "bytes": 1501653,
+      "file": "production-timing-print-0Tz-late-expanded-5.pdf",
+      "expectedText": [
+        "600片",
+        "辅助",
+        "F01",
+        "生产准备",
+        "印花",
+        "绣花"
+      ],
+      "pass": true
+    }
+  ]
+}

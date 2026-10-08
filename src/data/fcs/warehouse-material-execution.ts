@@ -507,7 +507,7 @@ function buildReturnOrdersForOrder(
         materialSpec: task.scopeLabel,
         unit,
         plannedQty,
-        preparedQty: actual ? actual.submittedQty : plannedQty,
+        preparedQty: actual ? actual.submittedQty : status === 'PLANNED' ? 0 : plannedQty,
         issuedQty: 0,
         returnedQty,
         transferredQty: 0,

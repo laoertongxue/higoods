@@ -1,0 +1,6 @@
+{
+  "kind": "harness-expectation",
+  "expected": "工厂实领300件 contiguous string",
+  "actual": "工厂实领\n300件 and 后道实收\n0件, visible modal correct",
+  "appDefect": false
+}

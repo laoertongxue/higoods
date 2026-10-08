@@ -3508,7 +3508,7 @@ function getHandoutRecordsForHeadInternal(head: PdaHandoverHead): PdaHandoverRec
       ? mockRecords
       : taskBoardSeedRecords.length > 0
         ? taskBoardSeedRecords
-      : doc && doc.docType === 'RETURN'
+      : doc && doc.docType === 'RETURN' && doc.status !== 'PLANNED'
         ? doc.lines.map((line, index) => buildHandoutLineRecord(head, doc, line, index))
         : []
 

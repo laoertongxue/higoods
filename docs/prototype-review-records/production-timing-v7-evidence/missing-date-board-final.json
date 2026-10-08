@@ -1,0 +1,540 @@
+{
+  "version": {
+    "entry": "index-DSPY5QtO.js",
+    "htmlSha256": "f1c7dc5e8b80e9e9415042bfb39da3132c7b922dfb37bdac703ca1ed8d19a898",
+    "tests": 532
+  },
+  "measurement": "导航开始到目标内容、图片及两帧；探针安装工具开销包含在导航样本内，采用保守上界，不以Loading为完成",
+  "samples": [
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 305.30000000447035,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 305.30000000447035,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 283,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 283,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 266.19999999552965,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 266.19999999552965,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 279.29999999701977,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 279.29999999701977,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 285.5,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 285.5,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 284.19999999552965,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 284.19999999552965,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 276.79999999701977,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 276.79999999701977,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 274.5,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 274.5,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 255.5,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 255.5,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "list",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board?taskId=TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 271.90000000596046,
+      "click": null,
+      "text": "TASKGEN-202603-0007-002__ORDER\n复制\n生产单号\nPO-202603-0007\n需求单号\nDEM-202603-0013\n售卖类型\n备货\nSPU-2024-013 / Jas Pria Formal\n\t\n车缝\n生产阶段 · 800 件\n工序节点：车缝\n派单\n已派单\n\t\n待开工\n内部：待开始\n\t\n工厂已接单，等待开工\n任务逾期\n\t\n跟进工厂开工\n\t\n工艺工厂\nCV Micro Sewing Jakarta Pusat\n\t\n接收情况\n>\n交出情况\n>\n同步：进入详情查看\n\t\n分配 800 件 · 实收 0 件\n回货比例待核实\n业务分配日期待核实，回货时效暂不能判定\n\t\n...",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 271.90000000596046,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 489,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 489,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 415.69999999552965,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 415.69999999552965,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 393.19999999552965,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 393.19999999552965,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 414.1000000014901,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 414.1000000014901,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 425.20000000298023,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 425.20000000298023,
+      "pass": true,
+      "mode": "cold"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 417.79999999701977,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 417.79999999701977,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 409.80000000447035,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 409.80000000447035,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 386.69999999552965,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 386.69999999552965,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 409.69999999552965,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 409.69999999552965,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "detail",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 404.79999999701977,
+      "click": null,
+      "text": "接单时效配置\n \n任务分配工作台\n \n登录\n \n执行\n \n任务进度跟踪\n全部关闭\n返回任务列表\n任务详情\n待开工\n\nTASKGEN-202603-0007-002__ORDER · 车缝\n\n生产单生命周期\n打印任务流转卡\n需求来源\n\n生产单 PO-202603-0007\n\nPO-202603-0007\n\n任务明细\nSKU-013-L-NVY\nSKU-013-M-NVY\nSKU-013-S-NVY\nSKU-013-XL-NVY\n前置任务项\n裁片 TASKGEN-202603-0007-001\n裁片 · 对象按加工单明细 · 800 件\n后置任务项\n\n当前加工单是该实物分支的路线终点，暂无后置任务项。\n\n基本信息\n分配信息\n进度操作\n接收情况\n交出情况\n审计日志\n\n任务ID\n\nTASKGEN-202603-0007-002__ORDER\n\n生产单号\n\nPO-202603-0007\n\n工序\n\n车缝 (PROC_SEW)\n\n阶段\n\n生产阶段\n\n平台状态\n\n待开工\n\n工厂内部状态\n\n待开始\n\n风险提示\n\n工厂已接单，等待开工\n\n下一步动作\n\n跟进工厂开工\n\n任务对象与单位\n\n800 件\n\n分配方式\n\n派单\n\n难度\n\n中等\n\n交接情况\n\n当前状态：暂无事件\n\n下一步：当前任务暂无交接记录，请先查看接收与交出\n\n查看交接链路",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 404.79999999701977,
+      "pass": true,
+      "mode": "refresh"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 528.6000000014901,
+      "click": {
+        "atMs": 482.5,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n回货比例待核实\n分配量：800 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n业务分配日期待核实，回货时效暂不能判定",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 1,
+      "elapsedMs": 46.100000001490116,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 1101.1000000014901,
+      "click": {
+        "atMs": 1068.1000000014901,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n回货比例待核实\n分配量：800 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n业务分配日期待核实，回货时效暂不能判定",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 2,
+      "elapsedMs": 33,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 1675.6000000014901,
+      "click": {
+        "atMs": 1639.6000000014901,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n回货比例待核实\n分配量：800 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n业务分配日期待核实，回货时效暂不能判定",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 3,
+      "elapsedMs": 36,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 2252.7999999970198,
+      "click": {
+        "atMs": 2219.2000000029802,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n回货比例待核实\n分配量：800 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n业务分配日期待核实，回货时效暂不能判定",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 4,
+      "elapsedMs": 33.599999994039536,
+      "pass": true,
+      "mode": "click"
+    },
+    {
+      "kind": "progress",
+      "id": "TASKGEN-202603-0007-002__ORDER",
+      "url": "http://localhost:4179/fcs/progress/board/tasks/TASKGEN-202603-0007-002__ORDER",
+      "readyAtMs": 2837.10000000149,
+      "click": {
+        "atMs": 2802.5,
+        "action": "switch-task-tab",
+        "tab": "progress",
+        "href": null,
+        "text": "进度操作"
+      },
+      "text": "交付时效\n回货比例待核实\n分配量：800 件\n累计交出：0 件\n累计已确认实收：0 件\n节点\t目标\t截止时间\t首次达标\t结果\t接收延迟\n业务分配日期待核实，回货时效暂不能判定",
+      "images": [],
+      "viewport": {
+        "width": 1366,
+        "height": 768
+      },
+      "scripts": [
+        "http://localhost:4179/assets/index-DSPY5QtO.js"
+      ],
+      "index": 5,
+      "elapsedMs": 34.600000001490116,
+      "pass": true,
+      "mode": "click"
+    }
+  ]
+}

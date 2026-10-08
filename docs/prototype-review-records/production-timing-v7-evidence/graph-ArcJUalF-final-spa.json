@@ -1,0 +1,2000 @@
+{
+  "build": "index-ArcJUalF.js",
+  "device": {
+    "width": 1366,
+    "height": 768
+  },
+  "samples": [
+    {
+      "key": "late",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27
+      },
+      "scene": "late",
+      "title": "生产单 PO-202610-0089",
+      "width": 1366
+    },
+    {
+      "key": "late",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.799999997019768
+      },
+      "scene": "late",
+      "title": "生产单 PO-202610-0089",
+      "width": 1366
+    },
+    {
+      "key": "late",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scene": "late",
+      "title": "生产单 PO-202610-0089",
+      "width": 1366
+    },
+    {
+      "key": "late",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scene": "late",
+      "title": "生产单 PO-202610-0089",
+      "width": 1366
+    },
+    {
+      "key": "late",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.69999999552965
+      },
+      "scene": "late",
+      "title": "生产单 PO-202610-0089",
+      "width": 1366
+    },
+    {
+      "key": "normal",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.5
+      },
+      "scene": "normal",
+      "title": "生产单 PO-202610-0090",
+      "width": 1366
+    },
+    {
+      "key": "normal",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.700000002980232
+      },
+      "scene": "normal",
+      "title": "生产单 PO-202610-0090",
+      "width": 1366
+    },
+    {
+      "key": "normal",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.299999997019768
+      },
+      "scene": "normal",
+      "title": "生产单 PO-202610-0090",
+      "width": 1366
+    },
+    {
+      "key": "normal",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.700000002980232
+      },
+      "scene": "normal",
+      "title": "生产单 PO-202610-0090",
+      "width": 1366
+    },
+    {
+      "key": "normal",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.100000001490116
+      },
+      "scene": "normal",
+      "title": "生产单 PO-202610-0090",
+      "width": 1366
+    },
+    {
+      "key": "complete",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.200000002980232
+      },
+      "scene": "complete",
+      "title": "生产单 PO-202610-0091",
+      "width": 1366
+    },
+    {
+      "key": "complete",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.900000005960464
+      },
+      "scene": "complete",
+      "title": "生产单 PO-202610-0091",
+      "width": 1366
+    },
+    {
+      "key": "complete",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.19999999552965
+      },
+      "scene": "complete",
+      "title": "生产单 PO-202610-0091",
+      "width": 1366
+    },
+    {
+      "key": "complete",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.600000001490116
+      },
+      "scene": "complete",
+      "title": "生产单 PO-202610-0091",
+      "width": 1366
+    },
+    {
+      "key": "complete",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.100000001490116
+      },
+      "scene": "complete",
+      "title": "生产单 PO-202610-0091",
+      "width": 1366
+    },
+    {
+      "key": "completeLate",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.399999998509884
+      },
+      "scene": "completeLate",
+      "title": "生产单 PO-202610-0092",
+      "width": 1366
+    },
+    {
+      "key": "completeLate",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.19999999552965
+      },
+      "scene": "completeLate",
+      "title": "生产单 PO-202610-0092",
+      "width": 1366
+    },
+    {
+      "key": "completeLate",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      "scene": "completeLate",
+      "title": "生产单 PO-202610-0092",
+      "width": 1366
+    },
+    {
+      "key": "completeLate",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.799999997019768
+      },
+      "scene": "completeLate",
+      "title": "生产单 PO-202610-0092",
+      "width": 1366
+    },
+    {
+      "key": "completeLate",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.5
+      },
+      "scene": "completeLate",
+      "title": "生产单 PO-202610-0092",
+      "width": 1366
+    },
+    {
+      "key": "completeUnknown",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.600000001490116
+      },
+      "scene": "completeUnknown",
+      "title": "生产单 PO-202610-0093",
+      "width": 1366
+    },
+    {
+      "key": "completeUnknown",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.600000001490116
+      },
+      "scene": "completeUnknown",
+      "title": "生产单 PO-202610-0093",
+      "width": 1366
+    },
+    {
+      "key": "completeUnknown",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.399999998509884
+      },
+      "scene": "completeUnknown",
+      "title": "生产单 PO-202610-0093",
+      "width": 1366
+    },
+    {
+      "key": "completeUnknown",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.100000001490116
+      },
+      "scene": "completeUnknown",
+      "title": "生产单 PO-202610-0093",
+      "width": 1366
+    },
+    {
+      "key": "completeUnknown",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.400000005960464
+      },
+      "scene": "completeUnknown",
+      "title": "生产单 PO-202610-0093",
+      "width": 1366
+    },
+    {
+      "key": "partial",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.299999997019768
+      },
+      "scene": "partial",
+      "title": "生产单 PO-202610-0094",
+      "width": 1366
+    },
+    {
+      "key": "partial",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.899999998509884
+      },
+      "scene": "partial",
+      "title": "生产单 PO-202610-0094",
+      "width": 1366
+    },
+    {
+      "key": "partial",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "scene": "partial",
+      "title": "生产单 PO-202610-0094",
+      "width": 1366
+    },
+    {
+      "key": "partial",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "scene": "partial",
+      "title": "生产单 PO-202610-0094",
+      "width": 1366
+    },
+    {
+      "key": "partial",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.099999994039536
+      },
+      "scene": "partial",
+      "title": "生产单 PO-202610-0094",
+      "width": 1366
+    },
+    {
+      "key": "reordered",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.600000001490116
+      },
+      "scene": "reordered",
+      "title": "生产单 PO-202610-0095",
+      "width": 1366
+    },
+    {
+      "key": "reordered",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.399999998509884
+      },
+      "scene": "reordered",
+      "title": "生产单 PO-202610-0095",
+      "width": 1366
+    },
+    {
+      "key": "reordered",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.700000002980232
+      },
+      "scene": "reordered",
+      "title": "生产单 PO-202610-0095",
+      "width": 1366
+    },
+    {
+      "key": "reordered",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.600000001490116
+      },
+      "scene": "reordered",
+      "title": "生产单 PO-202610-0095",
+      "width": 1366
+    },
+    {
+      "key": "reordered",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.099999994039536
+      },
+      "scene": "reordered",
+      "title": "生产单 PO-202610-0095",
+      "width": 1366
+    },
+    {
+      "key": "reachedLate",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 23.400000005960464
+      },
+      "scene": "reachedLate",
+      "title": "生产单 PO-202610-0096",
+      "width": 1366
+    },
+    {
+      "key": "reachedLate",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.5
+      },
+      "scene": "reachedLate",
+      "title": "生产单 PO-202610-0096",
+      "width": 1366
+    },
+    {
+      "key": "reachedLate",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scene": "reachedLate",
+      "title": "生产单 PO-202610-0096",
+      "width": 1366
+    },
+    {
+      "key": "reachedLate",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.799999997019768
+      },
+      "scene": "reachedLate",
+      "title": "生产单 PO-202610-0096",
+      "width": 1366
+    },
+    {
+      "key": "reachedLate",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.799999997019768
+      },
+      "scene": "reachedLate",
+      "title": "生产单 PO-202610-0096",
+      "width": 1366
+    },
+    {
+      "key": "positioning",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 25.399999998509884
+      },
+      "scene": "positioning",
+      "title": "生产单 PO-202610-0097",
+      "width": 1366
+    },
+    {
+      "key": "positioning",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      "scene": "positioning",
+      "title": "生产单 PO-202610-0097",
+      "width": 1366
+    },
+    {
+      "key": "positioning",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      },
+      "scene": "positioning",
+      "title": "生产单 PO-202610-0097",
+      "width": 1366
+    },
+    {
+      "key": "positioning",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.80000000447035
+      },
+      "scene": "positioning",
+      "title": "生产单 PO-202610-0097",
+      "width": 1366
+    },
+    {
+      "key": "positioning",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.600000001490116
+      },
+      "scene": "positioning",
+      "title": "生产单 PO-202610-0097",
+      "width": 1366
+    },
+    {
+      "key": "prepPending",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.19999999552965
+      },
+      "scene": "prepPending",
+      "title": "生产单 PO-202610-0098",
+      "width": 1366
+    },
+    {
+      "key": "prepPending",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scene": "prepPending",
+      "title": "生产单 PO-202610-0098",
+      "width": 1366
+    },
+    {
+      "key": "prepPending",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.5
+      },
+      "scene": "prepPending",
+      "title": "生产单 PO-202610-0098",
+      "width": 1366
+    },
+    {
+      "key": "prepPending",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.600000001490116
+      },
+      "scene": "prepPending",
+      "title": "生产单 PO-202610-0098",
+      "width": 1366
+    },
+    {
+      "key": "prepPending",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      },
+      "scene": "prepPending",
+      "title": "生产单 PO-202610-0098",
+      "width": 1366
+    },
+    {
+      "key": "sampleLate",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.80000000447035
+      },
+      "scene": "sampleLate",
+      "title": "生产单 PO-202610-0099",
+      "width": 1366
+    },
+    {
+      "key": "sampleLate",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "scene": "sampleLate",
+      "title": "生产单 PO-202610-0099",
+      "width": 1366
+    },
+    {
+      "key": "sampleLate",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      "scene": "sampleLate",
+      "title": "生产单 PO-202610-0099",
+      "width": 1366
+    },
+    {
+      "key": "sampleLate",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.200000002980232
+      },
+      "scene": "sampleLate",
+      "title": "生产单 PO-202610-0099",
+      "width": 1366
+    },
+    {
+      "key": "sampleLate",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.399999998509884
+      },
+      "scene": "sampleLate",
+      "title": "生产单 PO-202610-0099",
+      "width": 1366
+    },
+    {
+      "key": "samplePending",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.899999998509884
+      },
+      "scene": "samplePending",
+      "title": "生产单 PO-202610-0100",
+      "width": 1366
+    },
+    {
+      "key": "samplePending",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.399999998509884
+      },
+      "scene": "samplePending",
+      "title": "生产单 PO-202610-0100",
+      "width": 1366
+    },
+    {
+      "key": "samplePending",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.100000001490116
+      },
+      "scene": "samplePending",
+      "title": "生产单 PO-202610-0100",
+      "width": 1366
+    },
+    {
+      "key": "samplePending",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scene": "samplePending",
+      "title": "生产单 PO-202610-0100",
+      "width": 1366
+    },
+    {
+      "key": "samplePending",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "scene": "samplePending",
+      "title": "生产单 PO-202610-0100",
+      "width": 1366
+    },
+    {
+      "key": "fullContract",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.399999998509884
+      },
+      "scene": "fullContract",
+      "title": "生产单 PO-202610-0101",
+      "width": 1366
+    },
+    {
+      "key": "fullContract",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.399999998509884
+      },
+      "scene": "fullContract",
+      "title": "生产单 PO-202610-0101",
+      "width": 1366
+    },
+    {
+      "key": "fullContract",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.399999998509884
+      },
+      "scene": "fullContract",
+      "title": "生产单 PO-202610-0101",
+      "width": 1366
+    },
+    {
+      "key": "fullContract",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      },
+      "scene": "fullContract",
+      "title": "生产单 PO-202610-0101",
+      "width": 1366
+    },
+    {
+      "key": "fullContract",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.200000002980232
+      },
+      "scene": "fullContract",
+      "title": "生产单 PO-202610-0101",
+      "width": 1366
+    },
+    {
+      "key": "materialBatches",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.899999998509884
+      },
+      "scene": "materialBatches",
+      "title": "生产单 PO-202610-0102",
+      "width": 1366
+    },
+    {
+      "key": "materialBatches",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.899999998509884
+      },
+      "scene": "materialBatches",
+      "title": "生产单 PO-202610-0102",
+      "width": 1366
+    },
+    {
+      "key": "materialBatches",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      },
+      "scene": "materialBatches",
+      "title": "生产单 PO-202610-0102",
+      "width": 1366
+    },
+    {
+      "key": "materialBatches",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.5
+      },
+      "scene": "materialBatches",
+      "title": "生产单 PO-202610-0102",
+      "width": 1366
+    },
+    {
+      "key": "materialBatches",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scene": "materialBatches",
+      "title": "生产单 PO-202610-0102",
+      "width": 1366
+    },
+    {
+      "key": "materialPartial",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.19999999552965
+      },
+      "scene": "materialPartial",
+      "title": "生产单 PO-202610-0103",
+      "width": 1366
+    },
+    {
+      "key": "materialPartial",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.19999999552965
+      },
+      "scene": "materialPartial",
+      "title": "生产单 PO-202610-0103",
+      "width": 1366
+    },
+    {
+      "key": "materialPartial",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.80000000447035
+      },
+      "scene": "materialPartial",
+      "title": "生产单 PO-202610-0103",
+      "width": 1366
+    },
+    {
+      "key": "materialPartial",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.80000000447035
+      },
+      "scene": "materialPartial",
+      "title": "生产单 PO-202610-0103",
+      "width": 1366
+    },
+    {
+      "key": "materialPartial",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.600000001490116
+      },
+      "scene": "materialPartial",
+      "title": "生产单 PO-202610-0103",
+      "width": 1366
+    },
+    {
+      "key": "live",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.600000001490116
+      },
+      "scene": "live",
+      "title": "生产单 PO-202610-0086",
+      "width": 1366
+    },
+    {
+      "key": "live",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.600000001490116
+      },
+      "scene": "live",
+      "title": "生产单 PO-202610-0086",
+      "width": 1366
+    },
+    {
+      "key": "live",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.200000002980232
+      },
+      "scene": "live",
+      "title": "生产单 PO-202610-0086",
+      "width": 1366
+    },
+    {
+      "key": "live",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.299999997019768
+      },
+      "scene": "live",
+      "title": "生产单 PO-202610-0086",
+      "width": 1366
+    },
+    {
+      "key": "live",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.19999999552965
+      },
+      "scene": "live",
+      "title": "生产单 PO-202610-0086",
+      "width": 1366
+    },
+    {
+      "key": "unknown",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.599999994039536
+      },
+      "scene": "unknown",
+      "title": "商品采购240776",
+      "width": 1366
+    },
+    {
+      "key": "unknown",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.099999994039536
+      },
+      "scene": "unknown",
+      "title": "商品采购240776",
+      "width": 1366
+    },
+    {
+      "key": "unknown",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.200000002980232
+      },
+      "scene": "unknown",
+      "title": "商品采购240776",
+      "width": 1366
+    },
+    {
+      "key": "unknown",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.5
+      },
+      "scene": "unknown",
+      "title": "商品采购240776",
+      "width": 1366
+    },
+    {
+      "key": "unknown",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.600000001490116
+      },
+      "scene": "unknown",
+      "title": "商品采购240776",
+      "width": 1366
+    },
+    {
+      "key": "unassigned",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 22.399999998509884
+      },
+      "scene": "unassigned",
+      "title": "生产单 PO-202610-0087",
+      "width": 1366
+    },
+    {
+      "key": "unassigned",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.399999998509884
+      },
+      "scene": "unassigned",
+      "title": "生产单 PO-202610-0087",
+      "width": 1366
+    },
+    {
+      "key": "unassigned",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.799999997019768
+      },
+      "scene": "unassigned",
+      "title": "生产单 PO-202610-0087",
+      "width": 1366
+    },
+    {
+      "key": "unassigned",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.400000005960464
+      },
+      "scene": "unassigned",
+      "title": "生产单 PO-202610-0087",
+      "width": 1366
+    },
+    {
+      "key": "unassigned",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.200000002980232
+      },
+      "scene": "unassigned",
+      "title": "生产单 PO-202610-0087",
+      "width": 1366
+    },
+    {
+      "key": "sameFactory",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 20.899999998509884
+      },
+      "scene": "sameFactory",
+      "title": "生产单 PO-202610-0088",
+      "width": 1366
+    },
+    {
+      "key": "sameFactory",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.799999997019768
+      },
+      "scene": "sameFactory",
+      "title": "生产单 PO-202610-0088",
+      "width": 1366
+    },
+    {
+      "key": "sameFactory",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 26.700000002980232
+      },
+      "scene": "sameFactory",
+      "title": "生产单 PO-202610-0088",
+      "width": 1366
+    },
+    {
+      "key": "sameFactory",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.600000001490116
+      },
+      "scene": "sameFactory",
+      "title": "生产单 PO-202610-0088",
+      "width": 1366
+    },
+    {
+      "key": "sameFactory",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.200000002980232
+      },
+      "scene": "sameFactory",
+      "title": "生产单 PO-202610-0088",
+      "width": 1366
+    },
+    {
+      "key": "handoverPartial",
+      "index": 1,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 21.299999997019768
+      },
+      "scene": "handoverPartial",
+      "title": "生产单 PO-202610-0105",
+      "width": 1366
+    },
+    {
+      "key": "handoverPartial",
+      "index": 2,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.600000001490116
+      },
+      "scene": "handoverPartial",
+      "title": "生产单 PO-202610-0105",
+      "width": 1366
+    },
+    {
+      "key": "handoverPartial",
+      "index": 3,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.69999999552965
+      },
+      "scene": "handoverPartial",
+      "title": "生产单 PO-202610-0105",
+      "width": 1366
+    },
+    {
+      "key": "handoverPartial",
+      "index": 4,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.30000000447035
+      },
+      "scene": "handoverPartial",
+      "title": "生产单 PO-202610-0105",
+      "width": 1366
+    },
+    {
+      "key": "handoverPartial",
+      "index": 5,
+      "build": [
+        "http://localhost:4179/assets/index-ArcJUalF.js"
+      ],
+      "height": 768,
+      "images": [
+        true
+      ],
+      "overflow": false,
+      "row": {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.399999998509884
+      },
+      "scene": "handoverPartial",
+      "title": "生产单 PO-202610-0105",
+      "width": 1366
+    }
+  ],
+  "maxMs": 30.400000005960464
+}

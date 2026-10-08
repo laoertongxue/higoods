@@ -38,6 +38,10 @@ export interface SewingDeliverySlaSnapshot {
   readonly factoryName: string
   readonly assignedQty: number
   readonly acceptedAt: string
+  /** 接单事实独立保留；只有业务分配日期可以确定回货节点起点。 */
+  readonly businessAssignedAt?: string
+  readonly timingStatus?: 'CONFIRMED' | 'PENDING_BUSINESS_ASSIGNMENT'
+  readonly timingMessage?: string
   readonly ruleVersion?: string
   readonly slaKind: SewingDeliverySlaKind
   readonly milestones: readonly SewingDeliveryMilestoneSnapshot[]
@@ -102,6 +106,23 @@ export interface SewingDeliveryResponsibilityReview {
 const RULE_NATURAL_DAYS = SEWING_RETURN_COUNTING_DAYS
 
 const MILESTONE_RATIOS = [0.3, 0.7, 1] as const
+
+export function getSewingReturnBusinessTiming(businessAssignedAt?: string): {
+  businessAssignedAt: string
+  timingStatus: 'CONFIRMED' | 'PENDING_BUSINESS_ASSIGNMENT'
+  timingMessage: string
+} {
+  if (businessAssignedAt?.trim()) {
+    try {
+      calculateSewingReturnDeadlineDate(businessAssignedAt, 1)
+      return { businessAssignedAt, timingStatus: 'CONFIRMED', timingMessage: '业务分配日为第1天，按自然日计时' }
+    } catch {
+      // 保留原业务事实，由业务人员核实；不以接单时间补造日期。
+    }
+  }
+  return { businessAssignedAt: businessAssignedAt || '', timingStatus: 'PENDING_BUSINESS_ASSIGNMENT', timingMessage: '业务分配日期待核实，回货时效暂不能判定' }
+}
+
 const snapshotsById = new Map<string, SewingDeliverySlaSnapshot>()
 const currentSnapshotIdByRuntimeTaskId = new Map<string, string>()
 const responsibilityReviews: SewingDeliveryResponsibilityReview[] = []
@@ -405,22 +426,25 @@ export function createSewingDeliverySlaSnapshot(input: {
   factoryName: string
   assignedQty: number
   acceptedAt: string
+  businessAssignedAt?: string
   slaKind: SewingDeliverySlaKind
 }): SewingDeliverySlaSnapshot {
   assertPositiveFiniteInteger(input.assignedQty, '分配数量')
   const ruleDays = RULE_NATURAL_DAYS[input.slaKind]
   parseDateTime(input.acceptedAt, '有效接单时间')
+  const timing = getSewingReturnBusinessTiming(input.businessAssignedAt)
   return cloneAndFreezeSnapshot({
     snapshotId: `SEWING-DELIVERY-SLA-${input.runtimeTaskId.length}:${input.runtimeTaskId}-${input.assignmentId.length}:${input.assignmentId}`,
     ...input,
+    ...timing,
     ruleVersion: SEWING_RETURN_RULE_VERSION,
-    milestones: MILESTONE_RATIOS.map((ratio, index) => ({
+    milestones: timing.timingStatus === 'CONFIRMED' ? MILESTONE_RATIOS.map((ratio, index) => ({
       ratio,
-      // 保留历史字段供旧页面兼容；当前业务含义是第N个计时日，起算周周日不计。
+      // 保留历史字段供旧页面兼容；第N个自然日，起算日为第1天，包含星期日。
       hoursAfterAcceptance: ruleDays[index] * 24,
       targetQty: Math.ceil(input.assignedQty * ratio),
-      deadlineAt: `${calculateSewingReturnDeadlineDate(input.acceptedAt, ruleDays[index])} 23:59:59`,
-    })),
+      deadlineAt: `${calculateSewingReturnDeadlineDate(timing.businessAssignedAt, ruleDays[index])} 23:59:59`,
+    })) : [],
     active: true,
   })
 }
@@ -432,7 +456,9 @@ export function projectSewingDeliverySla(
 ): SewingDeliverySlaProjection {
   assertPositiveFiniteInteger(snapshot.assignedQty, '分配数量')
   parseDateTime(snapshot.acceptedAt, '接单时间')
-  snapshot.milestones.forEach((milestone) => parseDateTime(milestone.deadlineAt, '节点截止时间'))
+  const timing = getSewingReturnBusinessTiming(snapshot.businessAssignedAt)
+  const currentMilestones = timing.timingStatus === 'CONFIRMED' ? snapshot.milestones : []
+  currentMilestones.forEach((milestone) => parseDateTime(milestone.deadlineAt, '节点截止时间'))
   parseDateTime(nowAt, '当前时间')
   receipts.forEach((receipt) => {
     if (!receipt.submittedAt) return
@@ -446,7 +472,8 @@ export function projectSewingDeliverySla(
     parseDateTime(receipt.submittedAt, '交出时间')
     parseDateTime(receipt.receivedAt, '实收时间')
   })
-  const projectionSnapshot = cloneAndFreezeSnapshot(snapshot)
+  // 历史快照保留原记录；缺少分配日期的当前投影不沿用旧接单口径判逾期。
+  const projectionSnapshot = cloneAndFreezeSnapshot({ ...snapshot, ...timing, milestones: currentMilestones })
   const reachedMilestones = projectionSnapshot.milestones.map(() => ({
     firstReachedAt: undefined as string | undefined,
     receiverDelayCandidateRecords: [] as SewingDeliveryReceiverDelayAttribution[],

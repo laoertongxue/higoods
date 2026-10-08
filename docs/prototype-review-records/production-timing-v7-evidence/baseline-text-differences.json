@@ -1,0 +1,1867 @@
+[
+  {
+    "key": "late",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 34,
+        "documents": 99,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 34,
+        "documents": 98,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "normal",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 30,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 30,
+        "documents": 102,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-90"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-90"
+      },
+      {
+        "baseline": "",
+        "formal": "-90"
+      },
+      {
+        "baseline": "",
+        "formal": "-90"
+      },
+      {
+        "baseline": "",
+        "formal": "-90"
+      },
+      {
+        "baseline": "",
+        "formal": "-90"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "complete",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 30,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 30,
+        "documents": 102,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-91"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-91"
+      },
+      {
+        "baseline": "",
+        "formal": "-91"
+      },
+      {
+        "baseline": "",
+        "formal": "-91"
+      },
+      {
+        "baseline": "",
+        "formal": "-91"
+      },
+      {
+        "baseline": "",
+        "formal": "-91"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "completeLate",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 32,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 32,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-92"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-92"
+      },
+      {
+        "baseline": "",
+        "formal": "-92"
+      },
+      {
+        "baseline": "",
+        "formal": "-92"
+      },
+      {
+        "baseline": "",
+        "formal": "-92"
+      },
+      {
+        "baseline": "",
+        "formal": "-92"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "completeUnknown",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 30,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 30,
+        "documents": 102,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-93"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-93"
+      },
+      {
+        "baseline": "",
+        "formal": "-93"
+      },
+      {
+        "baseline": "",
+        "formal": "-93"
+      },
+      {
+        "baseline": "",
+        "formal": "-93"
+      },
+      {
+        "baseline": "",
+        "formal": "-93"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "partial",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 32,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 32,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-94"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-94"
+      },
+      {
+        "baseline": "",
+        "formal": "-94"
+      },
+      {
+        "baseline": "",
+        "formal": "-94"
+      },
+      {
+        "baseline": "",
+        "formal": "-94"
+      },
+      {
+        "baseline": "",
+        "formal": "-94"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "reordered",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 34,
+        "documents": 105,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 34,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-95"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-95"
+      },
+      {
+        "baseline": "",
+        "formal": "-95"
+      },
+      {
+        "baseline": "",
+        "formal": "-95"
+      },
+      {
+        "baseline": "",
+        "formal": "-95"
+      },
+      {
+        "baseline": "",
+        "formal": "-95"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-02"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "reachedLate",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 30,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 30,
+        "documents": 102,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-96"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-96"
+      },
+      {
+        "baseline": "",
+        "formal": "-96"
+      },
+      {
+        "baseline": "",
+        "formal": "-96"
+      },
+      {
+        "baseline": "",
+        "formal": "-96"
+      },
+      {
+        "baseline": "",
+        "formal": "-96"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "positioning",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 12,
+        "documents": 25,
+        "materials": 0,
+        "parts": 0,
+        "process": 0
+      },
+      "formal": {
+        "arrows": 12,
+        "documents": 24,
+        "materials": 0,
+        "parts": 0,
+        "process": 0
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-97"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-97"
+      },
+      {
+        "baseline": "",
+        "formal": "-97"
+      },
+      {
+        "baseline": "",
+        "formal": "-97"
+      },
+      {
+        "baseline": "",
+        "formal": "-97"
+      },
+      {
+        "baseline": "",
+        "formal": "-97"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "查看",
+        "formal": "供给记录待核"
+      },
+      {
+        "baseline": "际到仓/交接",
+        "formal": ""
+      },
+      {
+        "baseline": "适用加",
+        "formal": "裁片"
+      },
+      {
+        "baseline": "",
+        "formal": "艺"
+      },
+      {
+        "baseline": "",
+        "formal": "与放行"
+      },
+      {
+        "baseline": "按实际单据查看",
+        "formal": "待取得"
+      }
+    ]
+  },
+  {
+    "key": "prepPending",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 14,
+        "documents": 26,
+        "materials": 0,
+        "parts": 0,
+        "process": 0
+      },
+      "formal": {
+        "arrows": 14,
+        "documents": 25,
+        "materials": 0,
+        "parts": 0,
+        "process": 0
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-98"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-98"
+      },
+      {
+        "baseline": "",
+        "formal": "-98"
+      },
+      {
+        "baseline": "",
+        "formal": "-98"
+      },
+      {
+        "baseline": "",
+        "formal": "-98"
+      },
+      {
+        "baseline": "",
+        "formal": "-98"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "5",
+        "formal": "逐"
+      },
+      {
+        "baseline": "物料 · 展开看各自",
+        "formal": "供给记录待核"
+      },
+      {
+        "baseline": "收与加工单",
+        "formal": "，不根据需求填满"
+      },
+      {
+        "baseline": "适用加",
+        "formal": "裁片"
+      },
+      {
+        "baseline": "",
+        "formal": "艺"
+      },
+      {
+        "baseline": "",
+        "formal": "与放行"
+      },
+      {
+        "baseline": "按实际单据查看",
+        "formal": "待取得"
+      }
+    ]
+  },
+  {
+    "key": "sampleLate",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 32,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 32,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-99"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-99"
+      },
+      {
+        "baseline": "",
+        "formal": "-99"
+      },
+      {
+        "baseline": "",
+        "formal": "-99"
+      },
+      {
+        "baseline": "",
+        "formal": "-99"
+      },
+      {
+        "baseline": "",
+        "formal": "-99"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "samplePending",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 32,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 32,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-100"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-100"
+      },
+      {
+        "baseline": "",
+        "formal": "-100"
+      },
+      {
+        "baseline": "",
+        "formal": "-100"
+      },
+      {
+        "baseline": "",
+        "formal": "-100"
+      },
+      {
+        "baseline": "",
+        "formal": "-100"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "fullContract",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 34,
+        "documents": 105,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 34,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-101"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-101"
+      },
+      {
+        "baseline": "",
+        "formal": "-101"
+      },
+      {
+        "baseline": "",
+        "formal": "-101"
+      },
+      {
+        "baseline": "",
+        "formal": "-101"
+      },
+      {
+        "baseline": "",
+        "formal": "-101"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "materialBatches",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 20,
+        "documents": 74,
+        "materials": 5,
+        "parts": 0,
+        "process": 0
+      },
+      "formal": {
+        "arrows": 20,
+        "documents": 73,
+        "materials": 5,
+        "parts": 0,
+        "process": 0
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-102"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-102"
+      },
+      {
+        "baseline": "",
+        "formal": "-102"
+      },
+      {
+        "baseline": "",
+        "formal": "-102"
+      },
+      {
+        "baseline": "",
+        "formal": "-102"
+      },
+      {
+        "baseline": "",
+        "formal": "-102"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-600"
+      },
+      {
+        "baseline": "",
+        "formal": "-600"
+      },
+      {
+        "baseline": "",
+        "formal": "-600"
+      },
+      {
+        "baseline": "",
+        "formal": "-600"
+      },
+      {
+        "baseline": "",
+        "formal": "-600"
+      },
+      {
+        "baseline": "",
+        "formal": "-600"
+      },
+      {
+        "baseline": "",
+        "formal": "-900"
+      },
+      {
+        "baseline": "",
+        "formal": "-900"
+      },
+      {
+        "baseline": "",
+        "formal": "-900"
+      },
+      {
+        "baseline": "",
+        "formal": "-900"
+      },
+      {
+        "baseline": "",
+        "formal": "-900"
+      },
+      {
+        "baseline": "",
+        "formal": "-900"
+      },
+      {
+        "baseline": "4个部位 · 单道/多道分别跟进",
+        "formal": "裁片工艺、交接与放行记录待取得"
+      }
+    ]
+  },
+  {
+    "key": "materialPartial",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 20,
+        "documents": 42,
+        "materials": 5,
+        "parts": 0,
+        "process": 0
+      },
+      "formal": {
+        "arrows": 20,
+        "documents": 41,
+        "materials": 5,
+        "parts": 0,
+        "process": 0
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-103"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-103"
+      },
+      {
+        "baseline": "",
+        "formal": "-103"
+      },
+      {
+        "baseline": "",
+        "formal": "-103"
+      },
+      {
+        "baseline": "",
+        "formal": "-103"
+      },
+      {
+        "baseline": "",
+        "formal": "-103"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "4个部位 · 单道/多道分别跟进",
+        "formal": "裁片工艺、交接与放行记录待取得"
+      }
+    ]
+  },
+  {
+    "key": "live",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 32,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 32,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-86"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-86"
+      },
+      {
+        "baseline": "",
+        "formal": "-86"
+      },
+      {
+        "baseline": "",
+        "formal": "-86"
+      },
+      {
+        "baseline": "",
+        "formal": "-86"
+      },
+      {
+        "baseline": "",
+        "formal": "-86"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "unknown",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 0,
+        "documents": 0,
+        "materials": 0,
+        "parts": 0,
+        "process": 0
+      },
+      "formal": {
+        "arrows": 0,
+        "documents": 0,
+        "materials": 0,
+        "parts": 0,
+        "process": 0
+      }
+    },
+    "differences": []
+  },
+  {
+    "key": "unassigned",
+    "structure": true,
+    "nodes": {
+      "baseline": {
+        "arrows": 32,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 32,
+        "documents": 103,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-87"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-87"
+      },
+      {
+        "baseline": "",
+        "formal": "-87"
+      },
+      {
+        "baseline": "",
+        "formal": "-87"
+      },
+      {
+        "baseline": "",
+        "formal": "-87"
+      },
+      {
+        "baseline": "",
+        "formal": "-87"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  },
+  {
+    "key": "sameFactory",
+    "structure": false,
+    "nodes": {
+      "baseline": {
+        "arrows": 34,
+        "documents": 105,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      },
+      "formal": {
+        "arrows": 34,
+        "documents": 104,
+        "materials": 5,
+        "parts": 0,
+        "process": 9
+      }
+    },
+    "differences": [
+      {
+        "baseline": "",
+        "formal": "-88"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-88"
+      },
+      {
+        "baseline": "",
+        "formal": "-88"
+      },
+      {
+        "baseline": "",
+        "formal": "-88"
+      },
+      {
+        "baseline": "",
+        "formal": "-88"
+      },
+      {
+        "baseline": "",
+        "formal": "-88"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "",
+        "formal": "-086"
+      },
+      {
+        "baseline": "独立跳转样例 EM-001（与本单无关联）↗",
+        "formal": ""
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-500"
+      },
+      {
+        "baseline": "",
+        "formal": "B厂汇总200／500＝40% · SWT-B-01仍欠90件同厂另一任务已全量回货，不能冲抵其他任务"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      },
+      {
+        "baseline": "",
+        "formal": "-02"
+      },
+      {
+        "baseline": "",
+        "formal": "-01"
+      }
+    ]
+  }
+]

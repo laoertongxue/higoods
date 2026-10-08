@@ -316,22 +316,24 @@ function getSewingDeliveryResultLabel(result: SewingDeliverySlaView['projection'
 export function renderSewingDeliverySlaListCell(view: SewingDeliverySlaView | undefined | null, unit: string): string {
   if (!view) return '<span class="text-xs text-muted-foreground">—</span>'
   const nextMilestone = view.projection.milestones.find((milestone) => !milestone.firstReachedAt)
+  const timingPending = view.projection.snapshot.timingStatus === 'PENDING_BUSINESS_ASSIGNMENT'
   return `
     <div class="min-w-[126px] space-y-1 text-xs">
-      <div class="font-medium">${view.confirmedReceivedQty} / ${view.projection.snapshot.assignedQty} ${escapeHtml(unit)}</div>
-      <div class="text-primary">${formatSewingDeliveryPercent(view.projection.progressRatio)}</div>
-      <div class="text-muted-foreground">${nextMilestone ? `下一节点 ${nextMilestone.ratio * 100}%` : '已完成全部节点'}</div>
+      <div class="font-medium">${timingPending ? `分配 ${view.projection.snapshot.assignedQty} ${escapeHtml(unit)} · 实收 ${view.confirmedReceivedQty} ${escapeHtml(unit)}` : `${view.confirmedReceivedQty} / ${view.projection.snapshot.assignedQty} ${escapeHtml(unit)}`}</div>
+      <div class="${timingPending ? 'text-amber-700' : 'text-primary'}">${timingPending ? '回货比例待核实' : formatSewingDeliveryPercent(view.projection.progressRatio)}</div>
+      <div class="${timingPending ? 'text-amber-700' : 'text-muted-foreground'}">${timingPending ? escapeHtml(view.projection.snapshot.timingMessage || '业务分配日期待核实，回货时效暂不能判定') : nextMilestone ? `下一节点 ${nextMilestone.ratio * 100}%` : '已完成全部节点'}</div>
     </div>
   `
 }
 
 export function renderSewingDeliverySlaDetail(view: SewingDeliverySlaView | undefined | null, unit: string): string {
   if (!view) return ''
+  const timingPending = view.projection.snapshot.timingStatus === 'PENDING_BUSINESS_ASSIGNMENT'
   return `
     <section class="space-y-3 rounded-md border bg-muted/20 p-3" data-sewing-delivery-sla-detail="true">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-sm font-medium">交付时效</h3>
-        <span class="text-sm font-semibold text-primary">${formatSewingDeliveryPercent(view.projection.progressRatio)}</span>
+        <span class="text-sm font-semibold ${timingPending ? 'text-amber-700' : 'text-primary'}">${timingPending ? '回货比例待核实' : formatSewingDeliveryPercent(view.projection.progressRatio)}</span>
       </div>
       <div class="grid gap-3 text-xs sm:grid-cols-3">
         <div><span class="text-muted-foreground">分配量：</span>${view.projection.snapshot.assignedQty} ${escapeHtml(unit)}</div>
@@ -341,7 +343,7 @@ export function renderSewingDeliverySlaDetail(view: SewingDeliverySlaView | unde
       <div class="overflow-x-auto rounded-md border bg-background">
         <table class="w-full min-w-[760px] text-xs">
           <thead><tr class="border-b bg-muted/40 text-left"><th class="px-3 py-2">节点</th><th class="px-3 py-2">目标</th><th class="px-3 py-2">截止时间</th><th class="px-3 py-2">首次达标</th><th class="px-3 py-2">结果</th><th class="px-3 py-2">接收延迟</th></tr></thead>
-          <tbody>${view.projection.milestones.map((milestone) => `
+          <tbody>${timingPending ? `<tr><td colspan="6" class="px-3 py-3 text-amber-700" role="status">${escapeHtml(view.projection.snapshot.timingMessage || '业务分配日期待核实，回货时效暂不能判定')}</td></tr>` : view.projection.milestones.map((milestone) => `
             <tr class="border-b last:border-b-0">
               <td class="px-3 py-2 font-medium">${milestone.ratio * 100}% 节点</td>
               <td class="px-3 py-2">${milestone.targetQty} ${escapeHtml(unit)}</td>

@@ -1,0 +1,850 @@
+{
+  "samples": [
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 1,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 83.69999999552965
+        }
+      ],
+      "navMs": 83.69999999552965,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 2,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 72.79999999701977
+        }
+      ],
+      "navMs": 72.79999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 3,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 67.29999999701977
+        }
+      ],
+      "navMs": 67.29999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 4,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 79.5
+        }
+      ],
+      "navMs": 79.5,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "cold",
+      "index": 5,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 70.29999999701977
+        }
+      ],
+      "navMs": 70.29999999701977,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 1,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 58.400000005960464
+        }
+      ],
+      "navMs": 58.400000005960464,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 2,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 78.89999999850988
+        }
+      ],
+      "navMs": 78.89999999850988,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 3,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 62
+        }
+      ],
+      "navMs": 62,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 4,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 57.099999994039536
+        }
+      ],
+      "navMs": 57.099999994039536,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "refresh",
+      "index": 5,
+      "branches": [],
+      "height": 768,
+      "images": [
+        {
+          "alt": "演示款蓝白印花衬衫实图",
+          "ok": true
+        }
+      ],
+      "measurements": [
+        {
+          "action": "route",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 77.60000000149012
+        }
+      ],
+      "navMs": 77.60000000149012,
+      "overflow": false,
+      "overlayHidden": true,
+      "scroll": [],
+      "tabTitles": [],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 1,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 2,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.19999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 2,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 3,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 3,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 4,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 4,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 5,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-prep",
+      "index": 5,
+      "branches": [
+        "branch-prep"
+      ],
+      "count": 6,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 625.5
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 7,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.39999999850989
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 8,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.30000000447035
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 9,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.600000001490116
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 10,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-supply",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply"
+      ],
+      "count": 11,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 2863
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 1,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 12,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.19999999552965
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 2,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 13,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 33.20000000298023
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 3,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 14,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 35.399999998509884
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 4,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 15,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.600000001490116
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    },
+    {
+      "dims": {
+        "width": 1366,
+        "height": 768
+      },
+      "mode": "focus-craft",
+      "index": 5,
+      "branches": [
+        "branch-prep",
+        "branch-supply",
+        "branch-craft"
+      ],
+      "count": 16,
+      "height": 768,
+      "overflow": false,
+      "overlayHidden": true,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.20000000298023
+      },
+      "scroll": [
+        {
+          "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+          "y": 6204
+        }
+      ],
+      "width": 1366
+    }
+  ],
+  "error": "Container visible wait timed out although locator diagnostics reported visibleCount 1",
+  "visible": true,
+  "state": {
+    "branches": [],
+    "height": 768,
+    "images": [
+      {
+        "alt": "演示款蓝白印花衬衫实图",
+        "ok": true
+      },
+      {
+        "alt": "白坯布原料效果图（复用 PCS 原型素材）",
+        "ok": true
+      },
+      {
+        "alt": "原型捆条布原料效果图；藏青C02仍是染色目标。",
+        "ok": true
+      },
+      {
+        "alt": "原型蓝白衬衫配套纽扣效果图。未确认的规格不由图片补填。",
+        "ok": true
+      },
+      {
+        "alt": "原型领／门襟衬布效果图，区别于里布。",
+        "ok": true
+      },
+      {
+        "alt": "原型本款织标效果图，区别于洗水唛；不含品牌身份。",
+        "ok": true
+      }
+    ],
+    "measurements": [
+      {
+        "action": "route",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 77.60000000149012
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 30.19999999552965
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.899999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28.700000002980232
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 28
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.39999999850989
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.30000000447035
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.600000001490116
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29.899999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 29
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.19999999552965
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 33.20000000298023
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 35.399999998509884
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.600000001490116
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 34.20000000298023
+      },
+      {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.60000000149011
+      },
+      {
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 27.5
+      }
+    ],
+    "navMs": 77.60000000149012,
+    "overflow": false,
+    "overlayHidden": false,
+    "scroll": [
+      {
+        "cls": "min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden",
+        "id": "",
+        "y": 556.5
+      }
+    ],
+    "tabTitles": [],
+    "width": 1366
+  }
+}

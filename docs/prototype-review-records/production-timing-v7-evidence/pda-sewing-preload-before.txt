@@ -1,0 +1,57 @@
+✖ same-navigation sewing preload discovers actual bundle entries and static closure without evaluating modules (27.936334ms)
+✖ preview compression includes the same sewing static chunks and retains existing assets without broad lazy-route output (5.281791ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 592.907541
+
+✖ failing tests:
+
+test at tests/unit/pda-sewing-route-preload.test.ts:1:2780
+✖ same-navigation sewing preload discovers actual bundle entries and static closure without evaluating modules (27.936334ms)
+  AssertionError [ERR_ASSERTION]: /fcs/pda/exec/TASK-SEW-000513-F090-3
+  + actual - expected
+  
+  + []
+  - [
+  -   '/assets/detail-data-test.js',
+  -   '/assets/handler-data-test.js',
+  -   '/assets/pda-exec-detail-test.js',
+  -   '/assets/pda-handlers-test.js',
+  -   '/assets/shared-test.js'
+  - ]
+  
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/pda-sewing-route-preload.test.ts:50:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ '/assets/detail-data-test.js', '/assets/handler-data-test.js', '/assets/pda-exec-detail-test.js', '/assets/pda-handlers-test.js', '/assets/shared-test.js' ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at tests/unit/pda-sewing-route-preload.test.ts:1:4317
+✖ preview compression includes the same sewing static chunks and retains existing assets without broad lazy-route output (5.281791ms)
+  AssertionError [ERR_ASSERTION]: pda-exec-detail-test.js
+      at TestContext.<anonymous> (/Users/laoer/.codex/worktrees/d29f/higoods/tests/unit/pda-sewing-route-preload.test.ts:81:12)
+      at Test.runInAsyncScope (node:async_hooks:226:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:974:18)
+      at Test.postRun (node:internal/test_runner/test:1542:19)
+      at Test.run (node:internal/test_runner/test:1467:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

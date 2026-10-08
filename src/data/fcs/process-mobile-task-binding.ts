@@ -10,6 +10,7 @@ import {
   type DyeWorkOrder,
 } from './dyeing-task-domain.ts'
 import {
+  getPdaTaskFlowTaskById,
   listPdaTaskFlowTasks,
   type PdaTaskFlowProjectedTask,
 } from './pda-cutting-execution-source.ts'
@@ -42,7 +43,7 @@ import {
   listSpecialCraftTaskOrders,
   type SpecialCraftTaskOrder,
 } from './special-craft-task-orders.ts'
-import { applyPendingDispatchAutoAcceptance, getRuntimeTaskById, listRuntimeProcessTasks } from './runtime-process-tasks.ts'
+import { applyPendingDispatchAutoAcceptance, getRuntimeTaskById, isRuntimeIndependentSewingTask, listRuntimeProcessTasks } from './runtime-process-tasks.ts'
 import {
   getWaterSolubleWorkOrderById,
   getWaterSolubleWorkOrderByTaskId,
@@ -450,6 +451,14 @@ export function listPdaMobileExecutionTasks(currentFactoryId?: string, scopePrep
 
 export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | null {
   // A process detail needs its own canonical task, not initialization of every factory domain.
+  if (taskId.startsWith('TASKGEN-')) {
+    applyPendingDispatchAutoAcceptance()
+    const task = getRuntimeTaskById(taskId)
+    // The complete mobile projection uses this same runtime override for
+    // enabled independent sewing. Specialized/merged tasks retain its full path.
+    if (task && task.executionEnabled !== false && isRuntimeIndependentSewingTask(task)
+      && getMobileTaskProcessType(task) === 'SEWING') return structuredClone(task) as ProcessTask
+  }
   if (taskId.startsWith('TASK-PRINT-') || taskId.startsWith('PWO-PRINT-')) {
     const task = listPrintMobileExecutionTasks(taskId).find(item => item.taskId === taskId)
     if (task) return task
@@ -460,6 +469,17 @@ export function getPdaMobileExecutionTaskById(taskId: string): ProcessTask | nul
   }
   const specialCraftOrder = getSpecialCraftTaskOrderById(taskId)
   if (specialCraftOrder) return mapSpecialCraftTaskOrderToMobileTask(specialCraftOrder, 1)
+  if (taskId.startsWith('TASK-SEW-')) {
+    applyPendingDispatchAutoAcceptance()
+    const projected = getPdaTaskFlowTaskById(taskId)
+    // These ordinary sewing fixtures use this same task-flow projection in the
+    // complete list. Do not construct unrelated preparation/craft domains just
+    // to find one fixture; specialized and disabled records retain the full path.
+    if (projected && 'mockProcessKey' in projected && projected.mockProcessKey === 'SEWING'
+      && projected.executionEnabled !== false && getMobileTaskProcessType(projected) === 'SEWING') {
+      return structuredClone(getRuntimeTaskById(taskId) || projected) as ProcessTask
+    }
+  }
   return listPdaMobileExecutionTasks().find((task) => task.taskId === taskId) ?? null
 }
 

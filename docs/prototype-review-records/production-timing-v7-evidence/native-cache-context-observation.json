@@ -1,0 +1,4 @@
+{
+  "result": "No cache operation executed on about:blank; raw CDP requires HTTP(S). Navigated the observed source detail first, then resumed cache test.",
+  "classification": "harness setup failure, not application failure or denied action workaround"
+}

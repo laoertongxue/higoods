@@ -1,0 +1,4 @@
+{
+  "error": "Route changes create a new measurement array, action-counter-increment assertion is only valid for local actions",
+  "successfulSamples": []
+}

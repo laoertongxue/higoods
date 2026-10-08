@@ -109,7 +109,7 @@ import {
   renderProductionObjectCodeButton,
   type ProductionObjectCodeType,
 } from '../data/fcs/production-order-identity.ts'
-import { resolveProductionObjectRequest } from '../data/fcs/production-object-overview.ts'
+import { getProductionObjectSearchIndex, getProductionObjectLinkIndex, resolveProductionObjectRequest, type ProductionObjectSearchIndex } from '../data/fcs/production-object-overview.ts'
 import {
   getPrintingWorkflowFacts,
   getPrintingWorkOrderById,
@@ -527,6 +527,30 @@ function clearWaterSolubleOverlay(): void {
   refreshWaterSolubleOverlay()
 }
 
+let currentDetailObjectRequests: Map<string, ReturnType<typeof resolveProductionObjectRequest>> | null = null
+let currentDetailObjectSearchIndex: readonly ProductionObjectSearchIndex[] | null = null
+let currentDetailLinkIndexes = new Map<string, readonly ProductionObjectSearchIndex[]>()
+
+function resolveDetailObjectRequest(request: Parameters<typeof resolveProductionObjectRequest>[0]): ReturnType<typeof resolveProductionObjectRequest> {
+  if (!currentDetailObjectRequests) return resolveProductionObjectRequest(request)
+  const key = JSON.stringify(request)
+  const cached = currentDetailObjectRequests.get(key)
+  if (cached) return cached
+  let snapshot: readonly ProductionObjectSearchIndex[]
+  if (request.objectType === 'PRODUCTION_ORDER' || request.objectType === 'PROCESS_DOC') {
+    const objectType = request.objectType
+    if (!currentDetailLinkIndexes.has(objectType)) currentDetailLinkIndexes.set(objectType, getProductionObjectLinkIndex(objectType))
+    snapshot = currentDetailLinkIndexes.get(objectType)!
+  } else {
+    // Other object types retain the full fresh projection once per render.
+    currentDetailObjectSearchIndex ??= getProductionObjectSearchIndex(true)
+    snapshot = currentDetailObjectSearchIndex
+  }
+  const resolved = resolveProductionObjectRequest(request, snapshot)
+  currentDetailObjectRequests.set(key, resolved)
+  return resolved
+}
+
 function renderPdaObjectCode({
   objectType,
   objectId,
@@ -549,10 +573,10 @@ function renderPdaObjectCode({
   // without constructing the unrelated production/material search index.
   if (sourceType === 'DESIGN_REVISION') return escapeHtml(objectCode)
 
-  const preferred = resolveProductionObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
+  const preferred = resolveDetailObjectRequest({ objectType, objectId: targetId, relatedProductionOrderNo })
   const resolved = preferred.status === 'READY' || !relatedProductionOrderNo
     ? preferred
-    : resolveProductionObjectRequest({ objectType, objectId: targetId })
+    : resolveDetailObjectRequest({ objectType, objectId: targetId })
   // Only render clickable IDs that open a real overview; unresolved PDA refs stay plain text.
   if (resolved.status !== 'READY') return escapeHtml(objectCode)
 
@@ -724,19 +748,22 @@ export function renderPdaSewingDeliveryProgress(
   const assignedQty = view.projection.snapshot.assignedQty
   const overQty = Math.max(view.confirmedReceivedQty - assignedQty, 0)
   const nextMilestone = view.projection.milestones.find((milestone) => !milestone.firstReachedAt)
+  const timingPending = view.projection.snapshot.timingStatus === 'PENDING_BUSINESS_ASSIGNMENT'
   return `
     <article class="rounded-lg border bg-card" data-pda-sewing-delivery-progress="true">
       <header class="border-b px-4 py-3"><h2 class="text-sm font-semibold">交付进度</h2></header>
       <div class="space-y-3 p-4 text-sm">
+        ${timingPending ? `<p class="text-xs text-amber-700" role="status">${escapeHtml(view.projection.snapshot.timingMessage || '业务分配日期待核实，回货时效暂不能判定')}</p>` : ''}
         <div class="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
           <span class="text-muted-foreground">分配量</span><span class="font-medium">${assignedQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">已交</span><span class="font-medium">${view.submittedQty} ${escapeHtml(unit)}</span>
           <span class="text-muted-foreground">后道最终确认</span><span class="font-medium">${view.confirmedReceivedQty} ${escapeHtml(unit)}</span>
-          <span class="text-muted-foreground">还差</span><span class="font-medium">${view.projection.remainingQty} ${escapeHtml(unit)}</span>
-          <span class="text-muted-foreground">下一节点</span><span class="font-medium">${nextMilestone ? `${nextMilestone.ratio * 100}% · ${nextMilestone.targetQty} ${escapeHtml(unit)}` : '全部节点已完成'}</span>
-          <span class="text-muted-foreground">剩余时间</span><span class="font-medium">${nextMilestone ? escapeHtml(formatSewingDeliveryRemaining(nextMilestone.deadlineAt, nowAt)) : '0 小时'}</span>
+          <span class="text-muted-foreground">还差</span><span class="font-medium">${timingPending ? '待核实' : `${view.projection.remainingQty} ${escapeHtml(unit)}`}</span>
+          <span class="text-muted-foreground">下一节点</span><span class="font-medium">${timingPending ? '待核实' : nextMilestone ? `${nextMilestone.ratio * 100}% · ${nextMilestone.targetQty} ${escapeHtml(unit)}` : '全部节点已完成'}</span>
+          <span class="text-muted-foreground">剩余时间</span><span class="font-medium">${timingPending ? '待核实' : nextMilestone ? escapeHtml(formatSewingDeliveryRemaining(nextMilestone.deadlineAt, nowAt)) : '0 小时'}</span>
         </div>
-        ${overQty > 0 ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">已超收 ${overQty} ${escapeHtml(unit)}</div>` : ''}
+        ${timingPending ? '<p class="text-xs text-muted-foreground">分配量是派单数量；回货比例和应回余量待核实，不把分配量视为工厂实领量。</p>' : ''}
+        ${!timingPending && overQty > 0 ? `<div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-700">已超收 ${overQty} ${escapeHtml(unit)}</div>` : ''}
       </div>
     </article>
   `
@@ -3364,6 +3391,29 @@ export function renderPdaWorkOrderExecDetailPage(sourceType: string, workOrderId
   return renderSpecialCraftFocusedDetailPage(task, workOrderId)
 }
 
+function measurePdaExecDetailReady(renderToken: string): void {
+  if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return
+  let settling = false
+  const observer = new MutationObserver(check)
+  const timeout = window.setTimeout(() => observer.disconnect(), 15000)
+  function check(): void {
+    const host = document.querySelector<HTMLElement>(`[data-pda-exec-render-token="${renderToken}"]`)
+    if (!host || settling || Array.from(host.querySelectorAll('[data-real-qr]')).some(node => !node.querySelector('svg[role="img"]'))) return
+    settling = true
+    observer.disconnect()
+    window.clearTimeout(timeout)
+    void Promise.all(Array.from(host.querySelectorAll('img')).map(image => image.decode()))
+      .then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+        if (!host.isConnected) return
+        host.dataset.pdaExecReadyAtMs = String(performance.now())
+        host.dataset.pdaExecReady = 'true'
+      })))
+      .catch(() => { if (host.isConnected) host.dataset.pdaExecReady = 'image-error' })
+  }
+  observer.observe(document.documentElement, { childList: true, subtree: true })
+  check()
+}
+
 export function renderPdaExecDetailPage(taskId: string): string {
   syncWaterActionScope(taskId)
   syncPdaStartRiskAndExceptions()
@@ -3762,8 +3812,11 @@ export function renderPdaExecDetailPage(taskId: string): string {
 
   const designRevisionSource = (dyeWorkOrder || printWorkOrder)?.sourceSnapshot
   const isDesignRevisionTask = designRevisionSource?.sourceType === 'DESIGN_REVISION'
+  const renderToken = String(performance.now()).replace('.', '-')
+  currentDetailObjectRequests = new Map()
+  try {
   const content = `
-    <div class="space-y-4 bg-background p-4 pb-6">
+    <div class="space-y-4 bg-background p-4 pb-6" data-pda-exec-task-id="${escapeHtml(task.taskId)}" data-pda-exec-render-token="${renderToken}">
       ${accessNotice}
       <div class="flex items-center gap-2">
         <button class="inline-flex h-8 items-center rounded-md px-2 text-sm hover:bg-muted" data-pda-execd-action="back">
@@ -4248,7 +4301,14 @@ export function renderPdaExecDetailPage(taskId: string): string {
     </div>
   `
 
-  return renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+  const framed = renderPdaFrame(content, 'exec', { disableTodoAutoOpen: true })
+  queueMicrotask(() => measurePdaExecDetailReady(renderToken))
+  return framed
+  } finally {
+    currentDetailObjectRequests = null
+    currentDetailObjectSearchIndex = null
+    currentDetailLinkIndexes.clear()
+  }
 }
 
 function buildDyeHandoverConfirmationKey(order: DyeWorkOrder): string {

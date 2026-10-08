@@ -1,0 +1,127 @@
+{
+  "build": [
+    "http://localhost:4179/assets/index-VIsb9cR6.js"
+  ],
+  "actions": [
+    {
+      "label": "B厂任务明细打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 38.60000000149011
+    },
+    {
+      "label": "B厂任务明细关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 42.19999999552965
+    },
+    {
+      "label": "时效口径打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.70000000298023
+    },
+    {
+      "label": "时效口径关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.80000000447035
+    },
+    {
+      "label": "B厂任务明细打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.39999999850989
+    },
+    {
+      "label": "B厂任务明细关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.10000000149011
+    },
+    {
+      "label": "时效口径打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.20000000298023
+    },
+    {
+      "label": "时效口径关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.39999999850989
+    },
+    {
+      "label": "B厂任务明细打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 42.099999994039536
+    },
+    {
+      "label": "B厂任务明细关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.19999999552965
+    },
+    {
+      "label": "时效口径打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.10000000149011
+    },
+    {
+      "label": "时效口径关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 42.39999999850989
+    },
+    {
+      "label": "B厂任务明细打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.69999999552965
+    },
+    {
+      "label": "B厂任务明细关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.60000000149011
+    },
+    {
+      "label": "时效口径打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.900000005960464
+    },
+    {
+      "label": "时效口径关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.5
+    },
+    {
+      "label": "B厂任务明细打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.60000000149011
+    },
+    {
+      "label": "B厂任务明细关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 40.39999999850989
+    },
+    {
+      "label": "时效口径打开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 43.89999999850989
+    },
+    {
+      "label": "时效口径关闭",
+      "action": "node-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.39999999850989
+    }
+  ]
+}

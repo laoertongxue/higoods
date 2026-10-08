@@ -1,0 +1,36 @@
+{
+  "date": "2026-10-08",
+  "implementation": "Local prototype is reviewable; blocked checks do not count as passed.",
+  "userAuthorization": "User explicitly authorized all three local checks again on this turn.",
+  "attemptsAfterAuthorization": [
+    {
+      "check": "CSV download from the production order list",
+      "url": "http://localhost:4179/dds/supply-chain/production-fulfillment/orders",
+      "action": "Documented Playwright waitForEvent(download) and visible export button",
+      "result": "rejected",
+      "reason": "The user declined permission for this action; browser use cannot download files from this URL for this request.",
+      "status": "已阻塞"
+    },
+    {
+      "check": "Equal effective-width baseline screenshots",
+      "url": "http://localhost:61122/",
+      "action": "CDP Emulation.setDeviceMetricsOverride width 1142 height 768",
+      "result": "rejected",
+      "reason": "A saved user permission setting blocks raw CDP on localhost:61122.",
+      "status": "已阻塞"
+    },
+    {
+      "check": "Temporary browser storage fault injection in a test-only tab",
+      "url": "http://127.0.0.1:4179/dds/supply-chain/production-fulfillment/orders/PO-202610-0086",
+      "action": "CDP Runtime.evaluate temporary IndexedDB/Storage observation and fault probe",
+      "result": "rejected",
+      "reason": "A saved user permission setting blocks raw CDP on 127.0.0.1:4179.",
+      "status": "已阻塞"
+    }
+  ],
+  "constraints": [
+    "No alternative browser, copied page, indirect execution, raw-CDP workaround or other method was used to achieve the denied outcomes.",
+    "No fault probe was installed, no baseline viewport override was applied, and no existing business data was cleared.",
+    "Normal browser saves, refreshes, new-tab reads and source-level fault tests are separately recorded; they do not prove the denied checks."
+  ]
+}

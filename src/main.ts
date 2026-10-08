@@ -1,6 +1,6 @@
 import { escapeHtml } from './utils.ts'
 import { dispatchMaterialDecisionClick, dispatchMaterialDecisionInput, dispatchMaterialDecisionChange, dispatchMaterialDecisionKey } from './pages/material-decision/events-bridge'
-import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey } from './pages/production-fulfillment/events'
+import { handleProductionFulfillmentClick, handleProductionFulfillmentField, handleProductionFulfillmentKey, handleTimingSourceClick, handleTimingSourceKey, handleProductionFulfillmentDrag } from './pages/production-fulfillment/events'
 import './styles.css'
 import { WOOL_DEMO_STYLE_IMAGE, WOOL_DEMO_YARN_IMAGE } from './data/fcs/wool-domain/demo-assets.ts'
 import { hydrateIcons, isStandalonePrintPath, renderAppShell, renderSidebar } from './components/shell'
@@ -190,6 +190,10 @@ function handlePmsIdbHydrateError(label: string, error: unknown): void {
 
 // PMS IDB 启动期加载:把已写入的 PMS 操作日志与业务变更从 IDB 搬到内存缓存。
 // 不阻塞首屏;加载失败时不影响业务数据种子展示,但通过 banner 明确告知用户。
+let pmsInitializationStarted = false
+function startPmsInitialization(): void {
+  if (pmsInitializationStarted) return
+  pmsInitializationStarted = true
 import('./data/pms/idb-storage.ts').then((mod) => {
   mod.getPmsDb().catch((error: unknown) => handlePmsIdbHydrateError('数据库连接', error))
 })
@@ -248,6 +252,8 @@ void import('./data/pms/tmf-material-purchases.ts').then((mod) => {
     handlePmsIdbHydrateError('织带厂旧键迁移', error)
   })
 })
+
+}
 
 // 多标签页同步(§ 2.4.3.6):订阅 BroadcastChannel,其他标签页写入 IDB 时提示用户刷新。
 // 实现机制:
@@ -952,6 +958,19 @@ async function preparePageRouteEntry(normalizedPathname: string): Promise<void> 
 async function renderCurrentPageContent(pathname: string): Promise<string> {
   try {
     const normalizedPathname = pathname.split('?')[0].split('#')[0]
+    // Static timing pages and registered source documents do not initialize
+    // unrelated live module stores or run their legacy seed/migration actions.
+    if (/^\/dds\/supply-chain\/production-fulfillment(?:\/|$)/.test(normalizedPathname)) return await resolvePage(pathname)
+    if (/^\/(pcs|pms|fcs|wls)\//.test(normalizedPathname) && /%2[fF]/.test(normalizedPathname)) {
+      const { resolveTimingSourceDetail } = await import('./pages/production-fulfillment/source-document-detail')
+      const sourcePage = resolveTimingSourceDetail(normalizedPathname)
+      if (sourcePage) return sourcePage
+    }
+    // Ordinary sewing execution reads PCS/FCS records below. Leave unrelated
+    // PMS initialization pending until its original module entry is visited.
+    const generatedPdaTask = normalizedPathname.match(/^\/fcs\/pda\/exec\/(TASKGEN-[^/]+)$/)
+    let isGeneratedIndependentSewing = false
+    if (!/^\/fcs\/pda\/exec\/TASK-SEW-[^/]+$/.test(normalizedPathname) && !generatedPdaTask) startPmsInitialization()
     // 与页面模块同时请求这些列表首屏实际使用的静态演示图片。
     const pcsFirstScreenImages = normalizedPathname === '/pcs/production-preparation/design-revision'
       ? ['/materials/pcs-reviewed/hood-black.jpg', '/materials/pcs-reviewed/tee-black.jpg', '/materials/archive/f5271db2483941df347bce4c5ee60d64.jpg', '/materials/archive/23c0221901139951ff63a0071c75267c.gif']
@@ -982,6 +1001,15 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       }
     }
     await preparePageRouteEntry(normalizedPathname)
+    if (generatedPdaTask) {
+      // Resolve the actual task after source hydration. Generated independent
+      // sewing tasks use the same PCS/FCS facts as ordinary sewing; other
+      // generated processes retain their original PMS initialization.
+      const { getRuntimeTaskById, isRuntimeIndependentSewingTask } = await import('./data/fcs/runtime-process-tasks.ts')
+      const generatedTask = getRuntimeTaskById(decodeURIComponent(generatedPdaTask[1]))
+      isGeneratedIndependentSewing = Boolean(generatedTask && isRuntimeIndependentSewingTask(generatedTask))
+      if (!isGeneratedIndependentSewing) startPmsInitialization()
+    }
     if (isWoolStageExecution) {
       const [page, shell] = await Promise.all([
         import('./pages/pda-wool-fact-execution.ts'),
@@ -990,6 +1018,19 @@ async function renderCurrentPageContent(pathname: string): Promise<string> {
       // The wool renderer validates the exact stage task and current factory.
       // Generic water/cutting detail initialization is unrelated to this task.
       return shell.renderPdaFrame(page.renderPdaWoolExecutionContent(woolTaskId), 'exec', { disableTodoAutoOpen: true })
+    }
+    if (/^\/fcs\/pda\/exec\/[^/]+$/.test(normalizedPathname)) {
+      // Handler dependencies read part tickets during module evaluation. Start
+      // them only after the required records are hydrated, alongside the detail.
+      if (isGeneratedIndependentSewing && generatedPdaTask) {
+        // This renderer retains the PDA frame's authentication and factory
+        // checks. Loading the generic registry would also evaluate unrelated
+        // cutting/supplement demo modules before this ordinary sewing page.
+        const [page] = await Promise.all([import('./pages/pda-exec-detail.ts'), getPdaHandlersModule()])
+        return page.renderPdaExecDetailPage(decodeURIComponent(generatedPdaTask[1]))
+      }
+      const [pageContent] = await Promise.all([resolvePage(pathname), getPdaHandlersModule()])
+      return pageContent
     }
     if (normalizedPathname === '/fcs/pda/warehouse/inbound-records' || normalizedPathname === '/fcs/pda/warehouse/outbound-records') {
       const [page, session] = await Promise.all([
@@ -1971,6 +2012,7 @@ function dispatchListColumnDragEvent(event: DragEvent): void {
   const internalEvent = event as StandardListColumnDragEvent
   internalEvent.higoodStandardListColumnDrag = true
   internalEvent.higoodStandardListColumnKey = activeStandardListColumnDrag?.columnKey
+  if (event.type === 'drop' && event.target instanceof Element) handleProductionFulfillmentDrag(event.target,event)
   if (event.type === 'drop' || event.type === 'dragend') activeStandardListColumnDrag = null
   if (target?.closest('[data-hpb-page]')) {
     void import('./pages/process-factory/cutting/replacement-fabric-fei-tickets.ts').then(module => module.handleReplacementFabricEvent(target, internalEvent))
@@ -1987,6 +2029,19 @@ root.addEventListener('dragend', dispatchListColumnDragEvent)
 root.addEventListener('click', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
+  // Registered timing source pages own their links; unrelated module dispatch
+  // must not consume their source-document navigation.
+  if (target.closest('[data-timing-source-detail]')) {
+    if (target.closest('[data-timing-source-action]') && handleTimingSourceClick(target as HTMLElement,event)) { event.preventDefault(); return }
+    const sourceLink = target.closest<HTMLAnchorElement>('a[href]')
+    if (sourceLink) {
+      if (sourceLink.target === '_blank' || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      event.preventDefault()
+      appStore.navigate(sourceLink.getAttribute('href')!)
+      return
+    }
+    return
+  }
   if (target.closest('[data-pcs-storage-retry]')) {
     event.preventDefault()
     window.location.reload()
@@ -2008,7 +2063,8 @@ root.addEventListener('click', async (event) => {
     if (await module.handleReplacementFabricEvent(target, event)) return
   }
   if (dispatchMaterialDecisionClick(target)) { event.preventDefault(); return }
-  if (target.closest('[data-pf-action]') && handleProductionFulfillmentClick(target)) { event.preventDefault(); return }
+  if (target.closest('[data-timing-source-action]') && handleTimingSourceClick(target as HTMLElement,event)) { event.preventDefault(); return }
+  if (target.closest('[data-pf-action],#production-timing') && handleProductionFulfillmentClick(target)) { event.preventDefault(); return }
   if (target.closest('#pf-app [data-pf-field], #pf-app .pf-form')) return
   const skipPageRerender = Boolean(
     target.closest<HTMLElement>('[data-skip-page-rerender="true"], [data-review-ui-action]'),
@@ -2172,7 +2228,7 @@ root.addEventListener('input', async (event) => {
   }
   const mdTarget = resolveEventElementTarget(event.target)
   if (mdTarget && dispatchMaterialDecisionInput(mdTarget)) return
-  if (mdTarget?.closest('[data-pf-field]') && handleProductionFulfillmentField(mdTarget)) return
+  if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   // 工程成果文件只在 change 中读取。首次操作即选文件时，避免异步加载处理器期间
@@ -2209,7 +2265,7 @@ root.addEventListener('input', async (event) => {
 root.addEventListener('compositionend', async (event) => {
   const target = resolveEventElementTarget(event.target)
   if (!target) return
-  if (target.closest('[data-pf-field]') && handleProductionFulfillmentField(target)) return
+  if (target.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(target)) return
   const focusSnapshot = captureFocusSnapshot()
   const previousPathname = appStore.getState().pathname
 
@@ -2233,7 +2289,7 @@ root.addEventListener('change', async (event) => {
   }
   const mdTarget = resolveEventElementTarget(event.target)
   if (mdTarget && dispatchMaterialDecisionChange(mdTarget)) return
-  if (mdTarget?.closest('[data-pf-field]') && handleProductionFulfillmentField(mdTarget)) return
+  if (mdTarget?.closest('[data-pf-field],[data-timing-followup-field]') && handleProductionFulfillmentField(mdTarget)) return
   const target = resolveEventElementTarget(event.target)
   if (!target) return
   const skipChangeRerender = shouldSkipChangeRerender(target)
@@ -2264,7 +2320,7 @@ root.addEventListener('submit', async (event) => {
 })
 
 document.addEventListener('keydown', async (event) => {
-  if (handleProductionFulfillmentKey(event)) return
+  if (handleTimingSourceKey(event) || handleProductionFulfillmentKey(event)) return
   if (dispatchMaterialDecisionKey(event)) return
   const target = resolveEventElementTarget(event.target)
   const cuttingScanTarget = resolvePdaCuttingScanKeydownTarget<HTMLElement>(target, event.key)

@@ -1,0 +1,802 @@
+[
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 182.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 182.39999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 162.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 152.69999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 155.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 158,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 161.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 153.60000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 304.09999999403954,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 152,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 165.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 157.29999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 166.89999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 160.80000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 154.39999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 181.39999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 176.69999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 174.20000000298023,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 177.79999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 173.60000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 201,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 207.29999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 214.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 192.70000000298023,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 186.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 141.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 149.29999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 155.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 169.69999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 160.80000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 112.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 117.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 106.20000000298025,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 126.29999999701975,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 119.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "cold",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 158.79999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "cold",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 136.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "cold",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 135.20000000298023,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "cold",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 137,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "cold",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 155.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 150.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 158.30000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 153.60000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 138.39999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "overview",
+    "title": "时效总览",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 135.69999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 157.60000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 146.19999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 135,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 141.39999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "orders",
+    "title": "生产单监控",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 134.89999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 167.80000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 138.79999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 141.69999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 132.89999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "follow-up",
+    "title": "我的跟单",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 134,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 164.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 160.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 152.69999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 154.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "work-items",
+    "title": "工作项监控",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 159.19999999552965,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 178.30000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 181.20000000298023,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 179.79999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 182.89999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "teams",
+    "title": "团队与工厂",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 177.60000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 128.5,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 135.79999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 137.10000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 146.29999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "inbound-analysis",
+    "title": "入库时效分析",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 153,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 100.40000000596046,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 75.80000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 98.19999999552964,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 90.60000000149012,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "configuration",
+    "title": "时效口径与配置",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 84.79999999701977,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "refresh",
+    "i": 0,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 134.39999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "refresh",
+    "i": 1,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 128.20000000298023,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "refresh",
+    "i": 2,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 138,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "refresh",
+    "i": 3,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 135.30000000447035,
+    "imageFailures": 0,
+    "overflow": false
+  },
+  {
+    "section": "pending-purchases",
+    "title": "采购待关联",
+    "mode": "refresh",
+    "i": 4,
+    "build": "/assets/index-DPSy6o-k.js",
+    "elapsedMs": 126.89999999850988,
+    "imageFailures": 0,
+    "overflow": false
+  }
+]

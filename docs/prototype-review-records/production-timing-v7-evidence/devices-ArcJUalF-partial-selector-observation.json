@@ -1,0 +1,742 @@
+{
+  "version": {
+    "js": "index-ArcJUalF.js",
+    "css": "index-BysvPE4E.css",
+    "htmlSha256": "a028286453243d63479a1d50ae42a4fc3e34b0e361007fa55f4f19278903732e"
+  },
+  "navigation": [
+    {
+      "width": 976,
+      "height": 938,
+      "mode": "cold",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 89.10000000149012,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": false
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "cold",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 240.10000000149012,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "cold",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 142.29999999701977,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "cold",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 200.29999999701977,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "cold",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 114.20000000298025,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "refresh",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 88.20000000298023,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "refresh",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 64.89999999850988,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "refresh",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 72.19999999552965,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "refresh",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 68.89999999850988,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "mode": "refresh",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 58.19999999552965,
+      "imageFailures": 0,
+      "overflow": false,
+      "scene": "late",
+      "pass": true
+    }
+  ],
+  "actions": [
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 0,
+      "label": "focus-prep",
+      "count": 2,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.79999999701977
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.79999999701977,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 1,
+      "label": "focus-prep",
+      "count": 3,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.400000005960464
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.400000005960464,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 2,
+      "label": "focus-prep",
+      "count": 4,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 44.900000005960464
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.900000005960464,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 3,
+      "label": "focus-prep",
+      "count": 5,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.5
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.5,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 4,
+      "label": "focus-prep",
+      "count": 6,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 0,
+      "label": "focus-supply",
+      "count": 7,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 38.89999999850989
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 38.89999999850989,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 1,
+      "label": "focus-supply",
+      "count": 8,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.60000000149011
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.60000000149011,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 2,
+      "label": "focus-supply",
+      "count": 9,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.19999999552965
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.19999999552965,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 3,
+      "label": "focus-supply",
+      "count": 10,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.10000000149011
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.10000000149011,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 4,
+      "label": "focus-supply",
+      "count": 11,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45.30000000447035
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.30000000447035,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 0,
+      "label": "focus-craft",
+      "count": 12,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.5
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.5,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 1,
+      "label": "focus-craft",
+      "count": 13,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.39999999850989
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.39999999850989,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 2,
+      "label": "focus-craft",
+      "count": 14,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 45
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 3,
+      "label": "focus-craft",
+      "count": 15,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.10000000149011
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 41.10000000149011,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 4,
+      "label": "focus-craft",
+      "count": 16,
+      "overflow": false,
+      "row": {
+        "action": "phase-expand",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 46.30000000447035
+      },
+      "action": "phase-expand",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.30000000447035,
+      "pass": true
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 0,
+      "method": "button",
+      "before": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          625.5
+        ]
+      },
+      "afterOpen": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5,
+          0
+        ]
+      },
+      "after": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "open": {
+        "label": "document-open",
+        "count": 18,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 36.60000000149011
+        },
+        "width": 1366,
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.60000000149011,
+        "pass": true
+      },
+      "closed": {
+        "label": "document-close",
+        "count": 19,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 39.19999999552965
+        },
+        "width": 1366,
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 39.19999999552965,
+        "pass": true
+      },
+      "overlayHidden": true,
+      "pass": false
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 1,
+      "method": "button",
+      "before": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "afterOpen": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5,
+          0
+        ]
+      },
+      "after": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "open": {
+        "label": "document-open",
+        "count": 20,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 37
+        },
+        "width": 1366,
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 37,
+        "pass": true
+      },
+      "closed": {
+        "label": "document-close",
+        "count": 21,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 39.5
+        },
+        "width": 1366,
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 39.5,
+        "pass": true
+      },
+      "overlayHidden": true,
+      "pass": false
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 2,
+      "method": "button",
+      "before": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "afterOpen": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5,
+          0
+        ]
+      },
+      "after": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "open": {
+        "label": "document-open",
+        "count": 22,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 39.60000000149011
+        },
+        "width": 1366,
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 39.60000000149011,
+        "pass": true
+      },
+      "closed": {
+        "label": "document-close",
+        "count": 23,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 40.20000000298023
+        },
+        "width": 1366,
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.20000000298023,
+        "pass": true
+      },
+      "overlayHidden": true,
+      "pass": false
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 3,
+      "method": "button",
+      "before": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "afterOpen": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5,
+          0
+        ]
+      },
+      "after": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "open": {
+        "label": "document-open",
+        "count": 24,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 36.80000000447035
+        },
+        "width": 1366,
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 36.80000000447035,
+        "pass": true
+      },
+      "closed": {
+        "label": "document-close",
+        "count": 25,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 41.69999999552965
+        },
+        "width": 1366,
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 41.69999999552965,
+        "pass": true
+      },
+      "overlayHidden": true,
+      "pass": false
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "index": 4,
+      "method": "button",
+      "before": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "afterOpen": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5,
+          0
+        ]
+      },
+      "after": {
+        "expanded": [
+          "branch-prep",
+          "branch-supply",
+          "branch-craft"
+        ],
+        "scroll": [
+          556.5
+        ]
+      },
+      "open": {
+        "label": "document-open",
+        "count": 26,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "document-open",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 37.599999994039536
+        },
+        "width": 1366,
+        "action": "document-open",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 37.599999994039536,
+        "pass": true
+      },
+      "closed": {
+        "label": "document-close",
+        "count": 27,
+        "height": 768,
+        "overflow": false,
+        "row": {
+          "action": "dialog-close",
+          "at": "2026-10-07 09:00",
+          "elapsedMs": 40.70000000298023
+        },
+        "width": 1366,
+        "action": "dialog-close",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 40.70000000298023,
+        "pass": true
+      },
+      "overlayHidden": true,
+      "pass": false
+    }
+  ],
+  "error": "Locator press on nonfocusable section timed out while modal visible; use its already focused close button to send Escape."
+}

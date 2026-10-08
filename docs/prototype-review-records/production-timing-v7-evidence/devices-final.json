@@ -1,0 +1,110 @@
+[
+  {
+    "device": {
+      "width": 1366,
+      "height": 768
+    },
+    "metrics": {
+      "bodyOverflow": false,
+      "buttons": [
+        {
+          "box": {
+            "height": 17.3984375,
+            "width": 48
+          },
+          "text": "全屏图示"
+        },
+        {
+          "box": {
+            "height": 17.3984375,
+            "width": 48
+          },
+          "text": "打印图示"
+        }
+      ],
+      "chart": [
+        {
+          "scrollWidth": 1018,
+          "width": 1018
+        }
+      ],
+      "viewport": {
+        "height": 768,
+        "width": 1366
+      }
+    },
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-final-1366x768.png"
+  },
+  {
+    "device": {
+      "width": 1280,
+      "height": 720
+    },
+    "metrics": {
+      "bodyOverflow": false,
+      "buttons": [
+        {
+          "box": {
+            "height": 17.3984375,
+            "width": 48
+          },
+          "text": "全屏图示"
+        },
+        {
+          "box": {
+            "height": 17.3984375,
+            "width": 48
+          },
+          "text": "打印图示"
+        }
+      ],
+      "chart": [
+        {
+          "scrollWidth": 932,
+          "width": 932
+        }
+      ],
+      "viewport": {
+        "height": 720,
+        "width": 1280
+      }
+    },
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-final-1280x720.png"
+  },
+  {
+    "device": {
+      "width": 1024,
+      "height": 768
+    },
+    "metrics": {
+      "bodyOverflow": false,
+      "buttons": [
+        {
+          "box": {
+            "height": 17.3984375,
+            "width": 48
+          },
+          "text": "全屏图示"
+        },
+        {
+          "box": {
+            "height": 17.3984375,
+            "width": 48
+          },
+          "text": "打印图示"
+        }
+      ],
+      "chart": [
+        {
+          "scrollWidth": 688,
+          "width": 688
+        }
+      ],
+      "viewport": {
+        "height": 768,
+        "width": 1024
+      }
+    },
+    "path": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/prototype-review-records/production-timing-v7-evidence/graph-final-1024x768.png"
+  }
+]

@@ -1,0 +1,1 @@
+{"selector":"[data-pda-exec-action=\"open-detail\"][data-task-id=\"TASKGEN-202603-0007-002__ORDER\"]","matches":2,"reason":"article and its own detail button share the same action; no action performed","correction":"scope the observed button tag"}

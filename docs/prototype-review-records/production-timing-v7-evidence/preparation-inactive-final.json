@@ -1,0 +1,195 @@
+{
+  "asset": "index-0TzAP8hY.js",
+  "runs": [
+    {
+      "label": "演示CLR-NOT-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.099999994039536,
+      "iteration": 1,
+      "no": "演示CLR-NOT-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n调色任务 · 演示CLR-NOT-105\n\nPCS · 生产准备管理\n\n未启用\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 备用色C03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:20\n执行与交接确认技术张琳 → 跟单陈静\n业务说明备用色未启用，本单仅适用C01/C02；不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/color/PO-202610-0105%2Fcolor-not-enabled",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.10000000149011,
+      "no": "演示CLR-NOT-105",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.5,
+      "iteration": 2,
+      "no": "演示CLR-NOT-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n调色任务 · 演示CLR-NOT-105\n\nPCS · 生产准备管理\n\n未启用\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 备用色C03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:20\n执行与交接确认技术张琳 → 跟单陈静\n业务说明备用色未启用，本单仅适用C01/C02；不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/color/PO-202610-0105%2Fcolor-not-enabled",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.60000000149011,
+      "no": "演示CLR-NOT-105",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.89999999850989,
+      "iteration": 3,
+      "no": "演示CLR-NOT-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n调色任务 · 演示CLR-NOT-105\n\nPCS · 生产准备管理\n\n未启用\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 备用色C03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:20\n执行与交接确认技术张琳 → 跟单陈静\n业务说明备用色未启用，本单仅适用C01/C02；不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/color/PO-202610-0105%2Fcolor-not-enabled",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.39999999850989,
+      "no": "演示CLR-NOT-105",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.30000000447035,
+      "iteration": 4,
+      "no": "演示CLR-NOT-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n调色任务 · 演示CLR-NOT-105\n\nPCS · 生产准备管理\n\n未启用\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 备用色C03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:20\n执行与交接确认技术张琳 → 跟单陈静\n业务说明备用色未启用，本单仅适用C01/C02；不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/color/PO-202610-0105%2Fcolor-not-enabled",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46,
+      "no": "演示CLR-NOT-105",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 43.19999999552965,
+      "iteration": 5,
+      "no": "演示CLR-NOT-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n调色任务 · 演示CLR-NOT-105\n\nPCS · 生产准备管理\n\n未启用\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 备用色C03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:20\n执行与交接确认技术张琳 → 跟单陈静\n业务说明备用色未启用，本单仅适用C01/C02；不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/color/PO-202610-0105%2Fcolor-not-enabled",
+      "pass": true
+    },
+    {
+      "label": "演示CLR-NOT-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.70000000298023,
+      "no": "演示CLR-NOT-105",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 43.89999999850989,
+      "iteration": 1,
+      "no": "演示ART-END-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n花型任务 · 演示ART-END-105\n\nPCS · 生产准备管理\n\n需求变更结束\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 原花型P03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:25\n需求变更结束\t2026-09-21 09:00\n执行与交接确认技术张琳 → 跟单陈静\n业务说明原花型因需求变更结束，本单采用P01/P02；保留原任务事实，不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/artwork/PO-202610-0105%2Fartwork-ended",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 42.29999999701977,
+      "no": "演示ART-END-105",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.10000000149011,
+      "iteration": 2,
+      "no": "演示ART-END-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n花型任务 · 演示ART-END-105\n\nPCS · 生产准备管理\n\n需求变更结束\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 原花型P03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:25\n需求变更结束\t2026-09-21 09:00\n执行与交接确认技术张琳 → 跟单陈静\n业务说明原花型因需求变更结束，本单采用P01/P02；保留原任务事实，不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/artwork/PO-202610-0105%2Fartwork-ended",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.10000000149011,
+      "no": "演示ART-END-105",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 43.79999999701977,
+      "iteration": 3,
+      "no": "演示ART-END-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n花型任务 · 演示ART-END-105\n\nPCS · 生产准备管理\n\n需求变更结束\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 原花型P03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:25\n需求变更结束\t2026-09-21 09:00\n执行与交接确认技术张琳 → 跟单陈静\n业务说明原花型因需求变更结束，本单采用P01/P02；保留原任务事实，不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/artwork/PO-202610-0105%2Fartwork-ended",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.29999999701977,
+      "no": "演示ART-END-105",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 43.5,
+      "iteration": 4,
+      "no": "演示ART-END-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n花型任务 · 演示ART-END-105\n\nPCS · 生产准备管理\n\n需求变更结束\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 原花型P03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:25\n需求变更结束\t2026-09-21 09:00\n执行与交接确认技术张琳 → 跟单陈静\n业务说明原花型因需求变更结束，本单采用P01/P02；保留原任务事实，不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/artwork/PO-202610-0105%2Fartwork-ended",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 46.29999999701977,
+      "no": "演示ART-END-105",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105摘要",
+      "action": "document-open",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 44.89999999850989,
+      "iteration": 5,
+      "no": "演示ART-END-105",
+      "summary": "单据核心信息\n关闭弹窗\n演示单据\n花型任务 · 演示ART-END-105\n\nPCS · 生产准备管理\n\n需求变更结束\nPO-202610-0105\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n对象／范围：F01 原花型P03\n数量\n1项\n关键事实\t时间\n创建\t2026-09-20 09:25\n需求变更结束\t2026-09-21 09:00\n执行与交接确认技术张琳 → 跟单陈静\n业务说明原花型因需求变更结束，本单采用P01/P02；保留原任务事实，不形成当前欠项。\n关联单据\n▤ 生产准备单 · 演示PP-0089-105\n关闭后继续查看当前监控位置\n查看详情（新标签页） ↗",
+      "href": "/pcs/production-preparation/artwork/PO-202610-0105%2Fartwork-ended",
+      "pass": true
+    },
+    {
+      "label": "演示ART-END-105关闭保留准备展开",
+      "action": "dialog-close",
+      "at": "2026-10-07 09:00",
+      "elapsedMs": 45.29999999701977,
+      "no": "演示ART-END-105",
+      "pass": true
+    }
+  ]
+}

@@ -1,0 +1,121 @@
+{
+  "version": {
+    "js": "index-ArcJUalF.js",
+    "css": "index-BysvPE4E.css",
+    "htmlSha256": "a028286453243d63479a1d50ae42a4fc3e34b0e361007fa55f4f19278903732e"
+  },
+  "completedSamples": [
+    {
+      "scene": "late",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 31.100000001490116,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 25.299999997019768,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 17.899999998509884,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 18.19999999552965,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "late",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 24.900000005960464,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 0,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 27.100000001490116,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 1,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 19.299999997019768,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 2,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 21.399999998509884,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 3,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 18.5,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    },
+    {
+      "scene": "normal",
+      "index": 4,
+      "build": "/assets/index-ArcJUalF.js",
+      "elapsedMs": 33.899999998509884,
+      "imageFailures": 0,
+      "overflow": false,
+      "action": "route",
+      "at": "2026-10-07 09:00",
+      "pass": true
+    }
+  ],
+  "error": "During separate reads a transient route DOM had no measurements; use a scene-specific ready selector and one atomic read. Original samples retained.",
+  "scene": "complete"
+}

@@ -1,0 +1,227 @@
+{
+  "build": [
+    "http://localhost:4179/assets/index-VIsb9cR6.js"
+  ],
+  "samples": [
+    {
+      "run": 1,
+      "sourceKey": "health",
+      "targetKey": "style",
+      "before": [
+        "id",
+        "style",
+        "health",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "from": [
+        1030,
+        248.8828125
+      ],
+      "to": [
+        1030,
+        190.8828125
+      ],
+      "header": "\n          \n          \n      \n        \n    \n      生产单 / 采购来源\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      完成 / 时效\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        款式\n      \n    \n      \n        \n    \n      跟单 / 协调\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      最早商品采购下单\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      全部入成衣仓截止\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      成衣仓已入库 / 应完成\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        未入库数量现在在哪里\n      \n    \n      \n        当前优先处理 / 核实\n      \n    \n      \n        操作\n      \n    \n        ",
+      "measurement": {
+        "action": "column-drag",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 106.30000000447036
+      },
+      "order": [
+        "id",
+        "health",
+        "style",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "changed": true
+    },
+    {
+      "run": 2,
+      "sourceKey": "style",
+      "targetKey": "health",
+      "before": [
+        "id",
+        "health",
+        "style",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "from": [
+        1030,
+        248.8828125
+      ],
+      "to": [
+        1030,
+        190.8828125
+      ],
+      "header": "\n          \n          \n      \n        \n    \n      生产单 / 采购来源\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        款式\n      \n    \n      \n        \n    \n      完成 / 时效\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      跟单 / 协调\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      最早商品采购下单\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      全部入成衣仓截止\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      成衣仓已入库 / 应完成\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        未入库数量现在在哪里\n      \n    \n      \n        当前优先处理 / 核实\n      \n    \n      \n        操作\n      \n    \n        ",
+      "measurement": {
+        "action": "column-drag",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 70.39999999850988
+      },
+      "order": [
+        "id",
+        "style",
+        "health",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "changed": true
+    },
+    {
+      "run": 3,
+      "sourceKey": "health",
+      "targetKey": "style",
+      "before": [
+        "id",
+        "style",
+        "health",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "from": [
+        1030,
+        248.8828125
+      ],
+      "to": [
+        1030,
+        190.8828125
+      ],
+      "header": "\n          \n          \n      \n        \n    \n      生产单 / 采购来源\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      完成 / 时效\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        款式\n      \n    \n      \n        \n    \n      跟单 / 协调\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      最早商品采购下单\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      全部入成衣仓截止\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      成衣仓已入库 / 应完成\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        未入库数量现在在哪里\n      \n    \n      \n        当前优先处理 / 核实\n      \n    \n      \n        操作\n      \n    \n        ",
+      "measurement": {
+        "action": "column-drag",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 56.70000000298023
+      },
+      "order": [
+        "id",
+        "health",
+        "style",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "changed": true
+    },
+    {
+      "run": 4,
+      "sourceKey": "style",
+      "targetKey": "health",
+      "before": [
+        "id",
+        "health",
+        "style",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "from": [
+        1030,
+        248.8828125
+      ],
+      "to": [
+        1030,
+        190.8828125
+      ],
+      "header": "\n          \n          \n      \n        \n    \n      生产单 / 采购来源\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        款式\n      \n    \n      \n        \n    \n      完成 / 时效\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      跟单 / 协调\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      最早商品采购下单\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      全部入成衣仓截止\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      成衣仓已入库 / 应完成\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        未入库数量现在在哪里\n      \n    \n      \n        当前优先处理 / 核实\n      \n    \n      \n        操作\n      \n    \n        ",
+      "measurement": {
+        "action": "column-drag",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 57.10000000149011
+      },
+      "order": [
+        "id",
+        "style",
+        "health",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "changed": true
+    },
+    {
+      "run": 5,
+      "sourceKey": "health",
+      "targetKey": "style",
+      "before": [
+        "id",
+        "style",
+        "health",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "from": [
+        1030,
+        248.8828125
+      ],
+      "to": [
+        1030,
+        190.8828125
+      ],
+      "header": "\n          \n          \n      \n        \n    \n      生产单 / 采购来源\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      完成 / 时效\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        款式\n      \n    \n      \n        \n    \n      跟单 / 协调\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      最早商品采购下单\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      全部入成衣仓截止\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        \n    \n      成衣仓已入库 / 应完成\n      \n    \n      \n    \n  \n    \n  \n      \n    \n      \n        未入库数量现在在哪里\n      \n    \n      \n        当前优先处理 / 核实\n      \n    \n      \n        操作\n      \n    \n        ",
+      "measurement": {
+        "action": "column-drag",
+        "at": "2026-10-07 09:00",
+        "elapsedMs": 66.10000000149012
+      },
+      "order": [
+        "id",
+        "health",
+        "style",
+        "follower",
+        "firstAt",
+        "deadline",
+        "warehouse",
+        "position",
+        "current",
+        "operations"
+      ],
+      "changed": true
+    }
+  ]
+}

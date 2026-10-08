@@ -6,8 +6,6 @@ import { renderStandardListPage } from '../../components/ui/list-page'
 import { renderStandardListTable, renderStandardListColumnSettings, type StandardListColumn } from '../../components/ui/list-table'
 import { renderTablePagination } from '../../components/ui/pagination'
 import { loadListColumnPreferences, saveListColumnPreferences, sortStandardListRows, paginateStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../components/ui/list-table-model'
-import type { ViewState } from './ui-state'
-import type { PFTask, PFMaterial } from './model'
 
 export const e = escapeHtml
 export const fmt = (value:number|null|undefined):string => value==null||!Number.isFinite(value)?'待判定':value.toLocaleString('zh-CN',{maximumFractionDigits:2})
@@ -39,14 +37,12 @@ export function imageCell(name:string,code:string,url:string):string {
   const image=url?`<button class="pf-thumbnail" type="button" data-pf-action="image" data-image="${e(url)}" data-label="${e(name)}" data-skip-page-rerender="true" aria-label="查看${e(name)}大图"><img src="${e(url)}" width="44" height="44" alt="${e(name)}" decoding="sync"><span class="pf-image-error" hidden>图片加载失败</span></button>`:'<span class="pf-missing-image">对应实图待补</span>'
   return `<div class="pf-object">${image}<div><strong>${e(name)}</strong><small>${e(code)}</small></div></div>`
 }
-export function styleCell(task:PFTask):string {return imageCell(task.styleName,task.styleRef,task.imageUrl)}
-export function materialCell(material:PFMaterial):string {return imageCell(material.name,material.id,material.imageUrl)}
 export interface PFTableContext { id:string; title:string; columns:StandardListColumn<unknown>[]; rows:unknown[]; preferences:StandardListColumnPreferences; sort:StandardListSortState|null; page:number }
 export const tableContexts=new Map<string,PFTableContext>()
 export let activeTableId=''
 export function setActiveTable(id:string):void {activeTableId=id}
 function prefsKey(id:string):string {return `dds-pf-columns-v1:${id}`}
-export function renderDataTable<T>(id:string,title:string,columns:StandardListColumn<T>[],rows:T[],_state:ViewState,options:{embedded?:boolean}={}):string {
+export function renderDataTable<T>(id:string,title:string,columns:StandardListColumn<T>[],rows:T[],_state:unknown,options:{embedded?:boolean}={}):string {
   let ctx=tableContexts.get(id)
   if(!ctx){
     const defaults={order:columns.map(c=>c.key),visibleKeys:columns.map(c=>c.key),frozenKeys:columns.filter(c=>c.required&&c.freezeable).map(c=>c.key).slice(0,1),pageSize:20}

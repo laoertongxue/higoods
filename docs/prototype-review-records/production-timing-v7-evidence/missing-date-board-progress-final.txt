@@ -1,0 +1,192 @@
+- banner:
+  - generic: HG
+  - generic: HiGood
+  - button "商品中心系统 (PCS)":
+    - generic: 商品中心系统
+    - generic: (PCS)
+  - button "采购管理系统 (PMS)":
+    - generic: 采购管理系统
+    - generic: (PMS)
+  - button "工厂生产协同系统 (FCS)":
+    - generic: 工厂生产协同系统
+    - generic: (FCS)
+  - button "工艺工厂运营系统 (PFOS)":
+    - generic: 工艺工厂运营系统
+    - generic: (PFOS)
+  - button "仓储物流系统 (WLS)":
+    - generic: 仓储物流系统
+    - generic: (WLS)
+  - button "直播运营系统 (LOS)":
+    - generic: 直播运营系统
+    - generic: (LOS)
+  - button "订单管理系统 (OMS)":
+    - generic: 订单管理系统
+    - generic: (OMS)
+  - button "业财一体化系统 (BFIS)":
+    - generic: 业财一体化系统
+    - generic: (BFIS)
+  - button "数据决策系统 (DDS)":
+    - generic: 数据决策系统
+    - generic: (DDS)
+  - button "通知":
+  - button "管理员":
+    - generic: 管理员
+- complementary:
+  - heading "工厂生产协同系统" [level=2]
+  - paragraph: FCS
+  - button "收起菜单":
+  - button "平台运营系统":
+    - generic: 平台运营系统
+  - button "工作台":
+    - generic: 工作台
+  - button "工厂池管理":
+    - generic: 工厂池管理
+  - button "生产单管理":
+    - generic: 生产单管理
+  - button "任务编排与执行准备":
+    - generic: 任务编排与执行准备
+  - button "任务分配":
+    - generic: 任务分配
+  - button "任务进度与异常":
+    - generic: 任务进度与异常
+  - button "质量与扣款":
+    - generic: 质量与扣款
+  - button "对账与结算":
+    - generic: 对账与结算
+  - button "成本溯源管理":
+    - generic: 成本溯源管理
+  - button "车缝外发协同":
+    - generic: 车缝外发协同
+  - button "我的工作台":
+    - generic: 我的工作台
+  - button "生成单全流程耗时":
+    - generic: 生成单全流程耗时
+  - button "车缝任务":
+    - generic: 车缝任务
+  - button "交出与欠片":
+    - generic: 交出与欠片
+  - button "批版建议":
+    - generic: 批版建议
+  - button "回货跟进":
+    - generic: 回货跟进
+  - button "补料跟进":
+    - generic: 补料跟进
+  - button "裁片退仓":
+    - generic: 裁片退仓
+  - button "责任移交":
+    - generic: 责任移交
+  - button "配料管理":
+    - generic: 配料管理
+  - button "配料列表":
+    - generic: 配料列表
+  - button "染色配料":
+    - generic: 染色配料
+  - button "印花配料":
+    - generic: 印花配料
+  - button "裁片配料":
+    - generic: 裁片配料
+  - button "车缝配料":
+    - generic: 车缝配料
+  - button "其他配料":
+    - generic: 其他配料
+  - button "工厂入驻&登录":
+    - generic: 工厂入驻&登录
+  - button "登录":
+    - generic: 登录
+  - button "入驻":
+    - generic: 入驻
+  - button "工厂端移动应用":
+    - generic: 工厂端移动应用
+  - button "接单":
+    - generic: 接单
+  - button "执行":
+    - generic: 执行
+  - button "交接":
+    - generic: 交接
+  - button "仓管":
+    - generic: 仓管
+  - button "结算":
+    - generic: 结算
+- main:
+  - button "接单时效配置"
+  - button "任务分配工作台"
+  - button "登录"
+  - button "执行"
+  - button "任务进度跟踪"
+  - button:
+  - button "全部关闭"
+  - button "返回任务列表":
+    - text: 返回任务列表
+  - heading "任务详情 待开工" [level=1]:
+    - text: 任务详情
+    - generic: 待开工
+  - paragraph: TASKGEN-202603-0007-002__ORDER · 车缝
+  - button "生产单生命周期":
+    - text: 生产单生命周期
+  - button "打印任务流转卡":
+    - text: 打印任务流转卡
+  - heading "需求来源" [level=4]
+  - paragraph: 生产单 PO-202603-0007
+  - paragraph: PO-202603-0007
+  - heading "任务明细" [level=4]
+  - generic: SKU-013-L-NVY
+  - generic: SKU-013-M-NVY
+  - generic: SKU-013-S-NVY
+  - generic: SKU-013-XL-NVY
+  - heading "前置任务项" [level=4]
+  - link "裁片 TASKGEN-202603-0007-001 裁片 · 对象按加工单明细 · 800 件":
+    - /url: /fcs/progress/board/tasks/TASKGEN-202603-0007-001
+    - generic: 裁片 TASKGEN-202603-0007-001
+    - generic: 裁片 · 对象按加工单明细 · 800 件
+  - heading "后置任务项" [level=4]
+  - paragraph: 当前加工单是该实物分支的路线终点，暂无后置任务项。
+  - navigation:
+    - button "基本信息"
+    - button "分配信息"
+    - button "进度操作"
+    - button "接收情况"
+    - button "交出情况"
+    - button "审计日志"
+  - heading "交付时效" [level=3]
+  - generic: 回货比例待核实
+  - generic: 分配量：800 件
+  - generic: 累计交出：0 件
+  - generic: 累计已确认实收：0 件
+  - table:
+    - rowgroup:
+      - row "节点 目标 截止时间 首次达标 结果 接收延迟":
+        - columnheader "节点"
+        - columnheader "目标"
+        - columnheader "截止时间"
+        - columnheader "首次达标"
+        - columnheader "结果"
+        - columnheader "接收延迟"
+    - rowgroup:
+      - row:
+        - status: 业务分配日期待核实，回货时效暂不能判定
+  - paragraph: 平台状态
+  - generic: 待开工
+  - paragraph: 工厂内部状态：待开始
+  - paragraph: 开工信息
+  - generic: 待开工
+  - paragraph: 开工时间：—
+  - paragraph: 开工人数：—
+  - paragraph: 凭证数量：0
+  - paragraph: 关键节点上报
+  - generic: 不要求
+  - paragraph: 节点规则：—
+  - paragraph: 上报时间：—
+  - paragraph: 上报数量：—
+  - paragraph: 凭证数量：0
+  - paragraph: 风险标签
+  - generic: 任务逾期
+  - button "标记开始":
+    - text: 标记开始
+  - button "标记生产暂停":
+    - text: 标记生产暂停
+  - button "取消任务":
+    - text: 取消任务
+  - paragraph: 催办与通知
+  - button "催办工厂":
+    - text: 催办工厂
+- button "查生产":

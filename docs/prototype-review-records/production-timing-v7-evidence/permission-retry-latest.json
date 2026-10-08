@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-08T13:35:19.780Z",
+  "userAuthorization": "授权继续这三项本地验收",
+  "download": "succeeded",
+  "sameWidth": {
+    "status": "blocked",
+    "origin": "http://localhost:61122",
+    "reason": "A saved user permission setting blocks raw CDP",
+    "attempt": "Emulation.setDeviceMetricsOverride",
+    "hookInstalled": false
+  },
+  "storageFault": {
+    "status": "blocked",
+    "origin": "http://127.0.0.1:4179",
+    "reason": "A saved user permission setting blocks raw CDP",
+    "attempt": "Runtime.evaluate temporary IDBObjectStore.put quota exception",
+    "hookInstalled": false
+  },
+  "policy": "No workaround; original artifact bytes restored at original URL; own test tabs closed; existing data not cleared"
+}

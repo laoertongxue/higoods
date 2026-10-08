@@ -1,0 +1,24 @@
+{
+  "sourceHashes": {
+    "vite.config.ts": "841c1ba2c44efb5eb59d325605be143bb0425dfa4a3a0c7b0da15e8ab9c07e52",
+    "tests/unit/pda-sewing-route-preload.test.ts": "a986322e9d85503b960c3db8a8ba074845a67ec8b8021875e0ed0dc13569022d"
+  },
+  "scope": [
+    "vite.config.ts",
+    "tests/unit/pda-sewing-route-preload.test.ts"
+  ],
+  "checks": {
+    "before": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2
+    },
+    "afterWithAdjacentPda": {
+      "tests": 15,
+      "pass": 15,
+      "fail": 0
+    }
+  },
+  "implementation": "Discover actual detail and handler entries by Rollup source module IDs; preload their static import closure only within this navigation on TASK-SEW execution detail; do not evaluate modules; compress exact same closure for preview. DDS static preload closure retained. No source fact, hydration, handler execution or DOM-ready gate is skipped.",
+  "browserStatus": "pending frozen build and 25 real samples; all prior first-open/cold failures preserved"
+}

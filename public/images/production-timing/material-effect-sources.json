@@ -1,0 +1,30 @@
+{
+  "F02": {
+    "file": "F02-effect.jpg",
+    "sha256": "f4de4b37d0e263654fa356f1c919444a312b3ac5bfcaace8d1c5b76b243780ef",
+    "source": "built-in imagegen",
+    "promptSummary": "原型捆条布原料效果图；藏青C02仍是染色目标。",
+    "mock": true
+  },
+  "A01": {
+    "file": "A01-effect.jpg",
+    "sha256": "09edecd07728f2c78184e5fba55009255b9928a2103c6a8bf7deea4b90241113",
+    "source": "built-in imagegen",
+    "promptSummary": "原型蓝白衬衫配套纽扣效果图。未确认的规格不由图片补填。",
+    "mock": true
+  },
+  "A02": {
+    "file": "A02-effect.jpg",
+    "sha256": "7372ede2cbbb4a9341d95a1f84e284b831bcb98bac587ecd9ca96cf95d78d09f",
+    "source": "built-in imagegen",
+    "promptSummary": "原型领／门襟衬布效果图，区别于里布。",
+    "mock": true
+  },
+  "A03": {
+    "file": "A03-effect.jpg",
+    "sha256": "67a773ed8ef9a958867819007378267d392f58ed1c9b2d543ec9aaaa42959d47",
+    "source": "built-in imagegen",
+    "promptSummary": "原型本款织标效果图，区别于洗水唛；不含品牌身份。",
+    "mock": true
+  }
+}
