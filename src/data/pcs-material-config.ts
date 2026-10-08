@@ -111,7 +111,7 @@ export function getMaterialBoundFieldDefaults(level: 'package' | 'process'): Mat
     make('inputSkuId', '直接投入 SKU', 'reference', '', true), make('processType', '本道加工类型', 'reference', '', true),
     make('processVersionId', '工艺资料版本', 'text', '', true), make('pantoneCode', 'Pantone 色号', 'reference', '', true, 'dyed'),
     make('patternId', '花型', 'reference', '', true, 'patterned'), make('patternVersionId', '花型版本', 'reference', '', true, 'patterned'),
-    make('executionAssetIds', '执行资料', 'reference', '', true, 'patterned'), make('unitBridgeVersionId', '投入到产出的计量关系', 'reference'),
+    make('executionAssetIds', '执行资料', 'reference', '', true, 'patterned'), make('unitBridgeVersionId', '上道成本折算依据', 'reference'),
     make('deliveryRevisionSegment', '交付版次', 'text'),
   ]
 }

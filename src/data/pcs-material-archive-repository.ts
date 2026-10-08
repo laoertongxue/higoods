@@ -1668,6 +1668,34 @@ export function updateMaterialUnitConversions(_materialId: string, _conversions:
   throw new Error('计量单位已归属各物料 SKU，请进入具体 SKU 的“计量单位”维护。')
 }
 export function getMaterialUnitFactor(skuId: string, fromUnit: string, toUnit: string, relationId?: string): number | null { return materialUnitFactorInSnapshot(currentSnapshot(), skuId, fromUnit, toUnit, relationId) }
+export interface MaterialCostUnitConversion {
+  factor: number | null
+  kind: 'SAME' | 'FIXED' | 'SKU' | 'MISSING' | 'CHOICE'
+  relationId?: string
+  candidates: MaterialUnitRelation[]
+  adoptedRelationIds: string[]
+  basis: string
+}
+/** Preview and saved downstream costs use the same input-SKU conversion. */
+export function getMaterialCostUnitConversion(skuId: string, outputUnit: string, upstreamUnit: string, relationId?: string): MaterialCostUnitConversion {
+  return costUnitConversionInSnapshot(currentSnapshot(), skuId, outputUnit, upstreamUnit, relationId)
+}
+function costUnitConversionInSnapshot(snapshot: MaterialArchiveStoreSnapshot, skuId: string, outputUnit: string, upstreamUnit: string, relationId?: string): MaterialCostUnitConversion {
+  const base = { candidates: [] as MaterialUnitRelation[], adoptedRelationIds: [] as string[] }
+  if (!outputUnit || !upstreamUnit) return { ...base, kind: 'MISSING', factor: null, basis: '请明确加工费计价单位。' }
+  const fixed = fixedMaterialFactor(outputUnit, upstreamUnit)
+  if (fixed !== null) return { ...base, kind: canonicalMaterialUnit(outputUnit) === canonicalMaterialUnit(upstreamUnit) ? 'SAME' : 'FIXED', factor: fixed, basis: '基础配置 · 固定单位换算' }
+  const sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
+  const relevant = [canonicalMaterialUnit(outputUnit), canonicalMaterialUnit(upstreamUnit)]
+  const candidates = (snapshot.unitRelations || []).filter(item => item.materialSkuId === skuId && item.status === 'ACTIVE' && relevant.includes(canonicalMaterialUnit(item.auxUnitId)))
+  const previous = relationId ? snapshot.unitRelations?.find(item => item.relationId === relationId && item.materialSkuId === skuId) : undefined
+  const selected = previous ? candidates.find(item => item.auxUnitId === previous.auxUnitId && (item.packageSpecId || '') === (previous.packageSpecId || '')) : candidates.length === 1 ? candidates[0] : undefined
+  const factor = relationId && !selected ? null : materialUnitFactorInSnapshot(snapshot, skuId, outputUnit, upstreamUnit, selected?.relationId)
+  const used = selected ? [selected] : candidates.filter(item => sku && fixedMaterialFactor(item.auxUnitId, sku.mainUnit || sku.pricingUnit) === null)
+  return { factor, kind: factor !== null ? 'SKU' : candidates.length > 1 ? 'CHOICE' : 'MISSING', relationId: selected?.relationId,
+    candidates: candidates.map(item => ({ ...item })), adoptedRelationIds: used.map(item => item.relationId),
+    basis: used.map(item => `${item.basisReference || '计量单位'}（v${item.version}）`).join('；') || '投入物料 SKU · 计量单位' }
+}
 function materialUnitFactorInSnapshot(snapshot: MaterialArchiveStoreSnapshot, skuId: string, fromUnit: string, toUnit: string, relationId?: string): number | null {
   const sku = snapshot.skuRecords.find(item => item.materialSkuId === skuId)
   if (!sku) return null
@@ -1742,17 +1770,9 @@ function calculateCost(snapshot: MaterialArchiveStoreSnapshot, skuId: string, me
     const upstream = calculateCost(snapshot, sku.inputSkuId, memo, visiting, index)
     result.adoptedVersionIds = [...upstream.adoptedVersionIds, ...result.adoptedVersionIds]
     const unitReferenceId = snapshot.processDefinitions?.find(item => item.outputSkuId === skuId)?.unitBridgeVersionId
-    const referencedRelation = unitReferenceId ? snapshot.unitRelations?.find(item => item.relationId === unitReferenceId && item.materialSkuId === sku.inputSkuId) : undefined
-    const currentRelation = referencedRelation ? snapshot.unitRelations?.find(item => item.materialSkuId === referencedRelation.materialSkuId && item.status === 'ACTIVE' && item.auxUnitId === referencedRelation.auxUnitId && (item.packageSpecId || '') === (referencedRelation.packageSpecId || '')) : undefined
-    const factor = unitReferenceId && !currentRelation ? null : materialUnitFactorInSnapshot(snapshot, sku.inputSkuId, result.pricingUnit, upstream.pricingUnit, currentRelation?.relationId)
-    if (currentRelation) result.adoptedVersionIds.push(`unit:${currentRelation.relationId}`)
-    else if (!unitReferenceId) {
-      const main = snapshot.skuRecords.find(item => item.materialSkuId === sku.inputSkuId)?.mainUnit
-      for (const unit of [result.pricingUnit, upstream.pricingUnit]) {
-        const used = snapshot.unitRelations?.filter(item => item.materialSkuId === sku.inputSkuId && item.status === 'ACTIVE' && canonicalMaterialUnit(item.auxUnitId) === canonicalMaterialUnit(unit)) || []
-        if (main && fixedMaterialFactor(unit, main) === null && used.length === 1) result.adoptedVersionIds.push(`unit:${used[0].relationId}`)
-      }
-    }
+    const conversion = costUnitConversionInSnapshot(snapshot, sku.inputSkuId, result.pricingUnit, upstream.pricingUnit, unitReferenceId)
+    const factor = conversion.factor
+    result.adoptedVersionIds.push(...conversion.adoptedRelationIds.map(id => `unit:${id}`))
     if (upstream.completeness.length) result.completeness.push('上道成本不完整')
     if (factor === null) result.completeness.push('缺单位关系')
     result.lines = upstream.lines.map(line => ({ ...line, amountCny: line.amountCny !== null && factor !== null ? materialDecimalMultiply(line.amountCny, factor) : null, pricingUnit: result.pricingUnit }))

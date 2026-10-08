@@ -1,0 +1,590 @@
+{
+  "baseURL": "http://127.0.0.1:4206",
+  "viewport": "1366x768",
+  "coldContexts": 5,
+  "samples": [
+    {
+      "name": "cold-navigation",
+      "ms": 347
+    },
+    {
+      "name": "refresh",
+      "ms": 283
+    },
+    {
+      "name": "cost-tab",
+      "ms": 84
+    },
+    {
+      "name": "fee-live-update",
+      "ms": 32
+    },
+    {
+      "name": "main-unit-change",
+      "ms": 34
+    },
+    {
+      "name": "fixed-unit-live-update",
+      "ms": 33
+    },
+    {
+      "name": "missing-unit-live-update",
+      "ms": 31
+    },
+    {
+      "name": "units-entry-dialog",
+      "ms": 65
+    },
+    {
+      "name": "units-entry-cancel",
+      "ms": 67
+    },
+    {
+      "name": "units-entry-confirm",
+      "ms": 95
+    },
+    {
+      "name": "internal-route-return",
+      "ms": 66
+    },
+    {
+      "name": "negative-fee",
+      "ms": 48
+    },
+    {
+      "name": "zero-fee",
+      "ms": 50
+    },
+    {
+      "name": "sku-unit-live-update",
+      "ms": 36
+    },
+    {
+      "name": "package-choice-required",
+      "ms": 25
+    },
+    {
+      "name": "package-select-600",
+      "ms": 32
+    },
+    {
+      "name": "package-select-100",
+      "ms": 33
+    },
+    {
+      "name": "package-switch-to-sku",
+      "ms": 34
+    },
+    {
+      "name": "basic-tab",
+      "ms": 66
+    },
+    {
+      "name": "input-confirm",
+      "ms": 34
+    },
+    {
+      "name": "spec-tab",
+      "ms": 65
+    },
+    {
+      "name": "color-select",
+      "ms": 35
+    },
+    {
+      "name": "color-code-input",
+      "ms": 33
+    },
+    {
+      "name": "pantone-select",
+      "ms": 33
+    },
+    {
+      "name": "images-tab",
+      "ms": 66
+    },
+    {
+      "name": "image-upload-preview",
+      "ms": 51
+    },
+    {
+      "name": "code-preview-tab",
+      "ms": 67
+    },
+    {
+      "name": "save-and-read",
+      "ms": 149
+    },
+    {
+      "name": "saved-refresh",
+      "ms": 231
+    },
+    {
+      "name": "cold-navigation",
+      "ms": 313
+    },
+    {
+      "name": "refresh",
+      "ms": 284
+    },
+    {
+      "name": "cost-tab",
+      "ms": 83
+    },
+    {
+      "name": "fee-live-update",
+      "ms": 32
+    },
+    {
+      "name": "main-unit-change",
+      "ms": 34
+    },
+    {
+      "name": "fixed-unit-live-update",
+      "ms": 33
+    },
+    {
+      "name": "missing-unit-live-update",
+      "ms": 32
+    },
+    {
+      "name": "units-entry-dialog",
+      "ms": 65
+    },
+    {
+      "name": "units-entry-cancel",
+      "ms": 67
+    },
+    {
+      "name": "units-entry-confirm",
+      "ms": 80
+    },
+    {
+      "name": "internal-route-return",
+      "ms": 66
+    },
+    {
+      "name": "negative-fee",
+      "ms": 47
+    },
+    {
+      "name": "zero-fee",
+      "ms": 34
+    },
+    {
+      "name": "sku-unit-live-update",
+      "ms": 33
+    },
+    {
+      "name": "package-choice-required",
+      "ms": 24
+    },
+    {
+      "name": "package-select-600",
+      "ms": 31
+    },
+    {
+      "name": "package-select-100",
+      "ms": 34
+    },
+    {
+      "name": "package-switch-to-sku",
+      "ms": 33
+    },
+    {
+      "name": "basic-tab",
+      "ms": 67
+    },
+    {
+      "name": "input-confirm",
+      "ms": 32
+    },
+    {
+      "name": "spec-tab",
+      "ms": 68
+    },
+    {
+      "name": "color-select",
+      "ms": 33
+    },
+    {
+      "name": "color-code-input",
+      "ms": 33
+    },
+    {
+      "name": "pantone-select",
+      "ms": 34
+    },
+    {
+      "name": "images-tab",
+      "ms": 67
+    },
+    {
+      "name": "image-upload-preview",
+      "ms": 49
+    },
+    {
+      "name": "code-preview-tab",
+      "ms": 67
+    },
+    {
+      "name": "save-and-read",
+      "ms": 148
+    },
+    {
+      "name": "saved-refresh",
+      "ms": 247
+    },
+    {
+      "name": "cold-navigation",
+      "ms": 329
+    },
+    {
+      "name": "refresh",
+      "ms": 183
+    },
+    {
+      "name": "cost-tab",
+      "ms": 84
+    },
+    {
+      "name": "fee-live-update",
+      "ms": 32
+    },
+    {
+      "name": "main-unit-change",
+      "ms": 33
+    },
+    {
+      "name": "fixed-unit-live-update",
+      "ms": 34
+    },
+    {
+      "name": "missing-unit-live-update",
+      "ms": 32
+    },
+    {
+      "name": "units-entry-dialog",
+      "ms": 66
+    },
+    {
+      "name": "units-entry-cancel",
+      "ms": 67
+    },
+    {
+      "name": "units-entry-confirm",
+      "ms": 94
+    },
+    {
+      "name": "internal-route-return",
+      "ms": 66
+    },
+    {
+      "name": "negative-fee",
+      "ms": 49
+    },
+    {
+      "name": "zero-fee",
+      "ms": 33
+    },
+    {
+      "name": "sku-unit-live-update",
+      "ms": 36
+    },
+    {
+      "name": "package-choice-required",
+      "ms": 25
+    },
+    {
+      "name": "package-select-600",
+      "ms": 33
+    },
+    {
+      "name": "package-select-100",
+      "ms": 33
+    },
+    {
+      "name": "package-switch-to-sku",
+      "ms": 33
+    },
+    {
+      "name": "basic-tab",
+      "ms": 67
+    },
+    {
+      "name": "input-confirm",
+      "ms": 33
+    },
+    {
+      "name": "spec-tab",
+      "ms": 67
+    },
+    {
+      "name": "color-select",
+      "ms": 33
+    },
+    {
+      "name": "color-code-input",
+      "ms": 34
+    },
+    {
+      "name": "pantone-select",
+      "ms": 33
+    },
+    {
+      "name": "images-tab",
+      "ms": 66
+    },
+    {
+      "name": "image-upload-preview",
+      "ms": 51
+    },
+    {
+      "name": "code-preview-tab",
+      "ms": 67
+    },
+    {
+      "name": "save-and-read",
+      "ms": 148
+    },
+    {
+      "name": "saved-refresh",
+      "ms": 233
+    },
+    {
+      "name": "cold-navigation",
+      "ms": 321
+    },
+    {
+      "name": "refresh",
+      "ms": 199
+    },
+    {
+      "name": "cost-tab",
+      "ms": 83
+    },
+    {
+      "name": "fee-live-update",
+      "ms": 33
+    },
+    {
+      "name": "main-unit-change",
+      "ms": 33
+    },
+    {
+      "name": "fixed-unit-live-update",
+      "ms": 34
+    },
+    {
+      "name": "missing-unit-live-update",
+      "ms": 32
+    },
+    {
+      "name": "units-entry-dialog",
+      "ms": 65
+    },
+    {
+      "name": "units-entry-cancel",
+      "ms": 66
+    },
+    {
+      "name": "units-entry-confirm",
+      "ms": 80
+    },
+    {
+      "name": "internal-route-return",
+      "ms": 66
+    },
+    {
+      "name": "negative-fee",
+      "ms": 48
+    },
+    {
+      "name": "zero-fee",
+      "ms": 33
+    },
+    {
+      "name": "sku-unit-live-update",
+      "ms": 33
+    },
+    {
+      "name": "package-choice-required",
+      "ms": 25
+    },
+    {
+      "name": "package-select-600",
+      "ms": 32
+    },
+    {
+      "name": "package-select-100",
+      "ms": 34
+    },
+    {
+      "name": "package-switch-to-sku",
+      "ms": 33
+    },
+    {
+      "name": "basic-tab",
+      "ms": 67
+    },
+    {
+      "name": "input-confirm",
+      "ms": 33
+    },
+    {
+      "name": "spec-tab",
+      "ms": 67
+    },
+    {
+      "name": "color-select",
+      "ms": 32
+    },
+    {
+      "name": "color-code-input",
+      "ms": 33
+    },
+    {
+      "name": "pantone-select",
+      "ms": 34
+    },
+    {
+      "name": "images-tab",
+      "ms": 67
+    },
+    {
+      "name": "image-upload-preview",
+      "ms": 50
+    },
+    {
+      "name": "code-preview-tab",
+      "ms": 67
+    },
+    {
+      "name": "save-and-read",
+      "ms": 148
+    },
+    {
+      "name": "saved-refresh",
+      "ms": 166
+    },
+    {
+      "name": "cold-navigation",
+      "ms": 304
+    },
+    {
+      "name": "refresh",
+      "ms": 184
+    },
+    {
+      "name": "cost-tab",
+      "ms": 83
+    },
+    {
+      "name": "fee-live-update",
+      "ms": 33
+    },
+    {
+      "name": "main-unit-change",
+      "ms": 33
+    },
+    {
+      "name": "fixed-unit-live-update",
+      "ms": 33
+    },
+    {
+      "name": "missing-unit-live-update",
+      "ms": 32
+    },
+    {
+      "name": "units-entry-dialog",
+      "ms": 66
+    },
+    {
+      "name": "units-entry-cancel",
+      "ms": 67
+    },
+    {
+      "name": "units-entry-confirm",
+      "ms": 95
+    },
+    {
+      "name": "internal-route-return",
+      "ms": 67
+    },
+    {
+      "name": "negative-fee",
+      "ms": 48
+    },
+    {
+      "name": "zero-fee",
+      "ms": 33
+    },
+    {
+      "name": "sku-unit-live-update",
+      "ms": 31
+    },
+    {
+      "name": "package-choice-required",
+      "ms": 24
+    },
+    {
+      "name": "package-select-600",
+      "ms": 32
+    },
+    {
+      "name": "package-select-100",
+      "ms": 33
+    },
+    {
+      "name": "package-switch-to-sku",
+      "ms": 34
+    },
+    {
+      "name": "basic-tab",
+      "ms": 67
+    },
+    {
+      "name": "input-confirm",
+      "ms": 32
+    },
+    {
+      "name": "spec-tab",
+      "ms": 68
+    },
+    {
+      "name": "color-select",
+      "ms": 33
+    },
+    {
+      "name": "color-code-input",
+      "ms": 33
+    },
+    {
+      "name": "pantone-select",
+      "ms": 33
+    },
+    {
+      "name": "images-tab",
+      "ms": 67
+    },
+    {
+      "name": "image-upload-preview",
+      "ms": 50
+    },
+    {
+      "name": "code-preview-tab",
+      "ms": 67
+    },
+    {
+      "name": "save-and-read",
+      "ms": 149
+    },
+    {
+      "name": "saved-refresh",
+      "ms": 231
+    }
+  ],
+  "maxMs": 347,
+  "errors": [],
+  "failures": []
+}

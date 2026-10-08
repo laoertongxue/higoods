@@ -1,5 +1,5 @@
 import type { MaterialProcessDraft, MaterialProcessType, MaterialUnitRelation, MaterialPackageSpec } from './pcs-material-archive-types.ts'
-import { listMaterialUnitDefinitions } from './pcs-material-config.ts'
+import { listMaterialUnitDefinitions, listFixedMaterialConversions } from './pcs-material-config.ts'
 
 export const MATERIAL_CODE_RULE_VERSION = 'MATERIAL-R1-20261005'
 export const MATERIAL_PROCESS_LABELS: Record<MaterialProcessType | 'BASE', string> = {
@@ -59,7 +59,9 @@ export function materialUnitDimension(unit: string): string {
   return '待明确'
 }
 export function fixedMaterialFactor(aux: string, main: string): number | null {
-  const scales: Record<string, number> = { M: 1, Yard: .9144, cm: .01, mm: .001, KG: 1, g: .001 }
+  // Configuration display and all calculations share these fixed relationships.
+  const scales: Record<string, number> = { M: 1, KG: 1 }
+  for (const relation of listFixedMaterialConversions()) scales[relation.fromUnit] = relation.factor * scales[relation.toUnit]
   const a = canonicalMaterialUnit(aux), m = canonicalMaterialUnit(main)
   if (a === m) return 1
   return scales[a] && scales[m] && materialUnitDimension(a) === materialUnitDimension(m) ? scales[a] / scales[m] : null
