@@ -1,0 +1,116 @@
+{
+  "base": "http://localhost:4179",
+  "entry": "/assets/index-DyHIx5_W.js",
+  "scenes": [
+    {
+      "key": "late",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0089",
+      "label": "三阶段超时／影响范围"
+    },
+    {
+      "key": "normal",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0090",
+      "label": "已到期回货节点均达标／后续节点未到期"
+    },
+    {
+      "key": "complete",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0091",
+      "label": "全部按期入库"
+    },
+    {
+      "key": "completeLate",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0092",
+      "label": "全部入库／完成时已超期"
+    },
+    {
+      "key": "completeUnknown",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0093",
+      "label": "全量入库／最后时间待核实"
+    },
+    {
+      "key": "partial",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0094",
+      "label": "后道位置资料缺失"
+    },
+    {
+      "key": "reordered",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0095",
+      "label": "多采购单逆序"
+    },
+    {
+      "key": "reachedLate",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0096",
+      "label": "合同节点已达标／晚于截止"
+    },
+    {
+      "key": "positioning",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0097",
+      "label": "定位印5天／第4.5天"
+    },
+    {
+      "key": "prepPending",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0098",
+      "label": "准备制作与待接收"
+    },
+    {
+      "key": "sampleLate",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0099",
+      "label": "工厂产前样衣晚交／未通过"
+    },
+    {
+      "key": "samplePending",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0100",
+      "label": "工厂产前样衣到期未交"
+    },
+    {
+      "key": "fullContract",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0101",
+      "label": "三种合同同屏"
+    },
+    {
+      "key": "materialBatches",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0102",
+      "label": "600米库存批先行／900米补采批"
+    },
+    {
+      "key": "materialPartial",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0103",
+      "label": "600米实收／900米待入仓"
+    },
+    {
+      "key": "live",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0086",
+      "label": "分批生产示例"
+    },
+    {
+      "key": "unknown",
+      "path": "/dds/supply-chain/production-fulfillment/pending-purchases/240776",
+      "label": "当前原型资料缺口"
+    },
+    {
+      "key": "unassigned",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0087",
+      "label": "任务归属不完整"
+    },
+    {
+      "key": "sameFactory",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0088",
+      "label": "同厂多任务"
+    },
+    {
+      "key": "handoverPartial",
+      "path": "/dds/supply-chain/production-fulfillment/orders/PO-202610-0105",
+      "label": "交接部分实收／数量差异待确认"
+    }
+  ],
+  "sections": [
+    "overview",
+    "orders",
+    "follow-up",
+    "work-items",
+    "teams",
+    "inbound-analysis",
+    "configuration",
+    "pending-purchases"
+  ]
+}

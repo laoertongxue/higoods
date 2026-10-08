@@ -1,5 +1,8 @@
 # 生产与履约时效：V4 原型实施计划
 
+> 历史版本说明：本文记录 V1—V4 当时的需求、设计或验证，“当前／本轮／最新”均指当时版本。现行业务以 [V7 接入方案](v7-integration-design.md) 与用户确认口径为准，最新表达修正见 [文案歧义核查与修复清单](copy-clarity-audit-20261008.md)。实施和验收状态分别见 [V7 计划](v7-integration-plan.md)、[V7 矩阵](v7-integration-matrix.csv) 及本轮清单。本文与现行冲突的发货终点、需求维度、运输/审版/返工监控、规则编辑发布、旧性能门槛等不作为当前实施依据。原始规则、失败样本和证据保留，仅供追溯。
+
+
 版本：V4.0｜日期：2026-09-18｜状态：final5性能与入口覆盖通过，图片门禁及完整业务验收未通过；产品接受未发生。
 
 当前权威来源为 product-design.md 第21节与 dependency-revision-v4.md；V3 来源要求继续有效，以本轮明确修订为准。基础 HEAD 为 4804328a822eec3c77eee1ffa5b10911bb77c9fe，实施分支 codex/dds-production-fulfillment；final5 combined及technical/source-manifest.json记录当次工作树、基础HEAD和服务构建；后续实质修改仍须重新生成对应证据。本文件安排工作，不替代验证证据；不修改用户现有 AGENTS.md 差异，不提交/推送/部署未经用户要求的内容。

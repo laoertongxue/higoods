@@ -1,0 +1,224 @@
+[
+  {
+    "type": "生产准备单",
+    "id": "PO-202610-0089/prep-086",
+    "path": "/pcs/production-preparation/orders/PO-202610-0089%2Fprep-086",
+    "no": "演示PP-0089-89"
+  },
+  {
+    "type": "BOM物料明细",
+    "id": "PO-202610-0089/bom-086-v11",
+    "path": "/pcs/production-preparation/orders/PO-202610-0089%2Fbom-086-v11",
+    "no": "演示PP-0089 · BOM明细-89"
+  },
+  {
+    "type": "设计改款任务",
+    "id": "PO-202610-0089/dr-086",
+    "path": "/pcs/production-preparation/design-revision/PO-202610-0089%2Fdr-086",
+    "no": "演示DR-086-89"
+  },
+  {
+    "type": "调色任务（面料）",
+    "id": "PO-202610-0089/color-c01",
+    "path": "/pcs/production-preparation/color/PO-202610-0089%2Fcolor-c01",
+    "no": "演示COLOR-C01-89"
+  },
+  {
+    "type": "花型任务",
+    "id": "PO-202610-0089/art-p01",
+    "path": "/pcs/production-preparation/artwork/PO-202610-0089%2Fart-p01",
+    "no": "演示ART-P01-89"
+  },
+  {
+    "type": "首单样衣任务",
+    "id": "PO-202610-0089/sample-086",
+    "path": "/pcs/production-preparation/first-sample/PO-202610-0089%2Fsample-086",
+    "no": "演示SAMPLE-086-89"
+  },
+  {
+    "type": "梭织齐码纸样任务",
+    "id": "PO-202610-0089/size-086",
+    "path": "/pcs/production-preparation/plate-making/PO-202610-0089%2Fsize-086",
+    "no": "演示SIZE-086-89"
+  },
+  {
+    "type": "技术包确认任务",
+    "id": "PO-202610-0089/tp-task-086",
+    "path": "/pcs/production-preparation/tech-pack/PO-202610-0089%2Ftp-task-086",
+    "no": "演示TP-TASK-086-89"
+  },
+  {
+    "type": "正式技术包",
+    "id": "PO-202610-0089/tp-086-v11",
+    "path": "/pcs/production-preparation/tech-pack/PO-202610-0089%2Ftp-086-v11",
+    "no": "演示TP-086-V11-89"
+  },
+  {
+    "type": "原料调拨单",
+    "id": "PO-202610-0089/tr-F01-stock",
+    "path": "/wls/raw/stock/fabric-transfer/PO-202610-0089%2Ftr-F01-stock",
+    "no": "演示TR-F01-STOCK-89"
+  },
+  {
+    "type": "物料采购单",
+    "id": "PO-202610-0089/mp-F01",
+    "path": "/pms/material-purchase-orders/PO-202610-0089%2Fmp-F01",
+    "no": "演示MP-F01-89"
+  },
+  {
+    "type": "原料入库单",
+    "id": "PO-202610-0089/in-F01",
+    "path": "/wls/raw/inbound-list/PO-202610-0089%2Fin-F01",
+    "no": "演示IN-F01-89"
+  },
+  {
+    "type": "大货染色加工单",
+    "id": "PO-202610-0089/wo-F01-dye",
+    "path": "/fcs/craft/dyeing/work-orders/PO-202610-0089%2Fwo-F01-dye",
+    "no": "演示WO-F01-DYE-89"
+  },
+  {
+    "type": "交出记录",
+    "id": "PO-202610-0089/out-F01-dye",
+    "path": "/fcs/craft/dyeing/handover-records/PO-202610-0089%2Fout-F01-dye",
+    "no": "演示OUT-F01-DYE-89"
+  },
+  {
+    "type": "接收记录",
+    "id": "PO-202610-0089/rcv-F01-dye",
+    "path": "/fcs/craft/dyeing/handover-records/PO-202610-0089%2Frcv-F01-dye",
+    "no": "演示RCV-F01-DYE-89"
+  },
+  {
+    "type": "质检交接记录",
+    "id": "PO-202610-0089/qc-F01-dye",
+    "path": "/fcs/craft/dyeing/handover-records/PO-202610-0089%2Fqc-F01-dye",
+    "no": "演示QC-F01-DYE-89"
+  },
+  {
+    "type": "交接单",
+    "id": "PO-202610-0089/ho-F01-dye",
+    "path": "/fcs/craft/dyeing/handover-records/PO-202610-0089%2Fho-F01-dye",
+    "no": "演示HO-F01-DYE-89"
+  },
+  {
+    "type": "大货印花加工单",
+    "id": "PO-202610-0089/wo-F01-print",
+    "path": "/fcs/craft/printing/work-orders/PO-202610-0089%2Fwo-F01-print",
+    "no": "演示WO-F01-PRINT-89"
+  },
+  {
+    "type": "水洗加工单",
+    "id": "PO-202610-0089/wo-F01-wash",
+    "path": "/fcs/craft/washing/work-orders/PO-202610-0089%2Fwo-F01-wash",
+    "no": "演示WO-F01-WASH-89"
+  },
+  {
+    "type": "辅料下单任务",
+    "id": "PO-202610-0089/accessory-086",
+    "path": "/pcs/production-preparation/purchase/PO-202610-0089%2Faccessory-086",
+    "no": "演示ACCESSORY-086-89"
+  },
+  {
+    "type": "裁剪单",
+    "id": "PO-202610-0089/cut-CUT-F-01",
+    "path": "/fcs/craft/cutting/cut-orders/PO-202610-0089%2Fcut-CUT-F-01",
+    "no": "演示CUT-CUT-F-01-89"
+  },
+  {
+    "type": "绣花加工单",
+    "id": "PO-202610-0089/aux-CUT-F-01-emb",
+    "path": "/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0089%2Faux-CUT-F-01-emb",
+    "no": "演示AUX-CUT-F-01-EMB-89"
+  },
+  {
+    "type": "打揽加工单",
+    "id": "PO-202610-0089/aux-CUT-F-01-smock",
+    "path": "/fcs/process-factory/special-craft/aux-op-dalan/work-orders/PO-202610-0089%2Faux-CUT-F-01-smock",
+    "no": "演示AUX-CUT-F-01-SMOCK-89"
+  },
+  {
+    "type": "模版机加工单",
+    "id": "PO-202610-0089/aux-CUT-S-01-template",
+    "path": "/fcs/process-factory/special-craft/spc-op-template-process/work-orders/PO-202610-0089%2Faux-CUT-S-01-template",
+    "no": "演示AUX-CUT-S-01-TEMPLATE-89"
+  },
+  {
+    "type": "商品采购单",
+    "id": "PO-202610-0089/purchase/示例89-240901",
+    "path": "/pms/product-purchase-orders/PO-202610-0089%2Fpurchase%2F%E7%A4%BA%E4%BE%8B89-240901",
+    "no": "示例89-240901"
+  },
+  {
+    "type": "生产单",
+    "id": "PO-202610-0089/production-order",
+    "path": "/fcs/production/orders/PO-202610-0089%2Fproduction-order",
+    "no": "PO-202610-0089"
+  },
+  {
+    "type": "裁片放行记录",
+    "id": "PO-202610-0090/rel-1000",
+    "path": "/fcs/craft/cutting/cut-piece-release/PO-202610-0090%2Frel-1000",
+    "no": "演示REL-1000-90"
+  },
+  {
+    "type": "后道加工单",
+    "id": "PO-202610-0090/post-A-03",
+    "path": "/fcs/craft/post-finishing/work-orders/PO-202610-0090%2Fpost-A-03",
+    "no": "演示POST-A-03-90"
+  },
+  {
+    "type": "车缝任务分配合同",
+    "id": "PO-202610-0090/taskdoc-SWT-A-01-0090",
+    "path": "/fcs/dispatch/workbench/PO-202610-0090%2Ftaskdoc-SWT-A-01-0090",
+    "no": "演示ALLOC-SWT-A-01-90"
+  },
+  {
+    "type": "工厂产前版样衣",
+    "id": "PO-202610-0090/factory-sample-SWT-A-01-0090",
+    "path": "/fcs/production/pre-production-samples/PO-202610-0090%2Ffactory-sample-SWT-A-01-0090",
+    "no": "演示PP-SAMPLE-SWT-A-01-90"
+  },
+  {
+    "type": "工厂领料单",
+    "id": "PO-202610-0090/pickup-SWT-A-01-0090",
+    "path": "/fcs/craft/factory-receiving/PO-202610-0090%2Fpickup-SWT-A-01-0090",
+    "no": "演示PICK-SWT-A-01-0090"
+  },
+  {
+    "type": "后道实收记录",
+    "id": "PO-202610-0090/return-receipt-SWT-A-01-0090-1",
+    "path": "/fcs/craft/post-finishing/factory-returns/PO-202610-0090%2Freturn-receipt-SWT-A-01-0090-1",
+    "no": "演示RCV-SWT-A-01-0090-1"
+  },
+  {
+    "type": "成衣仓入库单",
+    "id": "PO-202610-0090/finished-inbound",
+    "path": "/wls/finished-inbound/PO-202610-0090%2Ffinished-inbound",
+    "no": "演示FGI-PO-202610-0090"
+  },
+  {
+    "type": "中转仓接收单",
+    "id": "PO-202610-0105/transit-receive-A01",
+    "path": "/wls/transit/receive-manage/PO-202610-0105%2Ftransit-receive-A01",
+    "no": "演示TRCV-A01-105"
+  },
+  {
+    "type": "中转仓人工配料任务",
+    "id": "PO-202610-0105/manual-allocation-A01",
+    "path": "/wls/transit/allocation-manage/PO-202610-0105%2Fmanual-allocation-A01",
+    "no": "演示MALLOC-A01-105"
+  },
+  {
+    "type": "裁床领料单",
+    "id": "PO-202610-0105/cutting-pickup-A01",
+    "path": "/wls/transit/outbound-manage/PO-202610-0105%2Fcutting-pickup-A01",
+    "no": "演示CUT-PICK-A01-105"
+  },
+  {
+    "type": "调色任务",
+    "id": "PO-202610-0105/color-not-enabled",
+    "path": "/pcs/production-preparation/color/PO-202610-0105%2Fcolor-not-enabled",
+    "no": "演示CLR-NOT-105"
+  }
+]

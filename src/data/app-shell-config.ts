@@ -813,7 +813,7 @@ export const menusBySystem: Record<string, MenuGroup[]> = {
       { key: 'production-fulfillment-work-items', title: '工作项监控', icon: 'Activity', href: '/dds/supply-chain/production-fulfillment/work-items' },
       { key: 'production-fulfillment-teams', title: '团队与工厂', icon: 'Factory', href: '/dds/supply-chain/production-fulfillment/teams' },
       { key: 'production-fulfillment-inbound-analysis', title: '入库时效分析', icon: 'Truck', href: '/dds/supply-chain/production-fulfillment/inbound-analysis' },
-      { key: 'production-fulfillment-configuration', title: '时效口径与配置', icon: 'Settings', href: '/dds/supply-chain/production-fulfillment/configuration' },
+      { key: 'production-fulfillment-configuration', title: '时效口径（只读）', icon: 'Settings', href: '/dds/supply-chain/production-fulfillment/configuration' },
     ] }] },
     {
       title: '数据分析',

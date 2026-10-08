@@ -87,9 +87,9 @@ test('MASTER-002: full warehouse completion at the exact deadline is timely; one
   const record = structuredClone(getTimingCaseByScene('completeLate'))
   record.warehouseAt = '2026-10-05 09:00'
   assert.equal(getTimingFacts(record).deadline, timingMs('2026-10-05 09:00'))
-  assert.equal(getTimingFacts(record).result, '已按期完成')
+  assert.equal(getTimingFacts(record).result, '已全部入库 · 按期')
   record.warehouseAt = '2026-10-05 09:01'
-  assert.equal(getTimingFacts(record).result, '已完成 · 逾期1分钟')
+  assert.equal(getTimingFacts(record).result, '已全部入库 · 晚1分钟')
   record.warehouse = 1499
   assert.equal(getTimingFacts(record).complete, false, '1499 of 1500 is not a completed production order')
   assert.equal(getTimingFacts(record).remaining, 1)
@@ -100,14 +100,14 @@ test('SCENE-03—05: warehouse facts establish completion separately from final 
   assert.equal(complete.required, 1500)
   assert.equal(complete.complete, true)
   assert.equal(complete.remaining, 0)
-  assert.equal(complete.result, '已按期完成')
+  assert.equal(complete.result, '已全部入库 · 按期')
   const late = getTimingFacts(getTimingCaseByScene('completeLate'))
   assert.equal(late.complete, true)
-  assert.equal(late.result, '已完成 · 逾期1天6小时')
+  assert.equal(late.result, '已全部入库 · 晚1天6小时')
   const unknown = getTimingFacts(getTimingCaseByScene('completeUnknown'))
   assert.equal(unknown.complete, true)
   assert.equal(unknown.remaining, 0)
-  assert.equal(unknown.result, '已全部入库 · 按期结果待核实')
+  assert.equal(unknown.result, '已全部入库 · 是否按期待核实')
   assert.ok(getTimingIssues(getTimingCaseByScene('completeUnknown')).every(issue => issue.category === 'facts'))
   const stale = structuredClone(getTimingCaseByScene('complete'))
   stale.tasks[0].receipts = []
@@ -179,8 +179,8 @@ test('SCENE-02 / 08: timely returns and late reached milestone differ from a cur
   const html = render('reachedLate')
   assert.match(html, /class="history-band"/)
   assert.match(html, /class="history-actual"/)
-  assert.match(html, /晚12小时.*当前欠0件/)
-  assert.match(html, /逾期达成（历史）/)
+  assert.match(html, /晚12小时.*该节点差额0件/)
+  assert.match(html, /已达标 · 晚于截止/)
   assert.ok(!html.includes('B厂 SWT-B-01-0096 · 30%节点欠150件'))
 })
 
@@ -223,7 +223,7 @@ test('SCENE-11 / 12: sample date is pickup plus three; failed or unsubmitted sam
   assert.equal(pendingDoc.sampleTiming.done, false)
   for (const key of ['sampleLate', 'samplePending'] as const) {
     const html = render(key)
-    assert.match(html, /30% 已逾期 截止2026-10-04 23:59 累计目标150件/)
+    assert.match(html, /30% 未达标，已超时，差150件 截止2026-10-04 23:59 累计目标150件/)
     assert.match(html, /样衣结果不改变合同节点/)
     const detail = renderTimingSourceSummaryForCase(getTimingCaseByScene(key), key === 'sampleLate' ? lateDoc.id : pendingDoc.id)
     assert.match(detail, /日期口径；日内截止时刻待确认/)
@@ -265,7 +265,7 @@ test('SCENE-15: known 600-meter receipt is preserved while the 900-meter purchas
   const html = render('materialPartial', true)
   assert.match(html, /已确认600米/)
   assert.match(html, /其余900米实收待核实/)
-  assert.match(html, /当前逾期8天21小时/)
+  assert.match(html, /未入仓 · 已超时8天21小时/)
 })
 
 test('SCENE-20: partial factory handover retains 2400 sleeve pieces received and 600 disputed without closing the handover or converting to garments', () => {
@@ -302,7 +302,7 @@ test('SCENE-20: partial factory handover retains 2400 sleeve pieces received and
   assert.match(issues[0].title, /已收2400片／余600片差异待确认/)
   const html = render('handoverPartial', true)
   assert.match(html, /部分实收 10-06 11:00 · 2400片 · 数量差异600片待确认/)
-  assert.match(html, /交接 已等22小时50分钟 · 标准待配置/)
+  assert.match(html, /交接 等待接收已用22小时50分钟 · 未确认时效要求，无法判定是否超时/)
   const summary = renderTimingSourceSummaryForCase(record, handover.id)
   assert.match(summary, /实收<\/small><b>2400片/)
   assert.match(summary, /数量差异<\/small><b>600片/)
@@ -323,7 +323,7 @@ test('SCENE-01: completed preparation/material delays remain history while sleev
   assert.equal(clock(sleeveDocument).end, null)
   assert.equal(timingMs(TIMING_AS_OF) - timingMs(clock(sleeveDocument).start!) - 3 * DAY, DAY)
   const html = render('late', true)
-  for (const expected of ['1项逾期完成 · 最长1天', '1项逾期完成 · 最长2天', '1项当前逾期 · 最长1天', '600片', '范围待核对']) assert.ok(html.includes(expected), expected)
+  for (const expected of ['已完成 · 晚1天', '1个采购批已入仓 · 晚2天', '1道未完成 · 已超时，最长1天', '600片', '范围待核对']) assert.ok(html.includes(expected), expected)
   assert.match(html, /600袖片不换算为600件成衣/, 'sleeve pieces must not become garment quantity')
 })
 
@@ -338,7 +338,7 @@ test('PREP / CRAFT: auxiliary work is three days each; bulk dye/print/wash and h
   for (const transfer of transfers) {
     assert.equal(clock(transfer).sla, undefined)
     const summary = renderTimingSourceSummaryForCase(getTimingCaseByScene('live'), transfer.id)
-    assert.match(summary, /标准待配置/)
+    assert.match(summary, /未确认时效要求，无法判定是否超时/)
     assert.ok(!summary.includes('当前逾期'), transfer.no + ' must not be declared late without SLA')
   }
   assert.equal(b.releases.length, 2)
@@ -401,26 +401,26 @@ test('SOURCE: there are no future actual events or reversed processing/handover 
 })
 
 const expectedSceneText: Record<typeof SCENES[number], string[]> = {
-  late: ['袖片绣花 · 当前逾期1天', '剩余600片', '逾期完成'],
-  normal: ['750', '按期达成', '未到期'],
-  complete: ['已按期完成', '全部应完成数量已入库 · 剩余0件'],
-  completeLate: ['已完成 · 逾期1天6小时', '2026-10-05 09:00'],
-  completeUnknown: ['已全部入库 · 按期结果待核实', '全量入库的最后时间待核实'],
+  late: ['袖片绣花 · 未完成 · 已超时1天', '剩余600片', '已完成 · 晚'],
+  normal: ['750', '已达标 · 按期', '未到期'],
+  complete: ['已全部入库 · 按期', '全部应完成数量已入库 · 剩余0件'],
+  completeLate: ['已全部入库 · 晚1天6小时', '2026-10-05 09:00'],
+  completeUnknown: ['已全部入库 · 是否按期待核实', '全量入库的最后时间待核实'],
   partial: ['后道当前位置待核实', '150'],
   reordered: ['2张采购单', '2026-10-18 09:00'],
-  reachedLate: ['逾期达成（历史）', '晚12小时', '当前欠0件'],
-  positioning: ['有定位印', '阶段整体5自然日', '已知时效项无当前逾期'],
-  prepPending: ['生产准备整体当前逾期13天', '尚未发布', '已交出待接收'],
-  sampleLate: ['工厂产前版样衣', '未通过', '逾期交出'],
-  samplePending: ['工厂产前版样衣', '尚未交出', '已过要求日期'],
+  reachedLate: ['已达标 · 晚于截止', '晚12小时', '该节点差额0件'],
+  positioning: ['有定位印', '阶段整体5自然日', '未完成 · 截止未到'],
+  prepPending: ['生产准备未完成 · 已超时13天', '尚未发布', '已交出待接收'],
+  sampleLate: ['工厂产前版样衣', '未通过', '已交出 · 晚于要求日期'],
+  samplePending: ['工厂产前版样衣', '尚未交出', '要求日期已过'],
   fullContract: ['独立车缝', '车缝＋烫包', '裁剪＋车缝＋烫包'],
   materialBatches: ['600米库存批＋900米补采批', '三道各自记录数量和交接'],
   materialPartial: ['已确认600米', '其余900米实收待核实'],
-  live: ['工厂尚未回', '后道加工中', '已交出待接收', '成衣仓已入库'],
-  unknown: ['实际完成量未知，保留问号', '当前位置及历史入库待核实'],
+  live: ['工厂实领、后道尚未实收', '后道加工', '已交出待接收', '成衣仓已入库'],
+  unknown: ['已入成衣仓数量未取得，不能按0件判断', '当前位置及历史入库待核实'],
   unassigned: ['300件任务归属待核实', '任务归属待核实'],
   sameFactory: ['B厂汇总200／500＝40%', '欠90件', '不能冲抵其他任务'],
-  handoverPartial: ['已收2400片／余600片差异待确认', '部分实收', '标准待配置'],
+  handoverPartial: ['已收2400片／余600片差异待确认', '部分实收', '未确认时效要求，无法判定是否超时'],
 }
 for (const scene of SCENES) test(`SCENE ${scene}: expanded accepted diagram retains its business nodes and source documents`, () => {
   const html = render(scene, true)
@@ -442,13 +442,13 @@ test('PREP-005: supplemental scene retains disabled and change-ended documents w
     assert.equal(d.timingApplicable, false)
     assert.equal(d.clock, undefined)
     assert.equal(d.handoverClock, undefined)
-    assert.match(d.timingExclusionReason, /不形成当前欠项/)
+    assert.match(d.timingExclusionReason, /不计作当前未完成工作/)
     assert.ok(findTimingDocument(d.id))
     assert.ok(timingDocumentHref(d.id).startsWith('/pcs/production-preparation/'))
     assert.ok(b.docs[b.master].related.includes(d.id))
   }
   const html = render('handoverPartial', true)
-  assert.match(html, /不计当前欠项的准备记录/)
+  assert.match(html, /不纳入当前准备要求的记录/)
   for (const d of records) assert.ok(html.includes(d.no))
   assert.equal(b.docs[b.master].status, '已关闭')
   assert.ok(!getTimingIssues(getTimingCaseByScene('handoverPartial')).some(i=>records.some((d: TimingDocument)=>i.documentId===d.id)))

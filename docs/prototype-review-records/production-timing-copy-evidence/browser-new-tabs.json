@@ -1,0 +1,155 @@
+[
+  {
+    "kind": "preparation",
+    "iteration": 0,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 241.60000000149012,
+    "origin": 1791474846249.1,
+    "ready": "source-detail",
+    "text": "PCS · 生产准备单 / 单据详情\n\n查看本生产单时效\n生产准备单 · 演示PP-0089-89\n准备已完成（单据已关闭）\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0089 · 对象 / 范围：本款纯梭织首单生产准备\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\nBOM物料明细\n\n米、粒、个分别核对；各物料数量不汇总为成衣件数。\n\n物料\t规格 / 适用范围\t本单需求\t库存采用\t缺口补采\t供给单据\n\nF01 主面料白坯布\nPCS 原型原料效果图\n\t主身／袖口 · 蓝底花型A/B\t1,500米\t600米\t900米\t原料调拨单 · 演示TR-F01-STOCK-89\n物料采购单 · 演示MP-F01-89\n原料入库单 · 演示IN-F01-89\n原料调拨单 · 演示TR-F01-PURCHASE-89\n\nF02 捆条布\nMock 物料效果图\n\t藏青 · 需大货染色C02\t150米\t150米\t0米\t原料调拨单 · 演示TR-F02-STOCK-89\n\nA01 纽扣\nMock 物料效果图\n\t蓝白款配套 · 无后续加工\t9,000粒\t9,000粒\t0粒\t原料调拨单 · 演示TR-A01-STOCK-89\n\nA02 衬布\nMock 物料效果图\n\t领／门襟 · 无后续加工\t300米\t0米\t300米\t物料采购单 · 演示MP-A02-89\n原料入库单 · 演示IN-A02-89\n原料调拨单 · 演示TR-A02-PURCHASE-89\n\nA03 织标\nMock 物料效果图\n\t本款织标 · 无后续加工\t1,500个\t500个\t1,000个\t原料调拨单 · 演示TR-A03-STOCK-89\n物料采购单 · 演示MP-A03-89\n原料入库单 · 演示IN-A03-89\n原料调拨单 · 演示TR-A03-PURCHASE-89\n适用生产准备任务\n\n调色、花型与打版 / 首单样衣分支分别推进；阶段整体4天，有定位印时整体5天，支线时长不累加。\n\n准备对象\t工作步骤\t对应任务 / 成果\t单据状态\nF01 主面料 · 蓝底\t颜色要求\tBOM物料明细 · 演示PP-0089 · BOM明细-89\t已确认\nF01 主面料 · 蓝底\t工厂调色／交出色样\t调色任务（面料） · 演示COLOR-C01-89\t已完成\nF01 主面料 · 蓝底\t调色成果已确认\t调色任务（面料） · 演示COLOR-C01-89\t已完成\nF02 捆条布 · 藏青\t颜色要求\tBOM物料明细 · 演示PP-0089 · BOM明细-89\t已确认\nF02 捆条布 · 藏青\t工厂调色／交出色样\t调色任务（面料） · 演示COLOR-C02-89\t已完成\nF02 捆条布 · 藏青\t调色成果已确认\t调色任务（面料） · 演示COLOR-C02-89\t已完成\nF01 主身 · 花型A\t花型要求\tBOM物料明细 · 演示PP-0089 · BOM明细-89\t已确认\nF01 主身 · 花型A\t花型设计／交出图稿\t花型任务 · 演示ART-P01-89\t已完成\nF01 主身 · 花型A\t花型成果已确认\t花型任务 · 演示ART-P01-89\t已完成\nF01 袖口 · 花型B\t花型要求\tBOM物料明细 · 演示PP-0089 · BOM明细-89\t已确认\nF01 袖口 · 花型B\t花型设计／交出图稿\t花型任务 · 演示ART-P02-89\t已完成\nF01 袖口 · 花型B\t花型成果已确认\t花型任务 · 演示ART-P02-89\t已完成\n辅料下单 · 2项有效需求\t采购要求\tBOM物料明细 · 演示PP-0089 · BOM明细-89\t已确认\n辅料下单 · 2项有效需求\t辅料下单任务\t辅料下单任务 · 演示ACCESSORY-086-89\t已完成\n辅料下单 · 2项有效需求\t对应采购单已绑定\t物料采购单 · 演示MP-A02-89\n物料采购单 · 演示MP-A03-89\t已收齐入库 已收齐入库\n前期输入与并行打版 / 首单样衣\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n设计改款任务 · 演示DR-086-89\t已确认基码纸样v1.0／本单M–XL\t已完成\t1套\t版师梁敏\t技术张琳\n首单样衣任务 · 演示SAMPLE-086-89\t本款首单样衣／M码\t已完成\t1件\t制作Dewi\t技术张琳\n梭织齐码纸样任务 · 演示SIZE-086-89\t本单M–XL／齐码纸样v1.1\t已完成\t1套\t版师梁敏\t技术张琳\n技术包确认与正式发布\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n技术包确认任务 · 演示TP-TASK-086-89\t全部适用准备任务／技术包v1.1\t已完成\t1套\t技术张琳\t跟单陈静\n正式技术包 · 演示TP-086-V11-89\t本款技术资料v1.1\t已发布\t1版本\t张琳汇总\t陈静发布\n单据事实与时间\n数量\n1单\n业务事实\t实际时间\n创建\t2026-09-20 09:00\n发布\t2026-09-20 09:15\n准备完成 / 单据关闭\t2026-09-25 09:00\n本单据时效（制作、加工、采购到仓与交接分别计时）\n\n未完成且超过截止才是当前需催办的超时；已完成但晚于截止保留延误结果，耗时停止增加。交接从上游实际交出计至下游实际接收；未配置标准时只记录耗时，不判正常或超时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n准备阶段\t2026-09-20 09:00\t2026-09-25 09:00\t4自然日\t2026-09-24 09:00\t5天\t已完成 · 晚1天\n执行与交接责任\n发起\n跟单陈静\n执行\n技术张琳（协调适用团队）\n完成确认\n跟单陈静\n业务说明\n\n无定位印，阶段整体4天；计时从最早商品采购下单开始，专业支线不累加。\n\n关联原始单据\n\n本页为完整单据详情；点击关联单据进入其所在模块的详情页。监控图中的单据先打开简要信息弹窗，选择查看详情才新建标签页；各页面读取同一份演示记录。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n设计改款任务 · 演示DR-086-89\t已确认基码纸样v1.0／本单M–XL\t已完成\t1套\t版师梁敏\t技术张琳\nBOM物料明细 · 演示PP-0089 · BOM明细-89\t5项物料及颜色／花型适用要求\t已确认\t5项\t张琳\t买手陈静\n首单样衣任务 · 演示SAMPLE-086-89\t本款首单样衣／M码\t已完成\t1件\t制作Dewi\t技术张琳\n梭织齐码纸样任务 · 演示SIZE-086-89\t本单M–XL／齐码纸样v1.1\t已完成\t1套\t版师梁敏\t技术张琳\n调色任务（面料） · 演示COLOR-C01-89\tF01 主面料 · 蓝底 · 色样C01\t已完成\t1色样\t染厂阿迪\t技术张琳\n调色任务（面料） · 演示COLOR-C02-89\tF02 捆条布 · 藏青 · 色样C02\t已完成\t1色样\t染厂阿迪\t技术张琳\n花型任务 · 演示ART-P01-89\tF01 主身 · 花型A\t已完成\t1套\t花型小雨\t技术张琳／买手陈静\n花型任务 · 演示ART-P02-89\tF01 袖口 · 花型B\t已完成\t1套\t花型小雨\t技术张琳／买手陈静\n辅料下单任务 · 演示ACCESSORY-086-89\tA02衬布、A03织标有效采购需求\t已完成\t2项\t采购赵敏\t跟单陈静\n技术包确认任务 · 演示TP-TASK-086-89\t全部适用准备任务／技术包v1.1\t已完成\t1套\t技术张琳\t跟单陈静\n正式技术包 · 演示TP-086-V11-89\t本款技术资料v1.1\t已发布\t1版本\t张琳汇总\t陈静发布",
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0089%2Fprep-086",
+    "elapsedMs": 425.80029296875
+  },
+  {
+    "kind": "preparation",
+    "iteration": 1,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 284.5,
+    "origin": 1791474846959.1,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0089%2Fprep-086",
+    "elapsedMs": 512.2001953125
+  },
+  {
+    "kind": "preparation",
+    "iteration": 2,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 229.10000000149012,
+    "origin": 1791474847736.7,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0089%2Fprep-086",
+    "elapsedMs": 467.10009765625
+  },
+  {
+    "kind": "preparation",
+    "iteration": 3,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 238.0999999940395,
+    "origin": 1791474848423.6,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0089%2Fprep-086",
+    "elapsedMs": 463.60009765625
+  },
+  {
+    "kind": "preparation",
+    "iteration": 4,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 228.5,
+    "origin": 1791474849154,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pcs/production-preparation/orders/PO-202610-0089%2Fprep-086",
+    "elapsedMs": 444.699951171875
+  },
+  {
+    "kind": "purchase",
+    "iteration": 0,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 198,
+    "origin": 1791474883934.9,
+    "ready": "source-detail",
+    "text": "PMS · 面辅料采购 / 单据详情\n\n查看本生产单时效\n物料采购单 · 演示MP-F01-89\n已收齐入库\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0089 · 对象 / 范围：F01 主面料白坯布 · 国内采购\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n本物料需求与库存 / 补采分配\n物料\t规格\t本单需求量\t下单时库存量\t本单计划采用库存量\t本单缺口补采量\t供给接收方\n\nF01 主面料白坯布\nPCS 原型原料效果图\n\t主身／袖口 · 蓝底花型A/B\t1,500米\t600米\t600米\t900米\t染色厂阿迪\n对应库存 / 采购 / 入库 / 调拨记录\n\n计划采用库存不代表已调出或已接收；实物进度看调拨交出及下游实收。补采分别看采购下单、仓库入库及入库后的调拨，不把下单量视为已入库。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n原料调拨单 · 演示TR-F01-STOCK-89\tF01 主面料白坯布 · 库存采用\t已接收\t600米\t面料仓周婷\t染色厂阿迪\n物料采购单 · 演示MP-F01-89\tF01 主面料白坯布 · 国内采购\t已收齐入库\t900米\t采购赵敏\t面料仓周婷\n原料入库单 · 演示IN-F01-89\tF01 主面料白坯布 · 面料仓\t已入库\t900米\t面料仓周婷\t面料仓周婷\n原料调拨单 · 演示TR-F01-PURCHASE-89\tF01 主面料白坯布 · 采购入库后调拨\t已接收\t900米\t面料仓周婷\t染色厂阿迪\n中转接收 / 人工配料 / 裁床领料\n\n只读取实际记录，不自动判齐套或放行。\n\n对应中转仓接收、人工配料及裁床领料单据待核实；现有工厂或裁床接收记录不自动生成这些动作。\n\n单据事实与时间\n应采购\n900米\n仓库实收\n900米\n业务事实\t实际时间\n下单\t2026-09-20 12:00\n仓库入库\t2026-09-30 12:00\n本单据时效（制作、加工、采购到仓与交接分别计时）\n\n未完成且超过截止才是当前需催办的超时；已完成但晚于截止保留延误结果，耗时停止增加。交接从上游实际交出计至下游实际接收；未配置标准时只记录耗时，不判正常或超时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n采购到仓\t2026-09-20 12:00\t2026-09-30 12:00\t8自然日\t2026-09-28 12:00\t10天\t已入面辅料仓 · 晚2天\n执行与交接责任\n执行负责人\n采购赵敏\n交出确认责任\n采购赵敏\n下游接收确认责任\n面料仓周婷\n关联原始单据\n\n本页为完整单据详情；点击关联单据进入其所在模块的详情页。监控图中的单据先打开简要信息弹窗，选择查看详情才新建标签页；各页面读取同一份演示记录。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\nBOM物料明细 · 演示PP-0089 · BOM明细-89\t5项物料及颜色／花型适用要求\t已确认\t5项\t张琳\t买手陈静\n原料入库单 · 演示IN-F01-89\tF01 主面料白坯布 · 面料仓\t已入库\t900米\t面料仓周婷\t面料仓周婷\n原料调拨单 · 演示TR-F01-PURCHASE-89\tF01 主面料白坯布 · 采购入库后调拨\t已接收\t900米\t面料仓周婷\t染色厂阿迪",
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0089%2Fmp-F01",
+    "elapsedMs": 394.39990234375
+  },
+  {
+    "kind": "purchase",
+    "iteration": 1,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 217.9000000059605,
+    "origin": 1791474884541.6,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0089%2Fmp-F01",
+    "elapsedMs": 444.199951171875
+  },
+  {
+    "kind": "purchase",
+    "iteration": 2,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 216.0999999940395,
+    "origin": 1791474885136.6,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0089%2Fmp-F01",
+    "elapsedMs": 438.000244140625
+  },
+  {
+    "kind": "purchase",
+    "iteration": 3,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 214.9000000059605,
+    "origin": 1791474885742.2,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0089%2Fmp-F01",
+    "elapsedMs": 442.499755859375
+  },
+  {
+    "kind": "purchase",
+    "iteration": 4,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 215.60000000149012,
+    "origin": 1791474886388.2,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/pms/material-purchase-orders/PO-202610-0089%2Fmp-F01",
+    "elapsedMs": 456
+  },
+  {
+    "kind": "unfinished-embroidery",
+    "iteration": 0,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 245.5,
+    "origin": 1791474890128.7,
+    "ready": "source-detail",
+    "text": "PFOS/FCS · 辅助工艺绣花 / 单据详情\n\n查看本生产单时效\n绣花加工单 · 演示AUX-CUT-S-01-EMB-89\n加工中\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0089 · 对象 / 范围：CUT-S-01 袖片 · M/L/XL\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n加工对象明细\n加工对象 / 范围\t现场单位\t本项应加工 / 应裁量\t实际完成量\t尚未完成量\t单据加工状态\nCUT-S-01 袖片 · M/L/XL\t片\t3,000片\t2,400片\t600片\t加工中\n本部位工序与交接记录\n\n袖片 · 多道 · 模版机→绣花；片数不得直接折算成成衣完成量。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n裁剪单 · 演示CUT-CUT-S-01-89\tCUT-S-01 · 袖片 · M/L/XL\t本部位已裁出\t3,000片\t裁床刘军\t陈静／下游工厂\n模版机加工单 · 演示AUX-CUT-S-01-TEMPLATE-89\tCUT-S-01 袖片 · M/L/XL\t加工完成\t3,000片\t模版机厂林梅\t绣花厂阿琳\n交接单 · 演示HO-CUT-S-01-TEMPLATE-89\tCUT-S-01 袖片\t已接收\t3,000片\t模版机厂林梅\t绣花厂阿琳\n绣花加工单 · 演示AUX-CUT-S-01-EMB-89\tCUT-S-01 袖片 · M/L/XL\t加工中\t3,000片\t绣花厂阿琳\t裁床刘军\n单据事实与时间\n应加工\n3,000片\n已完成\n2,400片\n未完成\n600片\n业务事实\t实际时间\n建单\t2026-10-03 09:00\n加工开始\t2026-10-03 09:00\n加工完成\t待核实\n本单据时效（制作、加工、采购到仓与交接分别计时）\n\n未完成且超过截止才是当前需催办的超时；已完成但晚于截止保留延误结果，耗时停止增加。交接从上游实际交出计至下游实际接收；未配置标准时只记录耗时，不判正常或超时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n加工\t2026-10-03 09:00\t尚无实际完成时间\t3自然日\t2026-10-06 09:00\t4天\t未完成 · 已超时1天\n执行与交接责任\n执行负责人\n绣花厂阿琳\n交出确认责任\n绣花厂阿琳\n下游接收确认责任\n裁床刘军\n关联原始单据\n\n本页为完整单据详情；点击关联单据进入其所在模块的详情页。监控图中的单据先打开简要信息弹窗，选择查看详情才新建标签页；各页面读取同一份演示记录。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n裁剪单 · 演示CUT-CUT-S-01-89\tCUT-S-01 · 袖片 · M/L/XL\t本部位已裁出\t3,000片\t裁床刘军\t陈静／下游工厂\n交接单 · 演示HO-CUT-S-01-TEMPLATE-89\tCUT-S-01 袖片\t已接收\t3,000片\t模版机厂林梅\t绣花厂阿琳",
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0089%2Faux-CUT-S-01-emb",
+    "elapsedMs": 417.599853515625
+  },
+  {
+    "kind": "unfinished-embroidery",
+    "iteration": 1,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 204,
+    "origin": 1791474890841.7,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0089%2Faux-CUT-S-01-emb",
+    "elapsedMs": 431.300048828125
+  },
+  {
+    "kind": "unfinished-embroidery",
+    "iteration": 2,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 207.10000000149012,
+    "origin": 1791474891511.8,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0089%2Faux-CUT-S-01-emb",
+    "elapsedMs": 435.2001953125
+  },
+  {
+    "kind": "unfinished-embroidery",
+    "iteration": 3,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 197.20000000298023,
+    "origin": 1791474892121.8,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0089%2Faux-CUT-S-01-emb",
+    "elapsedMs": 421.10009765625
+  },
+  {
+    "kind": "unfinished-embroidery",
+    "iteration": 4,
+    "entry": "/assets/index-DyHIx5_W.js",
+    "navigationMs": 207.20000000298023,
+    "origin": 1791474892721.3,
+    "ready": "source-detail",
+    "url": "http://localhost:4179/fcs/process-factory/special-craft/aux-op-embroidery/work-orders/PO-202610-0089%2Faux-CUT-S-01-emb",
+    "elapsedMs": 430.800048828125
+  }
+]

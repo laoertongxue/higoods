@@ -12,7 +12,7 @@ import { renderTimingFollowups, handleTimingFollowupClick, handleTimingFollowupF
 import { materialImageContent } from './material-image-view'
 const base='/dds/supply-chain/production-fulfillment'
 let activeId='',previousFocus:HTMLElement|null=null,loading=false
-const titles:Record<string,string>={overview:'时效总览',orders:'生产单监控','pending-purchases':'待关联采购','follow-up':'我的跟单','work-items':'工作项监控',teams:'团队与工厂','inbound-analysis':'入库时效分析',configuration:'时效口径与配置'}
+const titles:Record<string,string>={overview:'时效总览',orders:'生产单监控','pending-purchases':'待关联采购','follow-up':'我的跟单','work-items':'工作项监控',teams:'团队与工厂','inbound-analysis':'入库时效分析',configuration:'时效口径（只读）'}
 function ready(start:number,action:string):void{
  requestAnimationFrame(()=>requestAnimationFrame(()=>{
   const root=document.getElementById('pf-app');if(!root)return

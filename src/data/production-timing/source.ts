@@ -35,7 +35,7 @@ export function getTimingFacts(c:TimingCase):any{
  const complete=c.warehouse!==null&&c.warehouse>=required,remaining=c.warehouse===null?null:Math.max(0,required-c.warehouse),conflicts:string[]=[]
  let balance:any=null
  if(remaining!==null){const waiting=c.key==='late'?required:c.waitingConfirmed||0;balance={factory:complete?0:Math.max(0,held-received),processing:complete?0:(c.processing?.qty||0),handover:complete?0:(c.inbound&&!c.inbound.in?c.inbound.qty:0),unknown:complete||waiting?0:Math.max(0,required-held),waiting:complete?0:waiting,position:0};const known=Object.values(balance).reduce<number>((s,n)=>s+Number(n),0);balance.position=Math.max(0,remaining-known);if(known>remaining)conflicts.push('位置记录合计超过未入库量，可能重复或未更新，需核对');if(complete&&(held>received||c.processing||c.inbound&&!c.inbound.in))conflicts.push('成衣仓已全量入库，上游任务或批次仍保留旧未完成记录');if(c.warehouse!>required)conflicts.push('实际入库量超过采购应完成量，需核对数量来源')}
- const result=c.warehouse===null?'入库完成情况待核实':complete?(c.warehouseAt?(timingMs(c.warehouseAt)<=deadline?'已按期完成':'已完成 · 逾期'+timingDuration(timingMs(c.warehouseAt)-deadline)):'已全部入库 · 按期结果待核实'):(timingMs(TIMING_AS_OF)>deadline?'入库已逾期 · 仍有'+remaining+'件未完成':'入库截止未到')
+ const result=c.warehouse===null?'入库数量待核实，完成结果无法判定':complete?(c.warehouseAt?(timingMs(c.warehouseAt)<=deadline?'已全部入库 · 按期':'已全部入库 · 晚'+timingDuration(timingMs(c.warehouseAt)-deadline)):'已全部入库 · 是否按期待核实'):(timingMs(TIMING_AS_OF)>deadline?'未全部入库 · 已超时'+timingDuration(timingMs(TIMING_AS_OF)-deadline)+' · 仍有'+remaining+'件未完成':'未全部入库 · 截止未到')
  return {required,first,deadline,held,received,remaining,balance,result,complete,conflicts}
 }
 const documentIndex=new Map<string,{document:TimingDocument;order:TimingCase;branch:TimingBranch}>()

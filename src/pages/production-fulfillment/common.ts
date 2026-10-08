@@ -8,7 +8,7 @@ import { renderTablePagination } from '../../components/ui/pagination'
 import { loadListColumnPreferences, saveListColumnPreferences, sortStandardListRows, paginateStandardListRows, type StandardListColumnPreferences, type StandardListSortState } from '../../components/ui/list-table-model'
 
 export const e = escapeHtml
-export const fmt = (value:number|null|undefined):string => value==null||!Number.isFinite(value)?'待判定':value.toLocaleString('zh-CN',{maximumFractionDigits:2})
+export const fmt = (value:number|null|undefined):string => value==null||!Number.isFinite(value)?'待核实':value.toLocaleString('zh-CN',{maximumFractionDigits:2})
 const dateFormatters=[false,true].map(short=>new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',year:short?undefined:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}))
 export function dt(value:string|null|undefined, short=false):string {
   if(!value || !Number.isFinite(Date.parse(value)))return '—'
@@ -16,7 +16,7 @@ export function dt(value:string|null|undefined, short=false):string {
   return text.replaceAll('/','-')
 }
 export function badge(text:string):string {
-  const tone=/预计|追回|临期|风险/.test(text)?'amber':/逾期|超时|冲突|阻断/.test(text)?'red':/正常|按期|已完成|已到厂|全部发货/.test(text)?'green':/进行|生产中|部分|处理中/.test(text)?'blue':'slate'
+  const tone=/预计|追回|临期|风险|待核实|无法|缺失|待确认/.test(text)?'amber':/逾期|超时|冲突|阻断|晚/.test(text)?'red':/正常|按期|已完成|已到厂|全部发货/.test(text)?'green':/进行|生产中|部分|处理中/.test(text)?'blue':'slate'
   return `<span class="pf-badge pf-${tone}">${e(text)}</span>`
 }
 export function button(label:string,action:string,attrs=''):string {

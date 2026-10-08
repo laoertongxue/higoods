@@ -1,0 +1,1098 @@
+{
+  "scope": "All 18 top-level Markdown documents under production-fulfillment-timeliness; excludes implementation-evidence* logs/raw snapshots/screenshots",
+  "basis": "Current human-confirmed timing rules and published V7; code was not read and browser/Git/build not touched",
+  "confirmed_by_parent_context": {
+    "main_sha": "86593df8502d751362cdbab8676510bc233ef0b9",
+    "production_status": "success",
+    "remaining_browser_gates": [
+      "same-effective-content-width screenshot comparison",
+      "actual browser storage failure injection"
+    ]
+  },
+  "csv_read": {
+    "v7-integration-matrix.csv": {
+      "rows": 106,
+      "states": {
+        "已验证": 101,
+        "已阻塞": 5
+      }
+    },
+    "requirements-matrix.csv": {
+      "rows": 327,
+      "states": {
+        "已实现待验证": 180,
+        "实施中": 144,
+        "不适用": 3
+      },
+      "nature": "historical V1—V4 matrix, not current V7 acceptance"
+    }
+  },
+  "documents": [
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/business-review-v1.md",
+      "line_count": 45,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-028"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/dependency-revision-v4.md",
+      "line_count": 79,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-026"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/design-review.md",
+      "line_count": 59,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-033"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/implementation-plan.md",
+      "line_count": 178,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-024"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/implementation-review-v2.md",
+      "line_count": 49,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-035"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/implementation-review.md",
+      "line_count": 61,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-034"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/information-architecture-v2.md",
+      "line_count": 38,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-027"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/main-publication-20260918.md",
+      "line_count": 33,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-038"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/mock-scenarios.md",
+      "line_count": 117,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-029"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "line_count": 867,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-023",
+        "DOC-COPY-039",
+        "DOC-COPY-040",
+        "DOC-COPY-041",
+        "DOC-COPY-042",
+        "DOC-COPY-043",
+        "DOC-COPY-044",
+        "DOC-COPY-045",
+        "DOC-COPY-046",
+        "DOC-COPY-047",
+        "DOC-COPY-048"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/requirements-index.md",
+      "line_count": 28,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-031",
+        "DOC-COPY-049"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/review-v2-findings.md",
+      "line_count": 154,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-036"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/review-v2-resolution.md",
+      "line_count": 78,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-037"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/source-alignment-v3.md",
+      "line_count": 115,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-025"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/source-index.md",
+      "line_count": 28,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-032",
+        "DOC-COPY-050"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "line_count": 235,
+      "nature": "current V7 normative",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "update current contradictions and add unambiguous business copy contract",
+      "finding_ids": [
+        "DOC-COPY-001",
+        "DOC-COPY-002",
+        "DOC-COPY-007",
+        "DOC-COPY-008",
+        "DOC-COPY-009",
+        "DOC-COPY-010",
+        "DOC-COPY-012",
+        "DOC-COPY-013",
+        "DOC-COPY-014",
+        "DOC-COPY-015",
+        "DOC-COPY-016",
+        "DOC-COPY-017",
+        "DOC-COPY-018",
+        "DOC-COPY-019",
+        "DOC-COPY-020",
+        "DOC-COPY-021",
+        "DOC-COPY-022",
+        "DOC-COPY-051"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-plan.md",
+      "line_count": 95,
+      "nature": "current V7 implementation",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "update current contradictions and add unambiguous business copy contract",
+      "finding_ids": [
+        "DOC-COPY-003",
+        "DOC-COPY-004",
+        "DOC-COPY-005",
+        "DOC-COPY-006",
+        "DOC-COPY-011"
+      ]
+    },
+    {
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/work-item-catalog.md",
+      "line_count": 95,
+      "nature": "historical design or receipt",
+      "read_coverage": "full top-level document, including tables, formula blocks and history appendices",
+      "recommendation": "add explicit historical banner and current V7 references, retain original evidence and historical rule examples",
+      "finding_ids": [
+        "DOC-COPY-030"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "DOC-COPY-001",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        3
+      ],
+      "old_fragment": "原PDA缺分配日期边界尚无存量对应场景；尚未产品接受或远端发布",
+      "business_impact": "与118/195/204已验证85样本和已发布main事实冲突，误判当前覆盖与发布状态",
+      "recommended_expression": "现有PDA车缝任务页及进度看板缺业务分配日期场景已验证；V7已发布main86593df8及Production；图示同宽比对和浏览器存储故障两项门禁仍阻塞。产品接受独立记录。",
+      "repair_mode": "revise-current",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-002",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        207
+      ],
+      "old_fragment": "本次未提交/合并/推送Git或发布Vercel",
+      "business_impact": "把已发布原型表述为仍未发布",
+      "recommended_expression": "2026-10-08已按用户授权合并main并推送GitHub，提交86593df8502d751362cdbab8676510bc233ef0b9；Production成功。发布回执不替代两个未关闭验收门禁。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-003",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-plan.md",
+      "lines": [
+        3,
+        7,
+        95
+      ],
+      "old_fragment": "本地接入可评审；不发布远端；未提交、合并、推送或发布",
+      "business_impact": "实施计划头尾与已发布事实不一致",
+      "recommended_expression": "V7项目接入版已发布；本文实施阶段的范围与原始验收结果保持历史，后续发布以回执为准，尚未关闭门禁仍保留。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-004",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-plan.md",
+      "lines": [
+        32,
+        34
+      ],
+      "old_fragment": "失败态待专项重放；源详情差额与F02图片失败态均有专项页面证据",
+      "business_impact": "同一工作包同一验收既待测又通过",
+      "recommended_expression": "F02摘要及原详情图片失败态各5次已验证，按UI-012引用实际证据；未知采购缺图仍按真实边界显示。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-005",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-plan.md",
+      "lines": [
+        51,
+        53
+      ],
+      "old_fragment": "滚动及展开保留、三屏完整任务、素材失败态与打印仍待对应结果证据；剩余视觉门禁未关闭",
+      "business_impact": "与design186三屏、193打印、165失败态已验证冲突",
+      "recommended_expression": "三设备、展开及滚动恢复、F02图片失败态、25个PDF生成验证已有证据；严格同有效宽度像素比对仍阻塞。不能用PDF生成代替纸质打印。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-006",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-plan.md",
+      "lines": [
+        62,
+        91
+      ],
+      "old_fragment": "WP4当前状态：已实现待验证；无已实现待验证行",
+      "business_impact": "工作包与106条矩阵显示不同交付状态",
+      "recommended_expression": "WP4入口与筛选/图表/导出按对应PAGE行已验证；整体强一致与存储故障门禁仍由WP0/WP5/WP6负责。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-007",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        42
+      ],
+      "old_fragment": "列表专项按矩阵区分已采样与待验证",
+      "business_impact": "尚无待验证矩阵行却暗示列表仍待验",
+      "recommended_expression": "页面职责与最终原子验收以v7-integration-matrix.csv为准；本轮已验证项及两类阻塞明确分列。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-008",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        204,
+        200
+      ],
+      "old_fragment": "未关闭门禁 下列CONTRACT-005：已验证",
+      "business_impact": "已验证项列在未关闭门禁会被读者当成仍阻塞",
+      "recommended_expression": "将CONTRACT-005放入已关闭门禁/已完成浏览器验证；未关闭门禁只保留BASE003/UI011、STORE005及依赖VERIFY001/002。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-009",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        179,
+        189,
+        191,
+        195
+      ],
+      "old_fragment": "当前index-DSPY5QtO、原PDA、缺日期看板分支未实际遇到",
+      "business_impact": "历史版本记录被当成最新发布版本和当前未覆盖结论",
+      "recommended_expression": "§8.1标注为集成阶段冻结证据，保留原bundle/样本；补已发布main版本及合并后证据链接。191说明该历史批次未覆盖，195为后续已闭环证据。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-010",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        211,
+        231,
+        235
+      ],
+      "old_fragment": "420件旧PDA交接Mock；原PDA；本轮未发布",
+      "business_impact": "用户已明确不理解“旧PDA”，暗示废弃系统；变更记录没有明确与当前状态区别",
+      "recommended_expression": "当前叙述统一“现有PDA车缝任务执行页”；420件明确为既有演示交出记录，不是正式后道实收；231/235属于发布前历史记录，头部指向最新发布状态，不重写历史证据。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-011",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-plan.md",
+      "lines": [
+        71,
+        91
+      ],
+      "old_fragment": "浏览器失败／冲突及旧资料保留证据独立待验证",
+      "business_impact": "已知实际失败/冲突被拒绝却仍含糊待验证；旧资料保留和迁移混为验收",
+      "recommended_expression": "普通保存已验证；实际浏览器写入失败/冲突验证已阻塞；本轮旧资料只保留，不执行迁移或清理；空旧库证据不能推定非空迁移完成。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-012",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        67,
+        78,
+        134
+      ],
+      "old_fragment": "当前超时和历史逾期；逾期完成为历史延误；准备历史晚1天",
+      "business_impact": "缺直接业务文案示例，容易复用成“无当前逾期+逾期完成”视觉冲突",
+      "recommended_expression": "明确分成“仍未完成，已超时X”“已完成，晚X”；阶段已完成但晚时优先显示完成事实及实际时间；禁止无范围的绿色“无当前逾期”与红色历史标签并列。",
+      "repair_mode": "revise-current",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-013",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        78,
+        141
+      ],
+      "old_fragment": "合同节点逾期达成；当前欠量为0",
+      "business_impact": "未说明已达成节点仍可晚达成，不代表未来节点均达标",
+      "recommended_expression": "“30%节点已达成，晚12小时；要求X时，实际Y时；该节点当前差额0件”。未来节点分别显示未到期/到期未达成。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-014",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        94,
+        135
+      ],
+      "old_fragment": "无当前合同逾期；回货正常／无当前合同逾期",
+      "business_impact": "读者把局部合同当前状态理解成整单及未来一定按期",
+      "recommended_expression": "“已到期合同节点均达标，后续节点未到期”；有历史晚达成须同时写具体节点已达成晚X；整单截止、入仓结果及预测另列，不使用全局“正常”。",
+      "repair_mode": "revise-current",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-015",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        92,
+        94,
+        138
+      ],
+      "old_fragment": "已全部入库／按期结果待核实；整单按期把握待核实",
+      "business_impact": "已完成的按期结果缺时间与未完成的预计按期把握不是一个待核实",
+      "recommended_expression": "数量已全入库且最后时间未知：“已全部入成衣仓，最后入库时间待核实，按期结果暂不能判断”；尚未完成且无可靠预计：“尚未全量入库，预计全部入库时间待核实”。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-016",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        136,
+        137
+      ],
+      "old_fragment": "全部按期入库；全部入库／历史逾期",
+      "business_impact": "“全部按期”易解释为全部工序无延误；“历史逾期”未说明整单还是单项",
+      "recommended_expression": "“全量入成衣仓，整单按期完成”；“全量入成衣仓，整单晚1天6小时”。各单项历史晚完成仍保留；整单结论不覆盖单项。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-017",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        108,
+        110
+      ],
+      "old_fragment": "真实历时及标准待配置；制作/交接未发生不启动",
+      "business_impact": "配置一词让只读口径页的用户以为能自行配置；未发生和缺记录同样显示空值",
+      "recommended_expression": "“已用X，时效要求待确认，暂不能判断是否超时”；明确已知尚未开始/尚未交出与开始或交出时间未记录，不能互相替代。交接已接收与全部应交数量收齐另列。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-018",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        51,
+        108,
+        149
+      ],
+      "old_fragment": "采购下单→面辅料仓入库8天；面辅料供给",
+      "business_impact": "阶段名可能把采购8天误读为所有调拨加工合计8天",
+      "recommended_expression": "“每笔补采：本笔物料采购下单→面料仓/辅料仓入库，8自然日”；库存调拨、后续加工、工厂交接各按自身事实和已确认要求显示，不套8天。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-019",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        100,
+        147,
+        148
+      ],
+      "old_fragment": "物料需求＝本单库存采用＋本单补采；确认可用600",
+      "business_impact": "本单库存采用可被看成已调拨或已实收；采购已下单可被看成已可用",
+      "recommended_expression": "把需求/采用/补采承诺与实际入库/调拨交出/下游实收分开，库存采用600米并不直接等于工厂已实收600米；“本环节实收600米，补采900米尚未入仓”。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-020",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        98,
+        102,
+        149
+      ],
+      "old_fragment": "工厂尚未回；后道实收量",
+      "business_impact": "未回可能误作分配量减回货，实收又可能误作成衣仓已入库",
+      "recommended_expression": "图例明确工厂尚未回＝实际领料且尚未被后道正式实收的任务数量；后道实收≠成衣仓入库；分配未领另列；分母分子都带本任务范围。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-021",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        120,
+        144
+      ],
+      "old_fragment": "领料第3天要求；样衣未通过不阻断",
+      "business_impact": "未区分样衣交出/接收/审核；无时分秒要求却显示小时超时可能误判",
+      "recommended_expression": "样衣标“要求交出日期”“实际交出”“下游接收”“审核结果”；晚交按已确认日期口径表达，未确认小时截止不判小时超时；审核未通过不改变合同回货节点。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-022",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        124,
+        153
+      ],
+      "old_fragment": "超时影响范围；差额600片待确认",
+      "business_impact": "已完成历史晚被当成现在仍阻塞；差额可能当物流丢失或折算成成衣缺数",
+      "recommended_expression": "当前仍未完成超时→已明确关联的下游对象；已完成晚→历史影响追溯；交出3000片/实收2400片/剩余600片接收或差异待核实，不擅自判运输损失，不折为600件。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-023",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        3,
+        5,
+        7,
+        11,
+        17,
+        82,
+        84,
+        262,
+        305,
+        454,
+        458,
+        504,
+        539,
+        631,
+        637,
+        675,
+        715,
+        758,
+        805
+      ],
+      "old_fragment": "V4当前状态/通用业务规则继续有效/下单到实发/每来源独立T0/所有规则连续24小时/可编辑发布/200ms",
+      "business_impact": "历史综合V1—V4产品设计，含当时来源与失败证据；不能再作为现行业务规范",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-024",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/implementation-plan.md",
+      "lines": [
+        3,
+        5,
+        11,
+        33,
+        63,
+        82,
+        83,
+        101,
+        120
+      ],
+      "old_fragment": "当前权威来源为product-design第21节与dependency-v4/实发未接通/配置发布/200ms/当前没有获得产品接受不提交部署",
+      "business_impact": "历史V4计划及当时验收，不是V7当前实施计划",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-025",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/source-alignment-v3.md",
+      "lines": [
+        3,
+        5,
+        9,
+        24,
+        25,
+        34,
+        37,
+        47,
+        88,
+        95,
+        109
+      ],
+      "old_fragment": "本文件是当前版本增量/当前任务用电脑读取时点/需求粒度/来源关联保存/保留多层Tab/200ms",
+      "business_impact": "历史V3增量规范，不能继续覆盖V7固定场景时点与同屏图示",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-026",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/dependency-revision-v4.md",
+      "lines": [
+        3,
+        7,
+        12,
+        14,
+        16,
+        17,
+        18,
+        36,
+        73
+      ],
+      "old_fragment": "当前实施中/默认依赖图/查看来源页面与需求列表/独立运输计时/可发布规则/200ms/final5当前",
+      "business_impact": "历史V4整改规范及阶段结果，不能据此恢复被撤销菜单/写入入口",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-027",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/information-architecture-v2.md",
+      "lines": [
+        3,
+        9,
+        10,
+        11,
+        12,
+        15,
+        21,
+        22,
+        23
+      ],
+      "old_fragment": "任务详情六个页签/工作抽屉多个Tab/独立规则验证示例",
+      "business_impact": "历史V2信息架构，V7用户明确一页三角色同屏图示，不恢复旧详情拆分",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-028",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/business-review-v1.md",
+      "lines": [
+        3,
+        7,
+        11,
+        27,
+        28,
+        43,
+        45
+      ],
+      "old_fragment": "DEM任务详情/需求下达已用/有效生产需求与实发/保留现有路由/本版用于本地看效果",
+      "business_impact": "历史2026-10-07业务第一版及发布过程；不是本轮生产单监控主时钟和菜单",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-029",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/mock-scenarios.md",
+      "lines": [
+        1,
+        3,
+        7,
+        19,
+        51,
+        53,
+        55,
+        59,
+        67,
+        94,
+        110,
+        115
+      ],
+      "old_fragment": "冻结Mock完整任务实例/24天/整批等待/发货后订单/曾逾期1天",
+      "business_impact": "历史V1/V2算例，不是V7 20场景数据集；历史术语和数量保持原字节",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-030",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/work-item-catalog.md",
+      "lines": [
+        1,
+        3,
+        5,
+        14,
+        18,
+        30,
+        32,
+        41,
+        43,
+        60,
+        63,
+        70,
+        71,
+        80,
+        85,
+        91,
+        95
+      ],
+      "old_fragment": "77候选动作/运输考核/准备候选5天/辅助候选3天/90%/组计时/成衣入库不是实发终点",
+      "business_impact": "历史V1/V2目录；不能把候选时长/默认系统齐套/运输/发货作为V7现行要求",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-031",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/requirements-index.md",
+      "lines": [
+        1,
+        3,
+        5,
+        16
+      ],
+      "old_fragment": "259条适用项已验证/CSV为正式追踪表",
+      "business_impact": "历史V1索引，259条全部通过已在V2撤回，不是现行327更不是V7106条",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-032",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/source-index.md",
+      "lines": [
+        3,
+        12,
+        15,
+        20,
+        26
+      ],
+      "old_fragment": "设计事实来源main4804328/工程准备文件/旧周日例外/用户本轮实发关联订单",
+      "business_impact": "历史2026-09-17源码/资料引用索引。文件名属于当时技术证据，不表示当前PCS业务仍叫工程",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-033",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/design-review.md",
+      "lines": [
+        3,
+        9,
+        14,
+        19,
+        49,
+        53,
+        56,
+        57
+      ],
+      "old_fragment": "本次设计核验/实发D24/客户订单/未来200ms/全部260待实施",
+      "business_impact": "历史2026-09-17设计核验回执。原始测试和接受状态须保留，不当作当前待做清单",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-034",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/implementation-review.md",
+      "lines": [
+        1,
+        38,
+        47,
+        59
+      ],
+      "old_fragment": "V1历史当前状态见V2/当前未提交/259已验证",
+      "business_impact": "历史V1验收回执，首段已撤回，但当前链接只指V2仍易误读，应改指现行V7并保留原259历史声明",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-035",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/implementation-review-v2.md",
+      "lines": [
+        3,
+        7,
+        10,
+        14,
+        15,
+        21,
+        23,
+        43,
+        45,
+        49
+      ],
+      "old_fragment": "当前信息结构/未发布/实发订单/配置发布/当前274矩阵",
+      "business_impact": "历史V2页面重整回执，版本与失败/通过范围保持原样",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-036",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/review-v2-findings.md",
+      "lines": [
+        3,
+        9,
+        19,
+        31,
+        43,
+        59,
+        141,
+        143,
+        144,
+        145,
+        150
+      ],
+      "old_fragment": "用户最新业务修正/本次不应破坏规则/实发与取消/运输独立",
+      "business_impact": "历史V2审阅意见，针对当时规范；现行已排除的能力不是本次待修缺项",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-037",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/review-v2-resolution.md",
+      "lines": [
+        5,
+        35,
+        50,
+        62,
+        70,
+        72,
+        76
+      ],
+      "old_fragment": "最新核查为final5/V4当前业务核查/当前327/当前运行服务",
+      "business_impact": "历史V2—V4处置回执，不能把其源缺口/版本作为V7当前状态",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-038",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/main-publication-20260918.md",
+      "lines": [
+        3,
+        8,
+        15,
+        31,
+        33
+      ],
+      "old_fragment": "本次当前DDS原型发布/当前327/本次发布性能失败",
+      "business_impact": "明确历史2026-09-18发布回执；原始性能失败不能被新版本覆盖，也不能误判2026-10-08发布仍失败",
+      "recommended_expression": "在标题下加入明确历史声明：本文记录对应日期的V1—V4需求/设计/验证，文中“当前/本轮/最新”均指当时；现行业务以[v7-integration-design.md]为准、实施以[v7-integration-plan.md]和[v7-integration-matrix.csv]为准。冲突条款仅供追溯，原证据、失败样本及冻结算例保持原文。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-039",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        17,
+        33,
+        35,
+        91,
+        113,
+        150,
+        183,
+        305,
+        316,
+        398,
+        408,
+        458,
+        471,
+        487,
+        502,
+        546,
+        607,
+        637,
+        643,
+        688
+      ],
+      "old_fragment": "从下单到实发/全部实发终点/订单及时率/订单履约分析",
+      "business_impact": "现行监控终点只到全量入成衣仓；消费者发货与订单取消不纳入本模块",
+      "recommended_expression": "最早商品采购下单+28自然日→全部应完成数量入成衣仓；菜单为入库时效分析。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-040",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        82,
+        84,
+        93,
+        739
+      ],
+      "old_fragment": "生产任务＝每个采购/需求1:1；合并保留每来源各自截止",
+      "business_impact": "现行以生产单唯一对象取最早商品采购单，不是需求分行计数",
+      "recommended_expression": "一张生产单一行，可关联多采购；取最早下单统一截止，采购不允许拆分到多生产单。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-041",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        120,
+        132,
+        174,
+        175,
+        181,
+        243,
+        247,
+        248,
+        250,
+        256,
+        389,
+        419,
+        627,
+        690
+      ],
+      "old_fragment": "运输/转运/审版等待/返工单独监控/取消减量",
+      "business_impact": "用户明确运输、审版、返工暂不跟踪；交接仅上游交出到下游接收；消费者取消不调分母",
+      "recommended_expression": "仅显示制作/加工与交接独立时钟及源质检结果；不新增运输/审版/返工考核。原商品采购应完成量作为基准。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-042",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        262,
+        281,
+        283,
+        291,
+        758,
+        759
+      ],
+      "old_fragment": "所有自然日连续24小时；准备5天待确认；印染候选3/5天",
+      "business_impact": "整单/阶段连续加天和合同按业务日期第1天不是统一一个算法；不能重开已确认选择",
+      "recommended_expression": "整单下单时刻+28天；准备无定位印4/有定位印5；物料本笔采购下单至面辅料仓入库8；辅助每道3；合同分配日第1天三类型不同节点。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-043",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        145,
+        155,
+        163,
+        164,
+        320,
+        363,
+        623
+      ],
+      "old_fragment": "齐套满足自动可执行/规则自动分批放行",
+      "business_impact": "人工裁片放行事实不能由系统决定；已知库存批可先行不必须整单等待",
+      "recommended_expression": "是否放行读取裁片放行管理人工事实；现货批/采购批分别展示实际单据和进度。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-044",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        181,
+        454,
+        516,
+        650
+      ],
+      "old_fragment": "正常、完成但曾逾期；主状态优先级；绿色完成叠红历史",
+      "business_impact": "未完成当前超时与已完成晚混合，正是本次用户困惑",
+      "recommended_expression": "在现行V7明确两轴：是否完成+是否按期；已完成晚X配实际完成时间；仍未完成超时X配应完成时间和剩余量，不使用无范围正常结论。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-045",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        491,
+        504,
+        505,
+        529,
+        548,
+        550
+      ],
+      "old_fragment": "切换依赖辅助视图/六组详情Tab/规则验证示例",
+      "business_impact": "与已认可同屏图示和删除旧路由冲突",
+      "recommended_expression": "现行一页固定信息顺序＋阶段原位展开＋单据本页摘要＋详情新标签；历史Tab和/tasks兼容不恢复。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-046",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        615,
+        619,
+        621,
+        623,
+        625,
+        631,
+        696,
+        699,
+        817
+      ],
+      "old_fragment": "时效规则、映射、责任可编辑发布/当前用户明确要求能力",
+      "business_impact": "现行只读口径页，不允许新增保存来源关联或规则发布",
+      "recommended_expression": "时效口径与配置只读显示已确认口径/适用合同；排除本轮修改保存，旧浏览器资料保留。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-047",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        675,
+        719
+      ],
+      "old_fragment": "电脑当前读取时点驱动asOf；冻结快照只在旧算例",
+      "business_impact": "V7当前20场景固定2026-10-07 09:00，不能刷新把同一Mock变成新超时",
+      "recommended_expression": "演示核实时点固定；浏览器读取时点另标，登记跟进真实时间不修改演示时钟。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-048",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/product-design.md",
+      "lines": [
+        715,
+        742,
+        754,
+        798,
+        859,
+        867
+      ],
+      "old_fragment": "当前全部<200ms才通过/当前33需求或327矩阵/最新final5",
+      "business_impact": "历史门槛/状态不能当作当前V7<=1000ms及106矩阵",
+      "recommended_expression": "历史技术结果留原样；现行门槛/覆盖/未关闭门禁按V7矩阵和最近发布证据，不能把旧技术失败消为通过。",
+      "repair_mode": "history-conflict-map",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-049",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/requirements-index.md",
+      "lines": [
+        3
+      ],
+      "old_fragment": "259条适用项已验证",
+      "business_impact": "这一总体结论已经V2明确撤回，历史声明若不讲撤回仍误导",
+      "recommended_expression": "明确“V1当时索引曾声称259已验证，该总体结论已于V2撤回；本表仅保留历史编号和章节关系，现行106条V7矩阵独立追踪”。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P1"
+    },
+    {
+      "id": "DOC-COPY-050",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/source-index.md",
+      "lines": [
+        12,
+        13,
+        15,
+        26
+      ],
+      "old_fragment": "生产准备工程代码名称/本轮实发确认客户订单",
+      "business_impact": "旧技术文件名不应继续成为业务名或现行行为规范",
+      "recommended_expression": "历史代码标识保持原引用；业务统一生产准备单，当前来源为V7静态登记及适配详情；发货关联客户订单属于旧范围且已排除。",
+      "repair_mode": "history-banner-and-current-link",
+      "priority": "P2"
+    },
+    {
+      "id": "DOC-COPY-051",
+      "file": "/Users/laoer/.codex/worktrees/d29f/higoods/docs/product-design/production-fulfillment-timeliness/v7-integration-design.md",
+      "lines": [
+        13,
+        215,
+        235
+      ],
+      "old_fragment": "业务文案不得自行改写/原19业务语义未改",
+      "business_impact": "用户现在明确授权全部歧义文案修复，应登记为允许的必要业务纠错，而不是强一致违规",
+      "recommended_expression": "本轮仅修表达歧义，单号以外的时间、数量、人员、对象关系、合同和图形结构保持；文案差异登记到新问题清单，已认可原图作为修复前基线，不改原证据。",
+      "repair_mode": "revise-current",
+      "priority": "P2"
+    }
+  ],
+  "finding_count": 51,
+  "preservation_rules": [
+    "Do not modify frozen source snapshots, raw evidence logs, screenshot bytes, original failed sample values or accepted original HTML",
+    "Do not use current release success to clear BASE003/UI011/STORE005 or dependent overall gates",
+    "Do not migrate data, rename technical source files or reinstate old routes/editor controls solely to reconcile historical wording",
+    "Current docs must distinguish actual source facts, static demo facts, business result, validation result, design acceptance and publication"
+  ]
+}

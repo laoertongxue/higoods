@@ -69,7 +69,7 @@ test('opening a follow-up modal only reads, and empty inputs never appear saved'
   h.click('save'); await settle()
   assert.equal(h.calls.length, 0)
   assert.ok(h.html().includes('跟进人、原因和跟进动作都需要填写'))
-  assert.ok(!h.html().includes('已保存，已读回确认'))
+  assert.ok(!h.html().includes('跟进记录已保存并核对'))
 })
 
 test('save waits for completion and readback, rejects double-click writes, and stores realtime feedback without a forecast', async () => {
@@ -80,8 +80,8 @@ test('save waits for completion and readback, rejects double-click writes, and s
   const started = Date.now()
   h.click('save'); h.click('save')
   assert.equal(h.calls.length, 1)
-  assert.ok(h.html().includes('正在保存，请等待事务完成'))
-  assert.ok(!h.html().includes('已保存，已读回确认'))
+  assert.ok(h.html().includes('正在保存，请稍候'))
+  assert.ok(!h.html().includes('跟进记录已保存并核对'))
   assert.equal(h.updated(), 0)
   finish!(); await settle()
   const record = h.records[0]
@@ -89,8 +89,8 @@ test('save waits for completion and readback, rejects double-click writes, and s
   assert.equal(record.nodeId, '')
   assert.ok(Date.parse(record.at) >= started)
   assert.ok(!record.at.startsWith('2026-10-07T01:00'), 'Registration time must not use the fixed demonstration ASOF')
-  assert.ok(h.html().includes('已保存，已读回确认'))
-  assert.ok(h.html().includes('预计时间仅作为跟进反馈，不覆盖'))
+  assert.ok(h.html().includes('跟进记录已保存并核对'))
+  assert.ok(h.html().includes('预计时间仅作为反馈，不覆盖'))
   assert.equal(h.updated(), 1)
 })
 
@@ -110,7 +110,7 @@ test('failed save retains all inputs and retries the exact same operation ID', a
   assert.equal(h.calls[0].id, h.calls[1].id)
   assert.equal(h.calls[0].at, h.calls[1].at)
   assert.equal(h.records.length, 1)
-  assert.ok(h.html().includes('已保存，已读回确认'))
+  assert.ok(h.html().includes('跟进记录已保存并核对'))
 })
 
 test('commit followed by readback failure remains unconfirmed until a read proves the same record', async () => {
@@ -121,7 +121,7 @@ test('commit followed by readback failure remains unconfirmed until a read prove
   h.click('save'); await settle()
   assert.equal(h.calls.length, 1)
   h.click('reload'); await settle()
-  assert.ok(h.html().includes('已保存，已读回确认'))
+  assert.ok(h.html().includes('跟进记录已保存并核对'))
   assert.equal(h.records.length, 1)
 })
 
@@ -158,7 +158,7 @@ test('old logs are retained, but never assigned to a new production order by inf
   const h = harness({ records: [old] })
   h.html(); await settle()
   const html = h.html()
-  assert.ok(html.includes('不迁移、不清理、不猜测归属'))
+  assert.ok(html.includes('不能确认归属的记录继续保留，待核实'))
   assert.ok(!html.includes('旧记录人') && !html.includes('旧需求跟进'))
   assert.equal(h.records[0], old)
   assert.equal(h.calls.length, 0)

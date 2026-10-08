@@ -1,0 +1,79 @@
+{
+  "baseHead": "86593df8502d751362cdbab8676510bc233ef0b9",
+  "worktree": "/Users/laoer/.codex/worktrees/d29f/higoods",
+  "branch": "codex/dds-task-business-review",
+  "entry": "/assets/index-DyHIx5_W.js",
+  "issueCount": 109,
+  "issueStatusCounts": {
+    "已验证": 109
+  },
+  "fixtureTextChanges": 50,
+  "sourceFactsUnchanged": true,
+  "browserSamples": 1100,
+  "performance": [
+    {
+      "file": "browser-pages.json",
+      "samples": 890,
+      "groups": 178,
+      "minimumSamplesPerGroup": 5,
+      "layoutSamples": 890,
+      "maxMs": 278.5,
+      "p95Ms": 162.39999999850988,
+      "over1000Ms": 0,
+      "entry": "/assets/index-DyHIx5_W.js",
+      "metric": "navigationMs"
+    },
+    {
+      "file": "browser-interactions.json",
+      "samples": 155,
+      "groups": 31,
+      "minimumSamplesPerGroup": 5,
+      "layoutSamples": 125,
+      "maxMs": 124.89999999850988,
+      "p95Ms": 111,
+      "over1000Ms": 0,
+      "entry": "/assets/index-DyHIx5_W.js",
+      "metric": "elapsedMs"
+    },
+    {
+      "file": "browser-exports.json",
+      "samples": 35,
+      "groups": 7,
+      "minimumSamplesPerGroup": 5,
+      "layoutSamples": 0,
+      "maxMs": 404.53029199969023,
+      "p95Ms": 403.08679099939764,
+      "over1000Ms": 0,
+      "entry": "/assets/index-DyHIx5_W.js",
+      "metric": "elapsedMs"
+    },
+    {
+      "file": "browser-new-tabs.json",
+      "samples": 15,
+      "groups": 3,
+      "minimumSamplesPerGroup": 5,
+      "layoutSamples": 0,
+      "maxMs": 512.2001953125,
+      "p95Ms": 512.2001953125,
+      "over1000Ms": 0,
+      "entry": "/assets/index-DyHIx5_W.js",
+      "metric": "elapsedMs"
+    },
+    {
+      "file": "browser-print.json",
+      "samples": 5,
+      "groups": 1,
+      "minimumSamplesPerGroup": 5,
+      "layoutSamples": 0,
+      "maxMs": 657.6178750004619,
+      "p95Ms": 657.6178750004619,
+      "over1000Ms": 0,
+      "entry": "/assets/index-DyHIx5_W.js",
+      "metric": "elapsedMs"
+    }
+  ],
+  "consoleErrors": 0,
+  "matrixIdsUniqueAndComplete": true,
+  "productAcceptance": "待用户确认",
+  "publication": "本轮本地增量尚未合并或推送"
+}

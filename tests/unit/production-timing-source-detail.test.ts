@@ -53,7 +53,7 @@ test('contract details retain natural-day deadlines and late achievement history
   const contract = Object.values(branch.docs).find(document => document.type === '车缝任务分配合同' && document.object.startsWith('B厂'))!
   const html = resolveTimingSourceDetail(timingDocumentHref(contract.id))!
   assert.ok(html.includes('2026-10-04 23:59'), 'Independent sewing day 4 must include Sunday')
-  assert.ok(html.includes('逾期达成 12小时'))
+  assert.ok(html.includes('已达标 · 晚12小时'))
   assert.ok(html.includes('工厂实领') && html.includes('后道累计实收'))
   assert.ok(html.includes('同厂其他任务不抵扣本任务缺口'))
 })
@@ -101,4 +101,27 @@ test('purchase-only scenario resolves to the existing merchandise purchase and p
   assert.ok(html.includes('240776') && html.includes('2026-03-01 09:00'))
   assert.ok(html.includes('/pending-purchases/240776'))
   assert.ok(!html.includes('生产准备任务'))
+})
+
+test('finished-goods detail distinguishes latest partial receipt from full completion time', () => {
+  for (const [scene, label] of [['live', '最近已记录入库时间（尚未证明全量完成）'], ['complete', '全量入仓完成时间（整单按期判断依据）']] as const) {
+    const order = getTimingCaseByScene(scene)
+    const document = Object.values(getTimingBranch(order)!.docs).find(document => document.type === '成衣仓入库单')!
+    assert.ok(document)
+    const html = resolveTimingSourceDetail(timingDocumentHref(document.id))!
+    assert.ok(html.includes(label), `${scene}: receipt time purpose must be explicit`)
+    assert.ok(html.includes(order.warehouseAt!), `${scene}: original time must remain unchanged`)
+  }
+})
+
+test('unknown timing standard is amber verification, never a red confirmed-overdue result', () => {
+  const order = getTimingCaseByScene('live')
+  const document = Object.values(getTimingBranch(order)!.docs).find(document => document.clock?.start && document.clock.sla == null)!
+  assert.ok(document)
+  const html = resolveTimingSourceDetail(timingDocumentHref(document.id))!
+  const escapedKind = document.clock!.kind.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const result = html.match(new RegExp('<span class="([^"]+)">' + escapedKind + '时效要求未确认 · 无法判定是否超时</span>'))
+  assert.ok(result, 'missing explicit unknown-standard result')
+  assert.match(result[1], /amber/)
+  assert.doesNotMatch(result[1], /red/)
 })
