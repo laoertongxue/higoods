@@ -1,5 +1,6 @@
 import type { ArchiveApprovalStatus, ArchiveLifecycleStatus, ProductDeliveryMode, ProductArchiveLog, SalesBaseContent, ProductBundleComponent, ProductArchiveOrigin } from './pcs-product-archive-rules.ts'
 import type { FlatDimensionId } from './pcs-config-dimensions.ts'
+import type { StyleSizeChartDraft } from './pcs-style-size-chart.ts'
 export type StyleArchiveStatusCode = 'DRAFT' | 'ACTIVE' | 'ARCHIVED'
 
 export interface StyleArchiveShellRecord extends ProductArchiveOrigin {
@@ -11,6 +12,10 @@ export interface StyleArchiveShellRecord extends ProductArchiveOrigin {
   sameStyleIds?: string[]
   substitutionRelations?: Array<{ id: string; targetKind: 'PRODUCT_SKU' | 'MATERIAL_SKU'; targetId: string; conditions: string; version: number }>
   salesContents?: SalesBaseContent[]
+  salesCountrySettings?: string[]
+  salesCountryDescriptions?: Record<string, string>
+  factorySizeChartHtml?: string
+  sizeChartDraft?: StyleSizeChartDraft
   legacyCodes?: string[]
   identitySource?: 'MANUAL' | 'HISTORY'
 
