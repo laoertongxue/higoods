@@ -1,0 +1,344 @@
+[
+  {
+    "type": "后道质检单",
+    "iteration": "first-navigation",
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 194.79999999701977,
+    "entry": "/assets/index-CowAGUVp.js",
+    "text": "PFOS · 后道 / 单据详情\n\n查看本生产单时效\n后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\n质检完成\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0101 · 对象 / 范围：A厂 SWT-A-01-0101 · 批次 A-03-1\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n后道任务与批次归属\n\n各批仅计入一个当前位置。\n\n对应车缝任务\t本批次\t批次数量\t当前数量位置\t合同范围\t实际加工地点\nSWT-A-01-0101\tA-03-1\t150件\t已交出待入仓\t车缝＋烫包\t后道厂\n本批次后道质检结果\n\n检验结果沿用本单实际记录；未取得检验结果不视为通过，未确认时效要求不自行判定超时。\n\n检验对象 / 范围\t实际检验数量与结果\t已记录检验结论\t检验负责人\t结果接手确认\nA厂 SWT-A-01-0101 · 批次 A-03-1\t应检：150件\n已检：150件\n合格：150件\n不合格：0件\t待核实\t质检陈芳\t后道李梅\n本批次后道单据链 · A-03-1\n\n每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。\n\n工作\t原始单据\t当前状态\t本项数量\t已记录实际时间\t执行 / 接收责任\t加工地点\n后道实际收货\t后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\t已实收\t150件\t后道实收：2026-10-06 14:00\n工厂交出：待核实\t赵亮 → 后道李梅\t后道厂\n后道质检\t后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\t质检完成\t150件\t质检开始：2026-10-06 14:01\n质检完成：2026-10-06 14:05\t质检陈芳 → 后道李梅\t后道厂\n后道加工单\t后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\t后道完成\t150件\t后道开始：2026-10-06 14:10\n后道完成：2026-10-06 15:40\t后道吴芳 → 后道李梅\t后道厂\n后道复检\t后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\t复检完成\t150件\t复检开始：2026-10-06 15:41\n复检完成：2026-10-06 15:45\t复检周燕 → 后道李梅\t后道厂\n后道交货\t后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\t已交出待接收\t150件\t后道交出：2026-10-06 16:00\n成衣仓接收：待核实\t后道李梅 → 成衣仓周婷\t后道厂\n成衣仓接收\t—\t成衣仓尚未接收，入库单尚未生成\t待接收 150件\t尚未发生\t责任待核实\t待核实\n单据事实与时间\n业务事实\t实际时间\n质检开始\t2026-10-06 14:01\n质检完成\t2026-10-06 14:05\n本单据时效\n\n加工与交接分别计时；未确认时效要求只记录耗时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n质检\t2026-10-06 14:01\t2026-10-06 14:05\t时效要求未确认\t时效要求未确认，截止无法计算\t4分钟\t质检时效要求未确认 · 无法判定是否超时\n执行与交接责任\n执行负责人\n质检陈芳\n交出确认责任\n质检陈芳\n下游接收确认责任\n后道李梅\n业务说明\n\n质检工作独立于后道收货记录；质检完成后冻结实际后道项目。未确认质检时效标准，仅展示实际时间。\n\n关联原始单据\n\n点击单据查看其所属模块详情。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\tA厂 SWT-A-01-0101 · 批次 A-03-1\t已实收\t150件\t赵亮\t后道李梅\n后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\tA厂 SWT-A-01-0101 · 批次 A-03-1\t后道完成\t150件\t后道吴芳\t后道李梅"
+  },
+  {
+    "type": "查看单据 演示FF-post-SWT-A-01-0101-A-03-1-qc",
+    "iteration": 0,
+    "href": "/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 253.4000000059605,
+    "elapsedMs": 766,
+    "entry": "/assets/index-CowAGUVp.js",
+    "text": "PFOS · 后道 / 单据详情\n\n查看本生产单时效\n后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\n质检完成\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0101 · 对象 / 范围：A厂 SWT-A-01-0101 · 批次 A-03-1\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n后道任务与批次归属\n\n各批仅计入一个当前位置。\n\n对应车缝任务\t本批次\t批次数量\t当前数量位置\t合同范围\t实际加工地点\nSWT-A-01-0101\tA-03-1\t150件\t已交出待入仓\t车缝＋烫包\t后道厂\n本批次后道质检结果\n\n检验结果沿用本单实际记录；未取得检验结果不视为通过，未确认时效要求不自行判定超时。\n\n检验对象 / 范围\t实际检验数量与结果\t已记录检验结论\t检验负责人\t结果接手确认\nA厂 SWT-A-01-0101 · 批次 A-03-1\t应检：150件\n已检：150件\n合格：150件\n不合格：0件\t待核实\t质检陈芳\t后道李梅\n本批次后道单据链 · A-03-1\n\n每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。\n\n工作\t原始单据\t当前状态\t本项数量\t已记录实际时间\t执行 / 接收责任\t加工地点\n后道实际收货\t后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\t已实收\t150件\t后道实收：2026-10-06 14:00\n工厂交出：待核实\t赵亮 → 后道李梅\t后道厂\n后道质检\t后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\t质检完成\t150件\t质检开始：2026-10-06 14:01\n质检完成：2026-10-06 14:05\t质检陈芳 → 后道李梅\t后道厂\n后道加工单\t后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\t后道完成\t150件\t后道开始：2026-10-06 14:10\n后道完成：2026-10-06 15:40\t后道吴芳 → 后道李梅\t后道厂\n后道复检\t后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\t复检完成\t150件\t复检开始：2026-10-06 15:41\n复检完成：2026-10-06 15:45\t复检周燕 → 后道李梅\t后道厂\n后道交货\t后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\t已交出待接收\t150件\t后道交出：2026-10-06 16:00\n成衣仓接收：待核实\t后道李梅 → 成衣仓周婷\t后道厂\n成衣仓接收\t—\t成衣仓尚未接收，入库单尚未生成\t待接收 150件\t尚未发生\t责任待核实\t待核实\n单据事实与时间\n业务事实\t实际时间\n质检开始\t2026-10-06 14:01\n质检完成\t2026-10-06 14:05\n本单据时效\n\n加工与交接分别计时；未确认时效要求只记录耗时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n质检\t2026-10-06 14:01\t2026-10-06 14:05\t时效要求未确认\t时效要求未确认，截止无法计算\t4分钟\t质检时效要求未确认 · 无法判定是否超时\n执行与交接责任\n执行负责人\n质检陈芳\n交出确认责任\n质检陈芳\n下游接收确认责任\n后道李梅\n业务说明\n\n质检工作独立于后道收货记录；质检完成后冻结实际后道项目。未确认质检时效标准，仅展示实际时间。\n\n关联原始单据\n\n点击单据查看其所属模块详情。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\tA厂 SWT-A-01-0101 · 批次 A-03-1\t已实收\t150件\t赵亮\t后道李梅\n后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\tA厂 SWT-A-01-0101 · 批次 A-03-1\t后道完成\t150件\t后道吴芳\t后道李梅"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 161.6000000089407,
+    "entry": "/assets/index-CowAGUVp.js",
+    "text": "PFOS · 后道 / 单据详情\n\n查看本生产单时效\n后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\n质检完成\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0101 · 对象 / 范围：A厂 SWT-A-01-0101 · 批次 A-03-1\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n后道任务与批次归属\n\n各批仅计入一个当前位置。\n\n对应车缝任务\t本批次\t批次数量\t当前数量位置\t合同范围\t实际加工地点\nSWT-A-01-0101\tA-03-1\t150件\t已交出待入仓\t车缝＋烫包\t后道厂\n本批次后道质检结果\n\n检验结果沿用本单实际记录；未取得检验结果不视为通过，未确认时效要求不自行判定超时。\n\n检验对象 / 范围\t实际检验数量与结果\t已记录检验结论\t检验负责人\t结果接手确认\nA厂 SWT-A-01-0101 · 批次 A-03-1\t应检：150件\n已检：150件\n合格：150件\n不合格：0件\t待核实\t质检陈芳\t后道李梅\n本批次后道单据链 · A-03-1\n\n每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。\n\n工作\t原始单据\t当前状态\t本项数量\t已记录实际时间\t执行 / 接收责任\t加工地点\n后道实际收货\t后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\t已实收\t150件\t后道实收：2026-10-06 14:00\n工厂交出：待核实\t赵亮 → 后道李梅\t后道厂\n后道质检\t后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\t质检完成\t150件\t质检开始：2026-10-06 14:01\n质检完成：2026-10-06 14:05\t质检陈芳 → 后道李梅\t后道厂\n后道加工单\t后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\t后道完成\t150件\t后道开始：2026-10-06 14:10\n后道完成：2026-10-06 15:40\t后道吴芳 → 后道李梅\t后道厂\n后道复检\t后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\t复检完成\t150件\t复检开始：2026-10-06 15:41\n复检完成：2026-10-06 15:45\t复检周燕 → 后道李梅\t后道厂\n后道交货\t后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\t已交出待接收\t150件\t后道交出：2026-10-06 16:00\n成衣仓接收：待核实\t后道李梅 → 成衣仓周婷\t后道厂\n成衣仓接收\t—\t成衣仓尚未接收，入库单尚未生成\t待接收 150件\t尚未发生\t责任待核实\t待核实\n单据事实与时间\n业务事实\t实际时间\n质检开始\t2026-10-06 14:01\n质检完成\t2026-10-06 14:05\n本单据时效\n\n加工与交接分别计时；未确认时效要求只记录耗时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n质检\t2026-10-06 14:01\t2026-10-06 14:05\t时效要求未确认\t时效要求未确认，截止无法计算\t4分钟\t质检时效要求未确认 · 无法判定是否超时\n执行与交接责任\n执行负责人\n质检陈芳\n交出确认责任\n质检陈芳\n下游接收确认责任\n后道李梅\n业务说明\n\n质检工作独立于后道收货记录；质检完成后冻结实际后道项目。未确认质检时效标准，仅展示实际时间。\n\n关联原始单据\n\n点击单据查看其所属模块详情。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\tA厂 SWT-A-01-0101 · 批次 A-03-1\t已实收\t150件\t赵亮\t后道李梅\n后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\tA厂 SWT-A-01-0101 · 批次 A-03-1\t后道完成\t150件\t后道吴芳\t后道李梅"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 113.5,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 114.09999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 118.30000001192091,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 114,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 113.30000001192091,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 114.40000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 114.69999998807909,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "cold",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 115,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道质检单",
+    "mode": "refresh",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/qc-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-qc",
+    "navigationMs": 115.70000000298025,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 148,
+    "entry": "/assets/index-CowAGUVp.js",
+    "text": "PFOS · 后道 / 单据详情\n\n查看本生产单时效\n后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\n后道完成\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0101 · 对象 / 范围：A厂 SWT-A-01-0101 · 批次 A-03-1\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n后道任务与批次归属\n\n各批仅计入一个当前位置。\n\n对应车缝任务\t本批次\t批次数量\t当前数量位置\t合同范围\t实际加工地点\nSWT-A-01-0101\tA-03-1\t150件\t已交出待入仓\t车缝＋烫包\t后道厂\n本批后道加工单\n本单后道项目：开扣眼、装扣子\n\n来源：质检补加工\n\n整单后道处理结果\n\n项目共用本单数量；尚待记录处理结果与已确认未处理分别展示，未处理不等于加工剩余量。\n\n加工对象 / 范围\t应处理\t已处理\t已确认未处理\t尚待记录处理结果\t单据状态\nA厂 SWT-A-01-0101 · 批次 A-03-1\t150件\t150件\t0件\t0件\t后道完成\n本批次后道单据链 · A-03-1\n\n每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。\n\n工作\t原始单据\t当前状态\t本项数量\t已记录实际时间\t执行 / 接收责任\t加工地点\n后道实际收货\t后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\t已实收\t150件\t后道实收：2026-10-06 14:00\n工厂交出：待核实\t赵亮 → 后道李梅\t后道厂\n后道质检\t后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\t质检完成\t150件\t质检开始：2026-10-06 14:01\n质检完成：2026-10-06 14:05\t质检陈芳 → 后道李梅\t后道厂\n后道加工单\t后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\t后道完成\t150件\t后道开始：2026-10-06 14:10\n后道完成：2026-10-06 15:40\t后道吴芳 → 后道李梅\t后道厂\n后道复检\t后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\t复检完成\t150件\t复检开始：2026-10-06 15:41\n复检完成：2026-10-06 15:45\t复检周燕 → 后道李梅\t后道厂\n后道交货\t后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\t已交出待接收\t150件\t后道交出：2026-10-06 16:00\n成衣仓接收：待核实\t后道李梅 → 成衣仓周婷\t后道厂\n成衣仓接收\t—\t成衣仓尚未接收，入库单尚未生成\t待接收 150件\t尚未发生\t责任待核实\t待核实\n单据事实与时间\n业务事实\t实际时间\n后道开始\t2026-10-06 14:10\n后道完成\t2026-10-06 15:40\n本单据时效\n\n加工与交接分别计时；未确认时效要求只记录耗时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n加工\t2026-10-06 14:10\t2026-10-06 15:40\t时效要求未确认\t时效要求未确认，截止无法计算\t1小时30分钟\t加工时效要求未确认 · 无法判定是否超时\n执行与交接责任\n执行负责人\n后道吴芳\n交出确认责任\n后道吴芳\n下游接收确认责任\n后道李梅\n业务说明\n\n本批由同一张后道加工单记录适用项目：开扣眼、装扣子；按批次整体记录一套开始/完成时间和应处理、已处理、未处理数量，不按项目拆单或分别计时。未确认后道加工时效标准，仅展示实际用时。本任务已承包工厂烫包；本单只记录质检勾选的实际补加工项目，后道不重复安排烫包。\n\n关联原始单据\n\n点击单据查看其所属模块详情。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\tA厂 SWT-A-01-0101 · 批次 A-03-1\t质检完成\t150件\t质检陈芳\t后道李梅\n后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\tA厂 SWT-A-01-0101 · 批次 A-03-1\t复检完成\t150件\t复检周燕\t后道李梅"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 128.30000001192093,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 153.20000000298023,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 134.59999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 115.5,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 122.90000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 113.09999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 114.09999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "cold",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 114.3999999910593,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道加工单",
+    "mode": "refresh",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/work-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-process-%E5%89%AA%E7%BA%BF",
+    "navigationMs": 115.30000001192091,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 186.4000000059605,
+    "entry": "/assets/index-CowAGUVp.js",
+    "text": "PFOS · 后道 / 单据详情\n\n查看本生产单时效\n后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\n复检完成\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0101 · 对象 / 范围：A厂 SWT-A-01-0101 · 批次 A-03-1\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n后道任务与批次归属\n\n各批仅计入一个当前位置。\n\n对应车缝任务\t本批次\t批次数量\t当前数量位置\t合同范围\t实际加工地点\nSWT-A-01-0101\tA-03-1\t150件\t已交出待入仓\t车缝＋烫包\t后道厂\n处理后交出复核（复检）\n\n本单只复核SKU数量与条码，不再进行质量检验；复核完成才生成后道交货单。\n\n复核对象 / 范围\tSKU数量复核\t条码 / 数量核对记录\t执行负责人\t交出确认责任\nA厂 SWT-A-01-0101 · 批次 A-03-1\t应交出：150件\n复核交出：150件\n数量差异：0件\tSKU数量与条码已核对一致\t复检周燕\t后道李梅\n本批次后道单据链 · A-03-1\n\n每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。\n\n工作\t原始单据\t当前状态\t本项数量\t已记录实际时间\t执行 / 接收责任\t加工地点\n后道实际收货\t后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\t已实收\t150件\t后道实收：2026-10-06 14:00\n工厂交出：待核实\t赵亮 → 后道李梅\t后道厂\n后道质检\t后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\t质检完成\t150件\t质检开始：2026-10-06 14:01\n质检完成：2026-10-06 14:05\t质检陈芳 → 后道李梅\t后道厂\n后道加工单\t后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\t后道完成\t150件\t后道开始：2026-10-06 14:10\n后道完成：2026-10-06 15:40\t后道吴芳 → 后道李梅\t后道厂\n后道复检\t后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\t复检完成\t150件\t复检开始：2026-10-06 15:41\n复检完成：2026-10-06 15:45\t复检周燕 → 后道李梅\t后道厂\n后道交货\t后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\t已交出待接收\t150件\t后道交出：2026-10-06 16:00\n成衣仓接收：待核实\t后道李梅 → 成衣仓周婷\t后道厂\n成衣仓接收\t—\t成衣仓尚未接收，入库单尚未生成\t待接收 150件\t尚未发生\t责任待核实\t待核实\n单据事实与时间\n业务事实\t实际时间\n复检开始\t2026-10-06 15:41\n复检完成\t2026-10-06 15:45\n本单据时效\n\n加工与交接分别计时；未确认时效要求只记录耗时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n数量与条码复核\t2026-10-06 15:41\t2026-10-06 15:45\t时效要求未确认\t时效要求未确认，截止无法计算\t4分钟\t数量与条码复核时效要求未确认 · 无法判定是否超时\n执行与交接责任\n执行负责人\n复检周燕\n交出确认责任\n复检周燕\n下游接收确认责任\n后道李梅\n业务说明\n\n本单是后道加工完成后的交出复核：按SKU核对交出数量并扫描条码，属于数量与条码核对；沿用原型复检状态与时间名称。本批SKU交出数量与应交出一致，条码核对正确。 未确认复核时效要求，仅展示实际时间。\n\n关联原始单据\n\n点击单据查看其所属模块详情。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\tA厂 SWT-A-01-0101 · 批次 A-03-1\t后道完成\t150件\t后道吴芳\t后道李梅\n后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\tA厂 SWT-A-01-0101 · 批次 A-03-1\t已交出待接收\t150件\t后道李梅\t成衣仓周婷"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 114.59999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 127.40000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 117.70000000298025,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 113.8999999910593,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 114.40000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 113.70000000298025,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 131.79999999701977,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "cold",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 112.40000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道复检单",
+    "mode": "refresh",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/recheck-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-recheck",
+    "navigationMs": 116,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 174.40000000596046,
+    "entry": "/assets/index-CowAGUVp.js",
+    "text": "PFOS · 后道 / 单据详情\n\n查看本生产单时效\n后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\n已交出待接收\n\n演示款蓝白印花衬衫 · SPU-SHIRT-086\n\n生产单 PO-202610-0101 · 对象 / 范围：A厂 SWT-A-01-0101 · 批次 A-03-1\n\n演示单据 · 查看时点 2026-10-07 09:00 · 只读展示\n\n后道任务与批次归属\n\n各批仅计入一个当前位置。\n\n对应车缝任务\t本批次\t批次数量\t当前数量位置\t合同范围\t实际加工地点\nSWT-A-01-0101\tA-03-1\t150件\t已交出待入仓\t车缝＋烫包\t后道厂\n交出与下游接收核对\n\n未取得实收数量或接收时间时保留待核实，不能据此认定接收完成。数量差异沿用原单字段；交出、接收及质检交接记录分别保留。\n\n对象 / 范围\t应交 / 应调\t实际交出\t下游实收\t已记录数量差异（原单口径）\t交出方\t接收方\nA厂 SWT-A-01-0101 · 批次 A-03-1\t150件\t150件\t0件\t待核实\t后道李梅\t成衣仓周婷\n本批次后道单据链 · A-03-1\n\n每批一张后道加工单；完成后核对SKU数量和条码。交货从后道实际交出计至成衣仓实际接收。\n\n工作\t原始单据\t当前状态\t本项数量\t已记录实际时间\t执行 / 接收责任\t加工地点\n后道实际收货\t后道实收记录 · 演示FF-post-SWT-A-01-0101-A-03-1-receive\t已实收\t150件\t后道实收：2026-10-06 14:00\n工厂交出：待核实\t赵亮 → 后道李梅\t后道厂\n后道质检\t后道质检单 · 演示FF-post-SWT-A-01-0101-A-03-1-qc\t质检完成\t150件\t质检开始：2026-10-06 14:01\n质检完成：2026-10-06 14:05\t质检陈芳 → 后道李梅\t后道厂\n后道加工单\t后道加工单 · 演示POST-SWT-A-01-0101-A-03-1\t后道完成\t150件\t后道开始：2026-10-06 14:10\n后道完成：2026-10-06 15:40\t后道吴芳 → 后道李梅\t后道厂\n后道复检\t后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\t复检完成\t150件\t复检开始：2026-10-06 15:41\n复检完成：2026-10-06 15:45\t复检周燕 → 后道李梅\t后道厂\n后道交货\t后道交货单 · 演示FF-post-SWT-A-01-0101-A-03-1-delivery\t已交出待接收\t150件\t后道交出：2026-10-06 16:00\n成衣仓接收：待核实\t后道李梅 → 成衣仓周婷\t后道厂\n成衣仓接收\t—\t成衣仓尚未接收，入库单尚未生成\t待接收 150件\t尚未发生\t责任待核实\t待核实\n单据事实与时间\n业务事实\t实际时间\n后道交出\t2026-10-06 16:00\n成衣仓接收\t待核实\n本单据时效\n\n加工与交接分别计时；未确认时效要求只记录耗时。\n\n计时对象\t实际开始 / 上游交出\t实际完成 / 下游接收\t时效要求\t应完成 / 接收截止\t本项已用时间\t本项时效结果\n交接\t2026-10-06 16:00\t尚无实际接收时间\t时效要求未确认\t时效要求未确认，截止无法计算\t17小时\t交接时效要求未确认 · 无法判定是否超时\n执行与交接责任\n执行负责人\n后道李梅\n交出确认责任\n后道李梅\n下游接收确认责任\n成衣仓周婷\n业务说明\n\n交货指后道交给成衣仓，交出与接收分别记录；不跟进消费者发货。交接标准未确认，仅展示用时。\n\n关联原始单据\n\n点击单据查看其所属模块详情。\n\n单据\t对象 / 范围\t状态\t数量\t执行负责人\t接收确认责任\n后道复检单 · 演示FF-post-SWT-A-01-0101-A-03-1-recheck\tA厂 SWT-A-01-0101 · 批次 A-03-1\t复检完成\t150件\t复检周燕\t后道李梅"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "iteration": 0,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 113.29999999701975,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 115,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "iteration": 1,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 116.09999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 115.09999999403954,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "iteration": 2,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 114.3999999910593,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 116.90000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "iteration": 3,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 116.20000000298025,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "cold",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 157.79999999701977,
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "type": "后道交货单",
+    "mode": "refresh",
+    "iteration": 4,
+    "url": "http://localhost:4179/fcs/craft/post-finishing/outbound-orders/PO-202610-0101%2Ffull-flow%2Fpost-SWT-A-01-0101-A-03-1-delivery",
+    "navigationMs": 113.90000000596046,
+    "entry": "/assets/index-CowAGUVp.js"
+  }
+]

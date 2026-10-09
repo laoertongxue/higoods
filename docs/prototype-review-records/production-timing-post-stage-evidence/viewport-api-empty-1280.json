@@ -1,0 +1,482 @@
+[
+  {
+    "scene": "late",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "late",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "normal",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "normal",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "complete",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "complete",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "completeLate",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "completeLate",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "completeUnknown",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "completeUnknown",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "partial",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "partial",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "reordered",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "reordered",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "reachedLate",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "reachedLate",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "positioning",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "positioning",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "prepPending",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "prepPending",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "sampleLate",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "sampleLate",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "samplePending",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "samplePending",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "fullContract",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "fullContract",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "materialBatches",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "materialBatches",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "materialPartial",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "materialPartial",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "live",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "live",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "unknown",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "unknown",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "unassigned",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "unassigned",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "sameFactory",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "sameFactory",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "handoverPartial",
+    "expanded": false,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "entry": "/assets/index-CowAGUVp.js"
+  },
+  {
+    "scene": "handoverPartial",
+    "expanded": true,
+    "width": 1280,
+    "height": 720,
+    "overflow": false,
+    "brokenImages": [],
+    "postRows": [
+      "后道质检",
+      "后道加工",
+      "后道复检",
+      "后道交货"
+    ],
+    "entry": "/assets/index-CowAGUVp.js"
+  }
+]

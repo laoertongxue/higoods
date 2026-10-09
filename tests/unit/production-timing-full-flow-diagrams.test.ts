@@ -5,11 +5,11 @@ import {renderTimingDiagramBody,renderTimingNodeDetail,renderTimingDocumentSumma
 import {fullFlowPositionCaption,fullFlowRail,fullFlowWorkCounts} from '../../src/pages/production-fulfillment/full-flow-diagrams.ts'
 for(const c of listTimingCases())test(`FLOW graph ${c.key}: full lifecycle keeps allocation, execution and four post stages`,()=>{
  setTimingDiagramScene(c.key);let html=renderTimingDiagramBody()
- for(const label of ['车缝任务分配','具体车缝执行','后道质检','后道加工','后道复检','后道交货','成衣仓入库'])assert.ok(html.includes(label),`${c.key}: ${label}`)
- assert.ok(html.indexOf('<strong>车缝任务分配')<html.indexOf('<strong>具体车缝执行'))
+ for(const label of ['车缝任务分配','车缝执行','后道','成衣仓入库'])assert.ok(html.includes(label),`${c.key}: ${label}`)
+ assert.ok(html.indexOf('<strong>车缝任务分配')<html.indexOf('<strong>车缝执行'))
  const cards=html.slice(html.indexOf('<div class="stage-risk-overview">'),html.indexOf('<div class="branch-nav">'))
  assert.equal((cards.match(/class="stage-risk-card"/g)||[]).length,6)
- for(const label of ['车缝任务分配','具体车缝执行','后道'])assert.ok(cards.includes(`<strong>${label}</strong>`))
+ for(const label of ['车缝任务分配','车缝执行','后道'])assert.ok(cards.includes(`<strong>${label}</strong>`))
  timingDiagramState().expanded={prep:false,supply:false,craft:false,sewing:true,post:true};html=renderTimingDiagramBody()
  assert.ok(html.includes('id="branch-sewing"')&&html.includes('id="branch-post"'))
  for(const batch of c.fullFlow.batches)assert.ok(html.includes(`data-flow-batch="${batch.id}"`))
@@ -28,8 +28,8 @@ test('FLOW full contract: scopes and execution documents stay distinct from cumu
 
 test('FLOW delivery: outgoing without warehouse receipt keeps waiting clock active',()=>{
  const html=fullFlowRail(getTimingCaseByScene('live'),'delivery',(start,end,label,type)=>`${start}|${end}|${label}|${type}`)
- assert.ok(html.includes('2026-10-06 16:00|2026-10-07 09:00'))
- assert.ok(html.includes('1项待接收'))
+ assert.ok(html.includes('|2026-10-07 09:00'))
+ assert.ok(html.includes('1项待接收 · 已用17小时'))
  assert.ok(!html.includes('完成记录已取得'))
 })
 
@@ -55,7 +55,7 @@ test('FLOW summary cards distinguish pending, unknown, historical and current st
   setTimingDiagramScene(scene);const html=renderTimingDiagramBody(),cards=html.slice(html.indexOf('<div class="stage-risk-overview">'),html.indexOf('<div class="branch-nav">'))
   if(scene==='positioning')assert.ok(cards.includes('尚未进入 · 尚未分配执行任务')&&cards.includes('尚未进入 · 暂无后道执行记录'))
   if(scene==='unknown')assert.ok(cards.includes('执行资料待核实 · 不推定尚未生产')&&cards.includes('后道资料待核实 · 不推定尚未开展'))
-  if(scene==='fullContract')assert.ok(cards.includes('回货节点未达标 · 已超时')&&cards.includes('加工时效要求未确认'))
+  if(scene==='fullContract')assert.ok(cards.includes('回货节点未达标 · 已超时')&&cards.includes('时效要求未确认'))
   if(scene==='live')for(const label of ['待质检／质检中 50件','加工中 50件','待复检／复检中 50件','已交出待入仓 150件','成衣仓已入库 600件'])assert.ok(cards.includes(label),label)
   assert.ok(!cards.includes('已知时效项无当前逾期'))
  }

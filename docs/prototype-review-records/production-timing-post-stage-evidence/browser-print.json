@@ -1,0 +1,42 @@
+[
+  {
+    "iteration": 0,
+    "elapsedMs": 972,
+    "bytes": 1998063,
+    "entry": "/assets/index-QXnvFeEk.js",
+    "fullyExpanded": true,
+    "freshTab": true
+  },
+  {
+    "iteration": 1,
+    "elapsedMs": 782,
+    "bytes": 1998063,
+    "entry": "/assets/index-QXnvFeEk.js",
+    "fullyExpanded": true,
+    "freshTab": true
+  },
+  {
+    "iteration": 2,
+    "elapsedMs": 810,
+    "bytes": 1998063,
+    "entry": "/assets/index-QXnvFeEk.js",
+    "fullyExpanded": true,
+    "freshTab": true
+  },
+  {
+    "iteration": 3,
+    "elapsedMs": 807,
+    "bytes": 1998063,
+    "entry": "/assets/index-QXnvFeEk.js",
+    "fullyExpanded": true,
+    "freshTab": true
+  },
+  {
+    "iteration": 4,
+    "elapsedMs": 807,
+    "bytes": 1998063,
+    "entry": "/assets/index-QXnvFeEk.js",
+    "fullyExpanded": true,
+    "freshTab": true
+  }
+]

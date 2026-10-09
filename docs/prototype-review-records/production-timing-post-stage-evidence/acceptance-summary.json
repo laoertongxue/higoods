@@ -1,0 +1,53 @@
+{
+  "head": "77da48e02bec888e36bdeb79a2b9247e0d02dad7",
+  "branch": "codex/dds-task-business-review",
+  "worktree": "/Users/laoer/.codex/worktrees/d29f/higoods",
+  "service": "http://localhost:4179",
+  "main_entry": "/assets/index-CowAGUVp.js",
+  "final_entry": "/assets/index-QXnvFeEk.js",
+  "difference": "Only the last print media block changed after Cow. Templates, fixtures and screen CSS are identical. QX rechecked all 20 scenes, final real 1024/1280 views, and print.",
+  "counts": {
+    "pages": 300,
+    "actions": 388,
+    "responsive_actions": 400,
+    "native_pages": 42,
+    "print": 5
+  },
+  "results": {
+    "pages": {
+      "max_ms": 111.59999999403954,
+      "all_within_1000ms": true
+    },
+    "actions": {
+      "max_ms": 59.1000000089407,
+      "all_within_1000ms": true
+    },
+    "responsive_actions": {
+      "max_ms": 35.099999994039536,
+      "all_within_1000ms": true
+    },
+    "native_pages": {
+      "max_ms": 253.4000000059605,
+      "all_within_1000ms": true
+    },
+    "print": {
+      "max_ms": 972,
+      "all_within_1000ms": true
+    }
+  },
+  "responsive_views": 80,
+  "notes": [
+    "An earlier browser API viewport override did not resize the background tab (actual 1366); rejected as narrow-screen evidence and replaced by CDP metrics with actual widths 1024 and 1280.",
+    "One sampling call timed out and reset the session before samples were persisted. The completed routes were measured again with per-iteration persistence.",
+    "A premature new-tab inventory read returned no new tab; next tool turn confirmed the native tab and content. This was harness sequencing, not a missing detail route.",
+    "Initial print samples 1134/796/771/750/803ms failed the 1000ms gate. Print-only pagination was corrected and a fresh tab produced 972/782/810/807/807ms.",
+    "Known post SLA current/finished-late conditions are synthetic unit scenarios only. No unconfirmed SLA was added to real prototype fixtures."
+  ],
+  "source_sha256": {
+    "src/pages/production-fulfillment/full-flow-diagrams.ts": "bb2dce8f27db03f448bde51e537d7845d5e264cbe66e4c55d03f000d35924d3e",
+    "src/pages/production-fulfillment/production-order-diagrams.ts": "2ad52456ca6e17a94667ae682d3d39f18cc0ce48b11e4e69e0e81572605e0544",
+    "src/pages/production-fulfillment/production-order-diagrams.css": "c3f5226cb9ff3d0dae16062ff9eea9c9cee5d3ade5c2c674485cfc0b77890495",
+    "src/data/production-timing/source.ts": "2483024e69aab6497d00b8594a1e548a8c3532e3e85f24237c1a01d98e6ae51b",
+    "src/data/production-timing/fixtures.json": "7fc1ab0b4a5283ee14eee641f2b5f569b2227c7c231518beca7ac14fcc0e8b5e"
+  }
+}

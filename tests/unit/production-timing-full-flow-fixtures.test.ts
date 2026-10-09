@@ -58,8 +58,8 @@ test('FLOW-MOCK-001: all 20 scenarios retain source facts with documented COPY-2
     for (const id of Object.keys(fixture.branch.docs)) if (id.includes('/full-flow/')) delete fixture.branch.docs[id]
   }
   assert.equal(createHash('sha256').update(JSON.stringify(original)).digest('hex'),
-    '3d3ee230d2e7d5f557d66526c334a4e9bbde9b73df196f11b02609fb491ad1a3',
-    'purchase, allocation, receipts, warehouse and clocks are preserved; COPY-211 corrects the overlapping fullContract cutting scope')
+    '52efd59c379d758bab6262cd2d23e42fb4801c67b76f785cf63d8a6ed9d13c9f',
+    'purchase, allocation, receipts, warehouse and clocks are preserved; COPY-211 corrects cutting scope and POST-FOLD-007 renames its sewing label')
   assert.equal(fixtures.length, 20)
   assert.equal(new Set(fixtures.map(fixture => fixture.order.key)).size, 20)
 })

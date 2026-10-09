@@ -9,7 +9,7 @@ export interface TimingDocument {
  id:string;no:string;type:string;status:string;object:string;quantity:number|null;unit:string;
  times:Record<string,string|null>;quantities?:Record<string,number|null>;
  executor:string;receiver:string;production:string|null;style:string;related:string[];
- clock?:{kind:string;start:string|null;end:string|null;days?:number};module?:string;note?:string;ownerId?:string;
+ clock?:{kind:string;start:string|null;end:string|null;days?:number;sla?:number};module?:string;note?:string;ownerId?:string;
  taskId?:string;batchId?:string;executionScope?:string;processingLocation?:string;processItems?:string[];sourceType?:string;
  [key:string]:any
 }

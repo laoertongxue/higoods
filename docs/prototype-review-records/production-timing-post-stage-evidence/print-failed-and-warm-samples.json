@@ -1,0 +1,37 @@
+[
+  {
+    "iteration": 0,
+    "elapsedMs": 1134,
+    "bytes": 2016602,
+    "entry": "/assets/index-CowAGUVp.js",
+    "fullyExpanded": true
+  },
+  {
+    "iteration": 1,
+    "elapsedMs": 796,
+    "bytes": 2016602,
+    "entry": "/assets/index-CowAGUVp.js",
+    "fullyExpanded": true
+  },
+  {
+    "iteration": 2,
+    "elapsedMs": 771,
+    "bytes": 2016602,
+    "entry": "/assets/index-CowAGUVp.js",
+    "fullyExpanded": true
+  },
+  {
+    "iteration": 3,
+    "elapsedMs": 750,
+    "bytes": 2016602,
+    "entry": "/assets/index-CowAGUVp.js",
+    "fullyExpanded": true
+  },
+  {
+    "iteration": 4,
+    "elapsedMs": 803,
+    "bytes": 2016602,
+    "entry": "/assets/index-CowAGUVp.js",
+    "fullyExpanded": true
+  }
+]

@@ -1,0 +1,2802 @@
+[
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.5
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 24.700000002980232
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.799999997019768
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 25.600000008940697
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.100000008940697
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.19999998807907
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 23.799999997019768
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 24
+  },
+  {
+    "scene": "late",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.700000002980232
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.19999998807907
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 23.599999994039536
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 25.599999994039536
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 28.80000001192093
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 27.700000002980232
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.700000002980232
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "normal",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.700000002980232
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 26.799999997019768
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 26.700000002980232
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.099999994039536
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 30
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.5
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 24.099999994039536
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 23.599999994039536
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "complete",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.799999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.200000002980232
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.799999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 30
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 20.700000002980232
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.299999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 21.80000001192093
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26.799999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.899999991059303
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 25.200000002980232
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.099999994039536
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.099999994039536
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.900000005960464
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 23.899999991059303
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.600000008940697
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 25.700000002980232
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.400000005960464
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.900000005960464
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.19999998807907
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 25.099999994039536
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.799999997019768
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 23.900000005960464
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.600000008940697
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 23.5
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.399999991059303
+  },
+  {
+    "scene": "partial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 22.799999997019768
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.19999998807907
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 26.899999991059303
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.80000001192093
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.299999997019768
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.600000008940697
+  },
+  {
+    "scene": "reordered",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.399999991059303
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.599999994039536
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.299999997019768
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.900000005960464
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 22.599999994039536
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.299999997019768
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 23.69999998807907
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26.19999998807907
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 22.899999991059303
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.399999991059303
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24.599999994039536
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 28.100000008940697
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.900000005960464
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 22.5
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 22.299999997019768
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.200000002980232
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 23.799999997019768
+  },
+  {
+    "scene": "positioning",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.30000001192093
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 24.700000002980232
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.100000008940697
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.299999997019768
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.200000002980232
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.5
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26.099999994039536
+  },
+  {
+    "scene": "prepPending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.80000001192093
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 23.600000008940697
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 26.900000005960464
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 23.299999997019768
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.200000002980232
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.899999991059303
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 27.899999991059303
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.900000005960464
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.599999994039536
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.100000008940697
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 23
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 26.900000005960464
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.599999994039536
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.100000008940697
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 24.80000001192093
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.799999997019768
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.400000005960464
+  },
+  {
+    "scene": "samplePending",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.5
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 26.099999994039536
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 27.700000002980232
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.399999991059303
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.69999998807907
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.19999998807907
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.30000001192093
+  },
+  {
+    "scene": "fullContract",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.599999994039536
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.599999994039536
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 23.600000008940697
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.399999991059303
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 23.80000001192093
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.799999997019768
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.700000002980232
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.200000002980232
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.899999991059303
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 24.600000008940697
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.19999998807907
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.5
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.200000002980232
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.80000001192093
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.200000002980232
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.19999998807907
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24.5
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 26.599999994039536
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.099999994039536
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 23.30000001192093
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 27.600000008940697
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.69999998807907
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26.099999994039536
+  },
+  {
+    "scene": "live",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 27.900000005960464
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.899999991059303
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 22.599999994039536
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 26.899999991059303
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 26.099999994039536
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 21.899999991059303
+  },
+  {
+    "scene": "unknown",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.399999991059303
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.899999991059303
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.399999991059303
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 27.099999994039536
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.69999998807907
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 24.799999997019768
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.399999991059303
+  },
+  {
+    "scene": "unassigned",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 26.200000002980232
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.099999994039536
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.400000005960464
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.200000002980232
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 27.799999997019768
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.100000008940697
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.200000002980232
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.700000002980232
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24.400000005960464
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 25.799999997019768
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.400000005960464
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 26.100000008940697
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 23.899999991059303
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.5
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1024,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 28.299999997019768
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.200000002980232
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.399999991059303
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 28.399999991059303
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 23.299999997019768
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 25.299999997019768
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 28.099999994039536
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26.400000005960464
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 23.900000005960464
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "late",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.19999998807907
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 26.5
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 32.1000000089407
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.5
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.400000005960464
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.099999994039536
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 31.799999997019768
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 25.80000001192093
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 32.20000000298023
+  },
+  {
+    "scene": "normal",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.100000008940697
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.099999994039536
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 23.399999991059303
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.400000005960464
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.700000002980232
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.900000005960464
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 25.399999991059303
+  },
+  {
+    "scene": "complete",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.5
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.30000001192093
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 25.700000002980232
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.30000001192093
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 27.799999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.600000008940697
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 28.299999997019768
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 25.69999998807907
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27
+  },
+  {
+    "scene": "completeLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25.400000005960464
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 20.899999991059303
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 25.099999994039536
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.19999998807907
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.900000005960464
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.200000002980232
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.30000001192093
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "completeUnknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.5
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 23.399999991059303
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 30
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.600000008940697
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.5
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 23.899999991059303
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.900000005960464
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 28.600000008940697
+  },
+  {
+    "scene": "partial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.899999991059303
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 30.900000005960464
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 33.6000000089407
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.400000005960464
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 31.400000005960464
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.700000002980232
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 35.099999994039536
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 22.200000002980232
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 32.400000005960464
+  },
+  {
+    "scene": "reordered",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 22.799999997019768
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 28
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 32.79999999701977
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.200000002980232
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.700000002980232
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 21
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 31.700000002980232
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.399999991059303
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 33.099999994039536
+  },
+  {
+    "scene": "reachedLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.900000005960464
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 23.599999994039536
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 23.700000002980232
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.399999991059303
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 23.400000005960464
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 25.19999998807907
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 22.5
+  },
+  {
+    "scene": "positioning",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.900000005960464
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.700000002980232
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.400000005960464
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.299999997019768
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 29.100000008940697
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 25.5
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "prepPending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.799999997019768
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 27.900000005960464
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24.299999997019768
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 28.5
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 24.200000002980232
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.099999994039536
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 22.600000008940697
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 28.400000005960464
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.400000005960464
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 28.799999997019768
+  },
+  {
+    "scene": "sampleLate",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25.299999997019768
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.899999991059303
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 26.299999997019768
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 30.200000002980232
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.399999991059303
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.900000005960464
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.899999991059303
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 30.599999994039536
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 24.5
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 30
+  },
+  {
+    "scene": "samplePending",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.099999994039536
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.200000002980232
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.799999997019768
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.100000008940697
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.900000005960464
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.599999994039536
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 33.400000005960464
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 22.900000005960464
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 33.099999994039536
+  },
+  {
+    "scene": "fullContract",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 23.799999997019768
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.600000008940697
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24.799999997019768
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 27.600000008940697
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.299999997019768
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.80000001192093
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 24.799999997019768
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 26.5
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 21.5
+  },
+  {
+    "scene": "materialBatches",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 22.799999997019768
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.30000001192093
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 24.400000005960464
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 24.200000002980232
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.299999997019768
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.19999998807907
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 23.399999991059303
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 23.299999997019768
+  },
+  {
+    "scene": "materialPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.899999991059303
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 29.599999994039536
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 33
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 29.299999997019768
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 34.5
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 25.399999991059303
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 32.79999999701977
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 34
+  },
+  {
+    "scene": "live",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 25.5
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28.099999994039536
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.700000002980232
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 22.30000001192093
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 28.5
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.899999991059303
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 28.700000002980232
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 24.399999991059303
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 25
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26.200000002980232
+  },
+  {
+    "scene": "unknown",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24.799999997019768
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 30.099999994039536
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 27.899999991059303
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 29.899999991059303
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.299999997019768
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.299999997019768
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.5
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 29.5
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 22.200000002980232
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 29.600000008940697
+  },
+  {
+    "scene": "unassigned",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 24
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 29.5
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 22.599999994039536
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 31.700000002980232
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 29.700000002980232
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 27.799999997019768
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 33.29999999701977
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 27.400000005960464
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 33.400000005960464
+  },
+  {
+    "scene": "sameFactory",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 28
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 0,
+    "elapsedMs": 28
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 0,
+    "elapsedMs": 26
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 1,
+    "elapsedMs": 22.099999994039536
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 1,
+    "elapsedMs": 27.599999994039536
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 2,
+    "elapsedMs": 28.80000001192093
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 2,
+    "elapsedMs": 24.799999997019768
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 3,
+    "elapsedMs": 23.700000002980232
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 3,
+    "elapsedMs": 25
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "open",
+    "iteration": 4,
+    "elapsedMs": 26.299999997019768
+  },
+  {
+    "scene": "handoverPartial",
+    "width": 1280,
+    "action": "close",
+    "iteration": 4,
+    "elapsedMs": 22
+  }
+]

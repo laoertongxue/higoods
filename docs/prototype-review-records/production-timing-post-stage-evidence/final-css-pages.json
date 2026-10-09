@@ -1,0 +1,371 @@
+[
+  {
+    "scene": "late",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 21.399999991059303,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "normal",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.100000008940697,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0090",
+      "B厂 SWT-B-01-0090",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "complete",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 22.900000005960464,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0091",
+      "B厂 SWT-B-01-0091",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "completeLate",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0092",
+      "B厂 SWT-B-01-0092",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "completeUnknown",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0093",
+      "B厂 SWT-B-01-0093",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "partial",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 27.899999991059303,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0094",
+      "B厂 SWT-B-01-0094",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "reordered",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.5,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0095",
+      "B厂 SWT-B-01-0095",
+      "B厂 SWT-B-02-0095",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "reachedLate",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.100000008940697,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0096",
+      "B厂 SWT-B-01-0096",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "positioning",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.200000002980232,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "prepPending",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.100000008940697,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "sampleLate",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.600000008940697,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0099",
+      "B厂 SWT-B-01-0099",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "samplePending",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.5,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0100",
+      "B厂 SWT-B-01-0100",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "fullContract",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.400000005960464,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0101",
+      "B厂 SWT-B-01-0101",
+      "B厂 SWT-C-01-0101",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "materialBatches",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 27.400000005960464,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "materialPartial",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.700000002980232,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "live",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 27.600000008940697,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0086",
+      "B厂 SWT-B-01-0086",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "unknown",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.299999997019768,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "unassigned",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 22.599999994039536,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0087",
+      "B厂 SWT-B-01-0087",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "sameFactory",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.200000002980232,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "A厂 SWT-A-01-0088",
+      "B厂 SWT-B-01-0088",
+      "B厂 SWT-B-02-0088",
+      "后道",
+      "成衣仓入库"
+    ]
+  },
+  {
+    "scene": "handoverPartial",
+    "mode": "final-css-confirmation",
+    "entry": "/assets/index-QXnvFeEk.js",
+    "elapsedMs": 28.400000005960464,
+    "overflow": false,
+    "brokenImages": [],
+    "mainRows": [
+      "生产准备",
+      "面辅料供给",
+      "裁剪／辅助工艺",
+      "车缝任务分配",
+      "车缝执行",
+      "后道",
+      "成衣仓入库"
+    ]
+  }
+]
