@@ -57,6 +57,7 @@ export interface FabricDemandBoardAlertRule {
 export interface FabricDemandBoardRow {
   id: string
   materialImageUrl: string
+  materialLargeImageUrl: string
   materialName: string
   materialSpu: string
   materialSku: string
@@ -135,7 +136,8 @@ function alert(
 const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   {
     id: 'fabric-demand-001',
-    materialImageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: '/materials/wls/fabric-demand/photo-1558618666-fcd25c85cd64-thumb.jpg',
+    materialLargeImageUrl: '/materials/wls/fabric-demand/photo-1558618666-fcd25c85cd64-large.jpg',
     materialName: '黑色斜纹直裁主面料',
     materialSpu: 'FAB-SPU-1008',
     materialSku: 'FAB-2026-001-BLK',
@@ -162,7 +164,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   },
   {
     id: 'fabric-demand-002',
-    materialImageUrl: 'https://images.unsplash.com/photo-1584273143981-41c073dfe8f8?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: '/materials/wls/fabric-demand/photo-1584273143981-41c073dfe8f8-thumb.jpg',
+    materialLargeImageUrl: '/materials/wls/fabric-demand/photo-1584273143981-41c073dfe8f8-large.jpg',
     materialName: '花型印花针织布',
     materialSpu: 'FAB-SPU-2031',
     materialSku: 'FAB-2026-031-PRT',
@@ -189,7 +192,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   },
   {
     id: 'fabric-demand-003',
-    materialImageUrl: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: '/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-thumb.jpg',
+    materialLargeImageUrl: '/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-large.jpg',
     materialName: '雾蓝染色梭织布',
     materialSpu: 'FAB-SPU-3086',
     materialSku: 'FAB-2026-086-DYE',
@@ -216,7 +220,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   },
   {
     id: 'fabric-demand-004',
-    materialImageUrl: 'https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: '/materials/wls/fabric-demand/photo-1618354691373-d851c5c3a990-thumb.jpg',
+    materialLargeImageUrl: '/materials/wls/fabric-demand/photo-1618354691373-d851c5c3a990-large.jpg',
     materialName: '米白直裁里布',
     materialSpu: 'FAB-SPU-4012',
     materialSku: 'FAB-2026-112-LIN',
@@ -243,7 +248,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   },
   {
     id: 'fabric-demand-005',
-    materialImageUrl: 'https://images.unsplash.com/photo-1603912699214-92627f304eb6?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: '/materials/wls/fabric-demand/photo-1603912699214-92627f304eb6-thumb.jpg',
+    materialLargeImageUrl: '/materials/wls/fabric-demand/photo-1603912699214-92627f304eb6-large.jpg',
     materialName: '渐变印花雪纺',
     materialSpu: 'FAB-SPU-5099',
     materialSku: 'FAB-2026-099-PRT',
@@ -270,7 +276,8 @@ const fabricDemandBoardRows: FabricDemandBoardRow[] = [
   },
   {
     id: 'fabric-demand-006',
-    materialImageUrl: 'https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=120&q=80',
+    materialImageUrl: '/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-thumb.jpg',
+    materialLargeImageUrl: '/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-large.jpg',
     materialName: '炭灰染色弹力布',
     materialSpu: 'FAB-SPU-6105',
     materialSku: 'FAB-2026-105-DYE',

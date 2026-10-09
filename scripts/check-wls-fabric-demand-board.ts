@@ -75,6 +75,16 @@ function assertAlertQuantityRule(
 }
 
 const rows = getFabricDemandBoardRows()
+
+// Published demo photos must remain usable without a third-party image request.
+for (const row of rows) {
+  for (const url of [row.materialImageUrl, row.materialLargeImageUrl]) {
+    assert.ok(url.startsWith('/materials/wls/fabric-demand/'), `${row.materialSku} 图片必须随本站发布`)
+    const bytes = readFileSync(resolve(process.cwd(), 'public', url.slice(1)))
+    assert.ok(bytes.length > 0 && bytes[0] === 0xff && bytes[1] === 0xd8, `${row.materialSku} 图片资源必须是有效 JPEG`)
+  }
+  assert.notEqual(row.materialImageUrl, row.materialLargeImageUrl, `${row.materialSku} 大图不得使用缩略图`)
+}
 assert.ok(rows.length >= 4, '面料需求看板 mock 行数至少 4 条')
 assert.ok(rows.some((row) => row.requiresPrint), '缺少需印花面料场景')
 assert.ok(rows.some((row) => row.requiresDye), '缺少需染色面料场景')

@@ -1,0 +1,75 @@
+{
+  "description": "Published copies of existing WLS fabric-demand demo photos; same source, thumbnail 120px q80, preview 1200px q90. No user attachments or business storage.",
+  "assets": [
+    {
+      "path": "/materials/wls/fabric-demand/photo-1558618666-fcd25c85cd64-thumb.jpg",
+      "source": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=120&q=80",
+      "mimeType": "image/jpeg",
+      "bytes": 6673,
+      "sha256": "6b5fd8a979e8177005d0ac9c75c0eb69995e311d0fedddc5bee668bce7df1f6b"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1558618666-fcd25c85cd64-large.jpg",
+      "source": "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=1200&q=90",
+      "mimeType": "image/jpeg",
+      "bytes": 130192,
+      "sha256": "ec8914229422c48e06daea5517c726252d7b441695a0ab2b40bfa7cd5d0f7ca8"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1584273143981-41c073dfe8f8-thumb.jpg",
+      "source": "https://images.unsplash.com/photo-1584273143981-41c073dfe8f8?auto=format&fit=crop&w=120&q=80",
+      "mimeType": "image/jpeg",
+      "bytes": 9460,
+      "sha256": "3c2280db7a3608cc02e4658fb2bf300b1a93cbd1470f8160022861edcb23980a"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1584273143981-41c073dfe8f8-large.jpg",
+      "source": "https://images.unsplash.com/photo-1584273143981-41c073dfe8f8?auto=format&fit=crop&w=1200&q=90",
+      "mimeType": "image/jpeg",
+      "bytes": 235770,
+      "sha256": "0df3fd7b6467ad67054429a4a759743c774d1878aa6806755d8db437ef73a8e4"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-thumb.jpg",
+      "source": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=120&q=80",
+      "mimeType": "image/jpeg",
+      "bytes": 7503,
+      "sha256": "e08fdb88b8590a8c2035e94d9fcfd2aeb74f675242ac3e95341d63ef9b033cf7"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1512436991641-6745cdb1723f-large.jpg",
+      "source": "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?auto=format&fit=crop&w=1200&q=90",
+      "mimeType": "image/jpeg",
+      "bytes": 183696,
+      "sha256": "8fb8ca71d6de7afb21b1c3b2fe0976f99c7d416a0ccd27fd2ffeb6b115280959"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1618354691373-d851c5c3a990-thumb.jpg",
+      "source": "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=120&q=80",
+      "mimeType": "image/jpeg",
+      "bytes": 5448,
+      "sha256": "dfec8ba09c841c4f20ccfd7ae5500feb1f9fef0692d657335133a0eb520b37c4"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1618354691373-d851c5c3a990-large.jpg",
+      "source": "https://images.unsplash.com/photo-1618354691373-d851c5c3a990?auto=format&fit=crop&w=1200&q=90",
+      "mimeType": "image/jpeg",
+      "bytes": 78390,
+      "sha256": "3555a82a65a763cc8e707968a4386c2fd25ccd9a27fe9d986df195b6a78a6ae2"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1603912699214-92627f304eb6-thumb.jpg",
+      "source": "https://images.unsplash.com/photo-1603912699214-92627f304eb6?auto=format&fit=crop&w=120&q=80",
+      "mimeType": "image/jpeg",
+      "bytes": 7166,
+      "sha256": "ae0b53ac0f11c6b31136851ccb9749126e975f712dce21d05f4c5ea36a938f08"
+    },
+    {
+      "path": "/materials/wls/fabric-demand/photo-1603912699214-92627f304eb6-large.jpg",
+      "source": "https://images.unsplash.com/photo-1603912699214-92627f304eb6?auto=format&fit=crop&w=1200&q=90",
+      "mimeType": "image/jpeg",
+      "bytes": 172413,
+      "sha256": "dd2778e9693217304f8391a405c293b0423b0eeca1e6771e84c56a612e249545"
+    }
+  ]
+}

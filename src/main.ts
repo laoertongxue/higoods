@@ -522,11 +522,7 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
     const cutPieceReturnPage = await import('./pages/process-factory/cutting/cut-piece-return-warehouse')
     return cutPieceReturnPage.handleCraftCuttingCutPieceReturnProcessingEvent(eventTarget, event)
   }
-  if (pagePath.startsWith('/wls/')) {
-    const wlsPageHandlers = await getWlsPageHandlersModule()
-    const handled = wlsPageHandlers.dispatchWlsPageEvent(pagePath, eventTarget, event)
-    if (handled) return true
-  }
+  // This board owns its events; do not load unrelated warehouse/PDA pages first.
   if (pathname.startsWith('/wls/fabric-demand-board')) {
     try {
       const fabricDemandBoardPage = await getWlsFabricDemandBoardPageModule()
@@ -536,6 +532,11 @@ async function dispatchPageEvent(target: Element, event?: Event): Promise<boolea
       console.error('面料需求看板事件处理器加载失败，已降级为不处理', error)
       return false
     }
+  }
+  if (pagePath.startsWith('/wls/')) {
+    const wlsPageHandlers = await getWlsPageHandlersModule()
+    const handled = wlsPageHandlers.dispatchWlsPageEvent(pagePath, eventTarget, event)
+    if (handled) return true
   }
   if (
     /^\/pcs\/products\/styles\/[^/]+\/technical-data\/[^/]+$/.test(pagePath)

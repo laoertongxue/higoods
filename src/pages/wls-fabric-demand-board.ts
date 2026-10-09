@@ -86,15 +86,11 @@ function renderRequirement(value: boolean, yesText: string, noText: string): str
     : `<span class="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-600">${noText}</span>`
 }
 
-function toLargeImageUrl(url: string): string {
-  return url.replace(/([?&])w=\d+/i, '$1w=1200').replace(/([?&])q=\d+/i, '$1q=90')
-}
-
 function renderMaterial(row: FabricDemandBoardRow): string {
   const title = `${row.materialName}（${row.materialSku}）`
   return `
     <div class="flex gap-3">
-      <button type="button" class="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-fabric-demand-action="preview-image" data-image-url="${escapeHtml(toLargeImageUrl(row.materialImageUrl))}" data-image-title="${escapeHtml(title)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(title)}大图">
+      <button type="button" class="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-slate-200 bg-slate-50" data-fabric-demand-action="preview-image" data-image-url="${escapeHtml(row.materialLargeImageUrl)}" data-image-title="${escapeHtml(title)}" data-skip-page-rerender="true" aria-label="查看${escapeHtml(title)}大图">
         <img src="${escapeHtml(row.materialImageUrl)}" alt="${escapeHtml(title)}面料图" class="h-full w-full object-cover" onerror="this.hidden=true;this.nextElementSibling.hidden=false" />
         <span hidden class="px-1 text-[10px] text-rose-700">图片失败</span>
       </button>
