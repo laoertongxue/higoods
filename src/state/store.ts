@@ -845,7 +845,7 @@ class AppStore {
   }
 
   toggleGroup(groupKey: string): void {
-    const nextValue = !this.state.expandedGroups[groupKey]
+    const nextValue = !(this.state.expandedGroups[groupKey] ?? true)
     this.patch({
       expandedGroups: {
         ...this.state.expandedGroups,

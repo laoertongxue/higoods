@@ -171,19 +171,22 @@ function renderMenuGroup(group: MenuGroup, index: number, state: AppState, colla
     <div>
       <button
         class="${toClassName(
-          'flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
-          'text-muted-foreground hover:bg-accent/50 hover:text-foreground',
-          hasActive && 'text-primary',
+          'flex min-h-10 w-full items-center gap-2 rounded-md border px-3 py-2 text-sm font-bold transition-colors',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600',
+          hasActive
+            ? 'border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100'
+            : 'border-slate-200 bg-slate-100 text-slate-800 hover:bg-slate-200',
         )}"
         data-action="toggle-menu-group"
         data-group-key="${groupKey}"
         data-menu-group-header="${escapeHtml(group.title)}"
+        aria-expanded="${expanded}"
       >
-        <span class="flex h-5 w-5 items-center justify-center text-muted-foreground" data-menu-group-icon="${escapeHtml(group.title)}">${renderIcon(groupIcon, 'h-4 w-4')}</span>
+        <span class="flex h-5 w-5 shrink-0 items-center justify-center" data-menu-group-icon="${escapeHtml(group.title)}">${renderIcon(groupIcon, 'h-4 w-4')}</span>
         <span class="flex-1 text-left">${escapeHtml(group.title)}</span>
-        ${renderIcon(expanded ? 'ChevronDown' : 'ChevronRight', 'h-4 w-4')}
+        ${renderIcon(expanded ? 'ChevronDown' : 'ChevronRight', 'h-4 w-4 shrink-0')}
       </button>
-      ${expanded ? `<div class="mt-1 space-y-1">${group.items.map((item) => renderMenuItem(item, state, collapsed)).join('')}</div>` : ''}
+      ${expanded ? `<div class="ml-2 mt-1 space-y-1 border-l border-slate-200 pl-1">${group.items.map((item) => renderMenuItem(item, state, collapsed)).join('')}</div>` : ''}
     </div>
   `
 }
