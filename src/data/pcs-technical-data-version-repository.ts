@@ -11,6 +11,8 @@ import {
   MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE,
   captureEngineeringBomMaterialReference,
   resolveEngineeringBomMaterialLine,
+  assertEngineeringBomMaterialRules,
+  isSimpleBomMaterialSku,
 } from './pcs-engineering-bom-material-resolver.ts'
 import { projectLegacySkuMaterialIntent } from './pcs-engineering-bom-legacy-intent.ts'
 import { listSkuArchivesByStyleId } from './pcs-sku-archive-repository.ts'
@@ -1030,6 +1032,7 @@ export function createTechnicalDataVersionDraft(
   assertCallerDidNotProvideEngineeringBomPricingSnapshot(record, content?.bomPricingSnapshot !== undefined)
   const snapshot = loadSnapshot()
   const normalizedContent = normalizeContent(content ?? createEmptyContent(record.technicalVersionId))
+  if (!isPcsDemoData()) assertTechnicalMaterialSelectionDelta(createEmptyContent(record.technicalVersionId), normalizedContent)
   if (record.versionStatus === 'PUBLISHED') assertTechnicalDataReadyForPublish(normalizedContent)
   const normalizedRecord = normalizeRecord(record, new Map([[record.technicalVersionId, normalizedContent]]))
   persistSnapshot({
@@ -1104,6 +1107,35 @@ export function updateTechnicalDataVersionContent(
   return persistTechnicalDataVersionContentPatch(technicalVersionId, mappedPatch)
 }
 
+/** Validate only added/changed facts. Unchanged historical parts/process snapshots remain readable and retainable. */
+export function assertTechnicalMaterialSelectionDelta(base: TechnicalDataVersionContent, next: TechnicalDataVersionContent): void {
+  const processSignature = (item: TechnicalBomItem) => JSON.stringify([
+    item.printRequirement || '无', item.dyeRequirement || '无', item.waterSolubleRequirement || '否', item.embroideryRequirement || '无',
+    item.printSideMode || '', item.frontPatternDesignId || '', item.frontPatternDesignIds || [], item.insidePatternDesignId || '', item.insidePatternDesignIds || [], item.linkedPatternIds || [], item.usageProcessCodes || [],
+  ])
+  for (const item of next.bomItems) {
+    if (!item.materialSkuId || !isSimpleBomMaterialSku(item.materialSkuId)) continue
+    const previous = base.bomItems.find(row => row.id === item.id && row.materialSkuId === item.materialSkuId)
+    if (previous && previous.type === item.type && processSignature(previous) === processSignature(item)) continue
+    assertEngineeringBomMaterialRules({ materialSkuId: item.materialSkuId, materialType: item.type, usage: item.unitConsumption, sampleQuantity: item.sampleQuantity || 1, usageUnit: item.unit || '', lossRate: 0,
+      printRequirementText: item.printRequirement, dyeRequirementText: item.dyeRequirement, waterSolubleRequirementText: item.waterSolubleRequirement,
+      printSide: item.printSideMode ? '正面' : '无', processCode: item.usageProcessCodes?.join(','),
+      linkedPatternResultIds: [...(item.linkedPatternIds || []), ...(item.frontPatternDesignIds || []), ...(item.insidePatternDesignIds || []), item.frontPatternDesignId || '', item.insidePatternDesignId || ''].filter(Boolean),
+    }, previous?.materialSkuId)
+    if (isSimpleBomMaterialSku(item.materialSkuId) && item.embroideryRequirement && !['无', '否', '不需要'].includes(item.embroideryRequirement)) throw new Error('耗材、设备配件不维护绣花要求。')
+  }
+  for (const entry of next.processEntries) {
+    const previous = base.processEntries.find(row => row.id === entry.id)
+    const linkedSkuIds = (content: TechnicalDataVersionContent, process: TechnicalProcessEntry) => content.bomItems
+      .filter(item => process.linkedBomItemIds?.includes(item.id)).map(item => item.materialSkuId || '')
+    if (previous && JSON.stringify(previous) === JSON.stringify(entry)
+      && JSON.stringify(linkedSkuIds(base, previous)) === JSON.stringify(linkedSkuIds(next, entry))) continue
+    const skuIds = [entry.inputMaterialSkuId, entry.outputMaterialSkuId,
+      ...next.bomItems.filter(item => entry.linkedBomItemIds?.includes(item.id)).map(item => item.materialSkuId)]
+    if (skuIds.some(id => id && isSimpleBomMaterialSku(id))) throw new Error('耗材、设备配件不能新增或修改加工工艺路线；历史资料保留只读。')
+  }
+}
+
 function persistTechnicalDataVersionContentPatch(
   technicalVersionId: string,
   patch: Partial<TechnicalDataVersionContent>,
@@ -1116,6 +1148,7 @@ function persistTechnicalDataVersionContentPatch(
     ...patch,
     technicalVersionId,
   })
+  assertTechnicalMaterialSelectionDelta(base, nextContent)
   const nextContents = [...snapshot.contents]
   if (contentIndex >= 0) nextContents.splice(contentIndex, 1, nextContent)
   else nextContents.push(nextContent)

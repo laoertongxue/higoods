@@ -1,0 +1,109 @@
+{
+  "kind": "task-scope-validation-evidence",
+  "result": "本轮原型60项及两轮逐项审查已验证",
+  "formalWholeWorkspaceReceipt": "未生成：workflow脚本要求覆盖无关用户文档，拒绝记录已保留；适用AGENTS.md第7节任务边界规定",
+  "branch": "codex/consumable-parts-simplification",
+  "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "sourceHash": "2df1bfafaa89b431e8f45ef5731e710f27e68e8eb0a202645421dfe35b500146",
+  "entry": "/assets/index-BPNAo-1Z.js",
+  "entrySha256": "727812ce3d4f022d739d884ae1023318e5e50ec61265ee1196964882f0595979",
+  "requiredChecks": [
+    {
+      "command": "npm run check:pms-purchase-chain",
+      "exitCode": 0,
+      "startedAt": "2026-10-09T19:13:56.647438+08:00",
+      "finishedAt": "2026-10-09T19:13:57.745157+08:00",
+      "log": "output/playwright/pcs-simple-materials/final-check-1.log"
+    },
+    {
+      "command": "npm run check:menu-routes",
+      "exitCode": 0,
+      "startedAt": "2026-10-09T19:13:57.745255+08:00",
+      "finishedAt": "2026-10-09T19:13:58.639605+08:00",
+      "log": "output/playwright/pcs-simple-materials/final-check-2.log"
+    },
+    {
+      "command": "npm run check:prototype-design-governance -- --all",
+      "exitCode": 0,
+      "startedAt": "2026-10-09T20:12:00.660289+08:00",
+      "finishedAt": "2026-10-09T20:12:01.134348+08:00",
+      "log": "output/playwright/pcs-simple-materials/final-check-3.log"
+    },
+    {
+      "command": "npm run check:list-page-governance",
+      "exitCode": 0,
+      "startedAt": "2026-10-09T20:12:01.134464+08:00",
+      "finishedAt": "2026-10-09T20:12:07.418286+08:00",
+      "log": "output/playwright/pcs-simple-materials/final-check-4.log"
+    },
+    {
+      "command": "npm run build",
+      "exitCode": 0,
+      "startedAt": "2026-10-09T20:12:07.418430+08:00",
+      "finishedAt": "2026-10-09T20:12:48.101609+08:00",
+      "log": "output/playwright/pcs-simple-materials/final-check-5.log"
+    }
+  ],
+  "codegraph": {
+    "initialized": true,
+    "projectPath": "/Users/laoer/Documents/higoods",
+    "fileCount": 2591,
+    "nodeCount": 67437,
+    "edgeCount": 220691,
+    "dbSizeBytes": 246435840,
+    "backend": "node-sqlite",
+    "journalMode": "wal",
+    "nodesByKind": {
+      "class": 50,
+      "constant": 16864,
+      "file": 2590,
+      "function": 24985,
+      "import": 12742,
+      "interface": 3360,
+      "method": 181,
+      "property": 3102,
+      "type_alias": 2244,
+      "variable": 1319
+    },
+    "languages": [
+      "javascript",
+      "python",
+      "swift",
+      "typescript",
+      "yaml"
+    ],
+    "pendingChanges": {
+      "added": 0,
+      "modified": 0,
+      "removed": 0
+    },
+    "worktreeMismatch": null
+  },
+  "matrix": {
+    "total": 60,
+    "verified": 60
+  },
+  "reviews": [
+    {
+      "round": 1,
+      "total": 60,
+      "passed": 60
+    },
+    {
+      "round": 2,
+      "total": 60,
+      "passed": 60
+    }
+  ],
+  "performance": {
+    "groups": 638,
+    "samples": 3215,
+    "maxMs": 552.6999999992549,
+    "limitMs": 1000,
+    "allPassed": true
+  },
+  "checkedAt": "2026-10-09T20:15:03.763638+08:00",
+  "unrelatedFileUntouched": "docs/product-design/换片布菲票功能说明-研发交付版-2026-10-09.md",
+  "published": false
+}

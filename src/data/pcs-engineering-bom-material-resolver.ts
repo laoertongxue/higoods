@@ -1,11 +1,55 @@
 import { getMaterialArchiveById, getMaterialSkuRecordById, freezeMaterialCostSnapshot, readMaterialCostReference, getMaterialUnitFactor, listMaterialUnitRelations } from './pcs-material-archive-repository.ts'
 import { canonicalMaterialUnit } from './pcs-material-rules.ts'
+import { isPackagingConsumableCategory } from './pcs-material-config.ts'
 import type {
   EngineeringBomMaterialLineDraft,
   EngineeringBomResolvedMaterialLine,
 } from './pcs-engineering-bom-types.ts'
 
 export const MATERIAL_STANDARD_PRICE_REQUIRED_MESSAGE = '该物料的综合标准成本未维护完整，请先补齐标准采购、基础运输或加工费用。'
+
+export function isSimpleBomMaterialSku(materialSkuId: string): boolean {
+  const sku = getMaterialSkuRecordById(materialSkuId)
+  const kind = sku && getMaterialArchiveById(sku.materialId)?.kind
+  return kind === 'consumable' || kind === 'parts'
+}
+
+/** Candidate type is derived from stable category identity, never from its display name. */
+export function getGarmentBomMaterialType(materialSkuId: string): string | null {
+  const sku = getMaterialSkuRecordById(materialSkuId)
+  const root = sku && getMaterialArchiveById(sku.materialId)
+  if (!root || root.kind === 'parts') return null
+  if (root.kind === 'consumable') return isPackagingConsumableCategory(root.subcategoryId || '') ? '包装材料' : '其他'
+  return ({ fabric: '面料', accessory: '辅料', yarn: '纱线' } as const)[root.kind]
+}
+
+/** Save-time boundary. Existing equipment-part references can be retained, but never newly selected. */
+export function assertEngineeringBomMaterialRules(line: EngineeringBomMaterialLineDraft, existingMaterialSkuId?: string, previousLine?: EngineeringBomMaterialLineDraft): void {
+  const sku = getMaterialSkuRecordById(line.materialSkuId)
+  const root = sku && getMaterialArchiveById(sku.materialId)
+  if (!root) throw new Error('BOM 物料主档不存在，请重新选择。')
+  if (root.kind === 'parts' && existingMaterialSkuId !== line.materialSkuId) throw new Error('设备配件不能新加入服装 BOM；已有历史引用保留。')
+  if (root.kind !== 'consumable' && root.kind !== 'parts') return
+  const expectedType = getGarmentBomMaterialType(line.materialSkuId)
+  if (root.kind === 'consumable' && line.materialType && line.materialType !== expectedType
+    && !(previousLine?.materialSkuId === line.materialSkuId && previousLine.materialType === line.materialType)) {
+    throw new Error(`该耗材应归属 ${expectedType}，请按物料分类选择 BOM 类型。`)
+  }
+  const processSignature = (item: EngineeringBomMaterialLineDraft) => JSON.stringify([
+    item.printRequirement || '否', item.dyeRequirement || '否', item.printRequirementText || '', item.dyeRequirementText || '', item.waterSolubleRequirementText || '',
+    item.processCode || '', item.printSide || '无', item.frontPatternResultId || '', item.liningPatternResultId || '', item.linkedPatternResultIds || [],
+    Boolean(item.designRevisionSkuSnapshot?.requiresDye), Boolean(item.designRevisionSkuSnapshot?.requiresPrint),
+  ])
+  if (previousLine?.materialSkuId === line.materialSkuId && processSignature(previousLine) === processSignature(line)) return
+  const requested = (value?: string) => Boolean(value?.trim() && !['无', '否', '不需要'].includes(value.trim()))
+  if (line.printRequirement === '是' || line.dyeRequirement === '是'
+    || requested(line.printRequirementText) || requested(line.dyeRequirementText) || requested(line.waterSolubleRequirementText)
+    || requested(line.processCode) || requested(line.printSide)
+    || line.frontPatternResultId || line.liningPatternResultId || line.linkedPatternResultIds?.length
+    || line.designRevisionSkuSnapshot?.requiresDye || line.designRevisionSkuSnapshot?.requiresPrint) {
+    throw new Error('耗材、设备配件不维护印花、染色或其他加工要求，请移除本次新增的加工资料。')
+  }
+}
 
 function roundCny(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100
@@ -105,6 +149,6 @@ export function resolveEngineeringBomMaterialLine(
     standardCostMessage: missingHistoricalReference ? '历史成本引用缺失，未使用当前价格补写。' : conversionMessage || (reference?.completeness.join('、')) || (frozen ? '采用确认 / 发布时的标准成本与单位版本' : changed ? '标准成本参考已更新，当前为最新值' : '采用当前综合标准成本（含税）'),
     materialCostCny: rawCost === null ? null : roundCny(rawCost),
     totalRequirementQuantity: calculateEngineeringBomTotalRequirement({ ...line, conversionToPricingUnit: conversion || 1 }),
-    technicalProcessSequence: resolveEngineeringBomTechnicalProcessSequence(line),
+    technicalProcessSequence: isSimpleBomMaterialSku(line.materialSkuId) ? [] : resolveEngineeringBomTechnicalProcessSequence(line),
   }
 }

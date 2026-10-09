@@ -56,6 +56,7 @@ import {
   saveTechnicalDataVersionBomMaterialLine,
 } from '../../data/pcs-engineering-bom-pricing.ts'
 import { getTechnicalDataVersionContent } from '../../data/pcs-technical-data-version-repository.ts'
+import { assertEngineeringBomMaterialRules, getGarmentBomMaterialType, isSimpleBomMaterialSku } from '../../data/pcs-engineering-bom-material-resolver.ts'
 import {
   getMaterialArchiveById,
   getMaterialSkuRecordById,
@@ -1899,6 +1900,17 @@ function getCurrentEngineeringBomRole(): EngineeringBomOperatorRole {
   return getTechPackReviewerById(currentUser.id)?.roles.includes('买手') ? '买手' : '管理员'
 }
 
+function validateNewBomCopy(item: BomItemRow): boolean {
+  try {
+    if (item.type === '成衣' && !item.materialSkuId) return true
+    assertEngineeringBomMaterialRules({ materialSkuId: item.materialSkuId || '', materialType: item.type, usage: item.usage, sampleQuantity: item.sampleQuantity || 1, usageUnit: item.unit, lossRate: 0,
+      printRequirementText: item.printRequirement, dyeRequirementText: item.dyeRequirement, waterSolubleRequirementText: item.waterSolubleRequirement,
+      printSide: item.printSideMode ? '正面' : '无', processCode: item.usageProcessCodes.join(','), linkedPatternResultIds: [...item.frontPatternDesignIds, ...item.insidePatternDesignIds] })
+    if (isSimpleBomMaterialSku(item.materialSkuId || '') && item.embroideryRequirement === '有') throw new Error('耗材不维护绣花要求。')
+    return true
+  } catch (error) { window.alert(error instanceof Error ? error.message : '该物料不能复制为新 BOM 行。'); return false }
+}
+
 async function updateCurrentBomPricingLine(
   node: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   patch: Parameters<typeof saveTechnicalDataVersionBomMaterialLine>[2],
@@ -1957,6 +1969,16 @@ async function handleTechPackField(
 
   const value = node.value
   const checked = node instanceof HTMLInputElement ? node.checked : false
+  const processFields = ['bom-print', 'bom-dye', 'bom-water-soluble', 'bom-embroidery', 'bom-bound-craft']
+  const newProcessFields = ['new-bom-print-requirement', 'new-bom-dye-requirement', 'new-bom-water-soluble-requirement', 'new-bom-embroidery-requirement', 'new-bom-bound-craft', 'new-bom-print-side-mode', 'new-bom-front-pattern-design-id', 'new-bom-inside-pattern-design-id']
+  const processSkuId = processFields.includes(field)
+    ? state.bomItems.find(item => item.id === node.dataset.bomId)?.materialSkuId || ''
+    : newProcessFields.includes(field) ? state.newBomItem.materialSkuId : ''
+  if (processSkuId && isSimpleBomMaterialSku(processSkuId)) {
+    window.alert('耗材、设备配件不维护加工要求。')
+    refreshBomFormDialogDom()
+    return true
+  }
 
   if (field === 'review-action-opinion') {
     state.reviewActionOpinion = value
@@ -2006,6 +2028,10 @@ async function handleTechPackField(
     const technique = state.techniques.find((item) => item.id === techId)
     const selectedSku = getMaterialSkuRecordById(value)
     const inputSku = getMaterialSkuRecordById(technique?.inputMaterialSkuId || '')
+    if (isSimpleBomMaterialSku(value) || inputSku && isSimpleBomMaterialSku(inputSku.materialSkuId)) {
+      window.alert('耗材、设备配件不能作为加工投入或产出。')
+      return true
+    }
     if (!technique || technique.stageCode !== 'PREP' || !technique.routeObjectKey || !selectedSku) {
       window.alert('未找到准备工序或物料 SKU，请刷新后重试。')
       return true
@@ -2582,6 +2608,11 @@ async function handleTechPackField(
   if (field === 'new-bom-material-sku') {
     const sku = value ? getMaterialSkuRecordById(value) : null
     const archive = sku ? getMaterialArchiveById(sku.materialId) : null
+    const existingSkuId = state.bomItems.find(item => item.id === state.editBomItemId)?.materialSkuId
+    if (sku && getGarmentBomMaterialType(sku.materialSkuId) !== state.newBomItem.type && !(archive?.kind === 'parts' && existingSkuId === sku.materialSkuId)) {
+      window.alert('所选物料与 BOM 类型不一致，设备配件不能新加入服装 BOM。')
+      return true
+    }
     state.newBomItem.materialSkuId = sku?.materialSkuId || ''
     state.newBomItem.materialCode = sku?.materialCode || archive?.materialCode || ''
     state.newBomItem.materialName = sku?.materialName || archive?.materialName || ''
@@ -2589,6 +2620,11 @@ async function handleTechPackField(
       ? dedupeStrings([sku.colorName, sku.specName, sku.sizeName].filter((item) => item && item !== '-')).join(' / ')
       : ''
     state.newBomItem.unit = sku?.pricingUnit || archive?.mainUnit || state.newBomItem.unit
+    if (sku && isSimpleBomMaterialSku(sku.materialSkuId)) {
+      Object.assign(state.newBomItem, { printRequirement: '无', dyeRequirement: '无', waterSolubleRequirement: '否', embroideryRequirement: '无', printSideMode: '', frontPatternDesignId: '', frontPatternDesignIds: [], insidePatternDesignId: '', insidePatternDesignIds: [], usageProcessCodes: [] })
+      state.newBomItem.spec = sku.specName
+      state.newBomItem.unit = sku.mainUnit || sku.pricingUnit
+    }
     refreshBomFormDialogDom()
     return true
   }
@@ -4308,6 +4344,7 @@ export async function handleTechPackEvent(target: HTMLElement): Promise<boolean>
     const bomId = actionNode.dataset.bomId
     const source = state.bomItems.find((item) => item.id === bomId)
     if (!source) return true
+    if (!validateNewBomCopy(source)) return true
     state.bomItems = [
       ...state.bomItems,
       {
@@ -4335,6 +4372,7 @@ export async function handleTechPackEvent(target: HTMLElement): Promise<boolean>
     const sourceRows = sourceIds
       .map((id) => state.bomItems.find((item) => item.id === id) ?? null)
       .filter((item): item is BomItemRow => Boolean(item))
+    if (sourceRows.some(item => !validateNewBomCopy(item))) return true
     const timestamp = Date.now()
     const copies = sourceRows.map((item, index): BomItemRow => ({
       ...item,
@@ -4370,6 +4408,19 @@ export async function handleTechPackEvent(target: HTMLElement): Promise<boolean>
       const materialArchive = materialSku
         ? getMaterialArchiveById(materialSku.materialId)
         : listMaterialArchives().find((item) => item.materialCode === state.newBomItem.materialCode) ?? null
+      try {
+        const previous = state.bomItems.find(item => item.id === state.editBomItemId)
+        const existingSkuId = previous?.materialSkuId
+        if (!materialSku) throw new Error('请选择具体物料 SKU。')
+        if (getGarmentBomMaterialType(materialSku.materialSkuId) !== state.newBomItem.type && !(existingSkuId === materialSku.materialSkuId && previous?.type === state.newBomItem.type)) throw new Error('所选物料与 BOM 类型不一致。')
+        assertEngineeringBomMaterialRules({ materialSkuId: materialSku.materialSkuId, usage: Number(state.newBomItem.usage), sampleQuantity: 1, usageUnit: state.newBomItem.unit, lossRate: 0,
+          printRequirementText: state.newBomItem.printRequirement, dyeRequirementText: state.newBomItem.dyeRequirement, waterSolubleRequirementText: state.newBomItem.waterSolubleRequirement,
+          printSide: state.newBomItem.printSideMode ? '正面' : '无', linkedPatternResultIds: [...getBomPatternDesignIds(state.newBomItem, 'FRONT'), ...getBomPatternDesignIds(state.newBomItem, 'INSIDE')], processCode: state.newBomItem.usageProcessCodes.join(',') }, existingSkuId,
+          previous?.materialSkuId ? { materialSkuId: previous.materialSkuId, usage: previous.usage, sampleQuantity: previous.sampleQuantity || 1, usageUnit: previous.unit, lossRate: 0,
+            printRequirementText: previous.printRequirement, dyeRequirementText: previous.dyeRequirement, waterSolubleRequirementText: previous.waterSolubleRequirement,
+            printSide: previous.printSideMode ? '正面' : '无', linkedPatternResultIds: [...getBomPatternDesignIds(previous, 'FRONT'), ...getBomPatternDesignIds(previous, 'INSIDE')], processCode: previous.usageProcessCodes.join(',') } : undefined)
+        if (isSimpleBomMaterialSku(materialSku.materialSkuId) && state.newBomItem.embroideryRequirement === '有' && !(existingSkuId === materialSku.materialSkuId && previous?.embroideryRequirement === '有')) throw new Error('耗材、设备配件不维护绣花要求。')
+      } catch (error) { window.alert(error instanceof Error ? error.message : '物料规则校验失败。'); return true }
       if (!(materialSku?.skuImageUrl || materialArchive?.mainImageUrl)) {
         window.alert('请选择带真实图片的物料档案。')
         return true
@@ -4758,6 +4809,12 @@ export async function handleTechPackEvent(target: HTMLElement): Promise<boolean>
     const selectedMeta = getSelectedDraftMeta()
     if (!selectedMeta) return true
     const editingTarget = state.editTechniqueId ? getTechniqueById(state.editTechniqueId) : null
+    if (editingTarget?.stageCode === 'PREP' && [editingTarget.inputMaterialSkuId, editingTarget.outputMaterialSkuId,
+      ...state.bomItems.filter(item => editingTarget.linkedBomItemIds?.includes(item.id)).map(item => item.materialSkuId)]
+      .some(id => id && isSimpleBomMaterialSku(id))) {
+      window.alert('耗材、设备配件的历史加工资料仅供查看，不能新增或修改。')
+      return true
+    }
     if (editingTarget && !canEditTechnique(editingTarget)) return true
 
     if (!editingTarget && selectedMeta.stageCode === 'PREP') {

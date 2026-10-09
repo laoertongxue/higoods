@@ -1,0 +1,897 @@
+{
+  "dev": "http://127.0.0.1:43222",
+  "production": "http://127.0.0.1:43220",
+  "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "sourceDiffSha256": "4c90d606f94b56f2fd92c69d81d1e5a6aa678485302df9f10ed31eb8776b9b06",
+  "bundle": "/assets/index-BPNAo-1Z.js",
+  "browser": "149.0.7827.55",
+  "cache": "disabled",
+  "mode": "production-five-round-usage",
+  "rounds": 5,
+  "samples": [
+    {
+      "name": "consumable:cold-config",
+      "ms": 164.5,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-section",
+      "ms": 64.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-kind",
+      "ms": 66.09999999776483,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-search",
+      "ms": 63.599999997764826,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-query",
+      "ms": 65.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-detail",
+      "ms": 65,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-usage",
+      "ms": 65.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "consumable:classification-owner-direct",
+      "ms": 115.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:cold-config",
+      "ms": 148.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-section",
+      "ms": 65.5,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-kind",
+      "ms": 65.5,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-search",
+      "ms": 65.5,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-query",
+      "ms": 66.10000000149012,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-detail",
+      "ms": 65.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-usage",
+      "ms": 65.5,
+      "round": 0
+    },
+    {
+      "name": "parts:classification-owner-direct",
+      "ms": 115.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "package:cold-config",
+      "ms": 198.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "package:section",
+      "ms": 65.69999999925494,
+      "round": 0
+    },
+    {
+      "name": "package:search",
+      "ms": 63.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "package:query",
+      "ms": 66.19999999925494,
+      "round": 0
+    },
+    {
+      "name": "package:detail",
+      "ms": 64.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "package:usage-tab",
+      "ms": 65.60000000149012,
+      "round": 0
+    },
+    {
+      "name": "package:owner-SKU-direct",
+      "ms": 115.20000000298023,
+      "round": 0
+    },
+    {
+      "name": "package:owner-units",
+      "ms": 66.79999999701977,
+      "round": 0
+    },
+    {
+      "name": "package:edit-dictionary",
+      "ms": 65.80000000074506,
+      "round": 0
+    },
+    {
+      "name": "package:rename-dictionary",
+      "ms": 64.40000000223517,
+      "round": 0
+    },
+    {
+      "name": "package:disable-dictionary",
+      "ms": 64.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "package:save-dictionary",
+      "ms": 131.89999999850988,
+      "round": 0
+    },
+    {
+      "name": "package:disabled-history-usage",
+      "ms": 66,
+      "round": 0
+    },
+    {
+      "name": "package:history-refresh",
+      "ms": 163.30000000074506,
+      "round": 0
+    },
+    {
+      "name": "package:history-reopened",
+      "ms": 66,
+      "round": 0
+    },
+    {
+      "name": "consumable:cold-config",
+      "ms": 165.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-section",
+      "ms": 65.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-kind",
+      "ms": 66.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-search",
+      "ms": 63.5,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-query",
+      "ms": 66.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-detail",
+      "ms": 65.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-usage",
+      "ms": 73.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "consumable:classification-owner-direct",
+      "ms": 130.59999999776483,
+      "round": 1
+    },
+    {
+      "name": "parts:cold-config",
+      "ms": 181.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-section",
+      "ms": 66,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-kind",
+      "ms": 71.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-search",
+      "ms": 57.20000000298023,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-query",
+      "ms": 65.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-detail",
+      "ms": 66,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-usage",
+      "ms": 65.59999999776483,
+      "round": 1
+    },
+    {
+      "name": "parts:classification-owner-direct",
+      "ms": 115.5,
+      "round": 1
+    },
+    {
+      "name": "package:cold-config",
+      "ms": 150.10000000149012,
+      "round": 1
+    },
+    {
+      "name": "package:section",
+      "ms": 65.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "package:search",
+      "ms": 64,
+      "round": 1
+    },
+    {
+      "name": "package:query",
+      "ms": 66.59999999776483,
+      "round": 1
+    },
+    {
+      "name": "package:detail",
+      "ms": 65.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "package:usage-tab",
+      "ms": 65.5,
+      "round": 1
+    },
+    {
+      "name": "package:owner-SKU-direct",
+      "ms": 147.80000000074506,
+      "round": 1
+    },
+    {
+      "name": "package:owner-units",
+      "ms": 63.30000000074506,
+      "round": 1
+    },
+    {
+      "name": "package:edit-dictionary",
+      "ms": 65.89999999850988,
+      "round": 1
+    },
+    {
+      "name": "package:rename-dictionary",
+      "ms": 63.899999998509884,
+      "round": 1
+    },
+    {
+      "name": "package:disable-dictionary",
+      "ms": 64.5,
+      "round": 1
+    },
+    {
+      "name": "package:save-dictionary",
+      "ms": 131.69999999925494,
+      "round": 1
+    },
+    {
+      "name": "package:disabled-history-usage",
+      "ms": 81.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "package:history-refresh",
+      "ms": 195.60000000149012,
+      "round": 1
+    },
+    {
+      "name": "package:history-reopened",
+      "ms": 66,
+      "round": 1
+    },
+    {
+      "name": "consumable:cold-config",
+      "ms": 171.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-section",
+      "ms": 65.5,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-kind",
+      "ms": 66.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-search",
+      "ms": 63.600000001490116,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-query",
+      "ms": 65.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-detail",
+      "ms": 65.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-usage",
+      "ms": 80.20000000298023,
+      "round": 2
+    },
+    {
+      "name": "consumable:classification-owner-direct",
+      "ms": 149.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "parts:cold-config",
+      "ms": 202.09999999776483,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-section",
+      "ms": 65.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-kind",
+      "ms": 65.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-search",
+      "ms": 63.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-query",
+      "ms": 66.29999999701977,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-detail",
+      "ms": 65,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-usage",
+      "ms": 65.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "parts:classification-owner-direct",
+      "ms": 131.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "package:cold-config",
+      "ms": 182.20000000298023,
+      "round": 2
+    },
+    {
+      "name": "package:section",
+      "ms": 64.5,
+      "round": 2
+    },
+    {
+      "name": "package:search",
+      "ms": 63.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "package:query",
+      "ms": 65.5,
+      "round": 2
+    },
+    {
+      "name": "package:detail",
+      "ms": 65.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "package:usage-tab",
+      "ms": 65.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "package:owner-SKU-direct",
+      "ms": 148.19999999925494,
+      "round": 2
+    },
+    {
+      "name": "package:owner-units",
+      "ms": 66,
+      "round": 2
+    },
+    {
+      "name": "package:edit-dictionary",
+      "ms": 65.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "package:rename-dictionary",
+      "ms": 63.5,
+      "round": 2
+    },
+    {
+      "name": "package:disable-dictionary",
+      "ms": 63.80000000074506,
+      "round": 2
+    },
+    {
+      "name": "package:save-dictionary",
+      "ms": 131.60000000149012,
+      "round": 2
+    },
+    {
+      "name": "package:disabled-history-usage",
+      "ms": 66.69999999925494,
+      "round": 2
+    },
+    {
+      "name": "package:history-refresh",
+      "ms": 193.30000000074506,
+      "round": 2
+    },
+    {
+      "name": "package:history-reopened",
+      "ms": 65.90000000223517,
+      "round": 2
+    },
+    {
+      "name": "consumable:cold-config",
+      "ms": 166.10000000149012,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-section",
+      "ms": 65.70000000298023,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-kind",
+      "ms": 66,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-search",
+      "ms": 63.900000002235174,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-query",
+      "ms": 65.90000000223517,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-detail",
+      "ms": 65.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-usage",
+      "ms": 79.5,
+      "round": 3
+    },
+    {
+      "name": "consumable:classification-owner-direct",
+      "ms": 148.20000000298023,
+      "round": 3
+    },
+    {
+      "name": "parts:cold-config",
+      "ms": 165.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-section",
+      "ms": 65.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-kind",
+      "ms": 66.09999999776483,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-search",
+      "ms": 64.10000000149012,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-query",
+      "ms": 64.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-detail",
+      "ms": 65,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-usage",
+      "ms": 67.5,
+      "round": 3
+    },
+    {
+      "name": "parts:classification-owner-direct",
+      "ms": 116,
+      "round": 3
+    },
+    {
+      "name": "package:cold-config",
+      "ms": 199.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "package:section",
+      "ms": 65.79999999701977,
+      "round": 3
+    },
+    {
+      "name": "package:search",
+      "ms": 64.5,
+      "round": 3
+    },
+    {
+      "name": "package:query",
+      "ms": 65.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "package:detail",
+      "ms": 60.599999997764826,
+      "round": 3
+    },
+    {
+      "name": "package:usage-tab",
+      "ms": 66.09999999776483,
+      "round": 3
+    },
+    {
+      "name": "package:owner-SKU-direct",
+      "ms": 148.69999999925494,
+      "round": 3
+    },
+    {
+      "name": "package:owner-units",
+      "ms": 64.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "package:edit-dictionary",
+      "ms": 65.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "package:rename-dictionary",
+      "ms": 63.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "package:disable-dictionary",
+      "ms": 63.899999998509884,
+      "round": 3
+    },
+    {
+      "name": "package:save-dictionary",
+      "ms": 129.60000000149012,
+      "round": 3
+    },
+    {
+      "name": "package:disabled-history-usage",
+      "ms": 66.09999999776483,
+      "round": 3
+    },
+    {
+      "name": "package:history-refresh",
+      "ms": 178.80000000074506,
+      "round": 3
+    },
+    {
+      "name": "package:history-reopened",
+      "ms": 66.30000000074506,
+      "round": 3
+    },
+    {
+      "name": "consumable:cold-config",
+      "ms": 183.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-section",
+      "ms": 65.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-kind",
+      "ms": 65.90000000223517,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-search",
+      "ms": 64.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-query",
+      "ms": 64.59999999776483,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-detail",
+      "ms": 65.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-usage",
+      "ms": 64.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "consumable:classification-owner-direct",
+      "ms": 149.30000000074506,
+      "round": 4
+    },
+    {
+      "name": "parts:cold-config",
+      "ms": 181.39999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-section",
+      "ms": 65.39999999850988,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-kind",
+      "ms": 65.79999999701977,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-search",
+      "ms": 63.899999998509884,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-query",
+      "ms": 64.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-detail",
+      "ms": 65.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-usage",
+      "ms": 64.60000000149012,
+      "round": 4
+    },
+    {
+      "name": "parts:classification-owner-direct",
+      "ms": 132.5,
+      "round": 4
+    },
+    {
+      "name": "package:cold-config",
+      "ms": 149.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "package:section",
+      "ms": 65.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "package:search",
+      "ms": 63.400000002235174,
+      "round": 4
+    },
+    {
+      "name": "package:query",
+      "ms": 65.90000000223517,
+      "round": 4
+    },
+    {
+      "name": "package:detail",
+      "ms": 66.29999999701977,
+      "round": 4
+    },
+    {
+      "name": "package:usage-tab",
+      "ms": 66.19999999925494,
+      "round": 4
+    },
+    {
+      "name": "package:owner-SKU-direct",
+      "ms": 148.69999999925494,
+      "round": 4
+    },
+    {
+      "name": "package:owner-units",
+      "ms": 65.10000000149012,
+      "round": 4
+    },
+    {
+      "name": "package:edit-dictionary",
+      "ms": 66,
+      "round": 4
+    },
+    {
+      "name": "package:rename-dictionary",
+      "ms": 63.80000000074506,
+      "round": 4
+    },
+    {
+      "name": "package:disable-dictionary",
+      "ms": 63.900000002235174,
+      "round": 4
+    },
+    {
+      "name": "package:save-dictionary",
+      "ms": 131.89999999850988,
+      "round": 4
+    },
+    {
+      "name": "package:disabled-history-usage",
+      "ms": 65.20000000298023,
+      "round": 4
+    },
+    {
+      "name": "package:history-refresh",
+      "ms": 178.09999999776483,
+      "round": 4
+    },
+    {
+      "name": "package:history-reopened",
+      "ms": 65.30000000074506,
+      "round": 4
+    }
+  ],
+  "errors": [],
+  "results": [
+    {
+      "round": 0,
+      "categoryReferences": [
+        {
+          "categoryId": "material-category-consumable-4027c607-a46f-4e5a-940f-16585b84f3bc",
+          "root": "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65",
+          "count": 1
+        },
+        {
+          "categoryId": "material-category-parts-93b1dc26-a3d7-4e50-9439-2e8ab137b5bc",
+          "root": "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f",
+          "count": 1
+        }
+      ],
+      "packageOwnerPaths": [
+        "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65/skus/material-sku_65169691-42f5-4006-8924-15052d19050f",
+        "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f/skus/material-sku_e4d19df9-e399-405f-ae9d-5d2fc2a5fc89"
+      ],
+      "boxCountPerOwner": 10,
+      "disabledDictionaryRetainsHistory": true
+    },
+    {
+      "round": 1,
+      "categoryReferences": [
+        {
+          "categoryId": "material-category-consumable-4027c607-a46f-4e5a-940f-16585b84f3bc",
+          "root": "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65",
+          "count": 1
+        },
+        {
+          "categoryId": "material-category-parts-93b1dc26-a3d7-4e50-9439-2e8ab137b5bc",
+          "root": "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f",
+          "count": 1
+        }
+      ],
+      "packageOwnerPaths": [
+        "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65/skus/material-sku_65169691-42f5-4006-8924-15052d19050f",
+        "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f/skus/material-sku_e4d19df9-e399-405f-ae9d-5d2fc2a5fc89"
+      ],
+      "boxCountPerOwner": 10,
+      "disabledDictionaryRetainsHistory": true
+    },
+    {
+      "round": 2,
+      "categoryReferences": [
+        {
+          "categoryId": "material-category-consumable-4027c607-a46f-4e5a-940f-16585b84f3bc",
+          "root": "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65",
+          "count": 1
+        },
+        {
+          "categoryId": "material-category-parts-93b1dc26-a3d7-4e50-9439-2e8ab137b5bc",
+          "root": "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f",
+          "count": 1
+        }
+      ],
+      "packageOwnerPaths": [
+        "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65/skus/material-sku_65169691-42f5-4006-8924-15052d19050f",
+        "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f/skus/material-sku_e4d19df9-e399-405f-ae9d-5d2fc2a5fc89"
+      ],
+      "boxCountPerOwner": 10,
+      "disabledDictionaryRetainsHistory": true
+    },
+    {
+      "round": 3,
+      "categoryReferences": [
+        {
+          "categoryId": "material-category-consumable-4027c607-a46f-4e5a-940f-16585b84f3bc",
+          "root": "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65",
+          "count": 1
+        },
+        {
+          "categoryId": "material-category-parts-93b1dc26-a3d7-4e50-9439-2e8ab137b5bc",
+          "root": "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f",
+          "count": 1
+        }
+      ],
+      "packageOwnerPaths": [
+        "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65/skus/material-sku_65169691-42f5-4006-8924-15052d19050f",
+        "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f/skus/material-sku_e4d19df9-e399-405f-ae9d-5d2fc2a5fc89"
+      ],
+      "boxCountPerOwner": 10,
+      "disabledDictionaryRetainsHistory": true
+    },
+    {
+      "round": 4,
+      "categoryReferences": [
+        {
+          "categoryId": "material-category-consumable-4027c607-a46f-4e5a-940f-16585b84f3bc",
+          "root": "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65",
+          "count": 1
+        },
+        {
+          "categoryId": "material-category-parts-93b1dc26-a3d7-4e50-9439-2e8ab137b5bc",
+          "root": "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f",
+          "count": 1
+        }
+      ],
+      "packageOwnerPaths": [
+        "/pcs/materials/consumable/material-consumable_34487842-9e25-4841-a20c-7d04e6537f65/skus/material-sku_65169691-42f5-4006-8924-15052d19050f",
+        "/pcs/materials/parts/material-parts_7ef0db63-a2c1-4a4d-aa88-858161982f0f/skus/material-sku_e4d19df9-e399-405f-ae9d-5d2fc2a5fc89"
+      ],
+      "boxCountPerOwner": 10,
+      "disabledDictionaryRetainsHistory": true
+    }
+  ],
+  "gate": true
+}

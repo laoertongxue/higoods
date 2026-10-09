@@ -87,7 +87,7 @@ export const routes: RouteRegistry = {
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/edit$/, render: m => renderers.renderPcsMaterialArchiveEditPage(m[1], m[2]) },
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/new$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2]) },
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)\/edit$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3]) },
-    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)\/process$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3], true) },
+    { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn)\/([^/]+)\/skus\/([^/]+)\/process$/, render: m => renderers.renderPcsMaterialSkuEditPage(m[1], m[2], m[3], true) },
     { pattern: /^\/pcs\/materials\/(fabric|accessory|yarn|consumable|parts)\/([^/]+)\/skus\/([^/]+)$/, render: m => renderers.renderPcsMaterialSkuDetailPage(m[1], m[2], m[3]) },
     {
       pattern: /^\/pcs\/technical-data\/bom-pricing\/owner\/([^/]+)\/([^/]+)$/,

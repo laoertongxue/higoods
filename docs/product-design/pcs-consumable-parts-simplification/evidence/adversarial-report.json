@@ -1,0 +1,6444 @@
+{
+  "passed": true,
+  "requirements": [
+    "SIMPLE-001",
+    "SIMPLE-049",
+    "SIMPLE-003",
+    "SIMPLE-011",
+    "SIMPLE-018",
+    "SIMPLE-028",
+    "SIMPLE-031",
+    "SIMPLE-032",
+    "SIMPLE-053",
+    "SIMPLE-054",
+    "SIMPLE-056",
+    "SIMPLE-057",
+    "SIMPLE-058",
+    "SIMPLE-059"
+  ],
+  "limitations": "SIMPLE-020 actual print is covered by the main flow. SIMPLE-058 publication-version merge and image type inspection also have static-preservation.json; photos without dimensions do not prove measured sizes.",
+  "functionalFailure": "",
+  "errors": [],
+  "checks": [
+    "round 0: professional 15 routes cold/refresh/SPA; two kinds dirty tabs/cancel/quota/retry; global fixed factors/default uniqueness; missing KG conversion blocked; two distinct same-name entities reused; v1 cm/mm and v2 mm/μm history unchanged; old process+fee+file readonly; existing fabric dye/print/embroidery/heat predecessor identity; actual legacy barcode and isolated Mock alias persisted query",
+    "round 1: professional 15 routes cold/refresh/SPA; two kinds dirty tabs/cancel/quota/retry; global fixed factors/default uniqueness; missing KG conversion blocked; two distinct same-name entities reused; v1 cm/mm and v2 mm/μm history unchanged; old process+fee+file readonly; existing fabric dye/print/embroidery/heat predecessor identity; actual legacy barcode and isolated Mock alias persisted query",
+    "round 2: professional 15 routes cold/refresh/SPA; two kinds dirty tabs/cancel/quota/retry; global fixed factors/default uniqueness; missing KG conversion blocked; two distinct same-name entities reused; v1 cm/mm and v2 mm/μm history unchanged; old process+fee+file readonly; existing fabric dye/print/embroidery/heat predecessor identity; actual legacy barcode and isolated Mock alias persisted query",
+    "round 3: professional 15 routes cold/refresh/SPA; two kinds dirty tabs/cancel/quota/retry; global fixed factors/default uniqueness; missing KG conversion blocked; two distinct same-name entities reused; v1 cm/mm and v2 mm/μm history unchanged; old process+fee+file readonly; existing fabric dye/print/embroidery/heat predecessor identity; actual legacy barcode and isolated Mock alias persisted query",
+    "round 4: professional 15 routes cold/refresh/SPA; two kinds dirty tabs/cancel/quota/retry; global fixed factors/default uniqueness; missing KG conversion blocked; two distinct same-name entities reused; v1 cm/mm and v2 mm/μm history unchanged; old process+fee+file readonly; existing fabric dye/print/embroidery/heat predecessor identity; actual legacy barcode and isolated Mock alias persisted query"
+  ],
+  "groups": [
+    {
+      "name": "fabric-list:cold",
+      "values": [
+        241.5,
+        242,
+        254,
+        240.80000000074506,
+        251
+      ],
+      "max": 254,
+      "passed": true
+    },
+    {
+      "name": "fabric-list:refresh",
+      "values": [
+        182.89999999850988,
+        166.19999999925494,
+        167.19999999925494,
+        166.5,
+        182.69999999925494
+      ],
+      "max": 182.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "fabric-list:SPA",
+      "values": [
+        65.60000000149012,
+        66.5,
+        66.69999999925494,
+        66.69999999925494,
+        67.20000000298023
+      ],
+      "max": 67.20000000298023,
+      "passed": true
+    },
+    {
+      "name": "fabric-root:cold",
+      "values": [
+        249.5,
+        233.10000000149012,
+        249.10000000149012,
+        232.60000000149012,
+        248
+      ],
+      "max": 249.5,
+      "passed": true
+    },
+    {
+      "name": "fabric-root:refresh",
+      "values": [
+        165.80000000074506,
+        166.69999999925494,
+        183.69999999925494,
+        166.19999999925494,
+        166.09999999776483
+      ],
+      "max": 183.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "fabric-root:SPA",
+      "values": [
+        83.59999999776483,
+        83.5,
+        85.5,
+        83.09999999776483,
+        83.60000000149012
+      ],
+      "max": 85.5,
+      "passed": true
+    },
+    {
+      "name": "fabric-detail:cold",
+      "values": [
+        233.30000000074506,
+        232.40000000223517,
+        232.90000000223517,
+        249.39999999850988,
+        265.30000000074506
+      ],
+      "max": 265.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "fabric-detail:refresh",
+      "values": [
+        165.5,
+        182.79999999701977,
+        233.19999999925494,
+        166,
+        182.69999999925494
+      ],
+      "max": 233.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "fabric-detail:SPA",
+      "values": [
+        99.89999999850988,
+        84.40000000223517,
+        67,
+        83.30000000074506,
+        83.59999999776483
+      ],
+      "max": 99.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "fabric-edit:cold",
+      "values": [
+        248.90000000223517,
+        230.80000000074506,
+        248.69999999925494,
+        231.70000000298023,
+        232.80000000074506
+      ],
+      "max": 248.90000000223517,
+      "passed": true
+    },
+    {
+      "name": "fabric-edit:refresh",
+      "values": [
+        166.39999999850988,
+        182.80000000074506,
+        165.89999999850988,
+        166.39999999850988,
+        180.39999999850988
+      ],
+      "max": 182.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "fabric-edit:SPA",
+      "values": [
+        100.30000000074506,
+        83.20000000298023,
+        100,
+        99.80000000074506,
+        83.5
+      ],
+      "max": 100.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "fabric-process:cold",
+      "values": [
+        249,
+        233.89999999850988,
+        249,
+        233.5,
+        232.30000000074506
+      ],
+      "max": 249,
+      "passed": true
+    },
+    {
+      "name": "fabric-process:refresh",
+      "values": [
+        182.80000000074506,
+        165.80000000074506,
+        182.39999999850988,
+        165.80000000074506,
+        166.19999999925494
+      ],
+      "max": 182.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "fabric-process:SPA",
+      "values": [
+        83.19999999925494,
+        83.30000000074506,
+        84.40000000223517,
+        83.5,
+        83.39999999850988
+      ],
+      "max": 84.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "accessory-list:cold",
+      "values": [
+        280.19999999925494,
+        298.6000000014901,
+        279.8999999985099,
+        248,
+        264.5
+      ],
+      "max": 298.6000000014901,
+      "passed": true
+    },
+    {
+      "name": "accessory-list:refresh",
+      "values": [
+        183.69999999925494,
+        181.69999999925494,
+        165.30000000074506,
+        165.79999999701977,
+        182.89999999850988
+      ],
+      "max": 183.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "accessory-list:SPA",
+      "values": [
+        66.80000000074506,
+        66.69999999925494,
+        66.70000000298023,
+        66.69999999925494,
+        66.79999999701977
+      ],
+      "max": 66.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "accessory-root:cold",
+      "values": [
+        216.10000000149012,
+        249.19999999925494,
+        249.30000000074506,
+        232.40000000223517,
+        232.5
+      ],
+      "max": 249.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "accessory-root:refresh",
+      "values": [
+        166.30000000074506,
+        166,
+        166.69999999925494,
+        166.10000000149012,
+        165.90000000223517
+      ],
+      "max": 166.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "accessory-root:SPA",
+      "values": [
+        83.30000000074506,
+        83.19999999925494,
+        83.30000000074506,
+        83.30000000074506,
+        83.30000000074506
+      ],
+      "max": 83.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "accessory-detail:cold",
+      "values": [
+        232.5,
+        232.59999999776483,
+        232.60000000149012,
+        232.5,
+        232.5
+      ],
+      "max": 232.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "accessory-detail:refresh",
+      "values": [
+        166.09999999776483,
+        165.89999999850988,
+        166,
+        166,
+        199.89999999850988
+      ],
+      "max": 199.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "accessory-detail:SPA",
+      "values": [
+        82.19999999925494,
+        83.19999999925494,
+        83.20000000298023,
+        84.30000000074506,
+        83.30000000074506
+      ],
+      "max": 84.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "accessory-edit:cold",
+      "values": [
+        232.10000000149012,
+        232.39999999850988,
+        249.10000000149012,
+        232.39999999850988,
+        232.10000000149012
+      ],
+      "max": 249.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "accessory-edit:refresh",
+      "values": [
+        166,
+        165.79999999701977,
+        165.69999999925494,
+        165.10000000149012,
+        182.5
+      ],
+      "max": 182.5,
+      "passed": true
+    },
+    {
+      "name": "accessory-edit:SPA",
+      "values": [
+        83.5,
+        83.80000000074506,
+        84.19999999925494,
+        84.69999999925494,
+        83.60000000149012
+      ],
+      "max": 84.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "accessory-process:cold",
+      "values": [
+        232.19999999925494,
+        231.90000000223517,
+        232,
+        265.30000000074506,
+        249
+      ],
+      "max": 265.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "accessory-process:refresh",
+      "values": [
+        166,
+        166.09999999776483,
+        198.90000000223517,
+        182.5,
+        182.39999999850988
+      ],
+      "max": 198.90000000223517,
+      "passed": true
+    },
+    {
+      "name": "accessory-process:SPA",
+      "values": [
+        66.40000000223517,
+        83.19999999925494,
+        83,
+        83.30000000074506,
+        83.19999999925494
+      ],
+      "max": 83.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "yarn-list:cold",
+      "values": [
+        281.1000000014901,
+        248.10000000149012,
+        281.69999999925494,
+        298.80000000074506,
+        315
+      ],
+      "max": 315,
+      "passed": true
+    },
+    {
+      "name": "yarn-list:refresh",
+      "values": [
+        166,
+        166,
+        166.09999999776483,
+        165,
+        183.19999999925494
+      ],
+      "max": 183.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "yarn-list:SPA",
+      "values": [
+        66.80000000074506,
+        66.80000000074506,
+        66.39999999850988,
+        66.79999999701977,
+        66.30000000074506
+      ],
+      "max": 66.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "yarn-root:cold",
+      "values": [
+        232.5,
+        232.5,
+        232.69999999925494,
+        232.60000000149012,
+        232.59999999776483
+      ],
+      "max": 232.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "yarn-root:refresh",
+      "values": [
+        182.69999999925494,
+        166.30000000074506,
+        166.09999999776483,
+        182.80000000074506,
+        165.90000000223517
+      ],
+      "max": 182.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "yarn-root:SPA",
+      "values": [
+        83.19999999925494,
+        83.39999999850988,
+        66.69999999925494,
+        82.39999999850988,
+        66.09999999776483
+      ],
+      "max": 83.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "yarn-detail:cold",
+      "values": [
+        232.39999999850988,
+        232.40000000223517,
+        232.59999999776483,
+        232.60000000149012,
+        483.5
+      ],
+      "max": 483.5,
+      "passed": true
+    },
+    {
+      "name": "yarn-detail:refresh",
+      "values": [
+        183.19999999925494,
+        183,
+        166,
+        166.09999999776483,
+        182.5
+      ],
+      "max": 183.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "yarn-detail:SPA",
+      "values": [
+        83.19999999925494,
+        83.30000000074506,
+        84.5,
+        83.30000000074506,
+        83.30000000074506
+      ],
+      "max": 84.5,
+      "passed": true
+    },
+    {
+      "name": "yarn-edit:cold",
+      "values": [
+        248.70000000298023,
+        232.10000000149012,
+        247.79999999701977,
+        232.19999999925494,
+        265.30000000074506
+      ],
+      "max": 265.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "yarn-edit:refresh",
+      "values": [
+        182.79999999701977,
+        165.89999999850988,
+        166.20000000298023,
+        182,
+        182.60000000149012
+      ],
+      "max": 182.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "yarn-edit:SPA",
+      "values": [
+        83.39999999850988,
+        83.30000000074506,
+        84.30000000074506,
+        83.5,
+        83.30000000074506
+      ],
+      "max": 84.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "yarn-process:cold",
+      "values": [
+        249.10000000149012,
+        232.5,
+        231.80000000074506,
+        254.40000000223517,
+        232.30000000074506
+      ],
+      "max": 254.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "yarn-process:refresh",
+      "values": [
+        183,
+        166.19999999925494,
+        182.5,
+        177.09999999776483,
+        182.89999999850988
+      ],
+      "max": 183,
+      "passed": true
+    },
+    {
+      "name": "yarn-process:SPA",
+      "values": [
+        83.5,
+        84.59999999776483,
+        83.60000000149012,
+        83.30000000074506,
+        83.20000000298023
+      ],
+      "max": 84.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "fabric-existing-DYEING:continuous-definition",
+      "values": [
+        150.5,
+        100.29999999701977,
+        100.30000000074506,
+        101.39999999850988,
+        100.19999999925494
+      ],
+      "max": 150.5,
+      "passed": true
+    },
+    {
+      "name": "fabric-existing-PRINTING:continuous-definition",
+      "values": [
+        100.19999999925494,
+        100.20000000298023,
+        100.10000000149012,
+        99.10000000149012,
+        100.40000000223517
+      ],
+      "max": 100.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "fabric-existing-EMBROIDERY:continuous-definition",
+      "values": [
+        100.40000000223517,
+        100.30000000074506,
+        100.30000000074506,
+        100.79999999701977,
+        100.20000000298023
+      ],
+      "max": 100.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "fabric-existing-HEAT_TRANSFER:continuous-definition",
+      "values": [
+        100.10000000149012,
+        100.39999999850988,
+        101.40000000223517,
+        99.80000000074506,
+        100.5
+      ],
+      "max": 101.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "consumable:legacy-barcode-query-input",
+      "values": [
+        66.80000000074506,
+        66.69999999925494,
+        65.90000000223517,
+        66.69999999925494,
+        66.80000000074506
+      ],
+      "max": 66.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:legacy-barcode-query",
+      "values": [
+        99.90000000223517,
+        100.30000000074506,
+        99.70000000298023,
+        101.20000000298023,
+        99.80000000074506
+      ],
+      "max": 101.20000000298023,
+      "passed": true
+    },
+    {
+      "name": "consumable:legacy-barcode-resolved-SKU",
+      "values": [
+        113.90000000223517,
+        113.90000000223517,
+        114.30000000074506,
+        115.79999999701977,
+        114.60000000149012
+      ],
+      "max": 115.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "parts:legacy-barcode-query-input",
+      "values": [
+        66.39999999850988,
+        66.80000000074506,
+        66.59999999776483,
+        67,
+        66.5
+      ],
+      "max": 67,
+      "passed": true
+    },
+    {
+      "name": "parts:legacy-barcode-query",
+      "values": [
+        99.80000000074506,
+        99.60000000149012,
+        99.79999999701977,
+        99.79999999701977,
+        100.10000000149012
+      ],
+      "max": 100.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:legacy-barcode-resolved-SKU",
+      "values": [
+        114.60000000149012,
+        114.69999999925494,
+        114.40000000223517,
+        114.19999999925494,
+        131.19999999925494
+      ],
+      "max": 131.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:unsaved-description",
+      "values": [
+        65.89999999850988,
+        66.80000000074506,
+        66.60000000149012,
+        66.69999999925494,
+        67.30000000074506
+      ],
+      "max": 67.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:isolated-mock-alias-edit",
+      "values": [
+        67.5,
+        66.60000000149012,
+        66.39999999850988,
+        66.30000000074506,
+        66.19999999925494
+      ],
+      "max": 67.5,
+      "passed": true
+    },
+    {
+      "name": "parts:unsaved-tab-units",
+      "values": [
+        98.59999999776483,
+        99.79999999701977,
+        99.69999999925494,
+        100,
+        99.09999999776483
+      ],
+      "max": 100,
+      "passed": true
+    },
+    {
+      "name": "parts:unsaved-tab-cost",
+      "values": [
+        99.60000000149012,
+        100,
+        99.69999999925494,
+        99.5,
+        99.90000000223517
+      ],
+      "max": 100,
+      "passed": true
+    },
+    {
+      "name": "parts:unsaved-tab-basic",
+      "values": [
+        99.69999999925494,
+        99.29999999701977,
+        99.5,
+        99,
+        99.10000000149012
+      ],
+      "max": 99.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:cancel-leave",
+      "values": [
+        97.80000000074506,
+        97.19999999925494,
+        98.59999999776483,
+        98.09999999776483,
+        97.40000000223517
+      ],
+      "max": 98.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:quota-save-failure",
+      "values": [
+        152.5,
+        155.30000000074506,
+        151.70000000298023,
+        154.19999999925494,
+        158.30000000074506
+      ],
+      "max": 158.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:retry-save",
+      "values": [
+        105,
+        109.5,
+        104.09999999776483,
+        125.79999999701977,
+        108.39999999850988
+      ],
+      "max": 125.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "parts:retry-refresh",
+      "values": [
+        165.69999999925494,
+        183.70000000298023,
+        165.69999999925494,
+        182.80000000074506,
+        166
+      ],
+      "max": 183.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "parts:preferences-denied-default-list",
+      "values": [
+        115.69999999925494,
+        130.5,
+        115.40000000223517,
+        114.30000000074506,
+        115
+      ],
+      "max": 130.5,
+      "passed": true
+    },
+    {
+      "name": "parts:persisted-mock-alias-query-input",
+      "values": [
+        62.19999999925494,
+        61.899999998509884,
+        62.19999999925494,
+        63.400000002235174,
+        63.400000002235174
+      ],
+      "max": 63.400000002235174,
+      "passed": true
+    },
+    {
+      "name": "parts:persisted-mock-alias-query",
+      "values": [
+        99.70000000298023,
+        99.60000000149012,
+        99.60000000149012,
+        99.79999999701977,
+        99.09999999776483
+      ],
+      "max": 99.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "parts:preferences-denied-return-SKU",
+      "values": [
+        64.40000000223517,
+        64.09999999776483,
+        64.19999999925494,
+        65.30000000074506,
+        64.39999999850988
+      ],
+      "max": 65.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:units-tab",
+      "values": [
+        99.89999999850988,
+        100.59999999776483,
+        99.80000000074506,
+        99.30000000074506,
+        99.90000000223517
+      ],
+      "max": 100.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:new-relation",
+      "values": [
+        132.39999999850988,
+        131.89999999850988,
+        116,
+        116.19999999925494,
+        116.29999999701977
+      ],
+      "max": 132.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "parts:fixed-yard",
+      "values": [
+        66.39999999850988,
+        66.80000000074506,
+        65.80000000074506,
+        66.19999999925494,
+        66
+      ],
+      "max": 66.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:default-yard-PURCHASE",
+      "values": [
+        94.60000000149012,
+        96.69999999925494,
+        97.59999999776483,
+        101.30000000074506,
+        97.5
+      ],
+      "max": 101.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:default-yard-PRICING",
+      "values": [
+        100.80000000074506,
+        99.10000000149012,
+        97.19999999925494,
+        92.40000000223517,
+        98.5
+      ],
+      "max": 100.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:default-yard-ISSUE",
+      "values": [
+        98.70000000298023,
+        113.69999999925494,
+        115.89999999850988,
+        98.89999999850988,
+        99.19999999925494
+      ],
+      "max": 115.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "parts:save-yard-relation",
+      "values": [
+        180.79999999701977,
+        166.90000000223517,
+        130.70000000298023,
+        180.59999999776483,
+        130.59999999776483
+      ],
+      "max": 180.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "parts:new-second-relation",
+      "values": [
+        133.69999999925494,
+        115.89999999850988,
+        116.60000000149012,
+        116.90000000223517,
+        125.59999999776483
+      ],
+      "max": 133.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:second-cm",
+      "values": [
+        64.69999999925494,
+        112,
+        67.69999999925494,
+        66.40000000223517,
+        83.69999999925494
+      ],
+      "max": 112,
+      "passed": true
+    },
+    {
+      "name": "parts:default-cm-PURCHASE",
+      "values": [
+        100.69999999925494,
+        86.69999999925494,
+        115.69999999925494,
+        100.10000000149012,
+        99.89999999850988
+      ],
+      "max": 115.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:default-cm-PRICING",
+      "values": [
+        98.5,
+        100.69999999925494,
+        98,
+        98.89999999850988,
+        99.5
+      ],
+      "max": 100.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:default-cm-ISSUE",
+      "values": [
+        99.19999999925494,
+        98.79999999701977,
+        105.10000000149012,
+        97.89999999850988,
+        97.80000000074506
+      ],
+      "max": 105.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:save-cm-relation",
+      "values": [
+        113.30000000074506,
+        116.40000000223517,
+        127.19999999925494,
+        131.60000000149012,
+        131.5
+      ],
+      "max": 131.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:defaults-refresh-unit-view",
+      "values": [
+        88.79999999701977,
+        95.10000000149012,
+        90.69999999925494,
+        95.80000000074506,
+        98.80000000074506
+      ],
+      "max": 98.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:cost-tab",
+      "values": [
+        91.19999999925494,
+        94.60000000149012,
+        89.80000000074506,
+        92.80000000074506,
+        93.59999999776483
+      ],
+      "max": 94.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:cost-edit",
+      "values": [
+        116,
+        116.40000000223517,
+        116.89999999850988,
+        116.19999999925494,
+        116.09999999776483
+      ],
+      "max": 116.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-KG-choice",
+      "values": [
+        67.39999999850988,
+        66.29999999701977,
+        63.900000002235174,
+        67.19999999925494,
+        66.19999999925494
+      ],
+      "max": 67.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-reason",
+      "values": [
+        66.5,
+        66.5,
+        66.30000000074506,
+        65.80000000074506,
+        66.39999999850988
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-cost-block",
+      "values": [
+        117.60000000149012,
+        108,
+        110,
+        113.19999999925494,
+        101
+      ],
+      "max": 117.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-units",
+      "values": [
+        87.60000000149012,
+        90,
+        138.19999999925494,
+        87.89999999850988,
+        89.30000000074506
+      ],
+      "max": 138.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-new-relation",
+      "values": [
+        117.29999999701977,
+        116.30000000074506,
+        100.80000000074506,
+        116,
+        133.69999999925494
+      ],
+      "max": 133.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-KG",
+      "values": [
+        64.69999999925494,
+        66.30000000074506,
+        66.5,
+        66,
+        65.19999999925494
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-factor",
+      "values": [
+        65.09999999776483,
+        65.39999999850988,
+        65.80000000074506,
+        65.39999999850988,
+        64.30000000074506
+      ],
+      "max": 65.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-basis",
+      "values": [
+        65.69999999925494,
+        67,
+        65.5,
+        65.89999999850988,
+        65.80000000074506
+      ],
+      "max": 67,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-save-relation",
+      "values": [
+        166.80000000074506,
+        179.89999999850988,
+        182.80000000074506,
+        179.80000000074506,
+        182.69999999925494
+      ],
+      "max": 182.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-cost-tab",
+      "values": [
+        92.69999999925494,
+        89.19999999925494,
+        91.59999999776483,
+        83.69999999925494,
+        90.70000000298023
+      ],
+      "max": 92.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-cost-edit",
+      "values": [
+        116.40000000223517,
+        116.10000000149012,
+        132.40000000223517,
+        115.69999999925494,
+        115.60000000149012
+      ],
+      "max": 132.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-pricing-KG",
+      "values": [
+        67.09999999776483,
+        66.30000000074506,
+        65.89999999850988,
+        66.69999999925494,
+        66.5
+      ],
+      "max": 67.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-select-basis",
+      "values": [
+        65.5,
+        66.40000000223517,
+        66.19999999925494,
+        65.5,
+        66.30000000074506
+      ],
+      "max": 66.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-cost-reason",
+      "values": [
+        64.30000000074506,
+        67.19999999925494,
+        66.19999999925494,
+        66.30000000074506,
+        65.19999999925494
+      ],
+      "max": 67.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-preview",
+      "values": [
+        132.59999999776483,
+        132.19999999925494,
+        116.29999999701977,
+        131.30000000074506,
+        132.59999999776483
+      ],
+      "max": 132.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:missing-recovery-confirm",
+      "values": [
+        132.69999999925494,
+        132,
+        132.69999999925494,
+        132.70000000298023,
+        133.19999999925494
+      ],
+      "max": 133.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-open",
+      "values": [
+        88,
+        89.90000000223517,
+        89.90000000223517,
+        86.90000000223517,
+        82.5
+      ],
+      "max": 89.90000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "values": [
+        115.90000000223517,
+        132.69999999925494,
+        115.89999999850988,
+        116,
+        116.30000000074506
+      ],
+      "max": 132.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-new-spec",
+      "values": [
+        65.60000000149012,
+        66.59999999776483,
+        65.40000000223517,
+        64.80000000074506,
+        64.09999999776483
+      ],
+      "max": 66.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-failure-keeps-files",
+      "values": [
+        118.39999999850988,
+        117.90000000223517,
+        119,
+        115.90000000223517,
+        120.40000000223517
+      ],
+      "max": 120.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-save",
+      "values": [
+        99.89999999850988,
+        122.39999999850988,
+        117.60000000149012,
+        140,
+        121.5
+      ],
+      "max": 140,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-refresh",
+      "values": [
+        156.89999999850988,
+        154.40000000223517,
+        174.69999999925494,
+        173.90000000223517,
+        172.19999999925494
+      ],
+      "max": 174.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "parts:copied-assets-open",
+      "values": [
+        99.89999999850988,
+        100.19999999925494,
+        101.10000000149012,
+        100.5,
+        99.69999999925494
+      ],
+      "max": 101.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "consumable:unsaved-description",
+      "values": [
+        66.60000000149012,
+        67,
+        66.60000000149012,
+        67,
+        66.69999999925494
+      ],
+      "max": 67,
+      "passed": true
+    },
+    {
+      "name": "consumable:isolated-mock-alias-edit",
+      "values": [
+        66.5,
+        66.59999999776483,
+        66.10000000149012,
+        66.30000000074506,
+        66.79999999701977
+      ],
+      "max": 66.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "consumable:unsaved-tab-units",
+      "values": [
+        99.70000000298023,
+        100.59999999776483,
+        99.5,
+        99.59999999776483,
+        99.5
+      ],
+      "max": 100.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:unsaved-tab-cost",
+      "values": [
+        99.39999999850988,
+        98.60000000149012,
+        99.69999999925494,
+        101.89999999850988,
+        100.39999999850988
+      ],
+      "max": 101.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:unsaved-tab-basic",
+      "values": [
+        99.89999999850988,
+        100.5,
+        100.89999999850988,
+        98.69999999925494,
+        98.70000000298023
+      ],
+      "max": 100.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:cancel-leave",
+      "values": [
+        97.10000000149012,
+        97.89999999850988,
+        96.90000000223517,
+        95.5,
+        97.19999999925494
+      ],
+      "max": 97.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:quota-save-failure",
+      "values": [
+        155.19999999925494,
+        142.90000000223517,
+        155.60000000149012,
+        140.30000000074506,
+        151.90000000223517
+      ],
+      "max": 155.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "consumable:retry-save",
+      "values": [
+        105.30000000074506,
+        105.5,
+        103.69999999925494,
+        103.90000000223517,
+        106.39999999850988
+      ],
+      "max": 106.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:retry-refresh",
+      "values": [
+        165.59999999776483,
+        165.59999999776483,
+        166,
+        165.5,
+        164.89999999850988
+      ],
+      "max": 166,
+      "passed": true
+    },
+    {
+      "name": "consumable:preferences-denied-default-list",
+      "values": [
+        149,
+        149.10000000149012,
+        148.10000000149012,
+        148.90000000223517,
+        115.70000000298023
+      ],
+      "max": 149.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query-input",
+      "values": [
+        61.69999999925494,
+        58.100000001490116,
+        62.5,
+        61.30000000074506,
+        61.69999999925494
+      ],
+      "max": 62.5,
+      "passed": true
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query",
+      "values": [
+        99.69999999925494,
+        100.10000000149012,
+        99.5,
+        99.60000000149012,
+        100.09999999776483
+      ],
+      "max": 100.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "consumable:preferences-denied-return-SKU",
+      "values": [
+        64.29999999701977,
+        63.899999998509884,
+        65.20000000298023,
+        64.90000000223517,
+        64.19999999925494
+      ],
+      "max": 65.20000000298023,
+      "passed": true
+    },
+    {
+      "name": "consumable:units-tab",
+      "values": [
+        99.89999999850988,
+        99.69999999925494,
+        99.40000000223517,
+        99.59999999776483,
+        99.90000000223517
+      ],
+      "max": 99.90000000223517,
+      "passed": true
+    },
+    {
+      "name": "consumable:new-relation",
+      "values": [
+        115.69999999925494,
+        133.30000000074506,
+        115.89999999850988,
+        116.39999999850988,
+        132.5
+      ],
+      "max": 133.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:fixed-yard",
+      "values": [
+        66.30000000074506,
+        65.80000000074506,
+        66.20000000298023,
+        66.19999999925494,
+        67.30000000074506
+      ],
+      "max": 67.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:default-yard-PURCHASE",
+      "values": [
+        98.09999999776483,
+        96.5,
+        96.29999999701977,
+        97.90000000223517,
+        94.89999999850988
+      ],
+      "max": 98.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:default-yard-PRICING",
+      "values": [
+        117.19999999925494,
+        98.80000000074506,
+        100.39999999850988,
+        99.60000000149012,
+        99.80000000074506
+      ],
+      "max": 117.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:default-yard-ISSUE",
+      "values": [
+        96.39999999850988,
+        98.69999999925494,
+        98.60000000149012,
+        102.19999999925494,
+        95.69999999925494
+      ],
+      "max": 102.19999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:save-yard-relation",
+      "values": [
+        180.10000000149012,
+        180.19999999925494,
+        181.39999999850988,
+        122.89999999850988,
+        166.40000000223517
+      ],
+      "max": 181.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:new-second-relation",
+      "values": [
+        133.20000000298023,
+        134,
+        115,
+        114.39999999850988,
+        116.19999999925494
+      ],
+      "max": 134,
+      "passed": true
+    },
+    {
+      "name": "consumable:second-cm",
+      "values": [
+        66.19999999925494,
+        65.10000000149012,
+        66.30000000074506,
+        66.10000000149012,
+        66.59999999776483
+      ],
+      "max": 66.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:default-cm-PURCHASE",
+      "values": [
+        101.30000000074506,
+        100.19999999925494,
+        101.09999999776483,
+        99.5,
+        106.39999999850988
+      ],
+      "max": 106.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:default-cm-PRICING",
+      "values": [
+        98.10000000149012,
+        99.69999999925494,
+        96.89999999850988,
+        99.19999999925494,
+        88.89999999850988
+      ],
+      "max": 99.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:default-cm-ISSUE",
+      "values": [
+        98.5,
+        98.80000000074506,
+        99.39999999850988,
+        109,
+        100
+      ],
+      "max": 109,
+      "passed": true
+    },
+    {
+      "name": "consumable:save-cm-relation",
+      "values": [
+        113.80000000074506,
+        147.69999999925494,
+        130.59999999776483,
+        124.30000000074506,
+        132
+      ],
+      "max": 147.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:defaults-refresh-unit-view",
+      "values": [
+        84.60000000149012,
+        95.09999999776483,
+        93.89999999850988,
+        88.30000000074506,
+        81.39999999850988
+      ],
+      "max": 95.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:cost-tab",
+      "values": [
+        92,
+        90.69999999925494,
+        87.30000000074506,
+        91.10000000149012,
+        88.30000000074506
+      ],
+      "max": 92,
+      "passed": true
+    },
+    {
+      "name": "consumable:cost-edit",
+      "values": [
+        120.69999999925494,
+        116.19999999925494,
+        116.5,
+        116.30000000074506,
+        116.5
+      ],
+      "max": 120.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-KG-choice",
+      "values": [
+        61.5,
+        66.19999999925494,
+        66.5,
+        66.70000000298023,
+        66
+      ],
+      "max": 66.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-reason",
+      "values": [
+        66.19999999925494,
+        67.30000000074506,
+        67.80000000074506,
+        67.5,
+        67.30000000074506
+      ],
+      "max": 67.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-cost-block",
+      "values": [
+        104.30000000074506,
+        94.39999999850988,
+        113.60000000149012,
+        95.09999999776483,
+        101.09999999776483
+      ],
+      "max": 113.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-units",
+      "values": [
+        88.90000000223517,
+        88.39999999850988,
+        88.5,
+        90.40000000223517,
+        89.59999999776483
+      ],
+      "max": 90.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-new-relation",
+      "values": [
+        132.5,
+        116.5,
+        133.09999999776483,
+        115.89999999850988,
+        132.90000000223517
+      ],
+      "max": 133.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-KG",
+      "values": [
+        66.30000000074506,
+        66.89999999850988,
+        82.5,
+        66.40000000223517,
+        67.10000000149012
+      ],
+      "max": 82.5,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-factor",
+      "values": [
+        65,
+        63.30000000074506,
+        63.600000001490116,
+        65.79999999701977,
+        64.09999999776483
+      ],
+      "max": 65.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-basis",
+      "values": [
+        67.5,
+        66,
+        65.39999999850988,
+        66.39999999850988,
+        66.69999999925494
+      ],
+      "max": 67.5,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-save-relation",
+      "values": [
+        181.30000000074506,
+        182.10000000149012,
+        185.39999999850988,
+        166.40000000223517,
+        163.80000000074506
+      ],
+      "max": 185.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-cost-tab",
+      "values": [
+        86.80000000074506,
+        85.5,
+        82.09999999776483,
+        91.89999999850988,
+        91.30000000074506
+      ],
+      "max": 91.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-cost-edit",
+      "values": [
+        116.10000000149012,
+        133.29999999701977,
+        117.19999999925494,
+        116.5,
+        116.19999999925494
+      ],
+      "max": 133.29999999701977,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-pricing-KG",
+      "values": [
+        66.5,
+        65.80000000074506,
+        66,
+        66.10000000149012,
+        66.19999999925494
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-select-basis",
+      "values": [
+        67.30000000074506,
+        66.10000000149012,
+        65.60000000149012,
+        67.60000000149012,
+        67.20000000298023
+      ],
+      "max": 67.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-cost-reason",
+      "values": [
+        66.09999999776483,
+        82.39999999850988,
+        65.89999999850988,
+        65,
+        67.10000000149012
+      ],
+      "max": 82.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-preview",
+      "values": [
+        114.90000000223517,
+        130.09999999776483,
+        130.29999999701977,
+        116.5,
+        131.09999999776483
+      ],
+      "max": 131.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:missing-recovery-confirm",
+      "values": [
+        132.60000000149012,
+        116.80000000074506,
+        133.89999999850988,
+        132.69999999925494,
+        131.10000000149012
+      ],
+      "max": 133.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-open",
+      "values": [
+        87.90000000223517,
+        91.69999999925494,
+        84.5,
+        85.80000000074506,
+        85.60000000149012
+      ],
+      "max": 91.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "values": [
+        131.5,
+        133,
+        132.40000000223517,
+        132.69999999925494,
+        132.39999999850988
+      ],
+      "max": 133,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-new-spec",
+      "values": [
+        65.69999999925494,
+        65.80000000074506,
+        66.09999999776483,
+        65.39999999850988,
+        65.89999999850988
+      ],
+      "max": 66.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-failure-keeps-files",
+      "values": [
+        119.19999999925494,
+        125.69999999925494,
+        120.80000000074506,
+        122.10000000149012,
+        119.5
+      ],
+      "max": 125.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-save",
+      "values": [
+        121.69999999925494,
+        106.89999999850988,
+        107.30000000074506,
+        119.19999999925494,
+        121.39999999850988
+      ],
+      "max": 121.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "values": [
+        153.69999999925494,
+        159.10000000149012,
+        157.90000000223517,
+        170.70000000298023,
+        162.20000000298023
+      ],
+      "max": 170.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "consumable:copied-assets-open",
+      "values": [
+        100.5,
+        99.59999999776483,
+        100,
+        99.30000000074506,
+        92.60000000149012
+      ],
+      "max": 100.5,
+      "passed": true
+    },
+    {
+      "name": "legacy-v1:cold",
+      "values": [
+        241.5,
+        229.60000000149012,
+        244.39999999850988,
+        227.30000000074506,
+        215.30000000074506
+      ],
+      "max": 244.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "legacy-v1:refresh",
+      "values": [
+        162.5,
+        163,
+        162.89999999850988,
+        180.30000000074506,
+        179.39999999850988
+      ],
+      "max": 180.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "legacy-v2:cold",
+      "values": [
+        211.5,
+        215.30000000074506,
+        216.5,
+        230.80000000074506,
+        265.4000000022352
+      ],
+      "max": 265.4000000022352,
+      "passed": true
+    },
+    {
+      "name": "legacy-v2:refresh",
+      "values": [
+        163.70000000298023,
+        163.5,
+        162.10000000149012,
+        162.59999999776483,
+        161.39999999850988
+      ],
+      "max": 163.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "static-overlay:direct",
+      "values": [
+        228.59999999776483,
+        233.69999999925494,
+        232.39999999850988,
+        232.19999999925494,
+        232.5
+      ],
+      "max": 233.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "static-overlay:refresh",
+      "values": [
+        163.30000000074506,
+        178.5,
+        163.60000000149012,
+        196.40000000223517,
+        180.69999999925494
+      ],
+      "max": 196.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "static-SKU-overlay:direct",
+      "values": [
+        215.80000000074506,
+        216,
+        232.19999999925494,
+        249.30000000074506,
+        230.79999999701977
+      ],
+      "max": 249.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "static-tombstone:root-direct",
+      "values": [
+        148.40000000223517,
+        165.30000000074506,
+        164.80000000074506,
+        164.39999999850988,
+        165.80000000074506
+      ],
+      "max": 165.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "static-tombstone:root-refresh",
+      "values": [
+        149.5,
+        149.69999999925494,
+        149.5,
+        165.89999999850988,
+        165.39999999850988
+      ],
+      "max": 165.89999999850988,
+      "passed": true
+    },
+    {
+      "name": "static-tombstone:SKU-direct",
+      "values": [
+        149.60000000149012,
+        149.5,
+        149.5,
+        172.69999999925494,
+        149.69999999925494
+      ],
+      "max": 172.69999999925494,
+      "passed": true
+    },
+    {
+      "name": "legacy-process:history-open",
+      "values": [
+        100.19999999925494,
+        100.09999999776483,
+        100.10000000149012,
+        100.20000000298023,
+        103.60000000149012
+      ],
+      "max": 103.60000000149012,
+      "passed": true
+    },
+    {
+      "name": "legacy-process:files-open",
+      "values": [
+        98.59999999776483,
+        99.70000000298023,
+        98.80000000074506,
+        98.69999999925494,
+        94.30000000074506
+      ],
+      "max": 99.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "legacy-process:original-file-read",
+      "values": [
+        62.30000000074506,
+        60.19999999925494,
+        62.29999999701977,
+        62.900000002235174,
+        62.80000000074506
+      ],
+      "max": 62.900000002235174,
+      "passed": true
+    },
+    {
+      "name": "legacy-process:readonly-edit",
+      "values": [
+        101.69999999925494,
+        133.79999999701977,
+        132.5,
+        132.80000000074506,
+        108.29999999701977
+      ],
+      "max": 133.79999999701977,
+      "passed": true
+    }
+  ],
+  "samples": [
+    {
+      "name": "fabric-list:cold",
+      "repeat": 0,
+      "ms": 241.5
+    },
+    {
+      "name": "fabric-list:refresh",
+      "repeat": 0,
+      "ms": 182.89999999850988
+    },
+    {
+      "name": "fabric-list:SPA",
+      "repeat": 0,
+      "ms": 65.60000000149012
+    },
+    {
+      "name": "fabric-root:cold",
+      "repeat": 0,
+      "ms": 249.5
+    },
+    {
+      "name": "fabric-root:refresh",
+      "repeat": 0,
+      "ms": 165.80000000074506
+    },
+    {
+      "name": "fabric-root:SPA",
+      "repeat": 0,
+      "ms": 83.59999999776483
+    },
+    {
+      "name": "fabric-detail:cold",
+      "repeat": 0,
+      "ms": 233.30000000074506
+    },
+    {
+      "name": "fabric-detail:refresh",
+      "repeat": 0,
+      "ms": 165.5
+    },
+    {
+      "name": "fabric-detail:SPA",
+      "repeat": 0,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "fabric-edit:cold",
+      "repeat": 0,
+      "ms": 248.90000000223517
+    },
+    {
+      "name": "fabric-edit:refresh",
+      "repeat": 0,
+      "ms": 166.39999999850988
+    },
+    {
+      "name": "fabric-edit:SPA",
+      "repeat": 0,
+      "ms": 100.30000000074506
+    },
+    {
+      "name": "fabric-process:cold",
+      "repeat": 0,
+      "ms": 249
+    },
+    {
+      "name": "fabric-process:refresh",
+      "repeat": 0,
+      "ms": 182.80000000074506
+    },
+    {
+      "name": "fabric-process:SPA",
+      "repeat": 0,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "accessory-list:cold",
+      "repeat": 0,
+      "ms": 280.19999999925494
+    },
+    {
+      "name": "accessory-list:refresh",
+      "repeat": 0,
+      "ms": 183.69999999925494
+    },
+    {
+      "name": "accessory-list:SPA",
+      "repeat": 0,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "accessory-root:cold",
+      "repeat": 0,
+      "ms": 216.10000000149012
+    },
+    {
+      "name": "accessory-root:refresh",
+      "repeat": 0,
+      "ms": 166.30000000074506
+    },
+    {
+      "name": "accessory-root:SPA",
+      "repeat": 0,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "accessory-detail:cold",
+      "repeat": 0,
+      "ms": 232.5
+    },
+    {
+      "name": "accessory-detail:refresh",
+      "repeat": 0,
+      "ms": 166.09999999776483
+    },
+    {
+      "name": "accessory-detail:SPA",
+      "repeat": 0,
+      "ms": 82.19999999925494
+    },
+    {
+      "name": "accessory-edit:cold",
+      "repeat": 0,
+      "ms": 232.10000000149012
+    },
+    {
+      "name": "accessory-edit:refresh",
+      "repeat": 0,
+      "ms": 166
+    },
+    {
+      "name": "accessory-edit:SPA",
+      "repeat": 0,
+      "ms": 83.5
+    },
+    {
+      "name": "accessory-process:cold",
+      "repeat": 0,
+      "ms": 232.19999999925494
+    },
+    {
+      "name": "accessory-process:refresh",
+      "repeat": 0,
+      "ms": 166
+    },
+    {
+      "name": "accessory-process:SPA",
+      "repeat": 0,
+      "ms": 66.40000000223517
+    },
+    {
+      "name": "yarn-list:cold",
+      "repeat": 0,
+      "ms": 281.1000000014901
+    },
+    {
+      "name": "yarn-list:refresh",
+      "repeat": 0,
+      "ms": 166
+    },
+    {
+      "name": "yarn-list:SPA",
+      "repeat": 0,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "yarn-root:cold",
+      "repeat": 0,
+      "ms": 232.5
+    },
+    {
+      "name": "yarn-root:refresh",
+      "repeat": 0,
+      "ms": 182.69999999925494
+    },
+    {
+      "name": "yarn-root:SPA",
+      "repeat": 0,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "yarn-detail:cold",
+      "repeat": 0,
+      "ms": 232.39999999850988
+    },
+    {
+      "name": "yarn-detail:refresh",
+      "repeat": 0,
+      "ms": 183.19999999925494
+    },
+    {
+      "name": "yarn-detail:SPA",
+      "repeat": 0,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "yarn-edit:cold",
+      "repeat": 0,
+      "ms": 248.70000000298023
+    },
+    {
+      "name": "yarn-edit:refresh",
+      "repeat": 0,
+      "ms": 182.79999999701977
+    },
+    {
+      "name": "yarn-edit:SPA",
+      "repeat": 0,
+      "ms": 83.39999999850988
+    },
+    {
+      "name": "yarn-process:cold",
+      "repeat": 0,
+      "ms": 249.10000000149012
+    },
+    {
+      "name": "yarn-process:refresh",
+      "repeat": 0,
+      "ms": 183
+    },
+    {
+      "name": "yarn-process:SPA",
+      "repeat": 0,
+      "ms": 83.5
+    },
+    {
+      "name": "fabric-existing-DYEING:continuous-definition",
+      "repeat": 0,
+      "ms": 150.5
+    },
+    {
+      "name": "fabric-existing-PRINTING:continuous-definition",
+      "repeat": 0,
+      "ms": 100.19999999925494
+    },
+    {
+      "name": "fabric-existing-EMBROIDERY:continuous-definition",
+      "repeat": 0,
+      "ms": 100.40000000223517
+    },
+    {
+      "name": "fabric-existing-HEAT_TRANSFER:continuous-definition",
+      "repeat": 0,
+      "ms": 100.10000000149012
+    },
+    {
+      "name": "consumable:legacy-barcode-query-input",
+      "repeat": 0,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "consumable:legacy-barcode-query",
+      "repeat": 0,
+      "ms": 99.90000000223517
+    },
+    {
+      "name": "consumable:legacy-barcode-resolved-SKU",
+      "repeat": 0,
+      "ms": 113.90000000223517
+    },
+    {
+      "name": "parts:legacy-barcode-query-input",
+      "repeat": 0,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "parts:legacy-barcode-query",
+      "repeat": 0,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "parts:legacy-barcode-resolved-SKU",
+      "repeat": 0,
+      "ms": 114.60000000149012
+    },
+    {
+      "name": "parts:unsaved-description",
+      "repeat": 0,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "parts:isolated-mock-alias-edit",
+      "repeat": 0,
+      "ms": 67.5
+    },
+    {
+      "name": "parts:unsaved-tab-units",
+      "repeat": 0,
+      "ms": 98.59999999776483
+    },
+    {
+      "name": "parts:unsaved-tab-cost",
+      "repeat": 0,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:unsaved-tab-basic",
+      "repeat": 0,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "parts:cancel-leave",
+      "repeat": 0,
+      "ms": 97.80000000074506
+    },
+    {
+      "name": "parts:quota-save-failure",
+      "repeat": 0,
+      "ms": 152.5
+    },
+    {
+      "name": "parts:retry-save",
+      "repeat": 0,
+      "ms": 105
+    },
+    {
+      "name": "parts:retry-refresh",
+      "repeat": 0,
+      "ms": 165.69999999925494
+    },
+    {
+      "name": "parts:preferences-denied-default-list",
+      "repeat": 0,
+      "ms": 115.69999999925494
+    },
+    {
+      "name": "parts:persisted-mock-alias-query-input",
+      "repeat": 0,
+      "ms": 62.19999999925494
+    },
+    {
+      "name": "parts:persisted-mock-alias-query",
+      "repeat": 0,
+      "ms": 99.70000000298023
+    },
+    {
+      "name": "parts:preferences-denied-return-SKU",
+      "repeat": 0,
+      "ms": 64.40000000223517
+    },
+    {
+      "name": "parts:units-tab",
+      "repeat": 0,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "parts:new-relation",
+      "repeat": 0,
+      "ms": 132.39999999850988
+    },
+    {
+      "name": "parts:fixed-yard",
+      "repeat": 0,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "parts:default-yard-PURCHASE",
+      "repeat": 0,
+      "ms": 94.60000000149012
+    },
+    {
+      "name": "parts:default-yard-PRICING",
+      "repeat": 0,
+      "ms": 100.80000000074506
+    },
+    {
+      "name": "parts:default-yard-ISSUE",
+      "repeat": 0,
+      "ms": 98.70000000298023
+    },
+    {
+      "name": "parts:save-yard-relation",
+      "repeat": 0,
+      "ms": 180.79999999701977
+    },
+    {
+      "name": "parts:new-second-relation",
+      "repeat": 0,
+      "ms": 133.69999999925494
+    },
+    {
+      "name": "parts:second-cm",
+      "repeat": 0,
+      "ms": 64.69999999925494
+    },
+    {
+      "name": "parts:default-cm-PURCHASE",
+      "repeat": 0,
+      "ms": 100.69999999925494
+    },
+    {
+      "name": "parts:default-cm-PRICING",
+      "repeat": 0,
+      "ms": 98.5
+    },
+    {
+      "name": "parts:default-cm-ISSUE",
+      "repeat": 0,
+      "ms": 99.19999999925494
+    },
+    {
+      "name": "parts:save-cm-relation",
+      "repeat": 0,
+      "ms": 113.30000000074506
+    },
+    {
+      "name": "parts:defaults-refresh-unit-view",
+      "repeat": 0,
+      "ms": 88.79999999701977
+    },
+    {
+      "name": "parts:cost-tab",
+      "repeat": 0,
+      "ms": 91.19999999925494
+    },
+    {
+      "name": "parts:cost-edit",
+      "repeat": 0,
+      "ms": 116
+    },
+    {
+      "name": "parts:missing-KG-choice",
+      "repeat": 0,
+      "ms": 67.39999999850988
+    },
+    {
+      "name": "parts:missing-reason",
+      "repeat": 0,
+      "ms": 66.5
+    },
+    {
+      "name": "parts:missing-cost-block",
+      "repeat": 0,
+      "ms": 117.60000000149012
+    },
+    {
+      "name": "parts:missing-recovery-units",
+      "repeat": 0,
+      "ms": 87.60000000149012
+    },
+    {
+      "name": "parts:missing-recovery-new-relation",
+      "repeat": 0,
+      "ms": 117.29999999701977
+    },
+    {
+      "name": "parts:missing-recovery-KG",
+      "repeat": 0,
+      "ms": 64.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-factor",
+      "repeat": 0,
+      "ms": 65.09999999776483
+    },
+    {
+      "name": "parts:missing-recovery-basis",
+      "repeat": 0,
+      "ms": 65.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-save-relation",
+      "repeat": 0,
+      "ms": 166.80000000074506
+    },
+    {
+      "name": "parts:missing-recovery-cost-tab",
+      "repeat": 0,
+      "ms": 92.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-cost-edit",
+      "repeat": 0,
+      "ms": 116.40000000223517
+    },
+    {
+      "name": "parts:missing-recovery-pricing-KG",
+      "repeat": 0,
+      "ms": 67.09999999776483
+    },
+    {
+      "name": "parts:missing-recovery-select-basis",
+      "repeat": 0,
+      "ms": 65.5
+    },
+    {
+      "name": "parts:missing-recovery-cost-reason",
+      "repeat": 0,
+      "ms": 64.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-preview",
+      "repeat": 0,
+      "ms": 132.59999999776483
+    },
+    {
+      "name": "parts:missing-recovery-confirm",
+      "repeat": 0,
+      "ms": 132.69999999925494
+    },
+    {
+      "name": "parts:copy-open",
+      "repeat": 0,
+      "ms": 88
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 0,
+      "ms": 115.90000000223517
+    },
+    {
+      "name": "parts:copy-new-spec",
+      "repeat": 0,
+      "ms": 65.60000000149012
+    },
+    {
+      "name": "parts:copy-failure-keeps-files",
+      "repeat": 0,
+      "ms": 118.39999999850988
+    },
+    {
+      "name": "parts:copy-save",
+      "repeat": 0,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 0,
+      "ms": 156.89999999850988
+    },
+    {
+      "name": "parts:copied-assets-open",
+      "repeat": 0,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "consumable:unsaved-description",
+      "repeat": 0,
+      "ms": 66.60000000149012
+    },
+    {
+      "name": "consumable:isolated-mock-alias-edit",
+      "repeat": 0,
+      "ms": 66.5
+    },
+    {
+      "name": "consumable:unsaved-tab-units",
+      "repeat": 0,
+      "ms": 99.70000000298023
+    },
+    {
+      "name": "consumable:unsaved-tab-cost",
+      "repeat": 0,
+      "ms": 99.39999999850988
+    },
+    {
+      "name": "consumable:unsaved-tab-basic",
+      "repeat": 0,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "consumable:cancel-leave",
+      "repeat": 0,
+      "ms": 97.10000000149012
+    },
+    {
+      "name": "consumable:quota-save-failure",
+      "repeat": 0,
+      "ms": 155.19999999925494
+    },
+    {
+      "name": "consumable:retry-save",
+      "repeat": 0,
+      "ms": 105.30000000074506
+    },
+    {
+      "name": "consumable:retry-refresh",
+      "repeat": 0,
+      "ms": 165.59999999776483
+    },
+    {
+      "name": "consumable:preferences-denied-default-list",
+      "repeat": 0,
+      "ms": 149
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query-input",
+      "repeat": 0,
+      "ms": 61.69999999925494
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query",
+      "repeat": 0,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "consumable:preferences-denied-return-SKU",
+      "repeat": 0,
+      "ms": 64.29999999701977
+    },
+    {
+      "name": "consumable:units-tab",
+      "repeat": 0,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "consumable:new-relation",
+      "repeat": 0,
+      "ms": 115.69999999925494
+    },
+    {
+      "name": "consumable:fixed-yard",
+      "repeat": 0,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "consumable:default-yard-PURCHASE",
+      "repeat": 0,
+      "ms": 98.09999999776483
+    },
+    {
+      "name": "consumable:default-yard-PRICING",
+      "repeat": 0,
+      "ms": 117.19999999925494
+    },
+    {
+      "name": "consumable:default-yard-ISSUE",
+      "repeat": 0,
+      "ms": 96.39999999850988
+    },
+    {
+      "name": "consumable:save-yard-relation",
+      "repeat": 0,
+      "ms": 180.10000000149012
+    },
+    {
+      "name": "consumable:new-second-relation",
+      "repeat": 0,
+      "ms": 133.20000000298023
+    },
+    {
+      "name": "consumable:second-cm",
+      "repeat": 0,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "consumable:default-cm-PURCHASE",
+      "repeat": 0,
+      "ms": 101.30000000074506
+    },
+    {
+      "name": "consumable:default-cm-PRICING",
+      "repeat": 0,
+      "ms": 98.10000000149012
+    },
+    {
+      "name": "consumable:default-cm-ISSUE",
+      "repeat": 0,
+      "ms": 98.5
+    },
+    {
+      "name": "consumable:save-cm-relation",
+      "repeat": 0,
+      "ms": 113.80000000074506
+    },
+    {
+      "name": "consumable:defaults-refresh-unit-view",
+      "repeat": 0,
+      "ms": 84.60000000149012
+    },
+    {
+      "name": "consumable:cost-tab",
+      "repeat": 0,
+      "ms": 92
+    },
+    {
+      "name": "consumable:cost-edit",
+      "repeat": 0,
+      "ms": 120.69999999925494
+    },
+    {
+      "name": "consumable:missing-KG-choice",
+      "repeat": 0,
+      "ms": 61.5
+    },
+    {
+      "name": "consumable:missing-reason",
+      "repeat": 0,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "consumable:missing-cost-block",
+      "repeat": 0,
+      "ms": 104.30000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-units",
+      "repeat": 0,
+      "ms": 88.90000000223517
+    },
+    {
+      "name": "consumable:missing-recovery-new-relation",
+      "repeat": 0,
+      "ms": 132.5
+    },
+    {
+      "name": "consumable:missing-recovery-KG",
+      "repeat": 0,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-factor",
+      "repeat": 0,
+      "ms": 65
+    },
+    {
+      "name": "consumable:missing-recovery-basis",
+      "repeat": 0,
+      "ms": 67.5
+    },
+    {
+      "name": "consumable:missing-recovery-save-relation",
+      "repeat": 0,
+      "ms": 181.30000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-cost-tab",
+      "repeat": 0,
+      "ms": 86.80000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-cost-edit",
+      "repeat": 0,
+      "ms": 116.10000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-pricing-KG",
+      "repeat": 0,
+      "ms": 66.5
+    },
+    {
+      "name": "consumable:missing-recovery-select-basis",
+      "repeat": 0,
+      "ms": 67.30000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-cost-reason",
+      "repeat": 0,
+      "ms": 66.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-preview",
+      "repeat": 0,
+      "ms": 114.90000000223517
+    },
+    {
+      "name": "consumable:missing-recovery-confirm",
+      "repeat": 0,
+      "ms": 132.60000000149012
+    },
+    {
+      "name": "consumable:copy-open",
+      "repeat": 0,
+      "ms": 87.90000000223517
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 0,
+      "ms": 131.5
+    },
+    {
+      "name": "consumable:copy-new-spec",
+      "repeat": 0,
+      "ms": 65.69999999925494
+    },
+    {
+      "name": "consumable:copy-failure-keeps-files",
+      "repeat": 0,
+      "ms": 119.19999999925494
+    },
+    {
+      "name": "consumable:copy-save",
+      "repeat": 0,
+      "ms": 121.69999999925494
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 0,
+      "ms": 153.69999999925494
+    },
+    {
+      "name": "consumable:copied-assets-open",
+      "repeat": 0,
+      "ms": 100.5
+    },
+    {
+      "name": "legacy-v1:cold",
+      "repeat": 0,
+      "ms": 241.5
+    },
+    {
+      "name": "legacy-v1:refresh",
+      "repeat": 0,
+      "ms": 162.5
+    },
+    {
+      "name": "legacy-v2:cold",
+      "repeat": 0,
+      "ms": 211.5
+    },
+    {
+      "name": "legacy-v2:refresh",
+      "repeat": 0,
+      "ms": 163.70000000298023
+    },
+    {
+      "name": "static-overlay:direct",
+      "repeat": 0,
+      "ms": 228.59999999776483
+    },
+    {
+      "name": "static-overlay:refresh",
+      "repeat": 0,
+      "ms": 163.30000000074506
+    },
+    {
+      "name": "static-SKU-overlay:direct",
+      "repeat": 0,
+      "ms": 215.80000000074506
+    },
+    {
+      "name": "static-tombstone:root-direct",
+      "repeat": 0,
+      "ms": 148.40000000223517
+    },
+    {
+      "name": "static-tombstone:root-refresh",
+      "repeat": 0,
+      "ms": 149.5
+    },
+    {
+      "name": "static-tombstone:SKU-direct",
+      "repeat": 0,
+      "ms": 149.60000000149012
+    },
+    {
+      "name": "legacy-process:history-open",
+      "repeat": 0,
+      "ms": 100.19999999925494
+    },
+    {
+      "name": "legacy-process:files-open",
+      "repeat": 0,
+      "ms": 98.59999999776483
+    },
+    {
+      "name": "legacy-process:original-file-read",
+      "repeat": 0,
+      "ms": 62.30000000074506
+    },
+    {
+      "name": "legacy-process:readonly-edit",
+      "repeat": 0,
+      "ms": 101.69999999925494
+    },
+    {
+      "name": "fabric-list:cold",
+      "repeat": 1,
+      "ms": 242
+    },
+    {
+      "name": "fabric-list:refresh",
+      "repeat": 1,
+      "ms": 166.19999999925494
+    },
+    {
+      "name": "fabric-list:SPA",
+      "repeat": 1,
+      "ms": 66.5
+    },
+    {
+      "name": "fabric-root:cold",
+      "repeat": 1,
+      "ms": 233.10000000149012
+    },
+    {
+      "name": "fabric-root:refresh",
+      "repeat": 1,
+      "ms": 166.69999999925494
+    },
+    {
+      "name": "fabric-root:SPA",
+      "repeat": 1,
+      "ms": 83.5
+    },
+    {
+      "name": "fabric-detail:cold",
+      "repeat": 1,
+      "ms": 232.40000000223517
+    },
+    {
+      "name": "fabric-detail:refresh",
+      "repeat": 1,
+      "ms": 182.79999999701977
+    },
+    {
+      "name": "fabric-detail:SPA",
+      "repeat": 1,
+      "ms": 84.40000000223517
+    },
+    {
+      "name": "fabric-edit:cold",
+      "repeat": 1,
+      "ms": 230.80000000074506
+    },
+    {
+      "name": "fabric-edit:refresh",
+      "repeat": 1,
+      "ms": 182.80000000074506
+    },
+    {
+      "name": "fabric-edit:SPA",
+      "repeat": 1,
+      "ms": 83.20000000298023
+    },
+    {
+      "name": "fabric-process:cold",
+      "repeat": 1,
+      "ms": 233.89999999850988
+    },
+    {
+      "name": "fabric-process:refresh",
+      "repeat": 1,
+      "ms": 165.80000000074506
+    },
+    {
+      "name": "fabric-process:SPA",
+      "repeat": 1,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "accessory-list:cold",
+      "repeat": 1,
+      "ms": 298.6000000014901
+    },
+    {
+      "name": "accessory-list:refresh",
+      "repeat": 1,
+      "ms": 181.69999999925494
+    },
+    {
+      "name": "accessory-list:SPA",
+      "repeat": 1,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "accessory-root:cold",
+      "repeat": 1,
+      "ms": 249.19999999925494
+    },
+    {
+      "name": "accessory-root:refresh",
+      "repeat": 1,
+      "ms": 166
+    },
+    {
+      "name": "accessory-root:SPA",
+      "repeat": 1,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "accessory-detail:cold",
+      "repeat": 1,
+      "ms": 232.59999999776483
+    },
+    {
+      "name": "accessory-detail:refresh",
+      "repeat": 1,
+      "ms": 165.89999999850988
+    },
+    {
+      "name": "accessory-detail:SPA",
+      "repeat": 1,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "accessory-edit:cold",
+      "repeat": 1,
+      "ms": 232.39999999850988
+    },
+    {
+      "name": "accessory-edit:refresh",
+      "repeat": 1,
+      "ms": 165.79999999701977
+    },
+    {
+      "name": "accessory-edit:SPA",
+      "repeat": 1,
+      "ms": 83.80000000074506
+    },
+    {
+      "name": "accessory-process:cold",
+      "repeat": 1,
+      "ms": 231.90000000223517
+    },
+    {
+      "name": "accessory-process:refresh",
+      "repeat": 1,
+      "ms": 166.09999999776483
+    },
+    {
+      "name": "accessory-process:SPA",
+      "repeat": 1,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "yarn-list:cold",
+      "repeat": 1,
+      "ms": 248.10000000149012
+    },
+    {
+      "name": "yarn-list:refresh",
+      "repeat": 1,
+      "ms": 166
+    },
+    {
+      "name": "yarn-list:SPA",
+      "repeat": 1,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "yarn-root:cold",
+      "repeat": 1,
+      "ms": 232.5
+    },
+    {
+      "name": "yarn-root:refresh",
+      "repeat": 1,
+      "ms": 166.30000000074506
+    },
+    {
+      "name": "yarn-root:SPA",
+      "repeat": 1,
+      "ms": 83.39999999850988
+    },
+    {
+      "name": "yarn-detail:cold",
+      "repeat": 1,
+      "ms": 232.40000000223517
+    },
+    {
+      "name": "yarn-detail:refresh",
+      "repeat": 1,
+      "ms": 183
+    },
+    {
+      "name": "yarn-detail:SPA",
+      "repeat": 1,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "yarn-edit:cold",
+      "repeat": 1,
+      "ms": 232.10000000149012
+    },
+    {
+      "name": "yarn-edit:refresh",
+      "repeat": 1,
+      "ms": 165.89999999850988
+    },
+    {
+      "name": "yarn-edit:SPA",
+      "repeat": 1,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "yarn-process:cold",
+      "repeat": 1,
+      "ms": 232.5
+    },
+    {
+      "name": "yarn-process:refresh",
+      "repeat": 1,
+      "ms": 166.19999999925494
+    },
+    {
+      "name": "yarn-process:SPA",
+      "repeat": 1,
+      "ms": 84.59999999776483
+    },
+    {
+      "name": "fabric-existing-DYEING:continuous-definition",
+      "repeat": 1,
+      "ms": 100.29999999701977
+    },
+    {
+      "name": "fabric-existing-PRINTING:continuous-definition",
+      "repeat": 1,
+      "ms": 100.20000000298023
+    },
+    {
+      "name": "fabric-existing-EMBROIDERY:continuous-definition",
+      "repeat": 1,
+      "ms": 100.30000000074506
+    },
+    {
+      "name": "fabric-existing-HEAT_TRANSFER:continuous-definition",
+      "repeat": 1,
+      "ms": 100.39999999850988
+    },
+    {
+      "name": "consumable:legacy-barcode-query-input",
+      "repeat": 1,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "consumable:legacy-barcode-query",
+      "repeat": 1,
+      "ms": 100.30000000074506
+    },
+    {
+      "name": "consumable:legacy-barcode-resolved-SKU",
+      "repeat": 1,
+      "ms": 113.90000000223517
+    },
+    {
+      "name": "parts:legacy-barcode-query-input",
+      "repeat": 1,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "parts:legacy-barcode-query",
+      "repeat": 1,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:legacy-barcode-resolved-SKU",
+      "repeat": 1,
+      "ms": 114.69999999925494
+    },
+    {
+      "name": "parts:unsaved-description",
+      "repeat": 1,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "parts:isolated-mock-alias-edit",
+      "repeat": 1,
+      "ms": 66.60000000149012
+    },
+    {
+      "name": "parts:unsaved-tab-units",
+      "repeat": 1,
+      "ms": 99.79999999701977
+    },
+    {
+      "name": "parts:unsaved-tab-cost",
+      "repeat": 1,
+      "ms": 100
+    },
+    {
+      "name": "parts:unsaved-tab-basic",
+      "repeat": 1,
+      "ms": 99.29999999701977
+    },
+    {
+      "name": "parts:cancel-leave",
+      "repeat": 1,
+      "ms": 97.19999999925494
+    },
+    {
+      "name": "parts:quota-save-failure",
+      "repeat": 1,
+      "ms": 155.30000000074506
+    },
+    {
+      "name": "parts:retry-save",
+      "repeat": 1,
+      "ms": 109.5
+    },
+    {
+      "name": "parts:retry-refresh",
+      "repeat": 1,
+      "ms": 183.70000000298023
+    },
+    {
+      "name": "parts:preferences-denied-default-list",
+      "repeat": 1,
+      "ms": 130.5
+    },
+    {
+      "name": "parts:persisted-mock-alias-query-input",
+      "repeat": 1,
+      "ms": 61.899999998509884
+    },
+    {
+      "name": "parts:persisted-mock-alias-query",
+      "repeat": 1,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:preferences-denied-return-SKU",
+      "repeat": 1,
+      "ms": 64.09999999776483
+    },
+    {
+      "name": "parts:units-tab",
+      "repeat": 1,
+      "ms": 100.59999999776483
+    },
+    {
+      "name": "parts:new-relation",
+      "repeat": 1,
+      "ms": 131.89999999850988
+    },
+    {
+      "name": "parts:fixed-yard",
+      "repeat": 1,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "parts:default-yard-PURCHASE",
+      "repeat": 1,
+      "ms": 96.69999999925494
+    },
+    {
+      "name": "parts:default-yard-PRICING",
+      "repeat": 1,
+      "ms": 99.10000000149012
+    },
+    {
+      "name": "parts:default-yard-ISSUE",
+      "repeat": 1,
+      "ms": 113.69999999925494
+    },
+    {
+      "name": "parts:save-yard-relation",
+      "repeat": 1,
+      "ms": 166.90000000223517
+    },
+    {
+      "name": "parts:new-second-relation",
+      "repeat": 1,
+      "ms": 115.89999999850988
+    },
+    {
+      "name": "parts:second-cm",
+      "repeat": 1,
+      "ms": 112
+    },
+    {
+      "name": "parts:default-cm-PURCHASE",
+      "repeat": 1,
+      "ms": 86.69999999925494
+    },
+    {
+      "name": "parts:default-cm-PRICING",
+      "repeat": 1,
+      "ms": 100.69999999925494
+    },
+    {
+      "name": "parts:default-cm-ISSUE",
+      "repeat": 1,
+      "ms": 98.79999999701977
+    },
+    {
+      "name": "parts:save-cm-relation",
+      "repeat": 1,
+      "ms": 116.40000000223517
+    },
+    {
+      "name": "parts:defaults-refresh-unit-view",
+      "repeat": 1,
+      "ms": 95.10000000149012
+    },
+    {
+      "name": "parts:cost-tab",
+      "repeat": 1,
+      "ms": 94.60000000149012
+    },
+    {
+      "name": "parts:cost-edit",
+      "repeat": 1,
+      "ms": 116.40000000223517
+    },
+    {
+      "name": "parts:missing-KG-choice",
+      "repeat": 1,
+      "ms": 66.29999999701977
+    },
+    {
+      "name": "parts:missing-reason",
+      "repeat": 1,
+      "ms": 66.5
+    },
+    {
+      "name": "parts:missing-cost-block",
+      "repeat": 1,
+      "ms": 108
+    },
+    {
+      "name": "parts:missing-recovery-units",
+      "repeat": 1,
+      "ms": 90
+    },
+    {
+      "name": "parts:missing-recovery-new-relation",
+      "repeat": 1,
+      "ms": 116.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-KG",
+      "repeat": 1,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-factor",
+      "repeat": 1,
+      "ms": 65.39999999850988
+    },
+    {
+      "name": "parts:missing-recovery-basis",
+      "repeat": 1,
+      "ms": 67
+    },
+    {
+      "name": "parts:missing-recovery-save-relation",
+      "repeat": 1,
+      "ms": 179.89999999850988
+    },
+    {
+      "name": "parts:missing-recovery-cost-tab",
+      "repeat": 1,
+      "ms": 89.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-cost-edit",
+      "repeat": 1,
+      "ms": 116.10000000149012
+    },
+    {
+      "name": "parts:missing-recovery-pricing-KG",
+      "repeat": 1,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-select-basis",
+      "repeat": 1,
+      "ms": 66.40000000223517
+    },
+    {
+      "name": "parts:missing-recovery-cost-reason",
+      "repeat": 1,
+      "ms": 67.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-preview",
+      "repeat": 1,
+      "ms": 132.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-confirm",
+      "repeat": 1,
+      "ms": 132
+    },
+    {
+      "name": "parts:copy-open",
+      "repeat": 1,
+      "ms": 89.90000000223517
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 1,
+      "ms": 132.69999999925494
+    },
+    {
+      "name": "parts:copy-new-spec",
+      "repeat": 1,
+      "ms": 66.59999999776483
+    },
+    {
+      "name": "parts:copy-failure-keeps-files",
+      "repeat": 1,
+      "ms": 117.90000000223517
+    },
+    {
+      "name": "parts:copy-save",
+      "repeat": 1,
+      "ms": 122.39999999850988
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 1,
+      "ms": 154.40000000223517
+    },
+    {
+      "name": "parts:copied-assets-open",
+      "repeat": 1,
+      "ms": 100.19999999925494
+    },
+    {
+      "name": "consumable:unsaved-description",
+      "repeat": 1,
+      "ms": 67
+    },
+    {
+      "name": "consumable:isolated-mock-alias-edit",
+      "repeat": 1,
+      "ms": 66.59999999776483
+    },
+    {
+      "name": "consumable:unsaved-tab-units",
+      "repeat": 1,
+      "ms": 100.59999999776483
+    },
+    {
+      "name": "consumable:unsaved-tab-cost",
+      "repeat": 1,
+      "ms": 98.60000000149012
+    },
+    {
+      "name": "consumable:unsaved-tab-basic",
+      "repeat": 1,
+      "ms": 100.5
+    },
+    {
+      "name": "consumable:cancel-leave",
+      "repeat": 1,
+      "ms": 97.89999999850988
+    },
+    {
+      "name": "consumable:quota-save-failure",
+      "repeat": 1,
+      "ms": 142.90000000223517
+    },
+    {
+      "name": "consumable:retry-save",
+      "repeat": 1,
+      "ms": 105.5
+    },
+    {
+      "name": "consumable:retry-refresh",
+      "repeat": 1,
+      "ms": 165.59999999776483
+    },
+    {
+      "name": "consumable:preferences-denied-default-list",
+      "repeat": 1,
+      "ms": 149.10000000149012
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query-input",
+      "repeat": 1,
+      "ms": 58.100000001490116
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query",
+      "repeat": 1,
+      "ms": 100.10000000149012
+    },
+    {
+      "name": "consumable:preferences-denied-return-SKU",
+      "repeat": 1,
+      "ms": 63.899999998509884
+    },
+    {
+      "name": "consumable:units-tab",
+      "repeat": 1,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "consumable:new-relation",
+      "repeat": 1,
+      "ms": 133.30000000074506
+    },
+    {
+      "name": "consumable:fixed-yard",
+      "repeat": 1,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "consumable:default-yard-PURCHASE",
+      "repeat": 1,
+      "ms": 96.5
+    },
+    {
+      "name": "consumable:default-yard-PRICING",
+      "repeat": 1,
+      "ms": 98.80000000074506
+    },
+    {
+      "name": "consumable:default-yard-ISSUE",
+      "repeat": 1,
+      "ms": 98.69999999925494
+    },
+    {
+      "name": "consumable:save-yard-relation",
+      "repeat": 1,
+      "ms": 180.19999999925494
+    },
+    {
+      "name": "consumable:new-second-relation",
+      "repeat": 1,
+      "ms": 134
+    },
+    {
+      "name": "consumable:second-cm",
+      "repeat": 1,
+      "ms": 65.10000000149012
+    },
+    {
+      "name": "consumable:default-cm-PURCHASE",
+      "repeat": 1,
+      "ms": 100.19999999925494
+    },
+    {
+      "name": "consumable:default-cm-PRICING",
+      "repeat": 1,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "consumable:default-cm-ISSUE",
+      "repeat": 1,
+      "ms": 98.80000000074506
+    },
+    {
+      "name": "consumable:save-cm-relation",
+      "repeat": 1,
+      "ms": 147.69999999925494
+    },
+    {
+      "name": "consumable:defaults-refresh-unit-view",
+      "repeat": 1,
+      "ms": 95.09999999776483
+    },
+    {
+      "name": "consumable:cost-tab",
+      "repeat": 1,
+      "ms": 90.69999999925494
+    },
+    {
+      "name": "consumable:cost-edit",
+      "repeat": 1,
+      "ms": 116.19999999925494
+    },
+    {
+      "name": "consumable:missing-KG-choice",
+      "repeat": 1,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "consumable:missing-reason",
+      "repeat": 1,
+      "ms": 67.30000000074506
+    },
+    {
+      "name": "consumable:missing-cost-block",
+      "repeat": 1,
+      "ms": 94.39999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-units",
+      "repeat": 1,
+      "ms": 88.39999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-new-relation",
+      "repeat": 1,
+      "ms": 116.5
+    },
+    {
+      "name": "consumable:missing-recovery-KG",
+      "repeat": 1,
+      "ms": 66.89999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-factor",
+      "repeat": 1,
+      "ms": 63.30000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-basis",
+      "repeat": 1,
+      "ms": 66
+    },
+    {
+      "name": "consumable:missing-recovery-save-relation",
+      "repeat": 1,
+      "ms": 182.10000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-cost-tab",
+      "repeat": 1,
+      "ms": 85.5
+    },
+    {
+      "name": "consumable:missing-recovery-cost-edit",
+      "repeat": 1,
+      "ms": 133.29999999701977
+    },
+    {
+      "name": "consumable:missing-recovery-pricing-KG",
+      "repeat": 1,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-select-basis",
+      "repeat": 1,
+      "ms": 66.10000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-cost-reason",
+      "repeat": 1,
+      "ms": 82.39999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-preview",
+      "repeat": 1,
+      "ms": 130.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-confirm",
+      "repeat": 1,
+      "ms": 116.80000000074506
+    },
+    {
+      "name": "consumable:copy-open",
+      "repeat": 1,
+      "ms": 91.69999999925494
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 1,
+      "ms": 133
+    },
+    {
+      "name": "consumable:copy-new-spec",
+      "repeat": 1,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "consumable:copy-failure-keeps-files",
+      "repeat": 1,
+      "ms": 125.69999999925494
+    },
+    {
+      "name": "consumable:copy-save",
+      "repeat": 1,
+      "ms": 106.89999999850988
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 1,
+      "ms": 159.10000000149012
+    },
+    {
+      "name": "consumable:copied-assets-open",
+      "repeat": 1,
+      "ms": 99.59999999776483
+    },
+    {
+      "name": "legacy-v1:cold",
+      "repeat": 1,
+      "ms": 229.60000000149012
+    },
+    {
+      "name": "legacy-v1:refresh",
+      "repeat": 1,
+      "ms": 163
+    },
+    {
+      "name": "legacy-v2:cold",
+      "repeat": 1,
+      "ms": 215.30000000074506
+    },
+    {
+      "name": "legacy-v2:refresh",
+      "repeat": 1,
+      "ms": 163.5
+    },
+    {
+      "name": "static-overlay:direct",
+      "repeat": 1,
+      "ms": 233.69999999925494
+    },
+    {
+      "name": "static-overlay:refresh",
+      "repeat": 1,
+      "ms": 178.5
+    },
+    {
+      "name": "static-SKU-overlay:direct",
+      "repeat": 1,
+      "ms": 216
+    },
+    {
+      "name": "static-tombstone:root-direct",
+      "repeat": 1,
+      "ms": 165.30000000074506
+    },
+    {
+      "name": "static-tombstone:root-refresh",
+      "repeat": 1,
+      "ms": 149.69999999925494
+    },
+    {
+      "name": "static-tombstone:SKU-direct",
+      "repeat": 1,
+      "ms": 149.5
+    },
+    {
+      "name": "legacy-process:history-open",
+      "repeat": 1,
+      "ms": 100.09999999776483
+    },
+    {
+      "name": "legacy-process:files-open",
+      "repeat": 1,
+      "ms": 99.70000000298023
+    },
+    {
+      "name": "legacy-process:original-file-read",
+      "repeat": 1,
+      "ms": 60.19999999925494
+    },
+    {
+      "name": "legacy-process:readonly-edit",
+      "repeat": 1,
+      "ms": 133.79999999701977
+    },
+    {
+      "name": "fabric-list:cold",
+      "repeat": 2,
+      "ms": 254
+    },
+    {
+      "name": "fabric-list:refresh",
+      "repeat": 2,
+      "ms": 167.19999999925494
+    },
+    {
+      "name": "fabric-list:SPA",
+      "repeat": 2,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "fabric-root:cold",
+      "repeat": 2,
+      "ms": 249.10000000149012
+    },
+    {
+      "name": "fabric-root:refresh",
+      "repeat": 2,
+      "ms": 183.69999999925494
+    },
+    {
+      "name": "fabric-root:SPA",
+      "repeat": 2,
+      "ms": 85.5
+    },
+    {
+      "name": "fabric-detail:cold",
+      "repeat": 2,
+      "ms": 232.90000000223517
+    },
+    {
+      "name": "fabric-detail:refresh",
+      "repeat": 2,
+      "ms": 233.19999999925494
+    },
+    {
+      "name": "fabric-detail:SPA",
+      "repeat": 2,
+      "ms": 67
+    },
+    {
+      "name": "fabric-edit:cold",
+      "repeat": 2,
+      "ms": 248.69999999925494
+    },
+    {
+      "name": "fabric-edit:refresh",
+      "repeat": 2,
+      "ms": 165.89999999850988
+    },
+    {
+      "name": "fabric-edit:SPA",
+      "repeat": 2,
+      "ms": 100
+    },
+    {
+      "name": "fabric-process:cold",
+      "repeat": 2,
+      "ms": 249
+    },
+    {
+      "name": "fabric-process:refresh",
+      "repeat": 2,
+      "ms": 182.39999999850988
+    },
+    {
+      "name": "fabric-process:SPA",
+      "repeat": 2,
+      "ms": 84.40000000223517
+    },
+    {
+      "name": "accessory-list:cold",
+      "repeat": 2,
+      "ms": 279.8999999985099
+    },
+    {
+      "name": "accessory-list:refresh",
+      "repeat": 2,
+      "ms": 165.30000000074506
+    },
+    {
+      "name": "accessory-list:SPA",
+      "repeat": 2,
+      "ms": 66.70000000298023
+    },
+    {
+      "name": "accessory-root:cold",
+      "repeat": 2,
+      "ms": 249.30000000074506
+    },
+    {
+      "name": "accessory-root:refresh",
+      "repeat": 2,
+      "ms": 166.69999999925494
+    },
+    {
+      "name": "accessory-root:SPA",
+      "repeat": 2,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "accessory-detail:cold",
+      "repeat": 2,
+      "ms": 232.60000000149012
+    },
+    {
+      "name": "accessory-detail:refresh",
+      "repeat": 2,
+      "ms": 166
+    },
+    {
+      "name": "accessory-detail:SPA",
+      "repeat": 2,
+      "ms": 83.20000000298023
+    },
+    {
+      "name": "accessory-edit:cold",
+      "repeat": 2,
+      "ms": 249.10000000149012
+    },
+    {
+      "name": "accessory-edit:refresh",
+      "repeat": 2,
+      "ms": 165.69999999925494
+    },
+    {
+      "name": "accessory-edit:SPA",
+      "repeat": 2,
+      "ms": 84.19999999925494
+    },
+    {
+      "name": "accessory-process:cold",
+      "repeat": 2,
+      "ms": 232
+    },
+    {
+      "name": "accessory-process:refresh",
+      "repeat": 2,
+      "ms": 198.90000000223517
+    },
+    {
+      "name": "accessory-process:SPA",
+      "repeat": 2,
+      "ms": 83
+    },
+    {
+      "name": "yarn-list:cold",
+      "repeat": 2,
+      "ms": 281.69999999925494
+    },
+    {
+      "name": "yarn-list:refresh",
+      "repeat": 2,
+      "ms": 166.09999999776483
+    },
+    {
+      "name": "yarn-list:SPA",
+      "repeat": 2,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "yarn-root:cold",
+      "repeat": 2,
+      "ms": 232.69999999925494
+    },
+    {
+      "name": "yarn-root:refresh",
+      "repeat": 2,
+      "ms": 166.09999999776483
+    },
+    {
+      "name": "yarn-root:SPA",
+      "repeat": 2,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "yarn-detail:cold",
+      "repeat": 2,
+      "ms": 232.59999999776483
+    },
+    {
+      "name": "yarn-detail:refresh",
+      "repeat": 2,
+      "ms": 166
+    },
+    {
+      "name": "yarn-detail:SPA",
+      "repeat": 2,
+      "ms": 84.5
+    },
+    {
+      "name": "yarn-edit:cold",
+      "repeat": 2,
+      "ms": 247.79999999701977
+    },
+    {
+      "name": "yarn-edit:refresh",
+      "repeat": 2,
+      "ms": 166.20000000298023
+    },
+    {
+      "name": "yarn-edit:SPA",
+      "repeat": 2,
+      "ms": 84.30000000074506
+    },
+    {
+      "name": "yarn-process:cold",
+      "repeat": 2,
+      "ms": 231.80000000074506
+    },
+    {
+      "name": "yarn-process:refresh",
+      "repeat": 2,
+      "ms": 182.5
+    },
+    {
+      "name": "yarn-process:SPA",
+      "repeat": 2,
+      "ms": 83.60000000149012
+    },
+    {
+      "name": "fabric-existing-DYEING:continuous-definition",
+      "repeat": 2,
+      "ms": 100.30000000074506
+    },
+    {
+      "name": "fabric-existing-PRINTING:continuous-definition",
+      "repeat": 2,
+      "ms": 100.10000000149012
+    },
+    {
+      "name": "fabric-existing-EMBROIDERY:continuous-definition",
+      "repeat": 2,
+      "ms": 100.30000000074506
+    },
+    {
+      "name": "fabric-existing-HEAT_TRANSFER:continuous-definition",
+      "repeat": 2,
+      "ms": 101.40000000223517
+    },
+    {
+      "name": "consumable:legacy-barcode-query-input",
+      "repeat": 2,
+      "ms": 65.90000000223517
+    },
+    {
+      "name": "consumable:legacy-barcode-query",
+      "repeat": 2,
+      "ms": 99.70000000298023
+    },
+    {
+      "name": "consumable:legacy-barcode-resolved-SKU",
+      "repeat": 2,
+      "ms": 114.30000000074506
+    },
+    {
+      "name": "parts:legacy-barcode-query-input",
+      "repeat": 2,
+      "ms": 66.59999999776483
+    },
+    {
+      "name": "parts:legacy-barcode-query",
+      "repeat": 2,
+      "ms": 99.79999999701977
+    },
+    {
+      "name": "parts:legacy-barcode-resolved-SKU",
+      "repeat": 2,
+      "ms": 114.40000000223517
+    },
+    {
+      "name": "parts:unsaved-description",
+      "repeat": 2,
+      "ms": 66.60000000149012
+    },
+    {
+      "name": "parts:isolated-mock-alias-edit",
+      "repeat": 2,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "parts:unsaved-tab-units",
+      "repeat": 2,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "parts:unsaved-tab-cost",
+      "repeat": 2,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "parts:unsaved-tab-basic",
+      "repeat": 2,
+      "ms": 99.5
+    },
+    {
+      "name": "parts:cancel-leave",
+      "repeat": 2,
+      "ms": 98.59999999776483
+    },
+    {
+      "name": "parts:quota-save-failure",
+      "repeat": 2,
+      "ms": 151.70000000298023
+    },
+    {
+      "name": "parts:retry-save",
+      "repeat": 2,
+      "ms": 104.09999999776483
+    },
+    {
+      "name": "parts:retry-refresh",
+      "repeat": 2,
+      "ms": 165.69999999925494
+    },
+    {
+      "name": "parts:preferences-denied-default-list",
+      "repeat": 2,
+      "ms": 115.40000000223517
+    },
+    {
+      "name": "parts:persisted-mock-alias-query-input",
+      "repeat": 2,
+      "ms": 62.19999999925494
+    },
+    {
+      "name": "parts:persisted-mock-alias-query",
+      "repeat": 2,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:preferences-denied-return-SKU",
+      "repeat": 2,
+      "ms": 64.19999999925494
+    },
+    {
+      "name": "parts:units-tab",
+      "repeat": 2,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "parts:new-relation",
+      "repeat": 2,
+      "ms": 116
+    },
+    {
+      "name": "parts:fixed-yard",
+      "repeat": 2,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "parts:default-yard-PURCHASE",
+      "repeat": 2,
+      "ms": 97.59999999776483
+    },
+    {
+      "name": "parts:default-yard-PRICING",
+      "repeat": 2,
+      "ms": 97.19999999925494
+    },
+    {
+      "name": "parts:default-yard-ISSUE",
+      "repeat": 2,
+      "ms": 115.89999999850988
+    },
+    {
+      "name": "parts:save-yard-relation",
+      "repeat": 2,
+      "ms": 130.70000000298023
+    },
+    {
+      "name": "parts:new-second-relation",
+      "repeat": 2,
+      "ms": 116.60000000149012
+    },
+    {
+      "name": "parts:second-cm",
+      "repeat": 2,
+      "ms": 67.69999999925494
+    },
+    {
+      "name": "parts:default-cm-PURCHASE",
+      "repeat": 2,
+      "ms": 115.69999999925494
+    },
+    {
+      "name": "parts:default-cm-PRICING",
+      "repeat": 2,
+      "ms": 98
+    },
+    {
+      "name": "parts:default-cm-ISSUE",
+      "repeat": 2,
+      "ms": 105.10000000149012
+    },
+    {
+      "name": "parts:save-cm-relation",
+      "repeat": 2,
+      "ms": 127.19999999925494
+    },
+    {
+      "name": "parts:defaults-refresh-unit-view",
+      "repeat": 2,
+      "ms": 90.69999999925494
+    },
+    {
+      "name": "parts:cost-tab",
+      "repeat": 2,
+      "ms": 89.80000000074506
+    },
+    {
+      "name": "parts:cost-edit",
+      "repeat": 2,
+      "ms": 116.89999999850988
+    },
+    {
+      "name": "parts:missing-KG-choice",
+      "repeat": 2,
+      "ms": 63.900000002235174
+    },
+    {
+      "name": "parts:missing-reason",
+      "repeat": 2,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:missing-cost-block",
+      "repeat": 2,
+      "ms": 110
+    },
+    {
+      "name": "parts:missing-recovery-units",
+      "repeat": 2,
+      "ms": 138.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-new-relation",
+      "repeat": 2,
+      "ms": 100.80000000074506
+    },
+    {
+      "name": "parts:missing-recovery-KG",
+      "repeat": 2,
+      "ms": 66.5
+    },
+    {
+      "name": "parts:missing-recovery-factor",
+      "repeat": 2,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "parts:missing-recovery-basis",
+      "repeat": 2,
+      "ms": 65.5
+    },
+    {
+      "name": "parts:missing-recovery-save-relation",
+      "repeat": 2,
+      "ms": 182.80000000074506
+    },
+    {
+      "name": "parts:missing-recovery-cost-tab",
+      "repeat": 2,
+      "ms": 91.59999999776483
+    },
+    {
+      "name": "parts:missing-recovery-cost-edit",
+      "repeat": 2,
+      "ms": 132.40000000223517
+    },
+    {
+      "name": "parts:missing-recovery-pricing-KG",
+      "repeat": 2,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "parts:missing-recovery-select-basis",
+      "repeat": 2,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-cost-reason",
+      "repeat": 2,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-preview",
+      "repeat": 2,
+      "ms": 116.29999999701977
+    },
+    {
+      "name": "parts:missing-recovery-confirm",
+      "repeat": 2,
+      "ms": 132.69999999925494
+    },
+    {
+      "name": "parts:copy-open",
+      "repeat": 2,
+      "ms": 89.90000000223517
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 2,
+      "ms": 115.89999999850988
+    },
+    {
+      "name": "parts:copy-new-spec",
+      "repeat": 2,
+      "ms": 65.40000000223517
+    },
+    {
+      "name": "parts:copy-failure-keeps-files",
+      "repeat": 2,
+      "ms": 119
+    },
+    {
+      "name": "parts:copy-save",
+      "repeat": 2,
+      "ms": 117.60000000149012
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 2,
+      "ms": 174.69999999925494
+    },
+    {
+      "name": "parts:copied-assets-open",
+      "repeat": 2,
+      "ms": 101.10000000149012
+    },
+    {
+      "name": "consumable:unsaved-description",
+      "repeat": 2,
+      "ms": 66.60000000149012
+    },
+    {
+      "name": "consumable:isolated-mock-alias-edit",
+      "repeat": 2,
+      "ms": 66.10000000149012
+    },
+    {
+      "name": "consumable:unsaved-tab-units",
+      "repeat": 2,
+      "ms": 99.5
+    },
+    {
+      "name": "consumable:unsaved-tab-cost",
+      "repeat": 2,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "consumable:unsaved-tab-basic",
+      "repeat": 2,
+      "ms": 100.89999999850988
+    },
+    {
+      "name": "consumable:cancel-leave",
+      "repeat": 2,
+      "ms": 96.90000000223517
+    },
+    {
+      "name": "consumable:quota-save-failure",
+      "repeat": 2,
+      "ms": 155.60000000149012
+    },
+    {
+      "name": "consumable:retry-save",
+      "repeat": 2,
+      "ms": 103.69999999925494
+    },
+    {
+      "name": "consumable:retry-refresh",
+      "repeat": 2,
+      "ms": 166
+    },
+    {
+      "name": "consumable:preferences-denied-default-list",
+      "repeat": 2,
+      "ms": 148.10000000149012
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query-input",
+      "repeat": 2,
+      "ms": 62.5
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query",
+      "repeat": 2,
+      "ms": 99.5
+    },
+    {
+      "name": "consumable:preferences-denied-return-SKU",
+      "repeat": 2,
+      "ms": 65.20000000298023
+    },
+    {
+      "name": "consumable:units-tab",
+      "repeat": 2,
+      "ms": 99.40000000223517
+    },
+    {
+      "name": "consumable:new-relation",
+      "repeat": 2,
+      "ms": 115.89999999850988
+    },
+    {
+      "name": "consumable:fixed-yard",
+      "repeat": 2,
+      "ms": 66.20000000298023
+    },
+    {
+      "name": "consumable:default-yard-PURCHASE",
+      "repeat": 2,
+      "ms": 96.29999999701977
+    },
+    {
+      "name": "consumable:default-yard-PRICING",
+      "repeat": 2,
+      "ms": 100.39999999850988
+    },
+    {
+      "name": "consumable:default-yard-ISSUE",
+      "repeat": 2,
+      "ms": 98.60000000149012
+    },
+    {
+      "name": "consumable:save-yard-relation",
+      "repeat": 2,
+      "ms": 181.39999999850988
+    },
+    {
+      "name": "consumable:new-second-relation",
+      "repeat": 2,
+      "ms": 115
+    },
+    {
+      "name": "consumable:second-cm",
+      "repeat": 2,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "consumable:default-cm-PURCHASE",
+      "repeat": 2,
+      "ms": 101.09999999776483
+    },
+    {
+      "name": "consumable:default-cm-PRICING",
+      "repeat": 2,
+      "ms": 96.89999999850988
+    },
+    {
+      "name": "consumable:default-cm-ISSUE",
+      "repeat": 2,
+      "ms": 99.39999999850988
+    },
+    {
+      "name": "consumable:save-cm-relation",
+      "repeat": 2,
+      "ms": 130.59999999776483
+    },
+    {
+      "name": "consumable:defaults-refresh-unit-view",
+      "repeat": 2,
+      "ms": 93.89999999850988
+    },
+    {
+      "name": "consumable:cost-tab",
+      "repeat": 2,
+      "ms": 87.30000000074506
+    },
+    {
+      "name": "consumable:cost-edit",
+      "repeat": 2,
+      "ms": 116.5
+    },
+    {
+      "name": "consumable:missing-KG-choice",
+      "repeat": 2,
+      "ms": 66.5
+    },
+    {
+      "name": "consumable:missing-reason",
+      "repeat": 2,
+      "ms": 67.80000000074506
+    },
+    {
+      "name": "consumable:missing-cost-block",
+      "repeat": 2,
+      "ms": 113.60000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-units",
+      "repeat": 2,
+      "ms": 88.5
+    },
+    {
+      "name": "consumable:missing-recovery-new-relation",
+      "repeat": 2,
+      "ms": 133.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-KG",
+      "repeat": 2,
+      "ms": 82.5
+    },
+    {
+      "name": "consumable:missing-recovery-factor",
+      "repeat": 2,
+      "ms": 63.600000001490116
+    },
+    {
+      "name": "consumable:missing-recovery-basis",
+      "repeat": 2,
+      "ms": 65.39999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-save-relation",
+      "repeat": 2,
+      "ms": 185.39999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-cost-tab",
+      "repeat": 2,
+      "ms": 82.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-cost-edit",
+      "repeat": 2,
+      "ms": 117.19999999925494
+    },
+    {
+      "name": "consumable:missing-recovery-pricing-KG",
+      "repeat": 2,
+      "ms": 66
+    },
+    {
+      "name": "consumable:missing-recovery-select-basis",
+      "repeat": 2,
+      "ms": 65.60000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-cost-reason",
+      "repeat": 2,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-preview",
+      "repeat": 2,
+      "ms": 130.29999999701977
+    },
+    {
+      "name": "consumable:missing-recovery-confirm",
+      "repeat": 2,
+      "ms": 133.89999999850988
+    },
+    {
+      "name": "consumable:copy-open",
+      "repeat": 2,
+      "ms": 84.5
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 2,
+      "ms": 132.40000000223517
+    },
+    {
+      "name": "consumable:copy-new-spec",
+      "repeat": 2,
+      "ms": 66.09999999776483
+    },
+    {
+      "name": "consumable:copy-failure-keeps-files",
+      "repeat": 2,
+      "ms": 120.80000000074506
+    },
+    {
+      "name": "consumable:copy-save",
+      "repeat": 2,
+      "ms": 107.30000000074506
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 2,
+      "ms": 157.90000000223517
+    },
+    {
+      "name": "consumable:copied-assets-open",
+      "repeat": 2,
+      "ms": 100
+    },
+    {
+      "name": "legacy-v1:cold",
+      "repeat": 2,
+      "ms": 244.39999999850988
+    },
+    {
+      "name": "legacy-v1:refresh",
+      "repeat": 2,
+      "ms": 162.89999999850988
+    },
+    {
+      "name": "legacy-v2:cold",
+      "repeat": 2,
+      "ms": 216.5
+    },
+    {
+      "name": "legacy-v2:refresh",
+      "repeat": 2,
+      "ms": 162.10000000149012
+    },
+    {
+      "name": "static-overlay:direct",
+      "repeat": 2,
+      "ms": 232.39999999850988
+    },
+    {
+      "name": "static-overlay:refresh",
+      "repeat": 2,
+      "ms": 163.60000000149012
+    },
+    {
+      "name": "static-SKU-overlay:direct",
+      "repeat": 2,
+      "ms": 232.19999999925494
+    },
+    {
+      "name": "static-tombstone:root-direct",
+      "repeat": 2,
+      "ms": 164.80000000074506
+    },
+    {
+      "name": "static-tombstone:root-refresh",
+      "repeat": 2,
+      "ms": 149.5
+    },
+    {
+      "name": "static-tombstone:SKU-direct",
+      "repeat": 2,
+      "ms": 149.5
+    },
+    {
+      "name": "legacy-process:history-open",
+      "repeat": 2,
+      "ms": 100.10000000149012
+    },
+    {
+      "name": "legacy-process:files-open",
+      "repeat": 2,
+      "ms": 98.80000000074506
+    },
+    {
+      "name": "legacy-process:original-file-read",
+      "repeat": 2,
+      "ms": 62.29999999701977
+    },
+    {
+      "name": "legacy-process:readonly-edit",
+      "repeat": 2,
+      "ms": 132.5
+    },
+    {
+      "name": "fabric-list:cold",
+      "repeat": 3,
+      "ms": 240.80000000074506
+    },
+    {
+      "name": "fabric-list:refresh",
+      "repeat": 3,
+      "ms": 166.5
+    },
+    {
+      "name": "fabric-list:SPA",
+      "repeat": 3,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "fabric-root:cold",
+      "repeat": 3,
+      "ms": 232.60000000149012
+    },
+    {
+      "name": "fabric-root:refresh",
+      "repeat": 3,
+      "ms": 166.19999999925494
+    },
+    {
+      "name": "fabric-root:SPA",
+      "repeat": 3,
+      "ms": 83.09999999776483
+    },
+    {
+      "name": "fabric-detail:cold",
+      "repeat": 3,
+      "ms": 249.39999999850988
+    },
+    {
+      "name": "fabric-detail:refresh",
+      "repeat": 3,
+      "ms": 166
+    },
+    {
+      "name": "fabric-detail:SPA",
+      "repeat": 3,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "fabric-edit:cold",
+      "repeat": 3,
+      "ms": 231.70000000298023
+    },
+    {
+      "name": "fabric-edit:refresh",
+      "repeat": 3,
+      "ms": 166.39999999850988
+    },
+    {
+      "name": "fabric-edit:SPA",
+      "repeat": 3,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "fabric-process:cold",
+      "repeat": 3,
+      "ms": 233.5
+    },
+    {
+      "name": "fabric-process:refresh",
+      "repeat": 3,
+      "ms": 165.80000000074506
+    },
+    {
+      "name": "fabric-process:SPA",
+      "repeat": 3,
+      "ms": 83.5
+    },
+    {
+      "name": "accessory-list:cold",
+      "repeat": 3,
+      "ms": 248
+    },
+    {
+      "name": "accessory-list:refresh",
+      "repeat": 3,
+      "ms": 165.79999999701977
+    },
+    {
+      "name": "accessory-list:SPA",
+      "repeat": 3,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "accessory-root:cold",
+      "repeat": 3,
+      "ms": 232.40000000223517
+    },
+    {
+      "name": "accessory-root:refresh",
+      "repeat": 3,
+      "ms": 166.10000000149012
+    },
+    {
+      "name": "accessory-root:SPA",
+      "repeat": 3,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "accessory-detail:cold",
+      "repeat": 3,
+      "ms": 232.5
+    },
+    {
+      "name": "accessory-detail:refresh",
+      "repeat": 3,
+      "ms": 166
+    },
+    {
+      "name": "accessory-detail:SPA",
+      "repeat": 3,
+      "ms": 84.30000000074506
+    },
+    {
+      "name": "accessory-edit:cold",
+      "repeat": 3,
+      "ms": 232.39999999850988
+    },
+    {
+      "name": "accessory-edit:refresh",
+      "repeat": 3,
+      "ms": 165.10000000149012
+    },
+    {
+      "name": "accessory-edit:SPA",
+      "repeat": 3,
+      "ms": 84.69999999925494
+    },
+    {
+      "name": "accessory-process:cold",
+      "repeat": 3,
+      "ms": 265.30000000074506
+    },
+    {
+      "name": "accessory-process:refresh",
+      "repeat": 3,
+      "ms": 182.5
+    },
+    {
+      "name": "accessory-process:SPA",
+      "repeat": 3,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "yarn-list:cold",
+      "repeat": 3,
+      "ms": 298.80000000074506
+    },
+    {
+      "name": "yarn-list:refresh",
+      "repeat": 3,
+      "ms": 165
+    },
+    {
+      "name": "yarn-list:SPA",
+      "repeat": 3,
+      "ms": 66.79999999701977
+    },
+    {
+      "name": "yarn-root:cold",
+      "repeat": 3,
+      "ms": 232.60000000149012
+    },
+    {
+      "name": "yarn-root:refresh",
+      "repeat": 3,
+      "ms": 182.80000000074506
+    },
+    {
+      "name": "yarn-root:SPA",
+      "repeat": 3,
+      "ms": 82.39999999850988
+    },
+    {
+      "name": "yarn-detail:cold",
+      "repeat": 3,
+      "ms": 232.60000000149012
+    },
+    {
+      "name": "yarn-detail:refresh",
+      "repeat": 3,
+      "ms": 166.09999999776483
+    },
+    {
+      "name": "yarn-detail:SPA",
+      "repeat": 3,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "yarn-edit:cold",
+      "repeat": 3,
+      "ms": 232.19999999925494
+    },
+    {
+      "name": "yarn-edit:refresh",
+      "repeat": 3,
+      "ms": 182
+    },
+    {
+      "name": "yarn-edit:SPA",
+      "repeat": 3,
+      "ms": 83.5
+    },
+    {
+      "name": "yarn-process:cold",
+      "repeat": 3,
+      "ms": 254.40000000223517
+    },
+    {
+      "name": "yarn-process:refresh",
+      "repeat": 3,
+      "ms": 177.09999999776483
+    },
+    {
+      "name": "yarn-process:SPA",
+      "repeat": 3,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "fabric-existing-DYEING:continuous-definition",
+      "repeat": 3,
+      "ms": 101.39999999850988
+    },
+    {
+      "name": "fabric-existing-PRINTING:continuous-definition",
+      "repeat": 3,
+      "ms": 99.10000000149012
+    },
+    {
+      "name": "fabric-existing-EMBROIDERY:continuous-definition",
+      "repeat": 3,
+      "ms": 100.79999999701977
+    },
+    {
+      "name": "fabric-existing-HEAT_TRANSFER:continuous-definition",
+      "repeat": 3,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "consumable:legacy-barcode-query-input",
+      "repeat": 3,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "consumable:legacy-barcode-query",
+      "repeat": 3,
+      "ms": 101.20000000298023
+    },
+    {
+      "name": "consumable:legacy-barcode-resolved-SKU",
+      "repeat": 3,
+      "ms": 115.79999999701977
+    },
+    {
+      "name": "parts:legacy-barcode-query-input",
+      "repeat": 3,
+      "ms": 67
+    },
+    {
+      "name": "parts:legacy-barcode-query",
+      "repeat": 3,
+      "ms": 99.79999999701977
+    },
+    {
+      "name": "parts:legacy-barcode-resolved-SKU",
+      "repeat": 3,
+      "ms": 114.19999999925494
+    },
+    {
+      "name": "parts:unsaved-description",
+      "repeat": 3,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "parts:isolated-mock-alias-edit",
+      "repeat": 3,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:unsaved-tab-units",
+      "repeat": 3,
+      "ms": 100
+    },
+    {
+      "name": "parts:unsaved-tab-cost",
+      "repeat": 3,
+      "ms": 99.5
+    },
+    {
+      "name": "parts:unsaved-tab-basic",
+      "repeat": 3,
+      "ms": 99
+    },
+    {
+      "name": "parts:cancel-leave",
+      "repeat": 3,
+      "ms": 98.09999999776483
+    },
+    {
+      "name": "parts:quota-save-failure",
+      "repeat": 3,
+      "ms": 154.19999999925494
+    },
+    {
+      "name": "parts:retry-save",
+      "repeat": 3,
+      "ms": 125.79999999701977
+    },
+    {
+      "name": "parts:retry-refresh",
+      "repeat": 3,
+      "ms": 182.80000000074506
+    },
+    {
+      "name": "parts:preferences-denied-default-list",
+      "repeat": 3,
+      "ms": 114.30000000074506
+    },
+    {
+      "name": "parts:persisted-mock-alias-query-input",
+      "repeat": 3,
+      "ms": 63.400000002235174
+    },
+    {
+      "name": "parts:persisted-mock-alias-query",
+      "repeat": 3,
+      "ms": 99.79999999701977
+    },
+    {
+      "name": "parts:preferences-denied-return-SKU",
+      "repeat": 3,
+      "ms": 65.30000000074506
+    },
+    {
+      "name": "parts:units-tab",
+      "repeat": 3,
+      "ms": 99.30000000074506
+    },
+    {
+      "name": "parts:new-relation",
+      "repeat": 3,
+      "ms": 116.19999999925494
+    },
+    {
+      "name": "parts:fixed-yard",
+      "repeat": 3,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "parts:default-yard-PURCHASE",
+      "repeat": 3,
+      "ms": 101.30000000074506
+    },
+    {
+      "name": "parts:default-yard-PRICING",
+      "repeat": 3,
+      "ms": 92.40000000223517
+    },
+    {
+      "name": "parts:default-yard-ISSUE",
+      "repeat": 3,
+      "ms": 98.89999999850988
+    },
+    {
+      "name": "parts:save-yard-relation",
+      "repeat": 3,
+      "ms": 180.59999999776483
+    },
+    {
+      "name": "parts:new-second-relation",
+      "repeat": 3,
+      "ms": 116.90000000223517
+    },
+    {
+      "name": "parts:second-cm",
+      "repeat": 3,
+      "ms": 66.40000000223517
+    },
+    {
+      "name": "parts:default-cm-PURCHASE",
+      "repeat": 3,
+      "ms": 100.10000000149012
+    },
+    {
+      "name": "parts:default-cm-PRICING",
+      "repeat": 3,
+      "ms": 98.89999999850988
+    },
+    {
+      "name": "parts:default-cm-ISSUE",
+      "repeat": 3,
+      "ms": 97.89999999850988
+    },
+    {
+      "name": "parts:save-cm-relation",
+      "repeat": 3,
+      "ms": 131.60000000149012
+    },
+    {
+      "name": "parts:defaults-refresh-unit-view",
+      "repeat": 3,
+      "ms": 95.80000000074506
+    },
+    {
+      "name": "parts:cost-tab",
+      "repeat": 3,
+      "ms": 92.80000000074506
+    },
+    {
+      "name": "parts:cost-edit",
+      "repeat": 3,
+      "ms": 116.19999999925494
+    },
+    {
+      "name": "parts:missing-KG-choice",
+      "repeat": 3,
+      "ms": 67.19999999925494
+    },
+    {
+      "name": "parts:missing-reason",
+      "repeat": 3,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "parts:missing-cost-block",
+      "repeat": 3,
+      "ms": 113.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-units",
+      "repeat": 3,
+      "ms": 87.89999999850988
+    },
+    {
+      "name": "parts:missing-recovery-new-relation",
+      "repeat": 3,
+      "ms": 116
+    },
+    {
+      "name": "parts:missing-recovery-KG",
+      "repeat": 3,
+      "ms": 66
+    },
+    {
+      "name": "parts:missing-recovery-factor",
+      "repeat": 3,
+      "ms": 65.39999999850988
+    },
+    {
+      "name": "parts:missing-recovery-basis",
+      "repeat": 3,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "parts:missing-recovery-save-relation",
+      "repeat": 3,
+      "ms": 179.80000000074506
+    },
+    {
+      "name": "parts:missing-recovery-cost-tab",
+      "repeat": 3,
+      "ms": 83.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-cost-edit",
+      "repeat": 3,
+      "ms": 115.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-pricing-KG",
+      "repeat": 3,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-select-basis",
+      "repeat": 3,
+      "ms": 65.5
+    },
+    {
+      "name": "parts:missing-recovery-cost-reason",
+      "repeat": 3,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-preview",
+      "repeat": 3,
+      "ms": 131.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-confirm",
+      "repeat": 3,
+      "ms": 132.70000000298023
+    },
+    {
+      "name": "parts:copy-open",
+      "repeat": 3,
+      "ms": 86.90000000223517
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 3,
+      "ms": 116
+    },
+    {
+      "name": "parts:copy-new-spec",
+      "repeat": 3,
+      "ms": 64.80000000074506
+    },
+    {
+      "name": "parts:copy-failure-keeps-files",
+      "repeat": 3,
+      "ms": 115.90000000223517
+    },
+    {
+      "name": "parts:copy-save",
+      "repeat": 3,
+      "ms": 140
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 3,
+      "ms": 173.90000000223517
+    },
+    {
+      "name": "parts:copied-assets-open",
+      "repeat": 3,
+      "ms": 100.5
+    },
+    {
+      "name": "consumable:unsaved-description",
+      "repeat": 3,
+      "ms": 67
+    },
+    {
+      "name": "consumable:isolated-mock-alias-edit",
+      "repeat": 3,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "consumable:unsaved-tab-units",
+      "repeat": 3,
+      "ms": 99.59999999776483
+    },
+    {
+      "name": "consumable:unsaved-tab-cost",
+      "repeat": 3,
+      "ms": 101.89999999850988
+    },
+    {
+      "name": "consumable:unsaved-tab-basic",
+      "repeat": 3,
+      "ms": 98.69999999925494
+    },
+    {
+      "name": "consumable:cancel-leave",
+      "repeat": 3,
+      "ms": 95.5
+    },
+    {
+      "name": "consumable:quota-save-failure",
+      "repeat": 3,
+      "ms": 140.30000000074506
+    },
+    {
+      "name": "consumable:retry-save",
+      "repeat": 3,
+      "ms": 103.90000000223517
+    },
+    {
+      "name": "consumable:retry-refresh",
+      "repeat": 3,
+      "ms": 165.5
+    },
+    {
+      "name": "consumable:preferences-denied-default-list",
+      "repeat": 3,
+      "ms": 148.90000000223517
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query-input",
+      "repeat": 3,
+      "ms": 61.30000000074506
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query",
+      "repeat": 3,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "consumable:preferences-denied-return-SKU",
+      "repeat": 3,
+      "ms": 64.90000000223517
+    },
+    {
+      "name": "consumable:units-tab",
+      "repeat": 3,
+      "ms": 99.59999999776483
+    },
+    {
+      "name": "consumable:new-relation",
+      "repeat": 3,
+      "ms": 116.39999999850988
+    },
+    {
+      "name": "consumable:fixed-yard",
+      "repeat": 3,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "consumable:default-yard-PURCHASE",
+      "repeat": 3,
+      "ms": 97.90000000223517
+    },
+    {
+      "name": "consumable:default-yard-PRICING",
+      "repeat": 3,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "consumable:default-yard-ISSUE",
+      "repeat": 3,
+      "ms": 102.19999999925494
+    },
+    {
+      "name": "consumable:save-yard-relation",
+      "repeat": 3,
+      "ms": 122.89999999850988
+    },
+    {
+      "name": "consumable:new-second-relation",
+      "repeat": 3,
+      "ms": 114.39999999850988
+    },
+    {
+      "name": "consumable:second-cm",
+      "repeat": 3,
+      "ms": 66.10000000149012
+    },
+    {
+      "name": "consumable:default-cm-PURCHASE",
+      "repeat": 3,
+      "ms": 99.5
+    },
+    {
+      "name": "consumable:default-cm-PRICING",
+      "repeat": 3,
+      "ms": 99.19999999925494
+    },
+    {
+      "name": "consumable:default-cm-ISSUE",
+      "repeat": 3,
+      "ms": 109
+    },
+    {
+      "name": "consumable:save-cm-relation",
+      "repeat": 3,
+      "ms": 124.30000000074506
+    },
+    {
+      "name": "consumable:defaults-refresh-unit-view",
+      "repeat": 3,
+      "ms": 88.30000000074506
+    },
+    {
+      "name": "consumable:cost-tab",
+      "repeat": 3,
+      "ms": 91.10000000149012
+    },
+    {
+      "name": "consumable:cost-edit",
+      "repeat": 3,
+      "ms": 116.30000000074506
+    },
+    {
+      "name": "consumable:missing-KG-choice",
+      "repeat": 3,
+      "ms": 66.70000000298023
+    },
+    {
+      "name": "consumable:missing-reason",
+      "repeat": 3,
+      "ms": 67.5
+    },
+    {
+      "name": "consumable:missing-cost-block",
+      "repeat": 3,
+      "ms": 95.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-units",
+      "repeat": 3,
+      "ms": 90.40000000223517
+    },
+    {
+      "name": "consumable:missing-recovery-new-relation",
+      "repeat": 3,
+      "ms": 115.89999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-KG",
+      "repeat": 3,
+      "ms": 66.40000000223517
+    },
+    {
+      "name": "consumable:missing-recovery-factor",
+      "repeat": 3,
+      "ms": 65.79999999701977
+    },
+    {
+      "name": "consumable:missing-recovery-basis",
+      "repeat": 3,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-save-relation",
+      "repeat": 3,
+      "ms": 166.40000000223517
+    },
+    {
+      "name": "consumable:missing-recovery-cost-tab",
+      "repeat": 3,
+      "ms": 91.89999999850988
+    },
+    {
+      "name": "consumable:missing-recovery-cost-edit",
+      "repeat": 3,
+      "ms": 116.5
+    },
+    {
+      "name": "consumable:missing-recovery-pricing-KG",
+      "repeat": 3,
+      "ms": 66.10000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-select-basis",
+      "repeat": 3,
+      "ms": 67.60000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-cost-reason",
+      "repeat": 3,
+      "ms": 65
+    },
+    {
+      "name": "consumable:missing-recovery-preview",
+      "repeat": 3,
+      "ms": 116.5
+    },
+    {
+      "name": "consumable:missing-recovery-confirm",
+      "repeat": 3,
+      "ms": 132.69999999925494
+    },
+    {
+      "name": "consumable:copy-open",
+      "repeat": 3,
+      "ms": 85.80000000074506
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 3,
+      "ms": 132.69999999925494
+    },
+    {
+      "name": "consumable:copy-new-spec",
+      "repeat": 3,
+      "ms": 65.39999999850988
+    },
+    {
+      "name": "consumable:copy-failure-keeps-files",
+      "repeat": 3,
+      "ms": 122.10000000149012
+    },
+    {
+      "name": "consumable:copy-save",
+      "repeat": 3,
+      "ms": 119.19999999925494
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 3,
+      "ms": 170.70000000298023
+    },
+    {
+      "name": "consumable:copied-assets-open",
+      "repeat": 3,
+      "ms": 99.30000000074506
+    },
+    {
+      "name": "legacy-v1:cold",
+      "repeat": 3,
+      "ms": 227.30000000074506
+    },
+    {
+      "name": "legacy-v1:refresh",
+      "repeat": 3,
+      "ms": 180.30000000074506
+    },
+    {
+      "name": "legacy-v2:cold",
+      "repeat": 3,
+      "ms": 230.80000000074506
+    },
+    {
+      "name": "legacy-v2:refresh",
+      "repeat": 3,
+      "ms": 162.59999999776483
+    },
+    {
+      "name": "static-overlay:direct",
+      "repeat": 3,
+      "ms": 232.19999999925494
+    },
+    {
+      "name": "static-overlay:refresh",
+      "repeat": 3,
+      "ms": 196.40000000223517
+    },
+    {
+      "name": "static-SKU-overlay:direct",
+      "repeat": 3,
+      "ms": 249.30000000074506
+    },
+    {
+      "name": "static-tombstone:root-direct",
+      "repeat": 3,
+      "ms": 164.39999999850988
+    },
+    {
+      "name": "static-tombstone:root-refresh",
+      "repeat": 3,
+      "ms": 165.89999999850988
+    },
+    {
+      "name": "static-tombstone:SKU-direct",
+      "repeat": 3,
+      "ms": 172.69999999925494
+    },
+    {
+      "name": "legacy-process:history-open",
+      "repeat": 3,
+      "ms": 100.20000000298023
+    },
+    {
+      "name": "legacy-process:files-open",
+      "repeat": 3,
+      "ms": 98.69999999925494
+    },
+    {
+      "name": "legacy-process:original-file-read",
+      "repeat": 3,
+      "ms": 62.900000002235174
+    },
+    {
+      "name": "legacy-process:readonly-edit",
+      "repeat": 3,
+      "ms": 132.80000000074506
+    },
+    {
+      "name": "fabric-list:cold",
+      "repeat": 4,
+      "ms": 251
+    },
+    {
+      "name": "fabric-list:refresh",
+      "repeat": 4,
+      "ms": 182.69999999925494
+    },
+    {
+      "name": "fabric-list:SPA",
+      "repeat": 4,
+      "ms": 67.20000000298023
+    },
+    {
+      "name": "fabric-root:cold",
+      "repeat": 4,
+      "ms": 248
+    },
+    {
+      "name": "fabric-root:refresh",
+      "repeat": 4,
+      "ms": 166.09999999776483
+    },
+    {
+      "name": "fabric-root:SPA",
+      "repeat": 4,
+      "ms": 83.60000000149012
+    },
+    {
+      "name": "fabric-detail:cold",
+      "repeat": 4,
+      "ms": 265.30000000074506
+    },
+    {
+      "name": "fabric-detail:refresh",
+      "repeat": 4,
+      "ms": 182.69999999925494
+    },
+    {
+      "name": "fabric-detail:SPA",
+      "repeat": 4,
+      "ms": 83.59999999776483
+    },
+    {
+      "name": "fabric-edit:cold",
+      "repeat": 4,
+      "ms": 232.80000000074506
+    },
+    {
+      "name": "fabric-edit:refresh",
+      "repeat": 4,
+      "ms": 180.39999999850988
+    },
+    {
+      "name": "fabric-edit:SPA",
+      "repeat": 4,
+      "ms": 83.5
+    },
+    {
+      "name": "fabric-process:cold",
+      "repeat": 4,
+      "ms": 232.30000000074506
+    },
+    {
+      "name": "fabric-process:refresh",
+      "repeat": 4,
+      "ms": 166.19999999925494
+    },
+    {
+      "name": "fabric-process:SPA",
+      "repeat": 4,
+      "ms": 83.39999999850988
+    },
+    {
+      "name": "accessory-list:cold",
+      "repeat": 4,
+      "ms": 264.5
+    },
+    {
+      "name": "accessory-list:refresh",
+      "repeat": 4,
+      "ms": 182.89999999850988
+    },
+    {
+      "name": "accessory-list:SPA",
+      "repeat": 4,
+      "ms": 66.79999999701977
+    },
+    {
+      "name": "accessory-root:cold",
+      "repeat": 4,
+      "ms": 232.5
+    },
+    {
+      "name": "accessory-root:refresh",
+      "repeat": 4,
+      "ms": 165.90000000223517
+    },
+    {
+      "name": "accessory-root:SPA",
+      "repeat": 4,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "accessory-detail:cold",
+      "repeat": 4,
+      "ms": 232.5
+    },
+    {
+      "name": "accessory-detail:refresh",
+      "repeat": 4,
+      "ms": 199.89999999850988
+    },
+    {
+      "name": "accessory-detail:SPA",
+      "repeat": 4,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "accessory-edit:cold",
+      "repeat": 4,
+      "ms": 232.10000000149012
+    },
+    {
+      "name": "accessory-edit:refresh",
+      "repeat": 4,
+      "ms": 182.5
+    },
+    {
+      "name": "accessory-edit:SPA",
+      "repeat": 4,
+      "ms": 83.60000000149012
+    },
+    {
+      "name": "accessory-process:cold",
+      "repeat": 4,
+      "ms": 249
+    },
+    {
+      "name": "accessory-process:refresh",
+      "repeat": 4,
+      "ms": 182.39999999850988
+    },
+    {
+      "name": "accessory-process:SPA",
+      "repeat": 4,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "yarn-list:cold",
+      "repeat": 4,
+      "ms": 315
+    },
+    {
+      "name": "yarn-list:refresh",
+      "repeat": 4,
+      "ms": 183.19999999925494
+    },
+    {
+      "name": "yarn-list:SPA",
+      "repeat": 4,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "yarn-root:cold",
+      "repeat": 4,
+      "ms": 232.59999999776483
+    },
+    {
+      "name": "yarn-root:refresh",
+      "repeat": 4,
+      "ms": 165.90000000223517
+    },
+    {
+      "name": "yarn-root:SPA",
+      "repeat": 4,
+      "ms": 66.09999999776483
+    },
+    {
+      "name": "yarn-detail:cold",
+      "repeat": 4,
+      "ms": 483.5
+    },
+    {
+      "name": "yarn-detail:refresh",
+      "repeat": 4,
+      "ms": 182.5
+    },
+    {
+      "name": "yarn-detail:SPA",
+      "repeat": 4,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "yarn-edit:cold",
+      "repeat": 4,
+      "ms": 265.30000000074506
+    },
+    {
+      "name": "yarn-edit:refresh",
+      "repeat": 4,
+      "ms": 182.60000000149012
+    },
+    {
+      "name": "yarn-edit:SPA",
+      "repeat": 4,
+      "ms": 83.30000000074506
+    },
+    {
+      "name": "yarn-process:cold",
+      "repeat": 4,
+      "ms": 232.30000000074506
+    },
+    {
+      "name": "yarn-process:refresh",
+      "repeat": 4,
+      "ms": 182.89999999850988
+    },
+    {
+      "name": "yarn-process:SPA",
+      "repeat": 4,
+      "ms": 83.20000000298023
+    },
+    {
+      "name": "fabric-existing-DYEING:continuous-definition",
+      "repeat": 4,
+      "ms": 100.19999999925494
+    },
+    {
+      "name": "fabric-existing-PRINTING:continuous-definition",
+      "repeat": 4,
+      "ms": 100.40000000223517
+    },
+    {
+      "name": "fabric-existing-EMBROIDERY:continuous-definition",
+      "repeat": 4,
+      "ms": 100.20000000298023
+    },
+    {
+      "name": "fabric-existing-HEAT_TRANSFER:continuous-definition",
+      "repeat": 4,
+      "ms": 100.5
+    },
+    {
+      "name": "consumable:legacy-barcode-query-input",
+      "repeat": 4,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "consumable:legacy-barcode-query",
+      "repeat": 4,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "consumable:legacy-barcode-resolved-SKU",
+      "repeat": 4,
+      "ms": 114.60000000149012
+    },
+    {
+      "name": "parts:legacy-barcode-query-input",
+      "repeat": 4,
+      "ms": 66.5
+    },
+    {
+      "name": "parts:legacy-barcode-query",
+      "repeat": 4,
+      "ms": 100.10000000149012
+    },
+    {
+      "name": "parts:legacy-barcode-resolved-SKU",
+      "repeat": 4,
+      "ms": 131.19999999925494
+    },
+    {
+      "name": "parts:unsaved-description",
+      "repeat": 4,
+      "ms": 67.30000000074506
+    },
+    {
+      "name": "parts:isolated-mock-alias-edit",
+      "repeat": 4,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "parts:unsaved-tab-units",
+      "repeat": 4,
+      "ms": 99.09999999776483
+    },
+    {
+      "name": "parts:unsaved-tab-cost",
+      "repeat": 4,
+      "ms": 99.90000000223517
+    },
+    {
+      "name": "parts:unsaved-tab-basic",
+      "repeat": 4,
+      "ms": 99.10000000149012
+    },
+    {
+      "name": "parts:cancel-leave",
+      "repeat": 4,
+      "ms": 97.40000000223517
+    },
+    {
+      "name": "parts:quota-save-failure",
+      "repeat": 4,
+      "ms": 158.30000000074506
+    },
+    {
+      "name": "parts:retry-save",
+      "repeat": 4,
+      "ms": 108.39999999850988
+    },
+    {
+      "name": "parts:retry-refresh",
+      "repeat": 4,
+      "ms": 166
+    },
+    {
+      "name": "parts:preferences-denied-default-list",
+      "repeat": 4,
+      "ms": 115
+    },
+    {
+      "name": "parts:persisted-mock-alias-query-input",
+      "repeat": 4,
+      "ms": 63.400000002235174
+    },
+    {
+      "name": "parts:persisted-mock-alias-query",
+      "repeat": 4,
+      "ms": 99.09999999776483
+    },
+    {
+      "name": "parts:preferences-denied-return-SKU",
+      "repeat": 4,
+      "ms": 64.39999999850988
+    },
+    {
+      "name": "parts:units-tab",
+      "repeat": 4,
+      "ms": 99.90000000223517
+    },
+    {
+      "name": "parts:new-relation",
+      "repeat": 4,
+      "ms": 116.29999999701977
+    },
+    {
+      "name": "parts:fixed-yard",
+      "repeat": 4,
+      "ms": 66
+    },
+    {
+      "name": "parts:default-yard-PURCHASE",
+      "repeat": 4,
+      "ms": 97.5
+    },
+    {
+      "name": "parts:default-yard-PRICING",
+      "repeat": 4,
+      "ms": 98.5
+    },
+    {
+      "name": "parts:default-yard-ISSUE",
+      "repeat": 4,
+      "ms": 99.19999999925494
+    },
+    {
+      "name": "parts:save-yard-relation",
+      "repeat": 4,
+      "ms": 130.59999999776483
+    },
+    {
+      "name": "parts:new-second-relation",
+      "repeat": 4,
+      "ms": 125.59999999776483
+    },
+    {
+      "name": "parts:second-cm",
+      "repeat": 4,
+      "ms": 83.69999999925494
+    },
+    {
+      "name": "parts:default-cm-PURCHASE",
+      "repeat": 4,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "parts:default-cm-PRICING",
+      "repeat": 4,
+      "ms": 99.5
+    },
+    {
+      "name": "parts:default-cm-ISSUE",
+      "repeat": 4,
+      "ms": 97.80000000074506
+    },
+    {
+      "name": "parts:save-cm-relation",
+      "repeat": 4,
+      "ms": 131.5
+    },
+    {
+      "name": "parts:defaults-refresh-unit-view",
+      "repeat": 4,
+      "ms": 98.80000000074506
+    },
+    {
+      "name": "parts:cost-tab",
+      "repeat": 4,
+      "ms": 93.59999999776483
+    },
+    {
+      "name": "parts:cost-edit",
+      "repeat": 4,
+      "ms": 116.09999999776483
+    },
+    {
+      "name": "parts:missing-KG-choice",
+      "repeat": 4,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "parts:missing-reason",
+      "repeat": 4,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "parts:missing-cost-block",
+      "repeat": 4,
+      "ms": 101
+    },
+    {
+      "name": "parts:missing-recovery-units",
+      "repeat": 4,
+      "ms": 89.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-new-relation",
+      "repeat": 4,
+      "ms": 133.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-KG",
+      "repeat": 4,
+      "ms": 65.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-factor",
+      "repeat": 4,
+      "ms": 64.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-basis",
+      "repeat": 4,
+      "ms": 65.80000000074506
+    },
+    {
+      "name": "parts:missing-recovery-save-relation",
+      "repeat": 4,
+      "ms": 182.69999999925494
+    },
+    {
+      "name": "parts:missing-recovery-cost-tab",
+      "repeat": 4,
+      "ms": 90.70000000298023
+    },
+    {
+      "name": "parts:missing-recovery-cost-edit",
+      "repeat": 4,
+      "ms": 115.60000000149012
+    },
+    {
+      "name": "parts:missing-recovery-pricing-KG",
+      "repeat": 4,
+      "ms": 66.5
+    },
+    {
+      "name": "parts:missing-recovery-select-basis",
+      "repeat": 4,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:missing-recovery-cost-reason",
+      "repeat": 4,
+      "ms": 65.19999999925494
+    },
+    {
+      "name": "parts:missing-recovery-preview",
+      "repeat": 4,
+      "ms": 132.59999999776483
+    },
+    {
+      "name": "parts:missing-recovery-confirm",
+      "repeat": 4,
+      "ms": 133.19999999925494
+    },
+    {
+      "name": "parts:copy-open",
+      "repeat": 4,
+      "ms": 82.5
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 4,
+      "ms": 116.30000000074506
+    },
+    {
+      "name": "parts:copy-new-spec",
+      "repeat": 4,
+      "ms": 64.09999999776483
+    },
+    {
+      "name": "parts:copy-failure-keeps-files",
+      "repeat": 4,
+      "ms": 120.40000000223517
+    },
+    {
+      "name": "parts:copy-save",
+      "repeat": 4,
+      "ms": 121.5
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 4,
+      "ms": 172.19999999925494
+    },
+    {
+      "name": "parts:copied-assets-open",
+      "repeat": 4,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "consumable:unsaved-description",
+      "repeat": 4,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "consumable:isolated-mock-alias-edit",
+      "repeat": 4,
+      "ms": 66.79999999701977
+    },
+    {
+      "name": "consumable:unsaved-tab-units",
+      "repeat": 4,
+      "ms": 99.5
+    },
+    {
+      "name": "consumable:unsaved-tab-cost",
+      "repeat": 4,
+      "ms": 100.39999999850988
+    },
+    {
+      "name": "consumable:unsaved-tab-basic",
+      "repeat": 4,
+      "ms": 98.70000000298023
+    },
+    {
+      "name": "consumable:cancel-leave",
+      "repeat": 4,
+      "ms": 97.19999999925494
+    },
+    {
+      "name": "consumable:quota-save-failure",
+      "repeat": 4,
+      "ms": 151.90000000223517
+    },
+    {
+      "name": "consumable:retry-save",
+      "repeat": 4,
+      "ms": 106.39999999850988
+    },
+    {
+      "name": "consumable:retry-refresh",
+      "repeat": 4,
+      "ms": 164.89999999850988
+    },
+    {
+      "name": "consumable:preferences-denied-default-list",
+      "repeat": 4,
+      "ms": 115.70000000298023
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query-input",
+      "repeat": 4,
+      "ms": 61.69999999925494
+    },
+    {
+      "name": "consumable:persisted-mock-alias-query",
+      "repeat": 4,
+      "ms": 100.09999999776483
+    },
+    {
+      "name": "consumable:preferences-denied-return-SKU",
+      "repeat": 4,
+      "ms": 64.19999999925494
+    },
+    {
+      "name": "consumable:units-tab",
+      "repeat": 4,
+      "ms": 99.90000000223517
+    },
+    {
+      "name": "consumable:new-relation",
+      "repeat": 4,
+      "ms": 132.5
+    },
+    {
+      "name": "consumable:fixed-yard",
+      "repeat": 4,
+      "ms": 67.30000000074506
+    },
+    {
+      "name": "consumable:default-yard-PURCHASE",
+      "repeat": 4,
+      "ms": 94.89999999850988
+    },
+    {
+      "name": "consumable:default-yard-PRICING",
+      "repeat": 4,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "consumable:default-yard-ISSUE",
+      "repeat": 4,
+      "ms": 95.69999999925494
+    },
+    {
+      "name": "consumable:save-yard-relation",
+      "repeat": 4,
+      "ms": 166.40000000223517
+    },
+    {
+      "name": "consumable:new-second-relation",
+      "repeat": 4,
+      "ms": 116.19999999925494
+    },
+    {
+      "name": "consumable:second-cm",
+      "repeat": 4,
+      "ms": 66.59999999776483
+    },
+    {
+      "name": "consumable:default-cm-PURCHASE",
+      "repeat": 4,
+      "ms": 106.39999999850988
+    },
+    {
+      "name": "consumable:default-cm-PRICING",
+      "repeat": 4,
+      "ms": 88.89999999850988
+    },
+    {
+      "name": "consumable:default-cm-ISSUE",
+      "repeat": 4,
+      "ms": 100
+    },
+    {
+      "name": "consumable:save-cm-relation",
+      "repeat": 4,
+      "ms": 132
+    },
+    {
+      "name": "consumable:defaults-refresh-unit-view",
+      "repeat": 4,
+      "ms": 81.39999999850988
+    },
+    {
+      "name": "consumable:cost-tab",
+      "repeat": 4,
+      "ms": 88.30000000074506
+    },
+    {
+      "name": "consumable:cost-edit",
+      "repeat": 4,
+      "ms": 116.5
+    },
+    {
+      "name": "consumable:missing-KG-choice",
+      "repeat": 4,
+      "ms": 66
+    },
+    {
+      "name": "consumable:missing-reason",
+      "repeat": 4,
+      "ms": 67.30000000074506
+    },
+    {
+      "name": "consumable:missing-cost-block",
+      "repeat": 4,
+      "ms": 101.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-units",
+      "repeat": 4,
+      "ms": 89.59999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-new-relation",
+      "repeat": 4,
+      "ms": 132.90000000223517
+    },
+    {
+      "name": "consumable:missing-recovery-KG",
+      "repeat": 4,
+      "ms": 67.10000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-factor",
+      "repeat": 4,
+      "ms": 64.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-basis",
+      "repeat": 4,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "consumable:missing-recovery-save-relation",
+      "repeat": 4,
+      "ms": 163.80000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-cost-tab",
+      "repeat": 4,
+      "ms": 91.30000000074506
+    },
+    {
+      "name": "consumable:missing-recovery-cost-edit",
+      "repeat": 4,
+      "ms": 116.19999999925494
+    },
+    {
+      "name": "consumable:missing-recovery-pricing-KG",
+      "repeat": 4,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "consumable:missing-recovery-select-basis",
+      "repeat": 4,
+      "ms": 67.20000000298023
+    },
+    {
+      "name": "consumable:missing-recovery-cost-reason",
+      "repeat": 4,
+      "ms": 67.10000000149012
+    },
+    {
+      "name": "consumable:missing-recovery-preview",
+      "repeat": 4,
+      "ms": 131.09999999776483
+    },
+    {
+      "name": "consumable:missing-recovery-confirm",
+      "repeat": 4,
+      "ms": 131.10000000149012
+    },
+    {
+      "name": "consumable:copy-open",
+      "repeat": 4,
+      "ms": 85.60000000149012
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 4,
+      "ms": 132.39999999850988
+    },
+    {
+      "name": "consumable:copy-new-spec",
+      "repeat": 4,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "consumable:copy-failure-keeps-files",
+      "repeat": 4,
+      "ms": 119.5
+    },
+    {
+      "name": "consumable:copy-save",
+      "repeat": 4,
+      "ms": 121.39999999850988
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 4,
+      "ms": 162.20000000298023
+    },
+    {
+      "name": "consumable:copied-assets-open",
+      "repeat": 4,
+      "ms": 92.60000000149012
+    },
+    {
+      "name": "legacy-v1:cold",
+      "repeat": 4,
+      "ms": 215.30000000074506
+    },
+    {
+      "name": "legacy-v1:refresh",
+      "repeat": 4,
+      "ms": 179.39999999850988
+    },
+    {
+      "name": "legacy-v2:cold",
+      "repeat": 4,
+      "ms": 265.4000000022352
+    },
+    {
+      "name": "legacy-v2:refresh",
+      "repeat": 4,
+      "ms": 161.39999999850988
+    },
+    {
+      "name": "static-overlay:direct",
+      "repeat": 4,
+      "ms": 232.5
+    },
+    {
+      "name": "static-overlay:refresh",
+      "repeat": 4,
+      "ms": 180.69999999925494
+    },
+    {
+      "name": "static-SKU-overlay:direct",
+      "repeat": 4,
+      "ms": 230.79999999701977
+    },
+    {
+      "name": "static-tombstone:root-direct",
+      "repeat": 4,
+      "ms": 165.80000000074506
+    },
+    {
+      "name": "static-tombstone:root-refresh",
+      "repeat": 4,
+      "ms": 165.39999999850988
+    },
+    {
+      "name": "static-tombstone:SKU-direct",
+      "repeat": 4,
+      "ms": 149.69999999925494
+    },
+    {
+      "name": "legacy-process:history-open",
+      "repeat": 4,
+      "ms": 103.60000000149012
+    },
+    {
+      "name": "legacy-process:files-open",
+      "repeat": 4,
+      "ms": 94.30000000074506
+    },
+    {
+      "name": "legacy-process:original-file-read",
+      "repeat": 4,
+      "ms": 62.80000000074506
+    },
+    {
+      "name": "legacy-process:readonly-edit",
+      "repeat": 4,
+      "ms": 108.29999999701977
+    }
+  ],
+  "measurement": "Five rounds: 1366x768 (four) and 1280x720 (one); navigation start / before action through visible images, fonts, finite animations and double-frame; cold/refresh cache disabled; no performance exemptions",
+  "branch": "codex/consumable-parts-simplification",
+  "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "servedBundle": {
+    "path": "/assets/index-BPNAo-1Z.js",
+    "sha256": "727812ce3d4f022d739d884ae1023318e5e50ec61265ee1196964882f0595979",
+    "matchesLocalDist": true
+  },
+  "browser": "149.0.7827.55"
+}

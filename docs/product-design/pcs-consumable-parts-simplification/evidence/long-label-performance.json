@@ -1,0 +1,106 @@
+{
+  "base": "http://127.0.0.1:43220",
+  "samples": [
+    {
+      "name": "parts:121-character-block",
+      "round": 0,
+      "ms": 112.5
+    },
+    {
+      "name": "parts:long-100-print",
+      "round": 0,
+      "ms": 115.5
+    },
+    {
+      "name": "consumable:121-character-block",
+      "round": 0,
+      "ms": 116
+    },
+    {
+      "name": "consumable:long-100-print",
+      "round": 0,
+      "ms": 99.5
+    },
+    {
+      "name": "parts:121-character-block",
+      "round": 1,
+      "ms": 116.10000000149012
+    },
+    {
+      "name": "parts:long-100-print",
+      "round": 1,
+      "ms": 116.60000000149012
+    },
+    {
+      "name": "consumable:121-character-block",
+      "round": 1,
+      "ms": 116.40000000223517
+    },
+    {
+      "name": "consumable:long-100-print",
+      "round": 1,
+      "ms": 83
+    },
+    {
+      "name": "parts:121-character-block",
+      "round": 2,
+      "ms": 118.59999999776483
+    },
+    {
+      "name": "parts:long-100-print",
+      "round": 2,
+      "ms": 117.10000000149012
+    },
+    {
+      "name": "consumable:121-character-block",
+      "round": 2,
+      "ms": 81.69999999925494
+    },
+    {
+      "name": "consumable:long-100-print",
+      "round": 2,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:121-character-block",
+      "round": 3,
+      "ms": 115.19999999925494
+    },
+    {
+      "name": "parts:long-100-print",
+      "round": 3,
+      "ms": 115.60000000149012
+    },
+    {
+      "name": "consumable:121-character-block",
+      "round": 3,
+      "ms": 114.80000000074506
+    },
+    {
+      "name": "consumable:long-100-print",
+      "round": 3,
+      "ms": 82.59999999776483
+    },
+    {
+      "name": "parts:121-character-block",
+      "round": 4,
+      "ms": 114.20000000298023
+    },
+    {
+      "name": "parts:long-100-print",
+      "round": 4,
+      "ms": 115.60000000149012
+    },
+    {
+      "name": "consumable:121-character-block",
+      "round": 4,
+      "ms": 115.80000000074506
+    },
+    {
+      "name": "consumable:long-100-print",
+      "round": 4,
+      "ms": 83.19999999925494
+    }
+  ],
+  "errors": []
+}

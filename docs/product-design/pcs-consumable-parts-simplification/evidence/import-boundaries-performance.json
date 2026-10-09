@@ -1,0 +1,406 @@
+{
+  "base": "http://127.0.0.1:43220",
+  "samples": [
+    {
+      "name": "boundary:file-read",
+      "round": 0,
+      "ms": 51.100000001490116
+    },
+    {
+      "name": "limit:archives",
+      "round": 0,
+      "ms": 83.5
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 0,
+      "ms": 64.89999999850988
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 0,
+      "ms": 82.59999999776483
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 0,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "boundary:retry",
+      "round": 0,
+      "ms": 79.29999999701977
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 0,
+      "ms": 62.80000000074506
+    },
+    {
+      "name": "limit:units",
+      "round": 0,
+      "ms": 82.89999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 0,
+      "ms": 64.19999999925494
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 0,
+      "ms": 82.69999999925494
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 0,
+      "ms": 216.39999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 0,
+      "ms": 63.100000001490116
+    },
+    {
+      "name": "limit:costs",
+      "round": 0,
+      "ms": 83.19999999925494
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 0,
+      "ms": 63.599999997764826
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 0,
+      "ms": 82.80000000074506
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 0,
+      "ms": 215.89999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 1,
+      "ms": 54.900000002235174
+    },
+    {
+      "name": "limit:archives",
+      "round": 1,
+      "ms": 82.59999999776483
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 1,
+      "ms": 63.399999998509884
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 1,
+      "ms": 83.5
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 1,
+      "ms": 82
+    },
+    {
+      "name": "boundary:retry",
+      "round": 1,
+      "ms": 64.5
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 1,
+      "ms": 63.80000000074506
+    },
+    {
+      "name": "limit:units",
+      "round": 1,
+      "ms": 82
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 1,
+      "ms": 65.40000000223517
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 1,
+      "ms": 81.90000000223517
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 1,
+      "ms": 231.89999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 1,
+      "ms": 57.899999998509884
+    },
+    {
+      "name": "limit:costs",
+      "round": 1,
+      "ms": 82.39999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 1,
+      "ms": 65
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 1,
+      "ms": 82.59999999776483
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 1,
+      "ms": 215.79999999701977
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 2,
+      "ms": 63.900000002235174
+    },
+    {
+      "name": "limit:archives",
+      "round": 2,
+      "ms": 82.19999999925494
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 2,
+      "ms": 64.69999999925494
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 2,
+      "ms": 82.69999999925494
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 2,
+      "ms": 65.79999999701977
+    },
+    {
+      "name": "boundary:retry",
+      "round": 2,
+      "ms": 115
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 2,
+      "ms": 61.19999999925494
+    },
+    {
+      "name": "limit:units",
+      "round": 2,
+      "ms": 81.70000000298023
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 2,
+      "ms": 63.19999999925494
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 2,
+      "ms": 82.09999999776483
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 2,
+      "ms": 246.89999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 2,
+      "ms": 61.399999998509884
+    },
+    {
+      "name": "limit:costs",
+      "round": 2,
+      "ms": 82.59999999776483
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 2,
+      "ms": 64.89999999850988
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 2,
+      "ms": 81.89999999850988
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 2,
+      "ms": 215.89999999850988
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 3,
+      "ms": 55.5
+    },
+    {
+      "name": "limit:archives",
+      "round": 3,
+      "ms": 81.40000000223517
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 3,
+      "ms": 64.90000000223517
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 3,
+      "ms": 82.69999999925494
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 3,
+      "ms": 65.79999999701977
+    },
+    {
+      "name": "boundary:retry",
+      "round": 3,
+      "ms": 82.69999999925494
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 3,
+      "ms": 62.5
+    },
+    {
+      "name": "limit:units",
+      "round": 3,
+      "ms": 82.40000000223517
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 3,
+      "ms": 65.10000000149012
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 3,
+      "ms": 82.59999999776483
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 3,
+      "ms": 215.69999999925494
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 3,
+      "ms": 56.80000000074506
+    },
+    {
+      "name": "limit:costs",
+      "round": 3,
+      "ms": 82.19999999925494
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 3,
+      "ms": 64.89999999850988
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 3,
+      "ms": 78.80000000074506
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 3,
+      "ms": 232.80000000074506
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 4,
+      "ms": 54.5
+    },
+    {
+      "name": "limit:archives",
+      "round": 4,
+      "ms": 117.90000000223517
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 4,
+      "ms": 65.10000000149012
+    },
+    {
+      "name": "boundary:archives-preview",
+      "round": 4,
+      "ms": 82.40000000223517
+    },
+    {
+      "name": "boundary:failure-isolation",
+      "round": 4,
+      "ms": 65.79999999701977
+    },
+    {
+      "name": "boundary:retry",
+      "round": 4,
+      "ms": 82.5
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 4,
+      "ms": 76.39999999850988
+    },
+    {
+      "name": "limit:units",
+      "round": 4,
+      "ms": 82.5
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 4,
+      "ms": 64.80000000074506
+    },
+    {
+      "name": "units:maximum-preview",
+      "round": 4,
+      "ms": 83.60000000149012
+    },
+    {
+      "name": "units:maximum-save",
+      "round": 4,
+      "ms": 216
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 4,
+      "ms": 37.80000000074506
+    },
+    {
+      "name": "limit:costs",
+      "round": 4,
+      "ms": 83.80000000074506
+    },
+    {
+      "name": "boundary:file-read",
+      "round": 4,
+      "ms": 65.29999999701977
+    },
+    {
+      "name": "costs:maximum-preview",
+      "round": 4,
+      "ms": 81.60000000149012
+    },
+    {
+      "name": "costs:maximum-save",
+      "round": 4,
+      "ms": 215.40000000223517
+    }
+  ],
+  "errors": []
+}

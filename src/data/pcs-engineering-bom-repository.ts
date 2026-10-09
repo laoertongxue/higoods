@@ -19,9 +19,16 @@ import type {
   EngineeringBomOwnerStage,
   EngineeringBomOwnerStyleSnapshot,
 } from './pcs-engineering-bom-types.ts'
-import { captureEngineeringBomMaterialReference, resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
+import { assertEngineeringBomMaterialRules, captureEngineeringBomMaterialReference, resolveEngineeringBomMaterialLine } from './pcs-engineering-bom-material-resolver.ts'
 import { resolveEngineeringBomDraft } from './pcs-engineering-bom-pricing.ts'
 import { getMaterialSkuRecordById, isMaterialSkuAvailableForNewUse } from './pcs-material-archive-repository.ts'
+
+function assertMaterialLinesForTarget(lines: EngineeringBomMaterialLineDraft[], current: EngineeringBomMaterialLineDraft[] = []): void {
+  lines.forEach(line => {
+    const previous = line.bomItemId ? current.find(item => item.bomItemId === line.bomItemId && item.materialSkuId === line.materialSkuId) : undefined
+    assertEngineeringBomMaterialRules(line, previous?.materialSkuId, previous)
+  })
+}
 
 const STORAGE_KEY = 'higood-pcs-engineering-bom-pricing-plan-store-v2'
 const STORE_VERSION = 2
@@ -368,6 +375,7 @@ export function createEngineeringBomVersionsForOwner(
     const copied = recommended
       ? copyEngineeringBomDraftVersion({ source: recommended, targetVersionId: identity.id, copiedAt: createdAt, copiedBy: input.createdBy })
       : null
+    if (copied && !isPcsDemoData()) assertMaterialLinesForTarget(copied.materialLines)
     createdRecords.push({
       ...(copied || { materialLines: [], customCosts: [] }),
       bomDraftVersionId: identity.id,
@@ -472,6 +480,7 @@ export function reconcileEngineeringBomVersionsForTargetColors(
     const copied = source
       ? copyEngineeringBomDraftVersion({ source, targetVersionId: identity.id, copiedAt: createdAt, copiedBy: input.createdBy })
       : null
+    if (copied && !isPcsDemoData()) assertMaterialLinesForTarget(copied.materialLines)
     nextOwnerRecords.push({
       ...(copied || { materialLines: [], customCosts: [] }),
       bomDraftVersionId: identity.id,
@@ -532,6 +541,7 @@ export function saveEngineeringBomVersion(input: {
   assertBomEditable(current)
   input.materialLines.forEach((line) => {
     const existing = line.bomItemId && current.materialLines.find(item => item.bomItemId === line.bomItemId && item.materialSkuId === line.materialSkuId)
+    assertEngineeringBomMaterialRules(line, existing ? line.materialSkuId : undefined, existing || undefined)
     if (!existing && !isMaterialSkuAvailableForNewUse(getMaterialSkuRecordById(line.materialSkuId))) throw new Error('物料 SKU 及其主档须已审核并启用，才能新加入 BOM。')
     resolveEngineeringBomMaterialLine(line)
   })
@@ -692,7 +702,11 @@ export function replaceEngineeringBomPricingPlanDraft(input: {
   }))
   if (!colors.length || colors.some((item) => !item.productColor)) throw new Error('请至少维护一个有效的目标颜色。')
   if (new Set(colors.map((item) => item.productColor)).size !== colors.length) throw new Error('目标颜色不能重复。')
-  colors.forEach((color) => color.materialLines.forEach((line) => resolveEngineeringBomMaterialLine(line)))
+  colors.forEach((color) => {
+    const current = snapshot.records.find(item => item.ownerStage === input.ownerStage && item.ownerId === input.ownerId && item.productColor === color.productColor)
+    assertMaterialLinesForTarget(color.materialLines, current?.materialLines)
+    color.materialLines.forEach((line) => resolveEngineeringBomMaterialLine(line))
+  })
   if (input.customCostDecision === 'UNDECIDED') {
     // 允许保存未决定的编辑中状态，但后续统一确认会阻断。
   } else if (input.customCostDecision === 'HAS_CUSTOM_COST' && input.customCosts.length === 0) {
@@ -847,6 +861,7 @@ export function regenerateEngineeringBomVersionFromSource(input: {
     copiedAt: regeneratedAt,
     copiedBy: input.userName,
   })
+  assertMaterialLinesForTarget(copied.materialLines, target.materialLines)
   const next: EngineeringBomVersionRecord = {
     ...target,
     sourceVersionId: source.bomDraftVersionId,
@@ -997,6 +1012,7 @@ export function copyEngineeringBomPricingPlan(input: {
       copiedBy: input.copiedBy,
       allowHandedOffSource: input.allowHandedOffSource,
     })
+    assertMaterialLinesForTarget(copied.materialLines, matchedTarget?.materialLines)
     return {
       ...copied,
       bomDraftVersionId: identity.id,

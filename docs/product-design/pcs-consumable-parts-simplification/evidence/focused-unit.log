@@ -1,0 +1,55 @@
+✔ MAT/FCS: factory options use the actual name and code, not the short-name code fallback (4.559458ms)
+✔ MAT/FCS: four processes create actual plans without a production demand or warehouse facts (6.907916ms)
+✔ MAT/FCS: source identity and adopted process version are revalidated before every creation (1.875125ms)
+✔ GOV-006 new process selection, handoff and save reject unavailable input, target or parent archive (39.945209ms)
+✔ GOV-006 stopping material later preserves the saved plan and its adopted process version (2.921792ms)
+✔ MAT/FCS: draft accepts incomplete arrangements; confirmed plan requires positive quantities and eligible factory (2.722167ms)
+✔ MAT/FCS: duplicate saves do not duplicate plans; changed retries and stale drafts cannot overwrite (1.841583ms)
+✔ MAT/FCS: saved source image/file and process versions stay frozen across subsequent material revisions (4.654958ms)
+✔ MAT/FCS: first read is empty and write-free; two plans for one target retain their own record identities (3.082292ms)
+✔ MAT/FCS: handoff opens a versioned independent plan form for all four processes without creating a plan (1.671541ms)
+✔ GOV-008: material CSV handles Unicode, quoted commas, quotes and newlines (1.179958ms)
+✔ GOV-008: full root group previews without writes and commits once with every child (8.273208ms)
+✔ GOV-008: one bad row blocks the whole parent while a different valid group remains eligible (2.406416ms)
+✔ GOV-008: a save failure after preview publishes neither parent nor earlier children (7.750833ms)
+✔ MAT/CODE: CSV stages use the preceding row actual generated SKU (5.111125ms)
+✔ UOM/COST: CSV rejects nonpositive relation and preserves an explicit zero cost (5.358667ms)
+✔ GOV-027: business exports honor all selected identities without stock or supplier fields (1.723875ms)
+✔ GOV-027: image columns reject bytes and temporary URLs, while empty root exports remain visible (2.881542ms)
+✔ PERF: 100 and 1000 rows validate completely and cost change reaches 100 descendants without publishing (60.220208ms)
+ℹ 100 import rows pure preview 4.06 ms
+ℹ 1000 import rows pure preview 42.43 ms
+ℹ 100 cost descendants pure preview 6.32 ms
+✔ GOV-008: CSV preview rejects unresolved dictionary identity before offering save (1.404292ms)
+✔ SIMPLE-046/047: packaging uses stable category ID; equipment parts cannot be new garment BOM candidates (3.318917ms)
+✔ SIMPLE-048: material line save rejects forged dye/print/process flags before cost capture (2.831583ms)
+✔ SIMPLE-047/048: direct color/whole-plan saves and source copies reject new parts or simple process facts without writing (12.521625ms)
+✔ SIMPLE-048: generic technical content repository blocks new parts and new simple process demands; unchanged history is retained (11.736042ms)
+✔ SIMPLE-048: generic process route injection cannot bypass BOM controls (5.562417ms)
+✔ SIMPLE-049/050: FCS and handoff reject legacy process definitions under both simple kinds without writing plans (4.690792ms)
+✔ SIMPLE-045: purchase source exposes specification and concrete adopted relation/package versions (2.722542ms)
+✔ SIMPLE-001/049: a saved simple archive cannot switch type to bypass capability boundaries (37.386584ms)
+✔ SIMPLE-002/005/006/007/009/016: basic identity is readable normalized text, no technical template dependency; failed first SKU publishes nothing (13.199917ms)
+✔ SIMPLE-008/017/039/041: parent and first SKU review together; new spec remains draft; approved wording correction retains ID/barcodes (6.821417ms)
+✔ SIMPLE-029/030/033/034/035/036: packaging revisions preserve adopted quote, exact costs and null versus explicit zero (8.434292ms)
+✔ SIMPLE-042/049: independent PMS archive preflight and forged process creation do not write (3.763916ms)
+✔ SIMPLE-051/052: simple CSV has no technical IDs, auto root codes, read-only preview and atomic repeated specifications (18.560542ms)
+✔ SIMPLE-019/042/056: legacy identity survives cleanup; direct orphan copy/archive cannot bypass guards (7.805917ms)
+✔ SIMPLE-051/052/060: documented simple CSV limits reject whole oversized file before preparing groups (2.785958ms)
+✔ SIMPLE-049/057: direct historical simple process asset and source-money cost mutation are read-only (10.332291ms)
+✔ SIMPLE-019/036: new simple SKU legacy numeric defaults do not imply confirmed free costs; explicit standard zero remains valid (5.466709ms)
+✔ SIMPLE-049/053: simple archives accept ordinary identification and specification files but reject new process roles (12.322542ms)
+✔ SIMPLE-021/022: legacy identities project into simple classifications with no seed writes; new records have no template requirement (86.723083ms)
+✔ SIMPLE-023/024: usage resolves actual subcategory identity, disabled category retains references and failure preserves source (6.8245ms)
+✔ SIMPLE-025: actual box label, stable ID and historical aliases resolve owner SKU without crossing package types (18.488834ms)
+✔ SIMPLE-021/022/023: simple category list/detail/edit render independently; professional template tabs remain (28.155083ms)
+✔ SIMPLE-058: reviewed bag / cutting blade / white tape source mappings are consistent and user images are preserved (213.996083ms)
+✔ SIMPLE-058: new static publication cannot overwrite user overlays or resurrect root / SKU deletion markers (4.254ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 717.28125

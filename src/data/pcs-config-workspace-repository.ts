@@ -599,8 +599,25 @@ export function getConfigOptionUsage(dimensionId: FlatDimensionId, optionId: str
         }
       }
     }
-    if (dimensionId === 'packageTypes') for (const item of readConfigUsageRecords('higood-pcs-material-archive-store-v2', 'packages')) {
-      if (matches(item.packageUnit) || matches(item.packageType)) { const sku = skus.find(s => s.materialSkuId === item.materialSkuId), root = roots.find(r => r.materialId === sku?.materialId); uses.push({ id: item.packageSpecId, label: item.name || item.packageSpecId, kind: '物料包装规格', href: root && sku ? `/pcs/materials/${root.kind}/${root.materialId}/skus/${sku.materialSkuId}` : undefined }) }
+    if (dimensionId === 'packageTypes') {
+      // Current packaging forms save a unit label (箱); older imports may save
+      // its code or stable configuration ID. Resolve only in this dictionary.
+      const identities = options.map(candidate => {
+        const historicalNames = candidate.logs.flatMap(log => (log.changes || []).filter(change => ['中文名称', '英文名称', '印尼语名称', '马来语名称', '旧值 / 别名'].includes(change.field)).flatMap(change => [change.before, change.after].flatMap(value => Array.isArray(value) ? value : [value])).filter((value): value is string => typeof value === 'string'))
+        return { id: candidate.id, tokens: new Set([candidate.code, candidate.name_zh, candidate.name_en, candidate.name_id, candidate.name_ms, ...(candidate.aliases || []), ...historicalNames].filter(Boolean).map(value => String(value).trim().toLowerCase())) }
+      })
+      const ownsPackageType = (value: unknown): boolean => {
+        if (typeof value !== 'string') return false
+        const stable = options.find(candidate => candidate.id === value)
+        if (stable) return stable.id === optionId
+        const candidates = identities.filter(candidate => candidate.tokens.has(value.trim().toLowerCase()))
+        // Ambiguous aliases never attribute the same historical object twice.
+        return candidates.length === 1 && candidates[0].id === optionId
+      }
+      for (const item of readConfigUsageRecords('higood-pcs-material-archive-store-v2', 'packages')) if (ownsPackageType(item.packageTypeId) && item.status === 'ACTIVE') {
+        const sku = skus.find(s => s.materialSkuId === item.ownerSkuId), root = roots.find(r => r.materialId === sku?.materialId)
+        uses.push({ id: item.packageSpecId, label: `${sku?.materialSkuCode || '物料包装'} · ${item.name || option.name_zh} · ${item.contentQty} ${item.contentUnitId?.replace(/^unit-/, '') || ''}`, kind: '物料包装规格', href: root && sku ? `/pcs/materials/${root.kind}/${root.materialId}/skus/${sku.materialSkuId}` : undefined })
+      }
     }
   }
   return uses

@@ -1,0 +1,18 @@
+[
+  {
+    "kind": "parts",
+    "expected": "material-sku_82f14c60-12e6-42fe-b714-47444d811d45",
+    "decoded": [
+      "material-sku_82f14c60-12e6-42fe-b714-47444d811d45"
+    ],
+    "passed": true
+  },
+  {
+    "kind": "consumable",
+    "expected": "material-sku_59e09e8e-0d2e-4f64-a742-56569bf8f194",
+    "decoded": [
+      "material-sku_59e09e8e-0d2e-4f64-a742-56569bf8f194"
+    ],
+    "passed": true
+  }
+]

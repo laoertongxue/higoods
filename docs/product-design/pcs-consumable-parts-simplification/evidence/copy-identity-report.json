@@ -1,0 +1,1176 @@
+{
+  "passed": true,
+  "requirements": [
+    "SIMPLE-019"
+  ],
+  "functionalFailure": "",
+  "errors": [],
+  "facts": [
+    {
+      "repeat": 0,
+      "kind": "parts",
+      "sourceSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "sourceSkuCode": "MAT-EP-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_7d3a1995-eafd-4197-bc6c-bdd7f6a4cc70",
+      "copySkuCode": "MAT-EP-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-parts",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 0,
+      "kind": "consumable",
+      "sourceSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "sourceSkuCode": "MAT-CS-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_cdacc3f4-c4a9-42ac-aac1-af9af58f64c3",
+      "copySkuCode": "MAT-CS-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-consumable",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 1,
+      "kind": "parts",
+      "sourceSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "sourceSkuCode": "MAT-EP-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_bc1656a8-555b-4976-aa18-d5def37e2c19",
+      "copySkuCode": "MAT-EP-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-parts",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 1,
+      "kind": "consumable",
+      "sourceSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "sourceSkuCode": "MAT-CS-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_df1f05e5-860d-4ecc-9034-fa7e52eece10",
+      "copySkuCode": "MAT-CS-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-consumable",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 2,
+      "kind": "parts",
+      "sourceSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "sourceSkuCode": "MAT-EP-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_7a65875b-813e-4755-a545-b452c6789fd4",
+      "copySkuCode": "MAT-EP-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-parts",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 2,
+      "kind": "consumable",
+      "sourceSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "sourceSkuCode": "MAT-CS-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_d96e25d1-7ddc-4c4c-871c-438810c085b5",
+      "copySkuCode": "MAT-CS-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-consumable",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 3,
+      "kind": "parts",
+      "sourceSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "sourceSkuCode": "MAT-EP-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_62bb6a61-1947-4717-8869-91ae7a81218b",
+      "copySkuCode": "MAT-EP-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-parts",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 3,
+      "kind": "consumable",
+      "sourceSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "sourceSkuCode": "MAT-CS-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_b7aab6c4-d6a1-4057-b30f-ac74827133dd",
+      "copySkuCode": "MAT-CS-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-consumable",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 4,
+      "kind": "parts",
+      "sourceSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "sourceSkuCode": "MAT-EP-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_c5c745a1-4ab7-404d-afb1-0e2a742bcdb5",
+      "copySkuCode": "MAT-EP-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-parts",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_4257916f-b91d-4d58-9d82-89a4d6e8af90",
+      "wrongCopiedAliasMatches": 0
+    },
+    {
+      "repeat": 4,
+      "kind": "consumable",
+      "sourceSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "sourceSkuCode": "MAT-CS-00000004-B01",
+      "sourcePersistentVersionBefore": 2,
+      "sourcePersistentVersionAfter": 2,
+      "sourceRowUnchanged": true,
+      "sourceAssetRowsUnchanged": true,
+      "filesUnchanged": true,
+      "fileCount": 2,
+      "copySkuId": "material-sku_97783db2-9ad3-4558-9eeb-2b01eb6b39d6",
+      "copySkuCode": "MAT-CS-00000004-B02",
+      "copyAliases": [],
+      "alias": "原型补验别名-consumable",
+      "scope": "通过实际编辑保存的隔离 Mock 别名；不是线上历史别名",
+      "resolvedSkuId": "material-sku_853bc1ec-b0c2-424a-b256-63122a979fff",
+      "wrongCopiedAliasMatches": 0
+    }
+  ],
+  "groups": [
+    {
+      "name": "parts:maintain-source-alias",
+      "values": [
+        99.79999999701977,
+        66.89999999850988,
+        67,
+        66.40000000223517,
+        66.69999999925494
+      ],
+      "max": 99.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "parts:save-source-alias",
+      "values": [
+        183,
+        166.10000000149012,
+        166.5,
+        149.5,
+        183.09999999776483
+      ],
+      "max": 183.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:source-alias-refresh",
+      "values": [
+        165.90000000223517,
+        166.10000000149012,
+        166.10000000149012,
+        166.30000000074506,
+        166
+      ],
+      "max": 166.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:source-more",
+      "values": [
+        155.10000000149012,
+        95.89999999850988,
+        94.60000000149012,
+        95.89999999850988,
+        95.80000000074506
+      ],
+      "max": 155.10000000149012,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "values": [
+        116,
+        116.30000000074506,
+        116.30000000074506,
+        116.40000000223517,
+        116.5
+      ],
+      "max": 116.5,
+      "passed": true
+    },
+    {
+      "name": "parts:new-copied-spec",
+      "values": [
+        64.19999999925494,
+        123.59999999776483,
+        64.40000000223517,
+        64.39999999850988,
+        64.39999999850988
+      ],
+      "max": 123.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:save-independent-copy",
+      "values": [
+        182.90000000223517,
+        111.19999999925494,
+        183.10000000149012,
+        184.40000000223517,
+        183.30000000074506
+      ],
+      "max": 184.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:copy-refresh",
+      "values": [
+        169.30000000074506,
+        155.19999999925494,
+        167.30000000074506,
+        166.39999999850988,
+        165.10000000149012
+      ],
+      "max": 169.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "parts:copied-file-details",
+      "values": [
+        99.30000000074506,
+        100.19999999925494,
+        99.60000000149012,
+        100.59999999776483,
+        100
+      ],
+      "max": 100.59999999776483,
+      "passed": true
+    },
+    {
+      "name": "parts:return-list-after-copy-refresh",
+      "values": [
+        128.40000000223517,
+        113,
+        112,
+        111,
+        107.30000000074506
+      ],
+      "max": 128.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "parts:query-source-alias-input",
+      "values": [
+        66.19999999925494,
+        66.39999999850988,
+        66.5,
+        66.30000000074506,
+        65.89999999850988
+      ],
+      "max": 66.5,
+      "passed": true
+    },
+    {
+      "name": "parts:query-source-alias-after-copy",
+      "values": [
+        99.40000000223517,
+        99.60000000149012,
+        99.69999999925494,
+        99.70000000298023,
+        99.59999999776483
+      ],
+      "max": 99.70000000298023,
+      "passed": true
+    },
+    {
+      "name": "parts:source-identity-open-after-copy",
+      "values": [
+        106,
+        114.09999999776483,
+        112.30000000074506,
+        114.5,
+        106.79999999701977
+      ],
+      "max": 114.5,
+      "passed": true
+    },
+    {
+      "name": "consumable:maintain-source-alias",
+      "values": [
+        66.80000000074506,
+        66.5,
+        66.80000000074506,
+        66.80000000074506,
+        66.80000000074506
+      ],
+      "max": 66.80000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:save-source-alias",
+      "values": [
+        166.30000000074506,
+        166,
+        166.59999999776483,
+        172.20000000298023,
+        166.40000000223517
+      ],
+      "max": 172.20000000298023,
+      "passed": true
+    },
+    {
+      "name": "consumable:source-alias-refresh",
+      "values": [
+        165.39999999850988,
+        166,
+        166.79999999701977,
+        160.10000000149012,
+        166.10000000149012
+      ],
+      "max": 166.79999999701977,
+      "passed": true
+    },
+    {
+      "name": "consumable:source-more",
+      "values": [
+        95.39999999850988,
+        96.30000000074506,
+        92.90000000223517,
+        95.80000000074506,
+        91.60000000149012
+      ],
+      "max": 96.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "values": [
+        133,
+        115.60000000149012,
+        116.29999999701977,
+        116.5,
+        116.30000000074506
+      ],
+      "max": 133,
+      "passed": true
+    },
+    {
+      "name": "consumable:new-copied-spec",
+      "values": [
+        63.399999998509884,
+        64.60000000149012,
+        64.70000000298023,
+        63.79999999701977,
+        65.09999999776483
+      ],
+      "max": 65.09999999776483,
+      "passed": true
+    },
+    {
+      "name": "consumable:save-independent-copy",
+      "values": [
+        183,
+        183.30000000074506,
+        183,
+        182.69999999925494,
+        182.30000000074506
+      ],
+      "max": 183.30000000074506,
+      "passed": true
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "values": [
+        158.09999999776483,
+        172.79999999701977,
+        168,
+        174,
+        173
+      ],
+      "max": 174,
+      "passed": true
+    },
+    {
+      "name": "consumable:copied-file-details",
+      "values": [
+        100,
+        99.89999999850988,
+        100,
+        99.5,
+        99.80000000074506
+      ],
+      "max": 100,
+      "passed": true
+    },
+    {
+      "name": "consumable:return-list-after-copy-refresh",
+      "values": [
+        113.5,
+        114.30000000074506,
+        130.39999999850988,
+        109.5,
+        114.40000000223517
+      ],
+      "max": 130.39999999850988,
+      "passed": true
+    },
+    {
+      "name": "consumable:query-source-alias-input",
+      "values": [
+        66,
+        66.39999999850988,
+        66.10000000149012,
+        66.40000000223517,
+        66.19999999925494
+      ],
+      "max": 66.40000000223517,
+      "passed": true
+    },
+    {
+      "name": "consumable:query-source-alias-after-copy",
+      "values": [
+        99.69999999925494,
+        99.60000000149012,
+        100,
+        99.40000000223517,
+        98.69999999925494
+      ],
+      "max": 100,
+      "passed": true
+    },
+    {
+      "name": "consumable:source-identity-open-after-copy",
+      "values": [
+        107.40000000223517,
+        112.90000000223517,
+        114.5,
+        113.60000000149012,
+        122.60000000149012
+      ],
+      "max": 122.60000000149012,
+      "passed": true
+    }
+  ],
+  "samples": [
+    {
+      "name": "parts:maintain-source-alias",
+      "repeat": 0,
+      "ms": 99.79999999701977
+    },
+    {
+      "name": "parts:save-source-alias",
+      "repeat": 0,
+      "ms": 183
+    },
+    {
+      "name": "parts:source-alias-refresh",
+      "repeat": 0,
+      "ms": 165.90000000223517
+    },
+    {
+      "name": "parts:source-more",
+      "repeat": 0,
+      "ms": 155.10000000149012
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 0,
+      "ms": 116
+    },
+    {
+      "name": "parts:new-copied-spec",
+      "repeat": 0,
+      "ms": 64.19999999925494
+    },
+    {
+      "name": "parts:save-independent-copy",
+      "repeat": 0,
+      "ms": 182.90000000223517
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 0,
+      "ms": 169.30000000074506
+    },
+    {
+      "name": "parts:copied-file-details",
+      "repeat": 0,
+      "ms": 99.30000000074506
+    },
+    {
+      "name": "parts:return-list-after-copy-refresh",
+      "repeat": 0,
+      "ms": 128.40000000223517
+    },
+    {
+      "name": "parts:query-source-alias-input",
+      "repeat": 0,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "parts:query-source-alias-after-copy",
+      "repeat": 0,
+      "ms": 99.40000000223517
+    },
+    {
+      "name": "parts:source-identity-open-after-copy",
+      "repeat": 0,
+      "ms": 106
+    },
+    {
+      "name": "consumable:maintain-source-alias",
+      "repeat": 0,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "consumable:save-source-alias",
+      "repeat": 0,
+      "ms": 166.30000000074506
+    },
+    {
+      "name": "consumable:source-alias-refresh",
+      "repeat": 0,
+      "ms": 165.39999999850988
+    },
+    {
+      "name": "consumable:source-more",
+      "repeat": 0,
+      "ms": 95.39999999850988
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 0,
+      "ms": 133
+    },
+    {
+      "name": "consumable:new-copied-spec",
+      "repeat": 0,
+      "ms": 63.399999998509884
+    },
+    {
+      "name": "consumable:save-independent-copy",
+      "repeat": 0,
+      "ms": 183
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 0,
+      "ms": 158.09999999776483
+    },
+    {
+      "name": "consumable:copied-file-details",
+      "repeat": 0,
+      "ms": 100
+    },
+    {
+      "name": "consumable:return-list-after-copy-refresh",
+      "repeat": 0,
+      "ms": 113.5
+    },
+    {
+      "name": "consumable:query-source-alias-input",
+      "repeat": 0,
+      "ms": 66
+    },
+    {
+      "name": "consumable:query-source-alias-after-copy",
+      "repeat": 0,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "consumable:source-identity-open-after-copy",
+      "repeat": 0,
+      "ms": 107.40000000223517
+    },
+    {
+      "name": "parts:maintain-source-alias",
+      "repeat": 1,
+      "ms": 66.89999999850988
+    },
+    {
+      "name": "parts:save-source-alias",
+      "repeat": 1,
+      "ms": 166.10000000149012
+    },
+    {
+      "name": "parts:source-alias-refresh",
+      "repeat": 1,
+      "ms": 166.10000000149012
+    },
+    {
+      "name": "parts:source-more",
+      "repeat": 1,
+      "ms": 95.89999999850988
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 1,
+      "ms": 116.30000000074506
+    },
+    {
+      "name": "parts:new-copied-spec",
+      "repeat": 1,
+      "ms": 123.59999999776483
+    },
+    {
+      "name": "parts:save-independent-copy",
+      "repeat": 1,
+      "ms": 111.19999999925494
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 1,
+      "ms": 155.19999999925494
+    },
+    {
+      "name": "parts:copied-file-details",
+      "repeat": 1,
+      "ms": 100.19999999925494
+    },
+    {
+      "name": "parts:return-list-after-copy-refresh",
+      "repeat": 1,
+      "ms": 113
+    },
+    {
+      "name": "parts:query-source-alias-input",
+      "repeat": 1,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "parts:query-source-alias-after-copy",
+      "repeat": 1,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:source-identity-open-after-copy",
+      "repeat": 1,
+      "ms": 114.09999999776483
+    },
+    {
+      "name": "consumable:maintain-source-alias",
+      "repeat": 1,
+      "ms": 66.5
+    },
+    {
+      "name": "consumable:save-source-alias",
+      "repeat": 1,
+      "ms": 166
+    },
+    {
+      "name": "consumable:source-alias-refresh",
+      "repeat": 1,
+      "ms": 166
+    },
+    {
+      "name": "consumable:source-more",
+      "repeat": 1,
+      "ms": 96.30000000074506
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 1,
+      "ms": 115.60000000149012
+    },
+    {
+      "name": "consumable:new-copied-spec",
+      "repeat": 1,
+      "ms": 64.60000000149012
+    },
+    {
+      "name": "consumable:save-independent-copy",
+      "repeat": 1,
+      "ms": 183.30000000074506
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 1,
+      "ms": 172.79999999701977
+    },
+    {
+      "name": "consumable:copied-file-details",
+      "repeat": 1,
+      "ms": 99.89999999850988
+    },
+    {
+      "name": "consumable:return-list-after-copy-refresh",
+      "repeat": 1,
+      "ms": 114.30000000074506
+    },
+    {
+      "name": "consumable:query-source-alias-input",
+      "repeat": 1,
+      "ms": 66.39999999850988
+    },
+    {
+      "name": "consumable:query-source-alias-after-copy",
+      "repeat": 1,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "consumable:source-identity-open-after-copy",
+      "repeat": 1,
+      "ms": 112.90000000223517
+    },
+    {
+      "name": "parts:maintain-source-alias",
+      "repeat": 2,
+      "ms": 67
+    },
+    {
+      "name": "parts:save-source-alias",
+      "repeat": 2,
+      "ms": 166.5
+    },
+    {
+      "name": "parts:source-alias-refresh",
+      "repeat": 2,
+      "ms": 166.10000000149012
+    },
+    {
+      "name": "parts:source-more",
+      "repeat": 2,
+      "ms": 94.60000000149012
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 2,
+      "ms": 116.30000000074506
+    },
+    {
+      "name": "parts:new-copied-spec",
+      "repeat": 2,
+      "ms": 64.40000000223517
+    },
+    {
+      "name": "parts:save-independent-copy",
+      "repeat": 2,
+      "ms": 183.10000000149012
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 2,
+      "ms": 167.30000000074506
+    },
+    {
+      "name": "parts:copied-file-details",
+      "repeat": 2,
+      "ms": 99.60000000149012
+    },
+    {
+      "name": "parts:return-list-after-copy-refresh",
+      "repeat": 2,
+      "ms": 112
+    },
+    {
+      "name": "parts:query-source-alias-input",
+      "repeat": 2,
+      "ms": 66.5
+    },
+    {
+      "name": "parts:query-source-alias-after-copy",
+      "repeat": 2,
+      "ms": 99.69999999925494
+    },
+    {
+      "name": "parts:source-identity-open-after-copy",
+      "repeat": 2,
+      "ms": 112.30000000074506
+    },
+    {
+      "name": "consumable:maintain-source-alias",
+      "repeat": 2,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "consumable:save-source-alias",
+      "repeat": 2,
+      "ms": 166.59999999776483
+    },
+    {
+      "name": "consumable:source-alias-refresh",
+      "repeat": 2,
+      "ms": 166.79999999701977
+    },
+    {
+      "name": "consumable:source-more",
+      "repeat": 2,
+      "ms": 92.90000000223517
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 2,
+      "ms": 116.29999999701977
+    },
+    {
+      "name": "consumable:new-copied-spec",
+      "repeat": 2,
+      "ms": 64.70000000298023
+    },
+    {
+      "name": "consumable:save-independent-copy",
+      "repeat": 2,
+      "ms": 183
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 2,
+      "ms": 168
+    },
+    {
+      "name": "consumable:copied-file-details",
+      "repeat": 2,
+      "ms": 100
+    },
+    {
+      "name": "consumable:return-list-after-copy-refresh",
+      "repeat": 2,
+      "ms": 130.39999999850988
+    },
+    {
+      "name": "consumable:query-source-alias-input",
+      "repeat": 2,
+      "ms": 66.10000000149012
+    },
+    {
+      "name": "consumable:query-source-alias-after-copy",
+      "repeat": 2,
+      "ms": 100
+    },
+    {
+      "name": "consumable:source-identity-open-after-copy",
+      "repeat": 2,
+      "ms": 114.5
+    },
+    {
+      "name": "parts:maintain-source-alias",
+      "repeat": 3,
+      "ms": 66.40000000223517
+    },
+    {
+      "name": "parts:save-source-alias",
+      "repeat": 3,
+      "ms": 149.5
+    },
+    {
+      "name": "parts:source-alias-refresh",
+      "repeat": 3,
+      "ms": 166.30000000074506
+    },
+    {
+      "name": "parts:source-more",
+      "repeat": 3,
+      "ms": 95.89999999850988
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 3,
+      "ms": 116.40000000223517
+    },
+    {
+      "name": "parts:new-copied-spec",
+      "repeat": 3,
+      "ms": 64.39999999850988
+    },
+    {
+      "name": "parts:save-independent-copy",
+      "repeat": 3,
+      "ms": 184.40000000223517
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 3,
+      "ms": 166.39999999850988
+    },
+    {
+      "name": "parts:copied-file-details",
+      "repeat": 3,
+      "ms": 100.59999999776483
+    },
+    {
+      "name": "parts:return-list-after-copy-refresh",
+      "repeat": 3,
+      "ms": 111
+    },
+    {
+      "name": "parts:query-source-alias-input",
+      "repeat": 3,
+      "ms": 66.30000000074506
+    },
+    {
+      "name": "parts:query-source-alias-after-copy",
+      "repeat": 3,
+      "ms": 99.70000000298023
+    },
+    {
+      "name": "parts:source-identity-open-after-copy",
+      "repeat": 3,
+      "ms": 114.5
+    },
+    {
+      "name": "consumable:maintain-source-alias",
+      "repeat": 3,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "consumable:save-source-alias",
+      "repeat": 3,
+      "ms": 172.20000000298023
+    },
+    {
+      "name": "consumable:source-alias-refresh",
+      "repeat": 3,
+      "ms": 160.10000000149012
+    },
+    {
+      "name": "consumable:source-more",
+      "repeat": 3,
+      "ms": 95.80000000074506
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 3,
+      "ms": 116.5
+    },
+    {
+      "name": "consumable:new-copied-spec",
+      "repeat": 3,
+      "ms": 63.79999999701977
+    },
+    {
+      "name": "consumable:save-independent-copy",
+      "repeat": 3,
+      "ms": 182.69999999925494
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 3,
+      "ms": 174
+    },
+    {
+      "name": "consumable:copied-file-details",
+      "repeat": 3,
+      "ms": 99.5
+    },
+    {
+      "name": "consumable:return-list-after-copy-refresh",
+      "repeat": 3,
+      "ms": 109.5
+    },
+    {
+      "name": "consumable:query-source-alias-input",
+      "repeat": 3,
+      "ms": 66.40000000223517
+    },
+    {
+      "name": "consumable:query-source-alias-after-copy",
+      "repeat": 3,
+      "ms": 99.40000000223517
+    },
+    {
+      "name": "consumable:source-identity-open-after-copy",
+      "repeat": 3,
+      "ms": 113.60000000149012
+    },
+    {
+      "name": "parts:maintain-source-alias",
+      "repeat": 4,
+      "ms": 66.69999999925494
+    },
+    {
+      "name": "parts:save-source-alias",
+      "repeat": 4,
+      "ms": 183.09999999776483
+    },
+    {
+      "name": "parts:source-alias-refresh",
+      "repeat": 4,
+      "ms": 166
+    },
+    {
+      "name": "parts:source-more",
+      "repeat": 4,
+      "ms": 95.80000000074506
+    },
+    {
+      "name": "parts:copy-unsaved",
+      "repeat": 4,
+      "ms": 116.5
+    },
+    {
+      "name": "parts:new-copied-spec",
+      "repeat": 4,
+      "ms": 64.39999999850988
+    },
+    {
+      "name": "parts:save-independent-copy",
+      "repeat": 4,
+      "ms": 183.30000000074506
+    },
+    {
+      "name": "parts:copy-refresh",
+      "repeat": 4,
+      "ms": 165.10000000149012
+    },
+    {
+      "name": "parts:copied-file-details",
+      "repeat": 4,
+      "ms": 100
+    },
+    {
+      "name": "parts:return-list-after-copy-refresh",
+      "repeat": 4,
+      "ms": 107.30000000074506
+    },
+    {
+      "name": "parts:query-source-alias-input",
+      "repeat": 4,
+      "ms": 65.89999999850988
+    },
+    {
+      "name": "parts:query-source-alias-after-copy",
+      "repeat": 4,
+      "ms": 99.59999999776483
+    },
+    {
+      "name": "parts:source-identity-open-after-copy",
+      "repeat": 4,
+      "ms": 106.79999999701977
+    },
+    {
+      "name": "consumable:maintain-source-alias",
+      "repeat": 4,
+      "ms": 66.80000000074506
+    },
+    {
+      "name": "consumable:save-source-alias",
+      "repeat": 4,
+      "ms": 166.40000000223517
+    },
+    {
+      "name": "consumable:source-alias-refresh",
+      "repeat": 4,
+      "ms": 166.10000000149012
+    },
+    {
+      "name": "consumable:source-more",
+      "repeat": 4,
+      "ms": 91.60000000149012
+    },
+    {
+      "name": "consumable:copy-unsaved",
+      "repeat": 4,
+      "ms": 116.30000000074506
+    },
+    {
+      "name": "consumable:new-copied-spec",
+      "repeat": 4,
+      "ms": 65.09999999776483
+    },
+    {
+      "name": "consumable:save-independent-copy",
+      "repeat": 4,
+      "ms": 182.30000000074506
+    },
+    {
+      "name": "consumable:copy-refresh",
+      "repeat": 4,
+      "ms": 173
+    },
+    {
+      "name": "consumable:copied-file-details",
+      "repeat": 4,
+      "ms": 99.80000000074506
+    },
+    {
+      "name": "consumable:return-list-after-copy-refresh",
+      "repeat": 4,
+      "ms": 114.40000000223517
+    },
+    {
+      "name": "consumable:query-source-alias-input",
+      "repeat": 4,
+      "ms": 66.19999999925494
+    },
+    {
+      "name": "consumable:query-source-alias-after-copy",
+      "repeat": 4,
+      "ms": 98.69999999925494
+    },
+    {
+      "name": "consumable:source-identity-open-after-copy",
+      "repeat": 4,
+      "ms": 122.60000000149012
+    }
+  ],
+  "measurement": "Five rounds: four 1366x768 and one 1280x720; before action / navigation start through persistence, visible images, fonts, finite animations and two frames; no exemptions",
+  "branch": "codex/consumable-parts-simplification",
+  "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+  "worktree": "/Users/laoer/Documents/higoods",
+  "servedBundle": {
+    "path": "/assets/index-BPNAo-1Z.js",
+    "sha256": "727812ce3d4f022d739d884ae1023318e5e50ec61265ee1196964882f0595979",
+    "matchesLocalDist": true
+  },
+  "browser": "149.0.7827.55"
+}

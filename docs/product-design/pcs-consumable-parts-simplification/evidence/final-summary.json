@@ -1,0 +1,119 @@
+{
+  "groups": 638,
+  "samples": 3215,
+  "max_ms": 552.6999999992549,
+  "suites": [
+    {
+      "file": "pages-performance.json",
+      "groups": 198,
+      "samples": 990,
+      "max_ms": 284,
+      "all_passed": true
+    },
+    {
+      "file": "import-performance.json",
+      "groups": 9,
+      "samples": 45,
+      "max_ms": 332.5,
+      "all_passed": true
+    },
+    {
+      "file": "import-boundaries-performance.json",
+      "groups": 11,
+      "samples": 80,
+      "max_ms": 246.89999999850988,
+      "all_passed": true
+    },
+    {
+      "file": "downloads-performance.json",
+      "groups": 6,
+      "samples": 30,
+      "max_ms": 34.100000001490116,
+      "all_passed": true
+    },
+    {
+      "file": "long-label/performance.json",
+      "groups": 4,
+      "samples": 20,
+      "max_ms": 118.59999999776483,
+      "all_passed": true
+    },
+    {
+      "file": "adversarial/report.json",
+      "groups": 173,
+      "samples": 865,
+      "max_ms": 483.5,
+      "all_passed": true
+    },
+    {
+      "file": "copy-identity/report.json",
+      "groups": 26,
+      "samples": 130,
+      "max_ms": 184.40000000223517,
+      "all_passed": true
+    },
+    {
+      "file": "downstream/report.json",
+      "groups": 90,
+      "samples": 450,
+      "max_ms": 466.5,
+      "all_passed": true
+    },
+    {
+      "file": "config/performance.json",
+      "groups": 90,
+      "samples": 450,
+      "max_ms": 552.6999999992549,
+      "all_passed": true
+    },
+    {
+      "file": "category-usage/performance.json",
+      "groups": 31,
+      "samples": 155,
+      "max_ms": 202.09999999776483,
+      "all_passed": true
+    }
+  ],
+  "manifest": {
+    "head": "155144308f6b2931a8acb229a579e04ec99af41d",
+    "files": {
+      "scripts/generate-pcs-static-baseline.ts": "3810b614b2bf46ee104c4f4aa952b9aa58595269cdd0d3b7292bf5b9f645a217",
+      "src/data/fcs/material-process-plans.ts": "3793b16904326742ba972590f8fb913370af9daab150787fcc083f755f61545e",
+      "src/data/generated/pcs-record-baseline.json": "2cbced64a6528a0b9736e42162aceb32716a853f953c73ce64f9aa33f80adc53",
+      "src/data/pcs-config-workspace-repository.ts": "bb7eaf7865a2301c7e88968d4ec6cde6a429903bdde4e57145ca7863a06ebee2",
+      "src/data/pcs-engineering-bom-material-resolver.ts": "51511658fc55d3479a54db26f0618fae8a6526dbca86fd1ff9092630c01d98a4",
+      "src/data/pcs-engineering-bom-pricing.ts": "2385af46773eb730e0a6437346c065188e2abb674ddbcd2d63b461451f0ee0ba",
+      "src/data/pcs-engineering-bom-repository.ts": "5b0b8d05419b15981ac69a5224098ce84cb72621d6f63f83f08b489c354c3346",
+      "src/data/pcs-engineering-master-sampling.ts": "90895dd03b0a440816d739affe79e2ed28117e997f564e7a50c244b9491c8091",
+      "src/data/pcs-material-archive-repository.ts": "3ad9230d3bba9e66ba283dd897082acf6c348aee8a3a7ed66f1316d1bcd410e6",
+      "src/data/pcs-material-archive-types.ts": "95110cdc1ed47e829bb2897e1ffa55c398b5175e64730397c742b6524517c7dd",
+      "src/data/pcs-material-config.ts": "2a9c874c5f6fa39224c06ffedc0b3d90c17a8a5c9c0bd6ce0f37c36941ed91eb",
+      "src/data/pcs-material-handoff.ts": "bd7fe142fcc2f6fe09cd30bc025330bac3c66f25ad3394eaad0d2680868d15ea",
+      "src/data/pcs-material-r1-seeds.ts": "abc2bfdc7c8d0524fda81a4dde8a87ef556cf4094adb57484739c2e75e50e45b",
+      "src/data/pcs-material-reference-check.ts": "36ceb01ab889b0fb470928df78ca288ec0641910554e9fb79ed4add712724320",
+      "src/data/pcs-material-transfer.ts": "789760a9d6f980c7a113336033f18a441fa9c9908f93bb0442471574a845b85c",
+      "src/data/pcs-record-runtime.ts": "b31bc0c230d9ace99bb21c39cfe2906e3bd91e2ad755bfedf27ed1979761e27d",
+      "src/data/pcs-simple-material-categories.ts": "6200cc15e87f7abe214cbbd34c6264e4bc210aa82f0f66555b4b8b473f4e718e",
+      "src/data/pcs-simple-material-transfer.ts": "11668b1e85f5f9a76d87ffa283048c9213dbbc6507d8c075544d8fd14f904046",
+      "src/data/pcs-technical-data-version-repository.ts": "d3d4e5f8654556dcc608564ec6d47d355493a3837314823affd722f250117e19",
+      "src/data/pms/material-purchase-orders.ts": "1be54a2d6b05173edb16c29507ca1703af586d9afe5927f8b4f554b5ad93d263",
+      "src/pages/pcs-config-workspace.ts": "26ab16688c9b34cc778cec8beb9946a6c8f55a7dc27f5b20d77ae20783d289a9",
+      "src/pages/pcs-material-archives.ts": "6c6f72e127959e16679f7858ec14eab78356ddbe63c0d652f48de07b007041a8",
+      "src/pages/pcs-technical-data.ts": "3d719c297b4d0ce86f2256ab2b5cb503089ca27013d62b0ec61a3a0756be1769",
+      "src/pages/pms/material-purchase-orders.ts": "6f429025cb71af9c4036fff1f0c5c00259e5d5c15df36d493570930126a36ae3",
+      "src/pages/tech-pack/bom-domain.ts": "c6e9d1835f510190b87105666161ebfc83ae8e3fe01ed69de41e38b9702c3719",
+      "src/pages/tech-pack/context.ts": "46810853b00999700c602c0ac022ae37db95ceee4ef3c9cf5dbfcbb8b21cd08d",
+      "src/pages/tech-pack/events.ts": "3ecbe4db169eec77c52285095d2d09d34ca3c02b3060b49b771c949bc3643183",
+      "src/pages/tech-pack/process-domain.ts": "7bbaa692c24a4989778aae688219071be9d4e0e56d19b2dd338c9d0639252060",
+      "src/router/route-renderers.ts": "c2c181dd12447d4b584b7ba655b1cda9b024a1f2a1cc13017ce091de587e20a3",
+      "src/router/routes-pcs.ts": "4a18df9443faf2855983f6f8765655d59e8d7e3514d7a08a28ab225545e83aaf"
+    },
+    "source_hash": "2df1bfafaa89b431e8f45ef5731e710f27e68e8eb0a202645421dfe35b500146",
+    "entry": "/assets/index-BPNAo-1Z.js",
+    "entry_sha256": "727812ce3d4f022d739d884ae1023318e5e50ec61265ee1196964882f0595979",
+    "freeze_started_at": "2026-10-09T18:48:58.001577+08:00",
+    "production_url": "http://127.0.0.1:43220",
+    "served_entry_verified": true
+  },
+  "checked_at": "2026-10-09T19:04:06.285132+08:00"
+}

@@ -1435,6 +1435,15 @@ function buildDesignRevisionProcessEntries(input: {
     const mapping = input.record.colorMappings.find((item) => item.targetColor === version.productColor)
     if (!mapping) throw new Error(`颜色“${version.productColor}”缺少已确认的颜色关系。`)
     return version.materialLines.flatMap((line, index): DesignRevisionProcessWorkOrderLineInput[] => {
+      const sourceSku = getMaterialSkuRecordById(line.materialSkuId)
+      const sourceKind = sourceSku && getMaterialArchiveById(sourceSku.materialId)?.kind
+      if (sourceKind === 'consumable' || sourceKind === 'parts') {
+        if (line.printRequirement === '是' || line.dyeRequirement === '是'
+          || line.designRevisionSkuSnapshot?.requiresDye || line.designRevisionSkuSnapshot?.requiresPrint) {
+          throw new Error('耗材、设备配件不能生成印花／染色加工任务，请移除 BOM 加工要求。')
+        }
+        return []
+      }
       const snapshot = line.designRevisionSkuSnapshot || resolveDesignRevisionMaterialSku(line.materialSkuId, input.record.taskPlanConfirmedAt)
       if (snapshot.targetSkuId !== line.materialSkuId) throw new Error('BOM 目标 SKU 与加工快照不一致。')
       const processTypes: Array<'DYEING' | 'PRINTING'> = [

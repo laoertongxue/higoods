@@ -1,3 +1,6 @@
+import { assertMaterialMainUnitChangeAllowed } from './pcs-material-reference-check.ts'
+import { simpleTransferHeaders, previewSimpleMaterialImport, applySimpleMaterialImportGroup, buildSimpleMaterialTemplate, exportSimpleMaterialRows } from './pcs-simple-material-transfer.ts'
+import { isSimpleMaterialKind } from './pcs-simple-material-categories.ts'
 import { getPcsDurableFileReference, resolvePcsFileReference, runPcsRecordCommand, insertPcsRecordGroups } from './pcs-record-runtime.ts'
 import { buildProcessedMaterialCode, materialCodeSegment, checkedMaterialCode, canonicalMaterialUnit, materialMoney, validateMaterialRelation } from './pcs-material-rules.ts'
 import { getMaterialTemplate, getMaterialTemplateByVersion, listMaterialUnitDefinitions, listMaterialProcessConfigurations } from './pcs-material-config.ts'
@@ -12,7 +15,7 @@ export const MATERIAL_TRANSFER_LABELS: Record<MaterialTransferMode, string> = { 
 const archiveHeaders = ['物料编码','物料名称','英文名称','子类','规格摘要','技术属性JSON','成分JSON','主图','附图JSON','备注','主计量单位','SKU颜色','SKU颜色编码','SKU规格名称','SKU识别图','SKU身份属性JSON','加工类型','直接投入SKU','Pantone体系','Pantone色号','花型ID','花型版本ID','花型展示图','背面花型ID','背面花型版本ID','印花面别','渗透印','交付修订段','有效规格JSON','执行资料ID','工艺资料版本','投入计量关系ID','模板ID','模板版本','设备适配JSON','SKU名称','旧码条码别名JSON']
 const unitHeaders = ['SKU编码或ID','关系ID','辅助单位','1辅等于主数量','依据类型','换算依据','包装规格ID','适用用途','默认用途','状态','调整原因']
 const costHeaders = ['SKU编码或ID','标准采购成本RMB','基础运输成本RMB','本道加工费RMB','采购已含运输','产出计价单位','计量关系ID','原币金额','原币','原报价单位','原币折算CNY','归一依据','调整原因']
-export const materialTransferHeaders = (mode: MaterialTransferMode): string[] => [...(mode === 'archives' ? archiveHeaders : mode === 'units' ? unitHeaders : costHeaders)]
+export const materialTransferHeaders = (mode: MaterialTransferMode, kind?: MaterialArchiveKind): string[] => kind && isSimpleMaterialKind(kind) ? simpleTransferHeaders(mode) : [...(mode === 'archives' ? archiveHeaders : mode === 'units' ? unitHeaders : costHeaders)]
 export interface MaterialImportRow { line: number; values: Record<string, string>; key: string; description: string; errors: string[] }
 export interface MaterialImportGroup { key: string; rows: MaterialImportRow[]; errors: string[] }
 export interface MaterialImportPreview { mode: MaterialTransferMode; kind: MaterialArchiveKind; rows: MaterialImportRow[]; groups: MaterialImportGroup[]; validGroups: number; failedRows: number }
@@ -101,6 +104,7 @@ function costInput(v: Record<string,string>, sku: MaterialSkuRecord): Partial<Ma
 
 /** Read-only validation: no commands, seed writes or draft persistence. */
 export function previewMaterialBusinessImport(kind: MaterialArchiveKind, mode: MaterialTransferMode, text: string): MaterialImportPreview {
+  if(isSimpleMaterialKind(kind))return previewSimpleMaterialImport(kind,mode,text)
   const table=parseMaterialBusinessCsv(text), headers=table.shift() || [], expected=materialTransferHeaders(mode)
   if(!table.length)throw new Error('文件没有业务数据行。')
   if(headers.some((name,index)=>headers.indexOf(name)!==index)||!(mode==='archives'?expected.slice(0,32):expected).every(name=>headers.includes(name)))throw new Error('表头缺失或重复，请使用对应业务模板。')
@@ -144,6 +148,7 @@ export function previewMaterialBusinessImport(kind: MaterialArchiveKind, mode: M
 
 /** Caller owns runPcsRecordCommand. One root and all imported children save in the same command. */
 export function applyMaterialBusinessImportGroup(kind: MaterialArchiveKind, mode: MaterialTransferMode, group: MaterialImportGroup): string[] {
+  if(isSimpleMaterialKind(kind))return applySimpleMaterialImportGroup(kind,mode,group)
   if(group.errors.length)throw new Error('该物料组仍有行错误，请修正后重新预览。')
   return withMaterialArchiveMutationBatch(() => {
   const result:string[]=[]
@@ -206,6 +211,7 @@ export async function runMaterialBusinessImportBatch(
       continue
     }
     try {
+      if(preview.mode==='archives')for(const row of group.rows){if(row.values['模式']==='更新'){const sku=resolveMaterialSkuIdentity(row.values['SKU编码']);if(sku)await assertMaterialMainUnitChangeAllowed(sku,row.values['主计量单位'])}}
       const codes = await commit(() => applyMaterialBusinessImportGroup(preview.kind, preview.mode, group), `${batchId}:${preview.mode}:${encodeURIComponent(group.key)}`)
       results.push({ key: group.key, ok: true, codes, lineNumbers, message: `${codes.length} 行已保存` })
     } catch (error) {
@@ -223,6 +229,7 @@ export function applyMaterialBusinessImportPreview(preview: MaterialImportPrevie
 }
 
 export function buildMaterialBusinessTemplate(kind: MaterialArchiveKind, mode: MaterialTransferMode): string {
+  if(isSimpleMaterialKind(kind))return buildSimpleMaterialTemplate(kind,mode)
   const headers=materialTransferHeaders(mode),values:Record<string,string>={}
   if(mode==='archives'){const sample:Record<MaterialArchiveKind,[string,string,string,string]>={fabric:['CSV-FB-0001','导入示例面料','梭织布','M'],accessory:['CSV-AC-0001','导入示例纽扣','纽扣','PCS'],yarn:['CSV-YN-0001','导入示例棉纱','针织用纱','KG'],consumable:['CSV-CS-0001','导入示例包装袋','包装袋','PCS'],parts:['CSV-EP-0001','导入示例针板','缝纫机配件','PCS']};const [code,name,category,unit]=sample[kind];Object.assign(values,{'物料编码':code,'物料名称':name,'子类':category,'主计量单位':unit,'SKU颜色':'白色','SKU颜色编码':'white','SKU规格名称':'基础规格','加工类型':'基础','技术属性JSON':'{}','SKU身份属性JSON':'{}','有效规格JSON':'{}','成分JSON':'[]','附图JSON':'[]'})}
   else if(mode==='units')Object.assign(values,{'SKU编码或ID':'请替换为实际SKU','辅助单位':'KG','1辅等于主数量':'5','依据类型':'SPECIFICATION','换算依据':'经确认的技术规格','适用用途':'PURCHASE|PRICING|ISSUE','状态':'ACTIVE','调整原因':'批量维护标准换算'})
@@ -231,6 +238,8 @@ export function buildMaterialBusinessTemplate(kind: MaterialArchiveKind, mode: M
 }
 export function exportMaterialBusinessRows(mode: MaterialTransferMode, skuIds: string[], rootIds: string[] = []): string {
   const snapshot=getMaterialArchiveStoreSnapshot(),selected=new Set(skuIds),skus=snapshot.skuRecords.filter(sku=>selected.has(sku.materialSkuId)),headers=materialTransferHeaders(mode),rows:unknown[][]=[headers]
+  const kind=snapshot.records.find(root=>root.materialId===skus[0]?.materialId)?.kind
+  if(kind && isSimpleMaterialKind(kind))return exportSimpleMaterialRows(mode,skus)
   for(const sku of skus){
     if(mode==='units'){for(const r of snapshot.unitRelations?.filter(r=>r.materialSkuId===sku.materialSkuId)||[])rows.push([sku.materialSkuCode,r.relationId,r.auxUnitId,r.mainQtyPerAux,r.basisType,r.basisReference,r.packageSpecId||'',r.uses.join('|'),r.isDefaultForUse.join('|'),r.status,r.changeReason]);continue}
     if(mode==='costs'){const c=listMaterialCostVersions(sku.materialSkuId).at(-1);rows.push([sku.materialSkuCode,c?.purchaseStandardCny,c?.transportStandardCny,c?.processStandardCny,c?.purchaseIncludesTransport?'是':'否',c?.pricingUnit||sku.pricingUnit,c?.pricingUnitRelationId,c?.sourceMoney?.amount,c?.sourceMoney?.currency,c?.sourceMoney?.unit,c?.sourceMoney?.cnyPerSourceCurrency,c?.sourceMoney?.normalizationBasis,c?.changeReason]);continue}

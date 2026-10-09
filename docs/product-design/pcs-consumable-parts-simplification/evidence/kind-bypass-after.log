@@ -1,0 +1,18 @@
+✔ SIMPLE-001/049: a saved simple archive cannot switch type to bypass capability boundaries (34.568458ms)
+✔ SIMPLE-002/005/006/007/009/016: basic identity is readable normalized text, no technical template dependency; failed first SKU publishes nothing (12.084875ms)
+✔ SIMPLE-008/017/039/041: parent and first SKU review together; new spec remains draft; approved wording correction retains ID/barcodes (4.684917ms)
+✔ SIMPLE-029/030/033/034/035/036: packaging revisions preserve adopted quote, exact costs and null versus explicit zero (6.737333ms)
+✔ SIMPLE-042/049: independent PMS archive preflight and forged process creation do not write (3.065833ms)
+✔ SIMPLE-051/052: simple CSV has no technical IDs, auto root codes, read-only preview and atomic repeated specifications (13.590292ms)
+✔ SIMPLE-019/042/056: legacy identity survives cleanup; direct orphan copy/archive cannot bypass guards (5.375291ms)
+✔ SIMPLE-051/052/060: documented simple CSV limits reject whole oversized file before preparing groups (2.417417ms)
+✔ SIMPLE-049/057: direct historical simple process asset and source-money cost mutation are read-only (8.682667ms)
+✔ SIMPLE-019/036: new simple SKU legacy numeric defaults do not imply confirmed free costs; explicit standard zero remains valid (5.024792ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 548.537833

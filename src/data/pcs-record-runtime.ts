@@ -15,6 +15,7 @@ export const PCS_LEGACY_KEYS = [
   'higood:pcs:engineering-pattern-results:v1',
   'higood-pcs-config-workspace-store-v1', 'higood-pcs-exchange-rate-config-v1',
   'higood-pcs-material-config-v1', 'higood-pcs-material-archive-store-v2',
+  'higood-pcs-simple-material-categories-v1',
   'higood-pcs-channel-catalog-v1', 'higood-pcs-channel-store-v1',
   'higood-fcs-material-process-plans-v1',
 ] as const
